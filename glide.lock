@@ -1,0 +1,22 @@
+hash: 3b78be54eb17b2bc9ea8728e15427bc7b026808e51f9456b91040e11194b464f
+updated: 2018-05-10T13:34:19.441254226-04:00
+imports:
+- name: github.com/golang/glog
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+- name: github.com/openshift/api
+  version: 80a1e2bf16952088360b492c175703755deea8d2
+- name: k8s.io/api
+  version: 73d903622b7391f3312dcbac6483fed484e185f8
+- name: k8s.io/apimachinery
+  version: 302974c03f7e50f16561ba237db776ab93594ef6
+  subpackages:
+  - pkg/util/sets
+- name: k8s.io/apiserver
+  version: 5ae41ac86efd753e2ba012f097b83a914b268236
+  subpackages:
+  - pkg/authentication/user
+- name: k8s.io/client-go
+  version: 23781f4d6632d88e869066eaebb743857aa1ef9b
+  subpackages:
+  - util/cert
+testImports: []
