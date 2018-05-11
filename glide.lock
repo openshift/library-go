@@ -1,5 +1,5 @@
-hash: 3b78be54eb17b2bc9ea8728e15427bc7b026808e51f9456b91040e11194b464f
-updated: 2018-05-11T08:11:36.337408216-04:00
+hash: 1b949b57ca83a0cb48a3aa4eaa0df0434b0674fa6ddc9cc177d52c33fbad0f18
+updated: 2018-05-11T11:39:21.543138172-04:00
 imports:
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
@@ -11,7 +11,7 @@ imports:
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/openshift/api
-  version: 80a1e2bf16952088360b492c175703755deea8d2
+  version: 221b49e66590f67765dfc861cb5e53465738befa
 - name: github.com/spf13/pflag
   version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
 - name: golang.org/x/net
@@ -61,11 +61,11 @@ imports:
   - pkg/watch
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
-  version: 5ae41ac86efd753e2ba012f097b83a914b268236
+  version: 0841753fc26e934b715ca7a83dced5bcb721245a
   subpackages:
   - pkg/authentication/user
 - name: k8s.io/client-go
-  version: 23781f4d6632d88e869066eaebb743857aa1ef9b
+  version: 33f2870a2b83179c823ddc90e5513f9e5fe43b38
   subpackages:
   - util/cert
 testImports: []
