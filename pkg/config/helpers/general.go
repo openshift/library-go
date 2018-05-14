@@ -20,7 +20,7 @@ func ResolvePaths(refs []*string, base string) error {
 	return nil
 }
 
-func MakeRelative(path, base string) (string, error) {
+func makeRelative(path, base string) (string, error) {
 	if len(path) > 0 {
 		rel, err := filepath.Rel(base, path)
 		if err != nil {
@@ -37,7 +37,7 @@ func RelativizePathWithNoBacksteps(refs []*string, base string) error {
 	for _, ref := range refs {
 		// Don't relativize empty paths
 		if len(*ref) > 0 {
-			rel, err := MakeRelative(*ref, base)
+			rel, err := makeRelative(*ref, base)
 			if err != nil {
 				return err
 			}
