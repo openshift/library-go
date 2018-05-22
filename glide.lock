@@ -1,5 +1,5 @@
 hash: a665637ac7338d1a40dced5da890dfc63521d0efd2fb02bf2503d1dc6291265c
-updated: 2018-05-14T15:43:35.83097902-04:00
+updated: 2018-05-22T13:45:36.394933491-04:00
 imports:
 - name: github.com/certifi/gocertifi
   version: deb3ae2ef2610fde3330947281941c562861188b
@@ -15,7 +15,7 @@ imports:
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/openshift/api
-  version: db404b1ed5b9f97ae179a75b9ff474b23521e250
+  version: 5214a21b7f2adb6b36372ee65a785bdcb4f52d6b
   subpackages:
   - config/v1
 - name: github.com/pkg/errors
