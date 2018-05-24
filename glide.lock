@@ -1,5 +1,5 @@
-hash: a665637ac7338d1a40dced5da890dfc63521d0efd2fb02bf2503d1dc6291265c
-updated: 2018-05-23T15:39:24.721478759-04:00
+hash: 6af5571e1900f8e742914f2932b8c406f8e4c1db0a272f46334208b2d5e61cd1
+updated: 2018-05-24T10:28:32.466950996-04:00
 imports:
 - name: github.com/certifi/gocertifi
   version: deb3ae2ef2610fde3330947281941c562861188b
@@ -18,6 +18,10 @@ imports:
   - sortkeys
 - name: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
+- name: github.com/golang/groupcache
+  version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
+  subpackages:
+  - lru
 - name: github.com/golang/protobuf
   version: 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9
   subpackages:
@@ -34,42 +38,42 @@ imports:
   - OpenAPIv2
   - compiler
   - extensions
+- name: github.com/howeyc/gopass
+  version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
+- name: github.com/imdario/mergo
+  version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
   version: 13f86432b882000a51c6e610c620974462691a97
 - name: github.com/openshift/api
   version: 1adcd4e8b64faf3eaa8166a62e92f95cc7ee1d60
   subpackages:
   - config/v1
+  - operator/v1alpha1
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
   version: 5b67d428864e92711fcbd2f8629456121a56d91f
+- name: github.com/spf13/cobra
+  version: 6644d46b81fa1831979c4cded0106e774e0ef0ab
 - name: github.com/spf13/pflag
   version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
 - name: golang.org/x/crypto
   version: 81e90905daefcd6fd217b62423c0908922eadb30
   subpackages:
-  - bcrypt
-  - blowfish
-  - ed25519
-  - ed25519/internal/edwards25519
-  - nacl/secretbox
-  - poly1305
-  - salsa20/salsa
   - ssh/terminal
 - name: golang.org/x/net
   version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
   - context
-  - html
-  - html/atom
+  - context/ctxhttp
   - http2
   - http2/hpack
   - idna
   - lex/httplex
-  - websocket
 - name: golang.org/x/sys
   version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
@@ -156,9 +160,11 @@ imports:
   - pkg/util/framer
   - pkg/util/intstr
   - pkg/util/json
+  - pkg/util/mergepatch
   - pkg/util/net
   - pkg/util/runtime
   - pkg/util/sets
+  - pkg/util/strategicpatch
   - pkg/util/uuid
   - pkg/util/validation
   - pkg/util/validation/field
@@ -166,11 +172,13 @@ imports:
   - pkg/util/yaml
   - pkg/version
   - pkg/watch
+  - third_party/forked/golang/json
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
   version: 0841753fc26e934b715ca7a83dced5bcb721245a
   subpackages:
   - pkg/authentication/user
+  - pkg/util/logs
 - name: k8s.io/client-go
   version: 33f2870a2b83179c823ddc90e5513f9e5fe43b38
   subpackages:
@@ -242,11 +250,23 @@ imports:
   - rest
   - rest/watch
   - testing
+  - tools/auth
+  - tools/clientcmd
   - tools/clientcmd/api
+  - tools/clientcmd/api/latest
+  - tools/clientcmd/api/v1
+  - tools/leaderelection
+  - tools/leaderelection/resourcelock
   - tools/metrics
+  - tools/record
   - tools/reference
   - transport
   - util/cert
   - util/flowcontrol
+  - util/homedir
   - util/integer
+- name: k8s.io/kube-openapi
+  version: 50ae88d24ede7b8bad68e23c805b5d3da5c8abaf
+  subpackages:
+  - pkg/util/proto
 testImports: []
