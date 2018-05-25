@@ -19,8 +19,7 @@ package apiserver
 import (
 	"testing"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	conversion "k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestConvertFieldLabel(t *testing.T) {
@@ -65,14 +64,10 @@ func TestConvertFieldLabel(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			crd := apiextensions.CustomResourceDefinition{}
-
-			if test.clusterScoped {
-				crd.Spec.Scope = apiextensions.ClusterScoped
-			} else {
-				crd.Spec.Scope = apiextensions.NamespaceScoped
+			c := crdObjectConverter{
+				UnstructuredObjectConverter: unstructured.UnstructuredObjectConverter{},
+				clusterScoped:               test.clusterScoped,
 			}
-			_, c := conversion.NewCRDConverter(&crd)
 
 			label, value, err := c.ConvertFieldLabel("", "", test.label, "value")
 			if e, a := test.expectError, err != nil; e != a {

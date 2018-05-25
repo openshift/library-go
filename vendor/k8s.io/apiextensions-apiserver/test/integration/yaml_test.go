@@ -27,10 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	utilfeaturetesting "k8s.io/apiserver/pkg/util/feature/testing"
 	"k8s.io/client-go/dynamic"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apiextensions-apiserver/pkg/features"
 	"k8s.io/apiextensions-apiserver/test/integration/testserver"
 )
 
@@ -45,13 +48,10 @@ func TestYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	clientPool := dynamic.NewDynamicClientPool(config)
 
 	noxuDefinition := testserver.NewNoxuCustomResourceDefinition(apiextensionsv1beta1.ClusterScoped)
-	err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
+	_, err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, clientPool)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,6 +354,9 @@ values:
 }
 
 func TestYAMLSubresource(t *testing.T) {
+	// enable alpha feature CustomResourceSubresources
+	defer utilfeaturetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.CustomResourceSubresources, true)()
+
 	stopCh, config, err := testserver.StartDefaultServer()
 	if err != nil {
 		t.Fatal(err)
@@ -364,13 +367,10 @@ func TestYAMLSubresource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	clientPool := dynamic.NewDynamicClientPool(config)
 
 	noxuDefinition := NewNoxuSubresourcesCRD(apiextensionsv1beta1.ClusterScoped)
-	err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
+	_, err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, clientPool)
 	if err != nil {
 		t.Fatal(err)
 	}
