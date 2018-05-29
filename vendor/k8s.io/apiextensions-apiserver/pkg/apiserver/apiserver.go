@@ -19,8 +19,13 @@ package apiserver
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/golang/glog"
+
+	"k8s.io/apimachinery/pkg/apimachinery/announced"
+	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,8 +53,10 @@ import (
 )
 
 var (
-	Scheme = runtime.NewScheme()
-	Codecs = serializer.NewCodecFactory(Scheme)
+	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
+	Registry             = registered.NewOrDie("")
+	Scheme               = runtime.NewScheme()
+	Codecs               = serializer.NewCodecFactory(Scheme)
 
 	// if you modify this, make sure you update the crEncoder
 	unversionedVersion = schema.GroupVersion{Group: "", Version: "v1"}
@@ -64,7 +71,7 @@ var (
 )
 
 func init() {
-	install.Install(Scheme)
+	install.Install(groupFactoryRegistry, Registry, Scheme)
 
 	// we need to add the options to empty v1
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Group: "", Version: "v1"})
@@ -126,8 +133,9 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	}
 
 	apiResourceConfig := c.GenericConfig.MergedResourceConfig
-	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(apiextensions.GroupName, Scheme, metav1.ParameterCodec, Codecs)
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(apiextensions.GroupName, Registry, Scheme, metav1.ParameterCodec, Codecs)
 	if apiResourceConfig.VersionEnabled(v1beta1.SchemeGroupVersion) {
+		apiGroupInfo.GroupMeta.GroupVersion = v1beta1.SchemeGroupVersion
 		storage := map[string]rest.Storage{}
 		// customresourcedefinitions
 		customResourceDefintionStorage := customresourcedefinition.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter)
@@ -145,7 +153,16 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	if err != nil {
 		// it's really bad that this is leaking here, but until we can fix the test (which I'm pretty sure isn't even testing what it wants to test),
 		// we need to be able to move forward
-		return nil, fmt.Errorf("failed to create clientset: %v", err)
+		kubeAPIVersions := os.Getenv("KUBE_API_VERSIONS")
+		if len(kubeAPIVersions) == 0 {
+			return nil, fmt.Errorf("failed to create clientset: %v", err)
+		}
+
+		// KUBE_API_VERSIONS is used in test-update-storage-objects.sh, disabling a number of API
+		// groups. This leads to a nil client above and undefined behaviour further down.
+		//
+		// TODO: get rid of KUBE_API_VERSIONS or define sane behaviour if set
+		glog.Errorf("Failed to create clientset with KUBE_API_VERSIONS=%q. KUBE_API_VERSIONS is only for testing. Things will break.", kubeAPIVersions)
 	}
 	s.Informers = internalinformers.NewSharedInformerFactory(crdClient, 5*time.Minute)
 
@@ -165,6 +182,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	crdHandler := NewCustomResourceDefinitionHandler(
 		versionDiscoveryHandler,
 		groupDiscoveryHandler,
+		s.GenericAPIServer.RequestContextMapper(),
 		s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(),
 		delegateHandler,
 		c.ExtraConfig.CRDRESTOptionsGetter,
@@ -173,7 +191,12 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", crdHandler)
 
-	crdController := NewDiscoveryController(s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(), versionDiscoveryHandler, groupDiscoveryHandler)
+	// this only happens when KUBE_API_VERSIONS is set.  We must return without adding controllers or poststarthooks which would affect healthz
+	if crdClient == nil {
+		return s, nil
+	}
+
+	crdController := NewDiscoveryController(s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(), versionDiscoveryHandler, groupDiscoveryHandler, c.GenericConfig.RequestContextMapper)
 	namingController := status.NewNamingConditionController(s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(), crdClient.Apiextensions())
 	finalizingController := finalizer.NewCRDFinalizer(
 		s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(),

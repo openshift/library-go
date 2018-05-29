@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/scale"
 )
 
@@ -84,62 +83,6 @@ func NewNoxuInstance(namespace, name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "mygroup.example.com/v1beta1",
-			"kind":       "WishIHadChosenNoxu",
-			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
-			},
-			"content": map[string]interface{}{
-				"key": "value",
-			},
-			"num": map[string]interface{}{
-				"num1": noxuInstanceNum,
-				"num2": 1000000,
-			},
-		},
-	}
-}
-
-func NewMultipleVersionNoxuCRD(scope apiextensionsv1beta1.ResourceScope) *apiextensionsv1beta1.CustomResourceDefinition {
-	return &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{Name: "noxus.mygroup.example.com"},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "mygroup.example.com",
-			Version: "v1beta1",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     "noxus",
-				Singular:   "nonenglishnoxu",
-				Kind:       "WishIHadChosenNoxu",
-				ShortNames: []string{"foo", "bar", "abc", "def"},
-				ListKind:   "NoxuItemList",
-				Categories: []string{"all"},
-			},
-			Scope: scope,
-			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1beta1",
-					Served:  true,
-					Storage: false,
-				},
-				{
-					Name:    "v1beta2",
-					Served:  true,
-					Storage: true,
-				},
-				{
-					Name:    "v0",
-					Served:  false,
-					Storage: false,
-				},
-			},
-		},
-	}
-}
-
-func NewVersionedNoxuInstance(namespace, name, version string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "mygroup.example.com/" + version,
 			"kind":       "WishIHadChosenNoxu",
 			"metadata": map[string]interface{}{
 				"namespace": namespace,
@@ -211,10 +154,10 @@ func NewCurletInstance(namespace, name string) *unstructured.Unstructured {
 // the apiextension apiserver has installed the CRD. But it's not safe to watch
 // the created CR. Please call CreateNewCustomResourceDefinition if you need to
 // watch the CR.
-func CreateNewCustomResourceDefinitionWatchUnsafe(crd *apiextensionsv1beta1.CustomResourceDefinition, apiExtensionsClient clientset.Interface) error {
-	_, err := apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+func CreateNewCustomResourceDefinitionWatchUnsafe(crd *apiextensionsv1beta1.CustomResourceDefinition, apiExtensionsClient clientset.Interface, clientPool dynamic.ClientPool) (dynamic.Interface, error) {
+	_, err := apiExtensionsClient.Apiextensions().CustomResourceDefinitions().Create(crd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// wait until the resource appears in discovery
@@ -230,14 +173,17 @@ func CreateNewCustomResourceDefinitionWatchUnsafe(crd *apiextensionsv1beta1.Cust
 		}
 		return false, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return clientPool.ClientForGroupVersionResource(schema.GroupVersionResource{Group: crd.Spec.Group, Version: crd.Spec.Version, Resource: crd.Spec.Names.Plural})
 }
 
-func CreateNewCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceDefinition, apiExtensionsClient clientset.Interface, dynamicClientSet dynamic.Interface) error {
-	err := CreateNewCustomResourceDefinitionWatchUnsafe(crd, apiExtensionsClient)
+func CreateNewCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceDefinition, apiExtensionsClient clientset.Interface, clientPool dynamic.ClientPool) (dynamic.Interface, error) {
+	dynamicClient, err := CreateNewCustomResourceDefinitionWatchUnsafe(crd, apiExtensionsClient, clientPool)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// This is only for a test.  We need the watch cache to have a resource version that works for the test.
@@ -252,33 +198,28 @@ func CreateNewCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceD
 	// before like the created RV could be too old to watch.
 	var primingErr error
 	wait.PollImmediate(500*time.Millisecond, 30*time.Second, func() (bool, error) {
-		primingErr = checkForWatchCachePrimed(crd, dynamicClientSet)
+		primingErr = checkForWatchCachePrimed(crd, dynamicClient)
 		if primingErr == nil {
 			return true, nil
 		}
 		return false, nil
 	})
 	if primingErr != nil {
-		return primingErr
+		return nil, primingErr
 	}
 
-	return nil
+	return dynamicClient, nil
 }
 
-func checkForWatchCachePrimed(crd *apiextensionsv1beta1.CustomResourceDefinition, dynamicClientSet dynamic.Interface) error {
+func checkForWatchCachePrimed(crd *apiextensionsv1beta1.CustomResourceDefinition, dynamicClient dynamic.Interface) error {
 	ns := ""
 	if crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
 		ns = "aval"
 	}
-
-	gvr := schema.GroupVersionResource{Group: crd.Spec.Group, Version: crd.Spec.Version, Resource: crd.Spec.Names.Plural}
-	var resourceClient dynamic.ResourceInterface
-	if crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
-		resourceClient = dynamicClientSet.Resource(gvr).Namespace(ns)
-	} else {
-		resourceClient = dynamicClientSet.Resource(gvr)
-	}
-
+	resourceClient := dynamicClient.Resource(&metav1.APIResource{
+		Name:       crd.Spec.Names.Plural,
+		Namespaced: crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped,
+	}, ns)
 	initialList, err := resourceClient.List(metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -302,7 +243,6 @@ func checkForWatchCachePrimed(crd *apiextensionsv1beta1.CustomResourceDefinition
 			"gamma":   "bar",
 			"delta":   "hello",
 			"epsilon": "foobar",
-			"spec":    map[string]interface{}{},
 		},
 	}
 	if _, err := resourceClient.Create(instance); err != nil {
@@ -329,25 +269,6 @@ func checkForWatchCachePrimed(crd *apiextensionsv1beta1.CustomResourceDefinition
 	case <-time.After(5 * time.Second):
 		return fmt.Errorf("gave up waiting for watch event")
 	}
-}
-
-// UpdateCustomResourceDefinition updates a CRD, retrying up to 5 times on version conflict errors.
-func UpdateCustomResourceDefinition(client clientset.Interface, name string, update func(*apiextensionsv1beta1.CustomResourceDefinition)) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
-	for i := 0; i < 5; i++ {
-		crd, err := client.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get CustomResourceDefinition %q: %v", name, err)
-		}
-		update(crd)
-		crd, err = client.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd)
-		if err == nil {
-			return crd, nil
-		}
-		if !errors.IsConflict(err) {
-			return nil, fmt.Errorf("failed to update CustomResourceDefinition %q: %v", name, err)
-		}
-	}
-	return nil, fmt.Errorf("too many retries after conflicts updating CustomResourceDefinition %q", name)
 }
 
 func DeleteCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceDefinition, apiExtensionsClient clientset.Interface) error {
@@ -387,7 +308,7 @@ func CreateNewScaleClient(crd *apiextensionsv1beta1.CustomResourceDefinition, co
 		return nil, err
 	}
 
-	resources := []*restmapper.APIGroupResources{
+	resources := []*discovery.APIGroupResources{
 		{
 			Group: metav1.APIGroup{
 				Name: crd.Spec.Group,
@@ -402,7 +323,7 @@ func CreateNewScaleClient(crd *apiextensionsv1beta1.CustomResourceDefinition, co
 		},
 	}
 
-	restMapper := restmapper.NewDiscoveryRESTMapper(resources)
+	restMapper := discovery.NewRESTMapper(resources, nil)
 	resolver := scale.NewDiscoveryScaleKindResolver(discoveryClient)
 
 	return scale.NewForConfig(config, restMapper, dynamic.LegacyAPIPathResolverFunc, resolver)
