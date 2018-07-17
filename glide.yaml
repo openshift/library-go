@@ -25,3 +25,7 @@ import:
   version: c439c4fa093711d42e1b01acb1235b52004753c1
 - package: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
+- package: github.com/blang/semver
+  version: v3.5.0
+- package: github.com/sirupsen/logrus
+  version: 89742aefa4b206dcf400792f3bd35b542998eb3b
