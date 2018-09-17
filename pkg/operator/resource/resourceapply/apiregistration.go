@@ -23,10 +23,10 @@ func ApplyAPIService(client apiregistrationv1client.APIServicesGetter, required 
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
-	// there was no change to metadata, the service and priorities were right
 	serviceSame := equality.Semantic.DeepEqual(existing.Spec.Service, required.Spec.Service)
 	prioritySame := existing.Spec.VersionPriority == required.Spec.VersionPriority && existing.Spec.GroupPriorityMinimum == required.Spec.GroupPriorityMinimum
 	insecureSame := existing.Spec.InsecureSkipTLSVerify == required.Spec.InsecureSkipTLSVerify
+	// there was no change to metadata, the service and priorities were right
 	if !*modified && serviceSame && prioritySame && insecureSame {
 		return existing, false, nil
 	}
