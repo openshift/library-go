@@ -84,7 +84,7 @@ func GetAdmissionPluginConfigFileReferences(config *configv1.AdmissionPluginConf
 	return refs
 }
 
-func GetAuditConfigReferences(config *configv1.AuditConfig) []*string {
+func GetAuditConfigFileReferences(config *configv1.AuditConfig) []*string {
 	if config == nil {
 		return []*string{}
 	}
@@ -95,7 +95,7 @@ func GetAuditConfigReferences(config *configv1.AuditConfig) []*string {
 	return refs
 }
 
-func GetKubeClientConfigReferences(config *configv1.KubeClientConfig) []*string {
+func GetKubeClientConfigFileReferences(config *configv1.KubeClientConfig) []*string {
 	if config == nil {
 		return []*string{}
 	}
@@ -113,8 +113,8 @@ func GetGenericAPIServerConfigFileReferences(config *configv1.GenericAPIServerCo
 	refs := []*string{}
 	refs = append(refs, GetHTTPServingInfoFileReferences(&config.ServingInfo)...)
 	refs = append(refs, GetEtcdConnectionInfoFileReferences(&config.StorageConfig.EtcdConnectionInfo)...)
-	refs = append(refs, GetAuditConfigReferences(&config.AuditConfig)...)
-	refs = append(refs, GetKubeClientConfigReferences(&config.KubeClientConfig)...)
+	refs = append(refs, GetAuditConfigFileReferences(&config.AuditConfig)...)
+	refs = append(refs, GetKubeClientConfigFileReferences(&config.KubeClientConfig)...)
 
 	// TODO admission config file resolution is currently broken.
 	//for k := range config.AdmissionPluginConfig {
