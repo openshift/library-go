@@ -71,6 +71,8 @@ func ApplyDirectly(client kubernetes.Interface, manifests AssetFunc, files ...st
 			result.Result, result.Changed, result.Error = ApplyRole(client.RbacV1(), t)
 		case *rbacv1.RoleBinding:
 			result.Result, result.Changed, result.Error = ApplyRoleBinding(client.RbacV1(), t)
+		default:
+			result.Error = fmt.Errorf("unhandled type %T", requiredObj)
 		}
 
 		ret = append(ret, result)
