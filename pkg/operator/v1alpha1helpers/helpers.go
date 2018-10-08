@@ -8,7 +8,7 @@ import (
 	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 )
 
-func SetErrors(versionAvailability *operatorsv1alpha1.VersionAvailablity, errors ...error) {
+func SetErrors(versionAvailability *operatorsv1alpha1.VersionAvailability, errors ...error) {
 	versionAvailability.Errors = []string{}
 	for _, err := range errors {
 		versionAvailability.Errors = append(versionAvailability.Errors, err.Error())
