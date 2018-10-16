@@ -77,6 +77,7 @@ func IsOperatorConditionPresentAndEqual(conditions []operatorsv1alpha1.OperatorC
 	return false
 }
 
+// TODO this may not be sustainable/practical
 func SetStatusFromAvailability(status *operatorsv1alpha1.OperatorStatus, specGeneration int64, versionAvailability *operatorsv1alpha1.VersionAvailability) {
 	// given the VersionAvailability and the status.Version, we can compute availability
 	availableCondition := operatorsv1alpha1.OperatorCondition{
@@ -85,31 +86,50 @@ func SetStatusFromAvailability(status *operatorsv1alpha1.OperatorStatus, specGen
 	}
 	if versionAvailability != nil && versionAvailability.ReadyReplicas > 0 {
 		availableCondition.Status = operatorsv1alpha1.ConditionTrue
+		availableCondition.Message = "replicas ready"
 	} else {
 		availableCondition.Status = operatorsv1alpha1.ConditionFalse
+		availableCondition.Message = "replicas not ready or unknown"
 	}
 	SetOperatorCondition(&status.Conditions, availableCondition)
 
-	syncSuccessfulCondition := operatorsv1alpha1.OperatorCondition{
-		Type:   operatorsv1alpha1.OperatorStatusTypeSyncSuccessful,
-		Status: operatorsv1alpha1.ConditionTrue,
+	failureCondition := operatorsv1alpha1.OperatorCondition{
+		Type:    operatorsv1alpha1.OperatorStatusTypeFailing,
+		Status:  operatorsv1alpha1.ConditionFalse,
+		Message: "no errors found",
 	}
 	if versionAvailability != nil && len(versionAvailability.Errors) > 0 {
-		syncSuccessfulCondition.Status = operatorsv1alpha1.ConditionFalse
-		syncSuccessfulCondition.Message = strings.Join(versionAvailability.Errors, "\n")
+		failureCondition.Status = operatorsv1alpha1.ConditionTrue
+		failureCondition.Message = strings.Join(versionAvailability.Errors, "\n")
 	}
 	if status.TargetAvailability != nil && len(status.TargetAvailability.Errors) > 0 {
-		syncSuccessfulCondition.Status = operatorsv1alpha1.ConditionFalse
-		if len(syncSuccessfulCondition.Message) == 0 {
-			syncSuccessfulCondition.Message = strings.Join(status.TargetAvailability.Errors, "\n")
+		failureCondition.Status = operatorsv1alpha1.ConditionTrue
+		if len(failureCondition.Message) == 0 {
+			failureCondition.Message = strings.Join(status.TargetAvailability.Errors, "\n")
 		} else {
-			syncSuccessfulCondition.Message = availableCondition.Message + "\n" + strings.Join(status.TargetAvailability.Errors, "\n")
+			failureCondition.Message = availableCondition.Message + "\n" + strings.Join(status.TargetAvailability.Errors, "\n")
 		}
 	}
-	SetOperatorCondition(&status.Conditions, syncSuccessfulCondition)
-	if syncSuccessfulCondition.Status == operatorsv1alpha1.ConditionTrue {
+	SetOperatorCondition(&status.Conditions, failureCondition)
+	if failureCondition.Status == operatorsv1alpha1.ConditionFalse {
 		status.ObservedGeneration = specGeneration
 	}
+
+	progressingCondition := operatorsv1alpha1.OperatorCondition{
+		Type:   operatorsv1alpha1.OperatorStatusTypeProgressing,
+		Status: operatorsv1alpha1.ConditionUnknown,
+	}
+	if availableCondition.Status == operatorsv1alpha1.ConditionTrue {
+		progressingCondition.Status = operatorsv1alpha1.ConditionFalse
+		progressingCondition.Message = "available and not waiting for a change"
+	} else if versionAvailability != nil && versionAvailability.ReadyReplicas == 0 {
+		progressingCondition.Status = operatorsv1alpha1.ConditionTrue
+		progressingCondition.Message = "not replicas available"
+	} else {
+		progressingCondition.Status = operatorsv1alpha1.ConditionTrue
+		progressingCondition.Message = "not available"
+	}
+	SetOperatorCondition(&status.Conditions, progressingCondition)
 
 	status.CurrentAvailability = versionAvailability
 }
