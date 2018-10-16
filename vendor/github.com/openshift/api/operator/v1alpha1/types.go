@@ -26,6 +26,10 @@ type OperatorSpec struct {
 	// imagePullSpec is the image to use for the component.
 	ImagePullSpec string `json:"imagePullSpec"`
 
+	// imagePullPolicy specifies the image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified,
+	// or IfNotPresent otherwise.
+	ImagePullPolicy string `json:"imagePullPolicy"`
+
 	// version is the desired state in major.minor.micro-patch.  Usually patch is ignored.
 	Version string `json:"version"`
 
@@ -49,8 +53,13 @@ const (
 	ConditionFalse   ConditionStatus = "False"
 	ConditionUnknown ConditionStatus = "Unknown"
 
-	OperatorStatusTypeAvailable      = "Available"
-	OperatorStatusTypeMigrating      = "Migrating"
+	// these conditions match the conditions for the ClusterOperator type.
+	OperatorStatusTypeAvailable   = "Available"
+	OperatorStatusTypeProgressing = "Progressing"
+	OperatorStatusTypeFailing     = "Failing"
+
+	OperatorStatusTypeMigrating = "Migrating"
+	// TODO this is going to be removed
 	OperatorStatusTypeSyncSuccessful = "SyncSuccessful"
 )
 
