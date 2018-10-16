@@ -118,7 +118,7 @@ func (c StatusSyncer) sync() error {
 		return err
 	}
 	if progressingCondition != nil {
-		conditions = append(conditions, failingCondition)
+		conditions = append(conditions, progressingCondition)
 	}
 	unstructured.SetNestedSlice(operatorConfig.Object, conditions, "status", "conditions")
 
