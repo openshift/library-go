@@ -6,7 +6,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/client-go/dynamic/fake"
 
 	"time"
 
@@ -194,5 +198,92 @@ func TestRemoveOperatorCondition(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEnsureOperatorConfigExists(t *testing.T) {
+	configBytes := []byte(`apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
+kind: OpenShiftAPIServerOperatorConfig
+metadata:
+  name: instance
+spec:
+  imagePullSpec: openshift/origin-hypershift:latest`)
+	tests := []struct {
+		name        string
+		getEnv      GetImageEnvFunc
+		gvr         schema.GroupVersionResource
+		config      []byte
+		expected    *unstructured.Unstructured
+		existingObj *unstructured.Unstructured
+	}{
+		{
+			name:   "Update operator config from env variable",
+			getEnv: func() string { return "foo" },
+			gvr:    schema.GroupVersionResource{Group: "openshiftapiserver.operator.openshift.io", Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
+			config: configBytes,
+			existingObj: newUnstructured("openshiftapiserver.operator.openshift.io/v1alpha1",
+				"OpenShiftAPIServerOperatorConfig",
+				"instance",
+				"openshift/origin-hypershift:latest"),
+			expected: newUnstructured("openshiftapiserver.operator.openshift.io/v1alpha1",
+				"OpenShiftAPIServerOperatorConfig",
+				"instance",
+				"foo"),
+		},
+		{
+			name:   "Create operator config if none exists",
+			getEnv: func() string { return "foo" },
+			gvr:    schema.GroupVersionResource{Group: "openshiftapiserver.operator.openshift.io", Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
+			config: configBytes,
+			expected: newUnstructured("openshiftapiserver.operator.openshift.io/v1alpha1",
+				"OpenShiftAPIServerOperatorConfig",
+				"instance",
+				"foo"),
+		},
+		{
+			name:   "Don't change imagePullSpec if no env var set",
+			getEnv: func() string { return "" },
+			gvr:    schema.GroupVersionResource{Group: "openshiftapiserver.operator.openshift.io", Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
+			config: configBytes,
+			expected: newUnstructured("openshiftapiserver.operator.openshift.io/v1alpha1",
+				"OpenShiftAPIServerOperatorConfig",
+				"instance",
+				"openshift/origin-hypershift:latest"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			objs := []runtime.Object{}
+			if test.existingObj != nil {
+				objs = append(objs, test.existingObj)
+			}
+
+			fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), objs...)
+			EnsureOperatorConfigExists(fakeClient, test.config, test.gvr, test.getEnv)
+			actual, err := fakeClient.Resource(test.gvr).Get(test.expected.GetName(), metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("error getting resource: %v", err)
+			}
+			if !equality.Semantic.DeepEqual(test.expected, actual) {
+				t.Errorf(diff.ObjectDiff(test.expected, actual))
+			}
+		})
+	}
+}
+
+func newUnstructured(apiVersion, kind, name, imagePullSpec string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": "",
+			},
+			"spec": map[string]interface{}{
+				"imagePullSpec": imagePullSpec,
+			},
+		},
 	}
 }

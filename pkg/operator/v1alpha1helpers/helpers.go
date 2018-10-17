@@ -1,10 +1,19 @@
 package v1alpha1helpers
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 )
@@ -132,4 +141,69 @@ func SetStatusFromAvailability(status *operatorsv1alpha1.OperatorStatus, specGen
 	SetOperatorCondition(&status.Conditions, progressingCondition)
 
 	status.CurrentAvailability = versionAvailability
+}
+
+type GetImageEnvFunc func() string
+
+func GetImageEnv() string {
+	return os.Getenv("IMAGE")
+}
+
+func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []byte, gvr schema.GroupVersionResource, getEnv GetImageEnvFunc) {
+	configJson, err := yaml.YAMLToJSON(operatorConfigBytes)
+	if err != nil {
+		panic(err)
+	}
+	operatorConfigObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, configJson)
+	if err != nil {
+		panic(err)
+	}
+
+	requiredOperatorConfig, ok := operatorConfigObj.(*unstructured.Unstructured)
+	if !ok {
+		panic(fmt.Sprintf("unexpected object in %t", operatorConfigObj))
+	}
+
+	hasImageEnvVar := false
+	if imagePullSpecFromEnv := getEnv(); len(imagePullSpecFromEnv) > 0 {
+		hasImageEnvVar = true
+		err = unstructured.SetNestedField(requiredOperatorConfig.Object, imagePullSpecFromEnv, "spec", "imagePullSpec")
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	existing, err := client.Resource(gvr).Get(requiredOperatorConfig.GetName(), metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		if _, err := client.Resource(gvr).Create(requiredOperatorConfig); err != nil {
+			panic(err)
+		}
+		return
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	if !hasImageEnvVar {
+		return
+	}
+
+	// If ImagePullSpec changed, update the existing config instance
+	existingSpec, _, err := unstructured.NestedString(existing.Object, "spec", "imagePullSpec")
+	if err != nil {
+		panic(err)
+	}
+	requiredSpec, _, err := unstructured.NestedString(requiredOperatorConfig.Object, "spec", "imagePullSpec")
+	if err != nil {
+		panic(err)
+	}
+	if existingSpec != requiredSpec {
+		err = unstructured.SetNestedField(existing.Object, requiredSpec, "spec", "imagePullSpec")
+		if err != nil {
+			panic(err)
+		}
+		if _, err := client.Resource(gvr).Update(existing); err != nil {
+			panic(err)
+		}
+	}
 }
