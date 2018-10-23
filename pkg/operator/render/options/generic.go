@@ -66,10 +66,10 @@ func (o *GenericOptions) Complete() error {
 // Validate verifies the inputs.
 func (o *GenericOptions) Validate() error {
 	if len(o.AssetInputDir) == 0 {
-		return errors.New("missing required flag: --asset-output-dir")
+		return errors.New("missing required flag: --asset-input-dir")
 	}
 	if len(o.AssetOutputDir) == 0 {
-		return errors.New("missing required flag: --asset-input-dir")
+		return errors.New("missing required flag: --asset-output-dir")
 	}
 	if len(o.TemplatesDir) == 0 {
 		return errors.New("missing required flag: --templates-dir")

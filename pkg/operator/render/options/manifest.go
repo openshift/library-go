@@ -39,7 +39,7 @@ func (o *ManifestOptions) AddFlags(fs *pflag.FlagSet, humanReadableComponentName
 		fmt.Sprintf("Image to use for the %s.", humanReadableComponentName))
 	fs.StringVar(&o.ImagePullPolicy, "manifest-image-pull-policy", o.ImagePullPolicy,
 		fmt.Sprintf("Image pull policy to use for the %s.", humanReadableComponentName))
-	fs.StringVar(&o.ConfigHostPath, "manifest-config-host-path", o.ConfigFileName,
+	fs.StringVar(&o.ConfigHostPath, "manifest-config-host-path", o.ConfigHostPath,
 		fmt.Sprintf("A host path mounted into the %s pods to hold a config file.", humanReadableComponentName))
 	fs.StringVar(&o.SecretsHostPath, "manifest-secrets-host-path", o.SecretsHostPath,
 		fmt.Sprintf("A host path mounted into the %s pods to hold secrets.", humanReadableComponentName))
