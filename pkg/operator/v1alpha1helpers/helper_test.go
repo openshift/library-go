@@ -79,8 +79,8 @@ func newCondition(name, status, reason, message string, lastTransition *metav1.T
 
 func TestSetOperatorCondition(t *testing.T) {
 	nowish := metav1.Now()
-	beforeish := metav1.Time{nowish.Add(-10 * time.Second)}
-	afterish := metav1.Time{nowish.Add(10 * time.Second)}
+	beforeish := metav1.Time{Time: nowish.Add(-10 * time.Second)}
+	afterish := metav1.Time{Time: nowish.Add(10 * time.Second)}
 
 	tests := []struct {
 		name         string
