@@ -10,10 +10,10 @@ import (
 )
 
 // WriteFiles writes the manifests and the bootstrap config file.
-func WriteFiles(opt *options.GenericOptions, fileConfig *options.FileConfig, templateData interface{}) error {
+func WriteFiles(opt *options.GenericOptions, fileConfig *options.FileConfig, templateData interface{}, additionalPredicates ...assets.FileInfoPredicate) error {
 	// write assets
 	for _, manifestDir := range []string{"bootstrap-manifests", "manifests"} {
-		manifests, err := assets.New(filepath.Join(opt.TemplatesDir, manifestDir), templateData, assets.OnlyYaml)
+		manifests, err := assets.New(filepath.Join(opt.TemplatesDir, manifestDir), templateData, append(additionalPredicates, assets.OnlyYaml)...)
 		if err != nil {
 			return fmt.Errorf("failed rendering assets: %v", err)
 		}
