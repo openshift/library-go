@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -75,10 +76,12 @@ func (c StatusSyncer) sync() error {
 		return err
 	}
 
-	operatorConfig, err := c.clusterOperatorClient.Get(c.clusterOperatorName, metav1.GetOptions{})
+	originalConfig, err := c.clusterOperatorClient.Get(c.clusterOperatorName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
+	operatorConfig := originalConfig.DeepCopy()
+
 	if operatorConfig == nil {
 		glog.Infof("clusterOperator %s/%s not found", c.clusterOperatorNamespace, c.clusterOperatorName)
 		operatorConfig = &unstructured.Unstructured{Object: map[string]interface{}{}}
@@ -121,6 +124,10 @@ func (c StatusSyncer) sync() error {
 		conditions = append(conditions, progressingCondition)
 	}
 	unstructured.SetNestedSlice(operatorConfig.Object, conditions, "status", "conditions")
+
+	if equality.Semantic.DeepEqual(operatorConfig, originalConfig) {
+		return nil
+	}
 
 	glog.V(4).Infof("clusterOperator %s/%s set to %v", c.clusterOperatorNamespace, c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, operatorConfig))
 	_, updateErr := c.clusterOperatorClient.Update(operatorConfig)
