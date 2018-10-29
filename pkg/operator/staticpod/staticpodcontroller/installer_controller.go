@@ -71,58 +71,58 @@ func NewInstallerController(
 
 // createInstallerController_v311_00_to_latest takes care of creating content for the static pods to deploy.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c *InstallerController) createInstallerController(operatorSpec *operatorv1alpha1.OperatorSpec, originalOperatorStatus *StaticPodConfigStatus, resourceVersion string) (bool, error) {
+func (c *InstallerController) createInstallerController(operatorSpec *operatorv1alpha1.OperatorSpec, originalOperatorStatus *operatorv1alpha1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
-	for i := range operatorStatus.TargetKubeletStates {
-		var currKubeletState *KubeletState
-		var prevKubeletState *KubeletState
-		currKubeletState = &operatorStatus.TargetKubeletStates[i]
+	for i := range operatorStatus.NodeStatuses {
+		var currNodeState *operatorv1alpha1.NodeStatus
+		var prevNodeState *operatorv1alpha1.NodeStatus
+		currNodeState = &operatorStatus.NodeStatuses[i]
 		if i > 0 {
-			prevKubeletState = &operatorStatus.TargetKubeletStates[i-1]
+			prevNodeState = &operatorStatus.NodeStatuses[i-1]
 		}
 
 		// if we are in a transition, check to see if our installer pod completed
-		if currKubeletState.TargetDeploymentID > currKubeletState.CurrentDeploymentID {
+		if currNodeState.TargetDeploymentGeneration > currNodeState.CurrentDeploymentGeneration {
 			// TODO check to see if our installer pod completed.  Success or failure there indicates whether we should be failed.
-			newCurrKubeletState, err := c.newKubeletStateForInstallInProgress(currKubeletState)
+			newCurrNodeState, err := c.newNodeStateForInstallInProgress(currNodeState)
 			if err != nil {
 				return true, err
 			}
 
-			// if we make a change to this status, we want to write it out to the API before we commence work on the next kubelet.
+			// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 			// it's an extra write/read, but it makes the state debuggable from outside this process
-			if !equality.Semantic.DeepEqual(newCurrKubeletState, currKubeletState) {
-				glog.Infof("%q moving to %v", currKubeletState.NodeName, spew.Sdump(*newCurrKubeletState))
-				operatorStatus.TargetKubeletStates[i] = *newCurrKubeletState
+			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
+				glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
+				operatorStatus.NodeStatuses[i] = *newCurrNodeState
 				if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 					_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 					return false, updateError
 				}
 
 			} else {
-				glog.V(2).Infof("%q is in transition to %d, but has not made progress", currKubeletState.NodeName, currKubeletState.TargetDeploymentID)
+				glog.V(2).Infof("%q is in transition to %d, but has not made progress", currNodeState.NodeName, currNodeState.TargetDeploymentGeneration)
 			}
 			break
 		}
 
-		deploymentIDToStart := c.getDeploymentIDToStart(currKubeletState, prevKubeletState, operatorStatus)
+		deploymentIDToStart := c.getDeploymentIDToStart(currNodeState, prevNodeState, operatorStatus)
 		if deploymentIDToStart == 0 {
-			glog.V(4).Infof("%q does not need update", currKubeletState.NodeName)
+			glog.V(4).Infof("%q does not need update", currNodeState.NodeName)
 			continue
 		}
-		glog.Infof("%q needs to deploy to %d", currKubeletState.NodeName, deploymentIDToStart)
+		glog.Infof("%q needs to deploy to %d", currNodeState.NodeName, deploymentIDToStart)
 
 		// we need to start a deployment create a pod that will lay down the static pod resources
-		newCurrKubeletState, err := c.createInstallerPod(currKubeletState, operatorSpec, deploymentIDToStart)
+		newCurrNodeState, err := c.createInstallerPod(currNodeState, operatorSpec, deploymentIDToStart)
 		if err != nil {
 			return true, err
 		}
-		// if we make a change to this status, we want to write it out to the API before we commence work on the next kubelet.
+		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
-		if !equality.Semantic.DeepEqual(newCurrKubeletState, currKubeletState) {
-			glog.Infof("%q moving to %v", currKubeletState.NodeName, spew.Sdump(*newCurrKubeletState))
-			operatorStatus.TargetKubeletStates[i] = *newCurrKubeletState
+		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
+			glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
+			operatorStatus.NodeStatuses[i] = *newCurrNodeState
 			if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 				_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 				return false, updateError
@@ -145,14 +145,14 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 	return false, nil
 }
 
-// newKubeletStateForInstallInProgress returns the new KubeletState or error
-func (c *InstallerController) newKubeletStateForInstallInProgress(currKubeletState *KubeletState) (*KubeletState, error) {
-	ret := currKubeletState.DeepCopy()
-	installerPod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(getInstallerPodName(currKubeletState.TargetDeploymentID, currKubeletState.NodeName), metav1.GetOptions{})
+// newNodeStateForInstallInProgress returns the new NodeState or error
+func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1alpha1.NodeStatus) (*operatorv1alpha1.NodeStatus, error) {
+	ret := currNodeState.DeepCopy()
+	installerPod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetDeploymentGeneration, currNodeState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		ret.LastFailedDeploymentID = currKubeletState.TargetDeploymentID
-		ret.TargetDeploymentID = currKubeletState.CurrentDeploymentID
-		ret.Errors = []string{err.Error()}
+		ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+		ret.TargetDeploymentGeneration = currNodeState.CurrentDeploymentGeneration
+		ret.LastFailedDeploymentErrors = []string{err.Error()}
 		return ret, nil
 	}
 	if err != nil {
@@ -160,13 +160,13 @@ func (c *InstallerController) newKubeletStateForInstallInProgress(currKubeletSta
 	}
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		ret.CurrentDeploymentID = currKubeletState.TargetDeploymentID
-		ret.TargetDeploymentID = 0
-		ret.LastFailedDeploymentID = 0
-		ret.Errors = nil
+		ret.CurrentDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+		ret.TargetDeploymentGeneration = 0
+		ret.LastFailedDeploymentGeneration = 0
+		ret.LastFailedDeploymentErrors = nil
 	case corev1.PodFailed:
-		ret.LastFailedDeploymentID = currKubeletState.TargetDeploymentID
-		ret.TargetDeploymentID = 0
+		ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+		ret.TargetDeploymentGeneration = 0
 
 		errors := []string{}
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
@@ -177,32 +177,32 @@ func (c *InstallerController) newKubeletStateForInstallInProgress(currKubeletSta
 		if len(errors) == 0 {
 			errors = append(errors, "no detailed termination message, see `oc get -n %q pods/%q -oyaml`", installerPod.Namespace, installerPod.Name)
 		}
-		ret.Errors = errors
+		ret.LastFailedDeploymentErrors = errors
 	}
 
 	return ret, nil
 }
 
 // getDeploymentIDToStart returns the deploymentID we need to start or zero if none
-func (c *InstallerController) getDeploymentIDToStart(currKubeletState, prevKubeletState *KubeletState, operatorStatus *StaticPodConfigStatus) int32 {
-	if prevKubeletState == nil {
-		currentAtLatest := currKubeletState.CurrentDeploymentID == operatorStatus.LatestDeploymentID
-		failedAtLatest := currKubeletState.LastFailedDeploymentID == operatorStatus.LatestDeploymentID
+func (c *InstallerController) getDeploymentIDToStart(currNodeState, prevNodeState *operatorv1alpha1.NodeStatus, operatorStatus *operatorv1alpha1.StaticPodOperatorStatus) int32 {
+	if prevNodeState == nil {
+		currentAtLatest := currNodeState.CurrentDeploymentGeneration == operatorStatus.LatestAvailableDeploymentGeneration
+		failedAtLatest := currNodeState.LastFailedDeploymentGeneration == operatorStatus.LatestAvailableDeploymentGeneration
 		if !currentAtLatest && !failedAtLatest {
-			return operatorStatus.LatestDeploymentID
+			return operatorStatus.LatestAvailableDeploymentGeneration
 		}
 		return 0
 	}
 
-	prevInTransition := prevKubeletState.CurrentDeploymentID != prevKubeletState.TargetDeploymentID
+	prevInTransition := prevNodeState.CurrentDeploymentGeneration != prevNodeState.TargetDeploymentGeneration
 	if prevInTransition {
 		return 0
 	}
 
-	prevAhead := currKubeletState.CurrentDeploymentID > currKubeletState.CurrentDeploymentID
-	failedAtPrev := currKubeletState.LastFailedDeploymentID == prevKubeletState.CurrentDeploymentID
+	prevAhead := currNodeState.CurrentDeploymentGeneration > currNodeState.CurrentDeploymentGeneration
+	failedAtPrev := currNodeState.LastFailedDeploymentGeneration == prevNodeState.CurrentDeploymentGeneration
 	if prevAhead && !failedAtPrev {
-		return currKubeletState.CurrentDeploymentID
+		return currNodeState.CurrentDeploymentGeneration
 	}
 
 	return 0
@@ -213,7 +213,7 @@ func getInstallerPodName(deploymentID int32, nodeName string) string {
 }
 
 // createInstallerPod creates the installer pod with the secrets required to
-func (c *InstallerController) createInstallerPod(currKubeletState *KubeletState, operatorSpec *operatorv1alpha1.OperatorSpec, deploymentID int32) (*KubeletState, error) {
+func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1.NodeStatus, operatorSpec *operatorv1alpha1.OperatorSpec, deploymentID int32) (*operatorv1alpha1.NodeStatus, error) {
 	required := resourceread.ReadPodV1OrDie([]byte(installerPod))
 	switch corev1.PullPolicy(operatorSpec.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
@@ -222,8 +222,8 @@ func (c *InstallerController) createInstallerPod(currKubeletState *KubeletState,
 	default:
 		return nil, fmt.Errorf("invalid imagePullPolicy specified: %v", operatorSpec.ImagePullPolicy)
 	}
-	required.Name = getInstallerPodName(deploymentID, currKubeletState.NodeName)
-	required.Spec.NodeName = currKubeletState.NodeName
+	required.Name = getInstallerPodName(deploymentID, currNodeState.NodeName)
+	required.Spec.NodeName = currNodeState.NodeName
 	required.Spec.Containers[0].Image = getInstallerPodImage()
 	required.Spec.Containers[0].Command = append(required.Spec.Containers[0].Args, "installer")
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
@@ -242,13 +242,13 @@ func (c *InstallerController) createInstallerPod(currKubeletState *KubeletState,
 	}
 
 	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil {
-		glog.Errorf("failed to create pod for %q: %v", currKubeletState.NodeName, resourceread.WritePodV1OrDie(required))
+		glog.Errorf("failed to create pod for %q: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required))
 		return nil, err
 	}
 
-	ret := currKubeletState.DeepCopy()
-	ret.TargetDeploymentID = deploymentID
-	ret.Errors = nil
+	ret := currNodeState.DeepCopy()
+	ret.TargetDeploymentGeneration = deploymentID
+	ret.LastFailedDeploymentErrors = nil
 
 	return ret, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -64,25 +65,25 @@ func (c NodeController) sync() error {
 		return err
 	}
 
-	newTargetKubeletStates := []KubeletState{}
+	newTargetNodeStates := []operatorv1alpha1.NodeStatus{}
 	// remove entries for missing nodes
-	for i, kubeletState := range originalOperatorStatus.TargetKubeletStates {
+	for i, nodeState := range originalOperatorStatus.NodeStatuses {
 		found := false
 		for _, node := range nodes {
-			if kubeletState.NodeName == node.Name {
+			if nodeState.NodeName == node.Name {
 				found = true
 			}
 		}
 		if found {
-			newTargetKubeletStates = append(newTargetKubeletStates, originalOperatorStatus.TargetKubeletStates[i])
+			newTargetNodeStates = append(newTargetNodeStates, originalOperatorStatus.NodeStatuses[i])
 		}
 	}
 
 	// add entries for new nodes
 	for _, node := range nodes {
 		found := false
-		for _, kubeletState := range originalOperatorStatus.TargetKubeletStates {
-			if kubeletState.NodeName == node.Name {
+		for _, nodeState := range originalOperatorStatus.NodeStatuses {
+			if nodeState.NodeName == node.Name {
 				found = true
 			}
 		}
@@ -90,9 +91,9 @@ func (c NodeController) sync() error {
 			continue
 		}
 
-		newTargetKubeletStates = append(newTargetKubeletStates, KubeletState{NodeName: node.Name})
+		newTargetNodeStates = append(newTargetNodeStates, operatorv1alpha1.NodeStatus{NodeName: node.Name})
 	}
-	operatorStatus.TargetKubeletStates = newTargetKubeletStates
+	operatorStatus.NodeStatuses = newTargetNodeStates
 
 	if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)

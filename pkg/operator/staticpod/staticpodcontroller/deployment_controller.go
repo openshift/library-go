@@ -69,10 +69,10 @@ func NewDeploymentController(
 
 // createDeploymentController takes care of creating content for the static pods to deploy.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c DeploymentController) createDeploymentController(operatorSpec *operatorv1alpha1.OperatorSpec, operatorStatusOriginal *StaticPodConfigStatus, resourceVersion string) (bool, error) {
+func (c DeploymentController) createDeploymentController(operatorSpec *operatorv1alpha1.OperatorSpec, operatorStatusOriginal *operatorv1alpha1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := operatorStatusOriginal.DeepCopy()
 
-	latestDeploymentID := operatorStatus.LatestDeploymentID
+	latestDeploymentID := operatorStatus.LatestAvailableDeploymentGeneration
 	isLatestDeploymentCurrent, reason := c.isLatestDeploymentCurrent(latestDeploymentID)
 
 	// check to make sure that the latestDeploymentID has the exact content we expect.  No mutation here, so we start creating the next Deployment only when it is required
@@ -100,7 +100,7 @@ func (c DeploymentController) createDeploymentController(operatorSpec *operatorv
 		Type:   "DeploymentControllerFailing",
 		Status: operatorv1alpha1.ConditionFalse,
 	})
-	operatorStatus.LatestDeploymentID = nextDeploymentID
+	operatorStatus.LatestAvailableDeploymentGeneration = nextDeploymentID
 	if !reflect.DeepEqual(operatorStatusOriginal, operatorStatus) {
 		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 		if updateError != nil {
