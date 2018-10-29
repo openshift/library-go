@@ -35,6 +35,8 @@ type InstallerController struct {
 	configMaps []string
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []string
+	// command is the string to use for the installer pod command
+	command []string
 
 	operatorConfigClient OperatorClient
 
@@ -48,6 +50,7 @@ func NewInstallerController(
 	targetNamespace string,
 	configMaps []string,
 	secrets []string,
+	command []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorConfigClient OperatorClient,
 	kubeClient kubernetes.Interface,
@@ -56,6 +59,7 @@ func NewInstallerController(
 		targetNamespace: targetNamespace,
 		configMaps:      configMaps,
 		secrets:         secrets,
+		command:         command,
 
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
@@ -225,7 +229,7 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 	required.Name = getInstallerPodName(deploymentID, currNodeState.NodeName)
 	required.Spec.NodeName = currNodeState.NodeName
 	required.Spec.Containers[0].Image = getInstallerPodImage()
-	required.Spec.Containers[0].Command = append(required.Spec.Containers[0].Args, "installer")
+	required.Spec.Containers[0].Command = c.command
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
 		fmt.Sprintf("-v=%d", operatorSpec.Logging.Level),
 		fmt.Sprintf("--deployment-id=%d", deploymentID),
@@ -242,7 +246,7 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 	}
 
 	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil {
-		glog.Errorf("failed to create pod for %q: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required))
+		glog.Errorf("failed to create pod for %q: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required), err)
 		return nil, err
 	}
 
