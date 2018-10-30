@@ -203,15 +203,16 @@ func (c *InstallerController) getDeploymentIDToStart(currNodeState, prevNodeStat
 		return 0
 	}
 
+	prevFinished := prevNodeState.TargetDeploymentGeneration == 0
 	prevInTransition := prevNodeState.CurrentDeploymentGeneration != prevNodeState.TargetDeploymentGeneration
-	if prevInTransition {
+	if prevInTransition && !prevFinished {
 		return 0
 	}
 
-	prevAhead := currNodeState.CurrentDeploymentGeneration > currNodeState.CurrentDeploymentGeneration
+	prevAhead := prevNodeState.CurrentDeploymentGeneration > currNodeState.CurrentDeploymentGeneration
 	failedAtPrev := currNodeState.LastFailedDeploymentGeneration == prevNodeState.CurrentDeploymentGeneration
 	if prevAhead && !failedAtPrev {
-		return currNodeState.CurrentDeploymentGeneration
+		return prevNodeState.CurrentDeploymentGeneration
 	}
 
 	return 0
