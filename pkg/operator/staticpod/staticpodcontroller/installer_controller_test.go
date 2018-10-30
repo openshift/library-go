@@ -2,6 +2,7 @@ package staticpodcontroller
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -212,6 +213,100 @@ func TestCreateInstallerPod(t *testing.T) {
 	}
 }
 
+func TestCreateInstallerPodMultiNode(t *testing.T) {
+	tests := []struct {
+		name                                string
+		nodeStatuses                        []operatorv1alpha1.NodeStatus
+		latestAvailableDeploymentGeneration int32
+		evaluateInstallerPods               func(pods map[string]*v1.Pod) error
+	}{
+		{
+			name:                                "three-nodes",
+			latestAvailableDeploymentGeneration: 1,
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+				},
+				{
+					NodeName: "test-node-2",
+				},
+				{
+					NodeName: "test-node-3",
+				},
+			},
+			evaluateInstallerPods: func(pods map[string]*v1.Pod) error {
+				if len(pods) != 3 {
+					return fmt.Errorf("expected 3 pods, got %d", len(pods))
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, test := range tests {
+		installerPods := map[string]*v1.Pod{}
+
+		kubeClient := fake.NewSimpleClientset()
+		kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			createdPod := action.(ktesting.CreateAction).GetObject().(*v1.Pod)
+			// Once the installer pod is created, set its status to succeeded.
+			// Note that in reality, this will probably take couple sync cycles to happen, however it is useful to do this fast
+			// to rule out timing bugs.
+			createdPod.Status.Phase = v1.PodSucceeded
+			installerPods[createdPod.Name] = createdPod
+			return false, nil, nil
+		})
+
+		// When newNodeStateForInstallInProgress ask for pod, give it a pod that already succeeded.
+		kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			podName := action.(ktesting.GetAction).GetName()
+			pod, exists := installerPods[podName]
+			if !exists {
+				return false, nil, nil
+			}
+			return true, pod, nil
+		})
+
+		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
+		fakeStaticPodOperatorClient := &staticPodOperatorClient{
+			fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+				ManagementState: operatorv1alpha1.Managed,
+				Version:         "3.11.1",
+			},
+			fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
+			fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+				LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
+				NodeStatuses:                        test.nodeStatuses,
+			},
+			t:               t,
+			resourceVersion: "0",
+		}
+
+		c := NewInstallerController(
+			"test-"+test.name,
+			[]string{"test-config"},
+			[]string{"test-secret"},
+			[]string{"/bin/true"},
+			kubeInformers,
+			fakeStaticPodOperatorClient,
+			kubeClient,
+		)
+		c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+
+		// Each node need at least 2 syncs to first create the pod and then acknowledge its existence...
+		for i := 1; i <= len(test.nodeStatuses)*2; i++ {
+			if err := c.sync(); err != nil {
+				t.Errorf("%s: failed to execute %d sync: %v", test.name, i, err)
+			}
+		}
+
+		if err := test.evaluateInstallerPods(installerPods); err != nil {
+			t.Errorf("%s: installer pods failed evaluation: %v", test.name, err)
+		}
+	}
+
+}
+
 type staticPodOperatorClient struct {
 	fakeOperatorSpec            *operatorv1alpha1.OperatorSpec
 	fakeOperatorStatus          *operatorv1alpha1.OperatorStatus
@@ -266,9 +361,9 @@ func (c *staticPodOperatorClient) Get() (*operatorv1alpha1.OperatorSpec, *operat
 }
 
 func (c *staticPodOperatorClient) UpdateStatus(resourceVersion string, status *operatorv1alpha1.StaticPodOperatorStatus) (*operatorv1alpha1.StaticPodOperatorStatus, error) {
-	// c.t.Logf("Calling UpdateStatus(): %#v", spew.Sdump(*status))
+	// c.t.Logf("updateStatus: %s", spew.Sdump(status.NodeStatuses))
 	c.resourceVersion = resourceVersion
-	c.fakeStaticPodOperatorStatus = status
+	c.fakeStaticPodOperatorStatus = status.DeepCopy()
 	return c.fakeStaticPodOperatorStatus, c.triggerStatusUpdateError
 }
 
