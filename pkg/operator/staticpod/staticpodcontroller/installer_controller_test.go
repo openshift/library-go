@@ -221,7 +221,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		evaluateInstallerPods               func(pods map[string]*v1.Pod) error
 	}{
 		{
-			name:                                "three-nodes",
+			name: "three-nodes",
 			latestAvailableDeploymentGeneration: 1,
 			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
