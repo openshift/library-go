@@ -11,7 +11,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 )
@@ -32,7 +31,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := &staticPodOperatorClient{
+	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
 		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
@@ -132,7 +131,7 @@ func TestCreateInstallerPod(t *testing.T) {
 	})
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := &staticPodOperatorClient{
+	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
 		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
@@ -221,7 +220,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		evaluateInstallerPods               func(pods map[string]*v1.Pod) error
 	}{
 		{
-			name: "three-nodes",
+			name:                                "three-nodes",
 			latestAvailableDeploymentGeneration: 1,
 			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -268,7 +267,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		})
 
 		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
-		fakeStaticPodOperatorClient := &staticPodOperatorClient{
+		fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
 			fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
 				ManagementState: operatorv1alpha1.Managed,
 				Version:         "3.11.1",
@@ -305,68 +304,4 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		}
 	}
 
-}
-
-type staticPodOperatorClient struct {
-	fakeOperatorSpec            *operatorv1alpha1.OperatorSpec
-	fakeOperatorStatus          *operatorv1alpha1.OperatorStatus
-	fakeStaticPodOperatorStatus *operatorv1alpha1.StaticPodOperatorStatus
-	resourceVersion             string
-	triggerStatusUpdateError    error
-	t                           *testing.T
-}
-
-type fakeSharedIndexInformer struct{}
-
-func (fakeSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
-}
-
-func (fakeSharedIndexInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) {
-}
-
-func (fakeSharedIndexInformer) GetStore() cache.Store {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) GetController() cache.Controller {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) Run(stopCh <-chan struct{}) {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) HasSynced() bool {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) LastSyncResourceVersion() string {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) AddIndexers(indexers cache.Indexers) error {
-	panic("implement me")
-}
-
-func (fakeSharedIndexInformer) GetIndexer() cache.Indexer {
-	panic("implement me")
-}
-
-func (c *staticPodOperatorClient) Informer() cache.SharedIndexInformer {
-	return &fakeSharedIndexInformer{}
-}
-
-func (c *staticPodOperatorClient) Get() (*operatorv1alpha1.OperatorSpec, *operatorv1alpha1.StaticPodOperatorStatus, string, error) {
-	return c.fakeOperatorSpec, c.fakeStaticPodOperatorStatus, "1", nil
-}
-
-func (c *staticPodOperatorClient) UpdateStatus(resourceVersion string, status *operatorv1alpha1.StaticPodOperatorStatus) (*operatorv1alpha1.StaticPodOperatorStatus, error) {
-	// c.t.Logf("updateStatus: %s", spew.Sdump(status.NodeStatuses))
-	c.resourceVersion = resourceVersion
-	c.fakeStaticPodOperatorStatus = status.DeepCopy()
-	return c.fakeStaticPodOperatorStatus, c.triggerStatusUpdateError
-}
-
-func (c *staticPodOperatorClient) CurrentStatus() (operatorv1alpha1.OperatorStatus, error) {
-	return *c.fakeOperatorStatus, nil
 }
