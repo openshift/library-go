@@ -187,7 +187,7 @@ func (c DeploymentController) sync() error {
 
 	requeue, syncErr := c.createDeploymentController(operatorSpec, operatorStatus, resourceVersion)
 	if requeue && syncErr == nil {
-		return fmt.Errorf("synthetic requeue request")
+		return fmt.Errorf("synthetic requeue request (err: %v)", syncErr)
 	}
 	err = syncErr
 
