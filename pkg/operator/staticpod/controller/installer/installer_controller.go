@@ -1,4 +1,4 @@
-package staticpodcontroller
+package installer
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
@@ -38,7 +39,7 @@ type InstallerController struct {
 	// command is the string to use for the installer pod command
 	command []string
 
-	operatorConfigClient OperatorClient
+	operatorConfigClient controller.OperatorClient
 
 	kubeClient kubernetes.Interface
 
@@ -55,7 +56,7 @@ func NewInstallerController(
 	secrets []string,
 	command []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorConfigClient OperatorClient,
+	operatorConfigClient controller.OperatorClient,
 	kubeClient kubernetes.Interface,
 ) *InstallerController {
 	c := &InstallerController{

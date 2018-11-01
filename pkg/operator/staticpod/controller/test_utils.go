@@ -1,18 +1,22 @@
-package staticpodcontroller
+package controller
 
 import (
-	"testing"
 	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
-	v12 "k8s.io/client-go/listers/core/v1"
+	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 )
+
+// NewFakeSharedIndexInformer returns a fake shared index informer, suitable to use in static pod controller unit tests.
+func NewFakeSharedIndexInformer() cache.SharedIndexInformer {
+	return &fakeSharedIndexInformer{}
+}
 
 type fakeSharedIndexInformer struct{}
 
@@ -50,13 +54,24 @@ func (fakeSharedIndexInformer) GetIndexer() cache.Indexer {
 	panic("implement me")
 }
 
+// NewFakeStaticPodOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
+func NewFakeStaticPodOperatorClient(spec *operatorv1alpha1.OperatorSpec, status *operatorv1alpha1.OperatorStatus,
+	staticPodStatus *operatorv1alpha1.StaticPodOperatorStatus, triggerErr error) OperatorClient {
+	return &fakeStaticPodOperatorClient{
+		fakeOperatorSpec:            spec,
+		fakeOperatorStatus:          status,
+		fakeStaticPodOperatorStatus: staticPodStatus,
+		resourceVersion:             "0",
+		triggerStatusUpdateError:    triggerErr,
+	}
+}
+
 type fakeStaticPodOperatorClient struct {
 	fakeOperatorSpec            *operatorv1alpha1.OperatorSpec
 	fakeOperatorStatus          *operatorv1alpha1.OperatorStatus
 	fakeStaticPodOperatorStatus *operatorv1alpha1.StaticPodOperatorStatus
 	resourceVersion             string
 	triggerStatusUpdateError    error
-	t                           *testing.T
 }
 
 func (c *fakeStaticPodOperatorClient) Informer() cache.SharedIndexInformer {
@@ -69,12 +84,20 @@ func (c *fakeStaticPodOperatorClient) Get() (*operatorv1alpha1.OperatorSpec, *op
 
 func (c *fakeStaticPodOperatorClient) UpdateStatus(resourceVersion string, status *operatorv1alpha1.StaticPodOperatorStatus) (*operatorv1alpha1.StaticPodOperatorStatus, error) {
 	c.resourceVersion = resourceVersion
-	c.fakeStaticPodOperatorStatus = status.DeepCopy()
-	return c.fakeStaticPodOperatorStatus, c.triggerStatusUpdateError
+	c.fakeStaticPodOperatorStatus = status
+	if c.triggerStatusUpdateError != nil {
+		return nil, c.triggerStatusUpdateError
+	}
+	return c.fakeStaticPodOperatorStatus, nil
 }
 
 func (c *fakeStaticPodOperatorClient) CurrentStatus() (operatorv1alpha1.OperatorStatus, error) {
 	return *c.fakeOperatorStatus, nil
+}
+
+// NewFakeNodeLister returns a fake node lister suitable to use in node controller unit test
+func NewFakeNodeLister(client kubernetes.Interface) corelisterv1.NodeLister {
+	return &fakeNodeLister{client: client}
 }
 
 type fakeNodeLister struct {
@@ -97,6 +120,6 @@ func (n *fakeNodeLister) Get(name string) (*v1.Node, error) {
 	panic("implement me")
 }
 
-func (n *fakeNodeLister) ListWithPredicate(predicate v12.NodeConditionPredicate) ([]*v1.Node, error) {
+func (n *fakeNodeLister) ListWithPredicate(predicate corelisterv1.NodeConditionPredicate) ([]*v1.Node, error) {
 	panic("implement me")
 }

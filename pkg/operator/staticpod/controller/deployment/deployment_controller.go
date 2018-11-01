@@ -1,4 +1,4 @@
-package staticpodcontroller
+package deployment
 
 import (
 	"fmt"
@@ -20,6 +20,7 @@ import (
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
@@ -33,7 +34,7 @@ type DeploymentController struct {
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []string
 
-	operatorConfigClient OperatorClient
+	operatorConfigClient controller.OperatorClient
 
 	kubeClient kubernetes.Interface
 
@@ -46,7 +47,7 @@ func NewDeploymentController(
 	configMaps []string,
 	secrets []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorConfigClient OperatorClient,
+	operatorConfigClient controller.OperatorClient,
 	kubeClient kubernetes.Interface,
 ) *DeploymentController {
 	c := &DeploymentController{

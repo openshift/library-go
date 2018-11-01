@@ -1,10 +1,11 @@
-package staticpodcontroller
+package deployment
 
 import (
 	"testing"
 	"time"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -16,13 +17,13 @@ func TestDeploymentControllerWithMissingConfigMap(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+	fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
 		},
-		fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-		fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
 			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -32,9 +33,8 @@ func TestDeploymentControllerWithMissingConfigMap(t *testing.T) {
 				},
 			},
 		},
-		t:               t,
-		resourceVersion: "0",
-	}
+		nil,
+	)
 
 	c := NewDeploymentController(
 		"test",
@@ -49,11 +49,13 @@ func TestDeploymentControllerWithMissingConfigMap(t *testing.T) {
 		t.Fatalf("expected synthetic error, got none")
 	}
 
-	if conditionCount := len(fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.Conditions); conditionCount == 0 {
+	_, currStatus, _, _ := fakeStaticPodOperatorClient.Get()
+
+	if conditionCount := len(currStatus.Conditions); conditionCount == 0 {
 		t.Fatalf("expected static pod operator status to have one error condition, got %d", conditionCount)
 	}
 
-	condition := fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.Conditions[0]
+	condition := currStatus.Conditions[0]
 	if condition.Type != "DeploymentControllerFailing" && condition.Status != "True" {
 		t.Errorf("expected condition type DeploymentControllerFailing to be true, got %#v", condition)
 	}
@@ -91,13 +93,13 @@ func TestDeploymentControllerSyncing(t *testing.T) {
 	})
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+	fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
 		},
-		fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-		fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
 			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -107,9 +109,8 @@ func TestDeploymentControllerSyncing(t *testing.T) {
 				},
 			},
 		},
-		t:               t,
-		resourceVersion: "0",
-	}
+		nil,
+	)
 
 	c := NewDeploymentController(
 		"test",

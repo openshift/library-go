@@ -1,4 +1,4 @@
-package staticpodcontroller
+package node
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/glog"
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -22,7 +23,7 @@ const nodeControllerWorkQueueKey = "key"
 
 // NodeController watches for new master nodes and adds them to the list for an operator
 type NodeController struct {
-	operatorConfigClient OperatorClient
+	operatorConfigClient controller.OperatorClient
 
 	nodeListerSynced cache.InformerSynced
 	nodeLister       corelisterv1.NodeLister
@@ -32,7 +33,7 @@ type NodeController struct {
 }
 
 func NewNodeController(
-	operatorConfigClient OperatorClient,
+	operatorConfigClient controller.OperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 ) *NodeController {
 	c := &NodeController{

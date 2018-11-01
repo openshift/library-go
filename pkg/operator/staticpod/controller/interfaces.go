@@ -1,4 +1,4 @@
-package staticpodcontroller
+package controller
 
 import (
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
