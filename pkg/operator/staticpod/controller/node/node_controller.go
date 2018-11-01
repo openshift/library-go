@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -17,13 +15,16 @@ import (
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 const nodeControllerWorkQueueKey = "key"
 
 // NodeController watches for new master nodes and adds them to the list for an operator
 type NodeController struct {
-	operatorConfigClient controller.OperatorClient
+	operatorConfigClient common.OperatorClient
 
 	nodeListerSynced cache.InformerSynced
 	nodeLister       corelisterv1.NodeLister
@@ -33,7 +34,7 @@ type NodeController struct {
 }
 
 func NewNodeController(
-	operatorConfigClient controller.OperatorClient,
+	operatorConfigClient common.OperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 ) *NodeController {
 	c := &NodeController{

@@ -19,8 +19,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
@@ -34,7 +35,7 @@ type DeploymentController struct {
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []string
 
-	operatorConfigClient controller.OperatorClient
+	operatorConfigClient common.OperatorClient
 
 	kubeClient kubernetes.Interface
 
@@ -47,7 +48,7 @@ func NewDeploymentController(
 	configMaps []string,
 	secrets []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorConfigClient controller.OperatorClient,
+	operatorConfigClient common.OperatorClient,
 	kubeClient kubernetes.Interface,
 ) *DeploymentController {
 	c := &DeploymentController{

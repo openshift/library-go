@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -13,6 +12,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -30,7 +30,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	})
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
-	fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
 		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
@@ -137,7 +137,7 @@ func TestCreateInstallerPod(t *testing.T) {
 	})
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
 		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
@@ -220,7 +220,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		evaluateInstallerPods               func(pods map[string]*v1.Pod) error
 	}{
 		{
-			name:                                "three-nodes",
+			name: "three-nodes",
 			latestAvailableDeploymentGeneration: 1,
 			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -267,7 +267,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		})
 
 		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
-		fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+		fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
 			&operatorv1alpha1.OperatorSpec{
 				ManagementState: operatorv1alpha1.Managed,
 				Version:         "3.11.1",

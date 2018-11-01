@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
+
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 func fakeMasterNode(name string) *v1.Node {
@@ -99,9 +100,9 @@ func TestNewNodeController(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(test.startNodes...)
-			fakeLister := controller.NewFakeNodeLister(kubeClient)
+			fakeLister := common.NewFakeNodeLister(kubeClient)
 			kubeInformers := informers.NewSharedInformerFactory(kubeClient, 1*time.Minute)
-			fakeStaticPodOperatorClient := controller.NewFakeStaticPodOperatorClient(
+			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
 				&operatorv1alpha1.OperatorSpec{
 					ManagementState: operatorv1alpha1.Managed,
 					Version:         "3.11.1",
