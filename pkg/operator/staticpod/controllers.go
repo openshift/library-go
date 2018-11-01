@@ -4,6 +4,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/deployment"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
@@ -11,9 +12,10 @@ import (
 )
 
 type staticPodOperatorControllers struct {
-	deploymentController *deployment.DeploymentController
-	installerController  *installer.InstallerController
-	nodeController       *node.NodeController
+	deploymentController     *deployment.DeploymentController
+	installerController      *installer.InstallerController
+	nodeController           *node.NodeController
+	serviceAccountController *backingresource.BackingResourceController
 }
 
 // NewControllers provides all control loops needed to run a static pod based operator. That includes:
@@ -53,10 +55,18 @@ func NewControllers(targetNamespaceName string, command, deploymentConfigMaps, d
 		kubeInformersClusterScoped,
 	)
 
+	controller.serviceAccountController = backingresource.NewBackingResourceController(
+		targetNamespaceName,
+		staticPodOperatorClient,
+		kubeInformersNamespaceScoped,
+		kubeClient,
+	)
+
 	return controller
 }
 
 func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
+	go o.serviceAccountController.Run(1, stopCh)
 	go o.deploymentController.Run(1, stopCh)
 	go o.installerController.Run(1, stopCh)
 	go o.nodeController.Run(1, stopCh)
