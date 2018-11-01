@@ -1,12 +1,10 @@
-package staticpodcontroller
+package installer
 
 import (
 	"fmt"
 	"os"
 	"reflect"
 	"time"
-
-	"k8s.io/client-go/informers"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
@@ -17,12 +15,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
@@ -38,7 +38,7 @@ type InstallerController struct {
 	// command is the string to use for the installer pod command
 	command []string
 
-	operatorConfigClient OperatorClient
+	operatorConfigClient common.OperatorClient
 
 	kubeClient kubernetes.Interface
 
@@ -55,7 +55,7 @@ func NewInstallerController(
 	secrets []string,
 	command []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorConfigClient OperatorClient,
+	operatorConfigClient common.OperatorClient,
 	kubeClient kubernetes.Interface,
 ) *InstallerController {
 	c := &InstallerController{

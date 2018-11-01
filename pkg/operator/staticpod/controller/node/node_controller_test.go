@@ -1,15 +1,17 @@
-package staticpodcontroller
+package node
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
+
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 func fakeMasterNode(name string) *v1.Node {
@@ -98,21 +100,20 @@ func TestNewNodeController(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(test.startNodes...)
-			fakeLister := &fakeNodeLister{client: kubeClient}
+			fakeLister := common.NewFakeNodeLister(kubeClient)
 			kubeInformers := informers.NewSharedInformerFactory(kubeClient, 1*time.Minute)
-			fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-				fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+				&operatorv1alpha1.OperatorSpec{
 					ManagementState: operatorv1alpha1.Managed,
 					Version:         "3.11.1",
 				},
-				fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-				fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+				&operatorv1alpha1.OperatorStatus{},
+				&operatorv1alpha1.StaticPodOperatorStatus{
 					LatestAvailableDeploymentGeneration: 1,
 					NodeStatuses:                        test.startNodeStatus,
 				},
-				t:               t,
-				resourceVersion: "0",
-			}
+				nil,
+			)
 
 			c := NewNodeController(fakeStaticPodOperatorClient, kubeInformers)
 			// override the lister so we don't have to run the informer to list nodes
@@ -121,7 +122,9 @@ func TestNewNodeController(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := test.evaluateNodeStatus(fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses); err != nil {
+			_, status, _, _ := fakeStaticPodOperatorClient.Get()
+
+			if err := test.evaluateNodeStatus(status.NodeStatuses); err != nil {
 				t.Errorf("%s: failed to evaluate node status: %v", test.name, err)
 			}
 		})

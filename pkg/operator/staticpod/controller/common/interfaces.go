@@ -1,8 +1,9 @@
-package staticpodcontroller
+package common
 
 import (
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"k8s.io/client-go/tools/cache"
+
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 )
 
 type OperatorClient interface {

@@ -1,7 +1,6 @@
-package staticpodcontroller
+package installer
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -30,14 +30,13 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	})
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
-
-	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
 		},
-		fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-		fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
 			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -47,9 +46,8 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				},
 			},
 		},
-		t:               t,
-		resourceVersion: "0",
-	}
+		nil,
+	)
 
 	c := NewInstallerController(
 		"test",
@@ -70,7 +68,9 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		t.Fatalf("expected to create installer pod")
 	}
 
-	fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].TargetDeploymentGeneration = 1
+	_, currStatus, _, _ := fakeStaticPodOperatorClient.Get()
+	currStatus.NodeStatuses[0].TargetDeploymentGeneration = 1
+	fakeStaticPodOperatorClient.UpdateStatus("1", currStatus)
 
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
@@ -89,13 +89,17 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if generation := fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 1 {
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	if generation := currStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 1 {
 		t.Errorf("expected current deployment generation for node to be 1, got %d", generation)
 	}
 
-	fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.LatestAvailableDeploymentGeneration = 2
-	fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].TargetDeploymentGeneration = 2
-	fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].CurrentDeploymentGeneration = 1
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	currStatus.LatestAvailableDeploymentGeneration = 2
+	currStatus.NodeStatuses[0].TargetDeploymentGeneration = 2
+	currStatus.NodeStatuses[0].CurrentDeploymentGeneration = 1
+	fakeStaticPodOperatorClient.UpdateStatus("1", currStatus)
+
 	installerPod.Status.Phase = v1.PodFailed
 	installerPod.Status.ContainerStatuses = []v1.ContainerStatus{
 		{
@@ -108,11 +112,13 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
 	}
-	if generation := fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].LastFailedDeploymentGeneration; generation != 2 {
+
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	if generation := currStatus.NodeStatuses[0].LastFailedDeploymentGeneration; generation != 2 {
 		t.Errorf("expected last failed deployment generation for node to be 2, got %d", generation)
 	}
 
-	if errors := fakeStaticPodOperatorClient.fakeStaticPodOperatorStatus.NodeStatuses[0].LastFailedDeploymentErrors; len(errors) > 0 {
+	if errors := currStatus.NodeStatuses[0].LastFailedDeploymentErrors; len(errors) > 0 {
 		if errors[0] != "installer: fake death" {
 			t.Errorf("expected the error to be set to 'fake death', got %#v", errors)
 		}
@@ -131,13 +137,13 @@ func TestCreateInstallerPod(t *testing.T) {
 	})
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
-	fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-		fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+		&operatorv1alpha1.OperatorSpec{
 			ManagementState: operatorv1alpha1.Managed,
 			Version:         "3.11.1",
 		},
-		fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-		fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
 			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
@@ -147,9 +153,8 @@ func TestCreateInstallerPod(t *testing.T) {
 				},
 			},
 		},
-		t:               t,
-		resourceVersion: "0",
-	}
+		nil,
+	)
 
 	c := NewInstallerController(
 		"test",
@@ -204,11 +209,6 @@ func TestCreateInstallerPod(t *testing.T) {
 		if expectedArgs[i] != v {
 			t.Errorf("arg[%d] expected %q, got %q", i, expectedArgs[i], v)
 		}
-	}
-
-	fakeStaticPodOperatorClient.triggerStatusUpdateError = errors.New("test error")
-	if err := c.sync(); err == nil {
-		t.Error("expected to trigger an error on status update")
 	}
 }
 
@@ -267,19 +267,18 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		})
 
 		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
-		fakeStaticPodOperatorClient := &fakeStaticPodOperatorClient{
-			fakeOperatorSpec: &operatorv1alpha1.OperatorSpec{
+		fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+			&operatorv1alpha1.OperatorSpec{
 				ManagementState: operatorv1alpha1.Managed,
 				Version:         "3.11.1",
 			},
-			fakeOperatorStatus: &operatorv1alpha1.OperatorStatus{},
-			fakeStaticPodOperatorStatus: &operatorv1alpha1.StaticPodOperatorStatus{
+			&operatorv1alpha1.OperatorStatus{},
+			&operatorv1alpha1.StaticPodOperatorStatus{
 				LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
 				NodeStatuses:                        test.nodeStatuses,
 			},
-			t:               t,
-			resourceVersion: "0",
-		}
+			nil,
+		)
 
 		c := NewInstallerController(
 			"test-"+test.name,
