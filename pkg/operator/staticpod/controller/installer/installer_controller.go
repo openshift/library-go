@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -26,7 +27,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
-const installerControllerWorkQueueKey = "key"
+const (
+	installerControllerWorkQueueKey = "key"
+	maxInstallerPodRestarts         = 5
+)
 
 type InstallerController struct {
 	targetNamespace string
@@ -40,6 +44,7 @@ type InstallerController struct {
 
 	operatorConfigClient common.OperatorClient
 
+	podLister  corelisterv1.PodLister
 	kubeClient kubernetes.Interface
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
@@ -66,6 +71,7 @@ func NewInstallerController(
 
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
+		podLister:            kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InstallerController"),
 
@@ -157,16 +163,19 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 // newNodeStateForInstallInProgress returns the new NodeState or error
 func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1alpha1.NodeStatus) (*operatorv1alpha1.NodeStatus, error) {
 	ret := currNodeState.DeepCopy()
-	installerPod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetDeploymentGeneration, currNodeState.NodeName), metav1.GetOptions{})
+	installerPod, err := c.podLister.Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetDeploymentGeneration, currNodeState.NodeName))
 	if apierrors.IsNotFound(err) {
-		ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
-		ret.TargetDeploymentGeneration = currNodeState.CurrentDeploymentGeneration
-		ret.LastFailedDeploymentErrors = []string{err.Error()}
+		if len(ret.LastFailedDeploymentErrors) == 0 {
+			ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+			ret.TargetDeploymentGeneration = currNodeState.CurrentDeploymentGeneration
+			ret.LastFailedDeploymentErrors = []string{err.Error()}
+		}
 		return ret, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
 		ret.CurrentDeploymentGeneration = currNodeState.TargetDeploymentGeneration
@@ -184,9 +193,29 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 			}
 		}
 		if len(errors) == 0 {
-			errors = append(errors, "no detailed termination message, see `oc get -n %q pods/%q -oyaml`", installerPod.Namespace, installerPod.Name)
+			errors = append(errors, "no detailed termination message, see `oc get -n %q pods/%q -o yaml`", installerPod.Namespace, installerPod.Name)
 		}
 		ret.LastFailedDeploymentErrors = errors
+	case corev1.PodRunning:
+		// If the container restart threshold was reached, lets report the last termination state back to operator and delete the installer pod.
+		if installerPod.Status.ContainerStatuses[0].RestartCount >= maxInstallerPodRestarts {
+			ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+			ret.TargetDeploymentGeneration = 0
+			errors := []string{}
+			for _, containerStatus := range installerPod.Status.ContainerStatuses {
+				if containerStatus.LastTerminationState.Terminated != nil && len(containerStatus.LastTerminationState.Terminated.Message) > 0 {
+					errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.LastTerminationState.Terminated.Message))
+				}
+			}
+			if len(errors) == 0 {
+				errors = append(errors, "no detailed termination message, see `oc get -n %q pods/%q -o yaml`", installerPod.Namespace, installerPod.Name)
+			}
+			ret.LastFailedDeploymentErrors = errors
+			if err = c.kubeClient.CoreV1().Pods(c.targetNamespace).Delete(installerPod.Name, &metav1.DeleteOptions{}); err != nil {
+				glog.Errorf("failed to delete installer pod: %v", err)
+				return nil, err
+			}
+		}
 	}
 
 	return ret, nil
@@ -373,7 +402,7 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/
       name: kubelet-dir
-  restartPolicy: Never
+  restartPolicy: OnFailure
   securityContext:
     runAsUser: 0
   volumes:
