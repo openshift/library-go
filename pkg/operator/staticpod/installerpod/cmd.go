@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
@@ -14,6 +15,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/library-go/pkg/config/client"
@@ -195,8 +197,23 @@ func (o *InstallOptions) copyContent() error {
 }
 
 func (o *InstallOptions) Run() error {
-	if err := o.copyContent(); err != nil {
-		return err
+	// ~2 min total waiting
+	backoff := utilwait.Backoff{
+		Duration: time.Second,
+		Factor:   1.5,
+		Steps:    11,
+	}
+	attempts := 0
+	err := utilwait.ExponentialBackoff(backoff, func() (bool, error) {
+		attempts += 1
+		if copyErr := o.copyContent(); copyErr != nil {
+			fmt.Fprintf(os.Stderr, "#%d: failed to copy content: %v", attempts, copyErr)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("error: %v", err)
 	}
 
 	// TODO wait for healthy pod status
