@@ -8,14 +8,17 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	installertypes "github.com/openshift/installer/pkg/types"
 )
 
 func SetErrors(versionAvailability *operatorsv1alpha1.VersionAvailability, errors ...error) {
@@ -206,4 +209,27 @@ func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []
 			panic(err)
 		}
 	}
+}
+
+// InstallConfigFromFile parses the InstallConfig from the cluster ConfigMap file data
+func InstallConfigFromFile(configMapData []byte) (installertypes.InstallConfig, error) {
+	obji, err := runtime.Decode(scheme.Codecs.UniversalDecoder(corev1.SchemeGroupVersion), configMapData)
+	if err != nil {
+		return installertypes.InstallConfig{}, err
+	}
+	configMap, ok := obji.(*corev1.ConfigMap)
+	if !ok {
+		return installertypes.InstallConfig{}, fmt.Errorf("expected *corev1.ConfigMap found %T", obji)
+	}
+
+	icData, ok := configMap.Data["install-config"]
+	if !ok {
+		return installertypes.InstallConfig{}, fmt.Errorf("install-config doesn't exist")
+	}
+
+	var ic installertypes.InstallConfig
+	if err := yaml.Unmarshal([]byte(icData), &ic); err != nil {
+		return installertypes.InstallConfig{}, err
+	}
+	return ic, nil
 }

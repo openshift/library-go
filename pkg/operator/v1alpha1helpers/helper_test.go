@@ -287,3 +287,59 @@ func newUnstructured(apiVersion, kind, name, imagePullSpec string) *unstructured
 		},
 	}
 }
+
+func TestInstallConfigFromFile(t *testing.T) {
+	testClusterConfig := []byte(`
+apiVersion: v1
+data:
+  install-config: |
+    admin:
+      email: a@b.c
+      password: verysecure
+      sshKey: ssh-rsa aaaaa
+    baseDomain: tt.testing
+    clusterID: d06a9fdd-7350-42ab-8578-0cccbac5a92c
+    machines:
+    - name: master
+      platform: {}
+      replicas: 3
+    - name: worker
+      platform: {}
+      replicas: 3
+    metadata:
+      creationTimestamp: null
+      name: mdame-dev
+    networking:
+      podCIDR: 10.2.0.0/16
+      serviceCIDR: 10.3.0.0/16
+      type: flannel
+    platform:
+      aws:
+        region: us-east-1
+        vpcCIDRBlock: 10.0.0.0/16
+        vpcID: ""
+    pullSecret: ''
+  network-config: |
+    apiVersion: v1
+    calicoConfig:
+      mtu: "1450"
+    kind: TectonicNetworkOperatorConfig
+    networkProfile: flannel
+    podCIDR: 10.2.0.0/16
+kind: ConfigMap
+metadata:
+  name: cluster-config-v1
+  namespace: kube-system
+`)
+
+	ic, err := InstallConfigFromFile(testClusterConfig)
+	if err != nil {
+		t.Fatalf("couldn't get installconfig: %+v", err)
+	}
+	if ic.BaseDomain != "tt.testing" {
+		t.Fatalf("got wrong basedomain %+v, wanted %+v", ic.BaseDomain, "tt.testing")
+	}
+	if ic.Networking.PodCIDR.String() != "10.2.0.0/16" {
+		t.Fatalf("got wrong PodCIDR %+v, wanted %+v", ic.Networking.PodCIDR.String(), "10.2.0.0/16")
+	}
+}
