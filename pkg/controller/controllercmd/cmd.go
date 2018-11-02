@@ -10,11 +10,15 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/util/logs"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/serviceability"
+
+	// add prometheus metrics
+	_ "github.com/openshift/library-go/pkg/controller/metrics"
 )
 
 var (
@@ -65,7 +69,7 @@ func (c *ControllerCommandConfig) NewCommand() *cobra.Command {
 				glog.Fatal(err)
 			}
 
-			if err := c.StartController(); err != nil {
+			if err := c.StartController(wait.NeverStop); err != nil {
 				glog.Fatal(err)
 			}
 		},
@@ -77,7 +81,7 @@ func (c *ControllerCommandConfig) NewCommand() *cobra.Command {
 }
 
 // StartController runs the controller
-func (c *ControllerCommandConfig) StartController() error {
+func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error {
 	uncastConfig, err := c.basicFlags.ToConfigObj(configScheme, operatorv1alpha1.SchemeGroupVersion)
 	if err != nil {
 		return err
@@ -90,5 +94,6 @@ func (c *ControllerCommandConfig) StartController() error {
 	return NewController(c.componentName, c.startFunc).
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
 		WithLeaderElection(config.LeaderElection, "", c.componentName+"-lock").
-		Run()
+		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
+		Run(stopCh)
 }
