@@ -144,7 +144,7 @@ func (c BackingResourceController) sync() error {
 			glog.Error(updateError)
 		}
 	}
-	return err
+	return fmt.Errorf("synthetic requeue (errs: %q)", strings.Join(errors, ","))
 
 }
 
