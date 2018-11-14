@@ -215,6 +215,11 @@ type ServiceAccountControllerConfig struct {
 type DockerPullSecretControllerConfig struct {
 	// registryURLs is a list of urls that the docker pull secrets should be valid for.
 	RegistryURLs []string `json:"registryURLs"`
+
+	// internalRegistryHostname is the hostname for the default internal image
+	// registry. The value must be in "hostname[:port]" format.  Docker pull secrets
+	// will be generated for this registry.
+	InternalRegistryHostname string `json:"internalRegistryHostname"`
 }
 
 type ImageImportControllerConfig struct {
@@ -257,7 +262,7 @@ type BuildDefaultsConfig struct {
 	ImageLabels []buildv1.ImageLabel `json:"imageLabels,omitempty"`
 
 	// nodeSelector is a selector which must be true for the build pod to fit on a node
-	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// annotations are annotations that will be added to the build pod
 	Annotations map[string]string `json:"annotations,omitempty"`
