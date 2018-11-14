@@ -19,6 +19,7 @@ import (
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/config/configdefaults"
+	"github.com/openshift/library-go/pkg/controller/fileobserver"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/serviceability"
 
@@ -96,6 +97,10 @@ func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error 
 		return fmt.Errorf("unexpected config: %T", uncastConfig)
 	}
 
+	observedFiles := []string{
+		c.basicFlags.ConfigFile,
+	}
+
 	// if we don't have any serving cert/key pairs specified and the defaults are not present, generate a self-signed set
 	// TODO maybe this should be optional?  It's a little difficult to come up with a scenario where this is worse than nothing though.
 	if len(config.ServingInfo.CertFile) == 0 && len(config.ServingInfo.KeyFile) == 0 {
@@ -129,11 +134,14 @@ func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error 
 				return err
 			}
 		}
+		observedFiles = append(observedFiles, []string{config.ServingInfo.CertFile, config.ServingInfo.ClientCA, config.ServingInfo.KeyFile}...)
 	}
 
 	return NewController(c.componentName, c.startFunc).
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
 		WithLeaderElection(config.LeaderElection, "", c.componentName+"-lock").
 		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
+		WithFileObserver(fileobserver.ExitOnChangeReactor, observedFiles...).
 		Run(stopCh)
+
 }
