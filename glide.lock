@@ -1,5 +1,5 @@
 hash: a011273e6065c920c4d383319b0a69ec2de1d80dc10634fb1d78c33c04e756a2
-updated: 2018-11-14T19:52:15.66922+01:00
+updated: 2018-11-15T11:15:00.628879544-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 539360d2ba6318174bd9211f8aefce2e66ebb476
+  version: 8a3880e9178ebf7a6655469c7dd213ea9a378c33
   subpackages:
   - apps
   - apps/v1
@@ -209,6 +209,7 @@ imports:
   - openshiftcontrolplane
   - openshiftcontrolplane/v1
   - operator
+  - operator/v1
   - operator/v1alpha1
   - osin
   - osin/v1
