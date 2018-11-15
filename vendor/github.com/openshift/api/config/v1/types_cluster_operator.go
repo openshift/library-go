@@ -5,28 +5,18 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// ClusterOperatorList is a list of OperatorStatus resources.
-// +k8s:deepcopy-gen=true
+// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterOperatorList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []ClusterOperator `json:"items"`
-}
 
 // ClusterOperator is the Custom Resource object which holds the current state
 // of an operator. This object is used by operators to convey their state to
 // the rest of the cluster.
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterOperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	// Spec hold the intent of how this operator should behave.
+	// spec hold the intent of how this operator should behave.
 	Spec ClusterOperatorSpec `json:"spec"`
 
 	// status holds the information about the state of an operator.  It is consistent with status information across
@@ -44,7 +34,7 @@ type ClusterOperatorStatus struct {
 	// conditions describes the state of the operator's reconciliation functionality.
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	Conditions []ClusterOperatorStatusCondition `json:"conditions"`
+	Conditions []ClusterOperatorStatusCondition `json:"conditions"  patchStrategy:"merge" patchMergeKey:"type"`
 
 	// version indicates which version of the operator updated the current
 	// status object.
@@ -74,10 +64,10 @@ type ClusterOperatorStatusCondition struct {
 	// type specifies the state of the operator's reconciliation functionality.
 	Type ClusterStatusConditionType `json:"type"`
 
-	// Status of the condition, one of True, False, Unknown.
+	// status of the condition, one of True, False, Unknown.
 	Status ConditionStatus `json:"status"`
 
-	// LastTransitionTime is the time of the last update to the current status object.
+	// lastTransitionTime is the time of the last update to the current status object.
 	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 
 	// reason is the reason for the condition's last transition.  Reasons are CamelCase
@@ -105,3 +95,12 @@ const (
 	// available, but the user intent cannot be fulfilled.
 	OperatorFailing ClusterStatusConditionType = "Failing"
 )
+
+// ClusterOperatorList is a list of OperatorStatus resources.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ClusterOperatorList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ClusterOperator `json:"items"`
+}
