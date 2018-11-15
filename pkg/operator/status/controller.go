@@ -52,7 +52,7 @@ func NewClusterOperatorStatusController(
 	c := &StatusSyncer{
 		clusterOperatorNamespace: namespace,
 		clusterOperatorName:      name,
-		clusterOperatorClient:    clusterOperatorClient.Resource(schema.GroupVersionResource{Group: "operatorstatus.openshift.io", Version: "v1", Resource: "clusteroperators"}).Namespace(namespace),
+		clusterOperatorClient:    clusterOperatorClient.Resource(schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "clusteroperators"}).Namespace(namespace),
 		operatorStatusProvider:   operatorStatusProvider,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatusSyncer-"+name),
@@ -88,7 +88,7 @@ func (c StatusSyncer) sync() error {
 	}
 	unstructured.RemoveNestedField(operatorConfig.Object, "status")
 	unstructured.SetNestedField(operatorConfig.Object, "ClusterOperator", "kind")
-	unstructured.SetNestedField(operatorConfig.Object, "operatorstatus.openshift.io/v1", "apiVersion")
+	unstructured.SetNestedField(operatorConfig.Object, "config.openshift.io/v1", "apiVersion")
 	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorNamespace, "metadata", "namespace")
 	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorName, "metadata", "name")
 
@@ -130,9 +130,9 @@ func (c StatusSyncer) sync() error {
 	}
 
 	glog.V(4).Infof("clusterOperator %s/%s set to %v", c.clusterOperatorNamespace, c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, operatorConfig))
-	_, updateErr := c.clusterOperatorClient.Update(operatorConfig)
+	_, updateErr := c.clusterOperatorClient.UpdateStatus(operatorConfig)
 	if apierrors.IsNotFound(updateErr) {
-		_, createErr := c.clusterOperatorClient.Create(operatorConfig)
+		freshOperatorConfig, createErr := c.clusterOperatorClient.Create(operatorConfig)
 		if apierrors.IsNotFound(createErr) {
 			// this means that the API isn't present.  We did not fail.  Try again later
 			glog.Infof("ClusterOperator API not created")
@@ -142,6 +142,10 @@ func (c StatusSyncer) sync() error {
 		if createErr != nil {
 			return createErr
 		}
+		if err := unstructured.SetNestedMap(freshOperatorConfig.Object, operatorConfig.Object["status"].(map[string]interface{}), "status"); err != nil {
+			return err
+		}
+		_, updateErr = c.clusterOperatorClient.UpdateStatus(operatorConfig)
 	}
 	if updateErr != nil {
 		return updateErr
