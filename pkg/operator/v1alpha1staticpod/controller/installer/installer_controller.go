@@ -21,10 +21,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
 )
 
 const installerControllerWorkQueueKey = "key"
@@ -116,7 +116,7 @@ func (c *InstallerController) getStaticPodState(nodeName string) (state staticPo
 	return staticPodStatePending, "", nil, nil
 }
 
-func (c *InstallerController) nodeToStartDeploymentWith(nodes []operatorv1.NodeStatus) (int, error) {
+func (c *InstallerController) nodeToStartDeploymentWith(nodes []operatorv1alpha1.NodeStatus) (int, error) {
 	// find upgrading node as this will be the first to start new deployment (to minimize number of down nodes)
 	startNode := 0
 	foundUpgradingNode := false
@@ -148,7 +148,7 @@ func (c *InstallerController) nodeToStartDeploymentWith(nodes []operatorv1.NodeS
 
 // createInstallerController takes care of creating content for the static pods to deploy.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c *InstallerController) createInstallerController(operatorSpec *operatorv1.OperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
+func (c *InstallerController) createInstallerController(operatorSpec *operatorv1alpha1.OperatorSpec, originalOperatorStatus *operatorv1alpha1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	if len(operatorStatus.NodeStatuses) == 0 {
@@ -164,8 +164,8 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 	for l := 0; l < len(operatorStatus.NodeStatuses); l++ {
 		i := (startNode + l) % len(operatorStatus.NodeStatuses)
 
-		var currNodeState *operatorv1.NodeStatus
-		var prevNodeState *operatorv1.NodeStatus
+		var currNodeState *operatorv1alpha1.NodeStatus
+		var prevNodeState *operatorv1alpha1.NodeStatus
 		currNodeState = &operatorStatus.NodeStatuses[i]
 		if l > 0 {
 			prev := (startNode + l - 1) % len(operatorStatus.NodeStatuses)
@@ -224,9 +224,9 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 		break
 	}
 
-	v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
+	v1alpha1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1alpha1.OperatorCondition{
 		Type:   "InstallerControllerFailing",
-		Status: operatorv1.ConditionFalse,
+		Status: operatorv1alpha1.ConditionFalse,
 	})
 	if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
@@ -239,7 +239,7 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState or error
-func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, newDeploymentPending bool) (*operatorv1.NodeStatus, error) {
+func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1alpha1.NodeStatus, newDeploymentPending bool) (*operatorv1alpha1.NodeStatus, error) {
 	ret := currNodeState.DeepCopy()
 	installerPod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetDeploymentGeneration, currNodeState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -310,7 +310,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 }
 
 // getDeploymentIDToStart returns the deploymentID we need to start or zero if none
-func (c *InstallerController) getDeploymentIDToStart(currNodeState, prevNodeState *operatorv1.NodeStatus, operatorStatus *operatorv1.StaticPodOperatorStatus) int32 {
+func (c *InstallerController) getDeploymentIDToStart(currNodeState, prevNodeState *operatorv1alpha1.NodeStatus, operatorStatus *operatorv1alpha1.StaticPodOperatorStatus) int32 {
 	if prevNodeState == nil {
 		currentAtLatest := currNodeState.CurrentDeploymentGeneration == operatorStatus.LatestAvailableDeploymentGeneration
 		failedAtLatest := currNodeState.LastFailedDeploymentGeneration == operatorStatus.LatestAvailableDeploymentGeneration
@@ -340,15 +340,22 @@ func getInstallerPodName(deploymentID int32, nodeName string) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.OperatorSpec, deploymentID int32) error {
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1alpha1.OperatorSpec, deploymentID int32) error {
 	required := resourceread.ReadPodV1OrDie([]byte(installerPod))
+	switch corev1.PullPolicy(operatorSpec.ImagePullPolicy) {
+	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
+		required.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(operatorSpec.ImagePullPolicy)
+	case "":
+	default:
+		return fmt.Errorf("invalid imagePullPolicy specified: %v", operatorSpec.ImagePullPolicy)
+	}
 	required.Name = getInstallerPodName(deploymentID, nodeName)
 	required.Namespace = c.targetNamespace
 	required.Spec.NodeName = nodeName
 	required.Spec.Containers[0].Image = c.installerPodImageFn()
 	required.Spec.Containers[0].Command = c.command
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
-		fmt.Sprintf("-v=%d", 4),
+		fmt.Sprintf("-v=%d", operatorSpec.Logging.Level),
 		fmt.Sprintf("--deployment-id=%d", deploymentID),
 		fmt.Sprintf("--namespace=%s", c.targetNamespace),
 		fmt.Sprintf("--pod=%s", c.configMaps[0]),
@@ -382,9 +389,9 @@ func (c InstallerController) sync() error {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	switch operatorSpec.ManagementState {
-	case operatorv1.Unmanaged:
+	case operatorv1alpha1.Unmanaged:
 		return nil
-	case operatorv1.Removed:
+	case operatorv1alpha1.Removed:
 		// TODO probably just fail.  Static pod managers can't be removed.
 		return nil
 	}
@@ -395,9 +402,9 @@ func (c InstallerController) sync() error {
 	err = syncErr
 
 	if err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeFailing,
-			Status:  operatorv1.ConditionTrue,
+		v1alpha1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1alpha1.OperatorCondition{
+			Type:    operatorv1alpha1.OperatorStatusTypeFailing,
+			Status:  operatorv1alpha1.ConditionTrue,
 			Reason:  "StatusUpdateError",
 			Message: err.Error(),
 		})

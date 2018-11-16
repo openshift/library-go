@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -36,13 +36,14 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
-		&operatorv1.OperatorSpec{
-			ManagementState: operatorv1.Managed,
+		&operatorv1alpha1.OperatorSpec{
+			ManagementState: operatorv1alpha1.Managed,
+			Version:         "3.11.1",
 		},
-		&operatorv1.OperatorStatus{},
-		&operatorv1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
-			NodeStatuses: []operatorv1.NodeStatus{
+			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName:                    "test-node-1",
 					CurrentDeploymentGeneration: 0,
@@ -209,13 +210,14 @@ func TestCreateInstallerPod(t *testing.T) {
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
 	fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
-		&operatorv1.OperatorSpec{
-			ManagementState: operatorv1.Managed,
+		&operatorv1alpha1.OperatorSpec{
+			ManagementState: operatorv1alpha1.Managed,
+			Version:         "3.11.1",
 		},
-		&operatorv1.OperatorStatus{},
-		&operatorv1.StaticPodOperatorStatus{
+		&operatorv1alpha1.OperatorStatus{},
+		&operatorv1alpha1.StaticPodOperatorStatus{
 			LatestAvailableDeploymentGeneration: 1,
-			NodeStatuses: []operatorv1.NodeStatus{
+			NodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName:                    "test-node-1",
 					CurrentDeploymentGeneration: 0,
@@ -269,7 +271,7 @@ func TestCreateInstallerPod(t *testing.T) {
 	}
 
 	expectedArgs := []string{
-		"-v=4",
+		"-v=0",
 		"--deployment-id=1",
 		"--namespace=test",
 		"--pod=test-config",
@@ -317,7 +319,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 	tests := []struct {
 		name                                string
-		nodeStatuses                        []operatorv1.NodeStatus
+		nodeStatuses                        []operatorv1alpha1.NodeStatus
 		staticPods                          []*v1.Pod
 		latestAvailableDeploymentGeneration int32
 		expectedUpgradeOrder                []int
@@ -327,7 +329,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		{
 			name: "three fresh nodes",
 			latestAvailableDeploymentGeneration: 1,
-			nodeStatuses: []operatorv1.NodeStatus{
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName: "test-node-0",
 				},
@@ -343,7 +345,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		{
 			name: "three nodes with current deployment, all static pods ready",
 			latestAvailableDeploymentGeneration: 2,
-			nodeStatuses: []operatorv1.NodeStatus{
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName:                    "test-node-0",
 					CurrentDeploymentGeneration: 1,
@@ -367,7 +369,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		{
 			name: "three nodes with current deployment, second static pods unread",
 			latestAvailableDeploymentGeneration: 2,
-			nodeStatuses: []operatorv1.NodeStatus{
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName:                    "test-node-1",
 					CurrentDeploymentGeneration: 1,
@@ -391,7 +393,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		{
 			name: "three nodes with current deployment, 2nd & 3rd static pods unread",
 			latestAvailableDeploymentGeneration: 2,
-			nodeStatuses: []operatorv1.NodeStatus{
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName:                    "test-node-1",
 					CurrentDeploymentGeneration: 1,
@@ -415,7 +417,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		{
 			name: "first update status fails",
 			latestAvailableDeploymentGeneration: 2,
-			nodeStatuses: []operatorv1.NodeStatus{
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
 					NodeName: "test-node-1",
 				},
@@ -482,7 +484,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
 			statusUpdateCount := 0
-			statusUpdateErrorFunc := func(rv string, status *operatorv1.StaticPodOperatorStatus) error {
+			statusUpdateErrorFunc := func(rv string, status *operatorv1alpha1.StaticPodOperatorStatus) error {
 				var err error
 				if statusUpdateCount < len(test.updateStatusErrors) {
 					err = test.updateStatusErrors[statusUpdateCount]
@@ -491,11 +493,12 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				return err
 			}
 			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
+				&operatorv1alpha1.OperatorSpec{
+					ManagementState: operatorv1alpha1.Managed,
+					Version:         "3.11.1",
 				},
-				&operatorv1.OperatorStatus{},
-				&operatorv1.StaticPodOperatorStatus{
+				&operatorv1alpha1.OperatorStatus{},
+				&operatorv1alpha1.StaticPodOperatorStatus{
 					LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
 					NodeStatuses:                        test.nodeStatuses,
 				},
