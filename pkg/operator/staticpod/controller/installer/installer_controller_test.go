@@ -1,7 +1,7 @@
 package installer
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -268,117 +268,227 @@ func TestCreateInstallerPod(t *testing.T) {
 }
 
 func TestCreateInstallerPodMultiNode(t *testing.T) {
+	newStaticPod := func(name string, id int, phase v1.PodPhase, ready bool) *v1.Pod {
+		condStatus := v1.ConditionTrue
+		if !ready {
+			condStatus = v1.ConditionFalse
+		}
+		return &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "test",
+				Labels:    map[string]string{"deployment-id": strconv.Itoa(id)},
+			},
+			Spec: v1.PodSpec{},
+			Status: v1.PodStatus{
+				Conditions: []v1.PodCondition{
+					{
+						Status: condStatus,
+						Type:   v1.PodReady,
+					},
+				},
+				Phase: phase,
+			},
+		}
+	}
+
 	tests := []struct {
 		name                                string
 		nodeStatuses                        []operatorv1alpha1.NodeStatus
+		staticPods                          []*v1.Pod
 		latestAvailableDeploymentGeneration int32
-		evaluateInstallerPods               func(pods map[string]*v1.Pod) error
+		expectedUpgradeOrder                []int
 	}{
 		{
-			name: "three-nodes",
+			name: "three fresh nodes",
 			latestAvailableDeploymentGeneration: 1,
 			nodeStatuses: []operatorv1alpha1.NodeStatus{
+				{
+					NodeName: "test-node-0",
+				},
 				{
 					NodeName: "test-node-1",
 				},
 				{
 					NodeName: "test-node-2",
 				},
+			},
+			expectedUpgradeOrder: []int{0, 1, 2},
+		},
+		{
+			name: "three nodes with current deployment, all static pods ready",
+			latestAvailableDeploymentGeneration: 2,
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
 				{
-					NodeName: "test-node-3",
+					NodeName:                    "test-node-0",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-1",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-2",
+					CurrentDeploymentGeneration: 1,
 				},
 			},
-			evaluateInstallerPods: func(pods map[string]*v1.Pod) error {
-				if len(pods) != 3 {
-					return fmt.Errorf("expected 3 pods, got %d", len(pods))
-				}
-				return nil
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, v1.PodRunning, true),
 			},
+			expectedUpgradeOrder: []int{0, 1, 2},
+		},
+		{
+			name: "three nodes with current deployment, second static pods unread",
+			latestAvailableDeploymentGeneration: 2,
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
+				{
+					NodeName:                    "test-node-1",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-2",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-3",
+					CurrentDeploymentGeneration: 1,
+				},
+			},
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, v1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, v1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+		},
+		{
+			name: "three nodes with current deployment, 2nd & 3rd static pods unread",
+			latestAvailableDeploymentGeneration: 2,
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
+				{
+					NodeName:                    "test-node-1",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-2",
+					CurrentDeploymentGeneration: 1,
+				},
+				{
+					NodeName:                    "test-node-3",
+					CurrentDeploymentGeneration: 1,
+				},
+			},
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, v1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, v1.PodRunning, false),
+			},
+			expectedUpgradeOrder: []int{1, 2, 0},
 		},
 	}
 
 	for _, test := range tests {
-		installerPods := map[string]*v1.Pod{}
-		staticPods := map[string]*v1.Pod{}
+		t.Run(test.name, func(t *testing.T) {
+			createdInstallerPods := []*v1.Pod{}
+			updatedStaticPods := map[string]*v1.Pod{}
 
-		kubeClient := fake.NewSimpleClientset()
-		kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-			createdPod := action.(ktesting.CreateAction).GetObject().(*v1.Pod)
-			// Once the installer pod is created, set its status to succeeded.
-			// Note that in reality, this will probably take couple sync cycles to happen, however it is useful to do this fast
-			// to rule out timing bugs.
-			createdPod.Status.Phase = v1.PodSucceeded
-			installerPods[createdPod.Name] = createdPod
+			installerNodeAndID := func(installerName string) (string, int) {
+				ss := strings.SplitN(strings.TrimPrefix(installerName, "installer-"), "-", 2)
+				id, err := strconv.Atoi(ss[0])
+				if err != nil {
+					t.Fatalf("unexpected id derived from install pod name %q: %v", installerName, err)
+				}
+				return ss[1], id
+			}
 
-			ss := strings.SplitN(strings.TrimPrefix(createdPod.Name, "installer-"), "-", 2)
-			staticPodName := "test-pod-" + ss[1]
-			staticPods[staticPodName] = &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      staticPodName,
-					Namespace: "test",
-					Labels:    map[string]string{"deployment-id": ss[0]},
+			kubeClient := fake.NewSimpleClientset()
+			kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+				createdPod := action.(ktesting.CreateAction).GetObject().(*v1.Pod)
+				// Once the installer pod is created, set its status to succeeded.
+				// Note that in reality, this will probably take couple sync cycles to happen, however it is useful to do this fast
+				// to rule out timing bugs.
+				createdPod.Status.Phase = v1.PodSucceeded
+				createdInstallerPods = append(createdInstallerPods, createdPod)
+
+				nodeName, id := installerNodeAndID(createdPod.Name)
+				staticPodName := mirrorPodNameForNode("test-pod", nodeName)
+
+				updatedStaticPods[staticPodName] = newStaticPod(staticPodName, id, v1.PodRunning, true)
+
+				return false, nil, nil
+			})
+
+			// When newNodeStateForInstallInProgress ask for pod, give it a pod that already succeeded.
+			kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+				podName := action.(ktesting.GetAction).GetName()
+				for i := len(createdInstallerPods) - 1; i >= 0; i-- {
+					pod := createdInstallerPods[i]
+					if pod.Name == podName {
+						return true, pod, nil
+					}
+				}
+				if pod, exists := updatedStaticPods[podName]; exists {
+					if pod == nil {
+						return false, nil, nil
+					}
+					return true, pod, nil
+				}
+				for _, pod := range test.staticPods {
+					if pod.Name == podName {
+						return true, pod, nil
+					}
+				}
+				return false, nil, nil
+			})
+
+			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
+			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+				&operatorv1alpha1.OperatorSpec{
+					ManagementState: operatorv1alpha1.Managed,
+					Version:         "3.11.1",
 				},
-				Spec: v1.PodSpec{},
-				Status: v1.PodStatus{
-					Conditions: []v1.PodCondition{
-						{
-							Status: v1.ConditionTrue,
-							Type:   v1.PodReady,
-						},
-					},
-					Phase: v1.PodRunning,
+				&operatorv1alpha1.OperatorStatus{},
+				&operatorv1alpha1.StaticPodOperatorStatus{
+					LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
+					NodeStatuses:                        test.nodeStatuses,
 				},
+				nil,
+			)
+
+			c := NewInstallerController(
+				"test-"+test.name, "test-pod",
+				[]string{"test-config"},
+				[]string{"test-secret"},
+				[]string{"/bin/true"},
+				kubeInformers,
+				fakeStaticPodOperatorClient,
+				kubeClient,
+			)
+			c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+
+			// Each node need at least 2 syncs to first create the pod and then acknowledge its existence.
+			for i := 1; i <= len(test.nodeStatuses)*2+1; i++ {
+				if err := c.sync(); err != nil {
+					t.Errorf("%s: failed to execute %d sync: %v", test.name, i, err)
+				}
 			}
-			return false, nil, nil
+
+			for i := range test.expectedUpgradeOrder {
+				if i >= len(createdInstallerPods) {
+					t.Fatalf("expected more installer pod in the node order %v", test.expectedUpgradeOrder[i:])
+				}
+
+				nodeName, _ := installerNodeAndID(createdInstallerPods[i].Name)
+				if expected, got := test.nodeStatuses[test.expectedUpgradeOrder[i]].NodeName, nodeName; expected != got {
+					t.Errorf("expected installer pod number %d to be for node %q, but got %q", i, expected, got)
+				}
+			}
+			if len(test.expectedUpgradeOrder) < len(createdInstallerPods) {
+				t.Errorf("too many installer pods created: %#v", createdInstallerPods[len(test.expectedUpgradeOrder):])
+			}
 		})
-
-		// When newNodeStateForInstallInProgress ask for pod, give it a pod that already succeeded.
-		kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-			podName := action.(ktesting.GetAction).GetName()
-			if pod, exists := installerPods[podName]; exists {
-				return true, pod, nil
-			}
-			if pod, exists := staticPods[podName]; exists {
-				return true, pod, nil
-			}
-			return false, nil, nil
-		})
-
-		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
-		fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
-			&operatorv1alpha1.OperatorSpec{
-				ManagementState: operatorv1alpha1.Managed,
-				Version:         "3.11.1",
-			},
-			&operatorv1alpha1.OperatorStatus{},
-			&operatorv1alpha1.StaticPodOperatorStatus{
-				LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
-				NodeStatuses:                        test.nodeStatuses,
-			},
-			nil,
-		)
-
-		c := NewInstallerController(
-			"test-"+test.name, "test-pod",
-			[]string{"test-config"},
-			[]string{"test-secret"},
-			[]string{"/bin/true"},
-			kubeInformers,
-			fakeStaticPodOperatorClient,
-			kubeClient,
-		)
-		c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
-
-		// Each node need at least 2 syncs to first create the pod and then acknowledge its existence...
-		for i := 1; i <= len(test.nodeStatuses)*2; i++ {
-			if err := c.sync(); err != nil {
-				t.Errorf("%s: failed to execute %d sync: %v", test.name, i, err)
-			}
-		}
-
-		if err := test.evaluateInstallerPods(installerPods); err != nil {
-			t.Errorf("%s: installer pods failed evaluation: %v", test.name, err)
-		}
 	}
 
 }
