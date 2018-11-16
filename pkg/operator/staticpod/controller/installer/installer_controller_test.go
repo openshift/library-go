@@ -1,12 +1,14 @@
 package installer
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -298,6 +300,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		staticPods                          []*v1.Pod
 		latestAvailableDeploymentGeneration int32
 		expectedUpgradeOrder                []int
+		expectedSyncError                   []bool
+		updateStatusErrors                  []error
 	}{
 		{
 			name: "three fresh nodes",
@@ -387,6 +391,18 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			},
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
+		{
+			name: "first update status fails",
+			latestAvailableDeploymentGeneration: 2,
+			nodeStatuses: []operatorv1alpha1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+				},
+			},
+			expectedUpgradeOrder: []int{0},
+			updateStatusErrors:   []error{errors.NewInternalError(fmt.Errorf("unknown"))},
+			expectedSyncError:    []bool{true},
+		},
 	}
 
 	for _, test := range tests {
@@ -444,6 +460,15 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			})
 
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
+			statusUpdateCount := 0
+			statusUpdateErrorFunc := func(rv string, status *operatorv1alpha1.StaticPodOperatorStatus) error {
+				var err error
+				if statusUpdateCount < len(test.updateStatusErrors) {
+					err = test.updateStatusErrors[statusUpdateCount]
+				}
+				statusUpdateCount++
+				return err
+			}
 			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
 				&operatorv1alpha1.OperatorSpec{
 					ManagementState: operatorv1alpha1.Managed,
@@ -454,7 +479,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					LatestAvailableDeploymentGeneration: test.latestAvailableDeploymentGeneration,
 					NodeStatuses:                        test.nodeStatuses,
 				},
-				nil,
+				statusUpdateErrorFunc,
 			)
 
 			c := NewInstallerController(
@@ -470,8 +495,15 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 			// Each node need at least 2 syncs to first create the pod and then acknowledge its existence.
 			for i := 1; i <= len(test.nodeStatuses)*2+1; i++ {
-				if err := c.sync(); err != nil {
-					t.Errorf("%s: failed to execute %d sync: %v", test.name, i, err)
+				err := c.sync()
+				expectedErr := false
+				if i-1 < len(test.expectedSyncError) && test.expectedSyncError[i-1] {
+					expectedErr = true
+				}
+				if err != nil && !expectedErr {
+					t.Errorf("failed to execute %d sync: %v", i, err)
+				} else if err == nil && expectedErr {
+					t.Errorf("expected sync error in sync %d, but got nil", i)
 				}
 			}
 
