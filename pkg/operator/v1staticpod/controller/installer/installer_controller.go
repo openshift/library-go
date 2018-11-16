@@ -251,26 +251,59 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 	if err != nil {
 		return nil, err
 	}
+
+	failed := false
+	errors := []string{}
+
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		ret.CurrentDeploymentGeneration = currNodeState.TargetDeploymentGeneration
-		ret.TargetDeploymentGeneration = 0
-		ret.LastFailedDeploymentGeneration = 0
-		ret.LastFailedDeploymentErrors = nil
-	case corev1.PodFailed:
-		ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
-		ret.TargetDeploymentGeneration = 0
+		if newDeploymentPending {
+			// stop early, don't wait for ready static pod because a new deployment is waiting
+			failed = true
+			errors = append(errors, "static pod has been installed, but is not ready while new deployment is pending")
+			break
+		}
 
-		errors := []string{}
+		state, deploymentID, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
+		if err != nil {
+			return nil, err
+		}
+
+		if deploymentID != strconv.Itoa(int(currNodeState.TargetDeploymentGeneration)) {
+			// new updated pod to be launched
+			break
+		}
+
+		switch state {
+		case staticPodStateFailed:
+			failed = true
+			errors = failedErrors
+
+		case staticPodStateReady:
+			ret.CurrentDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+			ret.TargetDeploymentGeneration = 0
+			ret.LastFailedDeploymentGeneration = 0
+			ret.LastFailedDeploymentErrors = nil
+			return ret, nil
+		}
+
+	case corev1.PodFailed:
+		failed = true
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) > 0 {
 				errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
 			}
 		}
+	}
+
+	if failed {
+		ret.LastFailedDeploymentGeneration = currNodeState.TargetDeploymentGeneration
+		ret.TargetDeploymentGeneration = 0
 		if len(errors) == 0 {
 			errors = append(errors, "no detailed termination message, see `oc get -n %q pods/%q -oyaml`", installerPod.Namespace, installerPod.Name)
 		}
 		ret.LastFailedDeploymentErrors = errors
+		return ret, nil
 	}
 
 	return ret, nil
