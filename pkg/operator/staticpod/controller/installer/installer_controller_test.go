@@ -2,10 +2,12 @@ package installer
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
@@ -50,7 +52,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	)
 
 	c := NewInstallerController(
-		"test",
+		"test", "test-pod",
 		[]string{"test-config"},
 		[]string{"test-secret"},
 		[]string{"/bin/true"},
@@ -80,10 +82,50 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		t.Fatalf("was not expecting to create new installer pod")
 	}
 
+	t.Log("installer succeeded")
 	installerPod.Status.Phase = v1.PodSucceeded
-	kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, installerPod, nil
-	})
+	staticPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod-test-node-1",
+			Namespace: "test",
+			Labels:    map[string]string{"deployment-id": "1"},
+		},
+		Spec: v1.PodSpec{},
+		Status: v1.PodStatus{
+			Conditions: []v1.PodCondition{
+				{
+					Status: v1.ConditionFalse,
+					Type:   v1.PodReady,
+				},
+			},
+			Phase: v1.PodRunning,
+		},
+	}
+	kubeClient.PrependReactor("get", "pods", getPodsReactor(installerPod))
+
+	if err := c.sync(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	if generation := currStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 0 {
+		t.Errorf("expected current deployment generation for node to be 0, got %d", generation)
+	}
+
+	t.Log("static pod launched, but is not ready")
+	kubeClient.PrependReactor("get", "pods", getPodsReactor(staticPod))
+
+	if err := c.sync(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	if generation := currStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 0 {
+		t.Errorf("expected current deployment generation for node to be 0, got %d", generation)
+	}
+
+	t.Log("static pod is ready")
+	staticPod.Status.Conditions[0].Status = v1.ConditionTrue
 
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
@@ -100,6 +142,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	currStatus.NodeStatuses[0].CurrentDeploymentGeneration = 1
 	fakeStaticPodOperatorClient.UpdateStatus("1", currStatus)
 
+	installerPod.Name = "installer-2-test-node-1"
 	installerPod.Status.Phase = v1.PodFailed
 	installerPod.Status.ContainerStatuses = []v1.ContainerStatus{
 		{
@@ -124,6 +167,18 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		}
 	} else {
 		t.Errorf("expected errors to be not empty")
+	}
+}
+
+func getPodsReactor(pods ...*v1.Pod) ktesting.ReactionFunc {
+	return func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		podName := action.(ktesting.GetAction).GetName()
+		for _, p := range pods {
+			if p.Namespace == action.GetNamespace() && p.Name == podName {
+				return true, p, nil
+			}
+		}
+		return false, nil, nil
 	}
 }
 
@@ -157,7 +212,7 @@ func TestCreateInstallerPod(t *testing.T) {
 	)
 
 	c := NewInstallerController(
-		"test",
+		"test", "test-pod",
 		[]string{"test-config"},
 		[]string{"test-secret"},
 		[]string{"/bin/true"},
@@ -244,6 +299,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 	for _, test := range tests {
 		installerPods := map[string]*v1.Pod{}
+		staticPods := map[string]*v1.Pod{}
 
 		kubeClient := fake.NewSimpleClientset()
 		kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -253,17 +309,39 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			// to rule out timing bugs.
 			createdPod.Status.Phase = v1.PodSucceeded
 			installerPods[createdPod.Name] = createdPod
+
+			ss := strings.SplitN(strings.TrimPrefix(createdPod.Name, "installer-"), "-", 2)
+			staticPodName := "test-pod-" + ss[1]
+			staticPods[staticPodName] = &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      staticPodName,
+					Namespace: "test",
+					Labels:    map[string]string{"deployment-id": ss[0]},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Conditions: []v1.PodCondition{
+						{
+							Status: v1.ConditionTrue,
+							Type:   v1.PodReady,
+						},
+					},
+					Phase: v1.PodRunning,
+				},
+			}
 			return false, nil, nil
 		})
 
 		// When newNodeStateForInstallInProgress ask for pod, give it a pod that already succeeded.
 		kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			podName := action.(ktesting.GetAction).GetName()
-			pod, exists := installerPods[podName]
-			if !exists {
-				return false, nil, nil
+			if pod, exists := installerPods[podName]; exists {
+				return true, pod, nil
 			}
-			return true, pod, nil
+			if pod, exists := staticPods[podName]; exists {
+				return true, pod, nil
+			}
+			return false, nil, nil
 		})
 
 		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test-"+test.name))
@@ -281,7 +359,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		)
 
 		c := NewInstallerController(
-			"test-"+test.name,
+			"test-"+test.name, "test-pod",
 			[]string{"test-config"},
 			[]string{"test-secret"},
 			[]string{"/bin/true"},
