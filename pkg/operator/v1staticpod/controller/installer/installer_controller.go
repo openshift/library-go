@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -22,14 +23,14 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	v1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
 )
 
 const installerControllerWorkQueueKey = "key"
 
 type InstallerController struct {
-	targetNamespace string
+	targetNamespace, staticPodName string
 	// configMaps is the list of configmaps that are directly copied.A different actor/controller modifies these.
 	// the first element should be the configmap that contains the static pod manifest
 	configMaps []string
@@ -49,8 +50,22 @@ type InstallerController struct {
 	installerPodImageFn func() string
 }
 
+// staticPodState is the status of a static pod that has been installed to a node.
+type staticPodState int
+
+const (
+	// staticPodStatePending means that the installed static pod is not up yet.
+	staticPodStatePending = staticPodState(iota)
+	// staticPodStateReady means that the installed static pod is ready.
+	staticPodStateReady
+	// staticPodStateFailed means that the static pod installation of a node has failed.
+	staticPodStateFailed
+)
+
+const deploymentIDLabel = "deployment-id"
+
 func NewInstallerController(
-	targetNamespace string,
+	targetNamespace, staticPodName string,
 	configMaps []string,
 	secrets []string,
 	command []string,
@@ -60,6 +75,7 @@ func NewInstallerController(
 ) *InstallerController {
 	c := &InstallerController{
 		targetNamespace: targetNamespace,
+		staticPodName:   staticPodName,
 		configMaps:      configMaps,
 		secrets:         secrets,
 		command:         command,
@@ -78,23 +94,92 @@ func NewInstallerController(
 	return c
 }
 
-// createInstallerController_v311_00_to_latest takes care of creating content for the static pods to deploy.
+func (c *InstallerController) getStaticPodState(nodeName string) (state staticPodState, deploymentID string, errors []string, err error) {
+	pod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(mirrorPodNameForNode(c.staticPodName, nodeName), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return staticPodStatePending, "", nil, nil
+		}
+		return staticPodStatePending, "", nil, err
+	}
+	switch pod.Status.Phase {
+	case corev1.PodRunning, corev1.PodSucceeded:
+		for _, c := range pod.Status.Conditions {
+			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+				return staticPodStateReady, pod.Labels[deploymentIDLabel], nil, nil
+			}
+		}
+	case corev1.PodFailed:
+		return staticPodStateFailed, pod.Labels[deploymentIDLabel], []string{pod.Status.Message}, nil
+	}
+
+	return staticPodStatePending, "", nil, nil
+}
+
+func (c *InstallerController) nodeToStartDeploymentWith(nodes []operatorv1.NodeStatus) (int, error) {
+	// find upgrading node as this will be the first to start new deployment (to minimize number of down nodes)
+	startNode := 0
+	foundUpgradingNode := false
+	for i := range nodes {
+		if nodes[i].TargetDeploymentGeneration != 0 {
+			startNode = i
+			foundUpgradingNode = true
+			break
+		}
+	}
+
+	// otherwise try to find a node that is not ready regarding its currently reported deployment id
+	if !foundUpgradingNode {
+		for i := range nodes {
+			currNodeState := &nodes[i]
+			state, deploymentID, _, err := c.getStaticPodState(currNodeState.NodeName)
+			if err != nil {
+				return 0, err
+			}
+			if state != staticPodStateReady || deploymentID != strconv.Itoa(int(currNodeState.CurrentDeploymentGeneration)) {
+				startNode = i
+				break
+			}
+		}
+	}
+
+	return startNode, nil
+}
+
+// createInstallerController takes care of creating content for the static pods to deploy.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
 func (c *InstallerController) createInstallerController(operatorSpec *operatorv1.OperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
-	for i := range operatorStatus.NodeStatuses {
+	if len(operatorStatus.NodeStatuses) == 0 {
+		return false, nil
+	}
+
+	// start with node which is in worst state (instead of terminating healthy pods first)
+	startNode, err := c.nodeToStartDeploymentWith(operatorStatus.NodeStatuses)
+	if err != nil {
+		return true, err
+	}
+
+	for l := 0; l < len(operatorStatus.NodeStatuses); l++ {
+		i := (startNode + l) % len(operatorStatus.NodeStatuses)
+
 		var currNodeState *operatorv1.NodeStatus
 		var prevNodeState *operatorv1.NodeStatus
 		currNodeState = &operatorStatus.NodeStatuses[i]
-		if i > 0 {
-			prevNodeState = &operatorStatus.NodeStatuses[i-1]
+		if l > 0 {
+			prev := (startNode + l - 1) % len(operatorStatus.NodeStatuses)
+			prevNodeState = &operatorStatus.NodeStatuses[prev]
 		}
 
 		// if we are in a transition, check to see if our installer pod completed
 		if currNodeState.TargetDeploymentGeneration > currNodeState.CurrentDeploymentGeneration {
-			// TODO check to see if our installer pod completed.  Success or failure there indicates whether we should be failed.
-			newCurrNodeState, err := c.newNodeStateForInstallInProgress(currNodeState)
+			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetDeploymentGeneration); err != nil {
+				return true, err
+			}
+
+			pendingNewDeployment := operatorStatus.LatestAvailableDeploymentGeneration > currNodeState.TargetDeploymentGeneration
+			newCurrNodeState, err := c.newNodeStateForInstallInProgress(currNodeState, pendingNewDeployment)
 			if err != nil {
 				return true, err
 			}
@@ -108,10 +193,10 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 					_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 					return false, updateError
 				}
-
 			} else {
 				glog.V(2).Infof("%q is in transition to %d, but has not made progress", currNodeState.NodeName, currNodeState.TargetDeploymentGeneration)
 			}
+
 			break
 		}
 
@@ -122,11 +207,10 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 		}
 		glog.Infof("%q needs to deploy to %d", currNodeState.NodeName, deploymentIDToStart)
 
-		// we need to start a deployment create a pod that will lay down the static pod resources
-		newCurrNodeState, err := c.createInstallerPod(currNodeState, operatorSpec, deploymentIDToStart)
-		if err != nil {
-			return true, err
-		}
+		newCurrNodeState := currNodeState.DeepCopy()
+		newCurrNodeState.TargetDeploymentGeneration = deploymentIDToStart
+		newCurrNodeState.LastFailedDeploymentErrors = nil
+
 		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
@@ -155,7 +239,7 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState or error
-func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus) (*operatorv1.NodeStatus, error) {
+func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, newDeploymentPending bool) (*operatorv1.NodeStatus, error) {
 	ret := currNodeState.DeepCopy()
 	installerPod, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetDeploymentGeneration, currNodeState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -222,12 +306,12 @@ func getInstallerPodName(deploymentID int32, nodeName string) string {
 	return fmt.Sprintf("installer-%d-%s", deploymentID, nodeName)
 }
 
-// createInstallerPod creates the installer pod with the secrets required to
-func (c *InstallerController) createInstallerPod(currNodeState *operatorv1.NodeStatus, operatorSpec *operatorv1.OperatorSpec, deploymentID int32) (*operatorv1.NodeStatus, error) {
+// ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.OperatorSpec, deploymentID int32) error {
 	required := resourceread.ReadPodV1OrDie([]byte(installerPod))
-	required.Name = getInstallerPodName(deploymentID, currNodeState.NodeName)
+	required.Name = getInstallerPodName(deploymentID, nodeName)
 	required.Namespace = c.targetNamespace
-	required.Spec.NodeName = currNodeState.NodeName
+	required.Spec.NodeName = nodeName
 	required.Spec.Containers[0].Image = c.installerPodImageFn()
 	required.Spec.Containers[0].Command = c.command
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
@@ -245,16 +329,12 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1.NodeS
 		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--secrets=%s", name))
 	}
 
-	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil {
-		glog.Errorf("failed to create pod on node %q for %s: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required), err)
-		return nil, err
+	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil && !apierrors.IsAlreadyExists(err) {
+		glog.Errorf("failed to create pod on node %q for %s: %v", nodeName, resourceread.WritePodV1OrDie(required), err)
+		return err
 	}
 
-	ret := currNodeState.DeepCopy()
-	ret.TargetDeploymentGeneration = deploymentID
-	ret.LastFailedDeploymentErrors = nil
-
-	return ret, nil
+	return nil
 }
 
 func getInstallerPodImageFromEnv() string {
@@ -344,6 +424,10 @@ func (c *InstallerController) eventHandler() cache.ResourceEventHandler {
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(installerControllerWorkQueueKey) },
 		DeleteFunc: func(obj interface{}) { c.queue.Add(installerControllerWorkQueueKey) },
 	}
+}
+
+func mirrorPodNameForNode(staticPodName, nodeName string) string {
+	return staticPodName + "-" + nodeName
 }
 
 const installerPod = `apiVersion: v1
