@@ -23,6 +23,8 @@ import (
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 
+	t.Fatal("fail")
+
 	var installerPod *v1.Pod
 
 	kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
