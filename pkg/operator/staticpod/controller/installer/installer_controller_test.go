@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
@@ -22,15 +23,15 @@ import (
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 
-	var (
-		installerPod   *v1.Pod
-		createPodCount int
-	)
+	var installerPod *v1.Pod
 
 	kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		if installerPod != nil {
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "pods"}, installerPod.Name)
+		}
 		installerPod = action.(ktesting.CreateAction).GetObject().(*v1.Pod)
-		createPodCount += 1
-		return false, nil, nil
+		kubeClient.PrependReactor("get", "pods", getPodsReactor(installerPod))
+		return true, installerPod, nil
 	})
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
@@ -64,28 +65,54 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	)
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
+	t.Log("setting target deployment")
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
 	}
 
+	if installerPod != nil {
+		t.Fatalf("not expected to create installer pod yet")
+	}
+
+	_, currStatus, _, _ := fakeStaticPodOperatorClient.Get()
+	if currStatus.NodeStatuses[0].TargetDeploymentGeneration != 1 {
+		t.Fatalf("expected target deployment generation 1, got: %d", currStatus.NodeStatuses[0].TargetDeploymentGeneration)
+	}
+
+	t.Log("starting installer pod")
+
+	if err := c.sync(); err != nil {
+		t.Fatal(err)
+	}
 	if installerPod == nil {
 		t.Fatalf("expected to create installer pod")
 	}
 
-	_, currStatus, _, _ := fakeStaticPodOperatorClient.Get()
-	currStatus.NodeStatuses[0].TargetDeploymentGeneration = 1
-	fakeStaticPodOperatorClient.UpdateStatus("1", currStatus)
+	t.Log("synching again, nothing happens")
+	if err := c.sync(); err != nil {
+		t.Fatal(err)
+	}
+
+	if currStatus.NodeStatuses[0].TargetDeploymentGeneration != 1 {
+		t.Fatalf("expected target deployment generation 1, got: %d", currStatus.NodeStatuses[0].TargetDeploymentGeneration)
+	}
+	if currStatus.NodeStatuses[0].CurrentDeploymentGeneration != 0 {
+		t.Fatalf("expected current deployment generation 0, got: %d", currStatus.NodeStatuses[0].CurrentDeploymentGeneration)
+	}
+
+	t.Log("installer succeeded")
+	installerPod.Status.Phase = v1.PodSucceeded
 
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
 	}
 
-	if createPodCount != 1 {
-		t.Fatalf("was not expecting to create new installer pod")
+	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
+	if generation := currStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 0 {
+		t.Errorf("expected current deployment generation for node to be 0, got %d", generation)
 	}
 
-	t.Log("installer succeeded")
-	installerPod.Status.Phase = v1.PodSucceeded
+	t.Log("static pod launched, but is not ready")
 	staticPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod-test-node-1",
@@ -103,18 +130,6 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			Phase: v1.PodRunning,
 		},
 	}
-	kubeClient.PrependReactor("get", "pods", getPodsReactor(installerPod))
-
-	if err := c.sync(); err != nil {
-		t.Fatal(err)
-	}
-
-	_, currStatus, _, _ = fakeStaticPodOperatorClient.Get()
-	if generation := currStatus.NodeStatuses[0].CurrentDeploymentGeneration; generation != 0 {
-		t.Errorf("expected current deployment generation for node to be 0, got %d", generation)
-	}
-
-	t.Log("static pod launched, but is not ready")
 	kubeClient.PrependReactor("get", "pods", getPodsReactor(staticPod))
 
 	if err := c.sync(); err != nil {
@@ -223,6 +238,14 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient,
 	)
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+	if err := c.sync(); err != nil {
+		t.Fatal(err)
+	}
+
+	if installerPod != nil {
+		t.Fatalf("expected first sync not to create installer pod")
+	}
+
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
 	}

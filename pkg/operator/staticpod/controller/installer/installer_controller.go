@@ -174,6 +174,10 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 
 		// if we are in a transition, check to see if our installer pod completed
 		if currNodeState.TargetDeploymentGeneration > currNodeState.CurrentDeploymentGeneration {
+			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetDeploymentGeneration); err != nil {
+				return true, err
+			}
+
 			pendingNewDeployment := operatorStatus.LatestAvailableDeploymentGeneration > currNodeState.TargetDeploymentGeneration
 			newCurrNodeState, err := c.newNodeStateForInstallInProgress(currNodeState, pendingNewDeployment)
 			if err != nil {
@@ -203,11 +207,10 @@ func (c *InstallerController) createInstallerController(operatorSpec *operatorv1
 		}
 		glog.Infof("%q needs to deploy to %d", currNodeState.NodeName, deploymentIDToStart)
 
-		// we need to start a deployment create a pod that will lay down the static pod resources
-		newCurrNodeState, err := c.createInstallerPod(currNodeState, operatorSpec, deploymentIDToStart)
-		if err != nil {
-			return true, err
-		}
+		newCurrNodeState := currNodeState.DeepCopy()
+		newCurrNodeState.TargetDeploymentGeneration = deploymentIDToStart
+		newCurrNodeState.LastFailedDeploymentErrors = nil
+
 		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
@@ -336,19 +339,19 @@ func getInstallerPodName(deploymentID int32, nodeName string) string {
 	return fmt.Sprintf("installer-%d-%s", deploymentID, nodeName)
 }
 
-// createInstallerPod creates the installer pod with the secrets required to
-func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1.NodeStatus, operatorSpec *operatorv1alpha1.OperatorSpec, deploymentID int32) (*operatorv1alpha1.NodeStatus, error) {
+// ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1alpha1.OperatorSpec, deploymentID int32) error {
 	required := resourceread.ReadPodV1OrDie([]byte(installerPod))
 	switch corev1.PullPolicy(operatorSpec.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
 		required.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(operatorSpec.ImagePullPolicy)
 	case "":
 	default:
-		return nil, fmt.Errorf("invalid imagePullPolicy specified: %v", operatorSpec.ImagePullPolicy)
+		return fmt.Errorf("invalid imagePullPolicy specified: %v", operatorSpec.ImagePullPolicy)
 	}
-	required.Name = getInstallerPodName(deploymentID, currNodeState.NodeName)
+	required.Name = getInstallerPodName(deploymentID, nodeName)
 	required.Namespace = c.targetNamespace
-	required.Spec.NodeName = currNodeState.NodeName
+	required.Spec.NodeName = nodeName
 	required.Spec.Containers[0].Image = c.installerPodImageFn()
 	required.Spec.Containers[0].Command = c.command
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
@@ -366,16 +369,12 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--secrets=%s", name))
 	}
 
-	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil {
-		glog.Errorf("failed to create pod on node %q for %s: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required), err)
-		return nil, err
+	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil && !apierrors.IsAlreadyExists(err) {
+		glog.Errorf("failed to create pod on node %q for %s: %v", nodeName, resourceread.WritePodV1OrDie(required), err)
+		return err
 	}
 
-	ret := currNodeState.DeepCopy()
-	ret.TargetDeploymentGeneration = deploymentID
-	ret.LastFailedDeploymentErrors = nil
-
-	return ret, nil
+	return nil
 }
 
 func getInstallerPodImageFromEnv() string {
