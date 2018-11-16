@@ -56,7 +56,7 @@ func (fakeSharedIndexInformer) GetIndexer() cache.Indexer {
 
 // NewFakeStaticPodOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
 func NewFakeStaticPodOperatorClient(spec *operatorv1alpha1.OperatorSpec, status *operatorv1alpha1.OperatorStatus,
-	staticPodStatus *operatorv1alpha1.StaticPodOperatorStatus, triggerErr error) OperatorClient {
+	staticPodStatus *operatorv1alpha1.StaticPodOperatorStatus, triggerErr func(rv string, status *operatorv1alpha1.StaticPodOperatorStatus) error) OperatorClient {
 	return &fakeStaticPodOperatorClient{
 		fakeOperatorSpec:            spec,
 		fakeOperatorStatus:          status,
@@ -71,7 +71,7 @@ type fakeStaticPodOperatorClient struct {
 	fakeOperatorStatus          *operatorv1alpha1.OperatorStatus
 	fakeStaticPodOperatorStatus *operatorv1alpha1.StaticPodOperatorStatus
 	resourceVersion             string
-	triggerStatusUpdateError    error
+	triggerStatusUpdateError    func(rv string, status *operatorv1alpha1.StaticPodOperatorStatus) error
 }
 
 func (c *fakeStaticPodOperatorClient) Informer() cache.SharedIndexInformer {
@@ -84,10 +84,12 @@ func (c *fakeStaticPodOperatorClient) Get() (*operatorv1alpha1.OperatorSpec, *op
 
 func (c *fakeStaticPodOperatorClient) UpdateStatus(resourceVersion string, status *operatorv1alpha1.StaticPodOperatorStatus) (*operatorv1alpha1.StaticPodOperatorStatus, error) {
 	c.resourceVersion = resourceVersion
-	c.fakeStaticPodOperatorStatus = status
 	if c.triggerStatusUpdateError != nil {
-		return nil, c.triggerStatusUpdateError
+		if err := c.triggerStatusUpdateError(resourceVersion, status); err != nil {
+			return nil, err
+		}
 	}
+	c.fakeStaticPodOperatorStatus = status
 	return c.fakeStaticPodOperatorStatus, nil
 }
 
