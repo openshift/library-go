@@ -18,11 +18,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
 )
 
 const deploymentControllerWorkQueueKey = "key"
@@ -71,7 +71,7 @@ func NewDeploymentController(
 
 // createDeploymentController takes care of creating content for the static pods to deploy.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c DeploymentController) createDeploymentController(operatorSpec *operatorv1.OperatorSpec, operatorStatusOriginal *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
+func (c DeploymentController) createDeploymentController(operatorSpec *operatorv1alpha1.OperatorSpec, operatorStatusOriginal *operatorv1alpha1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := operatorStatusOriginal.DeepCopy()
 
 	latestDeploymentID := operatorStatus.LatestAvailableDeploymentGeneration
@@ -85,9 +85,9 @@ func (c DeploymentController) createDeploymentController(operatorSpec *operatorv
 	nextDeploymentID := latestDeploymentID + 1
 	glog.Infof("new deployment %d triggered by %q", nextDeploymentID, reason)
 	if err := c.createNewDeploymentController(nextDeploymentID); err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
+		v1alpha1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1alpha1.OperatorCondition{
 			Type:    "DeploymentControllerFailing",
-			Status:  operatorv1.ConditionTrue,
+			Status:  operatorv1alpha1.ConditionTrue,
 			Reason:  "ContentCreationError",
 			Message: err.Error(),
 		})
@@ -98,9 +98,9 @@ func (c DeploymentController) createDeploymentController(operatorSpec *operatorv
 		return true, nil
 	}
 
-	v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
+	v1alpha1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1alpha1.OperatorCondition{
 		Type:   "DeploymentControllerFailing",
-		Status: operatorv1.ConditionFalse,
+		Status: operatorv1alpha1.ConditionFalse,
 	})
 	operatorStatus.LatestAvailableDeploymentGeneration = nextDeploymentID
 	if !reflect.DeepEqual(operatorStatusOriginal, operatorStatus) {
@@ -180,9 +180,9 @@ func (c DeploymentController) sync() error {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	switch operatorSpec.ManagementState {
-	case operatorv1.Unmanaged:
+	case operatorv1alpha1.Unmanaged:
 		return nil
-	case operatorv1.Removed:
+	case operatorv1alpha1.Removed:
 		// TODO probably just fail.  Static pod managers can't be removed.
 		return nil
 	}
@@ -194,9 +194,9 @@ func (c DeploymentController) sync() error {
 	err = syncErr
 
 	if err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeFailing,
-			Status:  operatorv1.ConditionTrue,
+		v1alpha1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1alpha1.OperatorCondition{
+			Type:    operatorv1alpha1.OperatorStatusTypeFailing,
+			Status:  operatorv1alpha1.ConditionTrue,
 			Reason:  "StatusUpdateError",
 			Message: err.Error(),
 		})

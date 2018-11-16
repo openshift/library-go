@@ -1,14 +1,14 @@
-package staticpod
+package v1alpha1staticpod
 
 import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/backingresource"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/deployment"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/installer"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/node"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/backingresource"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/deployment"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/installer"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/node"
 )
 
 type staticPodOperatorControllers struct {
@@ -43,6 +43,7 @@ func NewControllers(targetNamespaceName, staticPodName string, command, deployme
 	controller.installerController = installer.NewInstallerController(
 		targetNamespaceName,
 		staticPodName,
+
 		deploymentConfigMaps,
 		deploymentSecrets,
 		command,

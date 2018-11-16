@@ -20,15 +20,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	v1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 var workQueueKey = "instance"
 
 type OperatorStatusProvider interface {
 	Informer() cache.SharedIndexInformer
-	CurrentStatus() (operatorv1alpha1.OperatorStatus, error)
+	CurrentStatus() (operatorv1.OperatorStatus, error)
 }
 
 type StatusSyncer struct {
@@ -92,31 +92,22 @@ func (c StatusSyncer) sync() error {
 	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorNamespace, "metadata", "namespace")
 	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorName, "metadata", "name")
 
-	errorMessages := []string{}
-	if currentDetailedStatus.TargetAvailability != nil {
-		errorMessages = append(errorMessages, currentDetailedStatus.TargetAvailability.Errors...)
-	}
-	if currentDetailedStatus.CurrentAvailability != nil {
-		unstructured.SetNestedField(operatorConfig.Object, currentDetailedStatus.CurrentAvailability.Version, "status", "version")
-		errorMessages = append(errorMessages, currentDetailedStatus.CurrentAvailability.Errors...)
-	}
-
 	conditions := []interface{}{}
-	availableCondition, err := OperatorConditionToClusterOperatorCondition(v1alpha1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1alpha1.OperatorStatusTypeAvailable))
+	availableCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeAvailable))
 	if err != nil {
 		return err
 	}
 	if availableCondition != nil {
 		conditions = append(conditions, availableCondition)
 	}
-	failingCondition, err := OperatorConditionToClusterOperatorCondition(v1alpha1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1alpha1.OperatorStatusTypeFailing))
+	failingCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeFailing))
 	if err != nil {
 		return err
 	}
 	if failingCondition != nil {
 		conditions = append(conditions, failingCondition)
 	}
-	progressingCondition, err := OperatorConditionToClusterOperatorCondition(v1alpha1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1alpha1.OperatorStatusTypeProgressing))
+	progressingCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeProgressing))
 	if err != nil {
 		return err
 	}
@@ -154,7 +145,7 @@ func (c StatusSyncer) sync() error {
 	return nil
 }
 
-func OperatorConditionToClusterOperatorCondition(condition *operatorv1alpha1.OperatorCondition) (map[string]interface{}, error) {
+func OperatorConditionToClusterOperatorCondition(condition *operatorv1.OperatorCondition) (map[string]interface{}, error) {
 	if condition == nil {
 		return nil, nil
 	}

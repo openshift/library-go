@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
 )
 
 const nodeControllerWorkQueueKey = "key"
@@ -67,7 +67,7 @@ func (c NodeController) sync() error {
 		return err
 	}
 
-	newTargetNodeStates := []operatorv1.NodeStatus{}
+	newTargetNodeStates := []operatorv1alpha1.NodeStatus{}
 	// remove entries for missing nodes
 	for i, nodeState := range originalOperatorStatus.NodeStatuses {
 		found := false
@@ -93,7 +93,7 @@ func (c NodeController) sync() error {
 			continue
 		}
 
-		newTargetNodeStates = append(newTargetNodeStates, operatorv1.NodeStatus{NodeName: node.Name})
+		newTargetNodeStates = append(newTargetNodeStates, operatorv1alpha1.NodeStatus{NodeName: node.Name})
 	}
 	operatorStatus.NodeStatuses = newTargetNodeStates
 
