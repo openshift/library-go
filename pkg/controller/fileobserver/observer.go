@@ -2,6 +2,7 @@ package fileobserver
 
 import (
 	"os"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -35,6 +36,10 @@ var ExitOnChangeReactor reactorFn = func(filename string, action ActionType) err
 	return nil
 }
 
-// NewObserver provides a platform specific file observer controller capable of observing changes to reactors on disk and reacting to those
-// changes.
-var NewObserver func() (Observer, error)
+func NewObserver(interval time.Duration) (Observer, error) {
+	return &pollingObserver{
+		interval: interval,
+		reactors: map[string][]reactorFn{},
+		files:    map[string]string{},
+	}, nil
+}
