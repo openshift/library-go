@@ -28,11 +28,34 @@ func ApplyStorageClass(client storageclientv1.StorageClassesGetter, required *st
 		return existing, false, nil
 	}
 
-	objectMeta := existing.ObjectMeta.DeepCopy()
-	existing = required.DeepCopy()
-	existing.ObjectMeta = *objectMeta
+	// Provisioner, Parameters, ReclaimPolicy, and VolumeBindingMode are immutable
+	recreate := resourcemerge.BoolPtr(false)
+	resourcemerge.SetStringIfSet(recreate, &existing.Provisioner, required.Provisioner)
+	resourcemerge.SetMapStringStringIfSet(recreate, &existing.Parameters, required.Parameters)
+	if required.ReclaimPolicy != nil && !equality.Semantic.DeepEqual(existing.ReclaimPolicy, required.ReclaimPolicy) {
+		existing.ReclaimPolicy = required.ReclaimPolicy
+		*recreate = true
+	}
+	resourcemerge.SetStringSliceIfSet(modified, &existing.MountOptions, required.MountOptions)
+	if required.AllowVolumeExpansion != nil && !equality.Semantic.DeepEqual(existing.AllowVolumeExpansion, required.AllowVolumeExpansion) {
+		existing.AllowVolumeExpansion = required.AllowVolumeExpansion
+	}
+	if required.VolumeBindingMode != nil && !equality.Semantic.DeepEqual(existing.VolumeBindingMode, required.VolumeBindingMode) {
+		existing.VolumeBindingMode = required.VolumeBindingMode
+		*recreate = true
+	}
+	if required.AllowedTopologies != nil && !equality.Semantic.DeepEqual(existing.AllowedTopologies, required.AllowedTopologies) {
+		existing.AllowedTopologies = required.AllowedTopologies
+	}
 
-	// TODO if provisioner, parameters, reclaimpolicy, or volumebindingmode are different, update will fail so delete and recreate
+	if *recreate {
+		err := client.StorageClasses().Delete(existing.Name, nil)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return nil, false, err
+		}
+		actual, err := client.StorageClasses().Create(existing)
+		return actual, true, err
+	}
 	actual, err := client.StorageClasses().Update(existing)
 	return actual, true, err
 }
