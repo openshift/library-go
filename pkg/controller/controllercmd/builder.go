@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -22,7 +23,7 @@ import (
 )
 
 // StartFunc is the function to call on leader election start
-type StartFunc func(config *rest.Config, stop <-chan struct{}) error
+type StartFunc func(config *unstructured.Unstructured, kubeconfig *rest.Config, stop <-chan struct{}) error
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
 // in those files.
@@ -111,7 +112,7 @@ func (b *ControllerBuilder) WithInstanceIdentity(identity string) *ControllerBui
 }
 
 // Run starts your controller for you.  It uses leader election if you asked, otherwise it directly calls you
-func (b *ControllerBuilder) Run(stopCh <-chan struct{}) error {
+func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan struct{}) error {
 	clientConfig, err := b.getClientConfig()
 	if err != nil {
 		return err
@@ -150,7 +151,7 @@ func (b *ControllerBuilder) Run(stopCh <-chan struct{}) error {
 	}
 
 	if b.leaderElection == nil {
-		if err := b.startFunc(clientConfig, wait.NeverStop); err != nil {
+		if err := b.startFunc(config, clientConfig, wait.NeverStop); err != nil {
 			return err
 		}
 		return fmt.Errorf("exited")
@@ -162,7 +163,7 @@ func (b *ControllerBuilder) Run(stopCh <-chan struct{}) error {
 	}
 
 	leaderElection.Callbacks.OnStartedLeading = func(stop <-chan struct{}) {
-		if err := b.startFunc(clientConfig, stop); err != nil {
+		if err := b.startFunc(config, clientConfig, stop); err != nil {
 			glog.Fatal(err)
 		}
 	}
