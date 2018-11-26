@@ -1,6 +1,7 @@
 package v1alpha1staticpod
 
 import (
+	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
@@ -28,7 +29,7 @@ type staticPodOperatorControllers struct {
 // 3. NodeController - watches nodes for master nodes and keeps the operator status up to date
 func NewControllers(targetNamespaceName, staticPodName string, command, deploymentConfigMaps, deploymentSecrets []string,
 	staticPodOperatorClient common.OperatorClient, kubeClient kubernetes.Interface, kubeInformersNamespaceScoped,
-	kubeInformersClusterScoped informers.SharedInformerFactory) *staticPodOperatorControllers {
+	kubeInformersClusterScoped informers.SharedInformerFactory, eventRecorder events.Recorder) *staticPodOperatorControllers {
 	controller := &staticPodOperatorControllers{}
 
 	controller.deploymentController = deployment.NewDeploymentController(
@@ -62,6 +63,7 @@ func NewControllers(targetNamespaceName, staticPodName string, command, deployme
 		staticPodOperatorClient,
 		kubeInformersNamespaceScoped,
 		kubeClient,
+		eventRecorder,
 	)
 
 	return controller

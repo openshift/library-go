@@ -2,9 +2,11 @@ package controllercmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/client-go/kubernetes"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,10 +22,11 @@ import (
 	leaderelectionconverter "github.com/openshift/library-go/pkg/config/leaderelection"
 	"github.com/openshift/library-go/pkg/config/serving"
 	"github.com/openshift/library-go/pkg/controller/fileobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 // StartFunc is the function to call on leader election start
-type StartFunc func(config *unstructured.Unstructured, kubeconfig *rest.Config, stop <-chan struct{}) error
+type StartFunc func(config *unstructured.Unstructured, kubeconfig *rest.Config, eventRecorder events.Recorder, stop <-chan struct{}) error
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
 // in those files.
@@ -35,6 +38,7 @@ type ControllerBuilder struct {
 	clientOverrides         *client.ClientConnectionOverrides
 	leaderElection          *configv1.LeaderElection
 	fileObserver            fileobserver.Observer
+	fileObserverReactorFn   func(file string, action fileobserver.ActionType) error
 
 	startFunc        StartFunc
 	componentName    string
@@ -56,7 +60,9 @@ func NewController(componentName string, startFunc StartFunc) *ControllerBuilder
 	}
 }
 
-func (b *ControllerBuilder) WithFileObserver(reactorFunc func(file string, action fileobserver.ActionType) error, files ...string) *ControllerBuilder {
+// WithRestartOnChange will enable a file observer controller loop that observes changes into specified files. If a change to a file is detected,
+// the specified channel will be closed (allowing to graceful shutdown for other channels).
+func (b *ControllerBuilder) WithRestartOnChange(stopCh chan<- struct{}, files ...string) *ControllerBuilder {
 	if len(files) == 0 {
 		return b
 	}
@@ -67,7 +73,14 @@ func (b *ControllerBuilder) WithFileObserver(reactorFunc func(file string, actio
 		}
 		b.fileObserver = observer
 	}
-	b.fileObserver.AddReactor(reactorFunc, files...)
+
+	b.fileObserverReactorFn = func(filename string, action fileobserver.ActionType) error {
+		defer close(stopCh)
+		glog.Warning(fmt.Sprintf("Restart triggered because of %s", action.String(filename)))
+		return nil
+	}
+
+	b.fileObserver.AddReactor(b.fileObserverReactorFn, files...)
 	return b
 }
 
@@ -122,6 +135,27 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 		go b.fileObserver.Run(stopCh)
 	}
 
+	kubeClient := kubernetes.NewForConfigOrDie(clientConfig)
+	namespace, err := b.getNamespace()
+	if err != nil {
+		panic("unable to read the namespace")
+	}
+	controllerRef, err := events.GetControllerReferenceForCurrentPod(kubeClient.CoreV1().Pods(namespace))
+	if err != nil {
+		panic(fmt.Sprintf("unable to obtain replicaset reference for events: %v", err))
+	}
+
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events(namespace), b.componentName, controllerRef)
+
+	// if there is file observer defined for this command, add event into default reaction function.
+	if b.fileObserverReactorFn != nil {
+		originalFileObserverReactorFn := b.fileObserverReactorFn
+		b.fileObserverReactorFn = func(file string, action fileobserver.ActionType) error {
+			eventRecorder.Warningf("OperatorRestart", "Restarted because of %s", action.String(file))
+			return originalFileObserverReactorFn(file, action)
+		}
+	}
+
 	switch {
 	case b.servingInfo == nil && len(b.healthChecks) > 0:
 		return fmt.Errorf("healthchecks without server config won't work")
@@ -151,7 +185,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	}
 
 	if b.leaderElection == nil {
-		if err := b.startFunc(config, clientConfig, wait.NeverStop); err != nil {
+		if err := b.startFunc(config, clientConfig, eventRecorder, wait.NeverStop); err != nil {
 			return err
 		}
 		return fmt.Errorf("exited")
@@ -163,7 +197,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	}
 
 	leaderElection.Callbacks.OnStartedLeading = func(stop <-chan struct{}) {
-		if err := b.startFunc(config, clientConfig, stop); err != nil {
+		if err := b.startFunc(config, clientConfig, eventRecorder, stop); err != nil {
 			glog.Fatal(err)
 		}
 	}
@@ -171,16 +205,15 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	return fmt.Errorf("exited")
 }
 
-func (b *ControllerBuilder) getClientConfig() (*rest.Config, error) {
-	kubeconfig := ""
-	if b.kubeAPIServerConfigFile != nil {
-		kubeconfig = *b.kubeAPIServerConfigFile
+func (b *ControllerBuilder) getNamespace() (string, error) {
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return "", err
 	}
-
-	return client.GetKubeConfigOrInClusterConfig(kubeconfig, b.clientOverrides)
+	return string(nsBytes), err
 }
 
-func (b *ControllerBuilder) getNamespace() (*rest.Config, error) {
+func (b *ControllerBuilder) getClientConfig() (*rest.Config, error) {
 	kubeconfig := ""
 	if b.kubeAPIServerConfigFile != nil {
 		kubeconfig = *b.kubeAPIServerConfigFile

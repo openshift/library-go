@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -48,6 +49,7 @@ type ObserveConfigFunc func(listers Listers, existingConfig map[string]interface
 
 type ConfigObserver struct {
 	operatorClient OperatorClient
+	eventRecorder  events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -63,11 +65,13 @@ type ConfigObserver struct {
 
 func NewConfigObserver(
 	operatorClient OperatorClient,
+	eventRecorder events.Recorder,
 	listers Listers,
 	observers ...ObserveConfigFunc,
 ) *ConfigObserver {
 	return &ConfigObserver{
 		operatorClient: operatorClient,
+		eventRecorder:  eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 
@@ -87,7 +91,9 @@ func (c ConfigObserver) sync() error {
 	spec := originalSpec.DeepCopy()
 	// don't worry about errors.  If we can't decode, we'll simply stomp over the field.
 	existingConfig := map[string]interface{}{}
-	json.NewDecoder(bytes.NewBuffer(spec.ObservedConfig.Raw)).Decode(&existingConfig)
+	if err := json.NewDecoder(bytes.NewBuffer(spec.ObservedConfig.Raw)).Decode(&existingConfig); err != nil {
+		glog.V(4).Infof("decode of existing config failed with error: %v", err)
+	}
 
 	var errs []error
 	var observedConfigs []map[string]interface{}
@@ -100,7 +106,9 @@ func (c ConfigObserver) sync() error {
 
 	mergedObservedConfig := map[string]interface{}{}
 	for _, observedConfig := range observedConfigs {
-		mergo.Merge(&mergedObservedConfig, observedConfig)
+		if err := mergo.Merge(&mergedObservedConfig, observedConfig); err != nil {
+			glog.Warningf("merging observed config failed: %v", err)
+		}
 	}
 
 	if !equality.Semantic.DeepEqual(existingConfig, mergedObservedConfig) {
@@ -109,6 +117,9 @@ func (c ConfigObserver) sync() error {
 		_, resourceVersion, err = c.operatorClient.UpdateOperatorSpec(resourceVersion, spec)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error writing updated observed config: %v", err))
+			c.eventRecorder.Warningf("ObservedConfigWriteError", "Failed to write observed config: %v", err)
+		} else {
+			c.eventRecorder.Eventf("ObservedConfigChanged", "Writing updated observed config")
 		}
 	}
 
