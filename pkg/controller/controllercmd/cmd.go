@@ -98,13 +98,19 @@ func hasServiceServingCerts(certDir string) bool {
 
 // StartController runs the controller
 func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error {
-	uncastConfig, err := c.basicFlags.ToConfigObj(configScheme, operatorv1alpha1.SchemeGroupVersion)
+	unstructuredConfig, err := c.basicFlags.ToConfigObj()
 	if err != nil {
 		return err
 	}
-	config, ok := uncastConfig.(*operatorv1alpha1.GenericOperatorConfig)
-	if !ok {
-		return fmt.Errorf("unexpected config: %T", uncastConfig)
+	config := &operatorv1alpha1.GenericOperatorConfig{}
+	if unstructuredConfig != nil {
+		// make a copy we can mutate
+		configCopy := unstructuredConfig.DeepCopy()
+		// force the config to our version to read it
+		configCopy.SetGroupVersionKind(operatorv1alpha1.GroupVersion.WithKind("GenericOperatorConfig"))
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(configCopy.Object, config); err != nil {
+			return err
+		}
 	}
 
 	certDir := "/var/run/secrets/serving-cert"
@@ -163,6 +169,6 @@ func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error 
 		WithLeaderElection(config.LeaderElection, "", c.componentName+"-lock").
 		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
 		WithFileObserver(fileobserver.ExitOnChangeReactor, observedFiles...).
-		Run(stopCh)
+		Run(unstructuredConfig, stopCh)
 
 }
