@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -100,13 +101,43 @@ func (c StatusSyncer) sync() error {
 	if availableCondition != nil {
 		conditions = append(conditions, availableCondition)
 	}
-	failingCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeFailing))
-	if err != nil {
-		return err
+
+	var failingConditions []operatorv1.OperatorCondition
+	for _, condition := range currentDetailedStatus.Conditions {
+		if strings.HasSuffix(condition.Type, "Failing") && condition.Status == operatorv1.ConditionTrue {
+			failingConditions = append(failingConditions, condition)
+		}
 	}
+	failingCondition := map[string]interface{}{}
+	unstructured.SetNestedField(failingCondition, operatorv1.OperatorStatusTypeFailing, "Type")
+	unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionUnknown), "Status")
+	if len(failingConditions) > 0 {
+		unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionTrue), "Status")
+		var messages []string
+		for _, condition := range failingConditions {
+			if len(condition.Message) == 0 {
+				continue
+			}
+			for _, message := range strings.Split(condition.Message, "\n") {
+				messages = append(messages, fmt.Sprintf("%s: %s", condition.Type, message))
+			}
+		}
+		if len(messages) > 0 {
+			unstructured.SetNestedField(failingCondition, strings.Join(messages, "\n"), "Message")
+		}
+		if len(failingConditions) == 1 {
+			unstructured.SetNestedField(failingCondition, failingConditions[0].Type, "Reason")
+		} else {
+			unstructured.SetNestedField(failingCondition, "MultipleConditionsFailing", "Reason")
+		}
+	} else {
+		unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionFalse), "Status")
+	}
+
 	if failingCondition != nil {
 		conditions = append(conditions, failingCondition)
 	}
+
 	progressingCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeProgressing))
 	if err != nil {
 		return err
