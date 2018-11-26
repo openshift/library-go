@@ -15,6 +15,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
@@ -175,11 +176,13 @@ func TestBackingResourceController(t *testing.T) {
 			for _, r := range tc.prependReactors {
 				kubeClient.PrependReactor(r.verb, r.resource, r.reaction)
 			}
+			eventRecorder := events.NewInMemoryRecorder("")
 			c := NewBackingResourceController(
 				tc.targetNamespace,
 				tc.staticPodOperatorClient,
 				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(tc.targetNamespace)),
 				kubeClient,
+				eventRecorder,
 			)
 			syncErr := c.sync()
 			if tc.validateStatus != nil {

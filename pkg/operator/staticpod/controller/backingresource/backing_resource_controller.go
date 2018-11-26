@@ -20,6 +20,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource/bindata"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
@@ -45,7 +46,8 @@ type BackingResourceController struct {
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
 
-	kubeClient kubernetes.Interface
+	kubeClient    kubernetes.Interface
+	eventRecorder events.Recorder
 }
 
 func NewBackingResourceController(
@@ -53,10 +55,12 @@ func NewBackingResourceController(
 	operatorConfigClient common.OperatorClient,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
+	eventRecorder events.Recorder,
 ) *BackingResourceController {
 	c := &BackingResourceController{
 		targetNamespace:      targetNamespace,
 		operatorConfigClient: operatorConfigClient,
+		eventRecorder:        eventRecorder,
 
 		saListerSynced: kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Informer().HasSynced,
 		saLister:       kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Lister(),
@@ -115,7 +119,7 @@ func (c BackingResourceController) sync() error {
 	}
 
 	errors := []string{}
-	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.mustTemplateAsset,
+	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, c.mustTemplateAsset,
 		"manifests/installer-sa.yaml",
 		"manifests/installer-cluster-rolebinding.yaml",
 	)

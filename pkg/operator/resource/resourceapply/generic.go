@@ -3,8 +3,10 @@ package resourceapply
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -33,7 +35,7 @@ type ApplyResult struct {
 	Error   error
 }
 
-func ApplyDirectly(client kubernetes.Interface, manifests AssetFunc, files ...string) []ApplyResult {
+func ApplyDirectly(client kubernetes.Interface, recorder events.Recorder, manifests AssetFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -78,5 +80,19 @@ func ApplyDirectly(client kubernetes.Interface, manifests AssetFunc, files ...st
 		ret = append(ret, result)
 	}
 
+	if recorder == nil {
+		return ret
+	}
+
+	for _, result := range ret {
+		if result.Error != nil {
+			recorder.Warningf("ResourceApplyFailed", "Failed to apply update to %s: %v", result.Type, result.Error)
+			continue
+		}
+		if result.Changed {
+			accessor, _ := meta.Accessor(result.Result)
+			recorder.Eventf("ResourceModified", "Changes applied to %s %q", result.Type, accessor.GetName())
+		}
+	}
 	return ret
 }
