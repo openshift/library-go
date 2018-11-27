@@ -3,12 +3,13 @@ package resourceapply
 import (
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 )
 
 // ApplyClusterRole merges objectmeta, requires rules, aggregation rules are not allowed for now.
@@ -54,7 +55,7 @@ func ApplyClusterRoleBinding(client rbacclientv1.ClusterRoleBindingsGetter, requ
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
 	contentSame := equality.Semantic.DeepEqual(existing.Subjects, required.Subjects) &&
-		equality.Semantic.DeepEqual(existing.RoleRef, required.RoleRef)
+		deepEqualRoleRef(existing.RoleRef, required.RoleRef)
 	if contentSame && !*modified {
 		return existing, false, nil
 	}
@@ -103,7 +104,7 @@ func ApplyRoleBinding(client rbacclientv1.RoleBindingsGetter, required *rbacv1.R
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
 	contentSame := equality.Semantic.DeepEqual(existing.Subjects, required.Subjects) &&
-		equality.Semantic.DeepEqual(existing.RoleRef, required.RoleRef)
+		deepEqualRoleRef(existing.RoleRef, required.RoleRef)
 	if contentSame && !*modified {
 		return existing, false, nil
 	}
@@ -112,4 +113,20 @@ func ApplyRoleBinding(client rbacclientv1.RoleBindingsGetter, required *rbacv1.R
 
 	actual, err := client.RoleBindings(required.Namespace).Update(existing)
 	return actual, true, err
+}
+
+// deepEqualRoleRef compares RoleRefs with knowledge of defaulting and comparison rules that "don't matter".
+func deepEqualRoleRef(lhs, rhs rbacv1.RoleRef) bool {
+	currRHS := &rhs
+	// this is a default value that can be set and doesn't change the meaning of rolebinding or clusterrolebinding
+	if len(currRHS.APIGroup) == 0 && lhs.APIGroup == "rbac.authorization.k8s.io" {
+		// copy the rhs so we can mutate this field
+		currRHS = currRHS.DeepCopy()
+		currRHS.APIGroup = lhs.APIGroup
+	}
+	if !equality.Semantic.DeepEqual(&lhs, currRHS) {
+		return false
+	}
+
+	return true
 }

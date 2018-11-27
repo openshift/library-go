@@ -47,7 +47,14 @@ func ApplyService(client coreclientv1.ServicesGetter, required *corev1.Service) 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
 	selectorSame := equality.Semantic.DeepEqual(existing.Spec.Selector, required.Spec.Selector)
-	typeSame := equality.Semantic.DeepEqual(existing.Spec.Type, required.Spec.Type)
+
+	typeSame := false
+	requiredIsEmpty := len(required.Spec.Type) == 0
+	existingIsCluster := existing.Spec.Type == corev1.ServiceTypeClusterIP
+	if (requiredIsEmpty && existingIsCluster) || equality.Semantic.DeepEqual(existing.Spec.Type, required.Spec.Type) {
+		typeSame = true
+	}
+
 	if selectorSame && typeSame && !*modified {
 		return nil, false, nil
 	}
