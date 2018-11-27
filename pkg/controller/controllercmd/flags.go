@@ -2,7 +2,6 @@ package controllercmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -32,10 +31,7 @@ func NewControllerFlags() *ControllerFlags {
 
 // Validate makes sure the required flags are specified and no illegal combinations are found
 func (o *ControllerFlags) Validate() error {
-	if len(o.ConfigFile) == 0 {
-		return errors.New("--config is required for this command")
-	}
-
+	// everything is optional currently
 	return nil
 }
 
