@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"k8s.io/client-go/kubernetes"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 
@@ -26,13 +25,20 @@ import (
 )
 
 // StartFunc is the function to call on leader election start
-type StartFunc func(config *unstructured.Unstructured, kubeconfig *rest.Config, eventRecorder events.Recorder, stop <-chan struct{}) error
+type StartFunc func(*ControllerContext) error
+
+type ControllerContext struct {
+	ComponentConfig *unstructured.Unstructured
+	KubeConfig      *rest.Config
+	EventRecorder   events.Recorder
+	StopCh          <-chan struct{}
+}
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
 // in those files.
 var defaultObserverInterval = 5 * time.Second
 
-// OperatorBuilder allows the construction of an controller in optional pieces.
+// ControllerBuilder allows the construction of an controller in optional pieces.
 type ControllerBuilder struct {
 	kubeAPIServerConfigFile *string
 	clientOverrides         *client.ClientConnectionOverrides
@@ -184,8 +190,15 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 		}()
 	}
 
+	controllerContext := &ControllerContext{
+		ComponentConfig: config,
+		KubeConfig:      clientConfig,
+		EventRecorder:   eventRecorder,
+		StopCh:          stopCh,
+	}
+
 	if b.leaderElection == nil {
-		if err := b.startFunc(config, clientConfig, eventRecorder, wait.NeverStop); err != nil {
+		if err := b.startFunc(controllerContext); err != nil {
 			return err
 		}
 		return fmt.Errorf("exited")
@@ -197,7 +210,8 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	}
 
 	leaderElection.Callbacks.OnStartedLeading = func(stop <-chan struct{}) {
-		if err := b.startFunc(config, clientConfig, eventRecorder, stop); err != nil {
+		controllerContext.StopCh = stop
+		if err := b.startFunc(controllerContext); err != nil {
 			glog.Fatal(err)
 		}
 	}
