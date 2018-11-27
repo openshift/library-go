@@ -150,8 +150,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	if err != nil {
 		panic(fmt.Sprintf("unable to obtain replicaset reference for events: %v", err))
 	}
-
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events(namespace), b.componentName, controllerRef)
+	eventRecorder := events.NewKubeRecorder(kubeClient.CoreV1().Events(namespace), b.componentName, controllerRef)
 
 	// if there is file observer defined for this command, add event into default reaction function.
 	if b.fileObserverReactorFn != nil {
