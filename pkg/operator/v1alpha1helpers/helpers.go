@@ -173,9 +173,15 @@ func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []
 		}
 	}
 
-	existing, err := client.Resource(gvr).Get(requiredOperatorConfig.GetName(), metav1.GetOptions{})
+	var resourceClient dynamic.ResourceInterface
+	resourceClient = client.Resource(gvr)
+	if len(requiredOperatorConfig.GetNamespace()) > 0 {
+		resourceClient = resourceClient.(dynamic.NamespaceableResourceInterface).Namespace(requiredOperatorConfig.GetNamespace())
+	}
+
+	existing, err := resourceClient.Get(requiredOperatorConfig.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		if _, err := client.Resource(gvr).Create(requiredOperatorConfig); err != nil {
+		if _, err := resourceClient.Create(requiredOperatorConfig); err != nil {
 			panic(err)
 		}
 		return
@@ -202,7 +208,7 @@ func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []
 		if err != nil {
 			panic(err)
 		}
-		if _, err := client.Resource(gvr).Update(existing); err != nil {
+		if _, err := resourceClient.Update(existing); err != nil {
 			panic(err)
 		}
 	}

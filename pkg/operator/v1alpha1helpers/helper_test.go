@@ -208,6 +208,15 @@ metadata:
   name: instance
 spec:
   imagePullSpec: openshift/origin-hypershift:latest`)
+
+	configBytesWithNamespace := []byte(`apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
+kind: OpenShiftAPIServerOperatorConfig
+metadata:
+  name: instance
+  namespace: ns
+spec:
+  imagePullSpec: openshift/origin-hypershift:latest`)
+
 	tests := []struct {
 		name        string
 		getEnv      GetImageEnvFunc
@@ -237,6 +246,17 @@ spec:
 			config: configBytes,
 			expected: newUnstructured("openshiftapiserver.operator.openshift.io/v1alpha1",
 				"OpenShiftAPIServerOperatorConfig",
+				"instance",
+				"foo"),
+		},
+		{
+			name:   "Create operator config with namespace if none exists",
+			getEnv: func() string { return "foo" },
+			gvr:    schema.GroupVersionResource{Group: "openshiftapiserver.operator.openshift.io", Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
+			config: configBytesWithNamespace,
+			expected: newUnstructuredWithNamespace("openshiftapiserver.operator.openshift.io/v1alpha1",
+				"OpenShiftAPIServerOperatorConfig",
+				"ns",
 				"instance",
 				"foo"),
 		},
@@ -273,13 +293,17 @@ spec:
 }
 
 func newUnstructured(apiVersion, kind, name, imagePullSpec string) *unstructured.Unstructured {
+	return newUnstructuredWithNamespace(apiVersion, kind, "", name, imagePullSpec)
+}
+
+func newUnstructuredWithNamespace(apiVersion, kind, namespace, name, imagePullSpec string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": apiVersion,
 			"kind":       kind,
 			"metadata": map[string]interface{}{
 				"name":      name,
-				"namespace": "",
+				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"imagePullSpec": imagePullSpec,
