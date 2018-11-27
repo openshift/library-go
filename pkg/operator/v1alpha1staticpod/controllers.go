@@ -1,10 +1,10 @@
 package v1alpha1staticpod
 
 import (
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/deployment"
@@ -39,6 +39,7 @@ func NewControllers(targetNamespaceName, staticPodName string, command, deployme
 		kubeInformersNamespaceScoped,
 		staticPodOperatorClient,
 		kubeClient,
+		eventRecorder,
 	)
 
 	controller.installerController = installer.NewInstallerController(

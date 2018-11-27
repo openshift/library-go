@@ -160,7 +160,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 
 func (c RevisionController) createNewRevision(revision int32) error {
 	for _, name := range c.configMaps {
-		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func (c RevisionController) createNewRevision(revision int32) error {
 		}
 	}
 	for _, name := range c.secrets {
-		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
 		if err != nil {
 			return err
 		}
