@@ -199,8 +199,10 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 				if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 					_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 					if updateError == nil {
-						c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Moving node %q from revision %d to %d", currNodeState.NodeName,
-							currNodeState.CurrentRevision, currNodeState.TargetRevision)
+						if currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
+							c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
+								currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
+						}
 					}
 					return false, updateError
 				}
@@ -229,6 +231,14 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 			operatorStatus.NodeStatuses[i] = *newCurrNodeState
 			if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 				_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
+
+				if updateError == nil {
+					if currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
+						c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
+							currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
+					}
+				}
+
 				return false, updateError
 			}
 		}
