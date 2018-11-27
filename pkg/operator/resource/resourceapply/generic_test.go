@@ -42,11 +42,4 @@ metadata:
 	} else if ret[0].Error.Error() != "unhandled type *v1.Pod" {
 		t.Fatal(ret[0].Error)
 	}
-	if len(recorder.Events()) == 0 {
-		t.Fatal("expected events to be recorder")
-	}
-
-	if recorder.Events()[0].Reason != "ResourceApplyFailed" {
-		t.Fatalf("expected reason to be ResourceApplyFailed, got %v", recorder.Events()[0].Reason)
-	}
 }

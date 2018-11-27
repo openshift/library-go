@@ -3,16 +3,15 @@ package resourceapply
 import (
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/api"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 var (
@@ -56,23 +55,23 @@ func ApplyDirectly(client kubernetes.Interface, recorder events.Recorder, manife
 
 		switch t := requiredObj.(type) {
 		case *corev1.Namespace:
-			result.Result, result.Changed, result.Error = ApplyNamespace(client.CoreV1(), t)
+			result.Result, result.Changed, result.Error = ApplyNamespace(client.CoreV1(), recorder, t)
 		case *corev1.Service:
-			result.Result, result.Changed, result.Error = ApplyService(client.CoreV1(), t)
+			result.Result, result.Changed, result.Error = ApplyService(client.CoreV1(), recorder, t)
 		case *corev1.ServiceAccount:
-			result.Result, result.Changed, result.Error = ApplyServiceAccount(client.CoreV1(), t)
+			result.Result, result.Changed, result.Error = ApplyServiceAccount(client.CoreV1(), recorder, t)
 		case *corev1.ConfigMap:
-			result.Result, result.Changed, result.Error = ApplyConfigMap(client.CoreV1(), t)
+			result.Result, result.Changed, result.Error = ApplyConfigMap(client.CoreV1(), recorder, t)
 		case *corev1.Secret:
-			result.Result, result.Changed, result.Error = ApplySecret(client.CoreV1(), t)
+			result.Result, result.Changed, result.Error = ApplySecret(client.CoreV1(), recorder, t)
 		case *rbacv1.ClusterRole:
-			result.Result, result.Changed, result.Error = ApplyClusterRole(client.RbacV1(), t)
+			result.Result, result.Changed, result.Error = ApplyClusterRole(client.RbacV1(), recorder, t)
 		case *rbacv1.ClusterRoleBinding:
-			result.Result, result.Changed, result.Error = ApplyClusterRoleBinding(client.RbacV1(), t)
+			result.Result, result.Changed, result.Error = ApplyClusterRoleBinding(client.RbacV1(), recorder, t)
 		case *rbacv1.Role:
-			result.Result, result.Changed, result.Error = ApplyRole(client.RbacV1(), t)
+			result.Result, result.Changed, result.Error = ApplyRole(client.RbacV1(), recorder, t)
 		case *rbacv1.RoleBinding:
-			result.Result, result.Changed, result.Error = ApplyRoleBinding(client.RbacV1(), t)
+			result.Result, result.Changed, result.Error = ApplyRoleBinding(client.RbacV1(), recorder, t)
 		default:
 			result.Error = fmt.Errorf("unhandled type %T", requiredObj)
 		}
@@ -80,19 +79,5 @@ func ApplyDirectly(client kubernetes.Interface, recorder events.Recorder, manife
 		ret = append(ret, result)
 	}
 
-	if recorder == nil {
-		return ret
-	}
-
-	for _, result := range ret {
-		if result.Error != nil {
-			recorder.Warningf("ResourceApplyFailed", "Failed to apply update to %s: %v", result.Type, result.Error)
-			continue
-		}
-		if result.Changed {
-			accessor, _ := meta.Accessor(result.Result)
-			recorder.Eventf("ResourceModified", "Changes applied to %s %q", result.Type, accessor.GetName())
-		}
-	}
 	return ret
 }
