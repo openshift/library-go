@@ -34,12 +34,33 @@ var podNameEnvFunc = func() string {
 func GetControllerReferenceForCurrentPod(client corev1client.PodInterface) (*corev1.ObjectReference, error) {
 	podName := podNameEnvFunc()
 	if len(podName) == 0 {
-		return nil, fmt.Errorf("unable to setup event recorder as %q env variable is not set", podNameEnv)
+		return guessControllerReferenceForNamespace(client)
 	}
 	pod, err := client.Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
+	ownerRef := metav1.GetControllerOf(pod)
+	return &corev1.ObjectReference{
+		Kind:       ownerRef.Kind,
+		Namespace:  pod.Namespace,
+		Name:       ownerRef.Name,
+		UID:        ownerRef.UID,
+		APIVersion: ownerRef.APIVersion,
+	}, nil
+}
+
+// guessControllerReferenceForNamespace tries to guess what resource to reference.
+func guessControllerReferenceForNamespace(client corev1client.PodInterface) (*corev1.ObjectReference, error) {
+	pods, err := client.List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("unable to setup event recorder as %q env variable is not set and there are no pods", podNameEnv)
+	}
+
+	pod := &pods.Items[0]
 	ownerRef := metav1.GetControllerOf(pod)
 	return &corev1.ObjectReference{
 		Kind:       ownerRef.Kind,
