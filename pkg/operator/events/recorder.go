@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/client-go/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,23 +32,56 @@ var podNameEnvFunc = func() string {
 
 // GetControllerReferenceForCurrentPod provides an object reference to a controller managing the pod/container where this process runs.
 // The pod name must be provided via the POD_NAME name.
-func GetControllerReferenceForCurrentPod(client corev1client.PodInterface) (*corev1.ObjectReference, error) {
-	podName := podNameEnvFunc()
-	if len(podName) == 0 {
-		return guessControllerReferenceForNamespace(client)
+func GetControllerReferenceForCurrentPod(client kubernetes.Interface, targetNamespace string, reference *corev1.ObjectReference) (*corev1.ObjectReference, error) {
+	if reference == nil {
+		// Try to get the pod name via POD_NAME environment variable
+		reference := &corev1.ObjectReference{Kind: "Pod", Name: podNameEnvFunc(), Namespace: targetNamespace}
+		if len(reference.Name) != 0 {
+			return GetControllerReferenceForCurrentPod(client, targetNamespace, reference)
+		}
+		// If that fails, lets try to guess the pod by listing all pods in namespaces and using the first pod in the list
+		reference, err := guessControllerReferenceForNamespace(client.CoreV1().Pods(targetNamespace))
+		if err != nil {
+			return nil, err
+		}
+		return GetControllerReferenceForCurrentPod(client, targetNamespace, reference)
 	}
-	pod, err := client.Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
+
+	switch reference.Kind {
+	case "Pod":
+		pod, err := client.CoreV1().Pods(reference.Namespace).Get(reference.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		if podController := metav1.GetControllerOf(pod); podController != nil {
+			return GetControllerReferenceForCurrentPod(client, targetNamespace, makeObjectReference(podController, targetNamespace))
+		}
+		// This is a bare pod without any ownerReference
+		return makeObjectReference(&metav1.OwnerReference{Kind: "Pod", Name: pod.Name, UID: pod.UID, APIVersion: "v1"}, pod.Namespace), nil
+	case "ReplicaSet":
+		rs, err := client.AppsV1().ReplicaSets(reference.Namespace).Get(reference.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		if rsController := metav1.GetControllerOf(rs); rsController != nil {
+			return GetControllerReferenceForCurrentPod(client, targetNamespace, makeObjectReference(rsController, targetNamespace))
+		}
+		// This is a replicaSet without any ownerReference
+		return reference, nil
+	default:
+		return reference, nil
 	}
-	ownerRef := metav1.GetControllerOf(pod)
+}
+
+// makeObjectReference makes object reference from ownerReference and target namespace
+func makeObjectReference(owner *metav1.OwnerReference, targetNamespace string) *corev1.ObjectReference {
 	return &corev1.ObjectReference{
-		Kind:       ownerRef.Kind,
-		Namespace:  pod.Namespace,
-		Name:       ownerRef.Name,
-		UID:        ownerRef.UID,
-		APIVersion: ownerRef.APIVersion,
-	}, nil
+		Kind:       owner.Kind,
+		Namespace:  targetNamespace,
+		Name:       owner.Name,
+		UID:        owner.UID,
+		APIVersion: owner.APIVersion,
+	}
 }
 
 // guessControllerReferenceForNamespace tries to guess what resource to reference.
