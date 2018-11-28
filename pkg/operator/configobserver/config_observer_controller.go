@@ -45,7 +45,7 @@ type Listers interface {
 // observedConfig that would cause the service being managed by the operator to crash. For example, if a required
 // configuration key cannot be observed, consider reusing the configuration key's previous value. Errors that occur
 // while attempting to generate the observedConfig should be returned in the errs slice.
-type ObserveConfigFunc func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
+type ObserveConfigFunc func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
 
 type ConfigObserver struct {
 	operatorClient OperatorClient
@@ -99,7 +99,7 @@ func (c ConfigObserver) sync() error {
 	var observedConfigs []map[string]interface{}
 	for _, i := range rand.Perm(len(c.observers)) {
 		var currErrs []error
-		observedConfig, currErrs := c.observers[i](c.listers, existingConfig)
+		observedConfig, currErrs := c.observers[i](c.listers, c.eventRecorder, existingConfig)
 		observedConfigs = append(observedConfigs, observedConfig)
 		errs = append(errs, currErrs...)
 	}

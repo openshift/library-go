@@ -73,13 +73,13 @@ func TestSyncStatus(t *testing.T) {
 				{"ObservedConfigChanged", "Writing updated observed config"},
 			},
 			observers: []ObserveConfigFunc{
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"foo": "one"}, nil
 				},
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"bar": "two"}, nil
 				},
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"baz": "three"}, nil
 				},
 			},
@@ -106,13 +106,13 @@ func TestSyncStatus(t *testing.T) {
 				{"ObservedConfigChanged", "Writing updated observed config"},
 			},
 			observers: []ObserveConfigFunc{
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"foo": "one"}, nil
 				},
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"bar": "two"}, nil
 				},
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					errs = append(errs, fmt.Errorf("some failure"))
 					return observedConfig, errs
 				},
@@ -142,7 +142,7 @@ func TestSyncStatus(t *testing.T) {
 				{"ObservedConfigWriteError", "Failed to write observed config: update spec failure"},
 			},
 			observers: []ObserveConfigFunc{
-				func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"foo": "one"}, nil
 				},
 			},
