@@ -146,7 +146,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, stopCh <-chan
 	if err != nil {
 		panic("unable to read the namespace")
 	}
-	controllerRef, err := events.GetControllerReferenceForCurrentPod(kubeClient.CoreV1().Pods(namespace))
+	controllerRef, err := events.GetControllerReferenceForCurrentPod(kubeClient, namespace, nil)
 	if err != nil {
 		panic(fmt.Sprintf("unable to obtain replicaset reference for events: %v", err))
 	}

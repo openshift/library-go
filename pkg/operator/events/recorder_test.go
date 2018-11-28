@@ -3,6 +3,7 @@ package events
 import (
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -13,10 +14,11 @@ func fakeControllerRef(t *testing.T) *corev1.ObjectReference {
 	podNameEnvFunc = func() string {
 		return "test"
 	}
-	client := fake.NewSimpleClientset(fakePod("test-namespace", "test"))
-	ref, err := GetControllerReferenceForCurrentPod(client.CoreV1().Pods("test-namespace"))
+	client := fake.NewSimpleClientset(fakePod("test-namespace", "test"), fakeReplicaSet("test-namespace", "test"))
+
+	ref, err := GetControllerReferenceForCurrentPod(client, "test-namespace", nil)
 	if err != nil {
-		t.Fatalf("unable to get replicaset object reference: %v", err)
+		t.Fatalf("unable to get object reference: %v", err)
 	}
 	return ref
 }
@@ -28,15 +30,33 @@ func fakePod(namespace, name string) *corev1.Pod {
 	truePtr := true
 	pod.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion:         "apps/corev1",
+			APIVersion:         "apps/v1",
 			Kind:               "ReplicaSet",
-			Name:               "test-766b85794f",
+			Name:               "test",
 			UID:                "05022234-d394-11e8-8169-42010a8e0003",
 			Controller:         &truePtr,
 			BlockOwnerDeletion: &truePtr,
 		},
 	})
 	return pod
+}
+
+func fakeReplicaSet(namespace, name string) *appsv1.ReplicaSet {
+	rs := &appsv1.ReplicaSet{}
+	rs.Name = name
+	rs.Namespace = namespace
+	truePtr := true
+	rs.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion:         "apps/v1",
+			Kind:               "Deployment",
+			Name:               "test",
+			UID:                "15022234-d394-11e8-8169-42010a8e0003",
+			Controller:         &truePtr,
+			BlockOwnerDeletion: &truePtr,
+		},
+	})
+	return rs
 }
 
 func TestRecorder(t *testing.T) {
@@ -57,8 +77,8 @@ func TestRecorder(t *testing.T) {
 	if createdEvent == nil {
 		t.Fatalf("expected event to be created")
 	}
-	if createdEvent.InvolvedObject.Kind != "ReplicaSet" {
-		t.Errorf("expected involved object kind ReplicaSet, got: %q", createdEvent.InvolvedObject.Kind)
+	if createdEvent.InvolvedObject.Kind != "Deployment" {
+		t.Errorf("expected involved object kind Deployment, got: %q", createdEvent.InvolvedObject.Kind)
 	}
 	if createdEvent.InvolvedObject.Namespace != "test-namespace" {
 		t.Errorf("expected involved object namespace test-namespace, got: %q", createdEvent.InvolvedObject.Namespace)
@@ -77,23 +97,69 @@ func TestRecorder(t *testing.T) {
 	}
 }
 
-func TestGetControllerReferenceForCurrentPod(t *testing.T) {
-	client := fake.NewSimpleClientset(fakePod("test", "foo"))
+func TestGetControllerReferenceForCurrentPodIsPod(t *testing.T) {
+	pod := fakePod("test", "test")
+	pod.OwnerReferences = []metav1.OwnerReference{}
+	client := fake.NewSimpleClientset(pod)
 
 	podNameEnvFunc = func() string {
-		return "foo"
+		return "test"
 	}
 
-	objectReference, err := GetControllerReferenceForCurrentPod(client.CoreV1().Pods("test"))
+	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if objectReference.Name != "test-766b85794f" {
-		t.Errorf("expected objectReference name to be 'test-766b85794f', got %q", objectReference.Name)
+	if objectReference.Name != "test" {
+		t.Errorf("expected objectReference name to be 'test', got %q", objectReference.Name)
 	}
 
-	if objectReference.GroupVersionKind().String() != "apps/corev1, Kind=ReplicaSet" {
+	if objectReference.GroupVersionKind().String() != "/v1, Kind=Pod" {
+		t.Errorf("expected objectReference to be Pod, got %q", objectReference.GroupVersionKind().String())
+	}
+}
+
+func TestGetControllerReferenceForCurrentPodIsReplicaSet(t *testing.T) {
+	rs := fakeReplicaSet("test", "test")
+	rs.OwnerReferences = []metav1.OwnerReference{}
+	client := fake.NewSimpleClientset(fakePod("test", "test"), rs)
+
+	podNameEnvFunc = func() string {
+		return "test"
+	}
+
+	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if objectReference.Name != "test" {
+		t.Errorf("expected objectReference name to be 'test', got %q", objectReference.Name)
+	}
+
+	if objectReference.GroupVersionKind().String() != "apps/v1, Kind=ReplicaSet" {
 		t.Errorf("expected objectReference to be ReplicaSet, got %q", objectReference.GroupVersionKind().String())
+	}
+}
+
+func TestGetControllerReferenceForCurrentPod(t *testing.T) {
+	client := fake.NewSimpleClientset(fakePod("test", "test"), fakeReplicaSet("test", "test"))
+
+	podNameEnvFunc = func() string {
+		return "test"
+	}
+
+	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if objectReference.Name != "test" {
+		t.Errorf("expected objectReference name to be 'test', got %q", objectReference.Name)
+	}
+
+	if objectReference.GroupVersionKind().String() != "apps/v1, Kind=Deployment" {
+		t.Errorf("expected objectReference to be Deployment, got %q", objectReference.GroupVersionKind().String())
 	}
 }
