@@ -1,8 +1,6 @@
 package status
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -14,15 +12,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	v1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
+	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 var workQueueKey = "instance"
@@ -33,11 +32,10 @@ type OperatorStatusProvider interface {
 }
 
 type StatusSyncer struct {
-	clusterOperatorNamespace string
-	clusterOperatorName      string
+	clusterOperatorName string
 
 	// TODO use a generated client when it moves to openshift/api
-	clusterOperatorClient dynamic.ResourceInterface
+	clusterOperatorClient configv1client.ClusterOperatorsGetter
 
 	operatorStatusProvider OperatorStatusProvider
 
@@ -46,15 +44,14 @@ type StatusSyncer struct {
 }
 
 func NewClusterOperatorStatusController(
-	namespace, name string,
-	clusterOperatorClient dynamic.Interface,
+	name string,
+	clusterOperatorClient configv1client.ClusterOperatorsGetter,
 	operatorStatusProvider OperatorStatusProvider,
 ) *StatusSyncer {
 	c := &StatusSyncer{
-		clusterOperatorNamespace: namespace,
-		clusterOperatorName:      name,
-		clusterOperatorClient:    clusterOperatorClient.Resource(schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "clusteroperators"}).Namespace(namespace),
-		operatorStatusProvider:   operatorStatusProvider,
+		clusterOperatorName:    name,
+		clusterOperatorClient:  clusterOperatorClient,
+		operatorStatusProvider: operatorStatusProvider,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatusSyncer-"+name),
 	}
@@ -71,36 +68,25 @@ func (c StatusSyncer) sync() error {
 	currentDetailedStatus, err := c.operatorStatusProvider.CurrentStatus()
 	if apierrors.IsNotFound(err) {
 		glog.Infof("operator.status not found")
-		return c.clusterOperatorClient.Delete(c.clusterOperatorName, nil)
+		return c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil)
 	}
 	if err != nil {
 		return err
 	}
 
-	originalConfig, err := c.clusterOperatorClient.Get(c.clusterOperatorName, metav1.GetOptions{})
+	originalClusterOperatorObj, err := c.clusterOperatorClient.ClusterOperators().Get(c.clusterOperatorName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	operatorConfig := originalConfig.DeepCopy()
+	clusterOperatorObj := originalClusterOperatorObj.DeepCopy()
 
-	if operatorConfig == nil {
-		glog.Infof("clusterOperator %s/%s not found", c.clusterOperatorNamespace, c.clusterOperatorName)
-		operatorConfig = &unstructured.Unstructured{Object: map[string]interface{}{}}
+	if clusterOperatorObj == nil {
+		glog.Infof("clusteroperator/%s not found", c.clusterOperatorName)
+		clusterOperatorObj = &configv1.ClusterOperator{
+			ObjectMeta: metav1.ObjectMeta{Name: c.clusterOperatorName},
+		}
 	}
-	unstructured.RemoveNestedField(operatorConfig.Object, "status")
-	unstructured.SetNestedField(operatorConfig.Object, "ClusterOperator", "kind")
-	unstructured.SetNestedField(operatorConfig.Object, "config.openshift.io/v1", "apiVersion")
-	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorNamespace, "metadata", "namespace")
-	unstructured.SetNestedField(operatorConfig.Object, c.clusterOperatorName, "metadata", "name")
-
-	conditions := []interface{}{}
-	availableCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeAvailable))
-	if err != nil {
-		return err
-	}
-	if availableCondition != nil {
-		conditions = append(conditions, availableCondition)
-	}
+	clusterOperatorObj.Status.Conditions = nil
 
 	var failingConditions []operatorv1.OperatorCondition
 	for _, condition := range currentDetailedStatus.Conditions {
@@ -108,13 +94,16 @@ func (c StatusSyncer) sync() error {
 			failingConditions = append(failingConditions, condition)
 		}
 	}
-	failingCondition := map[string]interface{}{}
-	unstructured.SetNestedField(failingCondition, operatorv1.OperatorStatusTypeFailing, "Type")
-	unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionUnknown), "Status")
+	failingCondition := operatorv1.OperatorCondition{Type: operatorv1.OperatorStatusTypeFailing, Status: operatorv1.ConditionUnknown}
 	if len(failingConditions) > 0 {
-		unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionTrue), "Status")
+		failingCondition.Status = operatorv1.ConditionTrue
 		var messages []string
+		latestTransitionTime := metav1.Time{}
 		for _, condition := range failingConditions {
+			if latestTransitionTime.Before(&condition.LastTransitionTime) {
+				latestTransitionTime = condition.LastTransitionTime
+			}
+
 			if len(condition.Message) == 0 {
 				continue
 			}
@@ -123,38 +112,39 @@ func (c StatusSyncer) sync() error {
 			}
 		}
 		if len(messages) > 0 {
-			unstructured.SetNestedField(failingCondition, strings.Join(messages, "\n"), "Message")
+			failingCondition.Message = strings.Join(messages, "\n")
 		}
 		if len(failingConditions) == 1 {
-			unstructured.SetNestedField(failingCondition, failingConditions[0].Type, "Reason")
+			failingCondition.Reason = failingConditions[0].Type
 		} else {
-			unstructured.SetNestedField(failingCondition, "MultipleConditionsFailing", "Reason")
+			failingCondition.Reason = "MultipleConditionsFailing"
 		}
+		failingCondition.LastTransitionTime = latestTransitionTime
+
 	} else {
-		unstructured.SetNestedField(failingCondition, string(operatorv1.ConditionFalse), "Status")
+		failingCondition.Status = operatorv1.ConditionFalse
+	}
+	configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, OperatorConditionToClusterOperatorCondition(failingCondition))
+
+	if condition := operatorv1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeAvailable); condition != nil {
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, OperatorConditionToClusterOperatorCondition(*condition))
+	} else {
+		configv1helpers.RemoveStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterStatusConditionType(operatorv1.OperatorStatusTypeAvailable))
+	}
+	if condition := operatorv1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeProgressing); condition != nil {
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, OperatorConditionToClusterOperatorCondition(*condition))
+	} else {
+		configv1helpers.RemoveStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterStatusConditionType(operatorv1.OperatorStatusTypeProgressing))
 	}
 
-	if failingCondition != nil {
-		conditions = append(conditions, failingCondition)
-	}
-
-	progressingCondition, err := OperatorConditionToClusterOperatorCondition(v1helpers.FindOperatorCondition(currentDetailedStatus.Conditions, operatorv1.OperatorStatusTypeProgressing))
-	if err != nil {
-		return err
-	}
-	if progressingCondition != nil {
-		conditions = append(conditions, progressingCondition)
-	}
-	unstructured.SetNestedSlice(operatorConfig.Object, conditions, "status", "conditions")
-
-	if equality.Semantic.DeepEqual(operatorConfig, originalConfig) {
+	if equality.Semantic.DeepEqual(clusterOperatorObj, originalClusterOperatorObj) {
 		return nil
 	}
 
-	glog.V(4).Infof("clusterOperator %s/%s set to %v", c.clusterOperatorNamespace, c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, operatorConfig))
-	_, updateErr := c.clusterOperatorClient.UpdateStatus(operatorConfig)
+	glog.V(4).Infof("clusteroperator/%s set to %v", c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, clusterOperatorObj))
+	_, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj)
 	if apierrors.IsNotFound(updateErr) {
-		freshOperatorConfig, createErr := c.clusterOperatorClient.Create(operatorConfig)
+		freshOperatorConfig, createErr := c.clusterOperatorClient.ClusterOperators().Create(clusterOperatorObj)
 		if apierrors.IsNotFound(createErr) {
 			// this means that the API isn't present.  We did not fail.  Try again later
 			glog.Infof("ClusterOperator API not created")
@@ -164,10 +154,24 @@ func (c StatusSyncer) sync() error {
 		if createErr != nil {
 			return createErr
 		}
-		if err := unstructured.SetNestedMap(freshOperatorConfig.Object, operatorConfig.Object["status"].(map[string]interface{}), "status"); err != nil {
-			return err
+
+		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorAvailable); condition != nil {
+			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+		} else {
+			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorAvailable)
 		}
-		_, updateErr = c.clusterOperatorClient.UpdateStatus(operatorConfig)
+		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorProgressing); condition != nil {
+			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+		} else {
+			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorProgressing)
+		}
+		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorFailing); condition != nil {
+			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+		} else {
+			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorFailing)
+		}
+
+		_, updateErr = c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj)
 	}
 	if updateErr != nil {
 		return updateErr
@@ -176,20 +180,14 @@ func (c StatusSyncer) sync() error {
 	return nil
 }
 
-func OperatorConditionToClusterOperatorCondition(condition *operatorv1.OperatorCondition) (map[string]interface{}, error) {
-	if condition == nil {
-		return nil, nil
+func OperatorConditionToClusterOperatorCondition(condition operatorv1.OperatorCondition) configv1.ClusterOperatorStatusCondition {
+	return configv1.ClusterOperatorStatusCondition{
+		Type:               configv1.ClusterStatusConditionType(condition.Type),
+		Status:             configv1.ConditionStatus(condition.Status),
+		LastTransitionTime: condition.LastTransitionTime,
+		Reason:             condition.Reason,
+		Message:            condition.Message,
 	}
-	buf := &bytes.Buffer{}
-	if err := json.NewEncoder(buf).Encode(condition); err != nil {
-		return nil, err
-	}
-	ret := map[string]interface{}{}
-	if err := json.NewDecoder(buf).Decode(&ret); err != nil {
-		return nil, err
-	}
-
-	return ret, nil
 }
 
 func (c *StatusSyncer) Run(workers int, stopCh <-chan struct{}) {
