@@ -13,8 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -552,4 +554,224 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		})
 	}
 
+}
+
+func TestInstallerController_manageInstallationPods(t *testing.T) {
+	type fields struct {
+		targetNamespace      string
+		staticPodName        string
+		configMaps           []string
+		secrets              []string
+		command              []string
+		operatorConfigClient common.OperatorClient
+		kubeClient           kubernetes.Interface
+		eventRecorder        events.Recorder
+		queue                workqueue.RateLimitingInterface
+		installerPodImageFn  func() string
+	}
+	type args struct {
+		operatorSpec           *operatorv1.OperatorSpec
+		originalOperatorStatus *operatorv1.StaticPodOperatorStatus
+		resourceVersion        string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &InstallerController{
+				targetNamespace:      tt.fields.targetNamespace,
+				staticPodName:        tt.fields.staticPodName,
+				configMaps:           tt.fields.configMaps,
+				secrets:              tt.fields.secrets,
+				command:              tt.fields.command,
+				operatorConfigClient: tt.fields.operatorConfigClient,
+				kubeClient:           tt.fields.kubeClient,
+				eventRecorder:        tt.fields.eventRecorder,
+				queue:                tt.fields.queue,
+				installerPodImageFn:  tt.fields.installerPodImageFn,
+			}
+			got, err := c.manageInstallationPods(tt.args.operatorSpec, tt.args.originalOperatorStatus, tt.args.resourceVersion)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("InstallerController.manageInstallationPods() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNodeToStartRevisionWith(t *testing.T) {
+	type StaticPod struct {
+		name     string
+		state    staticPodState
+		revision int32
+	}
+	type Test struct {
+		name        string
+		nodes       []operatorv1.NodeStatus
+		pods        []StaticPod
+		expected    int
+		expectedErr bool
+	}
+
+	newNode := func(name string, current, target int32) operatorv1.NodeStatus {
+		return operatorv1.NodeStatus{NodeName: name, CurrentRevision: current, TargetRevision: target}
+	}
+
+	for _, test := range []Test{
+		{
+			name:        "empty",
+			expectedErr: true,
+		},
+		{
+			name: "no pods",
+			pods: nil,
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 0, 0),
+				newNode("b", 0, 0),
+				newNode("c", 0, 0),
+			},
+			expected: 0,
+		},
+		{
+			name: "all ready",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+				{"b", staticPodStateReady, 1},
+				{"c", staticPodStateReady, 1},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 1, 0),
+				newNode("c", 1, 0),
+			},
+			expected: 0,
+		},
+		{
+			name: "one failed",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+				{"b", staticPodStateReady, 1},
+				{"c", staticPodStateFailed, 1},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 1, 0),
+				newNode("c", 1, 0),
+			},
+			expected: 2,
+		},
+		{
+			name: "one pending",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+				{"b", staticPodStateReady, 1},
+				{"c", staticPodStatePending, 1},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 1, 0),
+				newNode("c", 0, 0),
+			},
+			expected: 2,
+		},
+		{
+			name: "multiple pending",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+				{"b", staticPodStatePending, 1},
+				{"c", staticPodStatePending, 1},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 0, 0),
+				newNode("c", 0, 0),
+			},
+			expected: 1,
+		},
+		{
+			name: "one updating",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+				{"b", staticPodStatePending, 0},
+				{"c", staticPodStateReady, 0},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 0, 1),
+				newNode("c", 0, 0),
+			},
+			expected: 1,
+		},
+		{
+			name: "pods missing",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 1},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 1, 0),
+				newNode("b", 0, 0),
+				newNode("c", 0, 0),
+			},
+			expected: 1,
+		},
+		{
+			name: "one old",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 1},
+				{"c", staticPodStateReady, 2},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 2, 0),
+				newNode("b", 2, 0),
+				newNode("c", 2, 0),
+			},
+			expected: 1,
+		},
+		{
+			name: "one behind, but as stated",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 1},
+				{"c", staticPodStateReady, 2},
+			},
+			nodes: []operatorv1.NodeStatus{
+				newNode("a", 2, 0),
+				newNode("b", 1, 0),
+				newNode("c", 2, 0),
+			},
+			expected: 0,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fakeGetStaticPodState := func(nodeName string) (state staticPodState, revision string, errs []string, err error) {
+				for _, p := range test.pods {
+					if p.name == nodeName {
+						return p.state, strconv.Itoa(int(p.revision)), nil, nil
+					}
+				}
+				return staticPodStatePending, "", nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
+			}
+			i, err := nodeToStartRevisionWith(fakeGetStaticPodState, test.nodes)
+			if err == nil && test.expectedErr {
+				t.Fatalf("expected error, got none")
+			}
+			if err != nil && !test.expectedErr {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if i != test.expected {
+				t.Errorf("expected node ID %d, got %d", test.expected, i)
+			}
+		})
+	}
 }
