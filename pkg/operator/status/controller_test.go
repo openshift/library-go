@@ -6,24 +6,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ghodss/yaml"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	fake "github.com/openshift/client-go/config/clientset/versioned/fake"
 )
 
 func TestSync(t *testing.T) {
 
 	testCases := []struct {
 		conditions            []operatorv1.OperatorCondition
-		expectedFailingStatus operatorv1.ConditionStatus
+		expectedFailingStatus configv1.ConditionStatus
 		expectedMessages      []string
 		expectedReason        string
 	}{
@@ -31,13 +27,13 @@ func TestSync(t *testing.T) {
 			conditions: []operatorv1.OperatorCondition{
 				{Type: "TypeAFailing", Status: operatorv1.ConditionFalse},
 			},
-			expectedFailingStatus: operatorv1.ConditionFalse,
+			expectedFailingStatus: configv1.ConditionFalse,
 		},
 		{
 			conditions: []operatorv1.OperatorCondition{
 				{Type: "TypeAFailing", Status: operatorv1.ConditionTrue},
 			},
-			expectedFailingStatus: operatorv1.ConditionTrue,
+			expectedFailingStatus: configv1.ConditionTrue,
 			expectedReason:        "TypeAFailing",
 		},
 		{
@@ -45,7 +41,7 @@ func TestSync(t *testing.T) {
 				{Type: "TypeAFailing", Status: operatorv1.ConditionTrue, Message: "a message from type a"},
 				{Type: "TypeBFailing", Status: operatorv1.ConditionFalse},
 			},
-			expectedFailingStatus: operatorv1.ConditionTrue,
+			expectedFailingStatus: configv1.ConditionTrue,
 			expectedReason:        "TypeAFailing",
 			expectedMessages: []string{
 				"TypeAFailing: a message from type a",
@@ -56,7 +52,7 @@ func TestSync(t *testing.T) {
 				{Type: "TypeAFailing", Status: operatorv1.ConditionFalse},
 				{Type: "TypeBFailing", Status: operatorv1.ConditionTrue, Message: "a message from type b"},
 			},
-			expectedFailingStatus: operatorv1.ConditionTrue,
+			expectedFailingStatus: configv1.ConditionTrue,
 			expectedReason:        "TypeBFailing",
 			expectedMessages: []string{
 				"TypeBFailing: a message from type b",
@@ -69,7 +65,7 @@ func TestSync(t *testing.T) {
 				{Type: "TypeCFailing", Status: operatorv1.ConditionFalse, Message: "a message from type c"},
 				{Type: "TypeDFailing", Status: operatorv1.ConditionTrue, Message: "a message from type d"},
 			},
-			expectedFailingStatus: operatorv1.ConditionTrue,
+			expectedFailingStatus: configv1.ConditionTrue,
 			expectedReason:        "MultipleConditionsFailing",
 			expectedMessages: []string{
 				"TypeBFailing: a message from type b",
@@ -80,19 +76,9 @@ func TestSync(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(fmt.Sprintf("%05d", name), func(t *testing.T) {
-			clusterOperators := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "config.openshift.io/v1",
-					"kind":       "ClusterOperator",
-					"metadata": map[string]interface{}{
-						"name":      "OPERATOR_NAME",
-						"namespace": "OPERATOR_NAMESPACE",
-					},
-				},
-			}
-			clusterOperatorClient := fake.NewSimpleDynamicClient(runtime.NewScheme(), clusterOperators).
-				Resource(schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "clusteroperators"}).
-				Namespace("OPERATOR_NAMESPACE")
+			clusterOperatorClient := fake.NewSimpleClientset(&configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME"},
+			})
 
 			statusClient := &statusClient{
 				t: t,
@@ -101,40 +87,35 @@ func TestSync(t *testing.T) {
 				},
 			}
 			controller := &StatusSyncer{
-				clusterOperatorNamespace: "OPERATOR_NAMESPACE",
-				clusterOperatorName:      "OPERATOR_NAME",
-				clusterOperatorClient:    clusterOperatorClient,
-				operatorStatusProvider:   statusClient,
+				clusterOperatorName:    "OPERATOR_NAME",
+				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
+				operatorStatusProvider: statusClient,
 			}
 			controller.sync()
-			result, _ := clusterOperatorClient.Get("OPERATOR_NAME", v1.GetOptions{})
-			expected := &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "config.openshift.io/v1",
-					"kind":       "ClusterOperator",
-					"metadata": map[string]interface{}{
-						"name":      "OPERATOR_NAME",
-						"namespace": "OPERATOR_NAMESPACE",
-					},
-				},
+			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get("OPERATOR_NAME", metav1.GetOptions{})
+			expected := &configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME"},
 			}
-			expectedConditions := []interface{}{}
+
 			if tc.expectedFailingStatus != "" {
-				expectedCondition := map[string]interface{}{}
-				unstructured.SetNestedField(expectedCondition, operatorv1.OperatorStatusTypeFailing, "Type")
-				unstructured.SetNestedField(expectedCondition, string(tc.expectedFailingStatus), "Status")
+				condition := configv1.ClusterOperatorStatusCondition{
+					Type:   configv1.OperatorFailing,
+					Status: configv1.ConditionStatus(string(tc.expectedFailingStatus)),
+				}
 				if len(tc.expectedMessages) > 0 {
-					unstructured.SetNestedField(expectedCondition, strings.Join(tc.expectedMessages, "\n"), "Message")
+					condition.Message = strings.Join(tc.expectedMessages, "\n")
 				}
 				if len(tc.expectedReason) > 0 {
-					unstructured.SetNestedField(expectedCondition, tc.expectedReason, "Reason")
+					condition.Reason = tc.expectedReason
 				}
-				expectedConditions = append(expectedConditions, expectedCondition)
+				expected.Status.Conditions = append(expected.Status.Conditions, condition)
 			}
-			unstructured.SetNestedSlice(expected.Object, expectedConditions, "status", "conditions")
+			for i := range result.Status.Conditions {
+				result.Status.Conditions[i].LastTransitionTime = metav1.Time{}
+			}
+
 			if !reflect.DeepEqual(expected, result) {
-				t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(expected), toYAML(result))
-				t.Error(diff.ObjectGoPrintSideBySide(expected, result))
+				t.Error(diff.ObjectDiff(expected, result))
 			}
 		})
 	}
@@ -153,12 +134,4 @@ func (c *statusClient) Informer() cache.SharedIndexInformer {
 
 func (c *statusClient) CurrentStatus() (operatorv1.OperatorStatus, error) {
 	return c.status, nil
-}
-
-func toYAML(o interface{}) string {
-	b, e := yaml.Marshal(o)
-	if e != nil {
-		return e.Error()
-	}
-	return string(b)
 }
