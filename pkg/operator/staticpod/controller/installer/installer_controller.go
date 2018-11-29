@@ -121,34 +121,50 @@ func (c *InstallerController) getStaticPodState(nodeName string) (state staticPo
 	return staticPodStatePending, "", nil, nil
 }
 
-func (c *InstallerController) nodeToStartRevisionWith(nodes []operatorv1.NodeStatus) (int, error) {
+// nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
+// - not updating
+// - ready
+// - at the revision claimed in CurrentRevision.
+func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state staticPodState, revision string, errors []string, err error), nodes []operatorv1.NodeStatus) (int, error) {
+	if len(nodes) == 0 {
+		return 0, fmt.Errorf("nodes array cannot be empty")
+	}
+
 	// find upgrading node as this will be the first to start new revision (to minimize number of down nodes)
-	startNode := 0
-	foundUpgradingNode := false
 	for i := range nodes {
 		if nodes[i].TargetRevision != 0 {
-			startNode = i
-			foundUpgradingNode = true
-			break
+			return i, nil
 		}
 	}
 
-	// otherwise try to find a node that is not ready regarding its currently reported revision
-	if !foundUpgradingNode {
-		for i := range nodes {
-			currNodeState := &nodes[i]
-			state, revision, _, err := c.getStaticPodState(currNodeState.NodeName)
-			if err != nil {
-				return 0, err
-			}
-			if state != staticPodStateReady || revision != strconv.Itoa(int(currNodeState.CurrentRevision)) {
-				startNode = i
-				break
-			}
+	// otherwise try to find a node that is not ready
+	for i := range nodes {
+		currNodeState := &nodes[i]
+		state, _, _, err := getStaticPodState(currNodeState.NodeName)
+		if err != nil && apierrors.IsNotFound(err) {
+			return i, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		if state != staticPodStateReady {
+			return i, nil
 		}
 	}
 
-	return startNode, nil
+	// last but not least, find a node that is has the wrong revision
+	for i := range nodes {
+		currNodeState := &nodes[i]
+		_, revision, _, err := getStaticPodState(currNodeState.NodeName)
+		if err != nil {
+			return 0, err
+		}
+		if revision != strconv.Itoa(int(currNodeState.CurrentRevision)) {
+			return i, nil
+		}
+	}
+
+	return 0, nil
 }
 
 // manageInstallationPods takes care of creating content for the static pods to install.
@@ -161,7 +177,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 	}
 
 	// start with node which is in worst state (instead of terminating healthy pods first)
-	startNode, err := c.nodeToStartRevisionWith(operatorStatus.NodeStatuses)
+	startNode, err := nodeToStartRevisionWith(c.getStaticPodState, operatorStatus.NodeStatuses)
 	if err != nil {
 		return true, err
 	}
