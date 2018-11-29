@@ -39,7 +39,10 @@ func guessObjectGroupKind(object runtime.Object) (string, string) {
 }
 
 func reportCreateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
-	reportingKind, reportingGroup := guessObjectGroupKind(obj)
+	reportingGroup, reportingKind := guessObjectGroupKind(obj)
+	if len(reportingGroup) == 0 {
+		reportingGroup = "core"
+	}
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		glog.Errorf("Failed to get accessor for %+v", obj)
@@ -47,17 +50,20 @@ func reportCreateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 	}
 	namespace := ""
 	if len(accessor.GetNamespace()) > 0 {
-		namespace = " -n " + accessor.GetNamespace()
+		namespace = " -n " + accessor.GetNamespace() + " "
 	}
 	if originalErr == nil {
-		recorder.Eventf(fmt.Sprintf("%sCreated", reportingKind), "Created %s.%s/%s%s %q because it was missing", reportingKind, reportingGroup, namespace, accessor.GetName())
+		recorder.Eventf(fmt.Sprintf("%sCreated", reportingKind), "Created %s.%s/%s%s because it was missing", reportingKind, reportingGroup, accessor.GetName(), namespace)
 		return
 	}
-	recorder.Warningf(fmt.Sprintf("%sCreateFailed", reportingKind), "Failed to create %s.%s/%s%s %q: %v", reportingKind, reportingGroup, namespace, accessor.GetName(), originalErr)
+	recorder.Warningf(fmt.Sprintf("%sCreateFailed", reportingKind), "Failed to create %s.%s/%s%s %q: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
 }
 
 func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
-	reportingKind, reportingGroup := guessObjectGroupKind(obj)
+	reportingGroup, reportingKind := guessObjectGroupKind(obj)
+	if len(reportingGroup) == 0 {
+		reportingGroup = "core"
+	}
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		glog.Errorf("Failed to get accessor for %+v", obj)
@@ -68,8 +74,8 @@ func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 		namespace = " -n " + accessor.GetNamespace()
 	}
 	if originalErr == nil {
-		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s.%s/%s%s %q because it changed", reportingKind, reportingGroup, namespace, accessor.GetName())
+		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s.%s/%s%s because it changed", reportingKind, reportingGroup, accessor.GetName(), namespace)
 		return
 	}
-	recorder.Warningf(fmt.Sprintf("%sUpdateFailed", reportingKind), "Failed to update %s.%s/%s%s %q: %v", reportingKind, reportingGroup, namespace, accessor.GetName(), originalErr)
+	recorder.Warningf(fmt.Sprintf("%sUpdateFailed", reportingKind), "Failed to update %s.%s/%s%s %q: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
 }
