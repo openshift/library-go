@@ -40,29 +40,8 @@ func guessObjectGroupKind(object runtime.Object) (string, string) {
 
 func reportCreateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
 	reportingGroup, reportingKind := guessObjectGroupKind(obj)
-	if len(reportingGroup) == 0 {
-		reportingGroup = "core"
-	}
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		glog.Errorf("Failed to get accessor for %+v", obj)
-		return
-	}
-	namespace := ""
-	if len(accessor.GetNamespace()) > 0 {
-		namespace = " -n " + accessor.GetNamespace() + " "
-	}
-	if originalErr == nil {
-		recorder.Eventf(fmt.Sprintf("%sCreated", reportingKind), "Created %s.%s/%s%s because it was missing", reportingKind, reportingGroup, accessor.GetName(), namespace)
-		return
-	}
-	recorder.Warningf(fmt.Sprintf("%sCreateFailed", reportingKind), "Failed to create %s.%s/%s%s %q: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
-}
-
-func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
-	reportingGroup, reportingKind := guessObjectGroupKind(obj)
-	if len(reportingGroup) == 0 {
-		reportingGroup = "core"
+	if len(reportingGroup) != 0 {
+		reportingGroup += "."
 	}
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
@@ -74,8 +53,29 @@ func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 		namespace = " -n " + accessor.GetNamespace()
 	}
 	if originalErr == nil {
-		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s.%s/%s%s because it changed", reportingKind, reportingGroup, accessor.GetName(), namespace)
+		recorder.Eventf(fmt.Sprintf("%sCreated", reportingKind), "Created %s%s/%s%s because it was missing", reportingKind, reportingGroup, accessor.GetName(), namespace)
 		return
 	}
-	recorder.Warningf(fmt.Sprintf("%sUpdateFailed", reportingKind), "Failed to update %s.%s/%s%s %q: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
+	recorder.Warningf(fmt.Sprintf("%sCreateFailed", reportingKind), "Failed to create %s%s/%s%s: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
+}
+
+func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
+	reportingGroup, reportingKind := guessObjectGroupKind(obj)
+	if len(reportingGroup) != 0 {
+		reportingGroup += "."
+	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		glog.Errorf("Failed to get accessor for %+v", obj)
+		return
+	}
+	namespace := ""
+	if len(accessor.GetNamespace()) > 0 {
+		namespace = " -n " + accessor.GetNamespace()
+	}
+	if originalErr == nil {
+		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s%s/%s%s because it changed", reportingKind, reportingGroup, accessor.GetName(), namespace)
+		return
+	}
+	recorder.Warningf(fmt.Sprintf("%sUpdateFailed", reportingKind), "Failed to update %s%s/%s%s: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
 }
