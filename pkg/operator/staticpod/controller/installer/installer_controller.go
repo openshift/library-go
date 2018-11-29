@@ -30,6 +30,8 @@ import (
 
 const installerControllerWorkQueueKey = "key"
 
+// InstallerController is a controller that watches the currentRevision and targetRevision fields for each node and spawn
+// installer pods to update the static pods on the master nodes.
 type InstallerController struct {
 	targetNamespace, staticPodName string
 	// configMaps is the list of configmaps that are directly copied.A different actor/controller modifies these.
@@ -67,6 +69,7 @@ const (
 
 const revisionLabel = "revision"
 
+// NewBackingResourceController creates a new installer controller.
 func NewInstallerController(
 	targetNamespace, staticPodName string,
 	configMaps []string,
