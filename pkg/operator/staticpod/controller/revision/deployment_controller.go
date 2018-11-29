@@ -28,6 +28,9 @@ import (
 
 const revisionControllerWorkQueueKey = "key"
 
+// RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
+// of them. If the original resources changes, the revision counter is increased, stored in LatestAvailableRevision
+// field of the operator config and new snapshots suffixed by the revision are created.
 type RevisionController struct {
 	targetNamespace string
 	// configMaps is the list of configmaps that are directly copied.A different actor/controller modifies these.
@@ -46,6 +49,7 @@ type RevisionController struct {
 	eventRecorder events.Recorder
 }
 
+// NewRevisionController create a new revision controller.
 func NewRevisionController(
 	targetNamespace string,
 	configMaps []string,

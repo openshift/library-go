@@ -23,7 +23,7 @@ import (
 
 const nodeControllerWorkQueueKey = "key"
 
-// NodeController watches for new master nodes and adds them to the list for an operator
+// NodeController watches for new master nodes and adds them to the node status list in the operator config status.
 type NodeController struct {
 	operatorConfigClient common.OperatorClient
 	eventRecorder        events.Recorder
@@ -35,6 +35,7 @@ type NodeController struct {
 	queue workqueue.RateLimitingInterface
 }
 
+// NewNodeController creates a new node controller.
 func NewNodeController(
 	operatorConfigClient common.OperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,

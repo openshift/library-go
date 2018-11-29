@@ -32,7 +32,9 @@ const (
 	manifestDir            = "pkg/operator/staticpod/controller/backingresource"
 )
 
-// BackingResourceController watches
+// BackingResourceController is a controller that watches the operator config and updates
+// service accounts and RBAC rules in the target namespace according to the bindata manifests
+// (templated with the config) if they differ.
 type BackingResourceController struct {
 	targetNamespace      string
 	operatorConfigClient common.OperatorClient
@@ -50,6 +52,7 @@ type BackingResourceController struct {
 	eventRecorder events.Recorder
 }
 
+// NewBackingResourceController creates a new backing resource controller.
 func NewBackingResourceController(
 	targetNamespace string,
 	operatorConfigClient common.OperatorClient,
