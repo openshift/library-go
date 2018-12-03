@@ -3,6 +3,7 @@ package controllercmd
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -79,10 +80,13 @@ func (b *ControllerBuilder) WithRestartOnChange(stopCh chan<- struct{}, files ..
 		}
 		b.fileObserver = observer
 	}
+	var once sync.Once
 
 	b.fileObserverReactorFn = func(filename string, action fileobserver.ActionType) error {
-		defer close(stopCh)
-		glog.Warning(fmt.Sprintf("Restart triggered because of %s", action.String(filename)))
+		once.Do(func() {
+			glog.Warning(fmt.Sprintf("Restart triggered because of %s", action.String(filename)))
+			close(stopCh)
+		})
 		return nil
 	}
 
