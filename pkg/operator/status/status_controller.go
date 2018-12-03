@@ -86,7 +86,7 @@ func (c StatusSyncer) sync() error {
 	}
 	clusterOperatorObj := originalClusterOperatorObj.DeepCopy()
 
-	if clusterOperatorObj == nil {
+	if clusterOperatorObj == nil || apierrors.IsNotFound(err) {
 		glog.Infof("clusteroperator/%s not found", c.clusterOperatorName)
 		clusterOperatorObj = &configv1.ClusterOperator{
 			ObjectMeta: metav1.ObjectMeta{Name: c.clusterOperatorName},
@@ -149,39 +149,43 @@ func (c StatusSyncer) sync() error {
 
 	glog.V(4).Infof("clusteroperator/%s set to %v", c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, clusterOperatorObj))
 
-	_, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj)
-	if apierrors.IsNotFound(updateErr) {
-		freshOperatorConfig, createErr := c.clusterOperatorClient.ClusterOperators().Create(clusterOperatorObj)
-		if apierrors.IsNotFound(createErr) {
-			// this means that the API isn't present.  We did not fail.  Try again later
-			glog.Infof("ClusterOperator API not created")
-			c.queue.AddRateLimited(workQueueKey)
-			return nil
+	if len(clusterOperatorObj.ResourceVersion) != 0 {
+		if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj); err != nil {
+			return updateErr
 		}
-		if createErr != nil {
-			c.eventRecorder.Warningf("StatusCreateFailed", "Failed to create operator status: %v", err)
-			return createErr
-		}
-
-		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorAvailable); condition != nil {
-			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
-		} else {
-			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorAvailable)
-		}
-		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorProgressing); condition != nil {
-			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
-		} else {
-			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorProgressing)
-		}
-		if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorFailing); condition != nil {
-			configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
-		} else {
-			configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorFailing)
-		}
-
-		_, updateErr = c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj)
+		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed", c.clusterOperatorName)
+		return nil
 	}
-	if updateErr != nil {
+
+	freshOperatorConfig, createErr := c.clusterOperatorClient.ClusterOperators().Create(clusterOperatorObj)
+	if apierrors.IsNotFound(createErr) {
+		// this means that the API isn't present.  We did not fail.  Try again later
+		glog.Infof("ClusterOperator API not created")
+		c.queue.AddRateLimited(workQueueKey)
+		return nil
+	}
+	if createErr != nil {
+		c.eventRecorder.Warningf("StatusCreateFailed", "Failed to create operator status: %v", err)
+		return createErr
+	}
+
+	if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorAvailable); condition != nil {
+		configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+	} else {
+		configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorAvailable)
+	}
+	if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorProgressing); condition != nil {
+		configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+	} else {
+		configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorProgressing)
+	}
+	if condition := configv1helpers.FindStatusCondition(clusterOperatorObj.Status.Conditions, configv1.OperatorFailing); condition != nil {
+		configv1helpers.SetStatusCondition(&freshOperatorConfig.Status.Conditions, *condition)
+	} else {
+		configv1helpers.RemoveStatusCondition(&freshOperatorConfig.Status.Conditions, configv1.OperatorFailing)
+	}
+
+	if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(freshOperatorConfig); updateErr != nil {
 		return updateErr
 	}
 	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed", c.clusterOperatorName)

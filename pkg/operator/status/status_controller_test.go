@@ -78,7 +78,7 @@ func TestSync(t *testing.T) {
 	for name, tc := range testCases {
 		t.Run(fmt.Sprintf("%05d", name), func(t *testing.T) {
 			clusterOperatorClient := fake.NewSimpleClientset(&configv1.ClusterOperator{
-				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME"},
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
 			})
 
 			statusClient := &statusClient{
@@ -99,7 +99,7 @@ func TestSync(t *testing.T) {
 			}
 			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get("OPERATOR_NAME", metav1.GetOptions{})
 			expected := &configv1.ClusterOperator{
-				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME"},
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
 			}
 
 			if tc.expectedFailingStatus != "" {
