@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
@@ -90,8 +91,12 @@ func TestSync(t *testing.T) {
 				clusterOperatorName:    "OPERATOR_NAME",
 				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
 				operatorStatusProvider: statusClient,
+				eventRecorder:          events.NewInMemoryRecorder("status"),
 			}
-			controller.sync()
+			if err := controller.sync(); err != nil {
+				t.Errorf("unexpected sync error: %v", err)
+				return
+			}
 			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get("OPERATOR_NAME", metav1.GetOptions{})
 			expected := &configv1.ClusterOperator{
 				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME"},
