@@ -21,6 +21,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
+	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -36,6 +37,7 @@ type StatusSyncer struct {
 
 	// TODO use a generated client when it moves to openshift/api
 	clusterOperatorClient configv1client.ClusterOperatorsGetter
+	eventRecorder         events.Recorder
 
 	operatorStatusProvider OperatorStatusProvider
 
@@ -47,11 +49,13 @@ func NewClusterOperatorStatusController(
 	name string,
 	clusterOperatorClient configv1client.ClusterOperatorsGetter,
 	operatorStatusProvider OperatorStatusProvider,
+	recorder events.Recorder,
 ) *StatusSyncer {
 	c := &StatusSyncer{
 		clusterOperatorName:    name,
 		clusterOperatorClient:  clusterOperatorClient,
 		operatorStatusProvider: operatorStatusProvider,
+		eventRecorder:          recorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatusSyncer-"+name),
 	}
@@ -68,6 +72,7 @@ func (c StatusSyncer) sync() error {
 	currentDetailedStatus, err := c.operatorStatusProvider.CurrentStatus()
 	if apierrors.IsNotFound(err) {
 		glog.Infof("operator.status not found")
+		c.eventRecorder.Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.clusterOperatorName)
 		return c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil)
 	}
 	if err != nil {
@@ -76,6 +81,7 @@ func (c StatusSyncer) sync() error {
 
 	originalClusterOperatorObj, err := c.clusterOperatorClient.ClusterOperators().Get(c.clusterOperatorName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
+		c.eventRecorder.Warningf("StatusFailed", "Unable to get current operator status for %s: %v", c.clusterOperatorName, err)
 		return err
 	}
 	clusterOperatorObj := originalClusterOperatorObj.DeepCopy()
@@ -142,6 +148,7 @@ func (c StatusSyncer) sync() error {
 	}
 
 	glog.V(4).Infof("clusteroperator/%s set to %v", c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, clusterOperatorObj))
+
 	_, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj)
 	if apierrors.IsNotFound(updateErr) {
 		freshOperatorConfig, createErr := c.clusterOperatorClient.ClusterOperators().Create(clusterOperatorObj)
@@ -152,6 +159,7 @@ func (c StatusSyncer) sync() error {
 			return nil
 		}
 		if createErr != nil {
+			c.eventRecorder.Warningf("StatusCreateFailed", "Failed to create operator status: %v", err)
 			return createErr
 		}
 
@@ -176,6 +184,7 @@ func (c StatusSyncer) sync() error {
 	if updateErr != nil {
 		return updateErr
 	}
+	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed", c.clusterOperatorName)
 
 	return nil
 }
