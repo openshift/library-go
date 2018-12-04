@@ -215,16 +215,14 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 				glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
 				operatorStatus.NodeStatuses[i] = *newCurrNodeState
-				if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-					_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-					if updateError == nil {
-						if currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
-							c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
-								currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
-						}
+				updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
+				if updateError == nil {
+					if currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
+						c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
+							currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
 					}
-					return false, updateError
 				}
+				return false, updateError
 			} else {
 				glog.V(2).Infof("%q is in transition to %d, but has not made progress", currNodeState.NodeName, currNodeState.TargetRevision)
 			}
@@ -248,18 +246,15 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 			glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
 			operatorStatus.NodeStatuses[i] = *newCurrNodeState
-			if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-				_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-
-				if updateError == nil {
-					if currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
-						c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
-							currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
-					}
+			updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
+			if updateError == nil {
+				if currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
+					c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
+						currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
 				}
-
-				return false, updateError
 			}
+
+			return false, updateError
 		}
 		break
 	}
@@ -268,14 +263,22 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 		Type:   "InstallerControllerFailing",
 		Status: operatorv1.ConditionFalse,
 	})
-	if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-		if updateError != nil {
-			return true, updateError
-		}
+	updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
+	if updateError != nil {
+		return true, updateError
 	}
 
 	return false, nil
+}
+
+// updateStatus inspects the old and new status, sets the correct available and progressing conditions, and then issue the update if required.
+func (c *InstallerController) updateStatus(resourceVersion string, oldStatus, newStatus *operatorv1.StaticPodOperatorStatus) error {
+	if !reflect.DeepEqual(oldStatus, newStatus) {
+		_, err := c.operatorConfigClient.UpdateStatus(resourceVersion, newStatus)
+		return err
+	}
+
+	return nil
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState or error
