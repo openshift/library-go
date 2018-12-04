@@ -111,7 +111,7 @@ func (c ConfigObserver) sync() error {
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(existingConfig, mergedObservedConfig) {
+	if len(errs) == 0 && !equality.Semantic.DeepEqual(existingConfig, mergedObservedConfig) {
 		glog.Infof("writing updated observedConfig: %v", diff.ObjectDiff(existingConfig, mergedObservedConfig))
 		spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: mergedObservedConfig}}
 		_, resourceVersion, err = c.operatorClient.UpdateOperatorSpec(resourceVersion, spec)
