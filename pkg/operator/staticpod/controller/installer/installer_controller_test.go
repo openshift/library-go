@@ -21,6 +21,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -774,4 +775,59 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetConditions(t *testing.T) {
+
+	type TestCase struct {
+		name                    string
+		latestAvailableRevision int32
+		currentRevisions        []int32
+		expectedAvailableStatus operatorv1.ConditionStatus
+		expectedPendingStatus   operatorv1.ConditionStatus
+	}
+
+	testCase := func(name string, available, pending bool, latest int32, current ...int32) TestCase {
+		availableStatus := operatorv1.ConditionFalse
+		pendingStatus := operatorv1.ConditionFalse
+		if available {
+			availableStatus = operatorv1.ConditionTrue
+		}
+		if pending {
+			pendingStatus = operatorv1.ConditionTrue
+		}
+		return TestCase{name, latest, current, availableStatus, pendingStatus}
+	}
+
+	testCases := []TestCase{
+		testCase("AvailablePending", true, true, 2, 2, 1, 2, 1),
+		testCase("AvailableNotPending", true, false, 2, 2, 2, 2),
+		testCase("NotAvailablePending", false, true, 2, 1, 1),
+		testCase("NotAvailableNotPending", false, false, 2),
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status := &operatorv1.StaticPodOperatorStatus{
+				LatestAvailableRevision: tc.latestAvailableRevision,
+			}
+			for _, current := range tc.currentRevisions {
+				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current})
+			}
+			setConditions(status)
+			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeAvailable)
+			if availableCondition == nil {
+				t.Error("Available condition: not found")
+			} else if availableCondition.Status != tc.expectedAvailableStatus {
+				t.Errorf("Available condition: expected status %v, actual status %v", tc.expectedAvailableStatus, availableCondition.Status)
+			}
+			pendingCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeProgressing)
+			if pendingCondition == nil {
+				t.Error("Pending condition: not found")
+			} else if pendingCondition.Status != tc.expectedPendingStatus {
+				t.Errorf("Pending condition: expected status %v, actual status %v", tc.expectedPendingStatus, pendingCondition.Status)
+			}
+		})
+	}
+
 }
