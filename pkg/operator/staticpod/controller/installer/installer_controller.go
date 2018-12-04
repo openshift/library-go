@@ -273,12 +273,58 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 
 // updateStatus inspects the old and new status, sets the correct available and progressing conditions, and then issue the update if required.
 func (c *InstallerController) updateStatus(resourceVersion string, oldStatus, newStatus *operatorv1.StaticPodOperatorStatus) error {
+	setConditions(newStatus)
+
 	if !reflect.DeepEqual(oldStatus, newStatus) {
 		_, err := c.operatorConfigClient.UpdateStatus(resourceVersion, newStatus)
 		return err
 	}
 
 	return nil
+}
+
+// setConditions sets the Available and Progressing conditions
+func setConditions(newStatus *operatorv1.StaticPodOperatorStatus) {
+	// Available means that we have at least one pod at the latest level
+	numAvailable := 0
+	numProgressing := 0
+	for _, currNodeStatus := range newStatus.NodeStatuses {
+		if newStatus.LatestAvailableRevision == currNodeStatus.CurrentRevision {
+			numAvailable += 1
+		} else {
+			numProgressing += 1
+		}
+	}
+	if numAvailable > 0 {
+		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Status:  operatorv1.ConditionTrue,
+			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numAvailable, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "ZeroNodesAtLatestRevision",
+			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numAvailable, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+		})
+	}
+
+	// Progressing means that the any node is not at the latest available revision
+	if numProgressing > 0 {
+		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Status:  operatorv1.ConditionTrue,
+			Message: fmt.Sprintf("%d of %d nodes are not at revision %d", numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "AllNodesAtLatestRevision",
+			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+		})
+	}
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState or error
