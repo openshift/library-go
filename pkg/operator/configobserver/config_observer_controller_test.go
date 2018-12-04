@@ -102,9 +102,7 @@ func TestSyncStatus(t *testing.T) {
 					startingSpec: &operatorv1.OperatorSpec{},
 				}
 			},
-			expectEvents: [][]string{
-				{"ObservedConfigChanged", "Writing updated observed config"},
-			},
+			expectEvents: [][]string{},
 			observers: []ObserveConfigFunc{
 				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"foo": "one"}, nil
@@ -118,11 +116,8 @@ func TestSyncStatus(t *testing.T) {
 				},
 			},
 
-			expectError: false,
-			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
-				"foo": "one",
-				"bar": "two",
-			}},
+			expectError:            false,
+			expectedObservedConfig: nil,
 			expectedCondition: &operatorv1.OperatorCondition{
 				Type:    operatorStatusTypeConfigObservationFailing,
 				Status:  operatorv1.ConditionTrue,
@@ -186,15 +181,19 @@ func TestSyncStatus(t *testing.T) {
 				observedEvents = append(observedEvents, []string{event.Reason, event.Message})
 			}
 			for i, event := range tc.expectEvents {
+				if i >= len(observedEvents) {
+					t.Errorf("expected %d event message %q, reason %q, got only %d events", i, event[0], event[1], len(observedEvents))
+					continue
+				}
 				if observedEvents[i][0] != event[0] {
 					t.Errorf("expected %d event reason to be %q, got %q", i, event[0], observedEvents[i][0])
 				}
 				if observedEvents[i][1] != event[1] {
-					t.Errorf("expected %d event message to be %q, got %q", i, event[0], observedEvents[i][0])
+					t.Errorf("expected %d event message to be %q, got %q", i, event[1], observedEvents[i][1])
 				}
 			}
-			if len(tc.expectEvents) != len(observedEvents) {
-				t.Errorf("expected %d events, got %d (%#v)", len(tc.expectEvents), len(observedEvents), observedEvents)
+			if len(tc.expectEvents) < len(observedEvents) {
+				t.Errorf("expected only %d events, got %d (%#v)", len(tc.expectEvents), len(observedEvents), observedEvents[len(tc.expectEvents):])
 			}
 
 			switch {
