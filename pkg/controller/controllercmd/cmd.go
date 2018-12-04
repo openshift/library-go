@@ -169,5 +169,5 @@ func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error 
 		WithLeaderElection(config.LeaderElection, "", c.componentName+"-lock").
 		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
 		WithRestartOnChange(exitOnChangeReactorCh, observedFiles...).
-		Run(unstructuredConfig, stopCh)
+		Run(unstructuredConfig, stopChannelCombined)
 }
