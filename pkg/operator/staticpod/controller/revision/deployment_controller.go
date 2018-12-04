@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +46,8 @@ type RevisionController struct {
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
 
+	revisionMetrics *prometheus.GaugeVec
+
 	eventRecorder events.Recorder
 }
 
@@ -70,6 +72,9 @@ func NewRevisionController(
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionController"),
 	}
+
+	metrics := newPrometheusMetricsProvider(targetNamespace)
+	c.revisionMetrics = metrics.NewRevisionMetrics()
 
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
@@ -120,6 +125,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Oper
 		if updateError != nil {
 			return true, updateError
 		}
+		c.revisionMetrics.With(prometheus.Labels{"observedGeneration": fmt.Sprintf("%d", operatorStatus.ObservedGeneration)}).Set(float64(operatorStatus.LatestAvailableRevision))
 		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", operatorStatus.LatestAvailableRevision, reason)
 	}
 
