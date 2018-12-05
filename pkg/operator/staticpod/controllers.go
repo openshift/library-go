@@ -1,9 +1,12 @@
 package staticpod
 
 import (
+	"github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/metrics"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
@@ -17,6 +20,7 @@ type staticPodOperatorControllers struct {
 	installerController      *installer.InstallerController
 	nodeController           *node.NodeController
 	serviceAccountController *backingresource.BackingResourceController
+	metricsCollector         *metrics.Collector
 }
 
 // NewControllers provides all control loops needed to run a static pod based operator. That includes:
@@ -68,7 +72,25 @@ func NewControllers(targetNamespaceName, staticPodName string, command, revision
 		eventRecorder,
 	)
 
+	controller.metricsCollector = metrics.NewOperatorStatusMetricsCollector(
+		&metricsClientAdapter{client: staticPodOperatorClient},
+		targetNamespaceName,
+	)
+
 	return controller
+}
+
+type metricsClientAdapter struct {
+	client common.OperatorClient
+}
+
+func (c *metricsClientAdapter) GetOperatorState() (spec *v1.OperatorSpec, status *v1.OperatorStatus, staticPodStatus *v1.StaticPodOperatorStatus, resourceVersion string, err error) {
+	spec, staticPodStatus, resourceVersion, err = c.client.Get()
+	return
+}
+
+func (c *metricsClientAdapter) Informer() cache.SharedIndexInformer {
+	return c.client.Informer()
 }
 
 func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
@@ -76,6 +98,7 @@ func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
 	go o.revisionController.Run(1, stopCh)
 	go o.installerController.Run(1, stopCh)
 	go o.nodeController.Run(1, stopCh)
+	go o.metricsCollector.Run(1, stopCh)
 
 	<-stopCh
 }
