@@ -315,14 +315,14 @@ func setConditions(newStatus *operatorv1.StaticPodOperatorStatus) {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%d of %d nodes are not at revision %d", numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d of %d nodes are at revision %d, %d are not", len(newStatus.NodeStatuses)-numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision, numProgressing),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "AllNodesAtLatestRevision",
-			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d of %d nodes are at revision %d", len(newStatus.NodeStatuses)-numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
 		})
 	}
 }
