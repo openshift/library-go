@@ -3,7 +3,6 @@ package installer
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+const operatorStatusInstallerControllerFailing = "InstallerControllerFailing"
 const installerControllerWorkQueueKey = "key"
 
 // InstallerController is a controller that watches the currentRevision and targetRevision fields for each node and spawn
@@ -214,15 +214,13 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 			// it's an extra write/read, but it makes the state debuggable from outside this process
 			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 				glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
-				operatorStatus.NodeStatuses[i] = *newCurrNodeState
-				updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
-				if updateError == nil {
-					if currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
-						c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
-							currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
-					}
+				if updated, updateError := common.UpdateStatus(c.operatorConfigClient, setNodeStatusFn(newCurrNodeState)); updateError != nil {
+					return false, updateError
+				} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
+					c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
+						currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
 				}
-				return false, updateError
+				return false, nil
 			} else {
 				glog.V(2).Infof("%q is in transition to %d, but has not made progress", currNodeState.NodeName, currNodeState.TargetRevision)
 			}
@@ -245,46 +243,35 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 		// it's an extra write/read, but it makes the state debuggable from outside this process
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 			glog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
-			operatorStatus.NodeStatuses[i] = *newCurrNodeState
-			updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
-			if updateError == nil {
-				if currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
-					c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
-						currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
-				}
+			if updated, updateError := common.UpdateStatus(c.operatorConfigClient, setNodeStatusFn(newCurrNodeState)); updateError != nil {
+				return false, updateError
+			} else if updated && currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
+				c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
+					currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
 			}
 
-			return false, updateError
+			return false, nil
 		}
 		break
-	}
-
-	v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
-		Type:   "InstallerControllerFailing",
-		Status: operatorv1.ConditionFalse,
-	})
-	updateError := c.updateStatus(resourceVersion, originalOperatorStatus, operatorStatus)
-	if updateError != nil {
-		return true, updateError
 	}
 
 	return false, nil
 }
 
-// updateStatus inspects the old and new status, sets the correct available and progressing conditions, and then issue the update if required.
-func (c *InstallerController) updateStatus(resourceVersion string, oldStatus, newStatus *operatorv1.StaticPodOperatorStatus) error {
-	setConditions(newStatus)
-
-	if !reflect.DeepEqual(oldStatus, newStatus) {
-		_, err := c.operatorConfigClient.UpdateStatus(resourceVersion, newStatus)
-		return err
+func setNodeStatusFn(status *operatorv1.NodeStatus) common.UpdateStatusFunc {
+	return func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
+		for i := range operatorStatus.NodeStatuses {
+			if operatorStatus.NodeStatuses[i].NodeName == status.NodeName {
+				operatorStatus.NodeStatuses[i] = *status
+				break
+			}
+		}
+		return nil
 	}
-
-	return nil
 }
 
 // setConditions sets the Available and Progressing conditions
-func setConditions(newStatus *operatorv1.StaticPodOperatorStatus) {
+func setConditions(newStatus *operatorv1.StaticPodOperatorStatus) error {
 	// Available means that we have at least one pod at the latest level
 	numAvailable := 0
 	numProgressing := 0
@@ -325,6 +312,8 @@ func setConditions(newStatus *operatorv1.StaticPodOperatorStatus) {
 			Message: fmt.Sprintf("%d of %d nodes are at revision %d", len(newStatus.NodeStatuses)-numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
 		})
 	}
+
+	return nil
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState or error
@@ -483,22 +472,23 @@ func (c InstallerController) sync() error {
 	}
 	err = syncErr
 
+	// update failing condition
+	cond := operatorv1.OperatorCondition{
+		Type:   operatorStatusInstallerControllerFailing,
+		Status: operatorv1.ConditionFalse,
+	}
 	if err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeFailing,
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "StatusUpdateError",
-			Message: err.Error(),
-		})
-		if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-			if _, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus); updateError != nil {
-				glog.Error(updateError)
-			}
+		cond.Status = operatorv1.ConditionTrue
+		cond.Reason = "Error"
+		cond.Message = err.Error()
+	}
+	if _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+		if err == nil {
+			return updateError
 		}
-		return err
 	}
 
-	return nil
+	return err
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.

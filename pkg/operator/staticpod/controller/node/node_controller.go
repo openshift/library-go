@@ -2,11 +2,11 @@ package node
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/golang/glog"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -103,11 +103,12 @@ func (c NodeController) sync() error {
 		c.eventRecorder.Eventf("MasterNodeObserved", "Observed new master node %s", node.Name)
 		newTargetNodeStates = append(newTargetNodeStates, operatorv1.NodeStatus{NodeName: node.Name})
 	}
-	operatorStatus.NodeStatuses = newTargetNodeStates
 
-	if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-		return updateError
+	operatorStatus.NodeStatuses = newTargetNodeStates
+	if !equality.Semantic.DeepEqual(originalOperatorStatus, operatorStatus) {
+		if _, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus); updateError != nil {
+			return updateError
+		}
 	}
 
 	return nil
