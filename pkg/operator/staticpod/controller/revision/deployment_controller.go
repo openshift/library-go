@@ -2,7 +2,6 @@ package revision
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -23,9 +22,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+const operatorStatusRevisionControllerFailing = "RevisionControllerFailing"
 const revisionControllerWorkQueueKey = "key"
 
 // RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
@@ -94,32 +93,29 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Oper
 	nextRevision := latestRevision + 1
 	glog.Infof("new revision %d triggered by %q", nextRevision, reason)
 	if err := c.createNewRevision(nextRevision); err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
+		cond := operatorv1.OperatorCondition{
 			Type:    "RevisionControllerFailing",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "ContentCreationError",
 			Message: err.Error(),
-		})
-		if !reflect.DeepEqual(operatorStatusOriginal, operatorStatus) {
-			_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-			if updateError != nil {
-				c.eventRecorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
-			}
+		}
+		if _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+			c.eventRecorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
 			return true, updateError
 		}
 		return true, nil
 	}
 
-	v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
+	cond := operatorv1.OperatorCondition{
 		Type:   "RevisionControllerFailing",
 		Status: operatorv1.ConditionFalse,
-	})
-	operatorStatus.LatestAvailableRevision = nextRevision
-	if !reflect.DeepEqual(operatorStatusOriginal, operatorStatus) {
-		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
-		if updateError != nil {
-			return true, updateError
-		}
+	}
+	if updated, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond), func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
+		operatorStatus.LatestAvailableRevision = nextRevision
+		return nil
+	}); updateError != nil {
+		return true, updateError
+	} else if updated {
 		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", operatorStatus.LatestAvailableRevision, reason)
 	}
 
@@ -206,22 +202,23 @@ func (c RevisionController) sync() error {
 	}
 	err = syncErr
 
+	// update failing condition
+	cond := operatorv1.OperatorCondition{
+		Type:   operatorStatusRevisionControllerFailing,
+		Status: operatorv1.ConditionFalse,
+	}
 	if err != nil {
-		v1helpers.SetOperatorCondition(&operatorStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeFailing,
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "StatusUpdateError",
-			Message: err.Error(),
-		})
-		if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
-			if _, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus); updateError != nil {
-				glog.Error(updateError)
-			}
+		cond.Status = operatorv1.ConditionTrue
+		cond.Reason = "Error"
+		cond.Message = err.Error()
+	}
+	if _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+		if err == nil {
+			return updateError
 		}
-		return err
 	}
 
-	return nil
+	return err
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.
