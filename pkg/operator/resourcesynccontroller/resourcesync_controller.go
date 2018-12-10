@@ -171,7 +171,7 @@ func (c *ResourceSyncController) sync() error {
 			Reason:  "Error",
 			Message: common.NewMultiLineAggregate(errors).Error(),
 		}
-		if _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+		if _, _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
 			return updateError
 		}
 		return nil
@@ -181,7 +181,7 @@ func (c *ResourceSyncController) sync() error {
 		Type:   operatorStatusResourceSyncControllerFailing,
 		Status: operatorv1.ConditionFalse,
 	}
-	if _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 	return nil
