@@ -191,6 +191,13 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	} else {
 		t.Errorf("expected errors to be not empty")
 	}
+
+	if v1helpers.FindOperatorCondition(currStatus.Conditions, operatorv1.OperatorStatusTypeProgressing) == nil {
+		t.Error("missing Progressing")
+	}
+	if v1helpers.FindOperatorCondition(currStatus.Conditions, operatorv1.OperatorStatusTypeAvailable) == nil {
+		t.Error("missing Available")
+	}
 }
 
 func getPodsReactor(pods ...*v1.Pod) ktesting.ReactionFunc {
@@ -814,7 +821,7 @@ func TestSetConditions(t *testing.T) {
 			for _, current := range tc.currentRevisions {
 				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current})
 			}
-			setConditions(status)
+			setAvailableProgressingConditions(status)
 			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeAvailable)
 			if availableCondition == nil {
 				t.Error("Available condition: not found")
