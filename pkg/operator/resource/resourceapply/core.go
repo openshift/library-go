@@ -71,6 +71,29 @@ func ApplyService(client coreclientv1.ServicesGetter, recorder events.Recorder, 
 	return actual, true, err
 }
 
+// ApplyPod merges objectmeta, does not worry about anything else
+func ApplyPod(client coreclientv1.PodsGetter, recorder events.Recorder, required *corev1.Pod) (*corev1.Pod, bool, error) {
+	existing, err := client.Pods(required.Namespace).Get(required.Name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		actual, err := client.Pods(required.Namespace).Create(required)
+		reportCreateEvent(recorder, required, err)
+		return actual, true, err
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	modified := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
+	if !*modified {
+		return existing, false, nil
+	}
+
+	actual, err := client.Pods(required.Namespace).Update(existing)
+	reportUpdateEvent(recorder, required, err)
+	return actual, true, err
+}
+
 // ApplyServiceAccount merges objectmeta, does not worry about anything else
 func ApplyServiceAccount(client coreclientv1.ServiceAccountsGetter, recorder events.Recorder, required *corev1.ServiceAccount) (*corev1.ServiceAccount, bool, error) {
 	existing, err := client.ServiceAccounts(required.Namespace).Get(required.Name, metav1.GetOptions{})
