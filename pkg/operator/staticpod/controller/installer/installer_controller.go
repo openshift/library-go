@@ -3,11 +3,13 @@ package installer
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -22,13 +24,21 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const operatorStatusInstallerControllerFailing = "InstallerControllerFailing"
-const installerControllerWorkQueueKey = "key"
+const (
+	operatorStatusInstallerControllerFailing = "InstallerControllerFailing"
+	installerControllerWorkQueueKey          = "key"
+	manifestDir                              = "pkg/operator/staticpod/controller/installer"
+	manifestInstallerPodPath                 = "manifests/installer-pod.yaml"
+
+	hostResourceDirDir = "/etc/kubernetes/static-pod-resources"
+	hostPodManifestDir = "/etc/kubernetes/manifests"
+)
 
 // InstallerController is a controller that watches the currentRevision and targetRevision fields for each node and spawn
 // installer pods to update the static pods on the master nodes.
@@ -419,33 +429,32 @@ func getInstallerPodName(revision int32, nodeName string) string {
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
 func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.OperatorSpec, revision int32) error {
-	required := resourceread.ReadPodV1OrDie([]byte(installerPod))
-	required.Name = getInstallerPodName(revision, nodeName)
-	required.Namespace = c.targetNamespace
-	required.Spec.NodeName = nodeName
-	required.Spec.Containers[0].Image = c.installerPodImageFn()
-	required.Spec.Containers[0].Command = c.command
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
-		fmt.Sprintf("-v=%d", 4),
+	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
+
+	pod.Namespace = c.targetNamespace
+	pod.Name = getInstallerPodName(revision, nodeName)
+	pod.Spec.NodeName = nodeName
+	pod.Spec.Containers[0].Image = c.installerPodImageFn()
+	pod.Spec.Containers[0].Command = c.command
+
+	args := []string{
+		"-v=4", // TODO: Make this configurable?
 		fmt.Sprintf("--revision=%d", revision),
-		fmt.Sprintf("--namespace=%s", c.targetNamespace),
+		fmt.Sprintf("--namespace=%s", pod.Namespace),
 		fmt.Sprintf("--pod=%s", c.configMaps[0]),
-		fmt.Sprintf("--resource-dir=%s", "/etc/kubernetes/static-pod-resources"),
-		fmt.Sprintf("--pod-manifest-dir=%s", "/etc/kubernetes/manifests"),
-	)
+		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
+		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
+	}
 	for _, name := range c.configMaps {
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--configmaps=%s", name))
+		args = append(args, fmt.Sprintf("--configmaps=%s", name))
 	}
 	for _, name := range c.secrets {
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--secrets=%s", name))
+		args = append(args, fmt.Sprintf("--secrets=%s", name))
 	}
+	pod.Spec.Containers[0].Args = args
 
-	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil && !apierrors.IsAlreadyExists(err) {
-		glog.Errorf("failed to create pod on node %q for %s: %v", nodeName, resourceread.WritePodV1OrDie(required), err)
-		return err
-	}
-
-	return nil
+	_, _, err := resourceapply.ApplyPod(c.kubeClient.CoreV1(), c.eventRecorder, pod)
+	return err
 }
 
 func getInstallerPodImageFromEnv() string {
@@ -541,32 +550,3 @@ func (c *InstallerController) eventHandler() cache.ResourceEventHandler {
 func mirrorPodNameForNode(staticPodName, nodeName string) string {
 	return staticPodName + "-" + nodeName
 }
-
-const installerPod = `apiVersion: v1
-kind: Pod
-metadata:
-  namespace: <namespace>
-  name: installer-<revision>-<nodeName>
-  labels:
-    app: installer
-spec:
-  serviceAccountName: installer-sa
-  containers:
-  - name: installer
-    image: ${IMAGE}
-    imagePullPolicy: Always
-    securityContext:
-      privileged: true
-      runAsUser: 0
-    terminationMessagePolicy: FallbackToLogsOnError
-    volumeMounts:
-    - mountPath: /etc/kubernetes/
-      name: kubelet-dir
-  restartPolicy: Never
-  securityContext:
-    runAsUser: 0
-  volumes:
-  - hostPath:
-      path: /etc/kubernetes/
-    name: kubelet-dir
-`

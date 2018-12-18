@@ -58,6 +58,8 @@ func ApplyDirectly(client kubernetes.Interface, recorder events.Recorder, manife
 			result.Result, result.Changed, result.Error = ApplyNamespace(client.CoreV1(), recorder, t)
 		case *corev1.Service:
 			result.Result, result.Changed, result.Error = ApplyService(client.CoreV1(), recorder, t)
+		case *corev1.Pod:
+			result.Result, result.Changed, result.Error = ApplyPod(client.CoreV1(), recorder, t)
 		case *corev1.ServiceAccount:
 			result.Result, result.Changed, result.Error = ApplyServiceAccount(client.CoreV1(), recorder, t)
 		case *corev1.ConfigMap:

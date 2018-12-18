@@ -2,6 +2,7 @@ package installer
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -58,12 +59,12 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	)
 
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
-
+	podCommand := []string{"/bin/true", "--foo=test", "--bar"}
 	c := NewInstallerController(
 		"test", "test-pod",
 		[]string{"test-config"},
 		[]string{"test-secret"},
-		[]string{"/bin/true"},
+		podCommand,
 		kubeInformers,
 		fakeStaticPodOperatorClient,
 		kubeClient,
@@ -93,6 +94,29 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	if installerPod == nil {
 		t.Fatalf("expected to create installer pod")
 	}
+
+	t.Run("VerifyPodCommand", func(t *testing.T) {
+		cmd := installerPod.Spec.Containers[0].Command
+		if !reflect.DeepEqual(podCommand, cmd) {
+			t.Errorf("expected pod command %#v to match resulting installer pod command: %#v", podCommand, cmd)
+		}
+	})
+
+	t.Run("VerifyPodArguments", func(t *testing.T) {
+		args := installerPod.Spec.Containers[0].Args
+		if len(args) == 0 {
+			t.Errorf("pod args should not be empty")
+		}
+		foundRevision := false
+		for _, arg := range args {
+			if arg == "--revision=1" {
+				foundRevision = true
+			}
+		}
+		if !foundRevision {
+			t.Errorf("revision installer argument not found")
+		}
+	})
 
 	t.Log("synching again, nothing happens")
 	if err := c.sync(); err != nil {
@@ -442,7 +466,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			createdInstallerPods := []*v1.Pod{}
 			updatedStaticPods := map[string]*v1.Pod{}
@@ -521,7 +545,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
 			c := NewInstallerController(
-				"test-"+test.name, "test-pod",
+				fmt.Sprintf("test-%d", i), "test-pod",
 				[]string{"test-config"},
 				[]string{"test-secret"},
 				[]string{"/bin/true"},
