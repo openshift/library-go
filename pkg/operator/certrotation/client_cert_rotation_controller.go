@@ -35,9 +35,11 @@ type CertRotationController struct {
 	signingCertKeyPairValidity   time.Duration
 	newSigningPercentage         float32
 	signingCertKeyPairSecretName string
+	signingLister                corev1listers.SecretLister
 
 	caBundleNamespace     string
 	caBundleConfigMapName string
+	caBundleLister        corev1listers.ConfigMapLister
 
 	targetNamespace                     string
 	targetCertKeyPairValidity           time.Duration
@@ -46,10 +48,9 @@ type CertRotationController struct {
 	targetServingHostnames              []string
 	targetServingCertificateExtensionFn []crypto.CertificateExtensionFunc
 	targetUserInfo                      user.Info
+	targetLister                        corev1listers.SecretLister
 
-	configmapsLister corev1listers.ConfigMapLister
-	secretsLister    corev1listers.SecretLister
-	cachesSynced     []cache.InformerSynced
+	cachesSynced []cache.InformerSynced
 
 	configmapsClient corev1client.ConfigMapsGetter
 	secretsClient    corev1client.SecretsGetter
@@ -72,8 +73,9 @@ func newCertRotationController(
 	newTargetPercentage float32,
 	targetCertKeyPairSecretName string,
 
-	configmapsInformer corev1informers.ConfigMapInformer,
-	secretsInformer corev1informers.SecretInformer,
+	signingInformer corev1informers.SecretInformer,
+	cabundleInformer corev1informers.ConfigMapInformer,
+	targetInformer corev1informers.SecretInformer,
 
 	configmapsClient corev1client.ConfigMapsGetter,
 	secretsClient corev1client.SecretsGetter,
@@ -84,18 +86,22 @@ func newCertRotationController(
 		signingCertKeyPairValidity:   signingCertKeyPairValidity,
 		newSigningPercentage:         newSigningPercentage,
 		signingCertKeyPairSecretName: signingCertKeyPairSecretName,
-		caBundleNamespace:            caBundleNamespace,
-		caBundleConfigMapName:        caBundleConfigMapName,
-		targetNamespace:              targetNamespace,
-		targetCertKeyPairValidity:    targetCertKeyPairValidity,
-		newTargetPercentage:          newTargetPercentage,
-		targetCertKeyPairSecretName:  targetCertKeyPairSecretName,
+		signingLister:                signingInformer.Lister(),
 
-		configmapsLister: configmapsInformer.Lister(),
-		secretsLister:    secretsInformer.Lister(),
+		caBundleNamespace:     caBundleNamespace,
+		caBundleConfigMapName: caBundleConfigMapName,
+		caBundleLister:        cabundleInformer.Lister(),
+
+		targetNamespace:             targetNamespace,
+		targetCertKeyPairValidity:   targetCertKeyPairValidity,
+		newTargetPercentage:         newTargetPercentage,
+		targetCertKeyPairSecretName: targetCertKeyPairSecretName,
+		targetLister:                targetInformer.Lister(),
+
 		cachesSynced: []cache.InformerSynced{
-			configmapsInformer.Informer().HasSynced,
-			secretsInformer.Informer().HasSynced,
+			signingInformer.Informer().HasSynced,
+			cabundleInformer.Informer().HasSynced,
+			targetInformer.Informer().HasSynced,
 		},
 
 		configmapsClient: configmapsClient,
@@ -105,8 +111,9 @@ func newCertRotationController(
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
 	}
 
-	configmapsInformer.Informer().AddEventHandler(ret.eventHandler())
-	secretsInformer.Informer().AddEventHandler(ret.eventHandler())
+	signingInformer.Informer().AddEventHandler(ret.eventHandler())
+	cabundleInformer.Informer().AddEventHandler(ret.eventHandler())
+	targetInformer.Informer().AddEventHandler(ret.eventHandler())
 
 	return ret
 }
@@ -125,8 +132,9 @@ func NewClientCertRotationController(
 	targetCertKeyPairSecretName string,
 	targetUserInfo user.Info,
 
-	configmapsInformer corev1informers.ConfigMapInformer,
-	secretsInformer corev1informers.SecretInformer,
+	signingInformer corev1informers.SecretInformer,
+	cabundleInformer corev1informers.ConfigMapInformer,
+	targetInformer corev1informers.SecretInformer,
 
 	configmapsClient corev1client.ConfigMapsGetter,
 	secretsClient corev1client.SecretsGetter,
@@ -144,8 +152,10 @@ func NewClientCertRotationController(
 		targetCertKeyPairValidity,
 		newTargetPercentage,
 		targetCertKeyPairSecretName,
-		configmapsInformer,
-		secretsInformer,
+
+		signingInformer,
+		cabundleInformer,
+		targetInformer,
 
 		configmapsClient,
 		secretsClient,
@@ -171,8 +181,9 @@ func NewServingCertRotationController(
 	targetServingHostnames []string,
 	targetServingCertificateExtensionFn []crypto.CertificateExtensionFunc,
 
-	configmapsInformer corev1informers.ConfigMapInformer,
-	secretsInformer corev1informers.SecretInformer,
+	signingInformer corev1informers.SecretInformer,
+	cabundleInformer corev1informers.ConfigMapInformer,
+	targetInformer corev1informers.SecretInformer,
 
 	configmapsClient corev1client.ConfigMapsGetter,
 	secretsClient corev1client.SecretsGetter,
@@ -190,8 +201,10 @@ func NewServingCertRotationController(
 		targetCertKeyPairValidity,
 		newTargetPercentage,
 		targetCertKeyPairSecretName,
-		configmapsInformer,
-		secretsInformer,
+
+		signingInformer,
+		cabundleInformer,
+		targetInformer,
 
 		configmapsClient,
 		secretsClient,

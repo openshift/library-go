@@ -215,7 +215,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				caBundleConfigMapName: "trust-bundle",
 
 				configmapsClient: client.CoreV1(),
-				configmapsLister: corev1listers.NewConfigMapLister(indexer),
+				caBundleLister:   corev1listers.NewConfigMapLister(indexer),
 				eventRecorder:    events.NewInMemoryRecorder("test"),
 			}
 

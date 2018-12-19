@@ -16,7 +16,7 @@ import (
 func (c CertRotationController) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA) error {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
-	originalCABundleConfigMap, err := c.configmapsLister.ConfigMaps(c.caBundleNamespace).Get(c.caBundleConfigMapName)
+	originalCABundleConfigMap, err := c.caBundleLister.ConfigMaps(c.caBundleNamespace).Get(c.caBundleConfigMapName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

@@ -18,7 +18,7 @@ func (c CertRotationController) ensureTargetCertKeyPair(signingCertKeyPair *cryp
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
 	// and need to mint one
 	// TODO do the cross signing thing, but this shows the API consumers want and a very simple impl.
-	originalTargetCertKeyPairSecret, err := c.secretsLister.Secrets(c.targetNamespace).Get(c.targetCertKeyPairSecretName)
+	originalTargetCertKeyPairSecret, err := c.targetLister.Secrets(c.targetNamespace).Get(c.targetCertKeyPairSecretName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

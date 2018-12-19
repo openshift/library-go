@@ -13,7 +13,7 @@ import (
 )
 
 func (c CertRotationController) ensureSigningCertKeyPair() (*crypto.CA, error) {
-	originalSigningCertKeyPairSecret, err := c.secretsLister.Secrets(c.signingNamespace).Get(c.signingCertKeyPairSecretName)
+	originalSigningCertKeyPairSecret, err := c.signingLister.Secrets(c.signingNamespace).Get(c.signingCertKeyPairSecretName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}

@@ -105,7 +105,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				signingCertKeyPairValidity:   24 * time.Hour,
 				newSigningPercentage:         .50,
 				secretsClient:                client.CoreV1(),
-				secretsLister:                corev1listers.NewSecretLister(indexer),
+				signingLister:                corev1listers.NewSecretLister(indexer),
 				eventRecorder:                events.NewInMemoryRecorder("test"),
 			}
 
