@@ -7,6 +7,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
+	"github.com/imdario/mergo"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -226,6 +227,16 @@ func TestSyncStatus(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func TestMergoVersion(t *testing.T) {
+	type test struct{ A string }
+	src := test{"src"}
+	dest := test{"dest"}
+	mergo.Merge(&dest, &src)
+	if dest.A != "src" {
+		t.Errorf("incompatible version of github.com/imdario/mergo found")
 	}
 }
 
