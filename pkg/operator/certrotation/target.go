@@ -27,6 +27,8 @@ func (c CertRotationController) ensureTargetCertKeyPair(signingCertKeyPair *cryp
 		// create an empty one
 		targetCertKeyPairSecret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: c.targetNamespace, Name: c.targetCertKeyPairSecretName}}
 	}
+	targetCertKeyPairSecret.Type = corev1.SecretTypeTLS
+
 	if needNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, c.targetCertKeyPairValidity, c.newTargetPercentage) {
 		c.eventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair", c.targetCertKeyPairSecretName, c.targetNamespace)
 		if err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, c.targetCertKeyPairValidity, signingCertKeyPair, c.targetUserInfo, c.targetServingHostnames, c.targetServingCertificateExtensionFn...); err != nil {

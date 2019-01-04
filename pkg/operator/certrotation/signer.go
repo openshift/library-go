@@ -22,6 +22,8 @@ func (c CertRotationController) ensureSigningCertKeyPair() (*crypto.CA, error) {
 		// create an empty one
 		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: c.signingNamespace, Name: c.signingCertKeyPairSecretName}}
 	}
+	signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
+
 	if needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.signingCertKeyPairValidity, c.newSigningPercentage) {
 		c.eventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair", c.signingCertKeyPairSecretName, c.signingNamespace)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.signingCertKeyPairValidity); err != nil {
