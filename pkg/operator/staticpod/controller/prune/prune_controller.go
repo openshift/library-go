@@ -131,6 +131,32 @@ func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.Static
 	return nil
 }
 
+func (c *PruneController) updateRevisionStatus(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
+	if len(operatorStatus.NodeStatuses) == 0 {
+		return nil
+	}
+	latestRevision := operatorStatus.LatestAvailableRevision
+	statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(statusConfigMapNameForRevision(latestRevision), metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	statusConfigMap.Data["revision"] = fmt.Sprintf("%d", latestRevision)
+
+	phaseStatus := string(corev1.PodSucceeded)
+	for _, nodeState := range operatorStatus.NodeStatuses {
+		if nodeState.LastFailedRevision != 0 {
+			phaseStatus = string(corev1.PodFailed)
+		}
+	}
+	statusConfigMap.Data["phase"] = phaseStatus
+	_, _, err = resourceapply.ApplyConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, statusConfigMap)
+	return err
+}
+
+func statusConfigMapNameForRevision(revision int32) string {
+	return fmt.Sprintf("%s%d", statusConfigMapName, revision)
+}
+
 func protectedIDs(revisionIDs []int, revisionLimit int) []int {
 	sort.Ints(revisionIDs)
 	if len(revisionIDs) == 0 {
@@ -224,6 +250,10 @@ func (c *PruneController) processNextWorkItem() bool {
 func (c *PruneController) sync() error {
 	_, operatorStatus, _, err := c.operatorConfigClient.Get()
 	if err != nil {
+		return err
+	}
+
+	if err := c.updateRevisionStatus(operatorStatus); err != nil {
 		return err
 	}
 
