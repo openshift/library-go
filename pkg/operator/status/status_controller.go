@@ -153,7 +153,7 @@ func (c StatusSyncer) sync() error {
 		if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj); err != nil {
 			return updateErr
 		}
-		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed", c.clusterOperatorName)
+		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusConditionDiff(originalClusterOperatorObj.Status.Conditions, clusterOperatorObj.Status.Conditions))
 		return nil
 	}
 
@@ -188,7 +188,7 @@ func (c StatusSyncer) sync() error {
 	if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(freshOperatorConfig); updateErr != nil {
 		return updateErr
 	}
-	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed", c.clusterOperatorName)
+	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusConditionDiff(originalClusterOperatorObj.Status.Conditions, clusterOperatorObj.Status.Conditions))
 
 	return nil
 }
