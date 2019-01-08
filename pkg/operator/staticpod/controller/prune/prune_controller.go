@@ -161,6 +161,7 @@ func (c *PruneController) ensurePrunePod(nodeName string, maxEligibleRevision in
 		fmt.Sprintf("--protected-ids=%s", revisionsToString(protectedRevisions)),
 		fmt.Sprintf("--resource-dir=%s", "/etc/kubernetes/static-pod-resources"),
 		fmt.Sprintf("--static-pod-name=%s", c.podResourcePrefix),
+		fmt.Sprintf("--namespace=%s", c.targetNamespace),
 	)
 
 	_, _, err := resourceapply.ApplyPod(c.kubeClient.CoreV1(), c.eventRecorder, pod)

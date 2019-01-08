@@ -13,15 +13,24 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/openshift/library-go/pkg/config/client"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 )
 
 type PruneOptions struct {
+	KubeConfig string
+	KubeClient kubernetes.Interface
+
 	MaxEligibleRevisionID int
 	ProtectedRevisionIDs  []int
 
-	ResourceDir   string
-	StaticPodName string
+	ResourceDir     string
+	StaticPodName   string
+	TargetNamespace string
 }
 
 func NewPruneOptions() *PruneOptions {
@@ -37,7 +46,9 @@ func NewPrune() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			glog.V(1).Info(cmd.Flags())
 			glog.V(1).Info(spew.Sdump(o))
-
+			if err := o.Complete(); err != nil {
+				glog.Fatal(err)
+			}
 			if err := o.Validate(); err != nil {
 				glog.Fatal(err)
 			}
@@ -53,10 +64,12 @@ func NewPrune() *cobra.Command {
 }
 
 func (o *PruneOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.KubeConfig, "kubeconfig", o.KubeConfig, "kubeconfig file or empty")
 	fs.IntVar(&o.MaxEligibleRevisionID, "max-eligible-id", o.MaxEligibleRevisionID, "highest revision ID to be eligible for pruning")
 	fs.IntSliceVar(&o.ProtectedRevisionIDs, "protected-ids", o.ProtectedRevisionIDs, "list of revision IDs to preserve (not delete)")
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory for all files supporting the static pod manifest")
 	fs.StringVar(&o.StaticPodName, "static-pod-name", o.StaticPodName, "name of the static pod")
+	fs.StringVar(&o.TargetNamespace, "namespace", o.TargetNamespace, "namespace of the static pod")
 }
 
 func (o *PruneOptions) Validate() error {
@@ -73,9 +86,19 @@ func (o *PruneOptions) Validate() error {
 	return nil
 }
 
-func (o *PruneOptions) Run() error {
-	protectedIDs := sets.NewInt(o.ProtectedRevisionIDs...)
+func (o *PruneOptions) Complete() error {
+	clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
+	if err != nil {
+		return err
+	}
+	o.KubeClient, err = kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func (o *PruneOptions) pruneLocalFiles(protectedIDs sets.Int) error {
 	files, err := ioutil.ReadDir(o.ResourceDir)
 	if err != nil {
 		return err
@@ -112,5 +135,39 @@ func (o *PruneOptions) Run() error {
 			return err
 		}
 	}
+}
+
+func (o *PruneOptions) pruneAPIResources(protectedIDs sets.Int) error {
+	labelSelector := labels.SelectorFromSet(labels.Set{"role": "revision-status"}).String()
+	statusConfigMaps, err := o.KubeClient.CoreV1().ConfigMaps(o.TargetNamespace).List(metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return err
+	}
+	for _, cm := range statusConfigMaps.Items {
+		revision, err := strconv.Atoi(cm.Data["revision"])
+		if err != nil {
+			return err
+		}
+
+		if protected := protectedIDs.Has(revision); protected {
+			continue
+		}
+		if revision > o.MaxEligibleRevisionID {
+			continue
+		}
+		err = o.KubeClient.CoreV1().ConfigMaps(o.TargetNamespace).Delete(cm.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (o *PruneOptions) Run() error {
+	protectedIDs := sets.NewInt(o.ProtectedRevisionIDs...)
+	if err := o.pruneLocalFiles(protectedIDs); err != nil {
+		return err
+	}
+
+	return o.pruneAPIResources(protectedIDs)
 }
