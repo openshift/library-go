@@ -44,6 +44,10 @@ func RelativizePathWithNoBacksteps(refs []*string, base string) error {
 				return err
 			}
 
+			if rel == "-" {
+				rel = "./-"
+			}
+
 			// if we have a backstep, don't mess with the path
 			if strings.HasPrefix(rel, "../") {
 				if filepath.IsAbs(*ref) {

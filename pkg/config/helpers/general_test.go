@@ -13,6 +13,9 @@ func TestResolvePaths(t *testing.T) {
 		{"-", "/foo", "-"},
 		{"bar", "/foo", "/foo/bar"},
 		{"..", "/foo", "/"},
+		{"/bar", "/foo", "/bar"},
+		{"bar/-", "/foo", "/foo/bar/-"},
+		{"./-", "/foo", "/foo/-"},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s onto %s", tt.ref, tt.base), func(t *testing.T) {
@@ -35,6 +38,7 @@ func TestRelativizePathWithNoBacksteps(t *testing.T) {
 		{"-", "/foo", "-"},
 		{"/foo/bar", "/foo", "bar"},
 		{"/abc", "/foo", "/abc"},
+		{"/foo/-", "/foo", "./-"},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s onto %s", tt.ref, tt.base), func(t *testing.T) {
