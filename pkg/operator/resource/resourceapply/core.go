@@ -167,7 +167,7 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 	return actual, true, err
 }
 
-func SyncConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string) (*corev1.ConfigMap, bool, error) {
+func SyncConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, ownerRefs []metav1.OwnerReference) (*corev1.ConfigMap, bool, error) {
 	source, err := client.ConfigMaps(sourceNamespace).Get(sourceName, metav1.GetOptions{})
 	switch {
 	case apierrors.IsNotFound(err):
@@ -186,12 +186,12 @@ func SyncConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Recorde
 		source.Namespace = targetNamespace
 		source.Name = targetName
 		source.ResourceVersion = ""
-		source.OwnerReferences = []metav1.OwnerReference{}
+		source.OwnerReferences = ownerRefs
 		return ApplyConfigMap(client, recorder, source)
 	}
 }
 
-func SyncSecret(client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string) (*corev1.Secret, bool, error) {
+func SyncSecret(client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, ownerRefs []metav1.OwnerReference) (*corev1.Secret, bool, error) {
 	source, err := client.Secrets(sourceNamespace).Get(sourceName, metav1.GetOptions{})
 	switch {
 	case apierrors.IsNotFound(err):
@@ -210,7 +210,7 @@ func SyncSecret(client coreclientv1.SecretsGetter, recorder events.Recorder, sou
 		source.Namespace = targetNamespace
 		source.Name = targetName
 		source.ResourceVersion = ""
-		source.OwnerReferences = []metav1.OwnerReference{}
+		source.OwnerReferences = ownerRefs
 		return ApplySecret(client, recorder, source)
 	}
 }

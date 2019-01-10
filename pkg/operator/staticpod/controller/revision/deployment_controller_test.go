@@ -24,6 +24,10 @@ func filterCreateActions(actions []clienttesting.Action) []runtime.Object {
 		if !isCreate {
 			continue
 		}
+		_, isEvent := createAction.GetObject().(*v1.Event)
+		if isEvent {
+			continue
+		}
 		createdObjects = append(createdObjects, createAction.GetObject())
 	}
 	return createdObjects
@@ -99,7 +103,7 @@ func TestRevisionController(t *testing.T) {
 				},
 				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					LatestAvailableRevision: 0,
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -113,16 +117,25 @@ func TestRevisionController(t *testing.T) {
 			startingObjects: []runtime.Object{
 				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "copy-resources"}},
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "copy-resources"}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: "copy-resources"}},
 			},
 			testConfigs: []string{"test-config"},
 			testSecrets: []string{"test-secret"},
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
 				createdObjects := filterCreateActions(actions)
-				if createdObjectCount := len(createdObjects); createdObjectCount != 2 {
-					t.Errorf("expected 2 objects to be created, got %d", createdObjectCount)
+				if createdObjectCount := len(createdObjects); createdObjectCount != 3 {
+					t.Errorf("expected 6 objects to be created, got %d: %+v", createdObjectCount, createdObjects)
 					return
 				}
-				config, hasConfig := createdObjects[0].(*v1.ConfigMap)
+				revisionStatus, hasStatus := createdObjects[0].(*v1.ConfigMap)
+				if !hasStatus {
+					t.Errorf("expected config to be created")
+					return
+				}
+				if revisionStatus.Name != "revision-status-1" {
+					t.Errorf("expected config to have name 'revision-status-1', got %q", revisionStatus.Name)
+				}
+				config, hasConfig := createdObjects[1].(*v1.ConfigMap)
 				if !hasConfig {
 					t.Errorf("expected config to be created")
 					return
@@ -130,7 +143,7 @@ func TestRevisionController(t *testing.T) {
 				if config.Name != "test-config-1" {
 					t.Errorf("expected config to have name 'test-config-1', got %q", config.Name)
 				}
-				secret, hasSecret := createdObjects[1].(*v1.Secret)
+				secret, hasSecret := createdObjects[2].(*v1.Secret)
 				if !hasSecret {
 					t.Errorf("expected secret to be created")
 					return
@@ -160,6 +173,9 @@ func TestRevisionController(t *testing.T) {
 			if tc.validateStatus != nil {
 				_, status, _, _ := tc.staticPodOperatorClient.Get()
 				tc.validateStatus(t, status)
+			}
+			if tc.validateActions != nil {
+				tc.validateActions(t, kubeClient.Actions())
 			}
 			if syncErr != nil {
 				if !strings.Contains(syncErr.Error(), tc.expectSyncError) {
