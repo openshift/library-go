@@ -34,6 +34,7 @@ type OperatorStatusProvider interface {
 
 type StatusSyncer struct {
 	clusterOperatorName string
+	relatedObjects      []configv1.ObjectReference
 
 	// TODO use a generated client when it moves to openshift/api
 	clusterOperatorClient configv1client.ClusterOperatorsGetter
@@ -47,12 +48,14 @@ type StatusSyncer struct {
 
 func NewClusterOperatorStatusController(
 	name string,
+	relatedObjects []configv1.ObjectReference,
 	clusterOperatorClient configv1client.ClusterOperatorsGetter,
 	operatorStatusProvider OperatorStatusProvider,
 	recorder events.Recorder,
 ) *StatusSyncer {
 	c := &StatusSyncer{
 		clusterOperatorName:    name,
+		relatedObjects:         relatedObjects,
 		clusterOperatorClient:  clusterOperatorClient,
 		operatorStatusProvider: operatorStatusProvider,
 		eventRecorder:          recorder,
@@ -93,6 +96,7 @@ func (c StatusSyncer) sync() error {
 		}
 	}
 	clusterOperatorObj.Status.Conditions = nil
+	clusterOperatorObj.Status.RelatedObjects = c.relatedObjects
 
 	var failingConditions []operatorv1.OperatorCondition
 	for _, condition := range currentDetailedStatus.Conditions {
