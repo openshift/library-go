@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -37,6 +38,7 @@ type PruneController struct {
 	command []string
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
+
 	// prunerPodImageFn returns the image name for the pruning pod
 	prunerPodImageFn func() string
 
@@ -80,12 +82,12 @@ func NewPruneController(
 	return c
 }
 
-func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
+func (c *PruneController) excludedRevisionHistory(operatorStatus *operatorv1.StaticPodOperatorStatus) ([]int, error) {
 	var succeededRevisionIDs, failedRevisionIDs, inProgressRevisionIDs, unknownStatusRevisionIDs []int
 
 	configMaps, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).List(metav1.ListOptions{})
 	if err != nil {
-		return err
+		return []int{}, err
 	}
 	for _, configMap := range configMaps.Items {
 		if !strings.HasPrefix(configMap.Name, statusConfigMapName) {
@@ -95,9 +97,9 @@ func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.Static
 		if revision, ok := configMap.Data["revision"]; ok {
 			revisionID, err := strconv.Atoi(revision)
 			if err != nil {
-				return err
+				return []int{}, err
 			}
-			switch configMap.Data["phase"] {
+			switch configMap.Data["status"] {
 			case string(corev1.PodSucceeded):
 				succeededRevisionIDs = append(succeededRevisionIDs, revisionID)
 			case string(corev1.PodFailed):
@@ -117,7 +119,7 @@ func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.Static
 
 	// Return early if nothing to prune
 	if len(succeededRevisionIDs)+len(failedRevisionIDs) == 0 {
-		return nil
+		return []int{}, nil
 	}
 
 	// Get list of protected IDs
@@ -131,9 +133,42 @@ func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.Static
 	excludedIDs = append(excludedIDs, unknownStatusRevisionIDs...)
 	sort.Ints(excludedIDs)
 
+	// There should always be at least 1 excluded ID, otherwise we'll delete the current revision
+	if len(excludedIDs) == 0 {
+		return []int{}, fmt.Errorf("need at least 1 excluded ID for revision pruning")
+	}
+	return excludedIDs, nil
+}
+
+func (c *PruneController) pruneDiskResources(operatorStatus *operatorv1.StaticPodOperatorStatus, excludedIDs []int, maxEligibleRevisionID int) error {
 	// Run pruning pod on each node and pin it to that node
 	for _, nodeStatus := range operatorStatus.NodeStatuses {
-		if err := c.ensurePrunePod(nodeStatus.NodeName, excludedIDs[len(excludedIDs)-1], excludedIDs, nodeStatus.TargetRevision); err != nil {
+		if err := c.ensurePrunePod(nodeStatus.NodeName, maxEligibleRevisionID, excludedIDs, nodeStatus.TargetRevision); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *PruneController) pruneAPIResources(excludedIDs []int, maxEligibleRevisionID int) error {
+	protectedIDs := sets.NewInt(excludedIDs...)
+	statusConfigMaps, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, cm := range statusConfigMaps.Items {
+		revision, err := strconv.Atoi(cm.Data["revision"])
+		if err != nil {
+			return fmt.Errorf("unexpected error converting revision to int: %+v", err)
+		}
+
+		if protectedIDs.Has(revision) {
+			continue
+		}
+		if revision > maxEligibleRevisionID {
+			continue
+		}
+		if err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Delete(cm.Name, &metav1.DeleteOptions{}); err != nil {
 			return err
 		}
 	}
@@ -145,15 +180,11 @@ func protectedIDs(revisionIDs []int, revisionLimit int) []int {
 	if len(revisionIDs) == 0 {
 		return revisionIDs
 	}
-	return revisionIDs[protectedRevisionKeyToStart(len(revisionIDs), revisionLimit):]
-}
-
-func protectedRevisionKeyToStart(length, limit int) int {
-	// 0 = default = unlimited revisions (ie, protect everything)
-	if limit == 0 || length < limit {
-		return 0
+	startKey := 0
+	if revisionLimit > 0 && len(revisionIDs) > revisionLimit {
+		startKey = len(revisionIDs) - revisionLimit
 	}
-	return length - limit
+	return revisionIDs[startKey:]
 }
 
 func (c *PruneController) ensurePrunePod(nodeName string, maxEligibleRevision int, protectedRevisions []int, revision int32) error {
@@ -236,7 +267,19 @@ func (c *PruneController) sync() error {
 		return err
 	}
 
-	return c.pruneRevisionHistory(operatorStatus)
+	excludedIDs, err := c.excludedRevisionHistory(operatorStatus)
+	if err != nil {
+		return err
+	}
+
+	errs := []error{}
+	if diskErr := c.pruneDiskResources(operatorStatus, excludedIDs, excludedIDs[len(excludedIDs)-1]); diskErr != nil {
+		errs = append(errs, diskErr)
+	}
+	if apiErr := c.pruneAPIResources(excludedIDs, excludedIDs[len(excludedIDs)-1]); apiErr != nil {
+		errs = append(errs, apiErr)
+	}
+	return common.NewMultiLineAggregate(errs)
 }
 
 // eventHandler queues the operator to check spec and status

@@ -143,6 +143,9 @@ func TestRevisionController(t *testing.T) {
 				if config.Name != "test-config-1" {
 					t.Errorf("expected config to have name 'test-config-1', got %q", config.Name)
 				}
+				if len(config.OwnerReferences) != 1 {
+					t.Errorf("expected config to have ownerreferences set, got %q", config.OwnerReferences)
+				}
 				secret, hasSecret := createdObjects[2].(*v1.Secret)
 				if !hasSecret {
 					t.Errorf("expected secret to be created")
@@ -150,6 +153,9 @@ func TestRevisionController(t *testing.T) {
 				}
 				if secret.Name != "test-secret-1" {
 					t.Errorf("expected secret to have name 'test-secret-1', got %q", secret.Name)
+				}
+				if len(secret.OwnerReferences) != 1 {
+					t.Errorf("expected secret to have ownerreferences set, got %q", secret.OwnerReferences)
 				}
 			},
 		},
