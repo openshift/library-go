@@ -157,6 +157,33 @@ func TestSyncStatus(t *testing.T) {
 				Message: "error writing updated observed config: update spec failure",
 			},
 		},
+		{
+			name: "NonDeterministic",
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{},
+				}
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated observed config"},
+			},
+			observers: []ObserveConfigFunc{
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"level1": map[string]interface{}{"level2_c": []interface{}{"slice_entry_a"}}}, nil
+				},
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"level1": map[string]interface{}{"level2_c": []interface{}{"slice_entry_b"}}}, nil
+				},
+			},
+
+			expectError: false,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorStatusTypeConfigObservationFailing,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "Error",
+				Message: "non-deterministic config observation detected",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -204,10 +231,6 @@ func TestSyncStatus(t *testing.T) {
 			case tc.expectedObservedConfig != nil:
 				if !reflect.DeepEqual(tc.expectedObservedConfig, operatorConfigClient.spec.ObservedConfig.Object) {
 					t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(tc.expectedObservedConfig), toYAML(operatorConfigClient.spec.ObservedConfig.Object))
-				}
-			default:
-				if operatorConfigClient.spec != nil {
-					t.Errorf("unexpected %v", spew.Sdump(operatorConfigClient.spec))
 				}
 			}
 
