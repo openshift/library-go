@@ -159,8 +159,29 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 }
 
 func (c RevisionController) createNewRevision(revision int32) error {
+	statusConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: c.targetNamespace,
+			Name:      nameFor("revision-status", revision),
+		},
+		Data: map[string]string{
+			"status":   "InProgress",
+			"revision": fmt.Sprintf("%d", revision),
+		},
+	}
+	statusConfigMap, _, err := resourceapply.ApplyConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, statusConfigMap)
+	if err != nil {
+		return err
+	}
+	ownerRefs := []metav1.OwnerReference{{
+		APIVersion: statusConfigMap.APIVersion,
+		Kind:       statusConfigMap.Kind,
+		Name:       statusConfigMap.Name,
+		UID:        statusConfigMap.UID,
+	}}
+
 	for _, name := range c.configMaps {
-		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision), ownerRefs)
 		if err != nil {
 			return err
 		}
@@ -169,7 +190,7 @@ func (c RevisionController) createNewRevision(revision int32) error {
 		}
 	}
 	for _, name := range c.secrets {
-		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision), ownerRefs)
 		if err != nil {
 			return err
 		}

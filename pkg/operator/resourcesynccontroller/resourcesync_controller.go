@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -145,7 +146,7 @@ func (c *ResourceSyncController) sync() error {
 			continue
 		}
 
-		_, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, source.Namespace, source.Name, destination.Namespace, destination.Name)
+		_, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, source.Namespace, source.Name, destination.Namespace, destination.Name, []metav1.OwnerReference{})
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -158,7 +159,7 @@ func (c *ResourceSyncController) sync() error {
 			continue
 		}
 
-		_, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, source.Namespace, source.Name, destination.Namespace, destination.Name)
+		_, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, source.Namespace, source.Name, destination.Namespace, destination.Name, []metav1.OwnerReference{})
 		if err != nil {
 			errors = append(errors, err)
 		}
