@@ -12,7 +12,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	rbaclisterv1 "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -35,11 +34,10 @@ type MonitoringResourceController struct {
 	targetNamespace    string
 	serviceMonitorName string
 
-	saListerSynced cache.InformerSynced
-	saLister       corelisterv1.ServiceAccountLister
-
-	clusterRoleBindingLister       rbaclisterv1.ClusterRoleBindingLister
-	clusterRoleBindingListerSynced cache.InformerSynced
+	clusterRoleBindingLister rbaclisterv1.ClusterRoleBindingLister
+	// preRunCachesSynced are the set of caches that must be synced before the controller will start doing work. This is normally
+	// the full set of listers and informers you use.
+	preRunCachesSynced []cache.InformerSynced
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -66,14 +64,16 @@ func NewMonitoringResourceController(
 		eventRecorder:        eventRecorder,
 		serviceMonitorName:   serviceMonitorName,
 
-		clusterRoleBindingListerSynced: kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Informer().HasSynced,
-		clusterRoleBindingLister:       kubeInformersForTargetNamespace.Rbac().V1().ClusterRoleBindings().Lister(),
+		clusterRoleBindingLister: kubeInformersForTargetNamespace.Rbac().V1().ClusterRoleBindings().Lister(),
+		preRunCachesSynced: []cache.InformerSynced{
+			kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Informer().HasSynced,
+			operatorConfigClient.Informer().HasSynced,
+		},
 
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MonitoringResourceController"),
 		kubeClient:    kubeClient,
 		dynamicClient: dynamicClient,
 	}
-
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
 
 	// TODO: We need a dynamic informer here to observe changes to ServiceMonitor resource.
@@ -152,10 +152,7 @@ func (c *MonitoringResourceController) Run(workers int, stopCh <-chan struct{}) 
 
 	glog.Infof("Starting MonitoringResourceController")
 	defer glog.Infof("Shutting down MonitoringResourceController")
-	if !cache.WaitForCacheSync(stopCh, c.saListerSynced) {
-		return
-	}
-	if !cache.WaitForCacheSync(stopCh, c.clusterRoleBindingListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
 		return
 	}
 
