@@ -3,6 +3,7 @@ package configobserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,6 +104,17 @@ func (c ConfigObserver) sync() error {
 		if err := mergo.Merge(&mergedObservedConfig, observedConfig); err != nil {
 			glog.Warningf("merging observed config failed: %v", err)
 		}
+	}
+
+	reverseMergedObservedConfig := map[string]interface{}{}
+	for i := len(observedConfigs) - 1; i >= 0; i-- {
+		if err := mergo.Merge(&reverseMergedObservedConfig, observedConfigs[i]); err != nil {
+			glog.Warningf("merging observed config failed: %v", err)
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(mergedObservedConfig, reverseMergedObservedConfig) {
+		errs = append(errs, errors.New("non-deterministic config observation detected"))
 	}
 
 	if !equality.Semantic.DeepEqual(existingConfig, mergedObservedConfig) {
