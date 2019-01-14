@@ -17,6 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
+// CABundleRotation maintains a CA bundle config map, but adding new CA certs and removing expired old ones.
 type CABundleRotation struct {
 	Namespace string
 	Name      string

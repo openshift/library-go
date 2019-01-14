@@ -18,6 +18,8 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 )
 
+// TargetRotation rotates a key and cert signed by a CA. It creates a new one when <RefreshPercentage>
+// of the lifetime of the old cert has passed, or if the common name of the CA changes.
 type TargetRotation struct {
 	Namespace         string
 	Name              string

@@ -21,6 +21,14 @@ const (
 
 const workQueueKey = "key"
 
+// CertRotationController does:
+//
+// 1) continuously create a self-signed signing CA (via SigningRotation).
+//    It creates the next one when a given percentage of the validity of the old CA has passed.
+// 2) maintain a CA bundle with all not yet expired CA certs.
+// 3) continuously create a target cert and key signed by the latest signing CA
+//    It creates the next one when a given percentage of the validity of the previous cert has
+//    passed, or when a new CA has been created.
 type CertRotationController struct {
 	name string
 
