@@ -23,6 +23,7 @@ func ApplyDeployment(client appsclientv1.DeploymentsGetter, recorder events.Reco
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -48,7 +49,7 @@ func ApplyDeployment(client appsclientv1.DeploymentsGetter, recorder events.Reco
 	}
 
 	actual, err := client.Deployments(required.Namespace).Update(toWrite)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -63,6 +64,7 @@ func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Record
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -88,6 +90,6 @@ func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Record
 	}
 
 	actual, err := client.DaemonSets(required.Namespace).Update(toWrite)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }

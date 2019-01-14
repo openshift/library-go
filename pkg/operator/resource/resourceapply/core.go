@@ -22,6 +22,7 @@ func ApplyNamespace(client coreclientv1.NamespacesGetter, recorder events.Record
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -30,7 +31,7 @@ func ApplyNamespace(client coreclientv1.NamespacesGetter, recorder events.Record
 	}
 
 	actual, err := client.Namespaces().Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -47,6 +48,7 @@ func ApplyService(client coreclientv1.ServicesGetter, recorder events.Recorder, 
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -67,7 +69,7 @@ func ApplyService(client coreclientv1.ServicesGetter, recorder events.Recorder, 
 	existing.Spec.Type = required.Spec.Type // if this is different, the update will fail.  Status will indicate it.
 
 	actual, err := client.Services(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -82,6 +84,7 @@ func ApplyPod(client coreclientv1.PodsGetter, recorder events.Recorder, required
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -90,7 +93,7 @@ func ApplyPod(client coreclientv1.PodsGetter, recorder events.Recorder, required
 	}
 
 	actual, err := client.Pods(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -105,6 +108,7 @@ func ApplyServiceAccount(client coreclientv1.ServiceAccountsGetter, recorder eve
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -113,7 +117,7 @@ func ApplyServiceAccount(client coreclientv1.ServiceAccountsGetter, recorder eve
 	}
 
 	actual, err := client.ServiceAccounts(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -128,6 +132,7 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -138,7 +143,7 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 	existing.Data = required.Data
 
 	actual, err := client.ConfigMaps(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -153,6 +158,7 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -163,7 +169,7 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 	existing.Data = required.Data
 
 	actual, err := client.Secrets(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 

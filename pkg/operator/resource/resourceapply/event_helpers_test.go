@@ -73,43 +73,49 @@ func TestReportUpdateEvent(t *testing.T) {
 	testErr := errors.New("test")
 	tests := []struct {
 		name                 string
-		object               runtime.Object
+		required             runtime.Object
+		before               runtime.Object
+		after                runtime.Object
 		err                  error
 		expectedEventMessage string
 		expectedEventReason  string
 	}{
 		{
 			name:                 "pod-with-error",
-			object:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}},
+			required:             &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}},
 			err:                  testErr,
 			expectedEventReason:  "PodUpdateFailed",
 			expectedEventMessage: "Failed to update Pod/podName: test",
 		},
 		{
 			name:                 "pod-with-namespace",
-			object:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}},
+			required:             &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}},
 			err:                  testErr,
 			expectedEventReason:  "PodUpdateFailed",
 			expectedEventMessage: "Failed to update Pod/podName -n nsName: test",
 		},
 		{
 			name:                 "pod-without-error",
-			object:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}},
+			required:             &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}, Spec: v1.PodSpec{ServiceAccountName: "after"}},
+			before:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}, Spec: v1.PodSpec{ServiceAccountName: "before", NodeName: "node01"}},
+			after:                &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName"}, Spec: v1.PodSpec{ServiceAccountName: "after", NodeName: "node01"}},
 			expectedEventReason:  "PodUpdated",
-			expectedEventMessage: "Updated Pod/podName because it changed",
+			expectedEventMessage: "Updated Pod/podName because it changed:\n{\"metadata\":{\"name\":\"podName\",\"creationTimestamp\":null},\"spec\":{\"containers\":null,\"serviceAccountName\":\"\n\nA: before\",\"nodeName\":\"node01\"},\"status\":{}}\n\nB: after\",\"nodeName\":\"node01\"},\"status\":{}}\n\n",
 		},
 		{
 			name:                 "pod-with-namespace-without-error",
-			object:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}},
+			required:             &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}, Spec: v1.PodSpec{ServiceAccountName: "after"}},
+			before:               &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}, Spec: v1.PodSpec{ServiceAccountName: "before", NodeName: "node01"}},
+			after:                &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "podName", Namespace: "nsName"}, Spec: v1.PodSpec{ServiceAccountName: "after", NodeName: "node01"}},
 			expectedEventReason:  "PodUpdated",
-			expectedEventMessage: "Updated Pod/podName -n nsName because it changed",
+			expectedEventMessage: "Updated Pod/podName -n nsName because it changed:\n{\"metadata\":{\"name\":\"podName\",\"namespace\":\"nsName\",\"creationTimestamp\":null},\"spec\":{\"containers\":null,\"serviceAccountName\":\"\n\nA: before\",\"nodeName\":\"node01\"},\"status\":{}}\n\nB: after\",\"nodeName\":\"node01\"},\"status\":{}}\n\n",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
-			reportUpdateEvent(recorder, test.object, test.err)
+			reportUpdateEvent(recorder, test.required, test.before, test.after, test.err)
 			recordedEvents := recorder.Events()
 
 			if eventCount := len(recordedEvents); eventCount != 1 {

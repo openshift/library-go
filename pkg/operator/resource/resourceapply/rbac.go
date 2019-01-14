@@ -28,6 +28,7 @@ func ApplyClusterRole(client rbacclientv1.ClusterRolesGetter, recorder events.Re
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -39,7 +40,7 @@ func ApplyClusterRole(client rbacclientv1.ClusterRolesGetter, recorder events.Re
 	existing.AggregationRule = nil
 
 	actual, err := client.ClusterRoles().Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -55,6 +56,7 @@ func ApplyClusterRoleBinding(client rbacclientv1.ClusterRoleBindingsGetter, reco
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -67,7 +69,7 @@ func ApplyClusterRoleBinding(client rbacclientv1.ClusterRoleBindingsGetter, reco
 	existing.RoleRef = required.RoleRef
 
 	actual, err := client.ClusterRoleBindings().Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -82,6 +84,7 @@ func ApplyRole(client rbacclientv1.RolesGetter, recorder events.Recorder, requir
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -92,7 +95,7 @@ func ApplyRole(client rbacclientv1.RolesGetter, recorder events.Recorder, requir
 	existing.Rules = required.Rules
 
 	actual, err := client.Roles(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 
@@ -108,6 +111,7 @@ func ApplyRoleBinding(client rbacclientv1.RoleBindingsGetter, recorder events.Re
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -120,7 +124,7 @@ func ApplyRoleBinding(client rbacclientv1.RoleBindingsGetter, recorder events.Re
 	existing.RoleRef = required.RoleRef
 
 	actual, err := client.RoleBindings(required.Namespace).Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
 

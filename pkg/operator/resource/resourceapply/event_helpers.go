@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 
 	openshiftapi "github.com/openshift/api"
@@ -59,14 +60,14 @@ func reportCreateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 	recorder.Warningf(fmt.Sprintf("%sCreateFailed", reportingKind), "Failed to create %s%s/%s%s: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)
 }
 
-func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr error) {
-	reportingGroup, reportingKind := guessObjectGroupKind(obj)
+func reportUpdateEvent(recorder events.Recorder, required, original, actual runtime.Object, originalErr error) {
+	reportingGroup, reportingKind := guessObjectGroupKind(required)
 	if len(reportingGroup) != 0 {
 		reportingGroup += "."
 	}
-	accessor, err := meta.Accessor(obj)
+	accessor, err := meta.Accessor(required)
 	if err != nil {
-		glog.Errorf("Failed to get accessor for %+v", obj)
+		glog.Errorf("Failed to get accessor for %+v", required)
 		return
 	}
 	namespace := ""
@@ -74,7 +75,7 @@ func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 		namespace = " -n " + accessor.GetNamespace()
 	}
 	if originalErr == nil {
-		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s%s/%s%s because it changed", reportingKind, reportingGroup, accessor.GetName(), namespace)
+		recorder.Eventf(fmt.Sprintf("%sUpdated", reportingKind), "Updated %s%s/%s%s because it changed:\n%s", reportingKind, reportingGroup, accessor.GetName(), namespace, diff.ObjectDiff(original, actual))
 		return
 	}
 	recorder.Warningf(fmt.Sprintf("%sUpdateFailed", reportingKind), "Failed to update %s%s/%s%s: %v", reportingKind, reportingGroup, accessor.GetName(), namespace, originalErr)

@@ -21,6 +21,7 @@ func ApplyCustomResourceDefinition(client apiextclientv1beta1.CustomResourceDefi
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureCustomResourceDefinition(modified, existing, *required)
@@ -29,6 +30,6 @@ func ApplyCustomResourceDefinition(client apiextclientv1beta1.CustomResourceDefi
 	}
 
 	actual, err := client.CustomResourceDefinitions().Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }

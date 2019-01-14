@@ -23,6 +23,7 @@ func ApplyStorageClass(client storageclientv1.StorageClassesGetter, recorder eve
 	if err != nil {
 		return nil, false, err
 	}
+	original := existing.DeepCopy()
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.ObjectMeta, required.ObjectMeta)
@@ -37,6 +38,6 @@ func ApplyStorageClass(client storageclientv1.StorageClassesGetter, recorder eve
 
 	// TODO if provisioner, parameters, reclaimpolicy, or volumebindingmode are different, update will fail so delete and recreate
 	actual, err := client.StorageClasses().Update(existing)
-	reportUpdateEvent(recorder, required, err)
+	reportUpdateEvent(recorder, required, original, actual, err)
 	return actual, true, err
 }
