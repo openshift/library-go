@@ -13,7 +13,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -130,14 +132,39 @@ func (c *PruneController) pruneRevisionHistory(operatorStatus *operatorv1.Static
 	excludedIDs = append(excludedIDs, inProgressRevisionIDs...)
 	excludedIDs = append(excludedIDs, unknownStatusRevisionIDs...)
 	sort.Ints(excludedIDs)
+	maxEligible := excludedIDs[len(excludedIDs)-1]
 
 	// Run pruning pod on each node and pin it to that node
+	pruningErrors := []error{}
 	for _, nodeStatus := range operatorStatus.NodeStatuses {
-		if err := c.ensurePrunePod(nodeStatus.NodeName, excludedIDs[len(excludedIDs)-1], excludedIDs, nodeStatus.TargetRevision); err != nil {
-			return err
+		if err := c.ensurePrunePod(nodeStatus.NodeName, maxEligible, excludedIDs, nodeStatus.TargetRevision); err != nil {
+			pruningErrors = append(pruningErrors, err)
 		}
 	}
-	return nil
+
+	excludedIDSet := sets.NewInt(excludedIDs...)
+	for _, configMap := range configMaps.Items {
+		revision, ok := configMap.Data["revision"]
+		if !ok {
+			// make event
+			continue
+		}
+		revisionID, err := strconv.Atoi(revision)
+		if err != nil {
+			return err
+		}
+		if excludedIDSet.Has(revisionID) {
+			continue
+		}
+		if revisionID > maxEligible {
+			continue
+		}
+		if _, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).List(metav1.ListOptions{}); err != nil {
+			pruningErrors = append(pruningErrors, err)
+		}
+	}
+
+	return utilerrors.NewAggregate(pruningErrors)
 }
 
 func protectedIDs(revisionIDs []int, revisionLimit int) []int {
