@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -150,14 +151,15 @@ func (c StatusSyncer) sync() error {
 	if equality.Semantic.DeepEqual(clusterOperatorObj, originalClusterOperatorObj) {
 		return nil
 	}
-
-	glog.V(4).Infof("clusteroperator/%s set to %v", c.clusterOperatorName, runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, clusterOperatorObj))
+	originalJSON := runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, originalClusterOperatorObj)
+	newJSON := runtime.EncodeOrDie(unstructured.UnstructuredJSONScheme, clusterOperatorObj)
+	glog.V(2).Infof("clusteroperator/%s diff %v", c.clusterOperatorName, diff.StringDiff(originalJSON, newJSON))
 
 	if len(clusterOperatorObj.ResourceVersion) != 0 {
 		if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj); err != nil {
 			return updateErr
 		}
-		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusConditionDiff(originalClusterOperatorObj.Status.Conditions, clusterOperatorObj.Status.Conditions))
+		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status))
 		return nil
 	}
 
@@ -192,7 +194,7 @@ func (c StatusSyncer) sync() error {
 	if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(freshOperatorConfig); updateErr != nil {
 		return updateErr
 	}
-	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusConditionDiff(originalClusterOperatorObj.Status.Conditions, clusterOperatorObj.Status.Conditions))
+	c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status))
 
 	return nil
 }
