@@ -45,6 +45,11 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			ManagementState: operatorv1.Managed,
 		},
 		&operatorv1.OperatorStatus{},
+		&operatorv1.StaticPodOperatorSpec{
+			OperatorSpec: operatorv1.OperatorSpec{
+				ManagementState: operatorv1.Managed,
+			},
+		},
 		&operatorv1.StaticPodOperatorStatus{
 			LatestAvailableRevision: 1,
 			NodeStatuses: []operatorv1.NodeStatus{
@@ -251,6 +256,11 @@ func TestCreateInstallerPod(t *testing.T) {
 			ManagementState: operatorv1.Managed,
 		},
 		&operatorv1.OperatorStatus{},
+		&operatorv1.StaticPodOperatorSpec{
+			OperatorSpec: operatorv1.OperatorSpec{
+				ManagementState: operatorv1.Managed,
+			},
+		},
 		&operatorv1.StaticPodOperatorStatus{
 			LatestAvailableRevision: 1,
 			NodeStatuses: []operatorv1.NodeStatus{
@@ -411,6 +421,11 @@ func TestEnsureInstallerPod(t *testing.T) {
 					ManagementState: operatorv1.Managed,
 				},
 				&operatorv1.OperatorStatus{},
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
 				&operatorv1.StaticPodOperatorStatus{
 					LatestAvailableRevision: 1,
 					NodeStatuses: []operatorv1.NodeStatus{
@@ -670,6 +685,11 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					ManagementState: operatorv1.Managed,
 				},
 				&operatorv1.OperatorStatus{},
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
 				&operatorv1.StaticPodOperatorStatus{
 					LatestAvailableRevision: test.latestAvailableRevision,
 					NodeStatuses:            test.nodeStatuses,
@@ -737,7 +757,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 		installerPodImageFn  func() string
 	}
 	type args struct {
-		operatorSpec           *operatorv1.OperatorSpec
+		operatorSpec           *operatorv1.StaticPodOperatorSpec
 		originalOperatorStatus *operatorv1.StaticPodOperatorStatus
 		resourceVersion        string
 	}
