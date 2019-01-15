@@ -109,12 +109,19 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 		targetCertKeyPairSecret.Data = map[string][]byte{}
 	}
 
+	// our annotation is based on our cert validity, so we want to make sure that we don't specify something past our signer
+	targetValidity := validity
+	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(time.Now())
+	if remainingSignerValidity < validity {
+		targetValidity = remainingSignerValidity
+	}
+
 	var certKeyPair *crypto.TLSCertificateConfig
 	var err error
 	if servingRotation != nil {
-		certKeyPair, err = signer.MakeServerCertForDuration(sets.NewString(servingRotation.Hostnames...), validity, servingRotation.CertificateExtensionFn...)
+		certKeyPair, err = signer.MakeServerCertForDuration(sets.NewString(servingRotation.Hostnames...), targetValidity, servingRotation.CertificateExtensionFn...)
 	} else {
-		certKeyPair, err = signer.MakeClientCertificateForDuration(clientRotation.UserInfo, validity)
+		certKeyPair, err = signer.MakeClientCertificateForDuration(clientRotation.UserInfo, targetValidity)
 	}
 	if err != nil {
 		return err
