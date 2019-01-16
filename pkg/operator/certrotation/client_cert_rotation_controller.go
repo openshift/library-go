@@ -75,11 +75,12 @@ func (c CertRotationController) sync() error {
 		return err
 	}
 
-	if err := c.CABundleRotation.ensureConfigMapCABundle(signingCertKeyPair); err != nil {
+	cabundleCerts, err := c.CABundleRotation.ensureConfigMapCABundle(signingCertKeyPair)
+	if err != nil {
 		return err
 	}
 
-	if err := c.TargetRotation.ensureTargetCertKeyPair(signingCertKeyPair); err != nil {
+	if err := c.TargetRotation.ensureTargetCertKeyPair(signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 
