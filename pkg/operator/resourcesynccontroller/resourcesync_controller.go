@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	"github.com/golang/glog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +20,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (

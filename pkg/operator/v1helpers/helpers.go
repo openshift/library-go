@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	errors2 "k8s.io/apimachinery/pkg/util/errors"
-
 	"github.com/ghodss/yaml"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -15,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
 
@@ -191,7 +190,7 @@ func UpdateStaticPodConditionFn(cond operatorv1.OperatorCondition) UpdateStaticP
 
 type aggregate []error
 
-var _ errors2.Aggregate = aggregate{}
+var _ utilerrors.Aggregate = aggregate{}
 
 // NewMultiLineAggregate returns an aggregate error with multi-line output
 func NewMultiLineAggregate(errList []error) error {

@@ -5,15 +5,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/openshift/api/operator/v1"
-	v13 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v14 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	v12 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
 // NewFakeSharedIndexInformer returns a fake shared index informer, suitable to use in static pod controller unit tests.
@@ -58,8 +59,8 @@ func (fakeSharedIndexInformer) GetIndexer() cache.Indexer {
 }
 
 // NewFakeStaticPodOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
-func NewFakeStaticPodOperatorClient(spec *v1.OperatorSpec, status *v1.OperatorStatus,
-	staticPodStatus *v1.StaticPodOperatorStatus, triggerErr func(rv string, status *v1.StaticPodOperatorStatus) error) StaticPodOperatorClient {
+func NewFakeStaticPodOperatorClient(spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus,
+	staticPodStatus *operatorv1.StaticPodOperatorStatus, triggerErr func(rv string, status *operatorv1.StaticPodOperatorStatus) error) StaticPodOperatorClient {
 	return &fakeStaticPodOperatorClient{
 		fakeOperatorSpec:            spec,
 		fakeOperatorStatus:          status,
@@ -70,24 +71,24 @@ func NewFakeStaticPodOperatorClient(spec *v1.OperatorSpec, status *v1.OperatorSt
 }
 
 type fakeStaticPodOperatorClient struct {
-	fakeOperatorSpec            *v1.OperatorSpec
-	fakeOperatorStatus          *v1.OperatorStatus
-	fakeStaticPodOperatorStatus *v1.StaticPodOperatorStatus
+	fakeOperatorSpec            *operatorv1.OperatorSpec
+	fakeOperatorStatus          *operatorv1.OperatorStatus
+	fakeStaticPodOperatorStatus *operatorv1.StaticPodOperatorStatus
 	resourceVersion             string
-	triggerStatusUpdateError    func(rv string, status *v1.StaticPodOperatorStatus) error
+	triggerStatusUpdateError    func(rv string, status *operatorv1.StaticPodOperatorStatus) error
 }
 
 func (c *fakeStaticPodOperatorClient) Informer() cache.SharedIndexInformer {
 	return &fakeSharedIndexInformer{}
 }
 
-func (c *fakeStaticPodOperatorClient) GetStaticPodOperatorState() (*v1.OperatorSpec, *v1.StaticPodOperatorStatus, string, error) {
+func (c *fakeStaticPodOperatorClient) GetStaticPodOperatorState() (*operatorv1.OperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
 	return c.fakeOperatorSpec, c.fakeStaticPodOperatorStatus, c.resourceVersion, nil
 }
 
-func (c *fakeStaticPodOperatorClient) UpdateStaticPodOperatorStatus(resourceVersion string, status *v1.StaticPodOperatorStatus) (*v1.StaticPodOperatorStatus, error) {
+func (c *fakeStaticPodOperatorClient) UpdateStaticPodOperatorStatus(resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
 	if c.resourceVersion != resourceVersion {
-		return nil, errors.NewConflict(schema.GroupResource{Group: v1.GroupName, Resource: "TestOperatorConfig"}, "instance", fmt.Errorf("invalid resourceVersion"))
+		return nil, errors.NewConflict(schema.GroupResource{Group: operatorv1.GroupName, Resource: "TestOperatorConfig"}, "instance", fmt.Errorf("invalid resourceVersion"))
 	}
 	rv, err := strconv.Atoi(resourceVersion)
 	if err != nil {
@@ -103,18 +104,18 @@ func (c *fakeStaticPodOperatorClient) UpdateStaticPodOperatorStatus(resourceVers
 	return c.fakeStaticPodOperatorStatus, nil
 }
 
-func (c *fakeStaticPodOperatorClient) GetOperatorState() (*v1.OperatorSpec, *v1.OperatorStatus, string, error) {
+func (c *fakeStaticPodOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
 	panic("not supported")
 }
-func (c *fakeStaticPodOperatorClient) UpdateOperatorSpec(string, *v1.OperatorSpec) (spec *v1.OperatorSpec, resourceVersion string, err error) {
+func (c *fakeStaticPodOperatorClient) UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	panic("not supported")
 }
-func (c *fakeStaticPodOperatorClient) UpdateOperatorStatus(string, *v1.OperatorStatus) (status *v1.OperatorStatus, err error) {
+func (c *fakeStaticPodOperatorClient) UpdateOperatorStatus(string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	panic("not supported")
 }
 
 // NewFakeNodeLister returns a fake node lister suitable to use in node controller unit test
-func NewFakeNodeLister(client kubernetes.Interface) v12.NodeLister {
+func NewFakeNodeLister(client kubernetes.Interface) corev1listers.NodeLister {
 	return &fakeNodeLister{client: client}
 }
 
@@ -122,28 +123,28 @@ type fakeNodeLister struct {
 	client kubernetes.Interface
 }
 
-func (n *fakeNodeLister) List(selector labels.Selector) ([]*v13.Node, error) {
-	nodes, err := n.client.CoreV1().Nodes().List(v14.ListOptions{LabelSelector: selector.String()})
+func (n *fakeNodeLister) List(selector labels.Selector) ([]*corev1.Node, error) {
+	nodes, err := n.client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return nil, err
 	}
-	ret := []*v13.Node{}
+	ret := []*corev1.Node{}
 	for i := range nodes.Items {
 		ret = append(ret, &nodes.Items[i])
 	}
 	return ret, nil
 }
 
-func (n *fakeNodeLister) Get(name string) (*v13.Node, error) {
+func (n *fakeNodeLister) Get(name string) (*corev1.Node, error) {
 	panic("implement me")
 }
 
-func (n *fakeNodeLister) ListWithPredicate(predicate v12.NodeConditionPredicate) ([]*v13.Node, error) {
+func (n *fakeNodeLister) ListWithPredicate(predicate corev1listers.NodeConditionPredicate) ([]*corev1.Node, error) {
 	panic("implement me")
 }
 
 // NewFakeOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
-func NewFakeOperatorClient(spec *v1.OperatorSpec, status *v1.OperatorStatus, triggerErr func(rv string, status *v1.OperatorStatus) error) OperatorClient {
+func NewFakeOperatorClient(spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, triggerErr func(rv string, status *operatorv1.OperatorStatus) error) OperatorClient {
 	return &fakeOperatorClient{
 		fakeOperatorSpec:         spec,
 		fakeOperatorStatus:       status,
@@ -153,23 +154,23 @@ func NewFakeOperatorClient(spec *v1.OperatorSpec, status *v1.OperatorStatus, tri
 }
 
 type fakeOperatorClient struct {
-	fakeOperatorSpec         *v1.OperatorSpec
-	fakeOperatorStatus       *v1.OperatorStatus
+	fakeOperatorSpec         *operatorv1.OperatorSpec
+	fakeOperatorStatus       *operatorv1.OperatorStatus
 	resourceVersion          string
-	triggerStatusUpdateError func(rv string, status *v1.OperatorStatus) error
+	triggerStatusUpdateError func(rv string, status *operatorv1.OperatorStatus) error
 }
 
 func (c *fakeOperatorClient) Informer() cache.SharedIndexInformer {
 	return &fakeSharedIndexInformer{}
 }
 
-func (c *fakeOperatorClient) GetOperatorState() (*v1.OperatorSpec, *v1.OperatorStatus, string, error) {
+func (c *fakeOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
 	return c.fakeOperatorSpec, c.fakeOperatorStatus, c.resourceVersion, nil
 }
 
-func (c *fakeOperatorClient) UpdateOperatorStatus(resourceVersion string, status *v1.OperatorStatus) (*v1.OperatorStatus, error) {
+func (c *fakeOperatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
 	if c.resourceVersion != resourceVersion {
-		return nil, errors.NewConflict(schema.GroupResource{Group: v1.GroupName, Resource: "TestOperatorConfig"}, "instance", fmt.Errorf("invalid resourceVersion"))
+		return nil, errors.NewConflict(schema.GroupResource{Group: operatorv1.GroupName, Resource: "TestOperatorConfig"}, "instance", fmt.Errorf("invalid resourceVersion"))
 	}
 	rv, err := strconv.Atoi(resourceVersion)
 	if err != nil {
@@ -184,6 +185,6 @@ func (c *fakeOperatorClient) UpdateOperatorStatus(resourceVersion string, status
 	c.fakeOperatorStatus = status
 	return c.fakeOperatorStatus, nil
 }
-func (c *fakeOperatorClient) UpdateOperatorSpec(string, *v1.OperatorSpec) (spec *v1.OperatorSpec, resourceVersion string, err error) {
+func (c *fakeOperatorClient) UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	panic("not supported")
 }
