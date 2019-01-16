@@ -139,7 +139,7 @@ func (c ConfigObserver) sync() error {
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
-	if _, updateError := v1helpers.UpdateStatus(c.operatorConfigClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(c.operatorConfigClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 

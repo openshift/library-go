@@ -9,7 +9,7 @@ type OperatorClient interface {
 	Informer() cache.SharedIndexInformer
 	GetOperatorState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, resourceVersion string, err error)
 	UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error)
-	UpdateOperatorStatus(string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, resourceVersion string, err error)
+	UpdateOperatorStatus(string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error)
 }
 
 type StaticPodOperatorClient interface {

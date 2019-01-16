@@ -35,9 +35,9 @@ func (c *fakeOperatorClient) UpdateOperatorSpec(rv string, in *operatorv1.Operat
 	c.spec = in
 	return in, rv, c.specUpdateFailure
 }
-func (c *fakeOperatorClient) UpdateOperatorStatus(rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, resourceVersion string, err error) {
+func (c *fakeOperatorClient) UpdateOperatorStatus(rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = in
-	return in, rv, nil
+	return in, nil
 }
 
 type fakeOperatorClient struct {

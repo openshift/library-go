@@ -145,6 +145,6 @@ func (c *statusClient) UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spe
 	panic("missing")
 }
 
-func (c *statusClient) UpdateOperatorStatus(string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, resourceVersion string, err error) {
+func (c *statusClient) UpdateOperatorStatus(string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	panic("missing")
 }

@@ -113,8 +113,9 @@ func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []
 type UpdateStatusFunc func(status *operatorv1.OperatorStatus) error
 
 // UpdateStatus applies the update funcs to the oldStatus and tries to update via the client.
-func UpdateStatus(client OperatorClient, updateFuncs ...UpdateStatusFunc) (bool, error) {
+func UpdateStatus(client OperatorClient, updateFuncs ...UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error) {
 	updated := false
+	var updatedOperatorStatus *operatorv1.OperatorStatus
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		_, oldStatus, resourceVersion, err := client.GetOperatorState()
 		if err != nil {
@@ -132,12 +133,12 @@ func UpdateStatus(client OperatorClient, updateFuncs ...UpdateStatusFunc) (bool,
 			return nil
 		}
 
-		_, _, err = client.UpdateOperatorStatus(resourceVersion, newStatus)
+		updatedOperatorStatus, err = client.UpdateOperatorStatus(resourceVersion, newStatus)
 		updated = err == nil
 		return err
 	})
 
-	return updated, err
+	return updatedOperatorStatus, updated, err
 }
 
 // UpdateConditionFunc returns a func to update a condition.

@@ -109,7 +109,7 @@ func (c *fakeStaticPodOperatorClient) GetOperatorState() (*v1.OperatorSpec, *v1.
 func (c *fakeStaticPodOperatorClient) UpdateOperatorSpec(string, *v1.OperatorSpec) (spec *v1.OperatorSpec, resourceVersion string, err error) {
 	panic("not supported")
 }
-func (c *fakeStaticPodOperatorClient) UpdateOperatorStatus(string, *v1.OperatorStatus) (status *v1.OperatorStatus, resourceVersion string, err error) {
+func (c *fakeStaticPodOperatorClient) UpdateOperatorStatus(string, *v1.OperatorStatus) (status *v1.OperatorStatus, err error) {
 	panic("not supported")
 }
 
@@ -140,4 +140,50 @@ func (n *fakeNodeLister) Get(name string) (*v13.Node, error) {
 
 func (n *fakeNodeLister) ListWithPredicate(predicate v12.NodeConditionPredicate) ([]*v13.Node, error) {
 	panic("implement me")
+}
+
+// NewFakeOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
+func NewFakeOperatorClient(spec *v1.OperatorSpec, status *v1.OperatorStatus, triggerErr func(rv string, status *v1.OperatorStatus) error) OperatorClient {
+	return &fakeOperatorClient{
+		fakeOperatorSpec:         spec,
+		fakeOperatorStatus:       status,
+		resourceVersion:          "0",
+		triggerStatusUpdateError: triggerErr,
+	}
+}
+
+type fakeOperatorClient struct {
+	fakeOperatorSpec         *v1.OperatorSpec
+	fakeOperatorStatus       *v1.OperatorStatus
+	resourceVersion          string
+	triggerStatusUpdateError func(rv string, status *v1.OperatorStatus) error
+}
+
+func (c *fakeOperatorClient) Informer() cache.SharedIndexInformer {
+	return &fakeSharedIndexInformer{}
+}
+
+func (c *fakeOperatorClient) GetOperatorState() (*v1.OperatorSpec, *v1.OperatorStatus, string, error) {
+	return c.fakeOperatorSpec, c.fakeOperatorStatus, c.resourceVersion, nil
+}
+
+func (c *fakeOperatorClient) UpdateOperatorStatus(resourceVersion string, status *v1.OperatorStatus) (*v1.OperatorStatus, error) {
+	if c.resourceVersion != resourceVersion {
+		return nil, errors.NewConflict(schema.GroupResource{Group: v1.GroupName, Resource: "TestOperatorConfig"}, "instance", fmt.Errorf("invalid resourceVersion"))
+	}
+	rv, err := strconv.Atoi(resourceVersion)
+	if err != nil {
+		return nil, err
+	}
+	c.resourceVersion = strconv.Itoa(rv + 1)
+	if c.triggerStatusUpdateError != nil {
+		if err := c.triggerStatusUpdateError(resourceVersion, status); err != nil {
+			return nil, err
+		}
+	}
+	c.fakeOperatorStatus = status
+	return c.fakeOperatorStatus, nil
+}
+func (c *fakeOperatorClient) UpdateOperatorSpec(string, *v1.OperatorSpec) (spec *v1.OperatorSpec, resourceVersion string, err error) {
+	panic("not supported")
 }

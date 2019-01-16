@@ -48,7 +48,7 @@ type ResourceSyncController struct {
 	queue workqueue.RateLimitingInterface
 
 	kubeClient           kubernetes.Interface
-	operatorConfigClient v1helpers.StaticPodOperatorClient
+	operatorConfigClient v1helpers.OperatorClient
 	eventRecorder        events.Recorder
 }
 
@@ -56,7 +56,7 @@ var _ ResourceSyncer = &ResourceSyncController{}
 
 // NewResourceSyncController creates ResourceSyncController.
 func NewResourceSyncController(
-	operatorConfigClient v1helpers.StaticPodOperatorClient,
+	operatorConfigClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces map[string]informers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
@@ -121,7 +121,7 @@ func (c *ResourceSyncController) SyncSecret(destination, source ResourceLocation
 }
 
 func (c *ResourceSyncController) sync() error {
-	operatorSpec, _, _, err := c.operatorConfigClient.GetStaticPodOperatorState()
+	operatorSpec, _, _, err := c.operatorConfigClient.GetOperatorState()
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (c *ResourceSyncController) sync() error {
 			Reason:  "Error",
 			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
 		}
-		if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+		if _, _, updateError := v1helpers.UpdateStatus(c.operatorConfigClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 			return updateError
 		}
 		return nil
@@ -183,7 +183,7 @@ func (c *ResourceSyncController) sync() error {
 		Type:   operatorStatusResourceSyncControllerFailing,
 		Status: operatorv1.ConditionFalse,
 	}
-	if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(c.operatorConfigClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 	return nil
