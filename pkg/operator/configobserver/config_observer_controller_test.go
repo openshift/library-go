@@ -20,6 +20,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+func (c *fakeOperatorClient) Informer() cache.SharedIndexInformer {
+	return nil
+}
+
 func (c *fakeOperatorClient) GetOperatorState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, resourceVersion string, err error) {
 	return c.startingSpec, &operatorv1.OperatorStatus{}, "", nil
 

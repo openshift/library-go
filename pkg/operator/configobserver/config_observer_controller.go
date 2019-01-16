@@ -23,7 +23,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -128,7 +127,7 @@ func (c ConfigObserver) sync() error {
 			c.eventRecorder.Eventf("ObservedConfigChanged", "Writing updated observed config")
 		}
 	}
-	err = common.NewMultiLineAggregate(errs)
+	err = v1helpers.NewMultiLineAggregate(errs)
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{

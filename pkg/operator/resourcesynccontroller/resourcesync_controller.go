@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/golang/glog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +22,6 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 const (
@@ -47,7 +48,7 @@ type ResourceSyncController struct {
 	queue workqueue.RateLimitingInterface
 
 	kubeClient           kubernetes.Interface
-	operatorConfigClient common.OperatorClient
+	operatorConfigClient v1helpers.StaticPodOperatorClient
 	eventRecorder        events.Recorder
 }
 
@@ -55,7 +56,7 @@ var _ ResourceSyncer = &ResourceSyncController{}
 
 // NewResourceSyncController creates ResourceSyncController.
 func NewResourceSyncController(
-	operatorConfigClient common.OperatorClient,
+	operatorConfigClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces map[string]informers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
@@ -120,7 +121,7 @@ func (c *ResourceSyncController) SyncSecret(destination, source ResourceLocation
 }
 
 func (c *ResourceSyncController) sync() error {
-	operatorSpec, _, _, err := c.operatorConfigClient.Get()
+	operatorSpec, _, _, err := c.operatorConfigClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
 	}
@@ -170,9 +171,9 @@ func (c *ResourceSyncController) sync() error {
 			Type:    operatorStatusResourceSyncControllerFailing,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "Error",
-			Message: common.NewMultiLineAggregate(errors).Error(),
+			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
 		}
-		if _, _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+		if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
 			return updateError
 		}
 		return nil
@@ -182,7 +183,7 @@ func (c *ResourceSyncController) sync() error {
 		Type:   operatorStatusResourceSyncControllerFailing,
 		Status: operatorv1.ConditionFalse,
 	}
-	if _, _, updateError := common.UpdateStatus(c.operatorConfigClient, common.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 	return nil

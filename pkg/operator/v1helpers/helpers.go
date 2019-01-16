@@ -2,7 +2,10 @@ package v1helpers
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	errors2 "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/ghodss/yaml"
 
@@ -143,4 +146,76 @@ func UpdateConditionFn(cond operatorv1.OperatorCondition) UpdateStatusFunc {
 		SetOperatorCondition(&oldStatus.Conditions, cond)
 		return nil
 	}
+}
+
+// UpdateStatusFunc is a func that mutates an operator status.
+type UpdateStaticPodStatusFunc func(status *operatorv1.StaticPodOperatorStatus) error
+
+// UpdateStaticPodStatus applies the update funcs to the oldStatus abd tries to update via the client.
+func UpdateStaticPodStatus(client StaticPodOperatorClient, updateFuncs ...UpdateStaticPodStatusFunc) (*operatorv1.StaticPodOperatorStatus, bool, error) {
+	updated := false
+	var updatedOperatorStatus *operatorv1.StaticPodOperatorStatus
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, oldStatus, resourceVersion, err := client.GetStaticPodOperatorState()
+		if err != nil {
+			return err
+		}
+
+		newStatus := oldStatus.DeepCopy()
+		for _, update := range updateFuncs {
+			if err := update(newStatus); err != nil {
+				return err
+			}
+		}
+
+		if equality.Semantic.DeepEqual(oldStatus, newStatus) {
+			return nil
+		}
+
+		updatedOperatorStatus, err = client.UpdateStaticPodOperatorStatus(resourceVersion, newStatus)
+		updated = err == nil
+		return err
+	})
+
+	return updatedOperatorStatus, updated, err
+}
+
+// UpdateStaticPodConditionFn returns a func to update a condition.
+func UpdateStaticPodConditionFn(cond operatorv1.OperatorCondition) UpdateStaticPodStatusFunc {
+	return func(oldStatus *operatorv1.StaticPodOperatorStatus) error {
+		SetOperatorCondition(&oldStatus.Conditions, cond)
+		return nil
+	}
+}
+
+type aggregate []error
+
+var _ errors2.Aggregate = aggregate{}
+
+// NewMultiLineAggregate returns an aggregate error with multi-line output
+func NewMultiLineAggregate(errList []error) error {
+	var errs []error
+	for _, e := range errList {
+		if e != nil {
+			errs = append(errs, e)
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return aggregate(errs)
+}
+
+// Error is part of the error interface.
+func (agg aggregate) Error() string {
+	msgs := make([]string, len(agg))
+	for i := range agg {
+		msgs[i] = agg[i].Error()
+	}
+	return strings.Join(msgs, "\n")
+}
+
+// Errors is part of the Aggregate interface.
+func (agg aggregate) Errors() []error {
+	return []error(agg)
 }
