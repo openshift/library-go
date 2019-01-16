@@ -175,8 +175,8 @@ func (c RevisionController) createNewRevision(revision int32) error {
 		return err
 	}
 	ownerRefs := []metav1.OwnerReference{{
-		APIVersion: statusConfigMap.APIVersion,
-		Kind:       statusConfigMap.Kind,
+		APIVersion: "v1",
+		Kind:       "ConfigMap",
 		Name:       statusConfigMap.Name,
 		UID:        statusConfigMap.UID,
 	}}
