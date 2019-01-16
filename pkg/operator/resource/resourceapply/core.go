@@ -64,7 +64,7 @@ func ApplyService(client coreclientv1.ServicesGetter, recorder events.Recorder, 
 	}
 
 	if selectorSame && typeSame && !*modified {
-		return nil, false, nil
+		return existing, false, nil
 	}
 
 	existing.Spec.Selector = required.Spec.Selector
