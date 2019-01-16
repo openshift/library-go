@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,7 +14,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 type configMapInfo struct {
@@ -130,7 +131,7 @@ func TestPruneAPIResources(t *testing.T) {
 	}
 	for _, tc := range tests {
 		kubeClient := fake.NewSimpleClientset(tc.startingObjects...)
-		fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+		fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 			&operatorv1.OperatorSpec{
 				ManagementState: operatorv1.Managed,
 			},
@@ -310,7 +311,7 @@ func TestPruneDiskResources(t *testing.T) {
 				return true, configMapList(test.configMaps), nil
 			})
 
-			fakeStaticPodOperatorClient := common.NewFakeStaticPodOperatorClient(
+			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.OperatorSpec{
 					ManagementState: operatorv1.Managed,
 				},

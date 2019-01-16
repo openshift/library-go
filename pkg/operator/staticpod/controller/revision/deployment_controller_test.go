@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,7 +16,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 func filterCreateActions(actions []clienttesting.Action) []runtime.Object {
@@ -39,14 +40,14 @@ func TestRevisionController(t *testing.T) {
 		testSecrets             []string
 		testConfigs             []string
 		startingObjects         []runtime.Object
-		staticPodOperatorClient common.OperatorClient
+		staticPodOperatorClient v1helpers.StaticPodOperatorClient
 		validateActions         func(t *testing.T, actions []clienttesting.Action)
 		validateStatus          func(t *testing.T, status *operatorv1.StaticPodOperatorStatus)
 		expectSyncError         string
 	}{
 		{
 			targetNamespace: "operator-unmanaged",
-			staticPodOperatorClient: common.NewFakeStaticPodOperatorClient(
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.OperatorSpec{
 					ManagementState: operatorv1.Unmanaged,
 				},
@@ -63,7 +64,7 @@ func TestRevisionController(t *testing.T) {
 		},
 		{
 			targetNamespace: "missing-source-resources",
-			staticPodOperatorClient: common.NewFakeStaticPodOperatorClient(
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.OperatorSpec{
 					ManagementState: operatorv1.Managed,
 				},
@@ -97,7 +98,7 @@ func TestRevisionController(t *testing.T) {
 		},
 		{
 			targetNamespace: "copy-resources",
-			staticPodOperatorClient: common.NewFakeStaticPodOperatorClient(
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.OperatorSpec{
 					ManagementState: operatorv1.Managed,
 				},
@@ -177,7 +178,7 @@ func TestRevisionController(t *testing.T) {
 			)
 			syncErr := c.sync()
 			if tc.validateStatus != nil {
-				_, status, _, _ := tc.staticPodOperatorClient.Get()
+				_, status, _, _ := tc.staticPodOperatorClient.GetStaticPodOperatorState()
 				tc.validateStatus(t, status)
 			}
 			if tc.validateActions != nil {

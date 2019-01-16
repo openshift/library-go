@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +26,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune/bindata"
 )
 
@@ -42,7 +43,7 @@ type PruneController struct {
 	// prunerPodImageFn returns the image name for the pruning pod
 	prunerPodImageFn func() string
 
-	operatorConfigClient common.OperatorClient
+	operatorConfigClient v1helpers.StaticPodOperatorClient
 
 	kubeClient    kubernetes.Interface
 	eventRecorder events.Recorder
@@ -59,7 +60,7 @@ func NewPruneController(
 	podResourcePrefix string,
 	command []string,
 	kubeClient kubernetes.Interface,
-	operatorConfigClient common.OperatorClient,
+	operatorConfigClient v1helpers.StaticPodOperatorClient,
 	eventRecorder events.Recorder,
 ) *PruneController {
 	c := &PruneController{
@@ -262,7 +263,7 @@ func (c *PruneController) processNextWorkItem() bool {
 }
 
 func (c *PruneController) sync() error {
-	_, operatorStatus, _, err := c.operatorConfigClient.Get()
+	_, operatorStatus, _, err := c.operatorConfigClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
 	}
@@ -279,7 +280,7 @@ func (c *PruneController) sync() error {
 	if apiErr := c.pruneAPIResources(excludedIDs, excludedIDs[len(excludedIDs)-1]); apiErr != nil {
 		errs = append(errs, apiErr)
 	}
-	return common.NewMultiLineAggregate(errs)
+	return v1helpers.NewMultiLineAggregate(errs)
 }
 
 // eventHandler queues the operator to check spec and status

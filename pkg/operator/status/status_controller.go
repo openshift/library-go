@@ -28,20 +28,13 @@ import (
 
 var workQueueKey = "instance"
 
-type OperatorStatusProvider interface {
-	Informer() cache.SharedIndexInformer
-	CurrentStatus() (operatorv1.OperatorStatus, error)
-}
-
 type StatusSyncer struct {
 	clusterOperatorName string
 	relatedObjects      []configv1.ObjectReference
 
-	// TODO use a generated client when it moves to openshift/api
+	operatorClient        operatorv1helpers.OperatorClient
 	clusterOperatorClient configv1client.ClusterOperatorsGetter
 	eventRecorder         events.Recorder
-
-	operatorStatusProvider OperatorStatusProvider
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -51,15 +44,15 @@ func NewClusterOperatorStatusController(
 	name string,
 	relatedObjects []configv1.ObjectReference,
 	clusterOperatorClient configv1client.ClusterOperatorsGetter,
-	operatorStatusProvider OperatorStatusProvider,
+	operatorStatusProvider operatorv1helpers.OperatorClient,
 	recorder events.Recorder,
 ) *StatusSyncer {
 	c := &StatusSyncer{
-		clusterOperatorName:    name,
-		relatedObjects:         relatedObjects,
-		clusterOperatorClient:  clusterOperatorClient,
-		operatorStatusProvider: operatorStatusProvider,
-		eventRecorder:          recorder,
+		clusterOperatorName:   name,
+		relatedObjects:        relatedObjects,
+		clusterOperatorClient: clusterOperatorClient,
+		operatorClient:        operatorStatusProvider,
+		eventRecorder:         recorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatusSyncer-"+name),
 	}
@@ -73,7 +66,7 @@ func NewClusterOperatorStatusController(
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
 // must be information that is logically "owned" by another component.
 func (c StatusSyncer) sync() error {
-	currentDetailedStatus, err := c.operatorStatusProvider.CurrentStatus()
+	_, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		glog.Infof("operator.status not found")
 		c.eventRecorder.Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.clusterOperatorName)
