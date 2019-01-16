@@ -89,7 +89,6 @@ func (c StatusSyncer) sync() error {
 			ObjectMeta: metav1.ObjectMeta{Name: c.clusterOperatorName},
 		}
 	}
-	clusterOperatorObj.Status.Conditions = nil
 	clusterOperatorObj.Status.RelatedObjects = c.relatedObjects
 
 	var failingConditions []operatorv1.OperatorCondition
