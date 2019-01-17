@@ -134,7 +134,9 @@ func (c MonitoringResourceController) sync() error {
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {
-		cond.Status = operatorv1.ConditionTrue
+		// this is not a typo.  We will not have failing status on our operator for missing servicemonitor since servicemonitoring
+		// is not a prereq.
+		cond.Status = operatorv1.ConditionFalse
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
