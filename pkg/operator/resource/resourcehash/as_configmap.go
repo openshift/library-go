@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	"k8s.io/client-go/listers/core/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,6 +89,34 @@ func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface,
 
 		case schema.GroupResource{Resource: "secret"}, schema.GroupResource{Resource: "secrets"}:
 			obj, err := client.CoreV1().Secrets(objRef.Namespace).Get(objRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			objs = append(objs, obj)
+
+		default:
+			return nil, fmt.Errorf("%v is not handled", objRef.Resource)
+		}
+	}
+
+	return MultipleObjectHashStringMap(objs...)
+}
+
+// MultipleObjectHashStringMapForObjectReferenceFromLister is MultipleObjectHashStringMapForObjectReferences using a lister for performance
+func MultipleObjectHashStringMapForObjectReferenceFromLister(configmapLister v1.ConfigMapLister, secretLister v1.SecretLister, objRefs ...*ObjectReference) (map[string]string, error) {
+	objs := []runtime.Object{}
+
+	for _, objRef := range objRefs {
+		switch objRef.Resource {
+		case schema.GroupResource{Resource: "configmap"}, schema.GroupResource{Resource: "configmaps"}:
+			obj, err := configmapLister.ConfigMaps(objRef.Namespace).Get(objRef.Name)
+			if err != nil {
+				return nil, err
+			}
+			objs = append(objs, obj)
+
+		case schema.GroupResource{Resource: "secret"}, schema.GroupResource{Resource: "secrets"}:
+			obj, err := secretLister.Secrets(objRef.Namespace).Get(objRef.Name)
 			if err != nil {
 				return nil, err
 			}
