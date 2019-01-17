@@ -73,7 +73,7 @@ type ObjectReference struct {
 }
 
 // MultipleObjectHashStringMapForObjectReferences returns a map of key/hash pairs suitable for merging into a configmap
-func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface, objRefs ...ObjectReference) (map[string]string, error) {
+func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface, objRefs ...*ObjectReference) (map[string]string, error) {
 	objs := []runtime.Object{}
 
 	for _, objRef := range objRefs {
@@ -98,4 +98,28 @@ func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface,
 	}
 
 	return MultipleObjectHashStringMap(objs...)
+}
+
+func NewObjectRef() *ObjectReference {
+	return &ObjectReference{}
+}
+
+func (r *ObjectReference) ForConfigMap() *ObjectReference {
+	r.Resource = schema.GroupResource{Resource: "configmaps"}
+	return r
+}
+
+func (r *ObjectReference) ForSecret() *ObjectReference {
+	r.Resource = schema.GroupResource{Resource: "secrets"}
+	return r
+}
+
+func (r *ObjectReference) Named(name string) *ObjectReference {
+	r.Name = name
+	return r
+}
+
+func (r *ObjectReference) InNamespace(namespace string) *ObjectReference {
+	r.Namespace = namespace
+	return r
 }
