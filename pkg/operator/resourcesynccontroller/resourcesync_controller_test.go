@@ -47,11 +47,11 @@ func TestSyncConfigMap(t *testing.T) {
 
 	c := NewResourceSyncController(
 		fakeStaticPodOperatorClient,
-		map[string]informers.SharedInformerFactory{
+		v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 			"config":         configInformers,
 			"config-managed": configManagedInformers,
 			"operator":       operatorInformers,
-		},
+		}),
 		kubeClient,
 		eventRecorder,
 	)

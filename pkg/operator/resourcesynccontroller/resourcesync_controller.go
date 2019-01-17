@@ -12,7 +12,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -56,7 +55,7 @@ var _ ResourceSyncer = &ResourceSyncController{}
 // NewResourceSyncController creates ResourceSyncController.
 func NewResourceSyncController(
 	operatorConfigClient v1helpers.OperatorClient,
-	kubeInformersForNamespaces map[string]informers.SharedInformerFactory,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
 ) *ResourceSyncController {
@@ -72,7 +71,11 @@ func NewResourceSyncController(
 		kubeClient: kubeClient,
 	}
 
-	for _, informers := range kubeInformersForNamespaces {
+	for namespace := range kubeInformersForNamespaces.Namespaces() {
+		if len(namespace) == 0 {
+			continue
+		}
+		informers := kubeInformersForNamespaces.InformersFor(namespace)
 		informers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 		informers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
 		c.preRunCachesSynced = append(c.preRunCachesSynced, informers.Core().V1().ConfigMaps().Informer().HasSynced)

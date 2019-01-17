@@ -6,6 +6,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -15,6 +16,7 @@ import (
 type KubeInformersForNamespaces interface {
 	Start(stopCh <-chan struct{})
 	InformersFor(namespace string) informers.SharedInformerFactory
+	Namespaces() sets.String
 
 	ConfigMapLister() corev1listers.ConfigMapLister
 	SecretLister() corev1listers.SecretLister
@@ -41,8 +43,15 @@ func (i kubeInformersForNamespaces) Start(stopCh <-chan struct{}) {
 	}
 }
 
+func (i kubeInformersForNamespaces) Namespaces() sets.String {
+	return sets.StringKeySet(i)
+}
 func (i kubeInformersForNamespaces) InformersFor(namespace string) informers.SharedInformerFactory {
 	return i[namespace]
+}
+
+func (i kubeInformersForNamespaces) HasInformersFor(namespace string) bool {
+	return i.InformersFor(namespace) != nil
 }
 
 type configMapLister kubeInformersForNamespaces
