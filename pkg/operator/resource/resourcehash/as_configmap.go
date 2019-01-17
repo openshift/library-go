@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"k8s.io/client-go/listers/core/v1"
-
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/listers/core/v1"
 )
 
 // GetConfigMapHash returns a hash of the configmap data
@@ -82,6 +82,10 @@ func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface,
 		switch objRef.Resource {
 		case schema.GroupResource{Resource: "configmap"}, schema.GroupResource{Resource: "configmaps"}:
 			obj, err := client.CoreV1().ConfigMaps(objRef.Namespace).Get(objRef.Name, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
+				// don't error, just don't list the key. this is different than empty
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -89,6 +93,10 @@ func MultipleObjectHashStringMapForObjectReferences(client kubernetes.Interface,
 
 		case schema.GroupResource{Resource: "secret"}, schema.GroupResource{Resource: "secrets"}:
 			obj, err := client.CoreV1().Secrets(objRef.Namespace).Get(objRef.Name, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
+				// don't error, just don't list the key. this is different than empty
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -110,6 +118,10 @@ func MultipleObjectHashStringMapForObjectReferenceFromLister(configmapLister v1.
 		switch objRef.Resource {
 		case schema.GroupResource{Resource: "configmap"}, schema.GroupResource{Resource: "configmaps"}:
 			obj, err := configmapLister.ConfigMaps(objRef.Namespace).Get(objRef.Name)
+			if apierrors.IsNotFound(err) {
+				// don't error, just don't list the key. this is different than empty
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -117,6 +129,10 @@ func MultipleObjectHashStringMapForObjectReferenceFromLister(configmapLister v1.
 
 		case schema.GroupResource{Resource: "secret"}, schema.GroupResource{Resource: "secrets"}:
 			obj, err := secretLister.Secrets(objRef.Namespace).Get(objRef.Name)
+			if apierrors.IsNotFound(err) {
+				// don't error, just don't list the key. this is different than empty
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
