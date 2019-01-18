@@ -47,7 +47,11 @@ func NewCertRotationController(
 	signingRotation SigningRotation,
 	caBundleRotation CABundleRotation,
 	targetRotation TargetRotation,
-) *CertRotationController {
+) (*CertRotationController, error) {
+	if !isOverlapSufficient(signingRotation, targetRotation) {
+		return nil, fmt.Errorf("insufficient overlap between signer and target")
+	}
+
 	ret := &CertRotationController{
 		SigningRotation:  signingRotation,
 		CABundleRotation: caBundleRotation,
@@ -66,7 +70,17 @@ func NewCertRotationController(
 	caBundleRotation.Informer.Informer().AddEventHandler(ret.eventHandler())
 	targetRotation.Informer.Informer().AddEventHandler(ret.eventHandler())
 
-	return ret
+	return ret, nil
+}
+
+func isOverlapSufficient(signingRotation SigningRotation, targetRotation TargetRotation) bool {
+	targetRefreshOverlap := float32(targetRotation.Validity) * (1 - targetRotation.RefreshPercentage)
+	requiredSignerAge := targetRefreshOverlap / 10
+	signerRefreshOverlap := float32(signingRotation.Validity) * (signingRotation.RefreshPercentage)
+	if signerRefreshOverlap < requiredSignerAge*2 {
+		return false
+	}
+	return true
 }
 
 func (c CertRotationController) sync() error {
@@ -122,6 +136,22 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
+
+	// start a time based thread to ensure we stay up to date
+	go wait.Until(func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
+		for {
+			c.queue.Add(workQueueKey)
+			select {
+			case <-ticker.C:
+			case <-stopCh:
+				return
+			}
+		}
+
+	}, time.Minute, stopCh)
 
 	<-stopCh
 }
