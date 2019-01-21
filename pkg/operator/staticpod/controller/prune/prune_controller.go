@@ -118,7 +118,7 @@ func (c *PruneController) excludedRevisionHistory(operatorStatus *operatorv1.Sta
 			default:
 				// protect things you don't understand
 				unknownStatusRevisionIDs = append(unknownStatusRevisionIDs, revisionID)
-				c.eventRecorder.Event("UnknownRevisionStatus", fmt.Sprintf("unknown status for revision %d: %v", revisionID, configMap.Data["phase"]))
+				c.eventRecorder.Event("UnknownRevisionStatus", fmt.Sprintf("unknown status for revision %d: %v", revisionID, configMap.Data["status"]))
 			}
 		}
 	}

@@ -291,7 +291,7 @@ func (c *InstallerController) updateRevisionStatus(operatorStatus *operatorv1.St
 	return c.updateConfigMapForRevision(failedRevisions, string(corev1.PodFailed))
 }
 
-func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, phase string) error {
+func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, status string) error {
 	for currentRevision := range currentRevisions {
 		statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(statusConfigMapNameForRevision(currentRevision), metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
@@ -300,7 +300,7 @@ func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[in
 		if err != nil {
 			return err
 		}
-		statusConfigMap.Data["phase"] = phase
+		statusConfigMap.Data["status"] = status
 		_, _, err = resourceapply.ApplyConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, statusConfigMap)
 		if err != nil {
 			return err
