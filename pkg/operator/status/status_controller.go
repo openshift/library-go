@@ -31,7 +31,6 @@ var workQueueKey = "instance"
 type StatusSyncer struct {
 	clusterOperatorName string
 	relatedObjects      []configv1.ObjectReference
-	operatorVersion     string
 
 	operatorClient        operatorv1helpers.OperatorClient
 	clusterOperatorClient configv1client.ClusterOperatorsGetter
@@ -44,7 +43,6 @@ type StatusSyncer struct {
 func NewClusterOperatorStatusController(
 	name string,
 	relatedObjects []configv1.ObjectReference,
-	operatorVersion string,
 	clusterOperatorClient configv1client.ClusterOperatorsGetter,
 	operatorStatusProvider operatorv1helpers.OperatorClient,
 	recorder events.Recorder,
@@ -52,7 +50,6 @@ func NewClusterOperatorStatusController(
 	c := &StatusSyncer{
 		clusterOperatorName:   name,
 		relatedObjects:        relatedObjects,
-		operatorVersion:       operatorVersion,
 		clusterOperatorClient: clusterOperatorClient,
 		operatorClient:        operatorStatusProvider,
 		eventRecorder:         recorder,
@@ -93,7 +90,6 @@ func (c StatusSyncer) sync() error {
 		}
 	}
 	clusterOperatorObj.Status.RelatedObjects = c.relatedObjects
-	clusterOperatorObj.Status.Version = c.operatorVersion
 
 	var failingConditions []operatorv1.OperatorCondition
 	for _, condition := range currentDetailedStatus.Conditions {
