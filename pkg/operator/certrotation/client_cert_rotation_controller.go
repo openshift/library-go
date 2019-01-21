@@ -6,6 +6,8 @@ import (
 
 	"github.com/golang/glog"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -35,6 +37,7 @@ type CertRotationController struct {
 	SigningRotation  SigningRotation
 	CABundleRotation CABundleRotation
 	TargetRotation   TargetRotation
+	OperatorClient   v1helpers.StaticPodOperatorClient
 
 	cachesSynced []cache.InformerSynced
 
@@ -47,6 +50,7 @@ func NewCertRotationController(
 	signingRotation SigningRotation,
 	caBundleRotation CABundleRotation,
 	targetRotation TargetRotation,
+	operatorClient v1helpers.StaticPodOperatorClient,
 ) (*CertRotationController, error) {
 	if !isOverlapSufficient(signingRotation, targetRotation) {
 		return nil, fmt.Errorf("insufficient overlap between signer and target")
@@ -56,6 +60,7 @@ func NewCertRotationController(
 		SigningRotation:  signingRotation,
 		CABundleRotation: caBundleRotation,
 		TargetRotation:   targetRotation,
+		OperatorClient:   operatorClient,
 
 		cachesSynced: []cache.InformerSynced{
 			signingRotation.Informer.Informer().HasSynced,
@@ -84,6 +89,25 @@ func isOverlapSufficient(signingRotation SigningRotation, targetRotation TargetR
 }
 
 func (c CertRotationController) sync() error {
+	syncErr := c.syncWorker()
+
+	condition := operatorv1.OperatorCondition{
+		Type:   "CertRotation_" + c.name + "_Failing",
+		Status: operatorv1.ConditionFalse,
+	}
+	if syncErr != nil {
+		condition.Status = operatorv1.ConditionTrue
+		condition.Reason = "RotationError"
+		condition.Message = syncErr.Error()
+	}
+	if _, _, updateErr := v1helpers.UpdateStaticPodStatus(c.OperatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); updateErr != nil {
+		return updateErr
+	}
+
+	return syncErr
+}
+
+func (c CertRotationController) syncWorker() error {
 	signingCertKeyPair, err := c.SigningRotation.ensureSigningCertKeyPair()
 	if err != nil {
 		return err
