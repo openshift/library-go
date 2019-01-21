@@ -36,8 +36,11 @@ func (g combinedConfigMapGetter) ConfigMaps(namespace string) corev1client.Confi
 }
 
 func (g combinedConfigMapInterface) Get(name string, options metav1.GetOptions) (*corev1.ConfigMap, error) {
-	return g.lister.Get(name)
-
+	ret, err := g.lister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return ret.DeepCopy(), nil
 }
 func (g combinedConfigMapInterface) List(opts metav1.ListOptions) (*corev1.ConfigMapList, error) {
 	list, err := g.lister.List(labels.Everything())
@@ -47,7 +50,7 @@ func (g combinedConfigMapInterface) List(opts metav1.ListOptions) (*corev1.Confi
 
 	ret := &corev1.ConfigMapList{}
 	for i := range list {
-		ret.Items = append(ret.Items, *list[i])
+		ret.Items = append(ret.Items, *(list[i].DeepCopy()))
 	}
 	return ret, nil
 }
@@ -79,9 +82,13 @@ func (g combinedSecretGetter) Secrets(namespace string) corev1client.SecretInter
 }
 
 func (g combinedSecretInterface) Get(name string, options metav1.GetOptions) (*corev1.Secret, error) {
-	return g.lister.Get(name)
-
+	ret, err := g.lister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return ret.DeepCopy(), nil
 }
+
 func (g combinedSecretInterface) List(opts metav1.ListOptions) (*corev1.SecretList, error) {
 	list, err := g.lister.List(labels.Everything())
 	if err != nil {
@@ -90,7 +97,7 @@ func (g combinedSecretInterface) List(opts metav1.ListOptions) (*corev1.SecretLi
 
 	ret := &corev1.SecretList{}
 	for i := range list {
-		ret.Items = append(ret.Items, *list[i])
+		ret.Items = append(ret.Items, *(list[i].DeepCopy()))
 	}
 	return ret, nil
 }
