@@ -184,7 +184,7 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 
 // manageInstallationPods takes care of creating content for the static pods to install.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.OperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
+func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.StaticPodOperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	if len(operatorStatus.NodeStatuses) == 0 {
@@ -293,16 +293,17 @@ func (c *InstallerController) updateRevisionStatus(operatorStatus *operatorv1.St
 	return c.updateConfigMapForRevision(failedRevisions, string(corev1.PodFailed))
 }
 
-func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, phase string) error {
+func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, status string) error {
 	for currentRevision := range currentRevisions {
 		statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(statusConfigMapNameForRevision(currentRevision), metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			return nil
+			glog.Infof("%s configmap not found, skipping update revision status", statusConfigMapNameForRevision(currentRevision))
+			continue
 		}
 		if err != nil {
 			return err
 		}
-		statusConfigMap.Data["phase"] = phase
+		statusConfigMap.Data["status"] = status
 		_, _, err = resourceapply.ApplyConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, statusConfigMap)
 		if err != nil {
 			return err
@@ -486,7 +487,7 @@ func getInstallerPodName(revision int32, nodeName string) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.OperatorSpec, revision int32) error {
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
