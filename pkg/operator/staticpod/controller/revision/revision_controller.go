@@ -2,6 +2,8 @@ package revision
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -98,6 +100,11 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 
 	nextRevision := latestRevision + 1
 	glog.Infof("new revision %d triggered by %q", nextRevision, reason)
+
+	isCurrentRevisionStable, revisions := c.isCurrentRevisionStable(operatorStatus)
+	if !isCurrentRevisionStable {
+		return false, fmt.Errorf("failed to create revision %d: not all nodes at same revision (%s)", nextRevision, revisions)
+	}
 	if err := c.createNewRevision(nextRevision); err != nil {
 		cond := operatorv1.OperatorCondition{
 			Type:    "RevisionControllerFailing",
@@ -179,6 +186,22 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 		}
 	}
 
+	return true, ""
+}
+
+// isCurrentRevisionStable checks that all nodes are at the same revision before kicking off a new one
+func (c RevisionController) isCurrentRevisionStable(operatorStatus *operatorv1.StaticPodOperatorStatus) (bool, string) {
+	revisions := map[int]struct{}{}
+	for _, nodeStatus := range operatorStatus.NodeStatuses {
+		revisions[int(nodeStatus.CurrentRevision)] = struct{}{}
+	}
+	revisionKeys := make([]string, 0, len(revisions))
+	for revision := range revisions {
+		revisionKeys = append(revisionKeys, strconv.Itoa(revision))
+	}
+	if len(revisions) > 1 {
+		return false, strings.Join(revisionKeys, ", ")
+	}
 	return true, ""
 }
 

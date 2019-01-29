@@ -409,6 +409,53 @@ func TestRevisionController(t *testing.T) {
 				}
 			},
 		},
+		{
+			testName:        "current-revision-stable",
+			targetNamespace: targetNamespace,
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
+				&operatorv1.OperatorStatus{},
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				&operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 2,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-1",
+							CurrentRevision: 1,
+							TargetRevision:  2,
+						},
+						{
+							NodeName:        "test-node-2",
+							CurrentRevision: 2,
+							TargetRevision:  3,
+						},
+					},
+				},
+				nil,
+			),
+			startingObjects: []runtime.Object{
+				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
+				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret-1", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config-1", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace}},
+			},
+			testConfigs:     []RevisionResource{{Name: "test-config"}},
+			testSecrets:     []RevisionResource{{Name: "test-secret"}},
+			expectSyncError: "not all nodes at same revision",
+			validateActions: func(t *testing.T, actions []clienttesting.Action) {
+				createdObjects := filterCreateActions(actions)
+				if createdObjectCount := len(createdObjects); createdObjectCount != 0 {
+					t.Errorf("expected no objects to be created, got %d", createdObjectCount)
+				}
+			},
+		},
 	}
 
 	for _, tc := range tests {
