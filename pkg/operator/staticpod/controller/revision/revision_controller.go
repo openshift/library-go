@@ -153,7 +153,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
-			return false, fmt.Sprintf("configmap/%s has changed", required.Name)
+			return false, fmt.Sprintf("configmap/%s has changed", cm.Name)
 		}
 	}
 	for _, s := range c.secrets {
@@ -175,7 +175,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
-			return false, fmt.Sprintf("secret/%s has changed", required.Name)
+			return false, fmt.Sprintf("secret/%s has changed", s.Name)
 		}
 	}
 
