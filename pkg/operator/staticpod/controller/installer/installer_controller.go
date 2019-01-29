@@ -527,6 +527,21 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 
+	statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(fmt.Sprintf("revision-status-%d", revision), metav1.GetOptions{})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		glog.Infof("couldn't set revision status configmap as owner for installer pod revision %d: %v", revision, err)
+	} else {
+		pod.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Name:       statusConfigMap.Name,
+			UID:        statusConfigMap.UID,
+		}}
+	}
+
 	if c.configMaps[0].Optional {
 		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
 	}
@@ -554,7 +569,7 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	}
 	pod.Spec.Containers[0].Args = args
 
-	_, _, err := resourceapply.ApplyPod(c.kubeClient.CoreV1(), c.eventRecorder, pod)
+	_, _, err = resourceapply.ApplyPod(c.kubeClient.CoreV1(), c.eventRecorder, pod)
 	return err
 }
 
