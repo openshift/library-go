@@ -68,6 +68,8 @@ type InstallerController struct {
 
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn func() string
+	// ownerRefsFn sets the ownerrefs on the pruner pod
+	ownerRefsFn func(revision int32) ([]metav1.OwnerReference, error)
 }
 
 // staticPodState is the status of a static pod that has been installed to a node.
@@ -109,6 +111,7 @@ func NewInstallerController(
 		installerPodImageFn: getInstallerPodImageFromEnv,
 	}
 
+	c.ownerRefsFn = c.setOwnerRefs
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
 
@@ -527,20 +530,11 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 
-	statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(fmt.Sprintf("revision-status-%d", revision), metav1.GetOptions{})
+	ownerRefs, err := c.ownerRefsFn(revision)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-		glog.Infof("couldn't set revision status configmap as owner for installer pod revision %d: %v", revision, err)
-	} else {
-		pod.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-			Name:       statusConfigMap.Name,
-			UID:        statusConfigMap.UID,
-		}}
+		return fmt.Errorf("unable to set installer pod ownerrefs: %+v", err)
 	}
+	pod.OwnerReferences = ownerRefs
 
 	if c.configMaps[0].Optional {
 		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
@@ -571,6 +565,20 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 
 	_, _, err = resourceapply.ApplyPod(c.kubeClient.CoreV1(), c.eventRecorder, pod)
 	return err
+}
+
+func (c *InstallerController) setOwnerRefs(revision int32) ([]metav1.OwnerReference, error) {
+	ownerReferences := []metav1.OwnerReference{}
+	statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(fmt.Sprintf("revision-status-%d", revision), metav1.GetOptions{})
+	if err == nil {
+		ownerReferences = append(ownerReferences, metav1.OwnerReference{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Name:       statusConfigMap.Name,
+			UID:        statusConfigMap.UID,
+		})
+	}
+	return ownerReferences, err
 }
 
 func getInstallerPodImageFromEnv() string {
