@@ -76,7 +76,7 @@ spec:
   restartPolicy: Never
   priorityClassName: system-node-critical
   tolerations:
-    - operator: "Exists"
+  - operator: "Exists"
   securityContext:
     runAsUser: 0
   volumes:
