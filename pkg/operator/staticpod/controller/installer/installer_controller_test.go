@@ -75,6 +75,9 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		kubeClient,
 		eventRecorder,
 	)
+	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+		return []metav1.OwnerReference{}, nil
+	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
 	t.Log("setting target revision")
@@ -285,6 +288,9 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient,
 		eventRecorder,
 	)
+	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+		return []metav1.OwnerReference{}, nil
+	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
@@ -450,7 +456,9 @@ func TestEnsureInstallerPod(t *testing.T) {
 				kubeClient,
 				eventRecorder,
 			)
-
+			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
 			err := c.ensureInstallerPod("test-node-1", nil, 1)
 			if err != nil {
 				if tt.expectedErr == "" {
@@ -709,6 +717,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				kubeClient,
 				eventRecorder,
 			)
+			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
 			c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
 			// Each node need at least 2 syncs to first create the pod and then acknowledge its existence.
