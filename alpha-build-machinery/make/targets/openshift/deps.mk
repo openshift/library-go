@@ -13,7 +13,7 @@ define restore-deps
 	ln -s $(abspath ./) "$(1)"/current
 	cp -R -H ./ "$(1)"/updated
 	$(RM) -r "$(1)"/updated/vendor
-	cd "$(1)"/updated && glide install --strip-vendor && git ls-files --others -i --exclude-standard vendor/ | xargs rm -f
+	cd "$(1)"/updated && glide install --strip-vendor && find ./vendor -name '.hg_archival.txt' -delete
 	cd "$(1)" && $(deps_diff) -r {current,updated}/vendor/ > updated/glide.diff || true
 endef
 
