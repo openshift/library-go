@@ -521,6 +521,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		expectedUpgradeOrder    []int
 		expectedSyncError       []bool
 		updateStatusErrors      []error
+		numOfInstallersOOM      int
 	}{
 		{
 			name: "three fresh nodes",
@@ -687,6 +688,38 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
+			name: "four nodes with outdated current revision, installer of 2nd was OOM killed, two more OOM happen, then success",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 2,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-3",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, v1.PodRunning, true),
+			},
+			// we call sync 2*3 times:
+			// 1. notice update of node 1
+			// 2. create installer for node 1, OOM, fall-through, notice update of node 1
+			// 3. create installer for node 1, OOM, fall-through, notice update of node 1
+			// 4. create installer for node 1, which succeeds, set CurrentRevision
+			// 5. notice update of node 2
+			// 6. create installer for node 2, which succeeds, set CurrentRevision
+			expectedUpgradeOrder: []int{1, 1, 1, 2},
+			numOfInstallersOOM:   2,
+		},
+		{
 			name: "three nodes with outdated current revision, 2nd & 3rd static pods unready",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
@@ -847,6 +880,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			createdInstallerPods := []*v1.Pod{}
+			installerPods := map[string]*v1.Pod{}
 			updatedStaticPods := map[string]*v1.Pod{}
 
 			installerNodeAndID := func(installerName string) (string, int) {
@@ -861,28 +895,48 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset()
 			kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 				createdPod := action.(ktesting.CreateAction).GetObject().(*v1.Pod)
-				// Once the installer pod is created, set its status to succeeded.
-				// Note that in reality, this will probably take couple sync cycles to happen, however it is useful to do this fast
-				// to rule out timing bugs.
-				createdPod.Status.Phase = v1.PodSucceeded
 				createdInstallerPods = append(createdInstallerPods, createdPod)
+				if _, found := installerPods[createdPod.Name]; found {
+					return false, nil, errors.NewAlreadyExists(v1.SchemeGroupVersion.WithResource("pods").GroupResource(), createdPod.Name)
+				}
+				installerPods[createdPod.Name] = createdPod
+				if test.numOfInstallersOOM > 0 {
+					test.numOfInstallersOOM--
 
-				nodeName, id := installerNodeAndID(createdPod.Name)
-				staticPodName := mirrorPodNameForNode("test-pod", nodeName)
+					createdPod.Status.Phase = v1.PodFailed
+					createdPod.Status.ContainerStatuses = []v1.ContainerStatus{
+						{
+							Name: "container",
+							State: v1.ContainerState{
+								Terminated: &v1.ContainerStateTerminated{
+									ExitCode: 1,
+									Reason:   "OOMKilled",
+									Message:  "killed by OOM",
+								},
+							},
+							Ready: false,
+						},
+					}
+				} else {
+					// Once the installer pod is created, set its status to succeeded.
+					// Note that in reality, this will probably take couple sync cycles to happen, however it is useful to do this fast
+					// to rule out timing bugs.
+					createdPod.Status.Phase = v1.PodSucceeded
 
-				updatedStaticPods[staticPodName] = newStaticPod(staticPodName, id, v1.PodRunning, true)
+					nodeName, id := installerNodeAndID(createdPod.Name)
+					staticPodName := mirrorPodNameForNode("test-pod", nodeName)
 
-				return false, nil, nil
+					updatedStaticPods[staticPodName] = newStaticPod(staticPodName, id, v1.PodRunning, true)
+				}
+
+				return true, nil, nil
 			})
 
 			// When newNodeStateForInstallInProgress ask for pod, give it a pod that already succeeded.
 			kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 				podName := action.(ktesting.GetAction).GetName()
-				for i := len(createdInstallerPods) - 1; i >= 0; i-- {
-					pod := createdInstallerPods[i]
-					if pod.Name == podName {
-						return true, pod, nil
-					}
+				if pod, found := installerPods[podName]; found {
+					return true, pod, nil
 				}
 				if pod, exists := updatedStaticPods[podName]; exists {
 					if pod == nil {
@@ -894,6 +948,14 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					if pod.Name == podName {
 						return true, pod, nil
 					}
+				}
+				return false, nil, nil
+			})
+			kubeClient.PrependReactor("delete", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+				podName := action.(ktesting.GetAction).GetName()
+				if pod, found := installerPods[podName]; found {
+					delete(installerPods, podName)
+					return true, pod, nil
 				}
 				return false, nil, nil
 			})
