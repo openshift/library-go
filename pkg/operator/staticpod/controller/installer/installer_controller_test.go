@@ -489,7 +489,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 }
 
 func TestCreateInstallerPodMultiNode(t *testing.T) {
-	newStaticPod := func(name string, id int, phase v1.PodPhase, ready bool) *v1.Pod {
+	newStaticPod := func(name string, revision int, phase v1.PodPhase, ready bool) *v1.Pod {
 		condStatus := v1.ConditionTrue
 		if !ready {
 			condStatus = v1.ConditionFalse
@@ -498,7 +498,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "test",
-				Labels:    map[string]string{"revision": strconv.Itoa(id)},
+				Labels:    map[string]string{"revision": strconv.Itoa(revision)},
 			},
 			Spec: v1.PodSpec{},
 			Status: v1.PodStatus{
@@ -770,7 +770,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			}
 			c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
-			// Each node need at least 2 syncs to first create the pod and then acknowledge its existence.
+			// Each node needs at least 2 syncs to first create the pod and then acknowledge its existence.
 			for i := 1; i <= len(test.nodeStatuses)*2+1; i++ {
 				err := c.sync()
 				expectedErr := false
@@ -786,7 +786,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 			for i := range test.expectedUpgradeOrder {
 				if i >= len(createdInstallerPods) {
-					t.Fatalf("expected more (%d) installer pod in the node order %v", len(createdInstallerPods), test.expectedUpgradeOrder[i:])
+					t.Fatalf("expected more (got only %d) installer pods in the node order %v", len(createdInstallerPods), test.expectedUpgradeOrder[i:])
 				}
 
 				nodeName, _ := installerNodeAndID(createdInstallerPods[i].Name)
@@ -795,7 +795,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				}
 			}
 			if len(test.expectedUpgradeOrder) < len(createdInstallerPods) {
-				t.Errorf("too many installer pods created: %#v", createdInstallerPods[len(test.expectedUpgradeOrder):])
+				t.Errorf("too many installer pods created, expected %d, got %d", len(test.expectedUpgradeOrder), len(createdInstallerPods))
 			}
 		})
 	}

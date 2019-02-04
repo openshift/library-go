@@ -212,7 +212,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 			prevNodeState = &operatorStatus.NodeStatuses[prev]
 		}
 
-		// if we are in a transition, check to see if our installer pod completed
+		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
 			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
