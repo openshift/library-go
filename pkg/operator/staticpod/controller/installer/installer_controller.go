@@ -2,6 +2,7 @@ package installer
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -156,31 +157,65 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 		}
 	}
 
-	// otherwise try to find a node that is not ready
+	// otherwise try to find a node that is not ready. Take the oldest one.
+	oldestNotReadyRevisionNode := -1
+	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, _, _, err := getStaticPodState(currNodeState.NodeName)
+		state, revision, _, err := getStaticPodState(currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, nil
 		}
 		if err != nil {
 			return 0, err
 		}
-		if state != staticPodStateReady {
+		revisionNum, err := strconv.Atoi(revision)
+		if err != nil {
 			return i, nil
 		}
+		if state != staticPodStateReady && revisionNum < oldestNotReadyRevision {
+			oldestNotReadyRevisionNode = i
+			oldestNotReadyRevision = revisionNum
+		}
+	}
+	if oldestNotReadyRevisionNode >= 0 {
+		return oldestNotReadyRevisionNode, nil
 	}
 
-	// last but not least, find a node that is has the wrong revision
+	// find a node that is has the wrong revision. Take the oldest one.
+	oldestPodRevisionNode := -1
+	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
 		_, revision, _, err := getStaticPodState(currNodeState.NodeName)
 		if err != nil {
 			return 0, err
 		}
-		if revision != strconv.Itoa(int(currNodeState.CurrentRevision)) {
+		revisionNum, err := strconv.Atoi(revision)
+		if err != nil {
 			return i, nil
 		}
+		if revisionNum != int(currNodeState.CurrentRevision) && revisionNum < oldestPodRevision {
+			oldestPodRevisionNode = i
+			oldestPodRevision = revisionNum
+		}
+	}
+	if oldestPodRevisionNode >= 0 {
+		return oldestPodRevisionNode, nil
+	}
+
+	// last but not least, choose the one with the older current revision. This will imply that failed installer pods will be retried.
+	oldestCurrentRevisionNode := -1
+	oldestCurrentRevision := int32(math.MaxInt32)
+	for i := range nodes {
+		currNodeState := &nodes[i]
+		if currNodeState.CurrentRevision < oldestCurrentRevision {
+			oldestCurrentRevisionNode = i
+			oldestCurrentRevision = currNodeState.CurrentRevision
+		}
+	}
+	if oldestCurrentRevisionNode >= 0 {
+		return oldestCurrentRevisionNode, nil
 	}
 
 	return 0, nil
