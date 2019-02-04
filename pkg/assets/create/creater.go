@@ -80,12 +80,16 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 				return false, nil
 			}
 		}
-		lastCreateError, needDiscoveryRefresh = create(manifests, client, mapper, options)
-		if lastCreateError == nil {
+		err, needDiscoveryRefresh = create(ctx, manifests, client, mapper, options)
+		if err == nil {
+			lastCreateError = nil
 			return true, nil
 		}
+		if ctx.Err() == nil || lastCreateError == nil {
+			lastCreateError = err
+		}
 		if options.Verbose {
-			fmt.Fprintf(options.StdErr, "[#%d] %s\n", retryCount, lastCreateError)
+			fmt.Fprintf(options.StdErr, "[#%d] %s\n", retryCount, err)
 		}
 		return false, nil
 	}, ctx.Done())
@@ -131,7 +135,7 @@ func fetchLatestDiscoveryInfo(dc *discovery.DiscoveryClient) (meta.RESTMapper, e
 // create will attempt to create all manifests provided using dynamic client.
 // It will mutate the manifests argument in case the create succeeded for given manifest. When all manifests are successfully created the resulting
 // manifests argument should be empty.
-func create(manifests map[string]*unstructured.Unstructured, client dynamic.Interface, mapper meta.RESTMapper, options CreateOptions) (error, bool) {
+func create(ctx context.Context, manifests map[string]*unstructured.Unstructured, client dynamic.Interface, mapper meta.RESTMapper, options CreateOptions) (error, bool) {
 	sortedManifestPaths := []string{}
 	for key := range manifests {
 		sortedManifestPaths = append(sortedManifestPaths, key)
@@ -145,6 +149,12 @@ func create(manifests map[string]*unstructured.Unstructured, client dynamic.Inte
 	reloadDiscovery := false
 
 	for _, path := range sortedManifestPaths {
+		select {
+		case <-ctx.Done():
+			return ctx.Err(), false
+		default:
+		}
+
 		gvk := manifests[path].GetObjectKind().GroupVersionKind()
 		mappings, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
