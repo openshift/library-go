@@ -39,7 +39,8 @@ type CreateOptions struct {
 }
 
 // EnsureManifestsCreated ensures that all resource manifests from the specified directory are created.
-// This function will keep retrying creation until no errors are reported.
+// This function will try to create remaining resources in the manifest list after error is occurred.
+// This function will keep retrying creation until no errors are reported or the timeout is hit.
 // Pass the context to indicate how much time you are willing to wait until all resources are created.
 func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig *rest.Config, options CreateOptions) error {
 	client, dc, err := newClientsFn(restConfig)
@@ -73,7 +74,10 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 		if needDiscoveryRefresh {
 			mapper, err = fetchLatestDiscoveryInfoFn(dc)
 			if err != nil {
-				return false, err
+				if options.Verbose {
+					fmt.Fprintf(options.StdErr, "[#%d] failed to fetch discovery: %s\n", retryCount, err)
+				}
+				return false, nil
 			}
 		}
 		lastCreateError, needDiscoveryRefresh = create(manifests, client, mapper, options)
@@ -124,9 +128,10 @@ func fetchLatestDiscoveryInfo(dc *discovery.DiscoveryClient) (meta.RESTMapper, e
 	return restmapper.NewDiscoveryRESTMapper(gr), nil
 }
 
+// create will attempt to create all manifests provided using dynamic client.
+// It will mutate the manifests argument in case the create succeeded for given manifest. When all manifests are successfully created the resulting
+// manifests argument should be empty.
 func create(manifests map[string]*unstructured.Unstructured, client dynamic.Interface, mapper meta.RESTMapper, options CreateOptions) (error, bool) {
-	// Sort all manifests, so in case they use number prefixes, we follow their order, which will increase
-	// the chances for the create loop to succeed faster.
 	sortedManifestPaths := []string{}
 	for key := range manifests {
 		sortedManifestPaths = append(sortedManifestPaths, key)
