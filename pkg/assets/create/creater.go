@@ -3,13 +3,12 @@ package create
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-log/log"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,12 +29,8 @@ type CreateOptions struct {
 	// Multiple filters can be specified, in that case only files matching all filters will be returned.
 	Filters []assets.FileInfoPredicate
 
-	// Verbose if true will print out extra messages for debugging
-	Verbose bool
-
-	// StdErr allows to override the standard error output for printing verbose messages.
-	// If not set, os.StdErr is used.
-	StdErr io.Writer
+	// Logger is used for logging creation activity.
+	Logger log.Logger
 }
 
 // EnsureManifestsCreated ensures that all resource manifests from the specified directory are created.
@@ -53,8 +48,8 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 		return err
 	}
 
-	if options.Verbose && options.StdErr == nil {
-		options.StdErr = os.Stderr
+	if options.Logger == nil {
+		options.Logger = log.DefaultLogger
 	}
 
 	// Default QPS in client (when not specified) is 5 requests/per second
@@ -74,9 +69,7 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 		if needDiscoveryRefresh {
 			mapper, err = fetchLatestDiscoveryInfoFn(dc)
 			if err != nil {
-				if options.Verbose {
-					fmt.Fprintf(options.StdErr, "[#%d] failed to fetch discovery: %s\n", retryCount, err)
-				}
+				options.Logger.Logf("[#%d] failed to fetch discovery: %s", retryCount, err)
 				return false, nil
 			}
 		}
@@ -84,9 +77,7 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 		if lastCreateError == nil {
 			return true, nil
 		}
-		if options.Verbose {
-			fmt.Fprintf(options.StdErr, "[#%d] %s\n", retryCount, lastCreateError)
-		}
+		options.Logger.Logf("[#%d] %s", retryCount, lastCreateError)
 		return false, nil
 	}, ctx.Done())
 
@@ -153,9 +144,7 @@ func create(manifests map[string]*unstructured.Unstructured, client dynamic.Inte
 			continue
 		}
 
-		if options.Verbose {
-			fmt.Fprintf(options.StdErr, "Creating %s ...\n", mappings.Resource.String())
-		}
+		options.Logger.Logf("Creating %s ...", mappings.Resource.String())
 		if mappings.Scope.Name() == meta.RESTScopeNameRoot {
 			_, err = client.Resource(mappings.Resource).Create(manifests[path], metav1.CreateOptions{})
 		} else {

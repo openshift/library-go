@@ -1,7 +1,6 @@
 package create
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"strings"
@@ -9,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-log/log/capture"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -102,18 +103,22 @@ func TestEnsureManifestsCreated(t *testing.T) {
 	}
 
 	// Missing discovery info for kubeapiserverconfig
-	out := &bytes.Buffer{}
 	operatorResource := resourcesForEnsure[0]
 	resourcesForEnsure = resourcesForEnsure[1:]
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	err = EnsureManifestsCreated(ctx, "testdata", nil, CreateOptions{Verbose: true, StdErr: out})
+	logger := capture.New()
+	err = EnsureManifestsCreated(ctx, "testdata", nil, CreateOptions{Logger: logger})
 	if err == nil {
 		t.Fatal("expected error creating kubeapiserverconfig resource, got none")
 	}
-	if !strings.Contains(out.String(), "unable to get REST mapping") {
-		t.Fatalf("expected error logged to output when verbose is on, got: %s\n", out.String())
-	}
+	t.Logf("%#+v", logger.Entries)
+	assert.Contains(
+		t,
+		logger.Entries,
+		"[#1] failed to create some manifests:\n\"operator-config.yaml\": unable to get REST mapping: no matches for kind \"KubeAPIServerOperatorConfig\" in version \"kubeapiserver.operator.openshift.io/v1alpha1\"",
+	)
+	logger.Entries = []string{}
 
 	// Should succeed on updated discovery info
 	go func() {
@@ -122,19 +127,17 @@ func TestEnsureManifestsCreated(t *testing.T) {
 		defer resourcesForEnsureMutex.Unlock()
 		resourcesForEnsure = append(resourcesForEnsure, operatorResource)
 	}()
-	out = &bytes.Buffer{}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err = EnsureManifestsCreated(ctx, "testdata", nil, CreateOptions{Verbose: true, StdErr: out})
+	err = EnsureManifestsCreated(ctx, "testdata", nil, CreateOptions{Logger: logger})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `no matches for kind "KubeAPIServerOperatorConfig"`) {
-		t.Fatalf("expected error logged to output when verbose is on, got: %s\n", out.String())
-	}
-	if !strings.Contains(out.String(), `Creating kubeapiserver.operator.openshift.io/v1alpha1`) {
-		t.Fatalf("expected success logged to output when verbose is on, got: %s\n", out.String())
-	}
+	assert.Contains(
+		t,
+		logger.Entries,
+		"[#1] failed to create some manifests:\n\"operator-config.yaml\": unable to get REST mapping: no matches for kind \"KubeAPIServerOperatorConfig\" in version \"kubeapiserver.operator.openshift.io/v1alpha1\"",
+	)
 }
 
 func TestCreate(t *testing.T) {
@@ -188,7 +191,7 @@ func TestCreate(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(fakeScheme, tc.existingObjects...)
 			restMapper := restmapper.NewDiscoveryRESTMapper(tc.discovery)
 
-			err, reload := create(manifests, dynamicClient, restMapper, CreateOptions{Verbose: true, StdErr: os.Stderr})
+			err, reload := create(manifests, dynamicClient, restMapper, CreateOptions{Logger: t})
 			if tc.expectError && err == nil {
 				t.Errorf("expected error, got no error")
 				return
