@@ -138,6 +138,8 @@ func TestEnsureManifestsCreated(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
+	ctx := context.Background()
+
 	resourcesWithoutKubeAPIServer := resources[1:]
 	testConfigMap := &unstructured.Unstructured{}
 	testConfigMap.SetGroupVersionKind(schema.GroupVersionKind{
@@ -188,7 +190,7 @@ func TestCreate(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(fakeScheme, tc.existingObjects...)
 			restMapper := restmapper.NewDiscoveryRESTMapper(tc.discovery)
 
-			err, reload := create(manifests, dynamicClient, restMapper, CreateOptions{Verbose: true, StdErr: os.Stderr})
+			err, reload := create(ctx, manifests, dynamicClient, restMapper, CreateOptions{Verbose: true, StdErr: os.Stderr})
 			if tc.expectError && err == nil {
 				t.Errorf("expected error, got no error")
 				return
