@@ -13,12 +13,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type staticPodOperatorControllers struct {
 	revisionController           *revision.RevisionController
 	installerController          *installer.InstallerController
+	staticPodStateController     *staticpodstate.StaticPodStateController
 	pruneController              *prune.PruneController
 	nodeController               *node.NodeController
 	backingResourceController    *backingresource.BackingResourceController
@@ -74,6 +76,15 @@ func NewControllers(
 		eventRecorder,
 	)
 
+	controller.staticPodStateController = staticpodstate.NewStaticPodStateController(
+		targetNamespaceName,
+		staticPodName,
+		kubeInformersNamespaceScoped,
+		staticPodOperatorClient,
+		kubeClient,
+		eventRecorder,
+	)
+
 	controller.pruneController = prune.NewPruneController(
 		targetNamespaceName,
 		podResourcePrefix,
@@ -120,6 +131,7 @@ func (o *staticPodOperatorControllers) WithInstallerPodMutationFn(installerPodMu
 func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
 	go o.revisionController.Run(1, stopCh)
 	go o.installerController.Run(1, stopCh)
+	go o.staticPodStateController.Run(1, stopCh)
 	go o.pruneController.Run(1, stopCh)
 	go o.nodeController.Run(1, stopCh)
 	go o.backingResourceController.Run(1, stopCh)
