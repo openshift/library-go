@@ -22,18 +22,7 @@ metadata:
   namespace: some-ns
   name: kube-apiserver-pod
 spec:
-  nodeName: foo
 `
-
-func TestGetPodNodeName(t *testing.T) {
-	node, err := getPodNodeName([]byte(podYaml))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if node != "foo" {
-		t.Errorf("expected `foo` as nodeName, got: %q", node)
-	}
-}
 
 func TestCopyContent(t *testing.T) {
 	tests := []struct {
