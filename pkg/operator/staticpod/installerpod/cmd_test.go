@@ -30,7 +30,9 @@ func TestGetPodNodeName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("node=%v", node)
+	if node != "foo" {
+		t.Errorf("expected `foo` as nodeName, got: %q", node)
+	}
 }
 
 func TestCopyContent(t *testing.T) {

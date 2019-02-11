@@ -334,10 +334,10 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)
 	if err := o.copyContent(ctx); err != nil {
-		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s on node %q in namespace %q failed: %v", o.Revision, o.NodeName, o.Namespace, err)
+		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s on node %q failed: %v", o.Revision, o.NodeName, err)
 		return fmt.Errorf("failed to copy: %v", err)
 	}
 
-	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s on node %q in namespace %q", o.Revision, o.NodeName, o.Namespace)
+	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s on node %q", o.Revision, o.NodeName)
 	return nil
 }
