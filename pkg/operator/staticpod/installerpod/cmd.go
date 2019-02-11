@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -18,8 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -46,8 +43,7 @@ type InstallOptions struct {
 	ResourceDir    string
 	PodManifestDir string
 
-	Timeout  time.Duration
-	NodeName string
+	Timeout time.Duration
 
 	PodMutationFns []PodMutationFunc
 }
@@ -297,33 +293,12 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		podContent = resourceread.WritePodV1OrDie(pod)
 	}
 
-	o.NodeName, err = getPodNodeName([]byte(podContent))
-	if err != nil {
-		return fmt.Errorf("failed to get pod node name: %v", err)
-	}
-
 	glog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, podFileName), podContent)
 	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, podFileName), []byte(podContent), 0644); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func getPodNodeName(podBytes []byte) (string, error) {
-	podJSONBytes, err := yaml.YAMLToJSON(podBytes)
-	if err != nil {
-		return "", err
-	}
-	unstructuredPodObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, podJSONBytes)
-	if err != nil {
-		return "", err
-	}
-	nodeName, found, err := unstructured.NestedString(unstructuredPodObj.(*unstructured.Unstructured).Object, "spec", "nodeName")
-	if !found {
-		nodeName = "<unknown>"
-	}
-	return nodeName, err
 }
 
 func (o *InstallOptions) Run(ctx context.Context) error {
@@ -334,10 +309,10 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)
 	if err := o.copyContent(ctx); err != nil {
-		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s on node %q in namespace %q failed: %v", o.Revision, o.NodeName, o.Namespace, err)
+		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s: %v", o.Revision, err)
 		return fmt.Errorf("failed to copy: %v", err)
 	}
 
-	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s on node %q in namespace %q", o.Revision, o.NodeName, o.Namespace)
+	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
 	return nil
 }
