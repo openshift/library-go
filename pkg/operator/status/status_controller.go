@@ -82,7 +82,10 @@ func (c StatusSyncer) sync() error {
 	if apierrors.IsNotFound(err) {
 		glog.Infof("operator.status not found: %v", err)
 		c.eventRecorder.Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.clusterOperatorName)
-		return c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil)
+		if err := c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
 	}
 	if err != nil {
 		return err
