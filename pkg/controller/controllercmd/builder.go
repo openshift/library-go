@@ -31,9 +31,17 @@ type StartFunc func(*ControllerContext) error
 
 type ControllerContext struct {
 	ComponentConfig *unstructured.Unstructured
-	KubeConfig      *rest.Config
-	EventRecorder   events.Recorder
-	Context         context.Context
+
+	// KubeConfig provides the REST config with no content type (it will default to JSON).
+	// Use this config for CR resources.
+	KubeConfig *rest.Config
+
+	// ProtoKubeConfig provides the REST config with "application/vnd.kubernetes.protobuf,application/json" content type.
+	// Note that this config might not be safe for CR resources, instead it should be used for other resources.
+	ProtoKubeConfig *rest.Config
+
+	EventRecorder events.Recorder
+	Context       context.Context
 }
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
@@ -194,9 +202,14 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 		}()
 	}
 
+	protoConfig := rest.CopyConfig(clientConfig)
+	protoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
+	protoConfig.ContentType = "application/vnd.kubernetes.protobuf,application/json"
+
 	controllerContext := &ControllerContext{
 		ComponentConfig: config,
 		KubeConfig:      clientConfig,
+		ProtoKubeConfig: protoConfig,
 		EventRecorder:   eventRecorder,
 		Context:         ctx,
 	}
