@@ -212,7 +212,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 
 	protoConfig := rest.CopyConfig(clientConfig)
 	protoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
-	protoConfig.ContentType = "application/vnd.kubernetes.protobuf,application/json"
+	protoConfig.ContentType = "application/vnd.kubernetes.protobuf"
 
 	controllerContext := &ControllerContext{
 		ComponentConfig: config,
