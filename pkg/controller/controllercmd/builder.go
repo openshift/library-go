@@ -18,6 +18,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/config/configdefaults"
 	leaderelectionconverter "github.com/openshift/library-go/pkg/config/leaderelection"
@@ -40,8 +41,15 @@ type ControllerContext struct {
 	// Note that this config might not be safe for CR resources, instead it should be used for other resources.
 	ProtoKubeConfig *rest.Config
 
+	// EventRecorder is used to record events in controllers.
 	EventRecorder events.Recorder
-	Context       context.Context
+
+	stopChan <-chan struct{}
+}
+
+// Done returns a channel which will close on termination.
+func (c ControllerContext) Done() <-chan struct{} {
+	return c.stopChan
 }
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
@@ -211,7 +219,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 		KubeConfig:      clientConfig,
 		ProtoKubeConfig: protoConfig,
 		EventRecorder:   eventRecorder,
-		Context:         ctx,
+		stopChan:        ctx.Done(),
 	}
 
 	if b.leaderElection == nil {
@@ -227,7 +235,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 	}
 
 	leaderElection.Callbacks.OnStartedLeading = func(ctx context.Context) {
-		controllerContext.Context = ctx
+		controllerContext.stopChan = ctx.Done()
 		if err := b.startFunc(controllerContext); err != nil {
 			glog.Fatal(err)
 		}
