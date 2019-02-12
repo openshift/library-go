@@ -82,7 +82,7 @@ func applyClientConnectionOverrides(overrides *ClientConnectionOverrides, kubeCo
 		kubeConfig.ContentConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 	}
 	if len(kubeConfig.ContentConfig.ContentType) == 0 {
-		kubeConfig.ContentConfig.ContentType = "application/vnd.kubernetes.protobuf,application/json"
+		kubeConfig.ContentConfig.ContentType = "application/vnd.kubernetes.protobuf"
 	}
 }
 
