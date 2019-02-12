@@ -24,7 +24,10 @@ func GetKubeConfigOrInClusterConfig(kubeConfigFile string, overrides *ClientConn
 
 	applyClientConnectionOverrides(overrides, clientConfig)
 
-	t := clientTransportOverrides{maxIdleConnsPerHost: overrides.MaxIdleConnsPerHost}
+	t := &clientTransportOverrides{}
+	if overrides != nil {
+		t.maxIdleConnsPerHost = overrides.MaxIdleConnsPerHost
+	}
 	clientConfig.WrapTransport = t.defaultClientTransport
 
 	return clientConfig, nil
@@ -46,7 +49,10 @@ func GetClientConfig(kubeConfigFile string, overrides *ClientConnectionOverrides
 	}
 	applyClientConnectionOverrides(overrides, clientConfig)
 
-	t := clientTransportOverrides{maxIdleConnsPerHost: overrides.MaxIdleConnsPerHost}
+	t := &clientTransportOverrides{}
+	if overrides != nil {
+		t.maxIdleConnsPerHost = overrides.MaxIdleConnsPerHost
+	}
 	clientConfig.WrapTransport = t.defaultClientTransport
 
 	return clientConfig, nil
