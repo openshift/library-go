@@ -1,5 +1,5 @@
-hash: c8161b3b35173fc68d50dcacf28ff2a5696159b2882ab6e47cbf28a65eaa214c
-updated: 2019-02-18T14:35:20.263443354-05:00
+hash: 6dba1fdcbca5b8cd27ff1f69ce80ee41c2c60087cbf3407dc847ac49e4878614
+updated: 2019-02-18T14:37:18.970240624-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -160,7 +160,7 @@ imports:
 - name: github.com/gonum/floats
   version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
 - name: github.com/gonum/graph
-  version: c4cbede16745cb4e2c9313b67bbdb6bb381ecf99
+  version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
   - encoding/dot
   - formats/dot
