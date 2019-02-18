@@ -79,6 +79,7 @@ func (c *StaticPodStateController) sync() error {
 	}
 
 	errs := []error{}
+	failingErrorCount := 0
 	for _, node := range originalOperatorStatus.NodeStatuses {
 		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(mirrorPodNameForNode(c.staticPodName, node.NodeName), metav1.GetOptions{})
 		if err != nil {
@@ -87,13 +88,22 @@ func (c *StaticPodStateController) sync() error {
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
+				// When container is not ready, we can't determine whether the operator is failing or not and every container will become not
+				// ready when created, so do not blip the failing state for it.
+				// We will still reflect the container not ready state in error conditions, but we don't set the operator as failed.
 				errs = append(errs, fmt.Errorf("nodes/%s pods/%s container=%q is not ready", node.NodeName, pod.Name, containerStatus.Name))
 			}
 			if containerStatus.State.Waiting != nil {
 				errs = append(errs, fmt.Errorf("nodes/%s pods/%s container=%q is waiting: %q - %q", node.NodeName, pod.Name, containerStatus.Name, containerStatus.State.Waiting.Reason, containerStatus.State.Waiting.Message))
+				failingErrorCount++
 			}
 			if containerStatus.State.Terminated != nil {
+				// Containers can be terminated gracefully to trigger certificate reload, do not report these as failures.
 				errs = append(errs, fmt.Errorf("nodes/%s pods/%s container=%q is terminated: %q - %q", node.NodeName, pod.Name, containerStatus.Name, containerStatus.State.Terminated.Reason, containerStatus.State.Terminated.Message))
+				// Only in case when the termination was caused by error.
+				if containerStatus.State.Terminated.ExitCode != 0 {
+					failingErrorCount++
+				}
 			}
 		}
 	}
@@ -103,8 +113,16 @@ func (c *StaticPodStateController) sync() error {
 		Type:   staticPodStateControllerFailing,
 		Status: operatorv1.ConditionFalse,
 	}
-	if len(errs) > 0 {
+
+	// Failing errors
+	if failingErrorCount > 0 {
 		cond.Status = operatorv1.ConditionTrue
+		cond.Reason = "Error"
+		cond.Message = v1helpers.NewMultiLineAggregate(errs).Error()
+	}
+
+	// Not failing errors
+	if failingErrorCount == 0 && len(errs) > 0 {
 		cond.Reason = "Error"
 		cond.Message = v1helpers.NewMultiLineAggregate(errs).Error()
 	}
