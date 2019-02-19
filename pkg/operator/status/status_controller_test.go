@@ -130,6 +130,7 @@ func TestSync(t *testing.T) {
 // OperatorStatusProvider
 type statusClient struct {
 	t      *testing.T
+	spec   operatorv1.OperatorSpec
 	status operatorv1.OperatorStatus
 }
 
@@ -139,7 +140,7 @@ func (c *statusClient) Informer() cache.SharedIndexInformer {
 }
 
 func (c *statusClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
-	return nil, &c.status, "", nil
+	return &c.spec, &c.status, "", nil
 }
 
 func (c *statusClient) UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
