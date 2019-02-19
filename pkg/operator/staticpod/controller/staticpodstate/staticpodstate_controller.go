@@ -96,6 +96,8 @@ func (c *StaticPodStateController) sync() error {
 		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(mirrorPodNameForNode(c.staticPodName, node.NodeName), metav1.GetOptions{})
 		if err != nil {
 			errs = append(errs, err)
+			failingErrorCount++
+			continue
 		}
 		images.Insert(pod.Spec.Containers[0].Image)
 
