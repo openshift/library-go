@@ -76,7 +76,7 @@ func NewClusterOperatorStatusController(
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
 // must be information that is logically "owned" by another component.
 func (c StatusSyncer) sync() error {
-	_, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
+	detailedSpec, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		c.eventRecorder.Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.clusterOperatorName)
 		if err := c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil); err != nil && !apierrors.IsNotFound(err) {
@@ -102,6 +102,24 @@ func (c StatusSyncer) sync() error {
 		}
 	}
 	clusterOperatorObj.Status.RelatedObjects = c.relatedObjects
+
+	// if we are unmanaged, force everything to Unknown.
+	if detailedSpec.ManagementState == operatorv1.Unmanaged {
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorAvailable, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorProgressing, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorFailing, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})
+		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorUpgradeable, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})
+
+		if equality.Semantic.DeepEqual(clusterOperatorObj, originalClusterOperatorObj) {
+			return nil
+		}
+
+		if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(clusterOperatorObj); err != nil {
+			return updateErr
+		}
+		c.eventRecorder.Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status))
+		return nil
+	}
 
 	var failingConditions []operatorv1.OperatorCondition
 	for _, condition := range currentDetailedStatus.Conditions {
