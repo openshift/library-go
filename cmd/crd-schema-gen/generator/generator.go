@@ -87,6 +87,9 @@ func Run() error {
 		return err
 	}
 
+	// the generator changes the directory for some reason
+	os.Chdir(pwd)
+
 	// load kubebuilder manifests from temp dir
 	fromKubebuilder, err := crdsFromDirectory(g.OutputDir)
 	if err != nil {
