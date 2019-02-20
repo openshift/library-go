@@ -87,6 +87,9 @@ func Run() error {
 		return err
 	}
 
+	// the generator changes the directory for some reason
+	os.Chdir(pwd)
+
 	// load kubebuilder manifests from temp dir
 	fromKubebuilder, err := crdsFromDirectory(g.OutputDir)
 	if err != nil {
@@ -136,11 +139,6 @@ func Run() error {
 		} else {
 			fmt.Printf("Updating validation of %s in %s\n", crd.Name, existingFileName)
 		}
-		f, err := os.OpenFile(newFn, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
 		if err := ioutil.WriteFile(newFn, bs, 0644); err != nil {
 			return err
 		}
