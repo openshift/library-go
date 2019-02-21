@@ -21,6 +21,8 @@ const (
 	CertificateNotAfterAnnotation = "auth.openshift.io/certificate-not-after"
 	// CertificateIssuer contains the common name of the certificate that signed another certificate.
 	CertificateIssuer = "auth.openshift.io/certificate-issuer"
+	// CertificateHostnames contains the hostnames used by a signer.
+	CertificateHostnames = "auth.openshift.io/certificate-hostnames"
 )
 
 const workQueueKey = "key"
@@ -157,6 +159,22 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 		}
 
 	}, time.Minute, stopCh)
+
+	// if we have a need to force rechecking the cert, use this channel to do it.
+	if refresher, ok := c.TargetRotation.CertCreator.(TargetCertRechecker); ok {
+		targetRefresh := refresher.RecheckChannel()
+		go wait.Until(func() {
+			for {
+				select {
+				case <-targetRefresh:
+					c.queue.Add(workQueueKey)
+				case <-stopCh:
+					return
+				}
+			}
+
+		}, time.Minute, stopCh)
+	}
 
 	<-stopCh
 }

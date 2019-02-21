@@ -3,6 +3,7 @@ package certrotation
 import (
 	"crypto/x509"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,13 @@ type TargetRotation struct {
 
 type TargetCertCreator interface {
 	NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error)
+	NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string
+	// SetAnnotations gives an option to override or set additional annotations
+	SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string
+}
+
+type TargetCertRechecker interface {
+	RecheckChannel() <-chan struct{}
 }
 
 func (c TargetRotation) ensureTargetCertKeyPair(signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) error {
@@ -166,6 +174,7 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 	targetCertKeyPairSecret.Annotations[CertificateNotAfterAnnotation] = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
 	targetCertKeyPairSecret.Annotations[CertificateNotBeforeAnnotation] = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
 	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
+	certCreator.SetAnnotations(certKeyPair, targetCertKeyPairSecret.Annotations)
 
 	return nil
 }
@@ -178,14 +187,64 @@ func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
 }
 
+func (r *ClientRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
+	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+}
+
+func (r *ClientRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
+	return annotations
+}
+
 type ServingRotation struct {
-	Hostnames              []string
+	Hostnames              ServingHostnameFunc
 	CertificateExtensionFn []crypto.CertificateExtensionFunc
+	HostnamesChanged       <-chan struct{}
 }
 
 func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
-	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames...), validity, r.CertificateExtensionFn...)
+	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
+
+func (r *ServingRotation) RecheckChannel() <-chan struct{} {
+	return r.HostnamesChanged
+}
+
+func (r *ServingRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
+	reason := needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+	if len(reason) > 0 {
+		return reason
+	}
+
+	return r.missingHostnames(annotations)
+}
+
+func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
+	existingHostnames := sets.NewString(strings.Split(annotations[CertificateHostnames], ",")...)
+	requiredHostnames := sets.NewString(r.Hostnames()...)
+	if !existingHostnames.Equal(requiredHostnames) {
+		existingNotRequired := existingHostnames.Difference(requiredHostnames)
+		requiredNotExisting := requiredHostnames.Difference(existingHostnames)
+		return fmt.Sprintf("%q are existing and not required, %q are required and not existing", strings.Join(existingNotRequired.List(), ","), strings.Join(requiredNotExisting.List(), ","))
+	}
+
+	return ""
+}
+
+func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
+	hostnames := sets.String{}
+	for _, ip := range cert.Certs[0].IPAddresses {
+		hostnames.Insert(ip.String())
+	}
+	for _, dnsName := range cert.Certs[0].DNSNames {
+		hostnames.Insert(dnsName)
+	}
+
+	// List does a sort so that we have a consistent representation
+	annotations[CertificateHostnames] = strings.Join(hostnames.List(), ",")
+	return annotations
+}
+
+type ServingHostnameFunc func() []string
 
 type SignerRotation struct {
 	SignerName string
@@ -194,4 +253,12 @@ type SignerRotation struct {
 func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_@%d", r.SignerName, time.Now().Unix())
 	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
+}
+
+func (r *SignerRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
+	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+}
+
+func (r *SignerRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
+	return annotations
 }
