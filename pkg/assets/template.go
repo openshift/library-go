@@ -29,6 +29,9 @@ func base64encode(v []byte) string {
 }
 
 func notAfter(certBytes []byte) string {
+	if len(certBytes) == 0 {
+		return ""
+	}
 	certs, err := cert.ParseCertsPEM(certBytes)
 	if err != nil {
 		panic(err)
@@ -37,6 +40,9 @@ func notAfter(certBytes []byte) string {
 }
 
 func notBefore(certBytes []byte) string {
+	if len(certBytes) == 0 {
+		return ""
+	}
 	certs, err := cert.ParseCertsPEM(certBytes)
 	if err != nil {
 		panic(err)
@@ -45,6 +51,9 @@ func notBefore(certBytes []byte) string {
 }
 
 func issuer(certBytes []byte) string {
+	if len(certBytes) == 0 {
+		return ""
+	}
 	certs, err := cert.ParseCertsPEM(certBytes)
 	if err != nil {
 		panic(err)
