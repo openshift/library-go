@@ -27,11 +27,7 @@ type TargetRotation struct {
 	Validity          time.Duration
 	RefreshPercentage float32
 
-	// Only one of client, serving, or signer rotation may be specified.
-	// TODO refactor with an interface for actually signing and move the one-of check higher in the stack.
-	ClientRotation  *ClientRotation
-	ServingRotation *ServingRotation
-	SignerRotation  *SignerRotation
+	CertCreator TargetCertCreator
 
 	Informer      corev1informers.SecretInformer
 	Lister        corev1listers.SecretLister
@@ -39,17 +35,8 @@ type TargetRotation struct {
 	EventRecorder events.Recorder
 }
 
-type ClientRotation struct {
-	UserInfo user.Info
-}
-
-type ServingRotation struct {
-	Hostnames              []string
-	CertificateExtensionFn []crypto.CertificateExtensionFunc
-}
-
-type SignerRotation struct {
-	SignerName string
+type TargetCertCreator interface {
+	NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error)
 }
 
 func (c TargetRotation) ensureTargetCertKeyPair(signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) error {
@@ -70,7 +57,7 @@ func (c TargetRotation) ensureTargetCertKeyPair(signingCertKeyPair *crypto.CA, c
 
 	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, caBundleCerts, c.Validity, c.RefreshPercentage); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, c.Validity, signingCertKeyPair, c.ClientRotation, c.ServingRotation, c.SignerRotation); err != nil {
+		if err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, c.Validity, signingCertKeyPair, c.CertCreator); err != nil {
 			return err
 		}
 
@@ -152,21 +139,7 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 
 // setTargetCertKeyPairSecret creates a new cert/key pair and sets them in the secret.  Only one of client, serving, or signer rotation may be specified.
 // TODO refactor with an interface for actually signing and move the one-of check higher in the stack.
-func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity time.Duration, signer *crypto.CA, clientRotation *ClientRotation, servingRotation *ServingRotation, signerRotation *SignerRotation) error {
-	numNonNil := 0
-	if clientRotation != nil {
-		numNonNil++
-	}
-	if servingRotation != nil {
-		numNonNil++
-	}
-	if signerRotation != nil {
-		numNonNil++
-	}
-	if numNonNil != 1 {
-		return fmt.Errorf("exactly one of client, serving, or signing rotation must be specified")
-	}
-
+func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity time.Duration, signer *crypto.CA, certCreator TargetCertCreator) error {
 	if targetCertKeyPairSecret.Annotations == nil {
 		targetCertKeyPairSecret.Annotations = map[string]string{}
 	}
@@ -181,19 +154,7 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 		targetValidity = remainingSignerValidity
 	}
 
-	var certKeyPair *crypto.TLSCertificateConfig
-	var err error
-	switch {
-	case clientRotation != nil:
-		certKeyPair, err = signer.MakeClientCertificateForDuration(clientRotation.UserInfo, targetValidity)
-
-	case servingRotation != nil:
-		certKeyPair, err = signer.MakeServerCertForDuration(sets.NewString(servingRotation.Hostnames...), targetValidity, servingRotation.CertificateExtensionFn...)
-
-	case signerRotation != nil:
-		signerName := fmt.Sprintf("%s_@%d", signerRotation.SignerName, time.Now().Unix())
-		certKeyPair, err = crypto.MakeCAConfigForDuration(signerName, validity, signer)
-	}
+	certKeyPair, err := certCreator.NewCertificate(signer, targetValidity)
 	if err != nil {
 		return err
 	}
@@ -207,4 +168,30 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
 
 	return nil
+}
+
+type ClientRotation struct {
+	UserInfo user.Info
+}
+
+func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
+}
+
+type ServingRotation struct {
+	Hostnames              []string
+	CertificateExtensionFn []crypto.CertificateExtensionFunc
+}
+
+func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames...), validity, r.CertificateExtensionFn...)
+}
+
+type SignerRotation struct {
+	SignerName string
+}
+
+func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	signerName := fmt.Sprintf("%s_@%d", r.SignerName, time.Now().Unix())
+	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
 }

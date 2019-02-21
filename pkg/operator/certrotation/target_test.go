@@ -180,7 +180,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				Validity:          24 * time.Hour,
 				RefreshPercentage: .50,
 				Name:              "target-secret",
-				ServingRotation: &ServingRotation{
+				CertCreator: &ServingRotation{
 					Hostnames: []string{"foo"},
 				},
 
@@ -312,7 +312,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				Validity:          24 * time.Hour,
 				RefreshPercentage: .50,
 				Name:              "target-secret",
-				SignerRotation: &SignerRotation{
+				CertCreator: &SignerRotation{
 					SignerName: "lower-signer",
 				},
 
