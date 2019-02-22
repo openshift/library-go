@@ -56,10 +56,6 @@ func NewCertRotationController(
 	targetRotation TargetRotation,
 	operatorClient v1helpers.StaticPodOperatorClient,
 ) (*CertRotationController, error) {
-	if !isOverlapSufficient(signingRotation, targetRotation) {
-		return nil, fmt.Errorf("insufficient overlap between signer and target")
-	}
-
 	ret := &CertRotationController{
 		name: name,
 
@@ -82,16 +78,6 @@ func NewCertRotationController(
 	targetRotation.Informer.Informer().AddEventHandler(ret.eventHandler())
 
 	return ret, nil
-}
-
-func isOverlapSufficient(signingRotation SigningRotation, targetRotation TargetRotation) bool {
-	targetRefreshOverlap := float32(targetRotation.Validity) * (1 - targetRotation.RefreshPercentage)
-	requiredSignerAge := targetRefreshOverlap / 10
-	signerRefreshOverlap := float32(signingRotation.Validity) * (signingRotation.RefreshPercentage)
-	if signerRefreshOverlap < requiredSignerAge*2 {
-		return false
-	}
-	return true
 }
 
 func (c CertRotationController) sync() error {

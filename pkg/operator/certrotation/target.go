@@ -23,10 +23,10 @@ import (
 // TargetRotation rotates a key and cert signed by a CA. It creates a new one when <RefreshPercentage>
 // of the lifetime of the old cert has passed, or if the common name of the CA changes.
 type TargetRotation struct {
-	Namespace         string
-	Name              string
-	Validity          time.Duration
-	RefreshPercentage float32
+	Namespace string
+	Name      string
+	Validity  time.Duration
+	Refresh   time.Duration
 
 	CertCreator TargetCertCreator
 
@@ -38,7 +38,7 @@ type TargetRotation struct {
 
 type TargetCertCreator interface {
 	NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error)
-	NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string
+	NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) string
 	// SetAnnotations gives an option to override or set additional annotations
 	SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string
 }
@@ -63,7 +63,7 @@ func (c TargetRotation) ensureTargetCertKeyPair(signingCertKeyPair *crypto.CA, c
 	}
 	targetCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
-	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, caBundleCerts, c.Validity, c.RefreshPercentage); len(reason) > 0 {
+	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, caBundleCerts, c.Refresh); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, c.Validity, signingCertKeyPair, c.CertCreator); err != nil {
 			return err
@@ -79,8 +79,8 @@ func (c TargetRotation) ensureTargetCertKeyPair(signingCertKeyPair *crypto.CA, c
 	return nil
 }
 
-func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
-	if reason := needNewTargetCertKeyPairForTime(annotations, signer, validity, renewalPercentage); len(reason) > 0 {
+func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) string {
+	if reason := needNewTargetCertKeyPairForTime(annotations, signer, refresh); len(reason) > 0 {
 		return reason
 	}
 
@@ -99,11 +99,11 @@ func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, 
 }
 
 // needNewTargetCertKeyPairForTime returns true when
-// 1. there is no targetcrtexpiry indicated in the annotation
-// 2. when the targetcertexpiry is malformed
-// 3. when now is after the targetcertexpiry
-// 4. when now is after timeToRotate(targetcertexpiry - targetValidity*(1-renewalPercentage) AND the signer has been valid
-//    for more than 10% of the "extra" time we renew the target
+// 1. when notAfter or notBefore is missing in the annotation
+// 2. when notAfter or notBefore is malformed
+// 3. when now is after the notAfter
+// 4. when now is after notAfter+refresh AND the signer has been valid
+//    for more than 5% of the "extra" time we renew the target
 //
 //in other words, we rotate if
 //
@@ -117,28 +117,25 @@ func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, 
 //Hence, if the CAs are rotated too fast (like CA percentage around 10% or smaller), we will not hit the time to make use of the CA. Or if the cert renewal percentage is at 90%, there is not much time either.
 //
 //So with a cert percentage of 75% and equally long CA and cert validities at the worst case we start at 85% of the cert to renew, trying again every minute.
-func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *crypto.CA, validity time.Duration, renewalPercentage float32) string {
-	targetExpiry := annotations[CertificateNotAfterAnnotation]
-	if len(targetExpiry) == 0 {
-		return "missing target expiry"
-	}
-	certExpiry, err := time.Parse(time.RFC3339, targetExpiry)
-	if err != nil {
-		return fmt.Sprintf("bad expiry: %q", targetExpiry)
+func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *crypto.CA, refresh time.Duration) string {
+	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+	if len(reason) > 0 {
+		return reason
 	}
 
-	// If Certificate is past its validity, we may must generate new.
-	if time.Now().After(certExpiry) {
-		return fmt.Sprintf("past its expiry %v", certExpiry)
+	maxWait := notAfter.Sub(notBefore) / 5
+	latestTime := notAfter.Add(-maxWait)
+	if time.Now().After(latestTime) {
+		return fmt.Sprintf("past its latest possible time %v", latestTime)
 	}
 
-	// If Certificate is past its validity*renewpercent, we may have action to take. if the signer is old enough
-	renewalDuration := -1 * float32(validity) * (1 - renewalPercentage)
-	if time.Now().After(certExpiry.Add(time.Duration(renewalDuration))) {
-		// make sure the signer has been valid for more than 10% of the extra renewal time
-		timeToWaitForTrustRotation := -1 * renewalDuration / 10
+	// If Certificate is past its refresh time, we may have action to take. We only do this if the signer is old enough.
+	refreshTime := notBefore.Add(refresh)
+	if time.Now().After(refreshTime) {
+		// make sure the signer has been valid for more than 10% of the target's refresh time.
+		timeToWaitForTrustRotation := refresh / 10
 		if time.Now().After(signer.Config.Certs[0].NotBefore.Add(time.Duration(timeToWaitForTrustRotation))) {
-			return fmt.Sprintf("past its renewal time %v, versus %v", certExpiry, certExpiry.Add(time.Duration(renewalDuration)))
+			return fmt.Sprintf("past its refresh time %v", refreshTime)
 		}
 	}
 
@@ -187,8 +184,8 @@ func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
 }
 
-func (r *ClientRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
-	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+func (r *ClientRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) string {
+	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, refresh)
 }
 
 func (r *ClientRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
@@ -212,8 +209,8 @@ func (r *ServingRotation) RecheckChannel() <-chan struct{} {
 	return r.HostnamesChanged
 }
 
-func (r *ServingRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
-	reason := needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+func (r *ServingRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) string {
+	reason := needNewTargetCertKeyPair(annotations, signer, caBundleCerts, refresh)
 	if len(reason) > 0 {
 		return reason
 	}
@@ -258,8 +255,8 @@ func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
 }
 
-func (r *SignerRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, validity time.Duration, renewalPercentage float32) string {
-	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, validity, renewalPercentage)
+func (r *SignerRotation) NeedNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) string {
+	return needNewTargetCertKeyPair(annotations, signer, caBundleCerts, refresh)
 }
 
 func (r *SignerRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
