@@ -202,6 +202,9 @@ type ServingRotation struct {
 }
 
 func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	if len(r.Hostnames()) == 0 {
+		return nil, fmt.Errorf("no hostnames set")
+	}
 	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
 

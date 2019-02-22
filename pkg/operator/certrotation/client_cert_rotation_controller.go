@@ -61,6 +61,8 @@ func NewCertRotationController(
 	}
 
 	ret := &CertRotationController{
+		name: name,
+
 		SigningRotation:  signingRotation,
 		CABundleRotation: caBundleRotation,
 		TargetRotation:   targetRotation,
@@ -197,7 +199,7 @@ func (c *CertRotationController) processNextWorkItem() bool {
 		return true
 	}
 
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
+	utilruntime.HandleError(fmt.Errorf("%v: %v failed with: %v", c.name, dsKey, err))
 	c.queue.AddRateLimited(dsKey)
 
 	return true
