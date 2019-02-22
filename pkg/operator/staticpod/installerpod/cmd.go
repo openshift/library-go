@@ -302,8 +302,17 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 }
 
 func (o *InstallOptions) Run(ctx context.Context) error {
-	eventTarget, err := events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
-	if err != nil {
+	var eventTarget *corev1.ObjectReference
+
+	// Poll for the pod here to prevent flakes when the API server is temporary down or connection refused errors.
+	if err := utilwait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
+		var getReferenceErr error
+		eventTarget, getReferenceErr = events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
+		if getReferenceErr != nil {
+			return false, getReferenceErr
+		}
+		return true, nil
+	}, ctx.Done()); err != nil {
 		return err
 	}
 
