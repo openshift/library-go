@@ -36,10 +36,9 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 	tests := []struct {
 		name string
 
-		annotations       map[string]string
-		signerFn          func() (*crypto.CA, error)
-		validity          time.Duration
-		renewalPercentage float32
+		annotations map[string]string
+		signerFn    func() (*crypto.CA, error)
+		refresh     time.Duration
 
 		expected string
 	}{
@@ -48,39 +47,44 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
 			},
-			validity:          100 * time.Minute,
-			renewalPercentage: 0.5,
-			expected:          "missing target expiry",
+			refresh:  50 * time.Minute,
+			expected: "missing notAfter",
 		},
 		{
-			name:        "malformed",
-			annotations: map[string]string{CertificateNotAfterAnnotation: "malformed"},
+			name: "malformed",
+			annotations: map[string]string{
+				CertificateNotAfterAnnotation:  "malformed",
+				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
 			},
-			validity:          100 * time.Minute,
-			renewalPercentage: 0.5,
-			expected:          `bad expiry: "malformed"`,
+			refresh:  50 * time.Minute,
+			expected: `bad expiry: "malformed"`,
 		},
 		{
-			name:        "past midpoint and cert is ready",
-			annotations: map[string]string{CertificateNotAfterAnnotation: now.Add(45 * time.Minute).Format(time.RFC3339)},
+			name: "past midpoint and cert is ready",
+			annotations: map[string]string{
+				CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
+				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+			},
 			signerFn: func() (*crypto.CA, error) {
 				return elevenMinutesBeforeNowCert, nil
 			},
-			validity:          100 * time.Minute,
-			renewalPercentage: 0.5,
-			expected:          "past its renewal time",
+			refresh:  40 * time.Minute,
+			expected: "past its refresh time",
 		},
 		{
-			name:        "past midpoint and cert is new",
-			annotations: map[string]string{CertificateNotAfterAnnotation: now.Add(45 * time.Minute).Format(time.RFC3339)},
+			name: "past midpoint and cert is new",
+			annotations: map[string]string{
+				CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
+				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
 			},
-			validity:          100 * time.Minute,
-			renewalPercentage: 0.5,
-			expected:          "",
+			refresh:  40 * time.Minute,
+			expected: "",
 		},
 	}
 
@@ -91,7 +95,7 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.validity, test.renewalPercentage)
+			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.refresh)
 			if !strings.HasPrefix(actual, test.expected) {
 				t.Errorf("expected %v, got %v", test.expected, actual)
 			}
@@ -179,10 +183,10 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			}
 
 			c := &TargetRotation{
-				Namespace:         "ns",
-				Validity:          24 * time.Hour,
-				RefreshPercentage: .50,
-				Name:              "target-secret",
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
 				CertCreator: &ServingRotation{
 					Hostnames: func() []string { return []string{"foo", "bar"} },
 				},
@@ -365,10 +369,10 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			}
 
 			c := &TargetRotation{
-				Namespace:         "ns",
-				Validity:          24 * time.Hour,
-				RefreshPercentage: .50,
-				Name:              "target-secret",
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
 				CertCreator: &SignerRotation{
 					SignerName: "lower-signer",
 				},
