@@ -160,6 +160,9 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
 				}
+				if actual.Annotations[CertificateHostnames] != "bar,foo" {
+					t.Error(actual.Annotations[CertificateHostnames])
+				}
 
 			},
 		},
@@ -180,8 +183,8 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				Validity:          24 * time.Hour,
 				RefreshPercentage: .50,
 				Name:              "target-secret",
-				ServingRotation: &ServingRotation{
-					Hostnames: []string{"foo"},
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"foo", "bar"} },
 				},
 
 				Client:        client.CoreV1(),
@@ -204,6 +207,60 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			}
 
 			test.verifyActions(t, client)
+		})
+	}
+}
+
+func TestServerHostnameCheck(t *testing.T) {
+	tests := []struct {
+		name string
+
+		existingHostnames string
+		requiredHostnames []string
+
+		expected string
+	}{
+		{
+			name:              "nothing",
+			existingHostnames: "",
+			requiredHostnames: []string{"foo"},
+			expected:          `"" are existing and not required, "foo" are required and not existing`,
+		},
+		{
+			name:              "exists",
+			existingHostnames: "foo",
+			requiredHostnames: []string{"foo"},
+			expected:          "",
+		},
+		{
+			name:              "hasExtra",
+			existingHostnames: "foo,bar",
+			requiredHostnames: []string{"foo"},
+			expected:          `"bar" are existing and not required, "" are required and not existing`,
+		},
+		{
+			name:              "needsAnother",
+			existingHostnames: "foo",
+			requiredHostnames: []string{"foo", "bar"},
+			expected:          `"" are existing and not required, "bar" are required and not existing`,
+		},
+		{
+			name:              "both",
+			existingHostnames: "foo,baz",
+			requiredHostnames: []string{"foo", "bar"},
+			expected:          `"baz" are existing and not required, "bar" are required and not existing`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := &ServingRotation{
+				Hostnames: func() []string { return test.requiredHostnames },
+			}
+			actual := r.missingHostnames(map[string]string{CertificateHostnames: test.existingHostnames})
+			if actual != test.expected {
+				t.Fatal(actual)
+			}
 		})
 	}
 }
@@ -312,7 +369,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				Validity:          24 * time.Hour,
 				RefreshPercentage: .50,
 				Name:              "target-secret",
-				SignerRotation: &SignerRotation{
+				CertCreator: &SignerRotation{
 					SignerName: "lower-signer",
 				},
 
