@@ -227,7 +227,7 @@ func (c RevisionController) createNewRevision(revision int32) error {
 }
 
 func (c RevisionController) sync() error {
-	operatorSpec, originalOperatorStatus, resourceVersion, err := c.operatorConfigClient.GetStaticPodOperatorState()
+	operatorSpec, originalOperatorStatus, resourceVersion, err := c.operatorConfigClient.GetStaticPodOperatorStateWithQuorum()
 	if err != nil {
 		return err
 	}
