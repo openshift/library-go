@@ -205,6 +205,12 @@ func (c RevisionController) createNewRevision(revision int32) error {
 	}}
 
 	for _, cm := range c.configMaps {
+		// If the target config map was already created, do not remove it as there might be installer pods in flight and we don't
+		// want the installer pod to fail. The installer should finish installing the revision and if the source configmap changed
+		// the new revision will replace the old revision afterwards.
+		if _, err := c.configMapGetter.ConfigMaps(c.targetNamespace).Get(nameFor(cm.Name, revision), metav1.GetOptions{}); err == nil {
+			continue
+		}
 		obj, _, err := resourceapply.SyncConfigMap(c.configMapGetter, c.eventRecorder, c.targetNamespace, cm.Name, c.targetNamespace, nameFor(cm.Name, revision), ownerRefs)
 		if err != nil {
 			return err
@@ -214,6 +220,12 @@ func (c RevisionController) createNewRevision(revision int32) error {
 		}
 	}
 	for _, s := range c.secrets {
+		// If the target secret was already created, do not remove it as there might be installer pods in flight and we don't
+		// want the installer pod to fail. The installer should finish installing the revision and if the source secret changed
+		// the new revision will replace the old revision afterwards.
+		if _, err := c.secretGetter.Secrets(c.targetNamespace).Get(nameFor(s.Name, revision), metav1.GetOptions{}); err == nil {
+			continue
+		}
 		obj, _, err := resourceapply.SyncSecret(c.secretGetter, c.eventRecorder, c.targetNamespace, s.Name, c.targetNamespace, nameFor(s.Name, revision), ownerRefs)
 		if err != nil {
 			return err
