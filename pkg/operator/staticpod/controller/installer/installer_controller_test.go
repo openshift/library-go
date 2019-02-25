@@ -74,6 +74,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		fakeStaticPodOperatorClient,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		eventRecorder,
 	)
 	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
@@ -288,6 +289,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		fakeStaticPodOperatorClient,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		eventRecorder,
 	)
 	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
@@ -455,6 +457,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				[]string{"/bin/true"},
 				kubeInformers,
 				fakeStaticPodOperatorClient,
+				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
@@ -999,6 +1002,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				[]string{"/bin/true"},
 				kubeInformers,
 				fakeStaticPodOperatorClient,
+				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,

@@ -147,6 +147,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 			operandInformers,
 			b.staticPodOperatorClient,
 			configMapClient,
+			secretsClient,
 			podClient,
 			eventRecorder,
 		)

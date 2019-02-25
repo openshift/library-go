@@ -62,6 +62,7 @@ type InstallerController struct {
 	operatorConfigClient v1helpers.StaticPodOperatorClient
 
 	configMapsGetter corev1client.ConfigMapsGetter
+	secretsGetter    corev1client.SecretsGetter
 	podsGetter       corev1client.PodsGetter
 
 	eventRecorder events.Recorder
@@ -106,6 +107,7 @@ func NewInstallerController(
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorConfigClient v1helpers.StaticPodOperatorClient,
 	configMapsGetter corev1client.ConfigMapsGetter,
+	secretsMapsGetter corev1client.SecretsGetter,
 	podsGetter corev1client.PodsGetter,
 	eventRecorder events.Recorder,
 ) *InstallerController {
@@ -118,6 +120,7 @@ func NewInstallerController(
 
 		operatorConfigClient: operatorConfigClient,
 		configMapsGetter:     configMapsGetter,
+		secretsGetter:        secretsMapsGetter,
 		podsGetter:           podsGetter,
 		eventRecorder:        eventRecorder,
 
@@ -270,7 +273,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
-			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
+			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, resourceVersion); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, err)
 				return true, err
@@ -589,7 +592,7 @@ func getInstallerPodName(revision int32, nodeName string) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32, resourceVersion string) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
@@ -616,6 +619,14 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
 	}
 	for _, cm := range c.configMaps {
+		// do a quorum-read to see whether at the operator status resource version the configmap existed
+		if _, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(cm.Name, metav1.GetOptions{ResourceVersion: resourceVersion}); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+
 		if cm.Optional {
 			args = append(args, fmt.Sprintf("--optional-configmaps=%s", cm.Name))
 		} else {
@@ -623,6 +634,14 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 		}
 	}
 	for _, s := range c.secrets {
+		// do a quorum-read to see whether at the operator status resource version the secret existed
+		if _, err := c.secretsGetter.Secrets(c.targetNamespace).Get(s.Name, metav1.GetOptions{ResourceVersion: resourceVersion}); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+
 		if s.Optional {
 			args = append(args, fmt.Sprintf("--optional-secrets=%s", s.Name))
 		} else {
