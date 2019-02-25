@@ -3,6 +3,8 @@ package staticpod
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -207,6 +209,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 		)
 	}
 
+	controllers.unsupportedConfigOverridesController = unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.staticPodOperatorClient, eventRecorder)
+
 	errs := []error{}
 	if controllers.revisionController == nil {
 		errs = append(errs, fmt.Errorf("missing revisionController; cannot proceed"))
@@ -228,13 +232,14 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 }
 
 type staticPodOperatorControllers struct {
-	revisionController           *revision.RevisionController
-	installerController          *installer.InstallerController
-	staticPodStateController     *staticpodstate.StaticPodStateController
-	pruneController              *prune.PruneController
-	nodeController               *node.NodeController
-	backingResourceController    *backingresource.BackingResourceController
-	monitoringResourceController *monitoring.MonitoringResourceController
+	revisionController                   *revision.RevisionController
+	installerController                  *installer.InstallerController
+	staticPodStateController             *staticpodstate.StaticPodStateController
+	pruneController                      *prune.PruneController
+	nodeController                       *node.NodeController
+	backingResourceController            *backingresource.BackingResourceController
+	monitoringResourceController         *monitoring.MonitoringResourceController
+	unsupportedConfigOverridesController *unsupportedconfigoverridescontroller.UnsupportedConfigOverridesController
 }
 
 func (o *staticPodOperatorControllers) WithInstallerPodMutationFn(installerPodMutationFn installer.InstallerPodMutationFunc) *staticPodOperatorControllers {
