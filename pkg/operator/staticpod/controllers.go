@@ -255,6 +255,7 @@ func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
 	go o.nodeController.Run(1, stopCh)
 	go o.backingResourceController.Run(1, stopCh)
 	go o.monitoringResourceController.Run(1, stopCh)
+	go o.unsupportedConfigOverridesController.Run(1, stopCh)
 
 	<-stopCh
 }
