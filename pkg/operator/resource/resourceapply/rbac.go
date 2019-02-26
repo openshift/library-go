@@ -71,7 +71,18 @@ func ApplyClusterRoleBinding(client rbacclientv1.ClusterRoleBindingsGetter, reco
 
 	// Enforce apiGroup fields in roleRefs
 	existingCopy.RoleRef.APIGroup = rbacv1.GroupName
+	for i := range existingCopy.Subjects {
+		if existingCopy.Subjects[i].Kind == "User" {
+			existingCopy.Subjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+
 	requiredCopy.RoleRef.APIGroup = rbacv1.GroupName
+	for i := range requiredCopy.Subjects {
+		if existingCopy.Subjects[i].Kind == "User" {
+			requiredCopy.Subjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, requiredCopy.ObjectMeta)
 
@@ -142,9 +153,20 @@ func ApplyRoleBinding(client rbacclientv1.RoleBindingsGetter, recorder events.Re
 	existingCopy := existing.DeepCopy()
 	requiredCopy := required.DeepCopy()
 
-	// Enforce apiGroup fields in roleRefs
+	// Enforce apiGroup fields in roleRefs and subjects
 	existingCopy.RoleRef.APIGroup = rbacv1.GroupName
+	for i := range existingCopy.Subjects {
+		if existingCopy.Subjects[i].Kind == "User" {
+			existingCopy.Subjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+
 	requiredCopy.RoleRef.APIGroup = rbacv1.GroupName
+	for i := range requiredCopy.Subjects {
+		if existingCopy.Subjects[i].Kind == "User" {
+			requiredCopy.Subjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, requiredCopy.ObjectMeta)
 
