@@ -176,6 +176,10 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 				}
 				return false, err
 			}
+			if errors.IsServiceUnavailable(err) {
+				glog.Infof("Failed to get secret %s/%s: %v (will retry)", o.Namespace, o.nameFor(prefix), err)
+				continue
+			}
 			if err != nil {
 				glog.Infof("Failed to get secret %s/%s: %v", o.Namespace, o.nameFor(prefix), err)
 				return false, nil
@@ -204,6 +208,10 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 					continue
 				}
 				return false, err
+			}
+			if errors.IsServiceUnavailable(err) {
+				glog.Infof("Failed to get config map %s/%s: %v (will retry)", o.Namespace, o.nameFor(prefix), err)
+				continue
 			}
 			if err != nil {
 				glog.Infof("Failed to get config map %s/%s: %v", o.Namespace, o.nameFor(prefix), err)
