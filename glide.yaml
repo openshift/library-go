@@ -19,7 +19,8 @@ import:
 
 # crd-schema-gen
 - package: sigs.k8s.io/controller-tools
-  version: 447efe98e33eff8432a9dbc046828d9033021295
+  version: master
+  repo: https://github.com/openshift/kubernetes-sigs-controller-tools.git
 - package: k8s.io/gengo
   version: 4242d8e6c5dba56827bb7bcf14ad11cda38f3991
 
