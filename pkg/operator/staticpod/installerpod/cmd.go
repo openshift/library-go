@@ -328,7 +328,7 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 			return true, err
 		case err != nil:
 			glog.Warningf("Failed to obtain installer pod self-reference: %v (will retry)", err)
-			return false, err
+			return false, nil
 		default:
 			return true, nil
 		}
