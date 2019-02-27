@@ -64,7 +64,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 			getSecretPrefix:   "test-secret",
 			optional:          true,
 			sendInternalError: true,
-			expectRetries:     false,
+			expectRetries:     true,
 			expectErr:         false,
 		},
 	}
