@@ -231,6 +231,18 @@ func hasSingular(t *types.Type) bool {
 	return false
 }
 
+// hasRequired returns true if t is annotated with
+// +required
+func hasRequired(t *types.Type) bool {
+	for _, c := range append(append([]string{}, t.SecondClosestCommentLines...), t.CommentLines...) {
+		c = strings.TrimSpace(c)
+		if c == "+required" {
+			return true
+		}
+	}
+	return false
+}
+
 // IsUnversioned returns true if t is in given group, and not in versioned path.
 func IsUnversioned(t *types.Type, group string) bool {
 	return IsApisDir(filepath.Base(filepath.Dir(t.Name.Package))) && GetGroup(t) == group
