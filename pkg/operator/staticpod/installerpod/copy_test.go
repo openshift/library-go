@@ -23,7 +23,7 @@ func addFakeSecret(name string) *v1.Secret {
 func TestGetSecretWithRetry(t *testing.T) {
 	tests := []struct {
 		name              string
-		getSecretPrefix   string
+		getSecretName     string
 		secrets           []runtime.Object
 		optional          bool
 		expectErr         bool
@@ -31,29 +31,29 @@ func TestGetSecretWithRetry(t *testing.T) {
 		sendInternalError bool
 	}{
 		{
-			name:            "required secret exists",
-			secrets:         []runtime.Object{addFakeSecret("test-secret-1")},
-			getSecretPrefix: "test-secret",
+			name:          "required secret exists",
+			secrets:       []runtime.Object{addFakeSecret("test-secret")},
+			getSecretName: "test-secret",
 		},
 		{
-			name:            "optional secret does not exists and we not expect error",
-			secrets:         []runtime.Object{},
-			getSecretPrefix: "test-secret",
-			optional:        true,
-			expectRetries:   false,
-			expectErr:       false,
+			name:          "optional secret does not exists and we not expect error",
+			secrets:       []runtime.Object{},
+			getSecretName: "test-secret",
+			optional:      true,
+			expectRetries: false,
+			expectErr:     false,
 		},
 		{
-			name:            "required secret does not exists and no retry on not found error",
-			secrets:         []runtime.Object{},
-			getSecretPrefix: "test-secret",
-			expectRetries:   false,
-			expectErr:       true,
+			name:          "required secret does not exists and no retry on not found error",
+			secrets:       []runtime.Object{},
+			getSecretName: "test-secret",
+			expectRetries: false,
+			expectErr:     true,
 		},
 		{
 			name:              "required secret exists and we retry on internal error",
-			secrets:           []runtime.Object{addFakeSecret("test-secret-1")},
-			getSecretPrefix:   "test-secret",
+			secrets:           []runtime.Object{addFakeSecret("test-secret")},
+			getSecretName:     "test-secret",
 			expectRetries:     true,
 			sendInternalError: true,
 			expectErr:         false,
@@ -61,7 +61,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 		{
 			name:              "optional secret does not exists and we not retry on internal error",
 			secrets:           []runtime.Object{},
-			getSecretPrefix:   "test-secret",
+			getSecretName:     "test-secret",
 			optional:          true,
 			sendInternalError: true,
 			expectRetries:     true,
@@ -77,7 +77,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 
 			client.PrependReactor("get", "secrets", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 				getAction := action.(ktesting.GetAction)
-				if getAction.GetName() != test.getSecretPrefix+"-1" {
+				if getAction.GetName() != test.getSecretName {
 					return false, nil, nil
 				}
 
@@ -93,7 +93,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 			defer cancel()
 			ctx = timeoutContext
 
-			options := &InstallOptions{KubeClient: client, Namespace: "test", Revision: "1"}
+			options := &InstallOptions{KubeClient: client, Namespace: "test"}
 
 			// If we have test that send internal error, wait for the internal error to be send and then remove the
 			// reactor immediately. This should cause the client to retry and we observe that retries in actions.
@@ -106,7 +106,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 				}(client)
 			}
 
-			_, err := options.getSecretWithRetry(ctx, test.getSecretPrefix, test.optional)
+			_, err := options.getSecretWithRetry(ctx, test.getSecretName, test.optional)
 			switch {
 			case err != nil && !test.expectErr:
 				t.Errorf("unexpected error: %v", err)
