@@ -163,7 +163,9 @@ func (c *PruneController) excludedRevisionHistory(operatorStatus *operatorv1.Sta
 func (c *PruneController) pruneDiskResources(operatorStatus *operatorv1.StaticPodOperatorStatus, excludedIDs []int, maxEligibleRevisionID int) error {
 	// Run pruning pod on each node and pin it to that node
 	for _, nodeStatus := range operatorStatus.NodeStatuses {
-		if err := c.ensurePrunePod(nodeStatus.NodeName, maxEligibleRevisionID, excludedIDs, nodeStatus.TargetRevision); err != nil {
+		// Use the highest value between CurrentRevision and LastFailedRevision
+		// Because CurrentRevision only updates on successful installs and we still prune on an unsuccessful install
+		if err := c.ensurePrunePod(nodeStatus.NodeName, maxEligibleRevision, excludedRevisions, max(nodeStatus.LastFailedRevision, nodeStatus.CurrentRevision)); err != nil {
 			return err
 		}
 	}
@@ -339,4 +341,11 @@ func (c *PruneController) eventHandler() cache.ResourceEventHandler {
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(pruneControllerWorkQueueKey) },
 		DeleteFunc: func(obj interface{}) { c.queue.Add(pruneControllerWorkQueueKey) },
 	}
+}
+
+func max(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
 }
