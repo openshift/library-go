@@ -117,6 +117,10 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 		Status: operatorv1.ConditionFalse,
 	}
 	if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond), func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
+		if operatorStatus.LatestAvailableRevision == nextRevision {
+			glog.Warningf("revision %d is unexpectedly already the latest available revision. This is a possible race!", nextRevision)
+			return fmt.Errorf("conflicting latestAvailableRevision %d", operatorStatus.LatestAvailableRevision)
+		}
 		operatorStatus.LatestAvailableRevision = nextRevision
 		return nil
 	}); updateError != nil {
