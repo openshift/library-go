@@ -16,7 +16,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -146,55 +145,29 @@ func (o *InstallOptions) Validate() error {
 	return nil
 }
 
-func (o *InstallOptions) nameFor(prefix string) string {
-	return fmt.Sprintf("%s-%s", prefix, o.Revision)
-}
-
-func (o *InstallOptions) prefixFor(name string) string {
-	return name[0 : len(name)-len(fmt.Sprintf("-%s", o.Revision))]
-}
-
 func (o *InstallOptions) copyContent(ctx context.Context) error {
-	secretPrefixes := sets.NewString(o.SecretNamePrefixes...)
-	optionalSecretPrefixes := sets.NewString(o.OptionalSecretNamePrefixes...)
-	configPrefixes := sets.NewString(o.ConfigMapNamePrefixes...)
-	optionalConfigPrefixes := sets.NewString(o.OptionalConfigMapNamePrefixes...)
-
-	// Gather secrets. If we get API server error, retry getting until we hit the timeout.
-	// Retrying will prevent temporary API server blips or networking issues.
-	// We return when all "required" secrets are gathered, optional secrets are not checked.
-	glog.Infof("Getting secrets ...")
-	secrets := []*corev1.Secret{}
-	for _, prefix := range append(secretPrefixes.List(), optionalSecretPrefixes.List()...) {
-		secret, err := o.getSecretWithRetry(ctx, o.nameFor(prefix), optionalSecretPrefixes.Has(prefix))
-		if err != nil {
-			return err
-		}
-		// secret is nil means the secret was optional and we failed to get it.
-		if secret != nil {
-			secrets = append(secrets, secret)
-		}
-	}
-
-	glog.Infof("Getting config maps ...")
-	configs := []*corev1.ConfigMap{}
-	for _, prefix := range append(configPrefixes.List(), optionalConfigPrefixes.List()...) {
-		config, err := o.getConfigMapWithRetry(ctx, o.nameFor(prefix), optionalConfigPrefixes.Has(prefix))
-		if err != nil {
-			return err
-		}
-		// config is nil means the config was optional and we failed to get it.
-		if config != nil {
-			configs = append(configs, config)
-		}
+	// copy all of our secrets and configmaps to the destination
+	certCopy := NewCertCopyOptions()
+	certCopy.Revision = o.Revision
+	certCopy.KubeClient = o.KubeClient
+	certCopy.KubeConfig = o.KubeConfig
+	certCopy.Namespace = o.Namespace
+	certCopy.ConfigMapNamePrefixes = o.ConfigMapNamePrefixes
+	certCopy.OptionalConfigMapNamePrefixes = o.OptionalConfigMapNamePrefixes
+	certCopy.DestinationDir = path.Join(o.ResourceDir, nameFor(o.PodConfigMapNamePrefix, o.Revision))
+	certCopy.OptionalSecretNamePrefixes = o.OptionalSecretNamePrefixes
+	certCopy.SecretNamePrefixes = o.SecretNamePrefixes
+	certCopy.Timeout = o.Timeout
+	if err := certCopy.copyContent(ctx); err != nil {
+		return err
 	}
 
 	// Gather pod yaml from config map
 	var podContent string
 
 	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
-		glog.Infof("Getting pod configmaps/%s -n %s", o.nameFor(o.PodConfigMapNamePrefix), o.Namespace)
-		podConfigMap, err := o.KubeClient.CoreV1().ConfigMaps(o.Namespace).Get(o.nameFor(o.PodConfigMapNamePrefix), metav1.GetOptions{})
+		glog.Infof("Getting pod configmaps/%s -n %s", nameFor(o.PodConfigMapNamePrefix, o.Revision), o.Namespace)
+		podConfigMap, err := o.KubeClient.CoreV1().ConfigMaps(o.Namespace).Get(nameFor(o.PodConfigMapNamePrefix, o.Revision), metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -211,38 +184,10 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 
 	// Write secrets, config maps and pod to disk
 	// This does not need timeout, instead we should fail hard when we are not able to write.
-	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
+	resourceDir := path.Join(o.ResourceDir, nameFor(o.PodConfigMapNamePrefix, o.Revision))
 	glog.Infof("Creating target resource directory %q ...", resourceDir)
 	if err := os.MkdirAll(resourceDir, 0755); err != nil {
 		return err
-	}
-
-	for _, secret := range secrets {
-		contentDir := path.Join(resourceDir, "secrets", o.prefixFor(secret.Name))
-		glog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
-			return err
-		}
-		for filename, content := range secret.Data {
-			// TODO fix permissions
-			glog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), content, 0644); err != nil {
-				return err
-			}
-		}
-	}
-	for _, configmap := range configs {
-		contentDir := path.Join(resourceDir, "configmaps", o.prefixFor(configmap.Name))
-		glog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
-			return err
-		}
-		for filename, content := range configmap.Data {
-			glog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), []byte(content), 0644); err != nil {
-				return err
-			}
-		}
 	}
 
 	podFileName := o.PodConfigMapNamePrefix + ".yaml"

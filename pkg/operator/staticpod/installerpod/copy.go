@@ -14,7 +14,7 @@ import (
 // getSecretWithRetry will attempt to get the secret from the API server and retry on any connection errors until
 // the context is not done or secret is returned or a HTTP client error is returned.
 // In case the optional flag is set, the 404 error is not reported and a nil object is returned instead.
-func (o *InstallOptions) getSecretWithRetry(ctx context.Context, name string, isOptional bool) (*v1.Secret, error) {
+func (o *CertCopyOptions) getSecretWithRetry(ctx context.Context, name string, isOptional bool) (*v1.Secret, error) {
 	var secret *v1.Secret
 
 	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
@@ -42,7 +42,7 @@ func (o *InstallOptions) getSecretWithRetry(ctx context.Context, name string, is
 // getConfigMapWithRetry will attempt to get the configMap from the API server and retry on any connection errors until
 // the context is not done or configMap is returned or a HTTP client error is returned.
 // In case the optional flag is set, the 404 error is not reported and a nil object is returned instead.
-func (o *InstallOptions) getConfigMapWithRetry(ctx context.Context, name string, isOptional bool) (*v1.ConfigMap, error) {
+func (o *CertCopyOptions) getConfigMapWithRetry(ctx context.Context, name string, isOptional bool) (*v1.ConfigMap, error) {
 	var config *v1.ConfigMap
 
 	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {

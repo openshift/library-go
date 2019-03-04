@@ -93,7 +93,7 @@ func TestGetSecretWithRetry(t *testing.T) {
 			defer cancel()
 			ctx = timeoutContext
 
-			options := &InstallOptions{KubeClient: client, Namespace: "test"}
+			options := &CertCopyOptions{KubeClient: client, Namespace: "test"}
 
 			// If we have test that send internal error, wait for the internal error to be send and then remove the
 			// reactor immediately. This should cause the client to retry and we observe that retries in actions.
