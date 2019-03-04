@@ -1,16 +1,20 @@
 package events
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/openshift/library-go/pkg/operator/resource/retry"
 )
 
 // Recorder is a simple event recording interface.
@@ -28,6 +32,28 @@ const podNameEnv = "POD_NAME"
 // podNameEnvFunc allows to override the way we get the environment variable value (for unit tests).
 var podNameEnvFunc = func() string {
 	return os.Getenv(podNameEnv)
+}
+
+// GetControllerReferenceForCurrentPodWithRetry provides an object reference to a controller managing the pod/container where this process runs.
+// This function will retry on all connection/server errors until the context deadline. It will return immediately with error when the object is not found.
+// The pod name must be provided via the POD_NAME name.
+func GetControllerReferenceForCurrentPodWithRetry(ctx context.Context, client kubernetes.Interface, targetNamespace string, reference *corev1.ObjectReference) (*corev1.ObjectReference, error) {
+	var eventTarget *corev1.ObjectReference
+	if err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
+		var clientErr error
+		eventTarget, clientErr = GetControllerReferenceForCurrentPod(client, targetNamespace, reference)
+		switch {
+		case clientErr == nil:
+			return true, nil
+		case errors.IsNotFound(clientErr):
+			return true, clientErr
+		default:
+			return false, clientErr
+		}
+	}); err != nil {
+		return nil, fmt.Errorf("failed to get self-reference: %v", err)
+	}
+	return eventTarget, nil
 }
 
 // GetControllerReferenceForCurrentPod provides an object reference to a controller managing the pod/container where this process runs.
