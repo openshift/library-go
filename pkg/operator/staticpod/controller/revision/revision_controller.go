@@ -20,6 +20,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -251,14 +252,7 @@ func (c RevisionController) sync() error {
 	}
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
-	switch operatorSpec.ManagementState {
-	case operatorv1.Managed:
-	case operatorv1.Unmanaged:
-		return nil
-	case operatorv1.Removed:
-		// TODO probably just fail
-		return nil
-	default:
+	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 
