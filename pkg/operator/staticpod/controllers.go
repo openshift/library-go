@@ -36,6 +36,11 @@ type staticPodOperatorControllerBuilder struct {
 	revisionConfigMaps []revision.RevisionResource
 	revisionSecrets    []revision.RevisionResource
 
+	// cert information
+	certDir        string
+	certConfigMaps []revision.RevisionResource
+	certSecrets    []revision.RevisionResource
+
 	// versioner information
 	versionRecorder   status.VersionGetter
 	operatorNamespace string
@@ -68,6 +73,7 @@ type Builder interface {
 	WithServiceMonitor(dynamicClient dynamic.Interface) Builder
 	WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder
 	WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revision.RevisionResource) Builder
+	WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) Builder
 	WithInstaller(command []string) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
 	ToControllers() (*staticPodOperatorControllers, error)
@@ -95,6 +101,13 @@ func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, sta
 	b.staticPodName = staticPodName
 	b.revisionConfigMaps = revisionConfigMaps
 	b.revisionSecrets = revisionSecrets
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) Builder {
+	b.certDir = certDir
+	b.certConfigMaps = certConfigMaps
+	b.certSecrets = certSecrets
 	return b
 }
 
@@ -151,6 +164,10 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 			configMapClient,
 			podClient,
 			eventRecorder,
+		).WithCerts(
+			b.certDir,
+			b.certConfigMaps,
+			b.certSecrets,
 		)
 	}
 

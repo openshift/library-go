@@ -40,6 +40,12 @@ type InstallOptions struct {
 	ConfigMapNamePrefixes         []string
 	OptionalConfigMapNamePrefixes []string
 
+	CertSecretNames                   []string
+	OptionalCertSecretNamePrefixes    []string
+	CertConfigMapNamePrefixes         []string
+	OptionalCertConfigMapNamePrefixes []string
+
+	CertDir        string
 	ResourceDir    string
 	PodManifestDir string
 
@@ -102,6 +108,12 @@ func (o *InstallOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory for all files supporting the static pod manifest")
 	fs.StringVar(&o.PodManifestDir, "pod-manifest-dir", o.PodManifestDir, "directory for the static pod manifest")
 	fs.DurationVar(&o.Timeout, "timeout-duration", 120*time.Second, "maximum time in seconds to wait for the copying to complete (default: 2m)")
+
+	fs.StringSliceVar(&o.CertSecretNames, "cert-secrets", o.CertSecretNames, "list of secret names to be included")
+	fs.StringSliceVar(&o.CertConfigMapNamePrefixes, "cert-configmaps", o.CertConfigMapNamePrefixes, "list of configmaps to be included")
+	fs.StringSliceVar(&o.OptionalCertSecretNamePrefixes, "optional-cert-secrets", o.OptionalCertSecretNamePrefixes, "list of optional secret names to be included")
+	fs.StringSliceVar(&o.OptionalCertConfigMapNamePrefixes, "optional-cert-configmaps", o.OptionalCertConfigMapNamePrefixes, "list of optional configmaps to be included")
+	fs.StringVar(&o.CertDir, "cert-dir", o.CertDir, "directory for all certs")
 }
 
 func (o *InstallOptions) Complete() error {
@@ -154,19 +166,20 @@ func (o *InstallOptions) prefixFor(name string) string {
 	return name[0 : len(name)-len(fmt.Sprintf("-%s", o.Revision))]
 }
 
-func (o *InstallOptions) copyContent(ctx context.Context) error {
-	secretPrefixes := sets.NewString(o.SecretNamePrefixes...)
-	optionalSecretPrefixes := sets.NewString(o.OptionalSecretNamePrefixes...)
-	configPrefixes := sets.NewString(o.ConfigMapNamePrefixes...)
-	optionalConfigPrefixes := sets.NewString(o.OptionalConfigMapNamePrefixes...)
+func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
+	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed bool) error {
+	glog.Infof("Creating target resource directory %q ...", resourceDir)
+	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
 
 	// Gather secrets. If we get API server error, retry getting until we hit the timeout.
 	// Retrying will prevent temporary API server blips or networking issues.
 	// We return when all "required" secrets are gathered, optional secrets are not checked.
 	glog.Infof("Getting secrets ...")
 	secrets := []*corev1.Secret{}
-	for _, prefix := range append(secretPrefixes.List(), optionalSecretPrefixes.List()...) {
-		secret, err := o.getSecretWithRetry(ctx, o.nameFor(prefix), optionalSecretPrefixes.Has(prefix))
+	for _, name := range append(secretNames.List(), optionalSecretNames.List()...) {
+		secret, err := o.getSecretWithRetry(ctx, name, optionalSecretNames.Has(name))
 		if err != nil {
 			return err
 		}
@@ -178,14 +191,93 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 
 	glog.Infof("Getting config maps ...")
 	configs := []*corev1.ConfigMap{}
-	for _, prefix := range append(configPrefixes.List(), optionalConfigPrefixes.List()...) {
-		config, err := o.getConfigMapWithRetry(ctx, o.nameFor(prefix), optionalConfigPrefixes.Has(prefix))
+	for _, name := range append(configNames.List(), optionalConfigNames.List()...) {
+		config, err := o.getConfigMapWithRetry(ctx, name, optionalConfigNames.Has(name))
 		if err != nil {
 			return err
 		}
 		// config is nil means the config was optional and we failed to get it.
 		if config != nil {
 			configs = append(configs, config)
+		}
+	}
+
+	for _, secret := range secrets {
+		secretBaseName := secret.Name
+		if prefixed {
+			secretBaseName = o.prefixFor(secret.Name)
+		}
+		contentDir := path.Join(resourceDir, "secrets", secretBaseName)
+		glog.Infof("Creating directory %q ...", contentDir)
+		if err := os.MkdirAll(contentDir, 0755); err != nil {
+			return err
+		}
+		for filename, content := range secret.Data {
+			// TODO fix permissions
+			glog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
+			if err := ioutil.WriteFile(path.Join(contentDir, filename), content, 0644); err != nil {
+				return err
+			}
+		}
+	}
+	for _, configmap := range configs {
+		configMapBaseName := configmap.Name
+		if prefixed {
+			configMapBaseName = o.prefixFor(configmap.Name)
+		}
+		contentDir := path.Join(resourceDir, "configmaps", configMapBaseName)
+		glog.Infof("Creating directory %q ...", contentDir)
+		if err := os.MkdirAll(contentDir, 0755); err != nil {
+			return err
+		}
+		for filename, content := range configmap.Data {
+			glog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
+			if err := ioutil.WriteFile(path.Join(contentDir, filename), []byte(content), 0644); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (o *InstallOptions) copyContent(ctx context.Context) error {
+	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
+	glog.Infof("Creating target resource directory %q ...", resourceDir)
+	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	secretPrefixes := sets.NewString()
+	optionalSecretPrefixes := sets.NewString()
+	configPrefixes := sets.NewString()
+	optionalConfigPrefixes := sets.NewString()
+	for _, prefix := range o.SecretNamePrefixes {
+		secretPrefixes.Insert(o.nameFor(prefix))
+	}
+	for _, prefix := range o.OptionalSecretNamePrefixes {
+		optionalSecretPrefixes.Insert(o.nameFor(prefix))
+	}
+	for _, prefix := range o.ConfigMapNamePrefixes {
+		configPrefixes.Insert(o.nameFor(prefix))
+	}
+	for _, prefix := range o.OptionalConfigMapNamePrefixes {
+		optionalConfigPrefixes.Insert(o.nameFor(prefix))
+	}
+	if err := o.copySecretsAndConfigMaps(ctx, resourceDir, secretPrefixes, optionalSecretPrefixes, configPrefixes, optionalConfigPrefixes, true); err != nil {
+		return err
+	}
+
+	// Copy the current state of the certs as we see them.  This primes us once and allows a kube-apiserver to start once
+	if len(o.CertDir) > 0 {
+		if err := o.copySecretsAndConfigMaps(ctx, o.CertDir,
+			sets.NewString(o.CertSecretNames...),
+			sets.NewString(o.OptionalCertSecretNamePrefixes...),
+			sets.NewString(o.CertConfigMapNamePrefixes...),
+			sets.NewString(o.OptionalCertConfigMapNamePrefixes...),
+			false,
+		); err != nil {
+			return err
 		}
 	}
 
@@ -211,39 +303,6 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 
 	// Write secrets, config maps and pod to disk
 	// This does not need timeout, instead we should fail hard when we are not able to write.
-	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
-	glog.Infof("Creating target resource directory %q ...", resourceDir)
-	if err := os.MkdirAll(resourceDir, 0755); err != nil {
-		return err
-	}
-
-	for _, secret := range secrets {
-		contentDir := path.Join(resourceDir, "secrets", o.prefixFor(secret.Name))
-		glog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
-			return err
-		}
-		for filename, content := range secret.Data {
-			// TODO fix permissions
-			glog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), content, 0644); err != nil {
-				return err
-			}
-		}
-	}
-	for _, configmap := range configs {
-		contentDir := path.Join(resourceDir, "configmaps", o.prefixFor(configmap.Name))
-		glog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
-			return err
-		}
-		for filename, content := range configmap.Data {
-			glog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), []byte(content), 0644); err != nil {
-				return err
-			}
-		}
-	}
 
 	podFileName := o.PodConfigMapNamePrefix + ".yaml"
 	glog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, podFileName))
