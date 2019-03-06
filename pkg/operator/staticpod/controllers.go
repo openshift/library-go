@@ -127,7 +127,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 
 	eventRecorder := b.eventRecorder
 	if eventRecorder == nil {
-		eventRecorder = events.NewLoggingEventRecorder()
+		eventRecorder = events.NewLoggingEventRecorder("static-pod-operator-controller")
 	}
 	versionRecorder := b.versionRecorder
 	if versionRecorder == nil {

@@ -16,6 +16,14 @@ func NewTestingEventRecorder(t *testing.T) events.Recorder {
 	return &TestingEventRecorder{t: t}
 }
 
+func (r *TestingEventRecorder) ComponentName() string {
+	return "test"
+}
+
+func (r *TestingEventRecorder) ForComponent(string) events.Recorder {
+	return r
+}
+
 func (r *TestingEventRecorder) Event(reason, message string) {
 	r.t.Logf("Event: %v: %v", reason, message)
 }

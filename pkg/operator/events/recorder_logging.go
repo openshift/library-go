@@ -7,11 +7,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type LoggingEventRecorder struct{}
+type LoggingEventRecorder struct {
+	component string
+}
 
 // NewLoggingEventRecorder provides event recorder that will log all recorded events via glog.
-func NewLoggingEventRecorder() Recorder {
-	return &LoggingEventRecorder{}
+func NewLoggingEventRecorder(component string) Recorder {
+	return &LoggingEventRecorder{component: component}
+}
+
+func (r *LoggingEventRecorder) ComponentName() string {
+	return r.component
+}
+
+func (r *LoggingEventRecorder) ForComponent(component string) Recorder {
+	newRecorder := *r
+	newRecorder.component = component
+	return &newRecorder
 }
 
 func (r *LoggingEventRecorder) Event(reason, message string) {
