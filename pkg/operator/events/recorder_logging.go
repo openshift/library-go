@@ -26,6 +26,10 @@ func (r *LoggingEventRecorder) ForComponent(component string) Recorder {
 	return &newRecorder
 }
 
+func (r *LoggingEventRecorder) WithComponentSuffix(suffix string) Recorder {
+	return r.ForComponent(fmt.Sprintf("%s-%s", r.ComponentName(), suffix))
+}
+
 func (r *LoggingEventRecorder) Event(reason, message string) {
 	event := makeEvent(&inMemoryDummyObjectReference, "", corev1.EventTypeNormal, reason, message)
 	glog.Info(event.String())

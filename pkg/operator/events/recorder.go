@@ -25,6 +25,9 @@ type Recorder interface {
 	// events.
 	ForComponent(componentName string) Recorder
 
+	// WithComponentSuffix is similar to ForComponent except it just suffix the current component name instead of overriding.
+	WithComponentSuffix(componentNameSuffix string) Recorder
+
 	// ComponentName returns the current source component name for the event.
 	// This allows to suffix the original component name with 'sub-component'.
 	ComponentName() string
@@ -138,6 +141,10 @@ func (r *recorder) ForComponent(componentName string) Recorder {
 	newRecorderForComponent := *r
 	newRecorderForComponent.sourceComponent = componentName
 	return &newRecorderForComponent
+}
+
+func (r *recorder) WithComponentSuffix(suffix string) Recorder {
+	return r.ForComponent(fmt.Sprintf("%s-%s", r.ComponentName(), suffix))
 }
 
 // Event emits the normal type event and allow formatting of message.
