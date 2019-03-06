@@ -77,9 +77,9 @@ func Run() error {
 
 	if len(*outputDir) != 0 {
 		g.OutputDir = *outputDir
-		fmt.Printf("Creating kubebuilder manifests %s...", *outputDir)
+		fmt.Printf("Creating kubebuilder manifests %q ...\n", *outputDir)
 	} else {
-		fmt.Printf("Creating kubebuilder manifests in ...\n")
+		fmt.Printf("Creating kubebuilder manifests ...\n")
 	}
 
 	if err := g.ValidateAndInitFields(); err != nil {
@@ -122,6 +122,8 @@ func Run() error {
 		// yaml merge patch exists?
 		patchFileName := existingFileName + "-merge-patch"
 		if _, err := os.Stat(patchFileName); err == nil {
+			fmt.Printf("Applying patch %q ...\n", patchFileName)
+
 			yamlPatch, err := ioutil.ReadFile(patchFileName)
 			if err != nil {
 				return fmt.Errorf("failed to read yaml-merge-patch %q: %v", patchFileName, err)
@@ -169,7 +171,7 @@ func Run() error {
 			return fmt.Errorf("failed to set spec.validation in %s: %v", existingFileName, err)
 		}
 		if reflect.DeepEqual(updated, crd.Yaml) {
-			fmt.Printf("Validation of %s in %s did not change\n", crd.Name, existingFileName)
+			fmt.Printf("Validation of %s in %s did not change.\n", crd.Name, existingFileName)
 			continue
 		}
 
@@ -183,7 +185,7 @@ func Run() error {
 		if *verifyOnly {
 			newFn = filepath.Join(tmpDir, filepath.Base(existingFileName))
 		} else {
-			fmt.Printf("Updating validation of %s in %s\n", crd.Name, existingFileName)
+			fmt.Printf("Updating validation of %s in %s.\n", crd.Name, existingFileName)
 		}
 		if err := ioutil.WriteFile(newFn, bs, 0644); err != nil {
 			return err
