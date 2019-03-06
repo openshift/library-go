@@ -132,7 +132,7 @@ func NewInstallerController(
 		operatorConfigClient: operatorConfigClient,
 		configMapsGetter:     configMapsGetter,
 		podsGetter:           podsGetter,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("installer-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InstallerController"),
 

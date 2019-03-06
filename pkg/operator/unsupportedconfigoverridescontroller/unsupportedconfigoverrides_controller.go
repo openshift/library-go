@@ -46,7 +46,7 @@ func NewUnsupportedConfigOverridesController(
 ) *UnsupportedConfigOverridesController {
 	c := &UnsupportedConfigOverridesController{
 		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder,
+		eventRecorder:  eventRecorder.WithComponentSuffix("unsupported-config-overrides-controller"),
 
 		preRunCachesSynced: []cache.InformerSynced{
 			operatorClient.Informer().HasSynced,

@@ -73,7 +73,7 @@ func NewRevisionController(
 		operatorConfigClient: operatorConfigClient,
 		configMapGetter:      configMapGetter,
 		secretGetter:         secretGetter,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("revision-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionController"),
 	}

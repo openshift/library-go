@@ -41,6 +41,10 @@ func (r *upstreamRecorder) ForComponent(componentName string) Recorder {
 	return &newRecorderForComponent
 }
 
+func (r *upstreamRecorder) WithComponentSuffix(suffix string) Recorder {
+	return r.ForComponent(fmt.Sprintf("%s-%s", r.ComponentName(), suffix))
+}
+
 func (r *upstreamRecorder) ComponentName() string {
 	return r.component
 }
