@@ -44,6 +44,7 @@ func NewCertSyncController(targetDir, targetNamespace string, configmaps, secret
 		namespace:      targetNamespace,
 		configMaps:     configmaps,
 		secrets:        secrets,
+		eventRecorder:  eventRecorder.WithComponentSuffix("cert-sync-controller"),
 
 		configMapLister: informers.Core().V1().ConfigMaps().Lister(),
 		secretLister:    informers.Core().V1().Secrets().Lister(),

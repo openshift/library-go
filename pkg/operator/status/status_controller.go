@@ -63,7 +63,7 @@ func NewClusterOperatorStatusController(
 		versionGetter:         versionGetter,
 		clusterOperatorClient: clusterOperatorClient,
 		operatorClient:        operatorStatusProvider,
-		eventRecorder:         recorder,
+		eventRecorder:         recorder.WithComponentSuffix("status-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatusSyncer-"+name),
 	}

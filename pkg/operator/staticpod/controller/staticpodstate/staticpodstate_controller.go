@@ -67,7 +67,7 @@ func NewStaticPodStateController(
 		configMapGetter:      configMapGetter,
 		podsGetter:           podsGetter,
 		versionRecorder:      versionRecorder,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("static-pod-state-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StaticPodStateController"),
 	}

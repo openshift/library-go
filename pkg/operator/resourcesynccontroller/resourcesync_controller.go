@@ -66,7 +66,7 @@ func NewResourceSyncController(
 ) *ResourceSyncController {
 	c := &ResourceSyncController{
 		operatorConfigClient: operatorConfigClient,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("resource-sync-controller"),
 
 		configMapSyncRules:         map[ResourceLocation]ResourceLocation{},
 		secretSyncRules:            map[ResourceLocation]ResourceLocation{},

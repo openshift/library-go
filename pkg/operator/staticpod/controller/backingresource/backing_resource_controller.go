@@ -63,7 +63,7 @@ func NewBackingResourceController(
 	c := &BackingResourceController{
 		targetNamespace:      targetNamespace,
 		operatorConfigClient: operatorConfigClient,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("backing-resource-controller"),
 
 		saListerSynced: kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Informer().HasSynced,
 		saLister:       kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Lister(),

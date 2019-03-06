@@ -63,7 +63,7 @@ func NewConfigObserver(
 ) *ConfigObserver {
 	return &ConfigObserver{
 		operatorConfigClient: operatorClient,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("config-observer"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 

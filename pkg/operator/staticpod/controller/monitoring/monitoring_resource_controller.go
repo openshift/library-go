@@ -63,7 +63,7 @@ func NewMonitoringResourceController(
 	c := &MonitoringResourceController{
 		targetNamespace:      targetNamespace,
 		operatorConfigClient: operatorConfigClient,
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("monitoring-resource-controller"),
 		serviceMonitorName:   serviceMonitorName,
 
 		clusterRoleBindingLister: kubeInformersForTargetNamespace.Rbac().V1().ClusterRoleBindings().Lister(),

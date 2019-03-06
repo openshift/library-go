@@ -77,7 +77,7 @@ func NewPruneController(
 		configMapGetter: configMapGetter,
 		secretGetter:    secretGetter,
 		podGetter:       podGetter,
-		eventRecorder:   eventRecorder,
+		eventRecorder:   eventRecorder.WithComponentSuffix("prune-controller"),
 
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PruneController"),
 		prunerPodImageFn: getPrunerPodImageFromEnv,
