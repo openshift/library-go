@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -37,7 +37,7 @@ func NewCertSyncControllerCommand(configmaps, secrets []revision.RevisionResourc
 		Run: func(cmd *cobra.Command, args []string) {
 			r, err := o.Complete()
 			if err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 			r.Run(1, make(chan struct{}))
 		},
