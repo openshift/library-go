@@ -20,6 +20,10 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+// minDeploymentDuration is the time we assume a safe deployment of the certs take. If a cert is less than
+// that away from its expiration, we better cause an alarm than trying rotation anyway with uncertain outcome.
+const minDeploymentDuration = time.Minute * 30
+
 // TargetRotation rotates a key and cert signed by a CA. It creates a new one when <RefreshPercentage>
 // of the lifetime of the old cert has passed, or if the common name of the CA changes.
 type TargetRotation struct {
@@ -123,7 +127,7 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 		return reason
 	}
 
-	maxWait := notAfter.Sub(notBefore) / 5
+	maxWait := min(minDeploymentDuration, notAfter.Sub(notBefore)/5)
 	latestTime := notAfter.Add(-maxWait)
 	if time.Now().After(latestTime) {
 		return fmt.Sprintf("past its latest possible time %v", latestTime)
@@ -261,4 +265,11 @@ func (r *SignerRotation) NeedNewTargetCertKeyPair(annotations map[string]string,
 
 func (r *SignerRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
 	return annotations
+}
+
+func min(x, y time.Duration) time.Duration {
+	if x > y {
+		return y
+	}
+	return x
 }

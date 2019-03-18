@@ -69,7 +69,7 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 		return reason
 	}
 
-	maxWait := notAfter.Sub(notBefore) / 5
+	maxWait := min(minDeploymentDuration, notAfter.Sub(notBefore)/5)
 	latestTime := notAfter.Add(-maxWait)
 	if time.Now().After(latestTime) {
 		return fmt.Sprintf("past its latest possible time %v", latestTime)
