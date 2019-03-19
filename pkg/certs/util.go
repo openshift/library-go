@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// CertificateToString parse provided certificate to human-readable form.
+// CertificateToString convert a certificate into a human readable string.
 // This function should guarantee consistent output format for must-gather tooling and any code
 // that prints the certificate details.
 func CertificateToString(certificate *x509.Certificate) string {
@@ -52,4 +52,13 @@ func CertificateToString(certificate *x509.Certificate) string {
 
 	return fmt.Sprintf("%q [%s]%s%s issuer=%q (%v to %v (now=%v))", humanName, strings.Join(usages, ","), groupString,
 		servingString, signerHumanName, certificate.NotBefore.UTC(), certificate.NotAfter.UTC(), time.Now().UTC())
+}
+
+// CertificateBundleToString convert a certificate bundle into a human readable string.
+func CertificateBundleToString(bundle []*x509.Certificate) string {
+	output := []string{}
+	for i, cert := range bundle {
+		output = append(output, fmt.Sprintf("[#%d]: %s", i, CertificateToString(cert)))
+	}
+	return strings.Join(output, "\n")
 }

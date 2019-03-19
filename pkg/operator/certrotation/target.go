@@ -96,12 +96,7 @@ func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, 
 		}
 	}
 
-	caBundleCertsStrings := []string{}
-	for _, crt := range caBundleCerts {
-		caBundleCertsStrings = append(caBundleCertsStrings, certs.CertificateToString(crt))
-	}
-
-	return fmt.Sprintf("issuer %q, not in ca bundle:\n%s", signerCommonName, strings.Join(caBundleCertsStrings, "\n"))
+	return fmt.Sprintf("issuer %q, not in ca bundle:\n%s", signerCommonName, certs.CertificateBundleToString(caBundleCerts))
 }
 
 // needNewTargetCertKeyPairForTime returns true when
