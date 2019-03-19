@@ -515,19 +515,21 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		if newRevisionPending {
-			// stop early, don't wait for ready static pod because a new revision is waiting
-			failed = true
-			errors = append(errors, "static pod has been installed, but is not ready while new revision is pending")
-			break
-		}
-
-		state, revision, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
+		state, podRevision, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
 		if err != nil {
 			return nil, false, err
 		}
 
-		if revision != strconv.Itoa(int(currNodeState.TargetRevision)) {
+		// stop early, don't wait for ready static pod because a new revision is waiting
+		if newRevisionPending {
+			ret.TargetRevision = 0
+			ret.LastFailedRevision = 0
+			ret.LastFailedRevisionErrors = nil
+			c.eventRecorder.Event("NewRevisionPending", fmt.Sprintf("Revision %s on node %q did not become ready in time, new revision will be rolled out", podRevision, ret.NodeName))
+			return ret, false, nil
+		}
+
+		if podRevision != strconv.Itoa(int(currNodeState.TargetRevision)) {
 			// new updated pod to be launched
 			break
 		}
