@@ -7,7 +7,12 @@ import (
 	"time"
 )
 
-// CertificateToString convert a certificate into a human readable string.
+const defaultOutputTimeFormat = "Jan 2 15:04:05 2006"
+
+// nowFn is used in unit test to freeze time.
+var nowFn = time.Now().UTC
+
+// CertificateToString converts a certificate into a human readable string.
 // This function should guarantee consistent output format for must-gather tooling and any code
 // that prints the certificate details.
 func CertificateToString(certificate *x509.Certificate) string {
@@ -51,10 +56,11 @@ func CertificateToString(certificate *x509.Certificate) string {
 	}
 
 	return fmt.Sprintf("%q [%s]%s%s issuer=%q (%v to %v (now=%v))", humanName, strings.Join(usages, ","), groupString,
-		servingString, signerHumanName, certificate.NotBefore.UTC(), certificate.NotAfter.UTC(), time.Now().UTC())
+		servingString, signerHumanName, certificate.NotBefore.UTC().Format(defaultOutputTimeFormat),
+		certificate.NotAfter.UTC().Format(defaultOutputTimeFormat), nowFn().Format(defaultOutputTimeFormat))
 }
 
-// CertificateBundleToString convert a certificate bundle into a human readable string.
+// CertificateBundleToString converts a certificate bundle into a human readable string.
 func CertificateBundleToString(bundle []*x509.Certificate) string {
 	output := []string{}
 	for i, cert := range bundle {
