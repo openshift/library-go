@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
+	"github.com/openshift/library-go/pkg/crypto"
+	"github.com/openshift/library-go/pkg/operator/certrotation/metrics"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 )
 
 // SigningRotation rotates a self-signed signing CA stored in a secret. It creates a new one when <RefreshPercentage>
@@ -47,6 +49,8 @@ func (c SigningRotation) ensureSigningCertKeyPair() (*crypto.CA, error) {
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
 			return nil, err
 		}
+
+		metrics.LabelAsManagedSecret(signingCertKeyPairSecret, metrics.CertificateTypeSigner)
 
 		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
