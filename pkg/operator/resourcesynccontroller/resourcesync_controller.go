@@ -149,6 +149,10 @@ func (c *ResourceSyncController) sync() error {
 
 	for destination, source := range c.configMapSyncRules {
 		if source == emptyResourceLocation {
+			// use the cache to check whether the configmap exists in target namespace, if not skip the extra delete call.
+			if _, err := c.configMapGetter.ConfigMaps(destination.Namespace).Get(destination.Name, metav1.GetOptions{}); err != nil && apierrors.IsNotFound(err) {
+				continue
+			}
 			if err := c.configMapGetter.ConfigMaps(destination.Namespace).Delete(destination.Name, nil); err != nil && !apierrors.IsNotFound(err) {
 				errors = append(errors, err)
 			}
@@ -162,6 +166,10 @@ func (c *ResourceSyncController) sync() error {
 	}
 	for destination, source := range c.secretSyncRules {
 		if source == emptyResourceLocation {
+			// use the cache to check whether the secret exists in target namespace, if not skip the extra delete call.
+			if _, err := c.secretGetter.Secrets(destination.Namespace).Get(destination.Name, metav1.GetOptions{}); err != nil && apierrors.IsNotFound(err) {
+				continue
+			}
 			if err := c.secretGetter.Secrets(destination.Namespace).Delete(destination.Name, nil); err != nil && !apierrors.IsNotFound(err) {
 				errors = append(errors, err)
 			}
