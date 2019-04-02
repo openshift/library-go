@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -40,10 +40,10 @@ func NewCertSyncControllerCommand(configmaps, secrets []revision.RevisionResourc
 		Use: "cert-syncer --kubeconfig=kubeconfigfile",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := o.Complete(); err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 			if err := o.Run(); err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 		},
 	}
@@ -93,7 +93,7 @@ func (o *CertSyncControllerOptions) Run() error {
 	go controller.Run(1, stopCh)
 
 	<-stopCh
-	glog.Infof("Shutting down certificate syncer")
+	klog.Infof("Shutting down certificate syncer")
 
 	return nil
 }

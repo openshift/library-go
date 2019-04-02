@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -18,6 +17,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
@@ -209,8 +209,8 @@ func (c *ResourceSyncController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting ResourceSyncController")
-	defer glog.Infof("Shutting down ResourceSyncController")
+	klog.Infof("Starting ResourceSyncController")
+	defer klog.Infof("Shutting down ResourceSyncController")
 	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
 		return
 	}
