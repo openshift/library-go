@@ -12,14 +12,20 @@ type Interface interface {
 	Authentications() AuthenticationInformer
 	// Consoles returns a ConsoleInformer.
 	Consoles() ConsoleInformer
+	// DNSes returns a DNSInformer.
+	DNSes() DNSInformer
 	// Etcds returns a EtcdInformer.
 	Etcds() EtcdInformer
+	// IngressControllers returns a IngressControllerInformer.
+	IngressControllers() IngressControllerInformer
 	// KubeAPIServers returns a KubeAPIServerInformer.
 	KubeAPIServers() KubeAPIServerInformer
 	// KubeControllerManagers returns a KubeControllerManagerInformer.
 	KubeControllerManagers() KubeControllerManagerInformer
 	// KubeSchedulers returns a KubeSchedulerInformer.
 	KubeSchedulers() KubeSchedulerInformer
+	// Networks returns a NetworkInformer.
+	Networks() NetworkInformer
 	// OpenShiftAPIServers returns a OpenShiftAPIServerInformer.
 	OpenShiftAPIServers() OpenShiftAPIServerInformer
 	// OpenShiftControllerManagers returns a OpenShiftControllerManagerInformer.
@@ -53,9 +59,19 @@ func (v *version) Consoles() ConsoleInformer {
 	return &consoleInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// DNSes returns a DNSInformer.
+func (v *version) DNSes() DNSInformer {
+	return &dNSInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // Etcds returns a EtcdInformer.
 func (v *version) Etcds() EtcdInformer {
 	return &etcdInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IngressControllers returns a IngressControllerInformer.
+func (v *version) IngressControllers() IngressControllerInformer {
+	return &ingressControllerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // KubeAPIServers returns a KubeAPIServerInformer.
@@ -71,6 +87,11 @@ func (v *version) KubeControllerManagers() KubeControllerManagerInformer {
 // KubeSchedulers returns a KubeSchedulerInformer.
 func (v *version) KubeSchedulers() KubeSchedulerInformer {
 	return &kubeSchedulerInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Networks returns a NetworkInformer.
+func (v *version) Networks() NetworkInformer {
+	return &networkInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // OpenShiftAPIServers returns a OpenShiftAPIServerInformer.
