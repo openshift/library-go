@@ -13,10 +13,13 @@ type OperatorV1Interface interface {
 	RESTClient() rest.Interface
 	AuthenticationsGetter
 	ConsolesGetter
+	DNSesGetter
 	EtcdsGetter
+	IngressControllersGetter
 	KubeAPIServersGetter
 	KubeControllerManagersGetter
 	KubeSchedulersGetter
+	NetworksGetter
 	OpenShiftAPIServersGetter
 	OpenShiftControllerManagersGetter
 	ServiceCAsGetter
@@ -37,8 +40,16 @@ func (c *OperatorV1Client) Consoles() ConsoleInterface {
 	return newConsoles(c)
 }
 
+func (c *OperatorV1Client) DNSes() DNSInterface {
+	return newDNSes(c)
+}
+
 func (c *OperatorV1Client) Etcds() EtcdInterface {
 	return newEtcds(c)
+}
+
+func (c *OperatorV1Client) IngressControllers(namespace string) IngressControllerInterface {
+	return newIngressControllers(c, namespace)
 }
 
 func (c *OperatorV1Client) KubeAPIServers() KubeAPIServerInterface {
@@ -51,6 +62,10 @@ func (c *OperatorV1Client) KubeControllerManagers() KubeControllerManagerInterfa
 
 func (c *OperatorV1Client) KubeSchedulers() KubeSchedulerInterface {
 	return newKubeSchedulers(c)
+}
+
+func (c *OperatorV1Client) Networks() NetworkInterface {
+	return newNetworks(c)
 }
 
 func (c *OperatorV1Client) OpenShiftAPIServers() OpenShiftAPIServerInterface {

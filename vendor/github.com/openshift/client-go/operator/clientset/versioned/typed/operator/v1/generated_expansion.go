@@ -6,13 +6,19 @@ type AuthenticationExpansion interface{}
 
 type ConsoleExpansion interface{}
 
+type DNSExpansion interface{}
+
 type EtcdExpansion interface{}
+
+type IngressControllerExpansion interface{}
 
 type KubeAPIServerExpansion interface{}
 
 type KubeControllerManagerExpansion interface{}
 
 type KubeSchedulerExpansion interface{}
+
+type NetworkExpansion interface{}
 
 type OpenShiftAPIServerExpansion interface{}
 
