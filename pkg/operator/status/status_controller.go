@@ -85,8 +85,10 @@ func NewClusterOperatorStatusController(
 func (c StatusSyncer) sync() error {
 	detailedSpec, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
-		// return nil here, wait for operatorClient to catch up
 		c.eventRecorder.Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.clusterOperatorName)
+		if err := c.clusterOperatorClient.ClusterOperators().Delete(c.clusterOperatorName, nil); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
 		return nil
 	}
 	if err != nil {
