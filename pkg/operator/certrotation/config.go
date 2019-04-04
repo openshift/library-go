@@ -1,7 +1,6 @@
 package certrotation
 
 import (
-	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,9 +31,6 @@ func GetCertRotationScale(client kubernetes.Interface, namespace string) (time.D
 	})
 	if err != nil {
 		return 0, err
-	}
-	if certRotationScale > 24*time.Hour {
-		return 0, fmt.Errorf("scale longer than 24h is not allowed: %v", certRotationScale)
 	}
 	return certRotationScale, nil
 }
