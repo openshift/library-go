@@ -68,7 +68,6 @@ func GetControllerReferenceForCurrentPod(client kubernetes.Interface, targetName
 	case "Pod":
 		pod, err := client.CoreV1().Pods(reference.Namespace).Get(reference.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.Warningf("Unable to get owner reference for pod %q (will use namespace instead): %v", podNameEnvFunc(), err)
 			return getControllerReferenceForNamespace(reference.Namespace), err
 		}
 		if podController := metav1.GetControllerOf(pod); podController != nil {
@@ -79,7 +78,6 @@ func GetControllerReferenceForCurrentPod(client kubernetes.Interface, targetName
 	case "ReplicaSet":
 		rs, err := client.AppsV1().ReplicaSets(reference.Namespace).Get(reference.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.Warningf("Unable to get owner reference for replica set %q (will use namespace instead): %v", reference.Name, err)
 			return getControllerReferenceForNamespace(reference.Namespace), err
 		}
 		if rsController := metav1.GetControllerOf(rs); rsController != nil {

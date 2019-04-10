@@ -172,7 +172,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 	}
 	controllerRef, err := events.GetControllerReferenceForCurrentPod(kubeClient, namespace, nil)
 	if err != nil {
-		panic(fmt.Sprintf("unable to obtain replicaset reference for events: %v", err))
+		klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 	}
 	eventRecorder := events.NewKubeRecorder(kubeClient.CoreV1().Events(namespace), b.componentName, controllerRef)
 
