@@ -67,6 +67,6 @@ func GeneratorForFlags(f *flag.FlagSet) *crdgenerator.Generator {
 	f.StringVar(&g.Namespace, "namespace", "", "CRD namespace, treat it as root scoped if not set")
 	f.BoolVar(&g.SkipMapValidation, "skip-map-validation", true, "if set to true, skip generating validation schema for map type in CRD.")
 	f.StringVar(&g.APIsPath, "apis-path", "pkg/apis", "the path to search for apis relative to the current directory")
-	f.StringVar(&g.APIsPkg, "apis-pkg", "", "package to consider as the project api package")
+	f.StringVar(&g.APIsPkg, "apis-pkg", "", "the absolute Go pkg name for current project's api pkg.")
 	return g
 }
