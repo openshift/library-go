@@ -28,21 +28,27 @@ type InfrastructureLister interface {
 
 // NewCloudProviderObserver returns a new cloudprovider observer for syncing cloud provider specific
 // information to controller-manager and api-server.
-func NewCloudProviderObserver(targetNamespaceName string) configobserver.ObserveConfigFunc {
-	cloudObserver := &cloudProviderObserver{targetNamespaceName: targetNamespaceName}
+func NewCloudProviderObserver(targetNamespaceName string, cloudProviderNamePath, cloudProviderConfigPath []string) configobserver.ObserveConfigFunc {
+	cloudObserver := &cloudProviderObserver{
+		targetNamespaceName:     targetNamespaceName,
+		cloudProviderNamePath:   cloudProviderNamePath,
+		cloudProviderConfigPath: cloudProviderConfigPath,
+	}
 	return cloudObserver.ObserveCloudProviderNames
 }
 
 type cloudProviderObserver struct {
-	targetNamespaceName string
+	targetNamespaceName     string
+	cloudProviderNamePath   []string
+	cloudProviderConfigPath []string
 }
 
 // ObserveCloudProviderNames observes the cloud provider from the global cluster infrastructure resource.
-func (cloud *cloudProviderObserver) ObserveCloudProviderNames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(InfrastructureLister)
 	var errs []error
-	cloudProvidersPath := []string{"extendedArguments", "cloud-provider"}
-	cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
+	cloudProvidersPath := c.cloudProviderNamePath
+	cloudProviderConfPath := c.cloudProviderConfigPath
 	previouslyObservedConfig := map[string]interface{}{}
 
 	existingCloudConfig, _, err := unstructured.NestedStringSlice(existingConfig, cloudProviderConfPath...)
@@ -97,7 +103,7 @@ func (cloud *cloudProviderObserver) ObserveCloudProviderNames(genericListers con
 
 	err = listers.ResourceSyncer().SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{
-			Namespace: cloud.targetNamespaceName,
+			Namespace: c.targetNamespaceName,
 			Name:      "cloud-config",
 		},
 		sourceLocation)

@@ -81,7 +81,9 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
 				ResourceSync:          &FakeResourceSyncer{},
 			}
-			observerFunc := NewCloudProviderObserver("kube-controller-manager")
+			cloudProvidersPath := []string{"extendedArguments", "cloud-provider"}
+			cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
+			observerFunc := NewCloudProviderObserver("kube-controller-manager", cloudProvidersPath, cloudProviderConfPath)
 			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
 			if len(errs) > 0 {
 				t.Fatal(errs)
