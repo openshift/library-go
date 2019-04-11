@@ -17,7 +17,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/certrotation/metrics"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 )
@@ -40,7 +39,6 @@ func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
-
 	caBundleConfigMap := originalCABundleConfigMap.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
@@ -52,7 +50,6 @@ func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA)
 	}
 	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil || !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
-		metrics.LabelAsManagedConfigMap(caBundleConfigMap, metrics.CertificateTypeCABundle)
 
 		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {

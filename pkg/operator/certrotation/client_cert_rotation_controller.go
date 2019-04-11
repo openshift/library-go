@@ -7,13 +7,11 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/openshift/library-go/pkg/operator/certrotation/metrics"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -47,8 +45,6 @@ type CertRotationController struct {
 
 	cachesSynced []cache.InformerSynced
 
-	registerMetrics bool
-
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
 }
@@ -59,7 +55,6 @@ func NewCertRotationController(
 	caBundleRotation CABundleRotation,
 	targetRotation TargetRotation,
 	operatorClient v1helpers.StaticPodOperatorClient,
-	registerMetrics bool,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
 		name: name,
@@ -74,8 +69,6 @@ func NewCertRotationController(
 			caBundleRotation.Informer.Informer().HasSynced,
 			targetRotation.Informer.Informer().HasSynced,
 		},
-
-		registerMetrics: registerMetrics,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
 	}
@@ -134,11 +127,6 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, c.cachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
-	}
-
-	// register prometheus metrics for rotated certificates
-	if c.registerMetrics {
-		metrics.Register(c.CABundleRotation.Informer.Lister(), c.SigningRotation.Informer.Lister())
 	}
 
 	// doesn't matter what workers say, only start one.
