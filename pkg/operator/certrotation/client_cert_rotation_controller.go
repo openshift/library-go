@@ -47,8 +47,6 @@ type CertRotationController struct {
 
 	cachesSynced []cache.InformerSynced
 
-	registerMetrics bool
-
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
 }
@@ -59,7 +57,6 @@ func NewCertRotationController(
 	caBundleRotation CABundleRotation,
 	targetRotation TargetRotation,
 	operatorClient v1helpers.StaticPodOperatorClient,
-	registerMetrics bool,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
 		name: name,
@@ -74,8 +71,6 @@ func NewCertRotationController(
 			caBundleRotation.Informer.Informer().HasSynced,
 			targetRotation.Informer.Informer().HasSynced,
 		},
-
-		registerMetrics: registerMetrics,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
 	}
@@ -137,9 +132,7 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	// register prometheus metrics for rotated certificates
-	if c.registerMetrics {
-		metrics.Register(c.CABundleRotation.Informer.Lister(), c.SigningRotation.Informer.Lister())
-	}
+	metrics.Register(c.CABundleRotation.Informer.Lister(), c.SigningRotation.Informer.Lister())
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
