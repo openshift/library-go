@@ -167,21 +167,17 @@ func (c *certMetricsCollector) collectCABundles(ch chan<- prometheus.Metric) {
 }
 
 // This is needed to avoid double registration for prometheus metrics.
-var registered bool
+var registerOnce sync.Once
 
 // Register registers certificate monitoring metrics.
 func Register(configMaps corev1listers.ConfigMapLister, secrets corev1listers.SecretLister) {
-	if registered {
-		return
-	}
-	defer func() {
-		registered = true
-	}()
-	collector := &certMetricsCollector{
-		configLister: configMaps,
-		secretLister: secrets,
-		nowFn:        timeNowFn,
-	}
-	prometheus.MustRegister(collector)
-	klog.Infof("Prometheus: Registered managed certificates monitoring metrics")
+	registerOnce.Do(func() {
+		collector := &certMetricsCollector{
+			configLister: configMaps,
+			secretLister: secrets,
+			nowFn:        timeNowFn,
+		}
+		prometheus.MustRegister(collector)
+		klog.Infof("Prometheus: Registered managed certificates monitoring metrics")
+	})
 }
