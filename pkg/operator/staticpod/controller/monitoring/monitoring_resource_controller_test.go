@@ -58,10 +58,6 @@ func TestNewMonitoringResourcesController(t *testing.T) {
 		{
 			name: "create when not exists",
 			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
 						ManagementState: operatorv1.Managed,
@@ -94,10 +90,6 @@ func TestNewMonitoringResourcesController(t *testing.T) {
 		{
 			name: "skip when exists",
 			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
 						ManagementState: operatorv1.Managed,

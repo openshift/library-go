@@ -41,10 +41,6 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 	fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-		&operatorv1.OperatorSpec{
-			ManagementState: operatorv1.Managed,
-		},
-		&operatorv1.OperatorStatus{},
 		&operatorv1.StaticPodOperatorSpec{
 			OperatorSpec: operatorv1.OperatorSpec{
 				ManagementState: operatorv1.Managed,
@@ -256,10 +252,6 @@ func TestCreateInstallerPod(t *testing.T) {
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
 	fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-		&operatorv1.OperatorSpec{
-			ManagementState: operatorv1.Managed,
-		},
-		&operatorv1.OperatorStatus{},
 		&operatorv1.StaticPodOperatorSpec{
 			OperatorSpec: operatorv1.OperatorSpec{
 				ManagementState: operatorv1.Managed,
@@ -327,7 +319,7 @@ func TestCreateInstallerPod(t *testing.T) {
 	}
 
 	expectedArgs := []string{
-		"-v=4",
+		"-v=2",
 		"--revision=1",
 		"--namespace=test",
 		"--pod=test-config",
@@ -359,7 +351,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 		{
 			name: "normal",
 			expectedArgs: []string{
-				"-v=4",
+				"-v=2",
 				"--revision=1",
 				"--namespace=test",
 				"--pod=test-config",
@@ -374,7 +366,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 		{
 			name: "optional",
 			expectedArgs: []string{
-				"-v=4",
+				"-v=2",
 				"--revision=1",
 				"--namespace=test",
 				"--pod=test-config",
@@ -399,7 +391,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 		{
 			name: "first-cm-not-optional",
 			expectedArgs: []string{
-				"-v=4",
+				"-v=2",
 				"--revision=1",
 				"--namespace=test",
 				"--pod=test-config",
@@ -425,10 +417,6 @@ func TestEnsureInstallerPod(t *testing.T) {
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
 						ManagementState: operatorv1.Managed,
@@ -462,7 +450,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
-			err := c.ensureInstallerPod("test-node-1", nil, 1)
+			err := c.ensureInstallerPod("test-node-1", &operatorv1.StaticPodOperatorSpec{}, 1)
 			if err != nil {
 				if tt.expectedErr == "" {
 					t.Errorf("InstallerController.ensureInstallerPod() expected no error, got = %v", err)
@@ -974,10 +962,6 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				return err
 			}
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
 						ManagementState: operatorv1.Managed,
@@ -1065,7 +1049,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+	// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

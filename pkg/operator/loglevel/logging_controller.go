@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -52,17 +51,7 @@ func (c LogLevelController) sync() error {
 		return err
 	}
 
-	logLevel := "2"
-	switch detailedSpec.OperatorLogLevel {
-	case operatorv1.Normal:
-		logLevel = "2"
-	case operatorv1.Debug:
-		logLevel = "4"
-	case operatorv1.Trace:
-		logLevel = "6"
-	case operatorv1.TraceAll:
-		logLevel = "8"
-	}
+	logLevel := fmt.Sprintf("%d", LogLevelToKlog(detailedSpec.OperatorLogLevel))
 
 	var level klog.Level
 	if err := level.Set(logLevel); err != nil {
