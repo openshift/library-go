@@ -103,16 +103,15 @@ func (c *certMetricsCollector) collectSignersAndTarget(ch chan<- prometheus.Metr
 			continue
 		}
 
-		labelValues := []string{}
 		for _, certificate := range signingCertKeyPair.Config.Certs {
 			expireHours := certificate.NotAfter.UTC().Sub(c.nowFn().UTC()).Hours()
-			labelValues = append(labelValues, []string{
+			labelValues := []string{
 				secret.Namespace,
 				secret.Name,
 				certificate.Subject.CommonName,
 				certificate.Issuer.CommonName,
 				fmt.Sprintf("%s", certificate.NotBefore.UTC()),
-			}...)
+			}
 
 			ch <- prometheus.MustNewConstMetric(
 				targetDescType,
@@ -146,16 +145,15 @@ func (c *certMetricsCollector) collectCABundles(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		labelValues := []string{}
 		for _, certificate := range certificates {
 			expireHours := certificate.NotAfter.UTC().Sub(c.nowFn().UTC()).Hours()
-			labelValues = append(labelValues, []string{
+			labelValues := []string{
 				config.Namespace,
 				config.Name,
 				certificate.Subject.CommonName,
 				certificate.Issuer.CommonName,
 				fmt.Sprintf("%s", certificate.NotBefore.UTC()),
-			}...)
+			}
 
 			ch <- prometheus.MustNewConstMetric(
 				caBundleExpireHoursDesc,
