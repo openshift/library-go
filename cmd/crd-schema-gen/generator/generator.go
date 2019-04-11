@@ -66,6 +66,12 @@ func Run() error {
 		fmt.Print(string(out))
 		return err
 	}
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, "PROJECT"), []byte(`
+domain: dummy.domain
+repo: .
+`), 0644); err != nil {
+		return err
+	}
 
 	// generate kubebuilder KindGroupYaml manifests into temp dir
 	g := crdgenerator.Generator{
