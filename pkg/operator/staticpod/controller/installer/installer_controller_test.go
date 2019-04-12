@@ -1049,7 +1049,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-	// TODO: Add test cases.
+		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
