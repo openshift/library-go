@@ -26,6 +26,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -624,8 +625,9 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	if c.configMaps[0].Optional {
 		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
 	}
+
 	args := []string{
-		"-v=4", // TODO: Make this configurable?
+		fmt.Sprintf("-v=%d", loglevel.LogLevelToKlog(operatorSpec.LogLevel)),
 		fmt.Sprintf("--revision=%d", revision),
 		fmt.Sprintf("--namespace=%s", pod.Namespace),
 		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),

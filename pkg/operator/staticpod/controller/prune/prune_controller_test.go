@@ -178,10 +178,6 @@ func TestPruneAPIResources(t *testing.T) {
 	for _, tc := range tests {
 		kubeClient := fake.NewSimpleClientset(tc.startingObjects...)
 		fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-			&operatorv1.OperatorSpec{
-				ManagementState: operatorv1.Managed,
-			},
-			&operatorv1.OperatorStatus{},
 			&operatorv1.StaticPodOperatorSpec{
 				FailedRevisionLimit:    tc.failedLimit,
 				SucceededRevisionLimit: tc.succeededLimit,
@@ -394,10 +390,6 @@ func TestPruneDiskResources(t *testing.T) {
 			})
 
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{},
 				&operatorv1.StaticPodOperatorSpec{
 					FailedRevisionLimit:    test.failedLimit,
 					SucceededRevisionLimit: test.succeededLimit,
