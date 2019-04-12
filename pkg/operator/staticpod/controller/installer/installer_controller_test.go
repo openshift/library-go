@@ -527,7 +527,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		numOfInstallersOOM      int
 	}{
 		{
-			name: "three fresh nodes",
+			name:                    "three fresh nodes",
 			latestAvailableRevision: 1,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -543,7 +543,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{0, 1, 2},
 		},
 		{
-			name: "three nodes with current revision, all static pods ready",
+			name:                    "three nodes with current revision, all static pods ready",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -567,7 +567,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{0, 1, 2},
 		},
 		{
-			name: "one node already transitioning",
+			name:                    "one node already transitioning",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -592,7 +592,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
-			name: "one node already transitioning, although it is newer",
+			name:                    "one node already transitioning, although it is newer",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -617,7 +617,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
-			name: "three nodes, 2 not updated, one with failure in last revision",
+			name:                    "three nodes, 2 not updated, one with failure in last revision",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -642,7 +642,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{},
 		},
 		{
-			name: "three nodes, 2 not updated, one with failure in old revision",
+			name:                    "three nodes, 2 not updated, one with failure in old revision",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -667,7 +667,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{0, 1, 2},
 		},
 		{
-			name: "three nodes with outdated current revision, second static pods unready",
+			name:                    "three nodes with outdated current revision, second static pods unready",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -691,7 +691,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
-			name: "four nodes with outdated current revision, installer of 2nd was OOM killed, two more OOM happen, then success",
+			name:                    "four nodes with outdated current revision, installer of 2nd was OOM killed, two more OOM happen, then success",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -723,7 +723,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			numOfInstallersOOM:   2,
 		},
 		{
-			name: "three nodes with outdated current revision, 2nd & 3rd static pods unready",
+			name:                    "three nodes with outdated current revision, 2nd & 3rd static pods unready",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -747,7 +747,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
 		{
-			name: "updated node unready and newer version available, but updated again before older nodes are touched",
+			name:                    "updated node unready and newer version available, but updated again before older nodes are touched",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -771,7 +771,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
-			name: "two nodes on revision 1 and one node on revision 4",
+			name:                    "two nodes on revision 1 and one node on revision 4",
 			latestAvailableRevision: 5,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -795,7 +795,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
 		{
-			name: "two nodes 2 revisions behind and 1 node on latest available revision",
+			name:                    "two nodes 2 revisions behind and 1 node on latest available revision",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -819,7 +819,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 2},
 		},
 		{
-			name: "two nodes at different revisions behind and 1 node on latest available revision",
+			name:                    "two nodes at different revisions behind and 1 node on latest available revision",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -843,7 +843,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{2, 1},
 		},
 		{
-			name: "second node with old static pod than current revision",
+			name:                    "second node with old static pod than current revision",
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
@@ -867,7 +867,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
 		{
-			name: "first update status fails",
+			name:                    "first update status fails",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
