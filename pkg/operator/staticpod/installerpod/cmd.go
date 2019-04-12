@@ -12,15 +12,16 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 
 	"github.com/openshift/library-go/pkg/config/client"
+	"github.com/openshift/library-go/pkg/filelock"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
@@ -334,9 +335,20 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 }
 
 func (o *InstallOptions) Run(ctx context.Context) error {
+	// Before we start the installerpod we have to wait not to race
+	// with cert recovery tool or other pods
+	podManifestPath := path.Join(o.PodManifestDir, o.PodConfigMapNamePrefix+".yaml")
+	podManifest, err := os.OpenFile(podManifestPath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file %q: %v", podManifestPath, err)
+	}
+	l := filelock.Posix{}
+	l.WriteLock(ctx, podManifest.Fd())
+	defer l.Unlock(ctx)
+
 	var eventTarget *corev1.ObjectReference
 
-	err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
+	err = retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
 		var clientErr error
 		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
 		if clientErr != nil {
