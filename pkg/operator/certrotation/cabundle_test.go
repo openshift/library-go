@@ -57,6 +57,9 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				}
 
 				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
+					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
+				}
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
@@ -96,6 +99,9 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
+				}
+				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
+					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
 				}
 				result, err := cert.ParseCertsPEM([]byte(actual.Data["ca-bundle.crt"]))
 				if err != nil {
@@ -140,6 +146,9 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
+				}
+				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
+					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
 				}
 				result, err := cert.ParseCertsPEM([]byte(actual.Data["ca-bundle.crt"]))
 				if err != nil {
@@ -188,6 +197,9 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
+				}
+				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
+					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
 				}
 				result, err := cert.ParseCertsPEM([]byte(actual.Data["ca-bundle.crt"]))
 				if err != nil {
