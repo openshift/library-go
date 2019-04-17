@@ -1,5 +1,5 @@
-hash: 55a96b1eb411a76d43004d8b89db61a764449d4a8002ea38da1d759ce2328b53
-updated: 2019-04-12T09:45:14.278882886-04:00
+hash: 834b42ac04c13e26423b9cddffbd75a093f4d889cffb059911fae65aac364c7b
+updated: 2019-04-17T10:52:09.03874547-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -128,7 +128,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: 5899d5c5e619fda5fa86e14795a835f473ca284c
 - name: github.com/gobuffalo/envy
-  version: 1e6702b55a7afe795770f86ce76c13836a591904
+  version: 043cb4b8af871b49563291e32c66bb84378a60ac
 - name: github.com/gogo/protobuf
   version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
   subpackages:
@@ -143,10 +143,12 @@ imports:
 - name: github.com/golang/protobuf
   version: b4deda0973fb4c70b50d226b1af49f3da59f5265
   subpackages:
+  - jsonpb
   - proto
   - ptypes
   - ptypes/any
   - ptypes/duration
+  - ptypes/struct
   - ptypes/timestamp
 - name: github.com/gonum/blas
   version: f22b278b28ac9805aadd613a754a60c35b24ae69
@@ -232,7 +234,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 0f522af5ff8bb3aa7a7181e163a7b9294b55cc4d
+  version: 7924f9106f8e132f4f33a0c7fb8841b49bfc2d83
   subpackages:
   - apps
   - apps/v1
@@ -339,13 +341,13 @@ imports:
 - name: golang.org/x/crypto
   version: de0752318171da717af4ce24d0a2e8626afaeb11
   subpackages:
+  - bcrypt
+  - blowfish
   - ssh/terminal
 - name: golang.org/x/net
   version: 0ed95abb35c445290478a5348a7b38bb154135fd
   subpackages:
   - context
-  - html
-  - html/atom
   - http2
   - http2/hpack
   - idna
@@ -356,10 +358,7 @@ imports:
 - name: golang.org/x/oauth2
   version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
   subpackages:
-  - google
   - internal
-  - jws
-  - jwt
 - name: golang.org/x/sys
   version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
@@ -437,7 +436,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
   version: 5cb15d34447165a97c76ed5a60e4e99c8a01ecfe
   subpackages:
@@ -476,7 +475,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 8772a1fb4e1ec06c1b2301bf78f48613a53107f7
+  version: 3c74db8dd172051b029f91536c681a1b43694809
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
@@ -834,6 +833,7 @@ imports:
 - name: k8s.io/kube-openapi
   version: c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d
   subpackages:
+  - pkg/aggregator
   - pkg/builder
   - pkg/common
   - pkg/handler
