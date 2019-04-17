@@ -57,6 +57,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 		},
 		nil,
+		nil,
 	)
 
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
@@ -268,6 +269,7 @@ func TestCreateInstallerPod(t *testing.T) {
 			},
 		},
 		nil,
+		nil,
 	)
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
@@ -432,6 +434,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			)
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
@@ -972,6 +975,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeStatuses:            test.nodeStatuses,
 				},
 				statusUpdateErrorFunc,
+				nil,
 			)
 
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})

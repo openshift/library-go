@@ -196,6 +196,7 @@ func TestPruneAPIResources(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		)
 		eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
@@ -407,6 +408,7 @@ func TestPruneDiskResources(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			)
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
