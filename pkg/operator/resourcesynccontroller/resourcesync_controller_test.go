@@ -100,7 +100,7 @@ func TestSyncSecret(t *testing.T) {
 		kubeClient.CoreV1(),
 		eventRecorder,
 	)
-	c.preRunCachesSynced = []cache.InformerSynced{
+	c.cachesToSync = []cache.InformerSynced{
 		secretInformers.Core().V1().Secrets().Informer().HasSynced,
 	}
 	c.configMapGetter = kubeClient.CoreV1()
