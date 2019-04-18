@@ -1,6 +1,7 @@
 package: github.com/openshift/library-go
 import:
 - package: k8s.io/apimachinery
+  version: kubernetes-1.13.4
 - package: k8s.io/api
   version: kubernetes-1.13.4
 - package: k8s.io/apiserver
