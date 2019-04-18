@@ -36,11 +36,11 @@ import (
 )
 
 const (
-	operatorStatusInstallerControllerFailing = "InstallerControllerFailing"
-	nodeInstallerFailing                     = "NodeInstallerFailing"
-	installerControllerWorkQueueKey          = "key"
-	manifestDir                              = "pkg/operator/staticpod/controller/installer"
-	manifestInstallerPodPath                 = "manifests/installer-pod.yaml"
+	operatorStatusInstallerControllerDegraded = "InstallerControllerDegraded"
+	nodeInstallerDegraded                     = "NodeInstallerDegraded"
+	installerControllerWorkQueueKey           = "key"
+	manifestDir                               = "pkg/operator/staticpod/controller/installer"
+	manifestInstallerPodPath                  = "manifests/installer-pod.yaml"
 
 	hostResourceDirDir = "/etc/kubernetes/static-pod-resources"
 	hostPodManifestDir = "/etc/kubernetes/manifests"
@@ -486,14 +486,14 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 		failingDescription := strings.Join(failingStrings, "; ")
 
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    nodeInstallerFailing,
+			Type:    nodeInstallerDegraded,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "InstallerPodFailed",
 			Message: failingDescription,
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:   nodeInstallerFailing,
+			Type:   nodeInstallerDegraded,
 			Status: operatorv1.ConditionFalse,
 		})
 	}
@@ -716,7 +716,7 @@ func (c InstallerController) sync() error {
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusInstallerControllerFailing,
+		Type:   operatorStatusInstallerControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {

@@ -25,7 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const operatorStatusRevisionControllerFailing = "RevisionControllerFailing"
+const operatorStatusRevisionControllerDegraded = "RevisionControllerDegraded"
 const revisionControllerWorkQueueKey = "key"
 
 // RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
@@ -102,7 +102,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 	c.eventRecorder.Eventf("RevisionTriggered", "new revision %d triggered by %q", nextRevision, reason)
 	if err := c.createNewRevision(nextRevision); err != nil {
 		cond := operatorv1.OperatorCondition{
-			Type:    "RevisionControllerFailing",
+			Type:    "RevisionControllerDegraded",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "ContentCreationError",
 			Message: err.Error(),
@@ -115,7 +115,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 	}
 
 	cond := operatorv1.OperatorCondition{
-		Type:   "RevisionControllerFailing",
+		Type:   "RevisionControllerDegraded",
 		Status: operatorv1.ConditionFalse,
 	}
 	if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorConfigClient, v1helpers.UpdateStaticPodConditionFn(cond), func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
@@ -264,7 +264,7 @@ func (c RevisionController) sync() error {
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusRevisionControllerFailing,
+		Type:   operatorStatusRevisionControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {

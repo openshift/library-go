@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	operatorStatusMonitoringResourceControllerFailing = "MonitoringResourceControllerFailing"
-	controllerWorkQueueKey                            = "key"
-	manifestDir                                       = "pkg/operator/staticpod/controller/monitoring"
+	operatorStatusMonitoringResourceControllerDegraded = "MonitoringResourceControllerDegraded"
+	controllerWorkQueueKey                             = "key"
+	manifestDir                                        = "pkg/operator/staticpod/controller/monitoring"
 )
 
 type MonitoringResourceController struct {
@@ -127,7 +127,7 @@ func (c MonitoringResourceController) sync() error {
 
 	// NOTE: Failing to create the monitoring resources should not lead to operator failed state.
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusMonitoringResourceControllerFailing,
+		Type:   operatorStatusMonitoringResourceControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {

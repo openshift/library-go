@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	operatorStatusBackingResourceControllerFailing = "BackingResourceControllerFailing"
-	controllerWorkQueueKey                         = "key"
-	manifestDir                                    = "pkg/operator/staticpod/controller/backingresource"
+	operatorStatusBackingResourceControllerDegraded = "BackingResourceControllerDegraded"
+	controllerWorkQueueKey                          = "key"
+	manifestDir                                     = "pkg/operator/staticpod/controller/backingresource"
 )
 
 // BackingResourceController is a controller that watches the operator config and updates
@@ -117,7 +117,7 @@ func (c BackingResourceController) sync() error {
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusBackingResourceControllerFailing,
+		Type:   operatorStatusBackingResourceControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {

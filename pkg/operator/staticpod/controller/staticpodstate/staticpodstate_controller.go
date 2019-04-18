@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	staticPodStateControllerFailing      = "StaticPodsFailing"
+	staticPodStateControllerDegraded     = "StaticPodsDegraded"
 	staticPodStateControllerWorkQueueKey = "key"
 )
 
@@ -136,7 +136,7 @@ func (c *StaticPodStateController) sync() error {
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
-		Type:   staticPodStateControllerFailing,
+		Type:   staticPodStateControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	// Failing errors

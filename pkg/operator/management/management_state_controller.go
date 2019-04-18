@@ -60,7 +60,7 @@ func (c ManagementStateController) sync() error {
 	}
 
 	cond := operatorv1.OperatorCondition{
-		Type:   "ManagementStateFailing",
+		Type:   "ManagementStateDegraded",
 		Status: operatorv1.ConditionFalse,
 	}
 

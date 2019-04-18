@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	operatorStatusResourceSyncControllerFailing = "ResourceSyncControllerFailing"
-	controllerWorkQueueKey                      = "key"
+	operatorStatusResourceSyncControllerDegraded = "ResourceSyncControllerDegraded"
+	controllerWorkQueueKey                       = "key"
 )
 
 // ResourceSyncController is a controller that will copy source configmaps and secrets to their destinations.
@@ -190,7 +190,7 @@ func (c *ResourceSyncController) sync() error {
 
 	if len(errors) > 0 {
 		cond := operatorv1.OperatorCondition{
-			Type:    operatorStatusResourceSyncControllerFailing,
+			Type:    operatorStatusResourceSyncControllerDegraded,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "Error",
 			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
@@ -202,7 +202,7 @@ func (c *ResourceSyncController) sync() error {
 	}
 
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusResourceSyncControllerFailing,
+		Type:   operatorStatusResourceSyncControllerDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if _, _, updateError := v1helpers.UpdateStatus(c.operatorConfigClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
