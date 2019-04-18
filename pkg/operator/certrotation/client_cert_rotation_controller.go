@@ -84,7 +84,7 @@ func (c CertRotationController) sync() error {
 	syncErr := c.syncWorker()
 
 	condition := operatorv1.OperatorCondition{
-		Type:   "CertRotation_" + c.name + "_Failing",
+		Type:   "CertRotation_" + c.name + "_Degraded",
 		Status: operatorv1.ConditionFalse,
 	}
 	if syncErr != nil {

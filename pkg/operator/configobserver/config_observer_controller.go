@@ -24,7 +24,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const operatorStatusTypeConfigObservationFailing = "ConfigObservationFailing"
+const operatorStatusTypeConfigObservationDegraded = "ConfigObservationDegraded"
 const configObserverWorkKey = "key"
 
 // Listers is an interface which will be passed to the config observer funcs.  It is expected to be hard-cast to the "correct" type
@@ -127,7 +127,7 @@ func (c ConfigObserver) sync() error {
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusTypeConfigObservationFailing,
+		Type:   operatorStatusTypeConfigObservationDegraded,
 		Status: operatorv1.ConditionFalse,
 	}
 	if configError != nil {

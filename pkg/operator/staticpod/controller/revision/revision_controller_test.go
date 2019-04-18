@@ -92,7 +92,7 @@ func TestRevisionController(t *testing.T) {
 			testSecrets:     []RevisionResource{{Name: "test-secret"}},
 			expectSyncError: "synthetic requeue request",
 			validateStatus: func(t *testing.T, status *operatorv1.StaticPodOperatorStatus) {
-				if status.Conditions[0].Type != "RevisionControllerFailing" {
+				if status.Conditions[0].Type != "RevisionControllerDegraded" {
 					t.Errorf("expected status condition to be 'RevisionControllerFailing', got %v", status.Conditions[0].Type)
 				}
 				if status.Conditions[0].Reason != "ContentCreationError" {
