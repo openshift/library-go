@@ -1054,17 +1054,17 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &InstallerController{
-				targetNamespace:      tt.fields.targetNamespace,
-				staticPodName:        tt.fields.staticPodName,
-				configMaps:           tt.fields.configMaps,
-				secrets:              tt.fields.secrets,
-				command:              tt.fields.command,
-				operatorConfigClient: tt.fields.operatorConfigClient,
-				configMapsGetter:     tt.fields.kubeClient.CoreV1(),
-				podsGetter:           tt.fields.kubeClient.CoreV1(),
-				eventRecorder:        tt.fields.eventRecorder,
-				queue:                tt.fields.queue,
-				installerPodImageFn:  tt.fields.installerPodImageFn,
+				targetNamespace:     tt.fields.targetNamespace,
+				staticPodName:       tt.fields.staticPodName,
+				configMaps:          tt.fields.configMaps,
+				secrets:             tt.fields.secrets,
+				command:             tt.fields.command,
+				operatorClient:      tt.fields.operatorConfigClient,
+				configMapsGetter:    tt.fields.kubeClient.CoreV1(),
+				podsGetter:          tt.fields.kubeClient.CoreV1(),
+				eventRecorder:       tt.fields.eventRecorder,
+				queue:               tt.fields.queue,
+				installerPodImageFn: tt.fields.installerPodImageFn,
 			}
 			got, err := c.manageInstallationPods(tt.args.operatorSpec, tt.args.originalOperatorStatus, tt.args.resourceVersion)
 			if (err != nil) != tt.wantErr {

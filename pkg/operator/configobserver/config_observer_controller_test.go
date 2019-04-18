@@ -204,10 +204,10 @@ func TestSyncStatus(t *testing.T) {
 			eventClient := fake.NewSimpleClientset()
 
 			configObserver := ConfigObserver{
-				listers:              &fakeLister{},
-				operatorConfigClient: operatorConfigClient,
-				observers:            tc.observers,
-				eventRecorder:        events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}),
+				listers:        &fakeLister{},
+				operatorClient: operatorConfigClient,
+				observers:      tc.observers,
+				eventRecorder:  events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}),
 			}
 			err := configObserver.sync()
 			if tc.expectError && err == nil {

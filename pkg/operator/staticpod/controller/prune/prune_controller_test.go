@@ -211,21 +211,21 @@ func TestPruneAPIResources(t *testing.T) {
 		}
 
 		c := &PruneController{
-			targetNamespace:      tc.targetNamespace,
-			podResourcePrefix:    "test-pod",
-			command:              []string{"/bin/true"},
-			configMapGetter:      kubeClient.CoreV1(),
-			secretGetter:         kubeClient.CoreV1(),
-			podGetter:            kubeClient.CoreV1(),
-			eventRecorder:        eventRecorder,
-			operatorConfigClient: fakeStaticPodOperatorClient,
+			targetNamespace:   tc.targetNamespace,
+			podResourcePrefix: "test-pod",
+			command:           []string{"/bin/true"},
+			configMapGetter:   kubeClient.CoreV1(),
+			secretGetter:      kubeClient.CoreV1(),
+			podGetter:         kubeClient.CoreV1(),
+			eventRecorder:     eventRecorder,
+			operatorClient:    fakeStaticPodOperatorClient,
 		}
 		c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
 			return []metav1.OwnerReference{}, nil
 		}
 		c.prunerPodImageFn = func() string { return "docker.io/foo/bar" }
 
-		operatorSpec, _, _, err := c.operatorConfigClient.GetStaticPodOperatorState()
+		operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 		if err != nil {
 			t.Fatalf("unexpected error %q", err)
 		}
@@ -423,21 +423,21 @@ func TestPruneDiskResources(t *testing.T) {
 			}
 
 			c := &PruneController{
-				targetNamespace:      "test",
-				podResourcePrefix:    "test-pod",
-				command:              []string{"/bin/true"},
-				configMapGetter:      kubeClient.CoreV1(),
-				secretGetter:         kubeClient.CoreV1(),
-				podGetter:            kubeClient.CoreV1(),
-				eventRecorder:        eventRecorder,
-				operatorConfigClient: fakeStaticPodOperatorClient,
+				targetNamespace:   "test",
+				podResourcePrefix: "test-pod",
+				command:           []string{"/bin/true"},
+				configMapGetter:   kubeClient.CoreV1(),
+				secretGetter:      kubeClient.CoreV1(),
+				podGetter:         kubeClient.CoreV1(),
+				eventRecorder:     eventRecorder,
+				operatorClient:    fakeStaticPodOperatorClient,
 			}
 			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
 			c.prunerPodImageFn = func() string { return "docker.io/foo/bar" }
 
-			operatorSpec, _, _, err := c.operatorConfigClient.GetStaticPodOperatorState()
+			operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 			if err != nil {
 				t.Fatalf("unexpected error %q", err)
 			}

@@ -46,11 +46,10 @@ type StatusSyncer struct {
 	operatorClient        operatorv1helpers.OperatorClient
 	clusterOperatorClient configv1client.ClusterOperatorsGetter
 	clusterOperatorLister configv1listers.ClusterOperatorLister
-	clusterOperatorSynced cache.InformerSynced
-	eventRecorder         events.Recorder
 
-	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	cachesToSync  []cache.InformerSynced
+	queue         workqueue.RateLimitingInterface
+	eventRecorder events.Recorder
 }
 
 func NewClusterOperatorStatusController(
@@ -68,7 +67,6 @@ func NewClusterOperatorStatusController(
 		versionGetter:         versionGetter,
 		clusterOperatorClient: clusterOperatorClient,
 		clusterOperatorLister: clusterOperatorInformer.Lister(),
-		clusterOperatorSynced: clusterOperatorInformer.Informer().HasSynced,
 		operatorClient:        operatorClient,
 		eventRecorder:         recorder.WithComponentSuffix("status-controller"),
 
@@ -77,6 +75,9 @@ func NewClusterOperatorStatusController(
 
 	operatorClient.Informer().AddEventHandler(c.eventHandler())
 	clusterOperatorInformer.Informer().AddEventHandler(c.eventHandler())
+
+	c.cachesToSync = append(c.cachesToSync, operatorClient.Informer().HasSynced)
+	c.cachesToSync = append(c.cachesToSync, clusterOperatorInformer.Informer().HasSynced)
 
 	return c
 }
@@ -181,7 +182,7 @@ func (c *StatusSyncer) Run(workers int, stopCh <-chan struct{}) {
 
 	klog.Infof("Starting StatusSyncer-" + c.clusterOperatorName)
 	defer klog.Infof("Shutting down StatusSyncer-" + c.clusterOperatorName)
-	if !cache.WaitForCacheSync(stopCh, c.clusterOperatorSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		return
 	}
 

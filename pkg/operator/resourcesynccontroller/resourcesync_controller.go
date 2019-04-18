@@ -45,16 +45,14 @@ type ResourceSyncController struct {
 	// knownNamespaces is the list of namespaces we are watching.
 	knownNamespaces sets.String
 
-	preRunCachesSynced []cache.InformerSynced
-
-	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
-
 	configMapGetter            corev1client.ConfigMapsGetter
 	secretGetter               corev1client.SecretsGetter
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	operatorConfigClient       v1helpers.OperatorClient
-	eventRecorder              events.Recorder
+
+	cachesToSync  []cache.InformerSynced
+	queue         workqueue.RateLimitingInterface
+	eventRecorder events.Recorder
 }
 
 var _ ResourceSyncer = &ResourceSyncController{}
@@ -88,12 +86,15 @@ func NewResourceSyncController(
 		informers := kubeInformersForNamespaces.InformersFor(namespace)
 		informers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 		informers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-		c.preRunCachesSynced = append(c.preRunCachesSynced, informers.Core().V1().ConfigMaps().Informer().HasSynced)
-		c.preRunCachesSynced = append(c.preRunCachesSynced, informers.Core().V1().Secrets().Informer().HasSynced)
+
+		c.cachesToSync = append(c.cachesToSync, informers.Core().V1().ConfigMaps().Informer().HasSynced)
+		c.cachesToSync = append(c.cachesToSync, informers.Core().V1().Secrets().Informer().HasSynced)
 	}
 
 	// we watch this just in case someone messes with our status
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
+
+	c.cachesToSync = append(c.cachesToSync, operatorConfigClient.Informer().HasSynced)
 
 	return c
 }
@@ -217,7 +218,7 @@ func (c *ResourceSyncController) Run(workers int, stopCh <-chan struct{}) {
 
 	klog.Infof("Starting ResourceSyncController")
 	defer klog.Infof("Shutting down ResourceSyncController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
+	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		return
 	}
 

@@ -18,11 +18,10 @@ var workQueueKey = "instance"
 
 type LogLevelController struct {
 	operatorClient operatorv1helpers.OperatorClient
-	cachesToSync   []cache.InformerSynced
-	eventRecorder  events.Recorder
 
-	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	cachesToSync  []cache.InformerSynced
+	queue         workqueue.RateLimitingInterface
+	eventRecorder events.Recorder
 }
 
 // sets the klog level based on desired state
@@ -31,7 +30,6 @@ func NewClusterOperatorLoggingController(
 	recorder events.Recorder,
 ) *LogLevelController {
 	c := &LogLevelController{
-		cachesToSync:   []cache.InformerSynced{operatorClient.Informer().HasSynced},
 		operatorClient: operatorClient,
 		eventRecorder:  recorder.WithComponentSuffix("loglevel-controller"),
 
@@ -39,6 +37,8 @@ func NewClusterOperatorLoggingController(
 	}
 
 	operatorClient.Informer().AddEventHandler(c.eventHandler())
+
+	c.cachesToSync = append(c.cachesToSync, operatorClient.Informer().HasSynced)
 
 	return c
 }
