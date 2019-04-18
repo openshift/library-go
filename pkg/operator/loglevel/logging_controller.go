@@ -54,12 +54,20 @@ func (c LogLevelController) sync() error {
 	logLevel := fmt.Sprintf("%d", LogLevelToKlog(detailedSpec.OperatorLogLevel))
 
 	var level klog.Level
+
+	oldLevel, ok := level.Get().(klog.Level)
+	if !ok {
+		oldLevel = level
+	}
+
 	if err := level.Set(logLevel); err != nil {
 		c.eventRecorder.Warningf("LoglevelChangeFailed", "Unable to set loglevel level %v", err)
 		return err
 	}
 
-	c.eventRecorder.Eventf("LoglevelChange", "Changed loglevel level to %q", logLevel)
+	if oldLevel.String() != logLevel {
+		c.eventRecorder.Eventf("LoglevelChange", "Changed loglevel level to %q", logLevel)
+	}
 	return nil
 }
 
