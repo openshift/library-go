@@ -65,6 +65,7 @@ func TestNewMonitoringResourcesController(t *testing.T) {
 				},
 				&operatorv1.StaticPodOperatorStatus{},
 				nil,
+				nil,
 			),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
 				if len(actions) != 4 {
@@ -96,6 +97,7 @@ func TestNewMonitoringResourcesController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{},
+				nil,
 				nil,
 			),
 			startingDynamicObjects: []runtime.Object{mustAssetServiceMonitor("target-namespace")},

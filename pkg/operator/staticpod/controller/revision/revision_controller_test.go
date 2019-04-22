@@ -59,6 +59,7 @@ func TestRevisionController(t *testing.T) {
 				},
 				&operatorv1.StaticPodOperatorStatus{},
 				nil,
+				nil,
 			),
 			validateActions: func(t *testing.T, actions []clienttesting.Action) {
 				createdObjects := filterCreateActions(actions)
@@ -86,6 +87,7 @@ func TestRevisionController(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			),
 			testConfigs:     []RevisionResource{{Name: "test-config"}},
@@ -122,6 +124,7 @@ func TestRevisionController(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			),
 			startingObjects: []runtime.Object{
@@ -188,6 +191,7 @@ func TestRevisionController(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			),
 			startingObjects: []runtime.Object{
@@ -267,6 +271,7 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				nil,
+				nil,
 			),
 			startingObjects: []runtime.Object{
 				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
@@ -327,6 +332,7 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				nil,
+				nil,
 			),
 			startingObjects: []runtime.Object{
 				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
@@ -363,6 +369,7 @@ func TestRevisionController(t *testing.T) {
 						},
 					},
 				},
+				nil,
 				nil,
 			),
 			startingObjects: []runtime.Object{

@@ -115,6 +115,7 @@ func TestNewNodeController(t *testing.T) {
 					NodeStatuses:            test.startNodeStatus,
 				},
 				nil,
+				nil,
 			)
 
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
