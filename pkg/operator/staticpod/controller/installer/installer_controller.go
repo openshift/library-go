@@ -69,6 +69,7 @@ type InstallerController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
 
 	configMapsGetter corev1client.ConfigMapsGetter
+	secretsGetter    corev1client.SecretsGetter
 	podsGetter       corev1client.PodsGetter
 
 	cachesToSync  []cache.InformerSynced
@@ -119,6 +120,7 @@ func NewInstallerController(
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configMapsGetter corev1client.ConfigMapsGetter,
+	secretsGetter corev1client.SecretsGetter,
 	podsGetter corev1client.PodsGetter,
 	eventRecorder events.Recorder,
 ) *InstallerController {
@@ -131,6 +133,7 @@ func NewInstallerController(
 
 		operatorClient:   operatorClient,
 		configMapsGetter: configMapsGetter,
+		secretsGetter:    secretsGetter,
 		podsGetter:       podsGetter,
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 
@@ -700,6 +703,45 @@ func getInstallerPodImageFromEnv() string {
 	return os.Getenv("OPERATOR_IMAGE")
 }
 
+// ensureCerts makes sure that our certs are ready or it will return an error to trigger a requeue so that we try again
+func (c InstallerController) ensureCerts() error {
+	missing := []string{}
+	for _, cm := range c.certConfigMaps {
+		if cm.Optional {
+			continue
+		}
+		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(cm.Name, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if apierrors.IsNotFound(err) {
+			missing = append(missing, "configmaps/"+cm.Name)
+			continue
+		}
+		return err
+	}
+	for _, s := range c.certSecrets {
+		if s.Optional {
+			continue
+		}
+		_, err := c.secretsGetter.Secrets(c.targetNamespace).Get(s.Name, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if apierrors.IsNotFound(err) {
+			missing = append(missing, "secrets/"+s.Name)
+			continue
+		}
+		return err
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("missing: %v", strings.Join(missing, ","))
+}
+
 func (c InstallerController) sync() error {
 	operatorSpec, originalOperatorStatus, resourceVersion, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
@@ -709,6 +751,10 @@ func (c InstallerController) sync() error {
 
 	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
+	}
+
+	if err := c.ensureCerts(); err != nil {
+		return err
 	}
 
 	requeue, syncErr := c.manageInstallationPods(operatorSpec, operatorStatus, resourceVersion)
