@@ -35,8 +35,8 @@ func Run() error {
 	manifestDir := flag.String("manifests-dir", "manifests", "the directory with existing CRD manifests")
 	outputDir := flag.String("output-dir", "", "optional directory to output the kubebuilder CRDs. By default a temporary directory is used.")
 	verifyOnly := flag.Bool("verify-only", false, "do not write files, only compare and return with return code 1 if dirty")
-	domain := flag.String("domain", "", "the domain appended to group names (optional).")
-	repo := flag.String("repo", "", "the repository package name.")
+	domain := flag.String("domain", "", "the domain appended to group names.")
+	repo := flag.String("repo", "", "the repository package name (optional).")
 
 	flag.Parse()
 
