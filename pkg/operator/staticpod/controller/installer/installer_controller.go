@@ -444,7 +444,8 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	}
 
 	revisionStrings := []string{}
-	for revision, count := range counts {
+	for _, revision := range Int32KeySet(counts).List() {
+		count := counts[revision]
 		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, revision))
 	}
 	revisionDescription := strings.Join(revisionStrings, "; ")
@@ -482,7 +483,8 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 
 	if len(failing) > 0 {
 		failingStrings := []string{}
-		for failingRevision, errorStrings := range failing {
+		for _, failingRevision := range Int32KeySet(failing).List() {
+			errorStrings := failing[failingRevision]
 			// Do not report failing for nodes that are actually not failing.
 			if failingCount[failingRevision] == 0 {
 				continue
