@@ -21,16 +21,20 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
-func SetOperandVersion(versions *[]configv1.OperandVersion, operandVersion configv1.OperandVersion) {
+// SetOperandVersion sets the new version and returns the previous value.
+func SetOperandVersion(versions *[]configv1.OperandVersion, operandVersion configv1.OperandVersion) string {
 	if versions == nil {
 		versions = &[]configv1.OperandVersion{}
 	}
 	existingVersion := FindOperandVersion(*versions, operandVersion.Name)
 	if existingVersion == nil {
 		*versions = append(*versions, operandVersion)
-		return
+		return ""
 	}
+
+	previous := existingVersion.Version
 	existingVersion.Version = operandVersion.Version
+	return previous
 }
 
 func FindOperandVersion(versions []configv1.OperandVersion, name string) *configv1.OperandVersion {
