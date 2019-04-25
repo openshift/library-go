@@ -1,20 +1,14 @@
 package v1helpers
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -108,33 +102,6 @@ func IsOperatorConditionPresentAndEqual(conditions []operatorv1.OperatorConditio
 		}
 	}
 	return false
-}
-
-func EnsureOperatorConfigExists(client dynamic.Interface, operatorConfigBytes []byte, gvr schema.GroupVersionResource) {
-	configJson, err := yaml.YAMLToJSON(operatorConfigBytes)
-	if err != nil {
-		panic(err)
-	}
-	operatorConfigObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, configJson)
-	if err != nil {
-		panic(err)
-	}
-
-	requiredOperatorConfig, ok := operatorConfigObj.(*unstructured.Unstructured)
-	if !ok {
-		panic(fmt.Sprintf("unexpected object in %t", operatorConfigObj))
-	}
-
-	_, err = client.Resource(gvr).Get(requiredOperatorConfig.GetName(), metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		if _, err := client.Resource(gvr).Create(requiredOperatorConfig, metav1.CreateOptions{}); err != nil {
-			panic(err)
-		}
-		return
-	}
-	if err != nil {
-		panic(err)
-	}
 }
 
 // UpdateOperatorSpecFunc is a func that mutates an operator spec.
