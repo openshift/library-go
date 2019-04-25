@@ -422,19 +422,16 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	failingCount := map[int32]int{}
 	failing := map[int32][]string{}
 	for _, currNodeStatus := range newStatus.NodeStatuses {
+		counts[currNodeStatus.CurrentRevision] = counts[currNodeStatus.CurrentRevision] + 1
 		if currNodeStatus.CurrentRevision != 0 {
 			numAvailable++
 		}
 
 		// keep track of failures so that we can report failing status
 		if currNodeStatus.LastFailedRevision != 0 {
-			existing := failingCount[currNodeStatus.CurrentRevision]
-			failingCount[currNodeStatus.CurrentRevision] = existing + 1
+			failingCount[currNodeStatus.LastFailedRevision] = failingCount[currNodeStatus.LastFailedRevision] + 1
 			failing[currNodeStatus.LastFailedRevision] = append(failing[currNodeStatus.LastFailedRevision], currNodeStatus.LastFailedRevisionErrors...)
 		}
-
-		existing := counts[currNodeStatus.CurrentRevision]
-		counts[currNodeStatus.CurrentRevision] = existing + 1
 
 		if newStatus.LatestAvailableRevision == currNodeStatus.CurrentRevision {
 			numAtLatestRevision += 1
@@ -447,6 +444,10 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	for _, revision := range Int32KeySet(counts).List() {
 		count := counts[revision]
 		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, revision))
+	}
+	// if we are progressing and no nodes have achieved that level, we should indicate
+	if numProgressing > 0 && counts[newStatus.LatestAvailableRevision] == 0 {
+		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes have achieved new revision %d", 0, newStatus.LatestAvailableRevision))
 	}
 	revisionDescription := strings.Join(revisionStrings, "; ")
 
