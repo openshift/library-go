@@ -741,8 +741,9 @@ func (c InstallerController) ensureCerts() error {
 		return nil
 	}
 
-	c.eventRecorder.Eventf("RequiredCertsMissing", strings.Join(missing, ","))
-	return fmt.Errorf("missing: %v", strings.Join(missing, ","))
+	c.eventRecorder.Warningf("RequiredCertsMissing", strings.Join(missing, ","))
+
+	return fmt.Errorf("required certs missing: %v", strings.Join(missing, ","))
 }
 
 func (c InstallerController) sync() error {
@@ -756,17 +757,19 @@ func (c InstallerController) sync() error {
 		return nil
 	}
 
-	if err := c.ensureCerts(); err != nil {
-		return err
+	err = c.ensureCerts()
+
+	// Only manage installation pods when all required certs are present.
+	if err == nil {
+		requeue, syncErr := c.manageInstallationPods(operatorSpec, operatorStatus, resourceVersion)
+		if requeue && syncErr == nil {
+			return fmt.Errorf("synthetic requeue request")
+		}
+		err = syncErr
 	}
 
-	requeue, syncErr := c.manageInstallationPods(operatorSpec, operatorStatus, resourceVersion)
-	if requeue && syncErr == nil {
-		return fmt.Errorf("synthetic requeue request")
-	}
-	err = syncErr
-
-	// update failing condition
+	// Update failing condition
+	// If required certs are missing, this will report degraded as we can't create installer pods because of this pre-condition.
 	cond := operatorv1.OperatorCondition{
 		Type:   operatorStatusInstallerControllerDegraded,
 		Status: operatorv1.ConditionFalse,
