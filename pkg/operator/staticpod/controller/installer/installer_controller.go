@@ -741,6 +741,7 @@ func (c InstallerController) ensureCerts() error {
 		return nil
 	}
 
+	c.eventRecorder.Eventf("RequiredCertsMissing", strings.Join(missing, ","))
 	return fmt.Errorf("missing: %v", strings.Join(missing, ","))
 }
 
