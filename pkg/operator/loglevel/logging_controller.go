@@ -51,23 +51,20 @@ func (c LogLevelController) sync() error {
 		return err
 	}
 
-	logLevel := fmt.Sprintf("%d", LogLevelToKlog(detailedSpec.OperatorLogLevel))
+	currentLogLevel := CurrentLogLevel()
 
-	var level klog.Level
-
-	oldLevel, ok := level.Get().(klog.Level)
-	if !ok {
-		oldLevel = level
+	// When the current loglevel is the desired one, do nothing
+	if currentLogLevel == detailedSpec.OperatorLogLevel {
+		return nil
 	}
 
-	if err := level.Set(logLevel); err != nil {
-		c.eventRecorder.Warningf("LoglevelChangeFailed", "Unable to set loglevel level %v", err)
+	// Set the new loglevel if the operator spec changed
+	if err := SetVerbosityValue(detailedSpec.OperatorLogLevel); err != nil {
+		c.eventRecorder.Warningf("OperatorLoglevelChangeFailed", "Unable to change operator log level from %q to %q: %v", currentLogLevel, detailedSpec.OperatorLogLevel, err)
 		return err
 	}
 
-	if oldLevel.String() != logLevel {
-		c.eventRecorder.Eventf("LoglevelChange", "Changed loglevel level to %q", logLevel)
-	}
+	c.eventRecorder.Eventf("OperatorLoglevelChange", "Operator log level changed from %q to %q", currentLogLevel, detailedSpec.OperatorLogLevel)
 	return nil
 }
 
