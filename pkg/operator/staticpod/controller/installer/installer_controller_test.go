@@ -212,16 +212,13 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	}
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if generation := currStatus.NodeStatuses[0].LastFailedRevision; generation != 2 {
-		t.Errorf("expected last failed revision generation for node to be 2, got %d", generation)
+	if generation := currStatus.NodeStatuses[0].LastFailedRevision; generation != 0 {
+		t.Errorf("expected last failed revision generation for node to be 0, got %d", generation)
 	}
 
-	if errors := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errors) > 0 {
-		if errors[0] != "installer: fake death" {
-			t.Errorf("expected the error to be set to 'fake death', got %#v", errors)
-		}
-	} else {
-		t.Errorf("expected errors to be not empty")
+	// installer pod failures are suppressed
+	if errors := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errors) != 0 {
+		t.Error(errors)
 	}
 
 	if v1helpers.FindOperatorCondition(currStatus.Conditions, operatorv1.OperatorStatusTypeProgressing) == nil {
