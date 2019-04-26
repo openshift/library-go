@@ -21,6 +21,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -1378,6 +1379,7 @@ func TestEnsureCert(t *testing.T) {
 				targetNamespace: "ns",
 				certConfigMaps:  test.certConfigMaps,
 				certSecrets:     test.certSecrets,
+				eventRecorder:   eventstesting.NewTestingEventRecorder(t),
 
 				configMapsGetter: client.CoreV1(),
 				secretsGetter:    client.CoreV1(),
