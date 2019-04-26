@@ -297,7 +297,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 			}
 
 			pendingNewRevision := operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision
-			newCurrNodeState, oom, err := c.newNodeStateForInstallInProgress(currNodeState, pendingNewRevision)
+			newCurrNodeState, installerPodFailed, err := c.newNodeStateForInstallInProgress(currNodeState, pendingNewRevision)
 			if err != nil {
 				return true, err
 			}
@@ -320,12 +320,12 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 			} else {
 				klog.V(2).Infof("%q is in transition to %d, but has not made progress", currNodeState.NodeName, currNodeState.TargetRevision)
 			}
-			if !oom {
+
+			// We want to retry the installer pod by deleting and then rekicking. Also we don't set LastFailedRevision.
+			if !installerPodFailed {
 				break
 			}
-
-			// OOM is special. We want to retry the installer pod by falling through here. Also we don't set LastFailedRevision.
-			klog.V(2).Infof("Retrying %q for revision %d because it was OOM killed", currNodeState.NodeName, currNodeState.TargetRevision)
+			klog.Infof("Retrying %q for revision %d because it failed", currNodeState.NodeName, currNodeState.TargetRevision)
 			installerPodName := getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName)
 			if err := c.podsGetter.Pods(c.targetNamespace).Delete(installerPodName, &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return true, err
@@ -507,7 +507,7 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState, whether it was killed by OOM or an error
-func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, newRevisionPending bool) (status *operatorv1.NodeStatus, oom bool, err error) {
+func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, newRevisionPending bool) (status *operatorv1.NodeStatus, installerPodFailed bool, err error) {
 	ret := currNodeState.DeepCopy()
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -560,10 +560,9 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) > 0 {
 				errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
-				if containerStatus.State.Terminated.Reason == "OOMKilled" {
-					// do not set LastFailedRevision
-					return currNodeState, true, nil
-				}
+				c.eventRecorder.Warningf("InstallerPodFailed", "installer errors: %v", strings.Join(errors, "\n"))
+				// do not set LastFailedRevision
+				return currNodeState, true, nil
 			}
 		}
 	}
