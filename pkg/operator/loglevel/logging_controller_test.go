@@ -15,8 +15,7 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 	}
 
 	operatorSpec := &operatorv1.OperatorSpec{
-		ManagementState:  operatorv1.Managed,
-		OperatorLogLevel: operatorv1.Normal,
+		ManagementState: operatorv1.Managed,
 	}
 
 	fakeStaticPodOperatorClient := v1helpers.NewFakeOperatorClient(
@@ -30,6 +29,7 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 	controller := NewClusterOperatorLoggingController(fakeStaticPodOperatorClient, recorder)
 
 	// no-op, desired == current
+	// When OperatorLogLevel is "" we assume the loglevel is Normal.
 	if err := controller.sync(); err != nil {
 		t.Fatal(err)
 	}

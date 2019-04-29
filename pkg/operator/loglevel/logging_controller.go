@@ -10,6 +10,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -52,19 +54,24 @@ func (c LogLevelController) sync() error {
 	}
 
 	currentLogLevel := CurrentLogLevel()
+	desiredLogLevel := detailedSpec.OperatorLogLevel
+
+	if len(desiredLogLevel) == 0 {
+		desiredLogLevel = operatorv1.Normal
+	}
 
 	// When the current loglevel is the desired one, do nothing
-	if currentLogLevel == detailedSpec.OperatorLogLevel {
+	if currentLogLevel == desiredLogLevel {
 		return nil
 	}
 
 	// Set the new loglevel if the operator spec changed
-	if err := SetVerbosityValue(detailedSpec.OperatorLogLevel); err != nil {
-		c.eventRecorder.Warningf("OperatorLoglevelChangeFailed", "Unable to change operator log level from %q to %q: %v", currentLogLevel, detailedSpec.OperatorLogLevel, err)
+	if err := SetVerbosityValue(desiredLogLevel); err != nil {
+		c.eventRecorder.Warningf("OperatorLoglevelChangeFailed", "Unable to change operator log level from %q to %q: %v", currentLogLevel, desiredLogLevel, err)
 		return err
 	}
 
-	c.eventRecorder.Eventf("OperatorLoglevelChange", "Operator log level changed from %q to %q", currentLogLevel, detailedSpec.OperatorLogLevel)
+	c.eventRecorder.Eventf("OperatorLoglevelChange", "Operator log level changed from %q to %q", currentLogLevel, desiredLogLevel)
 	return nil
 }
 
