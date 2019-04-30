@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -333,7 +334,19 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	return nil
 }
 
+// installerHoldFileExists checks if the INSTALLER_HOLD file exists in the kubelet manifest directory.
+// If it exists, fail the installer pod. This is to support restoration phase.
+func (o *InstallOptions) installerHoldFileExists() bool {
+	if _, err := os.Stat(filepath.Join(o.PodManifestDir, "..", "INSTALLER_HOLD")); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 func (o *InstallOptions) Run(ctx context.Context) error {
+	if o.installerHoldFileExists() {
+		return fmt.Errorf("INSTALLER_HOLD file found, failing installer pod")
+	}
 	var eventTarget *corev1.ObjectReference
 
 	err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
