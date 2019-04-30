@@ -87,16 +87,16 @@ type InstallerController struct {
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
 type InstallerPodMutationFunc func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error
 
-func (o *InstallerController) WithInstallerPodMutationFn(installerPodMutationFn InstallerPodMutationFunc) *InstallerController {
-	o.installerPodMutationFns = append(o.installerPodMutationFns, installerPodMutationFn)
-	return o
+func (c *InstallerController) WithInstallerPodMutationFn(installerPodMutationFn InstallerPodMutationFunc) *InstallerController {
+	c.installerPodMutationFns = append(c.installerPodMutationFns, installerPodMutationFn)
+	return c
 }
 
-func (o *InstallerController) WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) *InstallerController {
-	o.certDir = certDir
-	o.certConfigMaps = certConfigMaps
-	o.certSecrets = certSecrets
-	return o
+func (c *InstallerController) WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) *InstallerController {
+	c.certDir = certDir
+	c.certConfigMaps = certConfigMaps
+	c.certSecrets = certSecrets
+	return c
 }
 
 // staticPodState is the status of a static pod that has been installed to a node.
@@ -196,14 +196,14 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, revision, _, err := getStaticPodState(currNodeState.NodeName)
+		state, currentRevision, _, err := getStaticPodState(currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, nil
 		}
 		if err != nil {
 			return 0, err
 		}
-		revisionNum, err := strconv.Atoi(revision)
+		revisionNum, err := strconv.Atoi(currentRevision)
 		if err != nil {
 			return i, nil
 		}
@@ -221,11 +221,11 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		_, revision, _, err := getStaticPodState(currNodeState.NodeName)
+		_, currentRevision, _, err := getStaticPodState(currNodeState.NodeName)
 		if err != nil {
 			return 0, err
 		}
-		revisionNum, err := strconv.Atoi(revision)
+		revisionNum, err := strconv.Atoi(currentRevision)
 		if err != nil {
 			return i, nil
 		}
@@ -441,9 +441,9 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	}
 
 	revisionStrings := []string{}
-	for _, revision := range Int32KeySet(counts).List() {
-		count := counts[revision]
-		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, revision))
+	for _, currentRevision := range Int32KeySet(counts).List() {
+		count := counts[currentRevision]
+		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, currentRevision))
 	}
 	// if we are progressing and no nodes have achieved that level, we should indicate
 	if numProgressing > 0 && counts[newStatus.LatestAvailableRevision] == 0 {
@@ -532,12 +532,12 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 			break
 		}
 
-		state, revision, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
+		state, currentRevision, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
 		if err != nil {
 			return nil, false, err
 		}
 
-		if revision != strconv.Itoa(int(currNodeState.TargetRevision)) {
+		if currentRevision != strconv.Itoa(int(currNodeState.TargetRevision)) {
 			// new updated pod to be launched
 			break
 		}
@@ -701,10 +701,12 @@ func getInstallerPodImageFromEnv() string {
 	return os.Getenv("OPERATOR_IMAGE")
 }
 
-// ensureCerts makes sure that our certs are ready or it will return an error to trigger a requeue so that we try again
-func (c InstallerController) ensureCerts() error {
-	missing := []string{}
-	for _, cm := range c.certConfigMaps {
+// ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
+func (c InstallerController) ensureRequiredResourcesExist() error {
+	missingSecrets := []string{}
+	missingConfigs := []string{}
+
+	for _, cm := range append(append([]revision.RevisionResource{}, c.certConfigMaps...), c.configMaps...) {
 		if cm.Optional {
 			continue
 		}
@@ -713,12 +715,13 @@ func (c InstallerController) ensureCerts() error {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missing = append(missing, "configmaps/"+cm.Name)
+			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+cm.Name)
 			continue
 		}
 		return err
 	}
-	for _, s := range c.certSecrets {
+
+	for _, s := range append(append([]revision.RevisionResource{}, c.certSecrets...), c.secrets...) {
 		if s.Optional {
 			continue
 		}
@@ -727,19 +730,28 @@ func (c InstallerController) ensureCerts() error {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missing = append(missing, "secrets/"+s.Name)
+			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+s.Name)
 			continue
 		}
 		return err
 	}
 
-	if len(missing) == 0 {
+	if len(missingSecrets) == 0 && len(missingConfigs) == 0 {
 		return nil
 	}
 
-	c.eventRecorder.Warningf("RequiredCertsMissing", strings.Join(missing, ","))
+	// Report missing resources via error and warning event.
+	messages := []string{}
+	if len(missingConfigs) > 0 {
+		messages = append(messages, fmt.Sprintf("configmaps: %s", strings.Join(missingConfigs, ",")))
+	}
+	if len(missingSecrets) > 0 {
+		messages = append(messages, fmt.Sprintf("secrets: %s", strings.Join(missingSecrets, ",")))
+	}
 
-	return fmt.Errorf("required certs missing: %v", strings.Join(missing, ","))
+	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(messages, ", "))
+
+	return fmt.Errorf("required resources missing: %v", strings.Join(messages, ", "))
 }
 
 func (c InstallerController) sync() error {
@@ -753,7 +765,7 @@ func (c InstallerController) sync() error {
 		return nil
 	}
 
-	err = c.ensureCerts()
+	err = c.ensureRequiredResourcesExist()
 
 	// Only manage installation pods when all required certs are present.
 	if err == nil {
