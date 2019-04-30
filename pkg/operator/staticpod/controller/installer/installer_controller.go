@@ -701,10 +701,12 @@ func getInstallerPodImageFromEnv() string {
 	return os.Getenv("OPERATOR_IMAGE")
 }
 
-// ensureCerts makes sure that our certs are ready or it will return an error to trigger a requeue so that we try again
-func (c InstallerController) ensureCerts() error {
-	missing := []string{}
-	for _, cm := range c.certConfigMaps {
+// ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
+func (c InstallerController) ensureRequiredResourcesExist() error {
+	missingSecrets := []string{}
+	missingConfigs := []string{}
+
+	for _, cm := range append(append([]revision.RevisionResource{}, c.certConfigMaps...), c.configMaps...) {
 		if cm.Optional {
 			continue
 		}
@@ -713,12 +715,13 @@ func (c InstallerController) ensureCerts() error {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missing = append(missing, "configmaps/"+cm.Name)
+			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+cm.Name)
 			continue
 		}
 		return err
 	}
-	for _, s := range c.certSecrets {
+
+	for _, s := range append(append([]revision.RevisionResource{}, c.certSecrets...), c.secrets...) {
 		if s.Optional {
 			continue
 		}
@@ -727,19 +730,28 @@ func (c InstallerController) ensureCerts() error {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missing = append(missing, "secrets/"+s.Name)
+			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+s.Name)
 			continue
 		}
 		return err
 	}
 
-	if len(missing) == 0 {
+	if len(missingSecrets) == 0 && len(missingConfigs) == 0 {
 		return nil
 	}
 
-	c.eventRecorder.Warningf("RequiredCertsMissing", strings.Join(missing, ","))
+	// Report missing resources via error and warning event.
+	messages := []string{}
+	if len(missingConfigs) > 0 {
+		messages = append(messages, fmt.Sprintf("configmaps: %s", strings.Join(missingConfigs, ",")))
+	}
+	if len(missingSecrets) > 0 {
+		messages = append(messages, fmt.Sprintf("secrets: %s", strings.Join(missingSecrets, ",")))
+	}
 
-	return fmt.Errorf("required certs missing: %v", strings.Join(missing, ","))
+	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(messages, ", "))
+
+	return fmt.Errorf("required resources missing: %v", strings.Join(messages, ", "))
 }
 
 func (c InstallerController) sync() error {
@@ -753,7 +765,7 @@ func (c InstallerController) sync() error {
 		return nil
 	}
 
-	err = c.ensureCerts()
+	err = c.ensureRequiredResourcesExist()
 
 	// Only manage installation pods when all required certs are present.
 	if err == nil {

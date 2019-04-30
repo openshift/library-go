@@ -27,7 +27,10 @@ import (
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset()
+	kubeClient := fake.NewSimpleClientset(
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+	)
 
 	var installerPod *corev1.Pod
 
@@ -242,7 +245,10 @@ func getPodsReactor(pods ...*corev1.Pod) ktesting.ReactionFunc {
 }
 
 func TestCreateInstallerPod(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset()
+	kubeClient := fake.NewSimpleClientset(
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+	)
 
 	var installerPod *corev1.Pod
 	kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -878,6 +884,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			installerPods := map[string]*corev1.Pod{}
 			updatedStaticPods := map[string]*corev1.Pod{}
 
+			namespace := fmt.Sprintf("test-%d", i)
+
 			installerNodeAndID := func(installerName string) (string, int) {
 				ss := strings.SplitN(strings.TrimPrefix(installerName, "installer-"), "-", 2)
 				id, err := strconv.Atoi(ss[0])
@@ -887,7 +895,10 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				return ss[1], id
 			}
 
-			kubeClient := fake.NewSimpleClientset()
+			kubeClient := fake.NewSimpleClientset(
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test-secret"}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test-config"}},
+			)
 			kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 				createdPod := action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
 				createdInstallerPods = append(createdInstallerPods, createdPod)
@@ -982,7 +993,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
 
 			c := NewInstallerController(
-				fmt.Sprintf("test-%d", i), "test-pod",
+				namespace, "test-pod",
 				[]revision.RevisionResource{{Name: "test-config"}},
 				[]revision.RevisionResource{{Name: "test-secret"}},
 				[]string{"/bin/true"},
@@ -1323,11 +1334,14 @@ func TestSetConditions(t *testing.T) {
 
 }
 
-func TestEnsureCert(t *testing.T) {
+func TestEnsureRequiredResources(t *testing.T) {
 	tests := []struct {
 		name           string
 		certConfigMaps []revision.RevisionResource
 		certSecrets    []revision.RevisionResource
+
+		configMaps []revision.RevisionResource
+		secrets    []revision.RevisionResource
 
 		startingResources []runtime.Object
 		expectedErr       string
@@ -1346,16 +1360,39 @@ func TestEnsureCert(t *testing.T) {
 		},
 		{
 			name: "wait-required",
+			configMaps: []revision.RevisionResource{
+				{Name: "foo-cm"},
+			},
+			secrets: []revision.RevisionResource{
+				{Name: "foo-s"},
+			},
+			expectedErr: "required resources missing: configmaps: ns/foo-cm, secrets: ns/foo-s",
+		},
+		{
+			name: "found-required",
+			configMaps: []revision.RevisionResource{
+				{Name: "foo-cm"},
+			},
+			secrets: []revision.RevisionResource{
+				{Name: "foo-s"},
+			},
+			startingResources: []runtime.Object{
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-cm"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-s"}},
+			},
+		},
+		{
+			name: "wait-required-certs",
 			certConfigMaps: []revision.RevisionResource{
 				{Name: "foo-cm"},
 			},
 			certSecrets: []revision.RevisionResource{
 				{Name: "foo-s"},
 			},
-			expectedErr: "configmaps/foo-cm,secrets/foo-s",
+			expectedErr: "required resources missing: configmaps: ns/foo-cm, secrets: ns/foo-s",
 		},
 		{
-			name: "found-required",
+			name: "found-required-certs",
 			certConfigMaps: []revision.RevisionResource{
 				{Name: "foo-cm"},
 			},
@@ -1376,13 +1413,15 @@ func TestEnsureCert(t *testing.T) {
 				targetNamespace: "ns",
 				certConfigMaps:  test.certConfigMaps,
 				certSecrets:     test.certSecrets,
+				configMaps:      test.configMaps,
+				secrets:         test.secrets,
 				eventRecorder:   eventstesting.NewTestingEventRecorder(t),
 
 				configMapsGetter: client.CoreV1(),
 				secretsGetter:    client.CoreV1(),
 			}
 
-			actual := c.ensureCerts()
+			actual := c.ensureRequiredResourcesExist()
 			switch {
 			case len(test.expectedErr) == 0 && actual == nil:
 			case len(test.expectedErr) == 0 && actual != nil:
