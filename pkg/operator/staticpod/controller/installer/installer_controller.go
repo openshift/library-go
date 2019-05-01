@@ -702,11 +702,11 @@ func getInstallerPodImageFromEnv() string {
 }
 
 // ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
-func (c InstallerController) ensureRequiredResourcesExist() error {
+func (c InstallerController) ensureRequiredResourcesExist(revisionNumber int32) error {
 	missingSecrets := []string{}
 	missingConfigs := []string{}
 
-	for _, cm := range append(append([]revision.RevisionResource{}, c.certConfigMaps...), c.configMaps...) {
+	for _, cm := range c.certConfigMaps {
 		if cm.Optional {
 			continue
 		}
@@ -720,8 +720,7 @@ func (c InstallerController) ensureRequiredResourcesExist() error {
 		}
 		return err
 	}
-
-	for _, s := range append(append([]revision.RevisionResource{}, c.certSecrets...), c.secrets...) {
+	for _, s := range c.certSecrets {
 		if s.Optional {
 			continue
 		}
@@ -731,6 +730,37 @@ func (c InstallerController) ensureRequiredResourcesExist() error {
 		}
 		if apierrors.IsNotFound(err) {
 			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+s.Name)
+			continue
+		}
+		return err
+	}
+
+	for _, cm := range c.configMaps {
+		name := fmt.Sprintf("%s-%d", cm.Name, revisionNumber)
+		if cm.Optional {
+			continue
+		}
+		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(name, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if apierrors.IsNotFound(err) {
+			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+name)
+			continue
+		}
+		return err
+	}
+	for _, s := range c.secrets {
+		name := fmt.Sprintf("%s-%d", s.Name, revisionNumber)
+		if s.Optional {
+			continue
+		}
+		_, err := c.secretsGetter.Secrets(c.targetNamespace).Get(name, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if apierrors.IsNotFound(err) {
+			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+name)
 			continue
 		}
 		return err
@@ -765,7 +795,7 @@ func (c InstallerController) sync() error {
 		return nil
 	}
 
-	err = c.ensureRequiredResourcesExist()
+	err = c.ensureRequiredResourcesExist(originalOperatorStatus.LatestAvailableRevision)
 
 	// Only manage installation pods when all required certs are present.
 	if err == nil {
