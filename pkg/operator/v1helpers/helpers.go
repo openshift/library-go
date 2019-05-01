@@ -165,6 +165,8 @@ func UpdateStatus(client OperatorClient, updateFuncs ...UpdateStatusFunc) (*oper
 		}
 
 		if equality.Semantic.DeepEqual(oldStatus, newStatus) {
+			// We return the newStatus which is a deep copy of oldStatus but with all update funcs applied.
+			updatedOperatorStatus = newStatus
 			return nil
 		}
 
