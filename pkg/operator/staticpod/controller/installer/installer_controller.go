@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -702,73 +703,74 @@ func getInstallerPodImageFromEnv() string {
 	return os.Getenv("OPERATOR_IMAGE")
 }
 
-// ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
-func (c InstallerController) ensureRequiredResourcesExist(revisionNumber int32) error {
-	missingSecrets := []string{}
-	missingConfigs := []string{}
-
-	configMapsNames := sets.NewString()
-	for _, c := range c.configMaps {
-		configMapsNames.Insert(c.Name)
-	}
-	for _, cm := range append(append([]revision.RevisionResource{}, c.certConfigMaps...), c.configMaps...) {
-		if cm.Optional {
+func (c InstallerController) ensureSecretRevisionResourcesExists(secrets []revision.RevisionResource, hasRevisionSuffix bool, latestRevisionNumber int32) error {
+	missing := sets.NewString()
+	for _, secret := range secrets {
+		if secret.Optional {
 			continue
 		}
-		name := cm.Name
-		if configMapsNames.Has(name) {
-			name = fmt.Sprintf("%s-%d", name, revisionNumber)
-		}
-		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(name, metav1.GetOptions{})
-		if err == nil {
-			continue
-		}
-		if apierrors.IsNotFound(err) {
-			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+name)
-			continue
-		}
-		return err
-	}
-
-	secretsNames := sets.NewString()
-	for _, s := range c.secrets {
-		secretsNames.Insert(s.Name)
-	}
-	for _, s := range append(append([]revision.RevisionResource{}, c.certSecrets...), c.secrets...) {
-		if s.Optional {
-			continue
-		}
-		name := s.Name
-		if secretsNames.Has(name) {
-			name = fmt.Sprintf("%s-%d", name, revisionNumber)
+		name := secret.Name
+		if !hasRevisionSuffix {
+			name = fmt.Sprintf("%s-%d", name, latestRevisionNumber)
 		}
 		_, err := c.secretsGetter.Secrets(c.targetNamespace).Get(name, metav1.GetOptions{})
 		if err == nil {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+name)
+			missing.Insert(name)
+		}
+	}
+	if missing.Len() == 0 {
+		return nil
+	}
+	return fmt.Errorf("secrets: %s", strings.Join(missing.List(), ","))
+}
+
+func (c InstallerController) ensureConfigMapRevisionResourcesExists(configs []revision.RevisionResource, hasRevisionSuffix bool, latestRevisionNumber int32) error {
+	missing := sets.NewString()
+	for _, config := range configs {
+		if config.Optional {
 			continue
 		}
-		return err
+		name := config.Name
+		if !hasRevisionSuffix {
+			name = fmt.Sprintf("%s-%d", name, latestRevisionNumber)
+		}
+		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(name, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if apierrors.IsNotFound(err) {
+			missing.Insert(name)
+		}
 	}
+	if missing.Len() == 0 {
+		return nil
+	}
+	return fmt.Errorf("configmaps: %s", strings.Join(missing.List(), ","))
+}
 
-	if len(missingSecrets) == 0 && len(missingConfigs) == 0 {
+// ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
+func (c InstallerController) ensureRequiredResourcesExist(revisionNumber int32) error {
+	errs := []error{}
+
+	errs = append(errs, c.ensureConfigMapRevisionResourcesExists(c.certConfigMaps, true, revisionNumber))
+	errs = append(errs, c.ensureConfigMapRevisionResourcesExists(c.configMaps, false, revisionNumber))
+	errs = append(errs, c.ensureSecretRevisionResourcesExists(c.certSecrets, true, revisionNumber))
+	errs = append(errs, c.ensureSecretRevisionResourcesExists(c.secrets, false, revisionNumber))
+
+	aggregatedErr := utilerrors.NewAggregate(errs)
+	if aggregatedErr == nil {
 		return nil
 	}
 
-	// Report missing resources via error and warning event.
-	messages := []string{}
-	if len(missingConfigs) > 0 {
-		messages = append(messages, fmt.Sprintf("configmaps: %s", strings.Join(missingConfigs, ",")))
+	eventMessages := []string{}
+	for _, err := range aggregatedErr.Errors() {
+		eventMessages = append(eventMessages, err.Error())
 	}
-	if len(missingSecrets) > 0 {
-		messages = append(messages, fmt.Sprintf("secrets: %s", strings.Join(missingSecrets, ",")))
-	}
-
-	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(messages, ", "))
-
-	return fmt.Errorf("required resources missing: %v", strings.Join(messages, ", "))
+	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
+	return fmt.Errorf("missing required resources: %v", aggregatedErr)
 }
 
 func (c InstallerController) sync() error {

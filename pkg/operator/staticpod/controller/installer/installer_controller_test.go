@@ -1375,7 +1375,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			secrets: []revision.RevisionResource{
 				{Name: "foo-s"},
 			},
-			expectedErr: "required resources missing: configmaps: ns/foo-cm-0, secrets: ns/foo-s-0",
+			expectedErr: "missing required resources: [configmaps: foo-cm-0, secrets: foo-s-0]",
 		},
 		{
 			name: "found-required",
@@ -1398,7 +1398,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			certSecrets: []revision.RevisionResource{
 				{Name: "foo-s"},
 			},
-			expectedErr: "required resources missing: configmaps: ns/foo-cm, secrets: ns/foo-s",
+			expectedErr: "missing required resources: [configmaps: foo-cm, secrets: foo-s]",
 		},
 		{
 			name: "found-required-certs",
@@ -1438,7 +1438,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			case len(test.expectedErr) != 0 && actual == nil:
 				t.Fatal(actual)
 			case len(test.expectedErr) != 0 && actual != nil && !strings.Contains(actual.Error(), test.expectedErr):
-				t.Fatal(actual)
+				t.Fatalf("actual error: %q does not match expected: %q", actual.Error(), test.expectedErr)
 			}
 
 		})
