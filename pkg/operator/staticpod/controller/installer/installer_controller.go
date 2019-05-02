@@ -10,18 +10,19 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
@@ -702,35 +703,51 @@ func getInstallerPodImageFromEnv() string {
 }
 
 // ensureRequiredResourcesExist makes sure that all non-optional resources are ready or it will return an error to trigger a requeue so that we try again.
-func (c InstallerController) ensureRequiredResourcesExist() error {
+func (c InstallerController) ensureRequiredResourcesExist(revisionNumber int32) error {
 	missingSecrets := []string{}
 	missingConfigs := []string{}
 
+	configMapsNames := sets.NewString()
+	for _, c := range c.configMaps {
+		configMapsNames.Insert(c.Name)
+	}
 	for _, cm := range append(append([]revision.RevisionResource{}, c.certConfigMaps...), c.configMaps...) {
 		if cm.Optional {
 			continue
 		}
-		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(cm.Name, metav1.GetOptions{})
+		name := cm.Name
+		if configMapsNames.Has(name) {
+			name = fmt.Sprintf("%s-%d", name, revisionNumber)
+		}
+		_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(name, metav1.GetOptions{})
 		if err == nil {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+cm.Name)
+			missingConfigs = append(missingConfigs, c.targetNamespace+"/"+name)
 			continue
 		}
 		return err
 	}
 
+	secretsNames := sets.NewString()
+	for _, s := range c.secrets {
+		secretsNames.Insert(s.Name)
+	}
 	for _, s := range append(append([]revision.RevisionResource{}, c.certSecrets...), c.secrets...) {
 		if s.Optional {
 			continue
 		}
-		_, err := c.secretsGetter.Secrets(c.targetNamespace).Get(s.Name, metav1.GetOptions{})
+		name := s.Name
+		if secretsNames.Has(name) {
+			name = fmt.Sprintf("%s-%d", name, revisionNumber)
+		}
+		_, err := c.secretsGetter.Secrets(c.targetNamespace).Get(name, metav1.GetOptions{})
 		if err == nil {
 			continue
 		}
 		if apierrors.IsNotFound(err) {
-			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+s.Name)
+			missingSecrets = append(missingSecrets, c.targetNamespace+"/"+name)
 			continue
 		}
 		return err
@@ -765,7 +782,7 @@ func (c InstallerController) sync() error {
 		return nil
 	}
 
-	err = c.ensureRequiredResourcesExist()
+	err = c.ensureRequiredResourcesExist(originalOperatorStatus.LatestAvailableRevision)
 
 	// Only manage installation pods when all required certs are present.
 	if err == nil {
