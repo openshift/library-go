@@ -185,6 +185,10 @@ type StaticPodOperatorStatus struct {
 	// +optional
 	LatestAvailableRevision int32 `json:"latestAvailableRevision,omitEmpty"`
 
+	// latestAvailableRevisionReason describe the reason the latest available revision was updated
+	// +optional
+	LatestAvailableRevisionReason string `json:"latestAvailableRevisionReason,emitEmpty"`
+
 	// nodeStatuses track the deployment values and errors across individual nodes
 	// +optional
 	NodeStatuses []NodeStatus `json:"nodeStatuses,omitempty"`
