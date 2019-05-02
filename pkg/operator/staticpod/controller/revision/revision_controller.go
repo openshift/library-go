@@ -95,7 +95,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 	operatorStatus := operatorStatusOriginal.DeepCopy()
 
 	latestRevision := operatorStatus.LatestAvailableRevision
-	isLatestRevisionCurrent, reason := c.isLatestRevisionCurrent(latestRevision)
+	isLatestRevisionCurrent, reason, detailedReason := c.isLatestRevisionCurrent(latestRevision)
 
 	// check to make sure that the latestRevision has the exact content we expect.  No mutation here, so we start creating the next Revision only when it is required
 	if isLatestRevisionCurrent {
@@ -122,6 +122,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 		Type:   "RevisionControllerDegraded",
 		Status: operatorv1.ConditionFalse,
 	}
+
 	if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(cond), func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
 		if operatorStatus.LatestAvailableRevision == nextRevision {
 			klog.Warningf("revision %d is unexpectedly already the latest available revision. This is a possible race!", nextRevision)
@@ -132,6 +133,8 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 	}); updateError != nil {
 		return true, updateError
 	} else if updated {
+		// Report the reason for the latest revision
+		operatorStatus.LatestAvailableRevisionReason = detailedReason
 		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", operatorStatus.LatestAvailableRevision, reason)
 	}
 
@@ -143,19 +146,20 @@ func nameFor(name string, revision int32) string {
 }
 
 // isLatestRevisionCurrent returns whether the latest revision is up to date and an optional reason
-func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, string) {
+func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, string, string) {
 	configChanges := []string{}
+	configChangesDetailed := []string{}
 	for _, cm := range c.configMaps {
 		requiredData := map[string]string{}
 		existingData := map[string]string{}
 
 		required, err := c.configMapGetter.ConfigMaps(c.targetNamespace).Get(cm.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) && !cm.Optional {
-			return false, err.Error()
+			return false, err.Error(), ""
 		}
 		existing, err := c.configMapGetter.ConfigMaps(c.targetNamespace).Get(nameFor(cm.Name, revision), metav1.GetOptions{})
 		if apierrors.IsNotFound(err) && !cm.Optional {
-			return false, err.Error()
+			return false, err.Error(), ""
 		}
 		if required != nil {
 			requiredData = required.Data
@@ -164,25 +168,28 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
+			resourceDiffString := resourceapply.JSONPatch(existing, required)
 			if klog.V(4) {
-				klog.Infof("configmap %q changes for revision %d: %s", cm.Name, revision, resourceapply.JSONPatch(existing, required))
+				klog.Infof("configmap %q changes for revision %d: %s", cm.Name, revision, resourceDiffString)
 			}
+			configChangesDetailed = append(configChangesDetailed, fmt.Sprintf("secret/%s has changed: %s", cm.Name, resourceDiffString))
 			configChanges = append(configChanges, fmt.Sprintf("configmap/%s has changed", cm.Name))
 		}
 	}
 
 	secretChanges := []string{}
+	secretChangesDetailed := []string{}
 	for _, s := range c.secrets {
 		requiredData := map[string][]byte{}
 		existingData := map[string][]byte{}
 
 		required, err := c.secretGetter.Secrets(c.targetNamespace).Get(s.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) && !s.Optional {
-			return false, err.Error()
+			return false, err.Error(), ""
 		}
 		existing, err := c.secretGetter.Secrets(c.targetNamespace).Get(nameFor(s.Name, revision), metav1.GetOptions{})
 		if apierrors.IsNotFound(err) && !s.Optional {
-			return false, err.Error()
+			return false, err.Error(), ""
 		}
 		if required != nil {
 			requiredData = required.Data
@@ -191,18 +198,20 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
+			resourceDiffString := resourceapply.JSONPatch(existing, required)
 			if klog.V(4) {
-				klog.Infof("secret %q changes for revision %d: %s", s.Name, revision, resourceapply.JSONPatch(existing, required))
+				klog.Infof("secret %q changes for revision %d: %s", s.Name, revision, resourceDiffString)
 			}
+			secretChangesDetailed = append(secretChangesDetailed, fmt.Sprintf("secret/%s has changed: %s", s.Name, resourceDiffString))
 			secretChanges = append(secretChanges, fmt.Sprintf("secret/%s has changed", s.Name))
 		}
 	}
 
 	if len(secretChanges) > 0 || len(configChanges) > 0 {
-		return false, strings.Join(append(secretChanges, configChanges...), ",")
+		return false, strings.Join(append(secretChanges, configChanges...), ","), strings.Join(append(secretChangesDetailed, configChangesDetailed...), ",")
 	}
 
-	return true, ""
+	return true, "", ""
 }
 
 func (c RevisionController) createNewRevision(revision int32) error {

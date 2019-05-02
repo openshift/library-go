@@ -290,7 +290,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
-			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
+			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, operatorStatus.LatestAvailableRevisionReason); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, err)
 				return true, err
@@ -611,11 +611,18 @@ func getInstallerPodName(revision int32, nodeName string) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32, revisionReason string) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
 	pod.Name = getInstallerPodName(revision, nodeName)
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+
+	// Report the reason this installer pod was created.
+	pod.Annotations["operator.openshift.io/revision-reason"] = revisionReason
+
 	pod.Spec.NodeName = nodeName
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
