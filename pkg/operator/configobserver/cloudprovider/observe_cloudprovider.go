@@ -92,11 +92,8 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		Namespace: sourceCloudConfigNamespace,
 		Name:      sourceCloudConfigMap,
 	}
-	// we set cloudprovider configmap values only for vsphere.
-	if cloudProvider != "vsphere" {
-		sourceCloudConfigMap = ""
-	}
 
+	// the infrastructure config is considered authoritative no matter what
 	if len(sourceCloudConfigMap) == 0 {
 		sourceLocation = resourcesynccontroller.ResourceLocation{}
 	}
