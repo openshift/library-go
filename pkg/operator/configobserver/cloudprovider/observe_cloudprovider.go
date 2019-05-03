@@ -2,6 +2,7 @@ package cloudprovider
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -92,8 +93,10 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		Namespace: sourceCloudConfigNamespace,
 		Name:      sourceCloudConfigMap,
 	}
-	// we set cloudprovider configmap values only for vsphere.
-	if cloudProvider != "vsphere" {
+
+	// we set cloudprovider configmap values only for some cloud providers.
+	validCloudProviders := sets.NewString("azure", "vsphere")
+	if !validCloudProviders.Has(cloudProvider){
 		sourceCloudConfigMap = ""
 	}
 
