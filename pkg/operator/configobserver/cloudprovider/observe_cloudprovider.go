@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
@@ -92,8 +93,10 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		Namespace: sourceCloudConfigNamespace,
 		Name:      sourceCloudConfigMap,
 	}
-	// we set cloudprovider configmap values only for vsphere.
-	if cloudProvider != "vsphere" {
+
+	// we set cloudprovider configmap values only for some cloud providers.
+	validCloudProviders := sets.NewString("azure", "vsphere")
+	if !validCloudProviders.Has(cloudProvider) {
 		sourceCloudConfigMap = ""
 	}
 
