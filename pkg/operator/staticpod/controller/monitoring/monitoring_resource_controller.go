@@ -20,6 +20,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 
 	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -28,9 +29,8 @@ import (
 )
 
 const (
-	operatorStatusMonitoringResourceControllerDegraded = "MonitoringResourceControllerDegraded"
-	controllerWorkQueueKey                             = "key"
-	manifestDir                                        = "pkg/operator/staticpod/controller/monitoring"
+	controllerWorkQueueKey = "key"
+	manifestDir            = "pkg/operator/staticpod/controller/monitoring"
 )
 
 var syntheticRequeueError = fmt.Errorf("synthetic requeue request")
@@ -136,7 +136,7 @@ func (c MonitoringResourceController) sync() error {
 
 	// NOTE: Failing to create the monitoring resources should not lead to operator failed state.
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusMonitoringResourceControllerDegraded,
+		Type:   condition.MonitoringResourceControllerDegradedConditionType,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {

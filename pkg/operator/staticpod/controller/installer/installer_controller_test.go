@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
@@ -1331,7 +1332,7 @@ func TestSetConditions(t *testing.T) {
 				t.Errorf("Progressing condition: expected status %v, actual status %v", tc.expectedProgressingStatus, pendingCondition.Status)
 			}
 
-			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, nodeInstallerDegraded)
+			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.NodeInstallerDegradedConditionType)
 			if failingCondition == nil {
 				t.Error("Failing condition: not found")
 			} else if failingCondition.Status != tc.expectedFailingStatus {
