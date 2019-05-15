@@ -57,3 +57,6 @@ import:
 # matches openshift/origin
 - package: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
+
+- package: github.com/vishvananda/netlink
+  version: v1.0.0

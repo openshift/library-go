@@ -1,5 +1,5 @@
-hash: 834b42ac04c13e26423b9cddffbd75a093f4d889cffb059911fae65aac364c7b
-updated: 2019-04-17T10:52:09.03874547-04:00
+hash: b912b265c13f8b3cf11a3310e139f1b9cc2af75c24a1d61a432bf4425bed8f94
+updated: 2019-05-15T16:04:47.848329782+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -234,7 +234,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 7924f9106f8e132f4f33a0c7fb8841b49bfc2d83
+  version: 81d064c11ff2d62705dbb09ed9ac200ef9557716
   subpackages:
   - apps
   - apps/v1
@@ -338,6 +338,12 @@ imports:
   version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
+- name: github.com/vishvananda/netlink
+  version: a2ad57a690f3caf3015351d2d6e1c0b95c349752
+  subpackages:
+  - nl
+- name: github.com/vishvananda/netns
+  version: be1fbeda19366dea804f00efff2dd73a1642fdcc
 - name: golang.org/x/crypto
   version: de0752318171da717af4ce24d0a2e8626afaeb11
   subpackages:
@@ -840,7 +846,7 @@ imports:
   - pkg/util
   - pkg/util/proto
 - name: sigs.k8s.io/controller-tools
-  version: 4e23e49e5d401ca6ced86aa30262d0cf2488c504
+  version: 72ae52c08b9dd626cfb64ebef0fbf40ce667939b
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   subpackages:
   - pkg/crd/generator
