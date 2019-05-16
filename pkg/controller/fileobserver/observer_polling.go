@@ -19,6 +19,11 @@ type pollingObserver struct {
 	reactors map[string][]reactorFn
 	files    map[string]string
 
+	// If files are newer then startTimestamp the observer will report a change for them.
+	// This exists to mitigate issue when we start observing files but have to synchronize
+	// the observing with the process consuming the files.
+	startTimestamp *time.Time
+
 	reactorsMutex sync.RWMutex
 }
 
@@ -70,8 +75,13 @@ func (o *pollingObserver) processReactors(stopCh <-chan struct{}) {
 			}
 			lastKnownHash := o.files[filename]
 
+			modifiedAfterStartup, err := o.isModifiedAfterStartup(filename)
+			if err != nil {
+				return false, err
+			}
+
 			// No file change detected
-			if lastKnownHash == currentHash {
+			if lastKnownHash == currentHash && !modifiedAfterStartup {
 				continue
 			}
 
@@ -106,6 +116,20 @@ func (o *pollingObserver) Run(stopChan <-chan struct{}) {
 	klog.Info("Starting file observer")
 	defer klog.Infof("Shutting down file observer")
 	o.processReactors(stopChan)
+}
+
+func (o *pollingObserver) isModifiedAfterStartup(path string) (bool, error) {
+	if o.startTimestamp == nil {
+		return false, nil
+	}
+	watchedFile, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return watchedFile.ModTime().Before(*o.startTimestamp), nil
 }
 
 func calculateFileHash(path string) (string, error) {

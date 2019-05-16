@@ -125,6 +125,61 @@ func TestObserverSimple(t *testing.T) {
 	<-fileRemoveObserved
 }
 
+func TestNewObserverWithStartTime(t *testing.T) {
+	dir, err := ioutil.TempDir("", "observer-start-time-")
+	if err != nil {
+		t.Fatalf("tempdir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	o, err := NewObserverWithStartTime(200*time.Millisecond, time.Now().Add(1*time.Minute))
+	if err != nil {
+		t.Fatalf("observer: %v", err)
+	}
+
+	reactions := newReactionRecorder()
+
+	testReaction := func(f string, action ActionType) error {
+		reactions.add(f, action)
+		return nil
+	}
+
+	testFile := filepath.Join(dir, "test-file-1")
+	ioutil.WriteFile(testFile, []byte("foo"), os.ModePerm)
+
+	o.AddReactor(
+		testReaction,
+		map[string][]byte{
+			testFile: []byte("foo"),
+		},
+		testFile)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go o.Run(stopCh)
+
+	fileModifyObserved := make(chan struct{})
+	go func() {
+		defer close(fileModifyObserved)
+		if err := wait.PollImmediateUntil(300*time.Millisecond, func() (bool, error) {
+			t.Logf("waiting for reaction ...")
+			if len(reactions.get(testFile)) == 0 {
+				return false, nil
+			}
+			if r := reactions.get(testFile)[0]; r != FileModified {
+				return true, fmt.Errorf("expected FileModified, got: %#v", reactions.get(testFile))
+			}
+			t.Logf("recv: %#v", reactions.get(testFile))
+			return true, nil
+		}, stopCh); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}()
+
+	<-fileModifyObserved
+	os.Remove(testFile)
+}
+
 func TestObserverSimpleContentSpecified(t *testing.T) {
 	dir, err := ioutil.TempDir("", "observer-simple-")
 	if err != nil {

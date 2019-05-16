@@ -57,3 +57,12 @@ func NewObserver(interval time.Duration) (Observer, error) {
 		files:    map[string]string{},
 	}, nil
 }
+
+func NewObserverWithStartTime(interval time.Duration, startTime time.Time) (Observer, error) {
+	observer, err := NewObserver(interval)
+	if err != nil {
+		return nil, err
+	}
+	observer.(*pollingObserver).startTimestamp = &startTime
+	return observer, nil
+}
