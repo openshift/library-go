@@ -27,6 +27,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -38,11 +39,9 @@ import (
 )
 
 const (
-	operatorStatusInstallerControllerDegraded = "InstallerControllerDegraded"
-	nodeInstallerDegraded                     = "NodeInstallerDegraded"
-	installerControllerWorkQueueKey           = "key"
-	manifestDir                               = "pkg/operator/staticpod/controller/installer"
-	manifestInstallerPodPath                  = "manifests/installer-pod.yaml"
+	installerControllerWorkQueueKey = "key"
+	manifestDir                     = "pkg/operator/staticpod/controller/installer"
+	manifestInstallerPodPath        = "manifests/installer-pod.yaml"
 
 	hostResourceDirDir = "/etc/kubernetes/static-pod-resources"
 	hostPodManifestDir = "/etc/kubernetes/manifests"
@@ -493,14 +492,14 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 		failingDescription := strings.Join(failingStrings, "; ")
 
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    nodeInstallerDegraded,
+			Type:    condition.NodeInstallerDegradedConditionType,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "InstallerPodFailed",
 			Message: failingDescription,
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:   nodeInstallerDegraded,
+			Type:   condition.NodeInstallerDegradedConditionType,
 			Status: operatorv1.ConditionFalse,
 		})
 	}
@@ -798,7 +797,7 @@ func (c InstallerController) sync() error {
 	// Update failing condition
 	// If required certs are missing, this will report degraded as we can't create installer pods because of this pre-condition.
 	cond := operatorv1.OperatorCondition{
-		Type:   operatorStatusInstallerControllerDegraded,
+		Type:   condition.InstallerControllerDegradedConditionType,
 		Status: operatorv1.ConditionFalse,
 	}
 	if err != nil {
