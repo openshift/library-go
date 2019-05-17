@@ -8,7 +8,8 @@ ignored = [
 
 [[constraint]]
   name="k8s.io/apiextensions-apiserver"
-  version="kubernetes-1.13.4"
+  branch="origin-4.1-kubernetes-1.13.4"
+  source="github.com/openshift/kubernetes-apiextensions-apiserver"
 
 [[constraint]]
   name="k8s.io/apimachinery"
