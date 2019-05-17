@@ -1,5 +1,5 @@
-hash: cedd5fb4241647082fd2a9a6af9faa65ab8fbe4f9288eabbdda5562857be01e4
-updated: 2019-05-14T12:42:33.128158026+02:00
+hash: f268a93d90c863bba1e870a2d4a88d6b492c932a8666a214de154072109e7bba
+updated: 2019-05-17T15:08:12.29363+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -215,8 +215,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 266c42ace4a0c4f6f9942a1c1615288338ae8d0c
-  repo: https://github.com/soltysh/api.git
+  version: d5b34b957e91dbf64013a866951c3ed5770db0b5
   subpackages:
   - apps
   - apps/v1
@@ -262,7 +261,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 0255926f53935175fe90b8e7672c4c06c17d79e6
+  version: f4b242dfe08529a11803996e325ab6dc127d4e1d
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/fake
@@ -371,7 +370,7 @@ imports:
   - go/ast/astutil
   - imports
 - name: google.golang.org/appengine
-  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
+  version: 311d3c5cf9373249645db030e53c37c209a8b378
   subpackages:
   - internal
   - internal/base
@@ -418,7 +417,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
   version: 40a48860b5abbba9aa891b02b32da429b08d96a0
   subpackages:
