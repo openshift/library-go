@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/imdario/mergo"
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -129,6 +130,23 @@ func hasServiceServingCerts(certDir string) bool {
 	return true
 }
 
+// AddServiceAccountRotationToConfig add kubernetes service account CA to a list of files that the controller
+// will react on change.
+func (c *ControllerCommandConfig) AddServiceAccountRotationToConfig() (map[string][]byte, []string, error) {
+	kubernetesDir := "/var/run/secrets/kubernetes.io/serviceaccount"
+
+	observedFiles := []string{filepath.Join(kubernetesDir, "ca.crt")}
+	caCertContent, err := ioutil.ReadFile(filepath.Join(kubernetesDir, "ca.crt"))
+	if err != nil {
+		return nil, nil, err
+	}
+	startingFileContent := map[string][]byte{
+		filepath.Join(kubernetesDir, "ca.crt"): caCertContent,
+	}
+
+	return startingFileContent, observedFiles, nil
+}
+
 // AddDefaultRotationToConfig starts the provided builder with the default rotation set (config + serving info). Use StartController if
 // you do not need to customize the controller builder. This method modifies config with self-signed default cert locations if
 // necessary.
@@ -213,8 +231,21 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 		return err
 	}
 
-	startingFileContent, observedFiles, err := c.AddDefaultRotationToConfig(config, configContent)
+	startingFileContent := map[string][]byte{}
+
+	rotationFileContent, observedRotationFiles, err := c.AddDefaultRotationToConfig(config, configContent)
 	if err != nil {
+		return err
+	}
+	if err := mergo.Map(startingFileContent, rotationFileContent); err != nil {
+		return err
+	}
+
+	serviceAccountFileContent, observedServiceAccountFiles, err := c.AddServiceAccountRotationToConfig()
+	if err != nil {
+		return err
+	}
+	if err := mergo.Map(startingFileContent, serviceAccountFileContent); err != nil {
 		return err
 	}
 
@@ -228,6 +259,10 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 			cancel()
 		}
 	}()
+
+	observedFiles := []string{}
+	observedFiles = append(observedFiles, observedRotationFiles...)
+	observedFiles = append(observedFiles, observedServiceAccountFiles...)
 
 	builder := NewController(c.componentName, c.startFunc).
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
