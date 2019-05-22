@@ -192,15 +192,16 @@
   version = "kubernetes-1.13.4"
 
 [[projects]]
-  digest = "1:46e3296eec0a6e864c2ef813ccfdb0b83d144fcc23414d97dd4894e9464cf4d5"
+  branch = "origin-4.1-kubernetes-1.13.4"
+  digest = "1:7e8f9684c9d41430c0a3d34eae8e0141bf38963ad998db1b8b66aa263d116d08"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "d002e88f6236312f0289d9d1deab106751718ff0"
-  version = "kubernetes-1.13.4"
+  revision = "3c74db8dd172051b029f91536c681a1b43694809"
+  source = "github.com/openshift/kubernetes-apiextensions-apiserver"
 
 [[projects]]
   digest = "1:cdadd6ffbd40cc74095fc26f5cf8bb06631adf7a614307b6c6ddf19da29dec05"
