@@ -4,16 +4,20 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"k8s.io/klog"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -30,6 +34,9 @@ type NodeController struct {
 
 	nodeLister corelisterv1.NodeLister
 
+	targetNamespace string
+	podsGetter      corev1client.PodsGetter
+
 	cachesToSync  []cache.InformerSynced
 	queue         workqueue.RateLimitingInterface
 	eventRecorder events.Recorder
@@ -37,14 +44,18 @@ type NodeController struct {
 
 // NewNodeController creates a new node controller.
 func NewNodeController(
+	targetNamespace string,
+	podGetter corev1client.PodsGetter,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	eventRecorder events.Recorder,
 ) *NodeController {
 	c := &NodeController{
-		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder.WithComponentSuffix("node-controller"),
-		nodeLister:     kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
+		operatorClient:  operatorClient,
+		podsGetter:      podGetter,
+		targetNamespace: targetNamespace,
+		eventRecorder:   eventRecorder.WithComponentSuffix("node-controller"),
+		nodeLister:      kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "NodeController"),
 	}
@@ -86,6 +97,12 @@ func (c NodeController) sync() error {
 		if found {
 			newTargetNodeStates = append(newTargetNodeStates, originalOperatorStatus.NodeStatuses[i])
 		} else {
+			// Prune installer pods we created for this node. In case these are "pending" they will never go to running
+			// as their nodeName won't exists.
+			if err := c.pruneInstallerPodsForRemovedNode(nodeState.NodeName); err != nil {
+				c.eventRecorder.Warningf("MasterNodePruningFailed", "Failed to prune pods for removed master node %s: %v", nodeState.NodeName, err)
+				return err
+			}
 			c.eventRecorder.Warningf("MasterNodeRemoved", "Observed removal of master node %s", nodeState.NodeName)
 		}
 	}
@@ -113,6 +130,27 @@ func (c NodeController) sync() error {
 		}
 	}
 
+	return nil
+}
+
+// pruneInstallerPodsForRemovedNode lists all installer pods we created for given node and remove them.
+// This function should be used when the node is removed.
+func (c *NodeController) pruneInstallerPodsForRemovedNode(nodeName string) error {
+	pods, err := c.podsGetter.Pods(c.targetNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("operator.openshift.io/node=%s,operator.openshift.io/role=installer", nodeName),
+	})
+	if err != nil {
+		return err
+	}
+	if len(pods.Items) == 0 {
+		return nil
+	}
+	for _, pod := range pods.Items {
+		err := c.podsGetter.Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
 	return nil
 }
 

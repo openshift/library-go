@@ -615,6 +615,14 @@ func getInstallerPodName(revision int32, nodeName string) string {
 func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
+	if pod.Labels == nil {
+		pod.Labels = map[string]string{}
+	}
+
+	// Add nodename to make label queries possible
+	pod.Labels["operator.openshift.io/node"] = nodeName
+	pod.Labels["operator.openshift.io/role"] = "installer"
+
 	pod.Namespace = c.targetNamespace
 	pod.Name = getInstallerPodName(revision, nodeName)
 	pod.Spec.NodeName = nodeName

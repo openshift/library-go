@@ -120,7 +120,7 @@ func TestNewNodeController(t *testing.T) {
 
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
-			c := NewNodeController(fakeStaticPodOperatorClient, kubeInformers, eventRecorder)
+			c := NewNodeController("fake-namespace", kubeClient.CoreV1(), fakeStaticPodOperatorClient, kubeInformers, eventRecorder)
 			// override the lister so we don't have to run the informer to list nodes
 			c.nodeLister = fakeLister
 			if err := c.sync(); err != nil {
