@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright 2017 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,20 +11,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+// +build !go1.8
+
+package promhttp
 
 import (
-	"testing"
+	"io"
+	"net/http"
 )
 
-func TestNewDescInvalidLabelValues(t *testing.T) {
-	desc := NewDesc(
-		"sample_label",
-		"sample label",
-		nil,
-		Labels{"a": "\xFF"},
-	)
-	if desc.err == nil {
-		t.Errorf("NewDesc: expected error because: %s", desc.err)
+func newDelegator(w http.ResponseWriter, observeWriteHeaderFunc func(int)) delegator {
+	d := &responseWriterDelegator{
+		ResponseWriter:     w,
+		observeWriteHeader: observeWriteHeaderFunc,
 	}
+
+	_, cn := w.(http.CloseNotifier)
+	_, fl := w.(http.Flusher)
+	_, hj := w.(http.Hijacker)
+	_, rf := w.(io.ReaderFrom)
+	if cn && fl && hj && rf {
+		return &fancyDelegator{d}
+	}
+
+	return d
 }
