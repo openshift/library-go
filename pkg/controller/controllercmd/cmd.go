@@ -133,7 +133,7 @@ func hasServiceServingCerts(certDir string) bool {
 // you do not need to customize the controller builder. This method modifies config with self-signed default cert locations if
 // necessary.
 func (c *ControllerCommandConfig) AddDefaultRotationToConfig(config *operatorv1alpha1.GenericOperatorConfig, configContent []byte) (map[string][]byte, []string, error) {
-	certDir := "/var/run/secrets/serving-cert"
+	certDir := "/var/run/secrets/service-network-serving-certkey"
 
 	observedFiles := []string{
 		c.basicFlags.ConfigFile,
