@@ -1,6 +1,8 @@
 hash: f268a93d90c863bba1e870a2d4a88d6b492c932a8666a214de154072109e7bba
-updated: 2019-05-17T15:08:12.29363+02:00
+updated: 2019-05-28T10:21:38.489740719-04:00
 imports:
+- name: bitbucket.org/ww/goautoneg
+  version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
   subpackages:
@@ -215,7 +217,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: d5b34b957e91dbf64013a866951c3ed5770db0b5
+  version: ed2bab04cd2ed056363f8de98ad61fd0011a3bcf
   subpackages:
   - apps
   - apps/v1
@@ -278,11 +280,9 @@ imports:
 - name: github.com/pkg/profile
   version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/prometheus/client_golang
-  version: 505eaef017263e299324067d40ca2c48f6a2cf50
+  version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
   - prometheus
-  - prometheus/internal
-  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -302,7 +302,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/rogpeppe/go-internal
-  version: 438578804ca6f31be148c27683afc419ce47c06e
+  version: 6f68bf1e81f8552c7dbd47f3bc4371c2db0941a6
   subpackages:
   - modfile
   - module

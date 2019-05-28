@@ -29,16 +29,6 @@ func (b respBody) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(b))
 }
 
-func nowSeries(t ...time.Time) nower {
-	return nowFunc(func() time.Time {
-		defer func() {
-			t = t[1:]
-		}()
-
-		return t[0]
-	})
-}
-
 func TestInstrumentHandler(t *testing.T) {
 	defer func(n nower) {
 		now = n.(nower)
@@ -47,9 +37,9 @@ func TestInstrumentHandler(t *testing.T) {
 	instant := time.Now()
 	end := instant.Add(30 * time.Second)
 	now = nowSeries(instant, end)
-	body := respBody("Howdy there!")
+	respBody := respBody("Howdy there!")
 
-	hndlr := InstrumentHandler("test-handler", body)
+	hndlr := InstrumentHandler("test-handler", respBody)
 
 	opts := SummaryOpts{
 		Subsystem:   "http",
@@ -124,8 +114,8 @@ func TestInstrumentHandler(t *testing.T) {
 	if resp.Code != http.StatusTeapot {
 		t.Fatalf("expected status %d, got %d", http.StatusTeapot, resp.Code)
 	}
-	if resp.Body.String() != "Howdy there!" {
-		t.Fatalf("expected body %s, got %s", "Howdy there!", resp.Body.String())
+	if string(resp.Body.Bytes()) != "Howdy there!" {
+		t.Fatalf("expected body %s, got %s", "Howdy there!", string(resp.Body.Bytes()))
 	}
 
 	out := &dto.Metric{}
@@ -138,7 +128,7 @@ func TestInstrumentHandler(t *testing.T) {
 	}
 
 	out.Reset()
-	if want, got := 1, len(reqCnt.metricMap.metrics); want != got {
+	if want, got := 1, len(reqCnt.children); want != got {
 		t.Errorf("want %d children in reqCnt, got %d", want, got)
 	}
 	cnt, err := reqCnt.GetMetricWithLabelValues("get", "418")
