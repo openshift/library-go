@@ -23,6 +23,7 @@ type CertSyncControllerOptions struct {
 	KubeConfigFile string
 	Namespace      string
 	DestinationDir string
+	PodManifestDir string
 
 	configMaps []revision.RevisionResource
 	secrets    []revision.RevisionResource
@@ -49,6 +50,7 @@ func NewCertSyncControllerCommand(configmaps, secrets []revision.RevisionResourc
 	}
 
 	cmd.Flags().StringVar(&o.DestinationDir, "destination-dir", o.DestinationDir, "Directory to write to")
+	cmd.Flags().StringVar(&o.PodManifestDir, "pod-manifest-dir", o.PodManifestDir, "Directory for the static pod manifest")
 	cmd.Flags().StringVarP(&o.Namespace, "namespace", "n", o.Namespace, "Namespace to read from (default to 'POD_NAMESPACE' environment variable)")
 	cmd.Flags().StringVar(&o.KubeConfigFile, "kubeconfig", o.KubeConfigFile, "Location of the master configuration file to run from.")
 
@@ -81,6 +83,7 @@ func (o *CertSyncControllerOptions) Run() error {
 
 	controller, err := NewCertSyncController(
 		o.DestinationDir,
+		o.PodManifestDir,
 		o.Namespace,
 		o.configMaps,
 		o.secrets,

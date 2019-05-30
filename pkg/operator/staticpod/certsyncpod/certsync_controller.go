@@ -19,12 +19,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/openshift/library-go/pkg/filelock"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/hold"
 )
 
 type CertSyncController struct {
 	destinationDir string
+	podManifestDir string
+	podm           string
 	namespace      string
 	configMaps     []revision.RevisionResource
 	secrets        []revision.RevisionResource
@@ -38,9 +42,10 @@ type CertSyncController struct {
 	preRunCaches []cache.InformerSynced
 }
 
-func NewCertSyncController(targetDir, targetNamespace string, configmaps, secrets []revision.RevisionResource, informers informers.SharedInformerFactory, eventRecorder events.Recorder) (*CertSyncController, error) {
+func NewCertSyncController(targetDir, podManifestDir, targetNamespace string, configmaps, secrets []revision.RevisionResource, informers informers.SharedInformerFactory, eventRecorder events.Recorder) (*CertSyncController, error) {
 	c := &CertSyncController{
 		destinationDir: targetDir,
+		podManifestDir: podManifestDir,
 		namespace:      targetNamespace,
 		configMaps:     configmaps,
 		secrets:        secrets,
@@ -173,13 +178,38 @@ func (c *CertSyncController) runWorker() {
 }
 
 func (c *CertSyncController) processNextWorkItem() bool {
+	/*
+	 * We need to avoid racing with recovery tools when placing files in static-pod-resources dir.
+	 * For that purpose recovery tools place a hold file in which case we fail the sync loop
+	 * and let it be reconciled after.
+	 * The sync loop is likely going to be run in reaction to the changes made by the recovery tool.
+	 * There is still a small race after we make this check and the recovery tool start just
+	 * after, but at least deads2k is gonna paint a nice picture if we get a BZ about it :)
+	 * The new sync loop can be triggered by another change, and start but not finish before the recovery tool starts.
+	 * It also uses caches which may not be updated at the time.
+	 */
+	l := filelock.NewLock(hold.InstallerFile(c.podManifestDir))
+	locked, err := l.IsLocked()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return true
+	}
+	if locked {
+		// If the file is locked it means recovery is in progress. It fixes certs in the API and because
+		// we use caches the appropriate action is to exit avoid syncing stale data after the lock is removed.
+		lockErr := fmt.Errorf("static pods manifests are locked by another tool (cert-sync-controller will be restarted, in case you are sure there is no recovery running on your masters and this state persist, you can unstuck it by removing file %q)", l.Path())
+		c.eventRecorder.Warning("HoldFilePresent", lockErr.Error())
+		utilruntime.HandleError(lockErr)
+		return false
+	}
+
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
 	}
 	defer c.queue.Done(dsKey)
 
-	err := c.sync()
+	err = c.sync()
 	if err == nil {
 		c.queue.Forget(dsKey)
 		return true

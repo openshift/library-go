@@ -21,9 +21,11 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/openshift/library-go/pkg/config/client"
+	"github.com/openshift/library-go/pkg/filelock"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
+	"github.com/openshift/library-go/pkg/operator/staticpod/hold"
 )
 
 type InstallOptions struct {
@@ -349,11 +351,37 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	}
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)
+
+	/*
+	 * We need to avoid racing with recovery tools when placing files in manifests dir and
+	 * static-pod-resources dir. For that purpose recovery tools place a hold file
+	 * in which case we exit the installer pod and let it be reconciled after.
+	 * The installer pod is likely going to be created in reaction to the changes made by the recovery tool.
+	 * There is still a small race after we make this check and the recovery tool start just
+	 * after, but at least deads2k is gonna paint a nice picture if we get a BZ about it :)
+	 * The new installer pod can be created by another change, and start but not finish before the recovery tool starts.
+	 *
+	 * (This is not a lock between installer pods whose ordering is managed by the controller.)
+	 */
+	l := filelock.NewLock(hold.InstallerFile(o.PodManifestDir))
+	locked, err := l.IsLocked()
+	if err != nil {
+		return err
+	}
+	if locked {
+		// Another tool like recovery is in progress.
+		// We are not allowed to run installer or there would be races.
+		lockErr := fmt.Errorf("can't run installer: static pods manifests are locked by another tool (in case you are sure there is no recovery running on your masters and this state persist, you can unstuck it by removing file %q)", l.Path())
+		recorder.Warning("HoldFilePresent", lockErr.Error())
+		return lockErr
+	}
+
 	if err := o.copyContent(ctx); err != nil {
 		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s: %v", o.Revision, err)
 		return fmt.Errorf("failed to copy: %v", err)
 	}
 
 	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
+
 	return nil
 }
