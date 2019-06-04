@@ -4,7 +4,10 @@ import (
 	"math/rand"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
+
+	buildv1 "github.com/openshift/api/build/v1"
 )
 
 func TestGetName(t *testing.T) {
@@ -98,4 +101,10 @@ func randSeq(n int) string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func TestGetBuildPodName(t *testing.T) {
+	if expected, actual := "mybuild-build", GetBuildPodName(&buildv1.Build{ObjectMeta: metav1.ObjectMeta{Name: "mybuild"}}); expected != actual {
+		t.Errorf("Expected %s, got %s", expected, actual)
+	}
 }

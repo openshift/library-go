@@ -5,6 +5,13 @@ import (
 	"hash/fnv"
 
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
+
+	buildv1 "github.com/openshift/api/build/v1"
+)
+
+const (
+	// buildPodSuffix is the suffix used to append to a build pod name given a build name
+	buildPodSuffix = "build"
 )
 
 // GetName returns a name given a base ("deployment-5") and a suffix ("deploy")
@@ -44,6 +51,11 @@ func GetPodName(base, suffix string) string {
 // GetConfigMapName calls GetName with the length restriction for ConfigMaps
 func GetConfigMapName(base, suffix string) string {
 	return GetName(base, suffix, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// GetBuildPodName returns name of the build pod.
+func GetBuildPodName(build *buildv1.Build) string {
+	return GetPodName(build.Name, buildPodSuffix)
 }
 
 // max returns the greater of its 2 inputs
