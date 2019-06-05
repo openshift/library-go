@@ -56,3 +56,9 @@ import:
 # matches openshift/origin
 - package: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
+
+# devexp:
+- package: github.com/fsouza/go-dockerclient
+  version: da3951ba2e9e02bc0e7642150b3e265aed7e1df3 # matching origin 4.2 level
+- package: github.com/docker/distribution
+  version: edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c # matching kube 1.14 upstream level
