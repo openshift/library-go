@@ -1,5 +1,5 @@
-hash: ff2161d244f9a5eba5d1087132c18850ca324da5f578ab33e9be050e67ea14b3
-updated: 2019-06-05T11:52:15.123306Z
+hash: f8c9db6d1671d547982414b3645690d9b3c007aa8a50fdaf62b81cee9768f0fa
+updated: 2019-06-05T09:47:49.502743876-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -105,13 +105,14 @@ imports:
   subpackages:
   - spew
 - name: github.com/docker/distribution
-  version: edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c
+  version: 16128bbac47f75050e82f7e91b04df33775e0c23
   subpackages:
   - context
   - digestset
   - manifest
   - manifest/schema1
   - manifest/schema2
+  - metrics
   - reference
   - registry/api/errcode
   - registry/api/v2
@@ -154,6 +155,8 @@ imports:
   version: 2a820fca5f4346badd2e3db516dd911f361eec3d
   subpackages:
   - nat
+- name: github.com/docker/go-metrics
+  version: b84716841b82eab644a0c64fc8b42d480e49add5
 - name: github.com/docker/go-units
   version: 519db1ee28dcc9fd2474ae59fca29a810482bfb1
 - name: github.com/docker/libnetwork
@@ -530,7 +533,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
   version: 40a48860b5abbba9aa891b02b32da429b08d96a0
   subpackages:
