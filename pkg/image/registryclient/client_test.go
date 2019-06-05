@@ -16,6 +16,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/docker/distribution"
+	dockercontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/opencontainers/go-digest"
@@ -28,7 +29,7 @@ type mockRetriever struct {
 	err      error
 }
 
-func (r *mockRetriever) Repository(ctx context.Context, registry *url.URL, repoName string, insecure bool) (distribution.Repository, error) {
+func (r *mockRetriever) Repository(ctx dockercontext.Context, registry *url.URL, repoName string, insecure bool) (distribution.Repository, error) {
 	r.insecure = insecure
 	return r.repo, r.err
 }
@@ -48,14 +49,14 @@ func (r *mockRepository) Named() reference.Named {
 	return named
 }
 
-func (r *mockRepository) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
+func (r *mockRepository) Manifests(ctx dockercontext.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
 	return r, r.repoErr
 }
-func (r *mockRepository) Blobs(ctx context.Context) distribution.BlobStore { return r.blobs }
-func (r *mockRepository) Exists(ctx context.Context, dgst digest.Digest) (bool, error) {
+func (r *mockRepository) Blobs(ctx dockercontext.Context) distribution.BlobStore { return r.blobs }
+func (r *mockRepository) Exists(ctx dockercontext.Context, dgst digest.Digest) (bool, error) {
 	return false, r.getErr
 }
-func (r *mockRepository) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
+func (r *mockRepository) Get(ctx dockercontext.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
 	for _, option := range options {
 		if _, ok := option.(distribution.WithTagOption); ok {
 			return r.manifest, r.getByTagErr
@@ -63,13 +64,13 @@ func (r *mockRepository) Get(ctx context.Context, dgst digest.Digest, options ..
 	}
 	return r.manifest, r.getErr
 }
-func (r *mockRepository) Delete(ctx context.Context, dgst digest.Digest) error {
+func (r *mockRepository) Delete(ctx dockercontext.Context, dgst digest.Digest) error {
 	return fmt.Errorf("not implemented")
 }
-func (r *mockRepository) Put(ctx context.Context, manifest distribution.Manifest, options ...distribution.ManifestServiceOption) (digest.Digest, error) {
+func (r *mockRepository) Put(ctx dockercontext.Context, manifest distribution.Manifest, options ...distribution.ManifestServiceOption) (digest.Digest, error) {
 	return "", fmt.Errorf("not implemented")
 }
-func (r *mockRepository) Tags(ctx context.Context) distribution.TagService {
+func (r *mockRepository) Tags(ctx dockercontext.Context) distribution.TagService {
 	return &mockTagService{repo: r}
 }
 
@@ -81,19 +82,19 @@ type mockBlobStore struct {
 	statErr, serveErr, openErr error
 }
 
-func (r *mockBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
+func (r *mockBlobStore) Stat(ctx dockercontext.Context, dgst digest.Digest) (distribution.Descriptor, error) {
 	return distribution.Descriptor{}, r.statErr
 }
 
-func (r *mockBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
+func (r *mockBlobStore) ServeBlob(ctx dockercontext.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
 	return r.serveErr
 }
 
-func (r *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (r *mockBlobStore) Open(ctx dockercontext.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	return nil, r.openErr
 }
 
-func (r *mockBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
+func (r *mockBlobStore) Get(ctx dockercontext.Context, dgst digest.Digest) ([]byte, error) {
 	b, exists := r.blobs[dgst]
 	if !exists {
 		return nil, distribution.ErrBlobUnknown
@@ -107,7 +108,7 @@ type mockTagService struct {
 	repo *mockRepository
 }
 
-func (r *mockTagService) Get(ctx context.Context, tag string) (distribution.Descriptor, error) {
+func (r *mockTagService) Get(ctx dockercontext.Context, tag string) (distribution.Descriptor, error) {
 	v, ok := r.repo.tags[tag]
 	if !ok {
 		return distribution.Descriptor{}, r.repo.getTagErr
@@ -119,19 +120,19 @@ func (r *mockTagService) Get(ctx context.Context, tag string) (distribution.Desc
 	return distribution.Descriptor{Digest: dgst}, r.repo.getTagErr
 }
 
-func (r *mockTagService) Tag(ctx context.Context, tag string, desc distribution.Descriptor) error {
+func (r *mockTagService) Tag(ctx dockercontext.Context, tag string, desc distribution.Descriptor) error {
 	r.repo.tags[tag] = desc.Digest.String()
 	return r.repo.tagErr
 }
 
-func (r *mockTagService) Untag(ctx context.Context, tag string) error {
+func (r *mockTagService) Untag(ctx dockercontext.Context, tag string) error {
 	if _, ok := r.repo.tags[tag]; ok {
 		delete(r.repo.tags, tag)
 	}
 	return r.repo.untagErr
 }
 
-func (r *mockTagService) All(ctx context.Context) (res []string, err error) {
+func (r *mockTagService) All(ctx dockercontext.Context) (res []string, err error) {
 	err = r.repo.allTagErr
 	for tag := range r.repo.tags {
 		res = append(res, tag)
@@ -139,7 +140,7 @@ func (r *mockTagService) All(ctx context.Context) (res []string, err error) {
 	return
 }
 
-func (r *mockTagService) Lookup(ctx context.Context, digest distribution.Descriptor) ([]string, error) {
+func (r *mockTagService) Lookup(ctx dockercontext.Context, digest distribution.Descriptor) ([]string, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -444,19 +445,19 @@ type fakeManifestService struct {
 	err      error
 }
 
-func (s *fakeManifestService) Exists(ctx context.Context, dgst digest.Digest) (bool, error) {
+func (s *fakeManifestService) Exists(ctx dockercontext.Context, dgst digest.Digest) (bool, error) {
 	panic("not implemented")
 }
 
-func (s *fakeManifestService) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
+func (s *fakeManifestService) Get(ctx dockercontext.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
 	return s.manifest, s.err
 }
 
-func (s *fakeManifestService) Put(ctx context.Context, manifest distribution.Manifest, options ...distribution.ManifestServiceOption) (digest.Digest, error) {
+func (s *fakeManifestService) Put(ctx dockercontext.Context, manifest distribution.Manifest, options ...distribution.ManifestServiceOption) (digest.Digest, error) {
 	panic("not implemented")
 }
 
-func (s *fakeManifestService) Delete(ctx context.Context, dgst digest.Digest) error {
+func (s *fakeManifestService) Delete(ctx dockercontext.Context, dgst digest.Digest) error {
 	panic("not implemented")
 }
 
@@ -619,34 +620,34 @@ type fakeBlobStore struct {
 	err   error
 }
 
-func (s *fakeBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
+func (s *fakeBlobStore) Stat(ctx dockercontext.Context, dgst digest.Digest) (distribution.Descriptor, error) {
 	panic("not implemented")
 }
 
-func (s *fakeBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
+func (s *fakeBlobStore) Get(ctx dockercontext.Context, dgst digest.Digest) ([]byte, error) {
 	return s.bytes, s.err
 }
 
-func (s *fakeBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (s *fakeBlobStore) Open(ctx dockercontext.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	return fakeSeekCloser{bytes.NewBuffer(s.bytes)}, s.err
 }
 
-func (s *fakeBlobStore) Put(ctx context.Context, mediaType string, p []byte) (distribution.Descriptor, error) {
+func (s *fakeBlobStore) Put(ctx dockercontext.Context, mediaType string, p []byte) (distribution.Descriptor, error) {
 	panic("not implemented")
 }
 
-func (s *fakeBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
+func (s *fakeBlobStore) Create(ctx dockercontext.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
 	panic("not implemented")
 }
 
-func (s *fakeBlobStore) Resume(ctx context.Context, id string) (distribution.BlobWriter, error) {
+func (s *fakeBlobStore) Resume(ctx dockercontext.Context, id string) (distribution.BlobWriter, error) {
 	panic("not implemented")
 }
 
-func (s *fakeBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
+func (s *fakeBlobStore) ServeBlob(ctx dockercontext.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	panic("not implemented")
 }
 
-func (s *fakeBlobStore) Delete(ctx context.Context, dgst digest.Digest) error {
+func (s *fakeBlobStore) Delete(ctx dockercontext.Context, dgst digest.Digest) error {
 	panic("not implemented")
 }

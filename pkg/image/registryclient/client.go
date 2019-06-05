@@ -18,6 +18,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/docker/distribution"
+	dockercontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
 	registryclient "github.com/docker/distribution/registry/client"
@@ -203,7 +204,7 @@ func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName st
 
 	rt = c.repositoryTransport(rt, src, repoName)
 
-	repo, err := registryclient.NewRepository(named, src.String(), rt)
+	repo, err := registryclient.NewRepository(ctx, named, src.String(), rt)
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +396,7 @@ func (c *retryRepository) shouldRetry(count int, err error) bool {
 }
 
 // Manifests wraps the manifest service in a retryManifest for shared retries.
-func (c *retryRepository) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
+func (c *retryRepository) Manifests(ctx dockercontext.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
 	s, err := c.Repository.Manifests(ctx, options...)
 	if err != nil {
 		return nil, err
@@ -404,12 +405,12 @@ func (c *retryRepository) Manifests(ctx context.Context, options ...distribution
 }
 
 // Blobs wraps the blob service in a retryBlobStore for shared retries.
-func (c *retryRepository) Blobs(ctx context.Context) distribution.BlobStore {
+func (c *retryRepository) Blobs(ctx dockercontext.Context) distribution.BlobStore {
 	return retryBlobStore{BlobStore: c.Repository.Blobs(ctx), repo: c}
 }
 
 // Tags lists the tags under the named repository.
-func (c *retryRepository) Tags(ctx context.Context) distribution.TagService {
+func (c *retryRepository) Tags(ctx dockercontext.Context) distribution.TagService {
 	return &retryTags{TagService: c.Repository.Tags(ctx), repo: c}
 }
 
@@ -420,7 +421,7 @@ type retryManifest struct {
 }
 
 // Exists returns true if the manifest exists.
-func (c retryManifest) Exists(ctx context.Context, dgst digest.Digest) (bool, error) {
+func (c retryManifest) Exists(ctx dockercontext.Context, dgst digest.Digest) (bool, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return false, err
@@ -434,7 +435,7 @@ func (c retryManifest) Exists(ctx context.Context, dgst digest.Digest) (bool, er
 }
 
 // Get retrieves the manifest identified by the digest, if it exists.
-func (c retryManifest) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
+func (c retryManifest) Get(ctx dockercontext.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return nil, err
@@ -453,7 +454,7 @@ type retryBlobStore struct {
 	repo *retryRepository
 }
 
-func (c retryBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
+func (c retryBlobStore) Stat(ctx dockercontext.Context, dgst digest.Digest) (distribution.Descriptor, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return distribution.Descriptor{}, err
@@ -466,7 +467,7 @@ func (c retryBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribut
 	}
 }
 
-func (c retryBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
+func (c retryBlobStore) ServeBlob(ctx dockercontext.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return err
@@ -479,7 +480,7 @@ func (c retryBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, re
 	}
 }
 
-func (c retryBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (c retryBlobStore) Open(ctx dockercontext.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return nil, err
@@ -497,7 +498,7 @@ type retryTags struct {
 	repo *retryRepository
 }
 
-func (c *retryTags) Get(ctx context.Context, tag string) (distribution.Descriptor, error) {
+func (c *retryTags) Get(ctx dockercontext.Context, tag string) (distribution.Descriptor, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return distribution.Descriptor{}, err
@@ -510,7 +511,7 @@ func (c *retryTags) Get(ctx context.Context, tag string) (distribution.Descripto
 	}
 }
 
-func (c *retryTags) All(ctx context.Context) ([]string, error) {
+func (c *retryTags) All(ctx dockercontext.Context) ([]string, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return nil, err
@@ -523,7 +524,7 @@ func (c *retryTags) All(ctx context.Context) ([]string, error) {
 	}
 }
 
-func (c *retryTags) Lookup(ctx context.Context, digest distribution.Descriptor) ([]string, error) {
+func (c *retryTags) Lookup(ctx dockercontext.Context, digest distribution.Descriptor) ([]string, error) {
 	for i := 0; ; i++ {
 		if err := c.repo.limiter.Wait(ctx); err != nil {
 			return nil, err
@@ -542,7 +543,7 @@ type repositoryVerifier struct {
 }
 
 // Manifests returns a ManifestService that checks whether manifests match their digest.
-func (r repositoryVerifier) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
+func (r repositoryVerifier) Manifests(ctx dockercontext.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
 	ms, err := r.Repository.Manifests(ctx, options...)
 	if err != nil {
 		return nil, err
@@ -551,7 +552,7 @@ func (r repositoryVerifier) Manifests(ctx context.Context, options ...distributi
 }
 
 // Blobs returns a BlobStore that checks whether blob content returned from the server matches the expected digest.
-func (r repositoryVerifier) Blobs(ctx context.Context) distribution.BlobStore {
+func (r repositoryVerifier) Blobs(ctx dockercontext.Context) distribution.BlobStore {
 	return blobStoreVerifier{BlobStore: r.Repository.Blobs(ctx)}
 }
 
@@ -561,7 +562,7 @@ type manifestServiceVerifier struct {
 }
 
 // Get retrieves the manifest identified by the digest and guarantees it matches the content it is retrieved by.
-func (m manifestServiceVerifier) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
+func (m manifestServiceVerifier) Get(ctx dockercontext.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
 	manifest, err := m.ManifestService.Get(ctx, dgst, options...)
 	if err != nil {
 		return nil, err
@@ -615,7 +616,7 @@ type blobStoreVerifier struct {
 }
 
 // Get retrieves the blob identified by the digest and guarantees it matches the content it is retrieved by.
-func (b blobStoreVerifier) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
+func (b blobStoreVerifier) Get(ctx dockercontext.Context, dgst digest.Digest) ([]byte, error) {
 	data, err := b.BlobStore.Get(ctx, dgst)
 	if err != nil {
 		return nil, err
@@ -630,7 +631,7 @@ func (b blobStoreVerifier) Get(ctx context.Context, dgst digest.Digest) ([]byte,
 }
 
 // Open streams the blob identified by the digest and guarantees it matches the content it is retrieved by.
-func (b blobStoreVerifier) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (b blobStoreVerifier) Open(ctx dockercontext.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	rsc, err := b.BlobStore.Open(ctx, dgst)
 	if err != nil {
 		return nil, err
