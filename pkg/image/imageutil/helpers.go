@@ -7,12 +7,16 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+
+	digestinternal "github.com/openshift/library-go/pkg/image/internal/digest"
 )
 
 const (
 	// DefaultImageTag is used when an image tag is needed and the configuration does not specify a tag to use.
 	DefaultImageTag = "latest"
 )
+
+var ParseDigest = digestinternal.ParseDigest
 
 // SplitImageStreamTag turns the name of an ImageStreamTag into Name and Tag.
 // It returns false if the tag was not properly specified in the name.
