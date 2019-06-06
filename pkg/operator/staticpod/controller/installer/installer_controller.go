@@ -572,7 +572,9 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 			errors = failedErrors
 
 		case staticPodStateReady:
-			ret.CurrentRevision = currNodeState.TargetRevision
+			if currNodeState.TargetRevision > ret.CurrentRevision {
+				ret.CurrentRevision = currNodeState.TargetRevision
+			}
 			ret.TargetRevision = 0
 			ret.LastFailedRevision = 0
 			ret.LastFailedRevisionErrors = nil
