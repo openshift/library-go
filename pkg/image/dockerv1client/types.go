@@ -38,6 +38,28 @@ type DockerHistory struct {
 	DockerV1Compatibility string `json:"v1Compatibility"`
 }
 
+// DockerV1CompatibilityImage represents the structured v1
+// compatibility information.
+type DockerV1CompatibilityImage struct {
+	ID              string                 `json:"id"`
+	Parent          string                 `json:"parent,omitempty"`
+	Comment         string                 `json:"comment,omitempty"`
+	Created         time.Time              `json:"created"`
+	Container       string                 `json:"container,omitempty"`
+	ContainerConfig docker10.DockerConfig  `json:"container_config,omitempty"`
+	DockerVersion   string                 `json:"docker_version,omitempty"`
+	Author          string                 `json:"author,omitempty"`
+	Config          *docker10.DockerConfig `json:"config,omitempty"`
+	Architecture    string                 `json:"architecture,omitempty"`
+	Size            int64                  `json:"size,omitempty"`
+}
+
+// DockerV1CompatibilityImageSize represents the structured v1
+// compatibility information for size
+type DockerV1CompatibilityImageSize struct {
+	Size int64 `json:"size,omitempty"`
+}
+
 // Descriptor describes targeted content. Used in conjunction with a blob
 // store, a descriptor can be used to fetch, store and target any kind of
 // blob. The struct also describes the wire protocol format. Fields should
