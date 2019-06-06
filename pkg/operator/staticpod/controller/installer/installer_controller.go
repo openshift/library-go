@@ -166,7 +166,7 @@ func (c *InstallerController) getStaticPodState(nodeName string) (state staticPo
 				return staticPodStateReady, pod.Labels[revisionLabel], "static pod is ready", nil, nil
 			}
 		}
-		return staticPodStatePending, "", "static pod is not ready", nil, nil
+		return staticPodStatePending, pod.Labels[revisionLabel], "static pod is not ready", nil, nil
 	case corev1.PodFailed:
 		return staticPodStateFailed, pod.Labels[revisionLabel], "static pod has failed", []string{pod.Status.Message}, nil
 	}
@@ -218,7 +218,7 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 		return oldestNotReadyRevisionNode, reason, nil
 	}
 
-	// find a node that is has the wrong revision. Take the oldest one.
+	// find a node that has the wrong revision. Take the oldest one.
 	oldestPodRevisionNode := -1
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
