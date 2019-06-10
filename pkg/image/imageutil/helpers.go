@@ -77,6 +77,23 @@ func ParseImageStreamTagName(istag string) (name string, tag string, err error) 
 	return
 }
 
+// ParseImageStreamImageName splits a string into its name component and ID component, and returns an error
+// if the string is not in the right form.
+func ParseImageStreamImageName(input string) (name string, id string, err error) {
+	segments := strings.SplitN(input, "@", 3)
+	switch len(segments) {
+	case 2:
+		name = segments[0]
+		id = segments[1]
+		if len(name) == 0 || len(id) == 0 {
+			err = fmt.Errorf("image stream image name %q must have a name and ID", input)
+		}
+	default:
+		err = fmt.Errorf("expected exactly one @ in the isimage name %q", input)
+	}
+	return
+}
+
 var (
 	reMinorSemantic  = regexp.MustCompile(`^[\d]+\.[\d]+$`)
 	reMinorWithPatch = regexp.MustCompile(`^([\d]+\.[\d]+)-\w+$`)
