@@ -353,3 +353,11 @@ func resolveReferenceForTagEvent(stream *imagev1.ImageStream, tag string, latest
 		return latest.DockerImageReference
 	}
 }
+
+// DigestOrImageMatch matches the digest in the image name.
+func DigestOrImageMatch(image, imageID string) bool {
+	if d, err := ParseDigest(image); err == nil {
+		return strings.HasPrefix(d.Hex(), imageID) || strings.HasPrefix(image, imageID)
+	}
+	return strings.HasPrefix(image, imageID)
+}
