@@ -31,11 +31,19 @@ import (
 	"k8s.io/client-go/util/cert"
 )
 
+// TLS versions that are known to golang. Go 1.12 adds TLS 1.3 support with a build flag.
 var versions = map[string]uint16{
 	"VersionTLS10": tls.VersionTLS10,
 	"VersionTLS11": tls.VersionTLS11,
 	"VersionTLS12": tls.VersionTLS12,
 	"VersionTLS13": tls.VersionTLS13,
+}
+
+// TLS versions that are enabled.
+var supportedVersions = map[string]uint16{
+	"VersionTLS10": tls.VersionTLS10,
+	"VersionTLS11": tls.VersionTLS11,
+	"VersionTLS12": tls.VersionTLS12,
 }
 
 // TLSVersionToNameOrDie given a tls version as an int, return its readable name
@@ -72,6 +80,18 @@ func TLSVersionOrDie(versionName string) uint16 {
 	}
 	return version
 }
+
+// Returns the build enabled TLS versions.
+func SupportedTLSVersions() []string {
+	supported := []string{}
+	for k := range supportedVersions {
+		supported = append(supported, k)
+	}
+	sort.Strings(supported)
+	return supported
+}
+
+// TLS versions that are known to golang, but may not necessarily be enabled.
 func ValidTLSVersions() []string {
 	validVersions := []string{}
 	for k := range versions {
