@@ -81,20 +81,20 @@ func TLSVersionOrDie(versionName string) uint16 {
 	return version
 }
 
-// Returns the build enabled TLS versions.
-func SupportedTLSVersions() []string {
+// TLS versions that are known to golang, but may not necessarily be enabled.
+func GolangTLSVersions() []string {
 	supported := []string{}
-	for k := range supportedVersions {
+	for k := range versions {
 		supported = append(supported, k)
 	}
 	sort.Strings(supported)
 	return supported
 }
 
-// TLS versions that are known to golang, but may not necessarily be enabled.
+// Returns the build enabled TLS versions.
 func ValidTLSVersions() []string {
 	validVersions := []string{}
-	for k := range versions {
+	for k := range supportedVersions {
 		validVersions = append(validVersions, k)
 	}
 	sort.Strings(validVersions)
