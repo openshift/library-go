@@ -66,7 +66,7 @@ func (c SigningRotation) ensureSigningCertKeyPair() (*crypto.CA, error) {
 }
 
 func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration) string {
-	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+	notBefore, notAfter, reason := GetValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return reason
 	}
@@ -85,7 +85,7 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 	return ""
 }
 
-func getValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
+func GetValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
 	notAfterString := annotations[CertificateNotAfterAnnotation]
 	if len(notAfterString) == 0 {
 		return notBefore, notAfter, "missing notAfter"

@@ -43,6 +43,8 @@ type ResourceSyncController struct {
 	// knownNamespaces is the list of namespaces we are watching.
 	knownNamespaces sets.String
 
+	secretSyncConditions SecretSyncConditions
+
 	configMapGetter            corev1client.ConfigMapsGetter
 	secretGetter               corev1client.SecretsGetter
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
@@ -95,6 +97,11 @@ func NewResourceSyncController(
 	c.cachesToSync = append(c.cachesToSync, operatorConfigClient.Informer().HasSynced)
 
 	return c
+}
+
+// WithSecretSyncConditions adds conditions to evaluate before syncing a secret. It must be called before starting.
+func (c *ResourceSyncController) WithSecretSyncConditions(secretSyncConditions ...SecretConditionFunc) {
+	c.secretSyncConditions = append(c.secretSyncConditions, secretSyncConditions...)
 }
 
 func (c *ResourceSyncController) SyncConfigMap(destination, source ResourceLocation) error {
@@ -166,6 +173,7 @@ func (c *ResourceSyncController) sync() error {
 			errors = append(errors, err)
 		}
 	}
+
 	for destination, source := range c.secretSyncRules {
 		if source == emptyResourceLocation {
 			// use the cache to check whether the secret exists in target namespace, if not skip the extra delete call.
@@ -178,6 +186,15 @@ func (c *ResourceSyncController) sync() error {
 			if err := c.secretGetter.Secrets(destination.Namespace).Delete(destination.Name, nil); err != nil && !apierrors.IsNotFound(err) {
 				errors = append(errors, err)
 			}
+			continue
+		}
+
+		// nils should be handled by the conditions. The cached lookups are cheap.
+		destination, _ := c.secretGetter.Secrets(destination.Namespace).Get(destination.Name, metav1.GetOptions{})
+		source, _ := c.secretGetter.Secrets(source.Namespace).Get(source.Name, metav1.GetOptions{})
+		timeToWait := c.secretSyncConditions.WaitBeforeSecretSync(destination, source)
+		if timeToWait > 0 {
+			c.queue.AddAfter(controllerWorkQueueKey, timeToWait)
 			continue
 		}
 

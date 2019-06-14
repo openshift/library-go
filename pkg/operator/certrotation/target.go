@@ -121,7 +121,7 @@ func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, 
 //
 //So with a cert percentage of 75% and equally long CA and cert validities at the worst case we start at 85% of the cert to renew, trying again every minute.
 func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *crypto.CA, refresh time.Duration) string {
-	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+	notBefore, notAfter, reason := GetValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return reason
 	}
