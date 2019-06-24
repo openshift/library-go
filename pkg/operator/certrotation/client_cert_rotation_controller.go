@@ -140,6 +140,8 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 	defer klog.Infof("Shutting down CertRotationController - %q", c.name)
 	c.WaitForReady(stopCh)
 
+	registerCertExpirationMetrics(c.CABundleRotation.Informer.Lister(), c.SigningRotation.Informer.Lister())
+
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
 
