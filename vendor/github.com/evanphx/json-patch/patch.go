@@ -3,7 +3,6 @@ package jsonpatch
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,11 +31,10 @@ type lazyNode struct {
 	which int
 }
 
-// Operation is a single JSON-Patch step, such as a single 'add' operation.
-type Operation map[string]*json.RawMessage
+type operation map[string]*json.RawMessage
 
-// Patch is an ordered collection of Operations.
-type Patch []Operation
+// Patch is an ordered collection of operations.
+type Patch []operation
 
 type partialDoc map[string]*lazyNode
 type partialArray []*lazyNode
@@ -229,8 +227,7 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 	return true
 }
 
-// Kind reads the "op" field of the Operation.
-func (o Operation) Kind() string {
+func (o operation) kind() string {
 	if obj, ok := o["op"]; ok && obj != nil {
 		var op string
 
@@ -246,63 +243,44 @@ func (o Operation) Kind() string {
 	return "unknown"
 }
 
-// Path reads the "path" field of the Operation.
-func (o Operation) Path() (string, error) {
+func (o operation) path() string {
 	if obj, ok := o["path"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
 
 		if err != nil {
-			return "unknown", err
+			return "unknown"
 		}
 
-		return op, nil
+		return op
 	}
 
-	return "unknown", errors.New("operation missing path field")
+	return "unknown"
 }
 
-// From reads the "from" field of the Operation.
-func (o Operation) From() (string, error) {
+func (o operation) from() string {
 	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
 
 		if err != nil {
-			return "unknown", err
+			return "unknown"
 		}
 
-		return op, nil
+		return op
 	}
 
-	return "unknown", errors.New("operation missing from field")
+	return "unknown"
 }
 
-func (o Operation) value() *lazyNode {
+func (o operation) value() *lazyNode {
 	if obj, ok := o["value"]; ok {
 		return newLazyNode(obj)
 	}
 
 	return nil
-}
-
-// ValueInterface decodes the operation value into an interface.
-func (o Operation) ValueInterface() (interface{}, error) {
-	if obj, ok := o["value"]; ok && obj != nil {
-		var v interface{}
-
-		err := json.Unmarshal(*obj, &v)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return v, nil
-	}
-
-	return nil, errors.New("operation missing value field")
 }
 
 func isArray(buf []byte) bool {
@@ -484,11 +462,8 @@ func (d *partialArray) remove(key string) error {
 
 }
 
-func (p Patch) add(doc *container, op Operation) error {
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch add operation failed to decode path: %s", err)
-	}
+func (p Patch) add(doc *container, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
@@ -499,11 +474,8 @@ func (p Patch) add(doc *container, op Operation) error {
 	return con.add(key, op.value())
 }
 
-func (p Patch) remove(doc *container, op Operation) error {
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch remove operation failed to decode path: %s", err)
-	}
+func (p Patch) remove(doc *container, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
@@ -514,11 +486,8 @@ func (p Patch) remove(doc *container, op Operation) error {
 	return con.remove(key)
 }
 
-func (p Patch) replace(doc *container, op Operation) error {
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch replace operation failed to decode path: %s", err)
-	}
+func (p Patch) replace(doc *container, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
@@ -534,11 +503,8 @@ func (p Patch) replace(doc *container, op Operation) error {
 	return con.set(key, op.value())
 }
 
-func (p Patch) move(doc *container, op Operation) error {
-	from, err := op.From()
-	if err != nil {
-		return fmt.Errorf("jsonpatch move operation failed to decode from: %s", err)
-	}
+func (p Patch) move(doc *container, op operation) error {
+	from := op.from()
 
 	con, key := findObject(doc, from)
 
@@ -556,10 +522,7 @@ func (p Patch) move(doc *container, op Operation) error {
 		return err
 	}
 
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch move operation failed to decode path: %s", err)
-	}
+	path := op.path()
 
 	con, key = findObject(doc, path)
 
@@ -570,11 +533,8 @@ func (p Patch) move(doc *container, op Operation) error {
 	return con.add(key, val)
 }
 
-func (p Patch) test(doc *container, op Operation) error {
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch test operation failed to decode path: %s", err)
-	}
+func (p Patch) test(doc *container, op operation) error {
+	path := op.path()
 
 	con, key := findObject(doc, path)
 
@@ -604,11 +564,8 @@ func (p Patch) test(doc *container, op Operation) error {
 	return fmt.Errorf("Testing value %s failed", path)
 }
 
-func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) error {
-	from, err := op.From()
-	if err != nil {
-		return fmt.Errorf("jsonpatch copy operation failed to decode from: %s", err)
-	}
+func (p Patch) copy(doc *container, op operation, accumulatedCopySize *int64) error {
+	from := op.from()
 
 	con, key := findObject(doc, from)
 
@@ -621,10 +578,7 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64) er
 		return err
 	}
 
-	path, err := op.Path()
-	if err != nil {
-		return fmt.Errorf("jsonpatch copy operation failed to decode path: %s", err)
-	}
+	path := op.path()
 
 	con, key = findObject(doc, path)
 
@@ -697,7 +651,7 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 	var accumulatedCopySize int64
 
 	for _, op := range p {
-		switch op.Kind() {
+		switch op.kind() {
 		case "add":
 			err = p.add(&pd, op)
 		case "remove":
@@ -711,7 +665,7 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 		case "copy":
 			err = p.copy(&pd, op, &accumulatedCopySize)
 		default:
-			err = fmt.Errorf("Unexpected kind: %s", op.Kind())
+			err = fmt.Errorf("Unexpected kind: %s", op.kind())
 		}
 
 		if err != nil {
