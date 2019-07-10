@@ -3,6 +3,7 @@ package create
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -148,9 +149,16 @@ func TestCreate(t *testing.T) {
 	})
 	testConfigMap.SetName("aggregator-client-ca")
 	testConfigMap.SetNamespace("openshift-kube-apiserver")
+	testKubeAPIServer := &unstructured.Unstructured{}
+	testKubeAPIServer.SetGroupVersionKind((schema.GroupVersionKind{
+		Version: "kubeapiserver.operator.openshift.io/v1alpha1",
+		Kind:    "KubeAPIServerOperatorConfig",
+	}))
+	testKubeAPIServer.SetName("instance")
 
 	tests := []struct {
 		name              string
+		update            bool
 		discovery         []*restmapper.APIGroupResources
 		expectError       bool
 		expectFailedCount int
@@ -161,6 +169,12 @@ func TestCreate(t *testing.T) {
 		{
 			name:      "create all resources",
 			discovery: resources,
+			evalActions: func(t *testing.T, actions []ktesting.Action) {
+				if got, expected := len(actions), 6; got != expected {
+					t.Errorf("expected %d, found %d actions", expected, len(actions))
+					return
+				}
+			},
 		},
 		{
 			name:              "fail to create kube apiserver operator config",
@@ -170,9 +184,82 @@ func TestCreate(t *testing.T) {
 			expectReload:      true,
 		},
 		{
-			name:            "create all resources",
+			name:            "create all resources, ConfigMap already exists",
 			discovery:       resources,
 			existingObjects: []runtime.Object{testConfigMap},
+			evalActions: func(t *testing.T, actions []ktesting.Action) {
+				if got, expected := len(actions), 7; got != expected {
+					t.Errorf("expected %d, found %d actions", expected, len(actions))
+					return
+				}
+
+				gaction, ok := actions[3].(ktesting.GetAction)
+				if !ok {
+					t.Errorf("expected action[3] to be GetAction, got %T", actions[3])
+					return
+				}
+				if got, expected := fmt.Sprintf("%s/%s/%s", gaction.GetResource().Resource, gaction.GetNamespace(), gaction.GetName()), "configmaps/openshift-kube-apiserver/aggregator-client-ca"; got != expected {
+					t.Errorf("GET expected for %s, found %s", expected, got)
+					return
+				}
+			},
+		},
+		{
+			name:            "create all resources, KubeAPIServer no patch update",
+			discovery:       resources,
+			existingObjects: []runtime.Object{testKubeAPIServer},
+			evalActions: func(t *testing.T, actions []ktesting.Action) {
+				if got, expected := len(actions), 7; got != expected {
+					t.Errorf("expected %d, found %d actions", expected, len(actions))
+					return
+				}
+
+				gaction, ok := actions[4].(ktesting.GetAction)
+				if !ok {
+					t.Errorf("expected action[4] to be GetAction, got %T", actions[4])
+					return
+				}
+				if got, expected := fmt.Sprintf("%s/%s", gaction.GetResource().Resource, gaction.GetName()), "kubeapiserveroperatorconfigs/instance"; got != expected {
+					t.Errorf("GET expected for %s, found %s", expected, got)
+					return
+				}
+			},
+		},
+		{
+			name:            "create all resources, KubeAPIServer patch update",
+			update:          true,
+			discovery:       resources,
+			existingObjects: []runtime.Object{testKubeAPIServer},
+			evalActions: func(t *testing.T, actions []ktesting.Action) {
+				if got, expected := len(actions), 8; got != expected {
+					t.Errorf("expected %d, found %d actions", expected, len(actions))
+					return
+				}
+
+				gaction, ok := actions[4].(ktesting.GetAction)
+				if !ok {
+					t.Errorf("expected action[4] to be GetAction, got %T", actions[4])
+					return
+				}
+				if got, expected := fmt.Sprintf("%s/%s", gaction.GetResource().Resource, gaction.GetName()), "kubeapiserveroperatorconfigs/instance"; got != expected {
+					t.Errorf("GET expected for %s, found %s", expected, got)
+					return
+				}
+
+				paction, ok := actions[5].(ktesting.PatchAction)
+				if !ok {
+					t.Errorf("expected action[5] to be PatchAction, got %T", actions[5])
+					return
+				}
+				if got, expected := fmt.Sprintf("%s/%s", paction.GetResource().Resource, paction.GetName()), "kubeapiserveroperatorconfigs/instance"; got != expected {
+					t.Errorf("PATCH expected for %s, found %s", expected, got)
+					return
+				}
+				if got, expected := string(paction.GetPatch()), `{"spec":{"managementState":"Managed"},"status":{"observedGeneration":2}}`; got != expected {
+					t.Errorf("PATCH expected was %q, got %q", expected, got)
+					return
+				}
+			},
 		},
 	}
 
@@ -190,7 +277,7 @@ func TestCreate(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(fakeScheme, tc.existingObjects...)
 			restMapper := restmapper.NewDiscoveryRESTMapper(tc.discovery)
 
-			err, reload := create(ctx, manifests, dynamicClient, restMapper, CreateOptions{Verbose: true, StdErr: os.Stderr})
+			err, reload := create(ctx, manifests, dynamicClient, restMapper, CreateOptions{Verbose: true, StdErr: os.Stderr, Update: tc.update})
 			if tc.expectError && err == nil {
 				t.Errorf("expected error, got no error")
 				return
@@ -213,6 +300,7 @@ func TestCreate(t *testing.T) {
 			}
 			if tc.evalActions != nil {
 				tc.evalActions(t, dynamicClient.Actions())
+				return
 			}
 		})
 
