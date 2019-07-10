@@ -15,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -29,6 +31,9 @@ type CreateOptions struct {
 	// Filters allows to filter which files we will read from disk.
 	// Multiple filters can be specified, in that case only files matching all filters will be returned.
 	Filters []assets.FileInfoPredicate
+
+	// Update allows to update the objects that already exist in the cluster to match the desired state in the manifest file.
+	Update bool
 
 	// Verbose if true will print out extra messages for debugging
 	Verbose bool
@@ -66,7 +71,7 @@ func EnsureManifestsCreated(ctx context.Context, manifestDir string, restConfig 
 		lastCreateError      error
 		retryCount           int
 		mapper               meta.RESTMapper
-		needDiscoveryRefresh bool = true
+		needDiscoveryRefresh = true
 	)
 	err = wait.PollImmediateUntil(interval, func() (bool, error) {
 		retryCount++
@@ -163,24 +168,16 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 			continue
 		}
 
-		if mappings.Scope.Name() == meta.RESTScopeNameRoot {
-			_, err = client.Resource(mappings.Resource).Create(manifests[path], metav1.CreateOptions{})
-		} else {
-			_, err = client.Resource(mappings.Resource).Namespace(manifests[path].GetNamespace()).Create(manifests[path], metav1.CreateOptions{})
-		}
-
 		resourceString := mappings.Resource.Resource + "." + mappings.Resource.Version + "." + mappings.Resource.Group + "/" + manifests[path].GetName() + " -n " + manifests[path].GetNamespace()
 
-		// Resource already exists means we already succeeded
-		// This should never happen as we remove already created items from the manifest list, unless the resource existed beforehand.
-		if kerrors.IsAlreadyExists(err) {
-			if options.Verbose {
-				fmt.Fprintf(options.StdErr, "Skipped %q %s as it already exists\n", path, resourceString)
-			}
-			delete(manifests, path)
-			continue
+		var resource dynamic.ResourceInterface
+		if mappings.Scope.Name() == meta.RESTScopeNameRoot {
+			resource = client.Resource(mappings.Resource)
+		} else {
+			resource = client.Resource(mappings.Resource).Namespace(manifests[path].GetNamespace())
 		}
 
+		action, err := createManifest(ctx, resource, manifests[path], options.Update)
 		if err != nil {
 			if options.Verbose {
 				fmt.Fprintf(options.StdErr, "Failed to create %q %s: %v\n", path, resourceString, err)
@@ -190,7 +187,14 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 		}
 
 		if options.Verbose {
-			fmt.Fprintf(options.StdErr, "Created %q %s\n", path, resourceString)
+			switch action {
+			case created:
+				fmt.Fprintf(options.StdErr, "Created %q %s\n", path, resourceString)
+			case creationSkipped:
+				fmt.Fprintf(options.StdErr, "Skipped creating %q %s\n", path, resourceString)
+			case updated:
+				fmt.Fprintf(options.StdErr, "Updated %q %s\n", path, resourceString)
+			}
 		}
 
 		// Creation succeeded lets remove the manifest from the list to avoid creating it second time
@@ -198,6 +202,75 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 	}
 
 	return formatErrors("failed to create some manifests", errs), reloadDiscovery
+}
+
+// createManifestAction defines the action that was performed by createManifest
+type createManifestAction int
+
+const (
+	// the action is unknown
+	unknown createManifestAction = iota
+	// the action was that the manifest was created
+	created
+	// the action was that the manifest creation was skipped
+	creationSkipped
+	// the action was the manifest was updated
+	updated
+)
+
+// createManifest creates the manifest
+// * if update is false, manifest is created or skipped if it already exists.
+// * if update is true, manifests is created if it doesn't already exist in the cluster, and patched if it already exists.
+// * if status fields are set for manifest, update is called for status subresource.
+func createManifest(ctx context.Context, resource dynamic.ResourceInterface, manifest *unstructured.Unstructured, update bool) (createManifestAction, error) {
+	incluster, action, err := createOrUpdateManifest(ctx, resource, manifest, update)
+	if err != nil {
+		return unknown, err
+	}
+
+	if _, ok := manifest.Object["status"]; !ok {
+		return action, nil
+	}
+	unstructured.SetNestedMap(incluster.Object, manifest.Object, "status")
+	incluster, err = resource.UpdateStatus(incluster, metav1.UpdateOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return unknown, err
+	}
+	return action, nil
+}
+
+func createOrUpdateManifest(ctx context.Context, resource dynamic.ResourceInterface, manifest *unstructured.Unstructured, update bool) (*unstructured.Unstructured, createManifestAction, error) {
+	incluster, err := resource.Create(manifest, metav1.CreateOptions{})
+	if kerrors.IsAlreadyExists(err) {
+		incluster, err = resource.Get(manifest.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return nil, unknown, err
+		}
+		if update {
+			origData, err := incluster.MarshalJSON()
+			if err != nil {
+				return nil, unknown, err
+			}
+			modData, err := manifest.MarshalJSON()
+			if err != nil {
+				return nil, unknown, err
+			}
+			patch, err := strategicpatch.CreateTwoWayMergePatch(origData, modData, manifest)
+			if err != nil {
+				return nil, unknown, err
+			}
+			incluster, err = resource.Patch(manifest.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+			if err != nil {
+				return nil, unknown, err
+			}
+			return incluster, updated, nil
+		}
+		return incluster, creationSkipped, nil
+	}
+	if err != nil {
+		return nil, unknown, err
+	}
+	return incluster, created, nil
 }
 
 func formatErrors(prefix string, errors map[string]error) error {
