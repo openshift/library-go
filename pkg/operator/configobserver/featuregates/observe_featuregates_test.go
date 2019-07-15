@@ -37,8 +37,10 @@ func TestObserveFeatureFlags(t *testing.T) {
 	tests := []struct {
 		name string
 
-		configValue    configv1.FeatureSet
-		expectedResult []string
+		configValue     configv1.FeatureSet
+		expectedResult  []string
+		expectError     bool
+		customNoUpgrade *configv1.CustomFeatureGates
 	}{
 		{
 			name:        "default",
@@ -57,9 +59,25 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"ExperimentalCriticalPodAnnotation=true",
 				"RotateKubeletServerCertificate=true",
 				"SupportPodPidsLimit=true",
-				"CSIBlockVolume=true",
 				"LocalStorageCapacityIsolation=false",
 			},
+		},
+		{
+			name:        "custom no upgrade",
+			configValue: configv1.CustomNoUpgrade,
+			expectedResult: []string{
+				"CustomFeatureEnabled=true",
+				"CustomFeatureDisabled=false",
+			},
+			customNoUpgrade: &configv1.CustomFeatureGates{
+				Enabled:  []string{"CustomFeatureEnabled"},
+				Disabled: []string{"CustomFeatureDisabled"},
+			},
+		},
+		{
+			name:        "custom no upgrade set but none were provided",
+			configValue: configv1.CustomNoUpgrade,
+			expectError: true,
 		},
 	}
 
@@ -69,7 +87,10 @@ func TestObserveFeatureFlags(t *testing.T) {
 			indexer.Add(&configv1.FeatureGate{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.FeatureGateSpec{
-					FeatureSet: tc.configValue,
+					FeatureGateSelection: configv1.FeatureGateSelection{
+						FeatureSet:      tc.configValue,
+						CustomNoUpgrade: tc.customNoUpgrade,
+					},
 				},
 			})
 			listers := testLister{
@@ -82,8 +103,11 @@ func TestObserveFeatureFlags(t *testing.T) {
 			observeFn := NewObserveFeatureFlagsFunc(nil, configPath)
 
 			observed, errs := observeFn(listers, eventRecorder, initialExistingConfig)
-			if len(errs) != 0 {
+			if len(errs) != 0 && !tc.expectError {
 				t.Fatal(errs)
+			}
+			if len(errs) == 0 && tc.expectError {
+				t.Fatal("expected an error but got nothing")
 			}
 			actual, _, err := unstructured.NestedStringSlice(observed, configPath...)
 			if err != nil {
