@@ -4,15 +4,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
 type testLister struct {
@@ -41,6 +41,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 		expectedResult  []string
 		expectError     bool
 		customNoUpgrade *configv1.CustomFeatureGates
+		knownFeatures   sets.String
 	}{
 		{
 			name:        "default",
@@ -63,7 +64,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 			},
 		},
 		{
-			name:        "custom no upgrade",
+			name:        "custom no upgrade and all allowed",
 			configValue: configv1.CustomNoUpgrade,
 			expectedResult: []string{
 				"CustomFeatureEnabled=true",
@@ -75,9 +76,21 @@ func TestObserveFeatureFlags(t *testing.T) {
 			},
 		},
 		{
-			name:        "custom no upgrade set but none were provided",
+			name:           "custom no upgrade flag set and none upgrades were provided",
+			configValue:    configv1.CustomNoUpgrade,
+			expectedResult: []string{},
+		},
+		{
+			name:        "custom no upgrade and known features",
 			configValue: configv1.CustomNoUpgrade,
-			expectError: true,
+			expectedResult: []string{
+				"CustomFeatureEnabled=true",
+			},
+			customNoUpgrade: &configv1.CustomFeatureGates{
+				Enabled:  []string{"CustomFeatureEnabled"},
+				Disabled: []string{"CustomFeatureDisabled"},
+			},
+			knownFeatures: sets.NewString("CustomFeatureEnabled"),
 		},
 	}
 
@@ -100,7 +113,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 
 			initialExistingConfig := map[string]interface{}{}
 
-			observeFn := NewObserveFeatureFlagsFunc(nil, configPath)
+			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, configPath)
 
 			observed, errs := observeFn(listers, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 && !tc.expectError {
