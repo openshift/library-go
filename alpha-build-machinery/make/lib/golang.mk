@@ -1,6 +1,9 @@
 GO ?=go
 GOPATH ?=$(shell $(GO) env GOPATH)
-GO_PACKAGE :=$(subst $(GOPATH)/src/,,$(abspath .))
+gopath_list :=$(subst :, ,$(strip $(GOPATH)))
+# Use every path in GOPATH to try to remove it as a prefix of current dir to determine the package name.
+# If the prefix is not removed on subtitution, filter-out unchanged paths.
+GO_PACKAGE ?=$(strip $(filter-out $(abspath .),$(foreach p,$(gopath_list),$(patsubst $(p)/src/%,%,$(abspath .)))))
 
 GOFMT ?=gofmt
 GOFMT_FLAGS ?=-s -l
