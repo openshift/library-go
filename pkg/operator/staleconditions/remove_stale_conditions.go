@@ -20,7 +20,7 @@ const workQueueKey = "key"
 type RemoveStaleConditions struct {
 	conditions []string
 
-	operatorClient v1helpers.StaticPodOperatorClient
+	operatorClient v1helpers.OperatorClient
 	cachesToSync   []cache.InformerSynced
 
 	eventRecorder events.Recorder
@@ -30,7 +30,7 @@ type RemoveStaleConditions struct {
 
 func NewRemoveStaleConditions(
 	conditions []string,
-	operatorClient v1helpers.StaticPodOperatorClient,
+	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) *RemoveStaleConditions {
 	c := &RemoveStaleConditions{
@@ -49,14 +49,14 @@ func NewRemoveStaleConditions(
 }
 
 func (c RemoveStaleConditions) sync() error {
-	removeStaleConditionsFn := func(status *operatorv1.StaticPodOperatorStatus) error {
+	removeStaleConditionsFn := func(status *operatorv1.OperatorStatus) error {
 		for _, condition := range c.conditions {
 			v1helpers.RemoveOperatorCondition(&status.Conditions, condition)
 		}
 		return nil
 	}
 
-	if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, removeStaleConditionsFn); err != nil {
+	if _, _, err := v1helpers.UpdateStatus(c.operatorClient, removeStaleConditionsFn); err != nil {
 		return err
 	}
 
