@@ -157,6 +157,17 @@ func TestCreate(t *testing.T) {
 	})
 	testOperatorConfig.SetName("instance")
 
+	testOperatorConfigWithStatus := &unstructured.Unstructured{}
+	testOperatorConfigWithStatus.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "kubeapiserver.operator.openshift.io",
+		Version: "v1alpha1",
+		Kind:    "KubeAPIServerOperatorConfig",
+	})
+	testOperatorConfigWithStatus.SetName("instance")
+	testOperatorConfigStatusVal := make(map[string]interface{})
+	testOperatorConfigStatusVal["initializedValue"] = "something before"
+	unstructured.SetNestedField(testOperatorConfigWithStatus.Object, testOperatorConfigStatusVal, "status")
+
 	tests := []struct {
 		name              string
 		discovery         []*restmapper.APIGroupResources
@@ -199,6 +210,17 @@ func TestCreate(t *testing.T) {
 				}
 				if got, exp := ups.GetSubresource(), "status"; got != exp {
 					t.Errorf("ecpecting the subresource to be %q, got %q", exp, got)
+					return
+				}
+			},
+		},
+		{
+			name:            "create all resources",
+			discovery:       resources,
+			existingObjects: []runtime.Object{testOperatorConfigWithStatus},
+			evalActions: func(t *testing.T, actions []ktesting.Action) {
+				if got, exp := len(actions), 6; got != exp {
+					t.Errorf("expected %d actions, found %d", exp, got)
 					return
 				}
 			},
