@@ -11,6 +11,10 @@ GOEXE ?=$(shell $(GO) env GOEXE)
 GOFMT ?=gofmt
 GOFMT_FLAGS ?=-s -l
 GOLINT ?=golint
+GOSEC ?=gosec
+GOSEC_SEVERITY ?=high
+GOSEC_CONFIDENCE ?=high
+GOSEC_EXCLUDE ?=G304
 
 GO_FILES ?=$(shell find . -name '*.go' -not -path '*/vendor/*' -not -path '*/_output/*' -print)
 GO_PACKAGES ?=./...

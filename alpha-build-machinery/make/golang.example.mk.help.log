@@ -8,7 +8,9 @@ test
 test-unit
 update
 update-gofmt
+update-gosec
 verify
 verify-gofmt
 verify-golint
+verify-gosec
 verify-govet

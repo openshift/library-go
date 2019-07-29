@@ -15,6 +15,7 @@ update-deps
 update-deps-overrides
 update-generated
 update-gofmt
+update-gosec
 verify
 verify-bindata
 verify-codegen
@@ -22,4 +23,5 @@ verify-deps
 verify-generated
 verify-gofmt
 verify-golint
+verify-gosec
 verify-govet

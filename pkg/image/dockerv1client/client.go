@@ -223,6 +223,7 @@ func newConnection(url url.URL, dialTimeout time.Duration, allowInsecure, enable
 
 	var rt http.RoundTripper
 	if allowInsecure {
+		//#nosec
 		rt = knet.SetTransportDefaults(&http.Transport{
 			Dial: (&net.Dialer{
 				Timeout:   dialTimeout,
