@@ -202,25 +202,18 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 		}
 
 		if _, ok := manifests[path].Object["status"]; ok {
-			_, found, err := unstructured.NestedMap(incluster.Object, "status")
-			if err != nil {
-				if options.Verbose {
-					fmt.Fprintf(options.StdErr, "Failed to find status field %q %s: %v\n", path, resourceString, err)
-				}
-				errs[path] = fmt.Errorf("failed to find status field %s: %v", resourceString, err)
-				continue
-			}
+			_, found := incluster.Object["status"]
 			if !found {
-				unstructured.SetNestedMap(incluster.Object, manifests[path].Object["status"].(map[string]interface{}), "status")
+				incluster.Object["status"] = manifests[path].Object["status"]
 				incluster, err = resource.UpdateStatus(incluster, metav1.UpdateOptions{})
 				if err != nil && !kerrors.IsNotFound(err) {
 					if options.Verbose {
-						fmt.Fprintf(options.StdErr, "Failed to update the  %q %s: %v\n", path, resourceString, err)
+						fmt.Fprintf(options.StdErr, "Failed to update status for the %q %s: %v\n", path, resourceString, err)
 					}
 					errs[path] = fmt.Errorf("failed to update status for %s: %v", resourceString, err)
 					continue
 				}
-				if options.Verbose {
+				if err == nil && options.Verbose {
 					fmt.Fprintf(options.StdErr, "Updated status for %q %s\n", path, resourceString)
 				}
 			}

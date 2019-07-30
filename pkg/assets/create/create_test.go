@@ -184,7 +184,7 @@ func TestCreate(t *testing.T) {
 		{
 			name:              "fail to create kube apiserver operator config",
 			discovery:         resourcesWithoutKubeAPIServer,
-			expectFailedCount: 1,
+			expectFailedCount: 2,
 			expectError:       true,
 			expectReload:      true,
 		},
@@ -198,12 +198,12 @@ func TestCreate(t *testing.T) {
 			discovery:       resources,
 			existingObjects: []runtime.Object{testOperatorConfig},
 			evalActions: func(t *testing.T, actions []ktesting.Action) {
-				if got, exp := len(actions), 7; got != exp {
+				if got, exp := len(actions), 8; got != exp {
 					t.Errorf("expected %d actions, found %d", exp, got)
 					return
 				}
 
-				ups, ok := actions[5].(ktesting.UpdateAction)
+				ups, ok := actions[6].(ktesting.UpdateAction)
 				if !ok {
 					t.Errorf("expecting Update action for actions[5], got %T", actions[5])
 					return
@@ -219,7 +219,7 @@ func TestCreate(t *testing.T) {
 			discovery:       resources,
 			existingObjects: []runtime.Object{testOperatorConfigWithStatus},
 			evalActions: func(t *testing.T, actions []ktesting.Action) {
-				if got, exp := len(actions), 6; got != exp {
+				if got, exp := len(actions), 7; got != exp {
 					t.Errorf("expected %d actions, found %d", exp, got)
 					return
 				}
@@ -281,7 +281,7 @@ func TestLoad(t *testing.T) {
 		{
 			name:                  "read all manifests",
 			assetDir:              "testdata",
-			expectedManifestCount: 5,
+			expectedManifestCount: 6,
 		},
 		{
 			name:        "handle missing dir",
