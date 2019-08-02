@@ -63,8 +63,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		cloudProviderCount: 0,
 	}, {
 		platform:           configv1.OpenStackPlatformType,
-		expected:           "openstack",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		platform:           configv1.GCPPlatformType,
 		expected:           "gce",
