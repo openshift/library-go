@@ -33,10 +33,12 @@ func TestObserveProxyConfig(t *testing.T) {
 	configPath := []string{"openshift", "proxy"}
 
 	tests := []struct {
-		name          string
-		proxySpec     configv1.ProxySpec
-		expected      map[string]interface{}
-		expectedError []error
+		name           string
+		proxySpec      configv1.ProxySpec
+		previous       map[string]string
+		expected       map[string]interface{}
+		expectedError  []error
+		eventsExpected int
 	}{
 		{
 			name:          "all unset",
@@ -60,7 +62,8 @@ func TestObserveProxyConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedError: []error{},
+			expectedError:  []error{},
+			eventsExpected: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -85,6 +88,9 @@ func TestObserveProxyConfig(t *testing.T) {
 			}
 			if !reflect.DeepEqual(errorsGot, tt.expectedError) {
 				t.Errorf("observeProxyFlags.ObserveProxyConfig() errorsGot = %v, want %v", errorsGot, tt.expectedError)
+			}
+			if events := eventRecorder.Events(); len(events) != tt.eventsExpected {
+				t.Errorf("expected %d events, but got %d: %v", tt.eventsExpected, len(events), events)
 			}
 		})
 	}
