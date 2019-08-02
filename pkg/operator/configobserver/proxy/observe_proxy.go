@@ -56,7 +56,7 @@ func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Lis
 	}
 
 	newProxyMap := proxyToMap(proxyConfig)
-	if len(newProxyMap) > 0 {
+	if newProxyMap != nil {
 		if err := unstructured.SetNestedStringMap(observedConfig, newProxyMap, f.configPath...); err != nil {
 			errs = append(errs, err)
 		}
@@ -82,6 +82,10 @@ func proxyToMap(proxy *configv1.Proxy) map[string]string {
 
 	if httpsProxy := proxy.Spec.HTTPSProxy; len(httpsProxy) > 0 {
 		proxyMap["HTTPS_PROXY"] = httpsProxy
+	}
+
+	if len(proxyMap) == 0 {
+		return nil
 	}
 
 	return proxyMap
