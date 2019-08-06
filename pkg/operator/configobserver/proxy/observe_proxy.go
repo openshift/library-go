@@ -72,7 +72,7 @@ func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Lis
 func proxyToMap(proxy *configv1.Proxy) map[string]string {
 	proxyMap := map[string]string{}
 
-	if noProxy := proxy.Spec.NoProxy; len(noProxy) > 0 {
+	if noProxy := proxy.Status.NoProxy; len(noProxy) > 0 {
 		proxyMap["NO_PROXY"] = noProxy
 	}
 

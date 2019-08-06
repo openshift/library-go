@@ -35,6 +35,7 @@ func TestObserveProxyConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		proxySpec      configv1.ProxySpec
+		proxyStatus    configv1.ProxyStatus
 		previous       map[string]string
 		expected       map[string]interface{}
 		expectedError  []error
@@ -43,12 +44,18 @@ func TestObserveProxyConfig(t *testing.T) {
 		{
 			name:          "all unset",
 			proxySpec:     configv1.ProxySpec{},
+			proxyStatus:   configv1.ProxyStatus{},
 			expected:      map[string]interface{}{},
 			expectedError: []error{},
 		},
 		{
 			name: "all set",
 			proxySpec: configv1.ProxySpec{
+				HTTPProxy:  "http://someplace.it",
+				HTTPSProxy: "https://someplace.it",
+				NoProxy:    "127.0.0.1",
+			},
+			proxyStatus: configv1.ProxyStatus{
 				HTTPProxy:  "http://someplace.it",
 				HTTPSProxy: "https://someplace.it",
 				NoProxy:    "127.0.0.1",
@@ -72,6 +79,7 @@ func TestObserveProxyConfig(t *testing.T) {
 			indexer.Add(&configv1.Proxy{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec:       tt.proxySpec,
+				Status:     tt.proxyStatus,
 			})
 			listers := testLister{
 				lister: configlistersv1.NewProxyLister(indexer),
