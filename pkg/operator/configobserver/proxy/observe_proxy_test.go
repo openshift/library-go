@@ -58,14 +58,14 @@ func TestObserveProxyConfig(t *testing.T) {
 			proxyStatus: configv1.ProxyStatus{
 				HTTPProxy:  "http://someplace.it",
 				HTTPSProxy: "https://someplace.it",
-				NoProxy:    "127.0.0.1",
+				NoProxy:    "127.0.0.1,incluster.address.it",
 			},
 			expected: map[string]interface{}{
 				"openshift": map[string]interface{}{
 					"proxy": map[string]interface{}{
 						"HTTP_PROXY":  "http://someplace.it",
 						"HTTPS_PROXY": "https://someplace.it",
-						"NO_PROXY":    "127.0.0.1",
+						"NO_PROXY":    "127.0.0.1,incluster.address.it",
 					},
 				},
 			},

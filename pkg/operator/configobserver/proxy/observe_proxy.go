@@ -76,11 +76,11 @@ func proxyToMap(proxy *configv1.Proxy) map[string]string {
 		proxyMap["NO_PROXY"] = noProxy
 	}
 
-	if httpProxy := proxy.Spec.HTTPProxy; len(httpProxy) > 0 {
+	if httpProxy := proxy.Status.HTTPProxy; len(httpProxy) > 0 {
 		proxyMap["HTTP_PROXY"] = httpProxy
 	}
 
-	if httpsProxy := proxy.Spec.HTTPSProxy; len(httpsProxy) > 0 {
+	if httpsProxy := proxy.Status.HTTPSProxy; len(httpsProxy) > 0 {
 		proxyMap["HTTPS_PROXY"] = httpsProxy
 	}
 
