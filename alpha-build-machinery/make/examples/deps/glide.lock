@@ -1,0 +1,7 @@
+hash: 8a11d994247e8e4c6152f84c1e826e1b9f7313aafe0e69d438b8d561a2fcd1ef
+updated: 2019-08-08T10:04:49.885208344+02:00
+imports:
+- name: k8s.io/kubernetes
+  version: 473b2830919bc04a8044a290df4be2c83b525b93
+  repo: https://github.com/openshift/kubernetes.git
+testImports: []

@@ -1,0 +1,5 @@
+package: github.com/openshift/library-go/alpha-build-machinery/make/examples/deps
+import:
+  - package: k8s.io/kubernetes
+    repo:    https://github.com/openshift/kubernetes.git
+    version: 473b2830919bc04a8044a290df4be2c83b525b93

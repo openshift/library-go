@@ -1,0 +1,15 @@
+SHELL :=/bin/bash -euo pipefail
+
+test: | test-symlinks
+.PHONY: test
+
+test-symlinks:
+	$(MAKE) update-deps GLIDE:='glide --quiet'
+	[[ -d ./vendor ]]
+	[[ -d ./vendor/k8s.io ]]
+	[[ -d ./vendor/k8s.io/kubernetes ]]
+
+	[[ -L ./vendor/k8s.io/api ]]
+	[[ -e ./vendor/k8s.io/api ]]
+	[ "$$(readlink ./vendor/k8s.io/api)" = "kubernetes/staging/src/k8s.io/api" ]
+.PHONY: test-symlinks
