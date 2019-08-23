@@ -124,7 +124,10 @@ func (c StatusSyncer) sync() error {
 	}
 	clusterOperatorObj := originalClusterOperatorObj.DeepCopy()
 
-	if detailedSpec.ManagementState == operatorv1.Unmanaged && !management.IsOperatorAlwaysManaged() {
+	// management.IsOperatorAlwaysManaged() means the operator can't be set to unmanaged state.
+	// so if a cluster admin sets an operator as unmanaged when it can't be unmanaged, then we set the
+	// conditions to unknown, as we are now in an indeterminate state
+	if detailedSpec.ManagementState == operatorv1.Unmanaged && management.IsOperatorAlwaysManaged() {
 		clusterOperatorObj.Status = configv1.ClusterOperatorStatus{}
 
 		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorAvailable, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})
