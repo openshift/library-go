@@ -43,6 +43,9 @@ type FileWatcherOptions struct {
 	// Time to give the process to terminate gracefully
 	TerminationGracePeriod time.Duration
 
+	// ReadyFile is touched when the watched files have been initially read
+	ReadyFile string
+
 	// for unit-test to mock getting the process PID (unit-test)
 	findPidByNameFn func(name string) (int, bool, error)
 
@@ -125,6 +128,7 @@ func (o *FileWatcherOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Namespace, "namespace", o.Namespace, "namespace to report the watchdog events")
 	fs.DurationVar(&o.Interval, "interval", 5*time.Second, "interval specifying how aggressive the file checks should be")
 	fs.DurationVar(&o.TerminationGracePeriod, "termination-grace-period", 30*time.Second, "interval specifying how long to wait until sending KILL signal to the process")
+	fs.StringVar(&o.ReadyFile, "ready-file", o.ReadyFile, "this file is touched when the watched files have been read initially (to avoid race between watchee and watcher)")
 }
 
 func (o *FileWatcherOptions) Complete() error {
@@ -311,6 +315,14 @@ func (o *FileWatcherOptions) runWatchdog(ctx context.Context) error {
 	}
 
 	o.recorder.Eventf("FileChangeWatchdogStarted", "Started watching files for process %s[%d]", o.ProcessName, currentPID)
+
+	if len(o.ReadyFile) > 0 {
+		f, err := os.Create(o.ReadyFile)
+		if err != nil {
+			return fmt.Errorf("cannot touch ready file %q: %v", o.ReadyFile, err)
+		}
+		f.Close()
+	}
 
 	observer, err := fileobserver.NewObserver(o.Interval)
 	if err != nil {
