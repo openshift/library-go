@@ -1,5 +1,5 @@
 hash: 4812b0cc8114a9f73471b786f4f760b3c363b7fa56a0f8fd83b56d263bc2e616
-updated: 2019-08-15T14:58:38.31621537-04:00
+updated: 2019-08-27T21:13:24.151064+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -14,12 +14,21 @@ imports:
   - quantile
 - name: github.com/blang/semver
   version: b38d23b8782a487059e8fc8773e9a5b228a77cb6
+- name: github.com/BurntSushi/toml
+  version: 3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005
 - name: github.com/certifi/gocertifi
   version: ee1a9a0726d2ae45f54118cac878c990d4016ded
 - name: github.com/containerd/continuity
   version: f2a389ac0a02ce21c09edd7344677a601970f41c
   subpackages:
   - pathdriver
+- name: github.com/containers/image
+  version: 713c8d43f997f88f0742599088386acc6eb5a0f8
+  subpackages:
+  - docker/reference
+  - pkg/compression
+  - pkg/sysregistriesv2
+  - types
 - name: github.com/coreos/etcd
   version: 27fc7e2296f506182f58ce846e48f36b34fe6842
   subpackages:
@@ -262,6 +271,19 @@ imports:
   version: ab8a2e0c74be9d3be70b3184d9acc634935ded82
 - name: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
+- name: github.com/klauspost/compress
+  version: 2c38f6d2dc5a6a21b6851f2414f4e10adf8e3eee
+  subpackages:
+  - flate
+  - fse
+  - huff0
+  - snappy
+  - zstd
+  - zstd/internal/xxhash
+- name: github.com/klauspost/cpuid
+  version: cf2ded4aa83357cbc18366e6e1c64eda3c26eaf2
+- name: github.com/klauspost/pgzip
+  version: 083b1c3f84dd6486588802e5ce295de3a7f41a8b
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -299,7 +321,7 @@ imports:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/openshift/api
-  version: a94e914914f4228d0bcba6fc8a22614c5f5e2dad
+  version: 58aab2885e38fd7f4fd57f2615f5f9fe38039e22
   subpackages:
   - apps
   - apps/v1
@@ -411,6 +433,12 @@ imports:
   version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
+- name: github.com/ulikunitz/xz
+  version: 6f934d456d51e742b4eeab20d925a827ef22320a
+  subpackages:
+  - internal/hash
+  - internal/xlog
+  - lzma
 - name: golang.org/x/crypto
   version: de0752318171da717af4ce24d0a2e8626afaeb11
   subpackages:
@@ -974,6 +1002,15 @@ imports:
 - name: sigs.k8s.io/yaml
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
 testImports:
+- name: github.com/pmezard/go-difflib
+  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
+  subpackages:
+  - difflib
+- name: github.com/stretchr/testify
+  version: c679ae2cc0cb27ec3293fea7e254e47386f05d69
+  subpackages:
+  - assert
+  - require
 - name: vbom.ml/util
   version: efcd4e0f97874370259c7d93e12aad57911dea81
   subpackages:
