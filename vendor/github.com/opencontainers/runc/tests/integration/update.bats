@@ -3,7 +3,7 @@
 load helpers
 
 function teardown() {
-    rm -f $BATS_TMPDIR/runc-cgroups-integration-test.json
+    rm -f $BATS_TMPDIR/runc-update-integration-test.json
     teardown_running_container test_update
     teardown_running_container test_update_rt
     teardown_busybox
@@ -13,7 +13,8 @@ function setup() {
     teardown
     setup_busybox
 
-    set_cgroups_path "$BUSYBOX_BUNDLE"
+    # Add cgroup path
+    sed -i 's/\("linux": {\)/\1\n    "cgroupsPath": "\/runc-update-integration-test",/'  ${BUSYBOX_BUNDLE}/config.json
 
     # Set some initial known values
     DATA=$(cat <<EOF
@@ -28,6 +29,9 @@ function setup() {
         "quota": 500000,
         "period": 1000000,
         "cpus": "0"
+    },
+    "blockio": {
+        "weight": 1000
     },
     "pids": {
         "limit": 20
@@ -49,10 +53,10 @@ function check_cgroup_value() {
 
 # TODO: test rt cgroup updating
 @test "update" {
-    # XXX: Also, this test should be split into separate sections so that we
-    #      can skip kmem without skipping update tests overall.
-    [[ "$ROOTLESS" -ne 0 ]] && requires rootless_cgroup
-    requires cgroups_kmem
+    # XXX: currently cgroups require root containers.
+	# XXX: Also, this test should be split into separate sections so that we
+	#      can skip kmem without skipping update tests overall.
+    requires cgroups_kmem root
 
     # run a few busyboxes detached
     runc run -d --console-socket $CONSOLE_SOCKET test_update
@@ -61,12 +65,13 @@ function check_cgroup_value() {
     # get the cgroup paths
     for g in MEMORY CPUSET CPU BLKIO PIDS; do
         base_path=$(grep "cgroup"  /proc/self/mountinfo | gawk 'toupper($NF) ~ /\<'${g}'\>/ { print $5; exit }')
-        eval CGROUP_${g}="${base_path}${CGROUPS_PATH}"
+        eval CGROUP_${g}="${base_path}/runc-update-integration-test"
     done
 
     CGROUP_SYSTEM_MEMORY=$(grep "cgroup"  /proc/self/mountinfo | gawk 'toupper($NF) ~ /\<'MEMORY'\>/ { print $5; exit }')
 
     # check that initial values were properly set
+    check_cgroup_value $CGROUP_BLKIO "blkio.weight" 1000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_period_us" 1000000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_quota_us" 500000
     check_cgroup_value $CGROUP_CPU "cpu.shares" 100
@@ -76,6 +81,11 @@ function check_cgroup_value() {
     check_cgroup_value $CGROUP_MEMORY "memory.limit_in_bytes" 33554432
     check_cgroup_value $CGROUP_MEMORY "memory.soft_limit_in_bytes" 25165824
     check_cgroup_value $CGROUP_PIDS "pids.max" 20
+
+    # update blkio-weight
+    runc update test_update --blkio-weight 500
+    [ "$status" -eq 0 ]
+    check_cgroup_value $CGROUP_BLKIO "blkio.weight" 500
 
     # update cpu-period
     runc update test_update --cpu-period 900000
@@ -114,7 +124,7 @@ function check_cgroup_value() {
     [ "$status" -eq 0 ]
     check_cgroup_value $CGROUP_MEMORY "memory.soft_limit_in_bytes" 33554432
 
-    # Run swap memory tests if swap is available
+    # Run swap memory tests if swap is avaialble
     if [ -f "$CGROUP_MEMORY/memory.memsw.limit_in_bytes" ]; then
         # try to remove memory swap limit
         runc update test_update --memory-swap -1
@@ -173,12 +183,16 @@ function check_cgroup_value() {
     "period": 1000000,
     "cpus": "0"
   },
+  "blockIO": {
+    "weight": 1000
+  },
   "pids": {
     "limit": 20
   }
 }
 EOF
     [ "$status" -eq 0 ]
+    check_cgroup_value $CGROUP_BLKIO "blkio.weight" 1000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_period_us" 1000000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_quota_us" 500000
     check_cgroup_value $CGROUP_CPU "cpu.shares" 100
@@ -190,11 +204,12 @@ EOF
     check_cgroup_value $CGROUP_PIDS "pids.max" 20
 
     # redo all the changes at once
-    runc update test_update \
+    runc update test_update --blkio-weight 500 \
         --cpu-period 900000 --cpu-quota 600000 --cpu-share 200 --memory 67108864 \
         --memory-reservation 33554432 --kernel-memory 50331648 --kernel-memory-tcp 41943040 \
         --pids-limit 10
     [ "$status" -eq 0 ]
+    check_cgroup_value $CGROUP_BLKIO "blkio.weight" 500
     check_cgroup_value $CGROUP_CPU "cpu.cfs_period_us" 900000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_quota_us" 600000
     check_cgroup_value $CGROUP_CPU "cpu.shares" 200
@@ -219,16 +234,20 @@ EOF
     "period": 1000000,
     "cpus": "0"
   },
+  "blockIO": {
+    "weight": 1000
+  },
   "pids": {
     "limit": 20
   }
 }
 EOF
 )
-    echo $DATA > $BATS_TMPDIR/runc-cgroups-integration-test.json
+    echo $DATA > $BATS_TMPDIR/runc-update-integration-test.json
 
-    runc update  -r $BATS_TMPDIR/runc-cgroups-integration-test.json test_update
+    runc update  -r $BATS_TMPDIR/runc-update-integration-test.json test_update
     [ "$status" -eq 0 ]
+    check_cgroup_value $CGROUP_BLKIO "blkio.weight" 1000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_period_us" 1000000
     check_cgroup_value $CGROUP_CPU "cpu.cfs_quota_us" 500000
     check_cgroup_value $CGROUP_CPU "cpu.shares" 100
@@ -241,15 +260,14 @@ EOF
 }
 
 @test "update rt period and runtime" {
-    [[ "$ROOTLESS" -ne 0 ]] && requires rootless_cgroup
-    requires cgroups_kmem cgroups_rt
+    requires cgroups_rt
 
     # run a detached busybox
     runc run -d --console-socket $CONSOLE_SOCKET test_update_rt
     [ "$status" -eq 0 ]
 
     # get the cgroup paths
-    eval CGROUP_CPU="${CGROUP_CPU_BASE_PATH}${CGROUPS_PATH}"
+    eval CGROUP_CPU="${CGROUP_CPU_BASE_PATH}/runc-update-integration-test"
 
     runc update  -r - test_update_rt <<EOF
 {

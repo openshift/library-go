@@ -22,21 +22,26 @@ import (
 	"strings"
 	"sync"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/go-openapi/spec"
 
 	v1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
+	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	generatedopenapi "k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
+	"k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	openapibuilder "k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/util"
-
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	generatedopenapi "k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 )
 
 const (
@@ -50,6 +55,9 @@ const (
 
 var (
 	swaggerPartialObjectMetadataDescriptions = metav1beta1.PartialObjectMetadata{}.SwaggerDoc()
+
+	nameToken      = "{name}"
+	namespaceToken = "{namespace}"
 )
 
 var definitions map[string]common.OpenAPIDefinition
@@ -58,22 +66,25 @@ var namer *openapi.DefinitionNamer
 
 // BuildSwagger builds swagger for the given crd in the given version
 func BuildSwagger(crd *apiextensions.CustomResourceDefinition, version string) (*spec.Swagger, error) {
-	var schema *spec.Schema
+	var schema *structuralschema.Structural
 	s, err := apiextensions.GetSchemaForVersion(crd, version)
 	if err != nil {
 		return nil, err
 	}
+
 	if s != nil && s.OpenAPIV3Schema != nil {
-		schema, err = ConvertJSONSchemaPropsToOpenAPIv2Schema(s.OpenAPIV3Schema)
-		if err != nil {
-			return nil, err
+		if !validation.SchemaHasInvalidTypes(s.OpenAPIV3Schema) {
+			if ss, err := structuralschema.NewStructural(s.OpenAPIV3Schema); err == nil {
+				schema = ss.Unfold()
+			}
 		}
 	}
+
 	// TODO(roycaihw): remove the WebService templating below. The following logic
 	// comes from function registerResourceHandlers() in k8s.io/apiserver.
 	// Alternatives are either (ideally) refactoring registerResourceHandlers() to
 	// reuse the code, or faking an APIInstaller for CR to feed to registerResourceHandlers().
-	b := newBuilder(crd, version, schema)
+	b := newBuilder(crd, version, schema, true)
 
 	// Sample response types for building web service
 	sample := &CRDCanonicalTypeNamer{
@@ -92,33 +103,33 @@ func BuildSwagger(crd *apiextensions.CustomResourceDefinition, version string) (
 
 	routes := make([]*restful.RouteBuilder, 0)
 	root := fmt.Sprintf("/apis/%s/%s/%s", b.group, b.version, b.plural)
+
 	if b.namespaced {
-		routes = append(routes, b.buildRoute(root, "", "GET", "list", sampleList).
-			Operation("list"+b.kind+"ForAllNamespaces"))
+		routes = append(routes, b.buildRoute(root, "", "GET", "list", "list", sampleList).Operation("list"+b.kind+"ForAllNamespaces"))
 		root = fmt.Sprintf("/apis/%s/%s/namespaces/{namespace}/%s", b.group, b.version, b.plural)
 	}
-	routes = append(routes, b.buildRoute(root, "", "GET", "list", sampleList))
-	routes = append(routes, b.buildRoute(root, "", "POST", "create", sample).Reads(sample))
-	routes = append(routes, b.buildRoute(root, "", "DELETE", "deletecollection", status))
+	routes = append(routes, b.buildRoute(root, "", "GET", "list", "list", sampleList))
+	routes = append(routes, b.buildRoute(root, "", "POST", "post", "create", sample).Reads(sample))
+	routes = append(routes, b.buildRoute(root, "", "DELETE", "deletecollection", "deletecollection", status))
 
-	routes = append(routes, b.buildRoute(root, "/{name}", "GET", "read", sample))
-	routes = append(routes, b.buildRoute(root, "/{name}", "PUT", "replace", sample).Reads(sample))
-	routes = append(routes, b.buildRoute(root, "/{name}", "DELETE", "delete", status))
-	routes = append(routes, b.buildRoute(root, "/{name}", "PATCH", "patch", sample).Reads(patch))
+	routes = append(routes, b.buildRoute(root, "/{name}", "GET", "get", "read", sample))
+	routes = append(routes, b.buildRoute(root, "/{name}", "PUT", "put", "replace", sample).Reads(sample))
+	routes = append(routes, b.buildRoute(root, "/{name}", "DELETE", "delete", "delete", status))
+	routes = append(routes, b.buildRoute(root, "/{name}", "PATCH", "patch", "patch", sample).Reads(patch))
 
 	subresources, err := apiextensions.GetSubresourcesForVersion(crd, version)
 	if err != nil {
 		return nil, err
 	}
 	if subresources != nil && subresources.Status != nil {
-		routes = append(routes, b.buildRoute(root, "/{name}/status", "GET", "read", sample))
-		routes = append(routes, b.buildRoute(root, "/{name}/status", "PUT", "replace", sample).Reads(sample))
-		routes = append(routes, b.buildRoute(root, "/{name}/status", "PATCH", "patch", sample).Reads(patch))
+		routes = append(routes, b.buildRoute(root, "/{name}/status", "GET", "get", "read", sample))
+		routes = append(routes, b.buildRoute(root, "/{name}/status", "PUT", "put", "replace", sample).Reads(sample))
+		routes = append(routes, b.buildRoute(root, "/{name}/status", "PATCH", "patch", "patch", sample).Reads(patch))
 	}
 	if subresources != nil && subresources.Scale != nil {
-		routes = append(routes, b.buildRoute(root, "/{name}/scale", "GET", "read", scale))
-		routes = append(routes, b.buildRoute(root, "/{name}/scale", "PUT", "replace", scale).Reads(scale))
-		routes = append(routes, b.buildRoute(root, "/{name}/scale", "PATCH", "patch", scale).Reads(patch))
+		routes = append(routes, b.buildRoute(root, "/{name}/scale", "GET", "get", "read", scale))
+		routes = append(routes, b.buildRoute(root, "/{name}/scale", "PUT", "put", "replace", scale).Reads(scale))
+		routes = append(routes, b.buildRoute(root, "/{name}/scale", "PATCH", "patch", "patch", scale).Reads(patch))
 	}
 
 	for _, route := range routes {
@@ -185,9 +196,9 @@ func subresource(path string) string {
 	panic("failed to parse subresource; invalid path")
 }
 
-func (b *builder) descriptionFor(path, verb string) string {
+func (b *builder) descriptionFor(path, operationVerb string) string {
 	var article string
-	switch verb {
+	switch operationVerb {
 	case "list":
 		article = " objects of kind "
 	case "read", "replace":
@@ -205,7 +216,7 @@ func (b *builder) descriptionFor(path, verb string) string {
 	if len(sub) > 0 {
 		sub = " " + sub + " of"
 	}
-	switch verb {
+	switch operationVerb {
 	case "patch":
 		description = "partially update" + sub + article + b.kind
 	case "deletecollection":
@@ -215,7 +226,7 @@ func (b *builder) descriptionFor(path, verb string) string {
 		}
 		description = "delete collection of" + sub + " " + b.kind
 	default:
-		description = verb + sub + article + b.kind
+		description = operationVerb + sub + article + b.kind
 	}
 
 	return description
@@ -225,47 +236,59 @@ func (b *builder) descriptionFor(path, verb string) string {
 //     action can be one of: GET, PUT, PATCH, POST, DELETE;
 //     verb can be one of: list, read, replace, patch, create, delete, deletecollection;
 //     sample is the sample Go type for response type.
-func (b *builder) buildRoute(root, path, action, verb string, sample interface{}) *restful.RouteBuilder {
+func (b *builder) buildRoute(root, path, httpMethod, actionVerb, operationVerb string, sample interface{}) *restful.RouteBuilder {
 	var namespaced string
 	if b.namespaced {
 		namespaced = "Namespaced"
 	}
-	route := b.ws.Method(action).
+	route := b.ws.Method(httpMethod).
 		Path(root+path).
 		To(func(req *restful.Request, res *restful.Response) {}).
-		Doc(b.descriptionFor(path, verb)).
+		Doc(b.descriptionFor(path, operationVerb)).
 		Param(b.ws.QueryParameter("pretty", "If 'true', then the output is pretty printed.")).
-		Operation(verb+namespaced+b.kind+strings.Title(subresource(path))).
+		Operation(operationVerb+namespaced+b.kind+strings.Title(subresource(path))).
 		Metadata(endpoints.ROUTE_META_GVK, metav1.GroupVersionKind{
 			Group:   b.group,
 			Version: b.version,
 			Kind:    b.kind,
 		}).
-		Metadata(endpoints.ROUTE_META_ACTION, strings.ToLower(action)).
+		Metadata(endpoints.ROUTE_META_ACTION, actionVerb).
 		Produces("application/json", "application/yaml").
 		Returns(http.StatusOK, "OK", sample).
 		Writes(sample)
+	if strings.Contains(root, namespaceToken) || strings.Contains(path, namespaceToken) {
+		route.Param(b.ws.PathParameter("namespace", "object name and auth scope, such as for teams and projects").DataType("string"))
+	}
+	if strings.Contains(root, nameToken) || strings.Contains(path, nameToken) {
+		route.Param(b.ws.PathParameter("name", "name of the "+b.kind).DataType("string"))
+	}
 
 	// Build consume media types
-	if action == "PATCH" {
-		route.Consumes("application/json-patch+json",
-			"application/merge-patch+json",
-			"application/strategic-merge-patch+json")
+	if httpMethod == "PATCH" {
+		supportedTypes := []string{
+			string(types.JSONPatchType),
+			string(types.MergePatchType),
+		}
+		if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+			supportedTypes = append(supportedTypes, string(types.ApplyPatchType))
+		}
+
+		route.Consumes(supportedTypes...)
 	} else {
-		route.Consumes("*/*")
+		route.Consumes(runtime.ContentTypeJSON, runtime.ContentTypeYAML)
 	}
 
 	// Build option parameters
-	switch verb {
+	switch actionVerb {
 	case "get":
 		// TODO: CRD support for export is still under consideration
 		endpoints.AddObjectParams(b.ws, route, &metav1.GetOptions{})
 	case "list", "deletecollection":
 		endpoints.AddObjectParams(b.ws, route, &metav1.ListOptions{})
-	case "replace", "patch":
+	case "put", "patch":
 		// TODO: PatchOption added in feature branch but not in master yet
 		endpoints.AddObjectParams(b.ws, route, &metav1.UpdateOptions{})
-	case "create":
+	case "post":
 		endpoints.AddObjectParams(b.ws, route, &metav1.CreateOptions{})
 	case "delete":
 		endpoints.AddObjectParams(b.ws, route, &metav1.DeleteOptions{})
@@ -273,13 +296,13 @@ func (b *builder) buildRoute(root, path, action, verb string, sample interface{}
 	}
 
 	// Build responses
-	switch verb {
-	case "create":
+	switch actionVerb {
+	case "post":
 		route.Returns(http.StatusAccepted, "Accepted", sample)
 		route.Returns(http.StatusCreated, "Created", sample)
 	case "delete":
 		route.Returns(http.StatusAccepted, "Accepted", sample)
-	case "replace":
+	case "put":
 		route.Returns(http.StatusCreated, "Created", sample)
 	}
 
@@ -288,23 +311,28 @@ func (b *builder) buildRoute(root, path, action, verb string, sample interface{}
 
 // buildKubeNative builds input schema with Kubernetes' native object meta, type meta and
 // extensions
-func (b *builder) buildKubeNative(schema *spec.Schema) *spec.Schema {
+func (b *builder) buildKubeNative(schema *structuralschema.Structural, v2 bool) (ret *spec.Schema) {
 	// only add properties if we have a schema. Otherwise, kubectl would (wrongly) assume additionalProperties=false
 	// and forbid anything outside of apiVersion, kind and metadata. We have to fix kubectl to stop doing this, e.g. by
 	// adding additionalProperties=true support to explicitly allow additional fields.
 	// TODO: fix kubectl to understand additionalProperties=true
-	if schema == nil {
-		schema = &spec.Schema{
+	if schema == nil || (v2 && schema.XPreserveUnknownFields) {
+		ret = &spec.Schema{
 			SchemaProps: spec.SchemaProps{Type: []string{"object"}},
 		}
 		// no, we cannot add more properties here, not even TypeMeta/ObjectMeta because kubectl will complain about
 		// unknown fields for anything else.
 	} else {
-		schema.SetProperty("metadata", *spec.RefSchema(objectMetaSchemaRef).
+		if v2 {
+			schema = ToStructuralOpenAPIV2(schema)
+		}
+		ret = schema.ToGoOpenAPI()
+		ret.SetProperty("metadata", *spec.RefSchema(objectMetaSchemaRef).
 			WithDescription(swaggerPartialObjectMetadataDescriptions["metadata"]))
-		addTypeMetaProperties(schema)
+		addTypeMetaProperties(ret)
+		addEmbeddedProperties(ret, v2)
 	}
-	schema.AddExtension(endpoints.ROUTE_META_GVK, []interface{}{
+	ret.AddExtension(endpoints.ROUTE_META_GVK, []interface{}{
 		map[string]interface{}{
 			"group":   b.group,
 			"version": b.version,
@@ -312,7 +340,48 @@ func (b *builder) buildKubeNative(schema *spec.Schema) *spec.Schema {
 		},
 	})
 
-	return schema
+	return ret
+}
+
+func addEmbeddedProperties(s *spec.Schema, v2 bool) {
+	if s == nil {
+		return
+	}
+
+	for k := range s.Properties {
+		v := s.Properties[k]
+		addEmbeddedProperties(&v, v2)
+		s.Properties[k] = v
+	}
+	if s.Items != nil {
+		addEmbeddedProperties(s.Items.Schema, v2)
+	}
+	if s.AdditionalProperties != nil {
+		addEmbeddedProperties(s.AdditionalProperties.Schema, v2)
+	}
+
+	if isTrue, ok := s.VendorExtensible.Extensions.GetBool("x-kubernetes-preserve-unknown-fields"); ok && isTrue && v2 {
+		// don't add metadata properties if we're publishing to openapi v2 and are allowing unknown fields.
+		// adding these metadata properties makes kubectl refuse to validate unknown fields.
+		return
+	}
+	if isTrue, ok := s.VendorExtensible.Extensions.GetBool("x-kubernetes-embedded-resource"); ok && isTrue {
+		s.SetProperty("apiVersion", withDescription(getDefinition(typeMetaType).SchemaProps.Properties["apiVersion"],
+			"apiVersion defines the versioned schema of this representation of an object. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+		))
+		s.SetProperty("kind", withDescription(getDefinition(typeMetaType).SchemaProps.Properties["kind"],
+			"kind is a string value representing the type of this object. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+		))
+		s.SetProperty("metadata", *spec.RefSchema(objectMetaSchemaRef).WithDescription(swaggerPartialObjectMetadataDescriptions["metadata"]))
+
+		req := sets.NewString(s.Required...)
+		if !req.Has("kind") {
+			s.Required = append(s.Required, "kind")
+		}
+		if !req.Has("apiVersion") {
+			s.Required = append(s.Required, "apiVersion")
+		}
+	}
 }
 
 // getDefinition gets definition for given Kubernetes type. This function is extracted from
@@ -320,6 +389,10 @@ func (b *builder) buildKubeNative(schema *spec.Schema) *spec.Schema {
 func getDefinition(name string) spec.Schema {
 	buildDefinitions.Do(buildDefinitionsFunc)
 	return definitions[name].Schema
+}
+
+func withDescription(s spec.Schema, desc string) spec.Schema {
+	return *s.WithDescription(desc)
 }
 
 func buildDefinitionsFunc() {
@@ -391,7 +464,7 @@ func (b *builder) getOpenAPIConfig() *common.Config {
 	}
 }
 
-func newBuilder(crd *apiextensions.CustomResourceDefinition, version string, schema *spec.Schema) *builder {
+func newBuilder(crd *apiextensions.CustomResourceDefinition, version string, schema *structuralschema.Structural, v2 bool) *builder {
 	b := &builder{
 		schema: &spec.Schema{
 			SchemaProps: spec.SchemaProps{Type: []string{"object"}},
@@ -410,7 +483,7 @@ func newBuilder(crd *apiextensions.CustomResourceDefinition, version string, sch
 	}
 
 	// Pre-build schema with Kubernetes native properties
-	b.schema = b.buildKubeNative(schema)
+	b.schema = b.buildKubeNative(schema, v2)
 	b.listSchema = b.buildListSchema()
 
 	return b

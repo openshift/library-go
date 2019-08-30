@@ -64,7 +64,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
-	exact "go/constant"
+	"go/constant"
 	"go/format"
 	"go/parser"
 	"go/token"
@@ -78,13 +78,16 @@ import (
 )
 
 var (
-	typeNames = flag.String("type", "", "comma-separated list of type names; must be set")
-	output    = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
+	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
+	output      = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
+	trimprefix  = flag.String("trimprefix", "", "trim the `prefix` from the generated constant names")
+	linecomment = flag.Bool("linecomment", false, "use line comment text as printed text when present")
+	buildTags   = flag.String("tags", "", "comma-separated list of build tags to apply")
 )
 
 // Usage is a replacement usage function for the flags package.
 func Usage() {
-	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage of stringer:\n")
 	fmt.Fprintf(os.Stderr, "\tstringer [flags] -type T [directory]\n")
 	fmt.Fprintf(os.Stderr, "\tstringer [flags] -type T files... # Must be a single package\n")
 	fmt.Fprintf(os.Stderr, "For more information, see:\n")
@@ -103,6 +106,10 @@ func main() {
 		os.Exit(2)
 	}
 	types := strings.Split(*typeNames, ",")
+	var tags []string
+	if len(*buildTags) > 0 {
+		tags = strings.Split(*buildTags, ",")
+	}
 
 	// We accept either one directory or a list of files. Which do we have?
 	args := flag.Args()
@@ -112,14 +119,18 @@ func main() {
 	}
 
 	// Parse the package once.
-	var (
-		dir string
-		g   Generator
-	)
+	var dir string
+	g := Generator{
+		trimPrefix:  *trimprefix,
+		lineComment: *linecomment,
+	}
 	if len(args) == 1 && isDirectory(args[0]) {
 		dir = args[0]
-		g.parsePackageDir(args[0])
+		g.parsePackageDir(args[0], tags)
 	} else {
+		if len(tags) != 0 {
+			log.Fatal("-tags option applies only to directories, not when files are specified")
+		}
 		dir = filepath.Dir(args[0])
 		g.parsePackageFiles(args)
 	}
@@ -129,7 +140,7 @@ func main() {
 	g.Printf("\n")
 	g.Printf("package %s", g.pkg.name)
 	g.Printf("\n")
-	g.Printf("import \"fmt\"\n") // Used by all methods.
+	g.Printf("import \"strconv\"\n") // Used by all methods.
 
 	// Run generate for each type.
 	for _, typeName := range types {
@@ -165,6 +176,9 @@ func isDirectory(name string) bool {
 type Generator struct {
 	buf bytes.Buffer // Accumulated output.
 	pkg *Package     // Package we are scanning.
+
+	trimPrefix  string
+	lineComment bool
 }
 
 func (g *Generator) Printf(format string, args ...interface{}) {
@@ -178,6 +192,9 @@ type File struct {
 	// These fields are reset for each type being generated.
 	typeName string  // Name of the constant type.
 	values   []Value // Accumulator for constant values of that type.
+
+	trimPrefix  string
+	lineComment bool
 }
 
 type Package struct {
@@ -188,9 +205,15 @@ type Package struct {
 	typesPkg *types.Package
 }
 
+func buildContext(tags []string) *build.Context {
+	ctx := build.Default
+	ctx.BuildTags = tags
+	return &ctx
+}
+
 // parsePackageDir parses the package residing in the directory.
-func (g *Generator) parsePackageDir(directory string) {
-	pkg, err := build.Default.ImportDir(directory, 0)
+func (g *Generator) parsePackageDir(directory string, tags []string) {
+	pkg, err := buildContext(tags).ImportDir(directory, 0)
 	if err != nil {
 		log.Fatalf("cannot process directory %s: %s", directory, err)
 	}
@@ -234,14 +257,16 @@ func (g *Generator) parsePackage(directory string, names []string, text interfac
 		if !strings.HasSuffix(name, ".go") {
 			continue
 		}
-		parsedFile, err := parser.ParseFile(fs, name, text, 0)
+		parsedFile, err := parser.ParseFile(fs, name, text, parser.ParseComments)
 		if err != nil {
 			log.Fatalf("parsing package: %s: %s", name, err)
 		}
 		astFiles = append(astFiles, parsedFile)
 		files = append(files, &File{
-			file: parsedFile,
-			pkg:  g.pkg,
+			file:        parsedFile,
+			pkg:         g.pkg,
+			trimPrefix:  g.trimPrefix,
+			lineComment: g.lineComment,
 		})
 	}
 	if len(astFiles) == 0 {
@@ -250,14 +275,17 @@ func (g *Generator) parsePackage(directory string, names []string, text interfac
 	g.pkg.name = astFiles[0].Name.Name
 	g.pkg.files = files
 	g.pkg.dir = directory
-	// Type check the package.
-	g.pkg.check(fs, astFiles)
+	g.pkg.typeCheck(fs, astFiles)
 }
 
-// check type-checks the package. The package must be OK to proceed.
-func (pkg *Package) check(fs *token.FileSet, astFiles []*ast.File) {
+// check type-checks the package so we can evaluate contants whose values we are printing.
+func (pkg *Package) typeCheck(fs *token.FileSet, astFiles []*ast.File) {
 	pkg.defs = make(map[*ast.Ident]types.Object)
-	config := types.Config{Importer: defaultImporter(), FakeImportC: true}
+	config := types.Config{
+		IgnoreFuncBodies: true, // We only need to evaluate constants.
+		Importer:         defaultImporter(),
+		FakeImportC:      true,
+	}
 	info := &types.Info{
 		Defs: pkg.defs,
 	}
@@ -362,7 +390,7 @@ type Value struct {
 	// by Value.String.
 	value  uint64 // Will be converted to int64 when needed.
 	signed bool   // Whether the constant is a signed type.
-	str    string // The string representation given by the "go/exact" package.
+	str    string // The string representation given by the "go/constant" package.
 }
 
 func (v *Value) String() string {
@@ -436,11 +464,11 @@ func (f *File) genDecl(node ast.Node) bool {
 				log.Fatalf("can't handle non-integer constant type %s", typ)
 			}
 			value := obj.(*types.Const).Val() // Guaranteed to succeed as this is CONST.
-			if value.Kind() != exact.Int {
+			if value.Kind() != constant.Int {
 				log.Fatalf("can't happen: constant is not an integer %s", name)
 			}
-			i64, isInt := exact.Int64Val(value)
-			u64, isUint := exact.Uint64Val(value)
+			i64, isInt := constant.Int64Val(value)
+			u64, isUint := constant.Uint64Val(value)
 			if !isInt && !isUint {
 				log.Fatalf("internal error: value of %s is not an integer: %s", name, value.String())
 			}
@@ -453,6 +481,10 @@ func (f *File) genDecl(node ast.Node) bool {
 				signed: info&types.IsUnsigned == 0,
 				str:    value.String(),
 			}
+			if c := vspec.Comment; f.lineComment && c != nil && len(c.List) == 1 {
+				v.name = strings.TrimSpace(c.Text())
+			}
+			v.name = strings.TrimPrefix(v.name, f.trimPrefix)
 			f.values = append(f.values, v)
 		}
 	}
@@ -482,7 +514,9 @@ func (g *Generator) declareIndexAndNameVars(runs [][]Value, typeName string) {
 	var indexes, names []string
 	for i, run := range runs {
 		index, name := g.createIndexAndNameDecl(run, typeName, fmt.Sprintf("_%d", i))
-		indexes = append(indexes, index)
+		if len(run) != 1 {
+			indexes = append(indexes, index)
+		}
 		names = append(names, name)
 	}
 	g.Printf("const (\n")
@@ -490,11 +524,14 @@ func (g *Generator) declareIndexAndNameVars(runs [][]Value, typeName string) {
 		g.Printf("\t%s\n", name)
 	}
 	g.Printf(")\n\n")
-	g.Printf("var (")
-	for _, index := range indexes {
-		g.Printf("\t%s\n", index)
+
+	if len(indexes) > 0 {
+		g.Printf("var (")
+		for _, index := range indexes {
+			g.Printf("\t%s\n", index)
+		}
+		g.Printf(")\n\n")
 	}
-	g.Printf(")\n\n")
 }
 
 // declareIndexAndNameVar is the single-run version of declareIndexAndNameVars
@@ -560,7 +597,7 @@ func (g *Generator) buildOneRun(runs [][]Value, typeName string) {
 //	[3]: less than zero check (for signed types)
 const stringOneRun = `func (i %[1]s) String() string {
 	if %[3]si >= %[1]s(len(_%[1]s_index)-1) {
-		return fmt.Sprintf("%[1]s(%%d)", i)
+		return "%[1]s(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _%[1]s_name[_%[1]s_index[i]:_%[1]s_index[i+1]]
 }
@@ -576,7 +613,7 @@ const stringOneRun = `func (i %[1]s) String() string {
 const stringOneRunWithOffset = `func (i %[1]s) String() string {
 	i -= %[2]s
 	if %[4]si >= %[1]s(len(_%[1]s_index)-1) {
-		return fmt.Sprintf("%[1]s(%%d)", i + %[2]s)
+		return "%[1]s(" + strconv.FormatInt(int64(i + %[2]s), 10) + ")"
 	}
 	return _%[1]s_name[_%[1]s_index[i] : _%[1]s_index[i+1]]
 }
@@ -603,7 +640,7 @@ func (g *Generator) buildMultipleRuns(runs [][]Value, typeName string) {
 			typeName, i, typeName, i, typeName, i)
 	}
 	g.Printf("\tdefault:\n")
-	g.Printf("\t\treturn fmt.Sprintf(\"%s(%%d)\", i)\n", typeName)
+	g.Printf("\t\treturn \"%s(\" + strconv.FormatInt(int64(i), 10) + \")\"\n", typeName)
 	g.Printf("\t}\n")
 	g.Printf("}\n")
 }
@@ -630,6 +667,6 @@ const stringMap = `func (i %[1]s) String() string {
 	if str, ok := _%[1]s_map[i]; ok {
 		return str
 	}
-	return fmt.Sprintf("%[1]s(%%d)", i)
+	return "%[1]s(" + strconv.FormatInt(int64(i), 10) + ")"
 }
 `

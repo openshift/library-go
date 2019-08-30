@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containerd/console"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/utils"
@@ -38,7 +37,6 @@ func TestExecIn(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -109,7 +107,6 @@ func testExecInRlimit(t *testing.T, userns bool) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -128,7 +125,6 @@ func testExecInRlimit(t *testing.T, userns bool) {
 			// increase process rlimit higher than container rlimit to test per-process limit
 			{Type: unix.RLIMIT_NOFILE, Hard: 1026, Soft: 1026},
 		},
-		Init: true,
 	}
 	err = container.Run(ps)
 	ok(t, err)
@@ -165,7 +161,6 @@ func TestExecInAdditionalGroups(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -222,7 +217,6 @@ func TestExecInError(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -275,7 +269,6 @@ func TestExecInTTY(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -296,7 +289,7 @@ func TestExecInTTY(t *testing.T) {
 	defer child.Close()
 	ps.ConsoleSocket = child
 	type cdata struct {
-		c   console.Console
+		c   libcontainer.Console
 		err error
 	}
 	dc := make(chan *cdata, 1)
@@ -306,18 +299,10 @@ func TestExecInTTY(t *testing.T) {
 			dc <- &cdata{
 				err: err,
 			}
-			return
 		}
-		c, err := console.ConsoleFromFile(f)
-		if err != nil {
-			dc <- &cdata{
-				err: err,
-			}
-			return
-		}
-		console.ClearONLCR(c.Fd())
+		libcontainer.SaneTerminal(f)
 		dc <- &cdata{
-			c: c,
+			c: libcontainer.ConsoleFromFile(f),
 		}
 	}()
 	err = container.Run(ps)
@@ -372,7 +357,6 @@ func TestExecInEnvironment(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -392,7 +376,6 @@ func TestExecInEnvironment(t *testing.T) {
 		Stdin:  buffers.Stdin,
 		Stdout: buffers.Stdout,
 		Stderr: buffers.Stderr,
-		Init:   true,
 	}
 	err = container.Run(process2)
 	ok(t, err)
@@ -438,7 +421,6 @@ func TestExecinPassExtraFiles(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -506,7 +488,7 @@ func TestExecInOomScoreAdj(t *testing.T) {
 	ok(t, err)
 	defer remove(rootfs)
 	config := newTemplateConfig(rootfs)
-	config.OomScoreAdj = ptrInt(200)
+	config.OomScoreAdj = 200
 	container, err := newContainer(config)
 	ok(t, err)
 	defer container.Destroy()
@@ -518,7 +500,6 @@ func TestExecInOomScoreAdj(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
@@ -542,8 +523,8 @@ func TestExecInOomScoreAdj(t *testing.T) {
 	waitProcess(process, t)
 
 	out := buffers.Stdout.String()
-	if oomScoreAdj := strings.TrimSpace(out); oomScoreAdj != strconv.Itoa(*config.OomScoreAdj) {
-		t.Fatalf("expected oomScoreAdj to be %d, got %s", *config.OomScoreAdj, oomScoreAdj)
+	if oomScoreAdj := strings.TrimSpace(out); oomScoreAdj != strconv.Itoa(config.OomScoreAdj) {
+		t.Fatalf("expected oomScoreAdj to be %d, got %s", config.OomScoreAdj, oomScoreAdj)
 	}
 }
 
@@ -574,7 +555,6 @@ func TestExecInUserns(t *testing.T) {
 		Args:  []string{"cat"},
 		Env:   standardEnvironment,
 		Stdin: stdinR,
-		Init:  true,
 	}
 	err = container.Run(process)
 	stdinR.Close()
