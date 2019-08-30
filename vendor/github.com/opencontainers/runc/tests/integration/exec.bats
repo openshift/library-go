@@ -85,7 +85,7 @@ function teardown() {
 
   runc exec --cwd /bin test_busybox pwd
   [ "$status" -eq 0 ]
-  [[ ${output} == "/bin"* ]]
+  [[ ${output} == "/bin" ]]
 }
 
 @test "runc exec --env" {
@@ -100,8 +100,8 @@ function teardown() {
 }
 
 @test "runc exec --user" {
-  # --user can't work in rootless containers that don't have idmap.
-  [[ "$ROOTLESS" -ne 0 ]] && requires rootless_idmap
+  # --user can't work in rootless containers
+  requires root
 
   # run busybox detached
   runc run -d --console-socket $CONSOLE_SOCKET test_busybox
@@ -110,31 +110,5 @@ function teardown() {
   runc exec --user 1000:1000 test_busybox id
   [ "$status" -eq 0 ]
 
-  [[ "${output}" == "uid=1000 gid=1000"* ]]
-}
-
-@test "runc exec --additional-gids" {
-  requires root
-
-  # run busybox detached
-  runc run -d --console-socket $CONSOLE_SOCKET test_busybox
-  [ "$status" -eq 0 ]
-
-  wait_for_container 15 1 test_busybox
-
-  runc exec --user 1000:1000 --additional-gids 100 --additional-gids 65534 test_busybox id
-  [ "$status" -eq 0 ]
-
-  [[ ${output} == "uid=1000 gid=1000 groups=100(users),65534(nogroup)" ]]
-}
-
-@test "runc exec --preserve-fds" {
-  # run busybox detached
-  runc run -d --console-socket $CONSOLE_SOCKET test_busybox
-  [ "$status" -eq 0 ]
-
-  run bash -c "cat hello > preserve-fds.test; exec 3<preserve-fds.test; $RUNC ${RUNC_USE_SYSTEMD:+--systemd-cgroup} --log /proc/self/fd/2 --root $ROOT exec --preserve-fds=1 test_busybox cat /proc/self/fd/3"
-  [ "$status" -eq 0 ]
-
-  [[ "${output}" == *"hello"* ]]
+  [[ ${output} == "uid=1000 gid=1000" ]]
 }

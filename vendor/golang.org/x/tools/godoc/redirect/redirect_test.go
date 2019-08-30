@@ -53,13 +53,13 @@ func TestRedirects(t *testing.T) {
 		"/wiki/foo":  {302, "https://github.com/golang/go/wiki/foo"},
 		"/wiki/foo/": {302, "https://github.com/golang/go/wiki/foo/"},
 
-		"/design":              {301, "https://github.com/golang/proposal/tree/master/design"},
+		"/design":              {301, "https://go.googlesource.com/proposal/+/master/design"},
 		"/design/":             {302, "/design"},
-		"/design/123-foo":      {302, "https://github.com/golang/proposal/blob/master/design/123-foo.md"},
-		"/design/text/123-foo": {302, "https://github.com/golang/proposal/blob/master/design/text/123-foo.md"},
+		"/design/123-foo":      {302, "https://go.googlesource.com/proposal/+/master/design/123-foo.md"},
+		"/design/text/123-foo": {302, "https://go.googlesource.com/proposal/+/master/design/text/123-foo.md"},
 
-		"/cl/1":          {302, "https://go-review.googlesource.com/r/1"},
-		"/cl/1/":         {302, "https://go-review.googlesource.com/r/1"},
+		"/cl/1":          {302, "https://go-review.googlesource.com/1"},
+		"/cl/1/":         {302, "https://go-review.googlesource.com/1"},
 		"/cl/267120043":  {302, "https://codereview.appspot.com/267120043"},
 		"/cl/267120043/": {302, "https://codereview.appspot.com/267120043"},
 	}

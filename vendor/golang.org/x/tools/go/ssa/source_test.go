@@ -9,7 +9,7 @@ package ssa_test
 import (
 	"fmt"
 	"go/ast"
-	exact "go/constant"
+	"go/constant"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -144,7 +144,7 @@ func checkConstValue(t *testing.T, prog *ssa.Program, obj *types.Const) {
 		return
 	}
 	if obj.Name() != "nil" {
-		if !exact.Compare(c.Value, token.EQL, obj.Val()) {
+		if !constant.Compare(c.Value, token.EQL, obj.Val()) {
 			t.Errorf("ConstValue(%s).Value (%s) != %s",
 				obj, c.Value, obj.Val())
 			return
@@ -194,12 +194,16 @@ func checkVarValue(t *testing.T, prog *ssa.Program, pkg *ssa.Package, ref []ast.
 // Ensure that, in debug mode, we can determine the ssa.Value
 // corresponding to every ast.Expr.
 func TestValueForExpr(t *testing.T) {
+	testValueForExpr(t, "testdata/valueforexpr.go")
+}
+
+func testValueForExpr(t *testing.T, testfile string) {
 	if runtime.GOOS == "android" {
 		t.Skipf("no testdata dir on %s", runtime.GOOS)
 	}
 
 	conf := loader.Config{ParserMode: parser.ParseComments}
-	f, err := conf.ParseFile("testdata/valueforexpr.go", nil)
+	f, err := conf.ParseFile(testfile, nil)
 	if err != nil {
 		t.Error(err)
 		return

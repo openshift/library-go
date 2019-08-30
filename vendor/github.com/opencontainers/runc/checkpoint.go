@@ -4,14 +4,11 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
 	"golang.org/x/sys/unix"
@@ -33,8 +30,6 @@ checkpointed.`,
 		cli.BoolFlag{Name: "tcp-established", Usage: "allow open tcp connections"},
 		cli.BoolFlag{Name: "ext-unix-sk", Usage: "allow external unix sockets"},
 		cli.BoolFlag{Name: "shell-job", Usage: "allow shell jobs"},
-		cli.BoolFlag{Name: "lazy-pages", Usage: "use userfaultfd to lazily restore memory pages"},
-		cli.StringFlag{Name: "status-fd", Value: "", Usage: "criu writes \\0 to this FD once lazy-pages is ready"},
 		cli.StringFlag{Name: "page-server", Value: "", Usage: "ADDRESS:PORT of the page server"},
 		cli.BoolFlag{Name: "file-locks", Usage: "handle file locks, for safety"},
 		cli.BoolFlag{Name: "pre-dump", Usage: "dump container's memory information only, leave the container running after this"},
@@ -47,8 +42,8 @@ checkpointed.`,
 			return err
 		}
 		// XXX: Currently this is untested with rootless containers.
-		if os.Geteuid() != 0 || system.RunningInUserNS() {
-			logrus.Warn("runc checkpoint is untested with rootless containers")
+		if isRootless() {
+			return fmt.Errorf("runc checkpoint requires root")
 		}
 
 		container, err := getContainer(context)
@@ -59,8 +54,8 @@ checkpointed.`,
 		if err != nil {
 			return err
 		}
-		if status == libcontainer.Created || status == libcontainer.Stopped {
-			fatalf("Container cannot be checkpointed in %s state", status.String())
+		if status == libcontainer.Created {
+			fatalf("Container cannot be checkpointed in created state")
 		}
 		defer destroy(container)
 		options := criuOptions(context)
@@ -70,7 +65,10 @@ checkpointed.`,
 		if err := setEmptyNsMask(context, options); err != nil {
 			return err
 		}
-		return container.Checkpoint(options)
+		if err := container.Checkpoint(options); err != nil {
+			return err
+		}
+		return nil
 	},
 }
 
@@ -121,8 +119,7 @@ var namespaceMapping = map[specs.LinuxNamespaceType]int{
 }
 
 func setEmptyNsMask(context *cli.Context, options *libcontainer.CriuOpts) error {
-	/* Runc doesn't manage network devices and their configuration */
-	nsmask := unix.CLONE_NEWNET
+	var nsmask int
 
 	for _, ns := range context.StringSlice("empty-ns") {
 		f, exists := namespaceMapping[specs.LinuxNamespaceType(ns)]
