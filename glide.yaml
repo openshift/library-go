@@ -1,17 +1,27 @@
 package: github.com/openshift/library-go
 import:
 - package: k8s.io/apimachinery
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-apimachinery
+  version: origin-4.3-kubernetes-1.16.0-beta.1
 - package: k8s.io/api
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-api
+  version: origin-4.3-kubernetes-1.16.0-beta.1
 - package: k8s.io/apiserver
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-apiserver
+  version: origin-4.3-kubernetes-1.16.0-beta.1
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
+  version: origin-4.3-kubernetes-1.16.0-beta.1
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-kube-aggregator
+  version: origin-4.3-kubernetes-1.16.0-beta.1
 - package: k8s.io/client-go
-  version: kubernetes-1.16.0-beta.1
+  repo: https://github.com/openshift/kubernetes-client-go
+  version: origin-4.3-kubernetes-1.16.0-beta.1
+- package: k8s.io/component-base
+  repo: https://github.com/openshift/kubernetes-component-base
+  version: origin-4.3-kubernetes-1.16.0-beta.1
+
 - package: github.com/openshift/api
   version: prebase-1.16 # this is wrong, it should be prebase-1.16.0-beta.1
 - package: github.com/openshift/client-go
@@ -63,4 +73,3 @@ import:
 # VCS issues
 - package: bitbucket.org/ww/goautoneg
   vcs: hg
-
