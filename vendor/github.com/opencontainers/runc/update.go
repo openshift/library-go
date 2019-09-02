@@ -9,6 +9,8 @@ import (
 	"strconv"
 
 	"github.com/docker/go-units"
+	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/intelrdt"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -111,6 +113,14 @@ other options are ignored.
 		cli.IntFlag{
 			Name:  "pids-limit",
 			Usage: "Maximum number of pids allowed in the container",
+		},
+		cli.StringFlag{
+			Name:  "l3-cache-schema",
+			Usage: "The string of Intel RDT/CAT L3 cache schema",
+		},
+		cli.StringFlag{
+			Name:  "mem-bw-schema",
+			Usage: "The string of Intel RDT/MBA memory bandwidth schema",
 		},
 	},
 	Action: func(context *cli.Context) error {
@@ -253,6 +263,41 @@ other options are ignored.
 		config.Cgroups.Resources.MemoryReservation = *r.Memory.Reservation
 		config.Cgroups.Resources.MemorySwap = *r.Memory.Swap
 		config.Cgroups.Resources.PidsLimit = r.Pids.Limit
+
+		// Update Intel RDT
+		l3CacheSchema := context.String("l3-cache-schema")
+		memBwSchema := context.String("mem-bw-schema")
+		if l3CacheSchema != "" && !intelrdt.IsCatEnabled() {
+			return fmt.Errorf("Intel RDT/CAT: l3 cache schema is not enabled")
+		}
+
+		if memBwSchema != "" && !intelrdt.IsMbaEnabled() {
+			return fmt.Errorf("Intel RDT/MBA: memory bandwidth schema is not enabled")
+		}
+
+		if l3CacheSchema != "" || memBwSchema != "" {
+			// If intelRdt is not specified in original configuration, we just don't
+			// Apply() to create intelRdt group or attach tasks for this container.
+			// In update command, we could re-enable through IntelRdtManager.Apply()
+			// and then update intelrdt constraint.
+			if config.IntelRdt == nil {
+				state, err := container.State()
+				if err != nil {
+					return err
+				}
+				config.IntelRdt = &configs.IntelRdt{}
+				intelRdtManager := intelrdt.IntelRdtManager{
+					Config: &config,
+					Id:     container.ID(),
+					Path:   state.IntelRdtPath,
+				}
+				if err := intelRdtManager.Apply(state.InitProcessPid); err != nil {
+					return err
+				}
+			}
+			config.IntelRdt.L3CacheSchema = l3CacheSchema
+			config.IntelRdt.MemBwSchema = memBwSchema
+		}
 
 		return container.Set(config)
 	},

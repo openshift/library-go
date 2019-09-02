@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -1123,10 +1124,7 @@ func TestSchemes(t *testing.T) {
 
 func TestMatcherFunc(t *testing.T) {
 	m := func(r *http.Request, m *RouteMatch) bool {
-		if r.URL.Host == "aaa.bbb.ccc" {
-			return true
-		}
-		return false
+		return r.URL.Host == "aaa.bbb.ccc"
 	}
 
 	tests := []routeTest{
@@ -1444,10 +1442,11 @@ func TestNamedRoutes(t *testing.T) {
 	r3.NewRoute().Name("g")
 	r3.NewRoute().Name("h")
 	r3.NewRoute().Name("i")
+	r3.Name("j")
 
-	if r1.namedRoutes == nil || len(r1.namedRoutes) != 9 {
-		t.Errorf("Expected 9 named routes, got %v", r1.namedRoutes)
-	} else if r1.Get("i") == nil {
+	if r1.namedRoutes == nil || len(r1.namedRoutes) != 10 {
+		t.Errorf("Expected 10 named routes, got %v", r1.namedRoutes)
+	} else if r1.Get("j") == nil {
 		t.Errorf("Subroute name not registered")
 	}
 }
@@ -1945,7 +1944,7 @@ type TestA301ResponseWriter struct {
 }
 
 func (ho *TestA301ResponseWriter) Header() http.Header {
-	return http.Header(ho.hh)
+	return ho.hh
 }
 
 func (ho *TestA301ResponseWriter) Write(b []byte) (int, error) {
@@ -2047,7 +2046,7 @@ func TestNoMatchMethodErrorHandler(t *testing.T) {
 
 	resp := NewRecorder()
 	r.ServeHTTP(resp, req)
-	if resp.Code != 405 {
+	if resp.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expecting code %v", 405)
 	}
 
@@ -2726,8 +2725,65 @@ func TestMethodNotAllowed(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != 405 {
+	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("Expected status code 405 (got %d)", w.Code)
+	}
+}
+
+type customMethodNotAllowedHandler struct {
+	msg string
+}
+
+func (h customMethodNotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	fmt.Fprint(w, h.msg)
+}
+
+func TestSubrouterCustomMethodNotAllowed(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+
+	router := NewRouter()
+	router.HandleFunc("/test", handler).Methods(http.MethodGet)
+	router.MethodNotAllowedHandler = customMethodNotAllowedHandler{msg: "custom router handler"}
+
+	subrouter := router.PathPrefix("/sub").Subrouter()
+	subrouter.HandleFunc("/test", handler).Methods(http.MethodGet)
+	subrouter.MethodNotAllowedHandler = customMethodNotAllowedHandler{msg: "custom sub router handler"}
+
+	testCases := map[string]struct {
+		path   string
+		expMsg string
+	}{
+		"router method not allowed": {
+			path:   "/test",
+			expMsg: "custom router handler",
+		},
+		"subrouter method not allowed": {
+			path:   "/sub/test",
+			expMsg: "custom sub router handler",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(tt *testing.T) {
+			w := NewRecorder()
+			req := newRequest(http.MethodPut, tc.path)
+
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusMethodNotAllowed {
+				tt.Errorf("Expected status code 405 (got %d)", w.Code)
+			}
+
+			b, err := ioutil.ReadAll(w.Body)
+			if err != nil {
+				tt.Errorf("failed to read body: %v", err)
+			}
+
+			if string(b) != tc.expMsg {
+				tt.Errorf("expected msg %q, got %q", tc.expMsg, string(b))
+			}
+		})
 	}
 }
 
@@ -2742,7 +2798,7 @@ func TestSubrouterNotFound(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != 404 {
+	if w.Code != http.StatusNotFound {
 		t.Fatalf("Expected status code 404 (got %d)", w.Code)
 	}
 }

@@ -50,6 +50,10 @@ following will output a list of processes running in the container:
 			Name:  "user, u",
 			Usage: "UID (format: <uid>[:<gid>])",
 		},
+		cli.Int64SliceFlag{
+			Name:  "additional-gids, g",
+			Usage: "additional gids",
+		},
 		cli.StringFlag{
 			Name:  "process, p",
 			Usage: "path to the process.json",
@@ -84,6 +88,10 @@ following will output a list of processes running in the container:
 			Name:   "no-subreaper",
 			Usage:  "disable the use of the subreaper used to reap reparented processes",
 			Hidden: true,
+		},
+		cli.IntFlag{
+			Name:  "preserve-fds",
+			Usage: "Pass N additional file descriptors to the container (stdio + $LISTEN_FDS + N in total)",
 		},
 	},
 	Action: func(context *cli.Context) error {
@@ -128,6 +136,12 @@ func execProcess(context *cli.Context) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+
+	logLevel := "info"
+	if context.GlobalBool("debug") {
+		logLevel = "debug"
+	}
+
 	r := &runner{
 		enableSubreaper: false,
 		shouldDestroy:   false,
@@ -136,6 +150,9 @@ func execProcess(context *cli.Context) (int, error) {
 		detach:          detach,
 		pidFile:         context.String("pid-file"),
 		action:          CT_ACT_RUN,
+		init:            false,
+		preserveFDs:     context.Int("preserve-fds"),
+		logLevel:        logLevel,
 	}
 	return r.run(p)
 }
@@ -208,5 +225,11 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		}
 		p.User.UID = uint32(uid)
 	}
-	return p, nil
+	for _, gid := range context.Int64Slice("additional-gids") {
+		if gid < 0 {
+			return nil, fmt.Errorf("additional-gids must be a positive number %d", gid)
+		}
+		p.User.AdditionalGids = append(p.User.AdditionalGids, uint32(gid))
+	}
+	return p, validateProcessSpec(p)
 }

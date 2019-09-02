@@ -1,5 +1,5 @@
-hash: 2f30bf6f4472e1828401d6aed9a371d451d75246acd49cb8672705e0298b1184
-updated: 2019-08-30T10:28:14.826744+02:00
+hash: f85bfa3098b141b68a300296785b390dce5ca0725e4eece150c2cec83d4ff4e6
+updated: 2019-09-02T13:08:13.807104+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -89,7 +89,7 @@ imports:
   - pkg/term
   - pkg/term/windows
 - name: github.com/docker/go-connections
-  version: 7395e3f8aa162843a74ed6d48e79627d9792ac55
+  version: 3ede32e2033de7505e6500d6c868c2b9ed9f169d
   subpackages:
   - nat
 - name: github.com/docker/go-metrics
@@ -101,7 +101,7 @@ imports:
   subpackages:
   - ipamutils
 - name: github.com/docker/libtrust
-  version: 9cbd2a1374f46905c68a4eb3694a130610adc62a
+  version: aabc10ec26b754e797f9028f4589c5b7bd90dc20
 - name: github.com/emicklei/go-restful
   version: ff4f55a206334ef123e4f79bbf348980da81ca46
   subpackages:
@@ -113,7 +113,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -195,7 +195,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/mux
-  version: 08e7f807d38d6a870193019bb439056118661505
+  version: 884b5ffcbd3a11b730f0b75f5c86ac408753c34d
 - name: github.com/grpc-ecosystem/go-grpc-prometheus
   version: c225b8c3b01faf2899099b768856a9e916e5087b
 - name: github.com/hashicorp/golang-lru
@@ -223,9 +223,7 @@ imports:
   subpackages:
   - pbutil
 - name: github.com/Microsoft/go-winio
-  version: 6c72808b55902eae4c5943626030429ff20f3b63
-  subpackages:
-  - pkg/guid
+  version: 97e4973ce50b2ff5f09635a57e2b88a037aae829
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
@@ -237,14 +235,14 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/opencontainers/go-digest
-  version: a6d0ee40d4207ea02364bd3b9e8e77b9159ba1eb
+  version: 279bed98673dd5bef374d3b6e4b09e2af76183bf
 - name: github.com/opencontainers/image-spec
-  version: 372ad780f63454fbbbbcc7cf80e5b90245c13e13
+  version: d60099175f88c47cd379c4738d158884749ed235
   subpackages:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: 4d6e6720a7c885c37b4cb083c0d372dda3425120
+  version: 6cc515888830787a93d82138821f0309ad970640
   subpackages:
   - libcontainer/system
   - libcontainer/user
@@ -477,7 +475,8 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
-  version: 6185379c914ac524c99740fc4be563ad68f31b20
+  version: 282635403f9c5685f5d0b95c4c699c25350e566d
+  repo: https://github.com/openshift/kubernetes-api
   subpackages:
   - admission/v1
   - admission/v1beta1
@@ -501,6 +500,7 @@ imports:
   - coordination/v1
   - coordination/v1beta1
   - core/v1
+  - discovery/v1alpha1
   - events/v1beta1
   - extensions/v1beta1
   - imagepolicy/v1alpha1
@@ -520,7 +520,8 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 0670dc4fec4e4ce641c0f6675718b27eabdd539c
+  version: 8959937d42e2ee86a6916afdd026b58c61e9ef71
+  repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1
@@ -528,7 +529,8 @@ imports:
   - pkg/client/clientset/clientset/scheme
   - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
-  version: 31b1e1ea64dcd6d47a3b0066ccacf721f864d295
+  version: b62bb2942d705781a0a27a04fc2997fc66dd150e
+  repo: https://github.com/openshift/kubernetes-apimachinery
   subpackages:
   - pkg/api/apitesting
   - pkg/api/equality
@@ -582,7 +584,8 @@ imports:
   - third_party/forked/golang/json
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
-  version: 785eacbd19aedae1e4700720711381e2693c8cfd
+  version: ecc51608863c570d678617e0d99bcfc458231f54
+  repo: https://github.com/openshift/kubernetes-apiserver
   subpackages:
   - pkg/admission
   - pkg/admission/configuration
@@ -600,7 +603,6 @@ imports:
   - pkg/admission/plugin/webhook/object
   - pkg/admission/plugin/webhook/request
   - pkg/admission/plugin/webhook/rules
-  - pkg/admission/plugin/webhook/util
   - pkg/admission/plugin/webhook/validating
   - pkg/apis/apiserver
   - pkg/apis/apiserver/install
@@ -650,6 +652,7 @@ imports:
   - pkg/registry/generic/registry
   - pkg/registry/rest
   - pkg/server
+  - pkg/server/certs
   - pkg/server/egressselector
   - pkg/server/filters
   - pkg/server/healthz
@@ -689,7 +692,8 @@ imports:
   - plugin/pkg/authenticator/token/webhook
   - plugin/pkg/authorizer/webhook
 - name: k8s.io/client-go
-  version: 0a74433fb22231a88db9119f88ac494411c3594e
+  version: 5e32fcffa582d0670bddf1c638a115ca486ec405
+  repo: https://github.com/openshift/kubernetes-client-go
   subpackages:
   - discovery
   - discovery/fake
@@ -722,6 +726,8 @@ imports:
   - informers/coordination/v1beta1
   - informers/core
   - informers/core/v1
+  - informers/discovery
+  - informers/discovery/v1alpha1
   - informers/events
   - informers/events/v1beta1
   - informers/extensions
@@ -792,6 +798,8 @@ imports:
   - kubernetes/typed/coordination/v1beta1/fake
   - kubernetes/typed/core/v1
   - kubernetes/typed/core/v1/fake
+  - kubernetes/typed/discovery/v1alpha1
+  - kubernetes/typed/discovery/v1alpha1/fake
   - kubernetes/typed/events/v1beta1
   - kubernetes/typed/events/v1beta1/fake
   - kubernetes/typed/extensions/v1beta1
@@ -842,6 +850,7 @@ imports:
   - listers/coordination/v1
   - listers/coordination/v1beta1
   - listers/core/v1
+  - listers/discovery/v1alpha1
   - listers/events/v1beta1
   - listers/extensions/v1beta1
   - listers/networking/v1
@@ -901,15 +910,20 @@ imports:
   - util/retry
   - util/workqueue
 - name: k8s.io/component-base
-  version: 1f6a258f5d89fa54195b5cb9e63b9c5f7f5df6a3
+  version: 8367f2dd020a017d59b102d1d0e8d015a94c2b25
+  repo: https://github.com/openshift/kubernetes-component-base
   subpackages:
   - cli/flag
   - featuregate
   - logs
+  - metrics
+  - metrics/legacyregistry
+  - version
 - name: k8s.io/klog
   version: 3ca30a56d8a775276f9cdae009ba326fdc05af7f
 - name: k8s.io/kube-aggregator
-  version: a4f93a8219eddaf9dcc03997633545e8f0bc776d
+  version: 0dd3fd7b5fbce1fd6d83bea1bc717edfcef46275
+  repo: https://github.com/openshift/kubernetes-kube-aggregator
   subpackages:
   - pkg/apis/apiregistration
   - pkg/apis/apiregistration/v1
@@ -947,6 +961,6 @@ imports:
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
 testImports:
 - name: vbom.ml/util
-  version: efcd4e0f97874370259c7d93e12aad57911dea81
+  version: db5cfe13f5cc80a4990d98e2e1b0707a4d1a5394
   subpackages:
   - sortorder

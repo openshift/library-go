@@ -97,6 +97,8 @@ func (c *scaleClient) pathAndVersionFor(resource schema.GroupResource) (string, 
 		return "", gvr, fmt.Errorf("unable to get full preferred group-version-resource for %s: %v", resource.String(), err)
 	}
 
+	gvr = correctOapiDeploymentConfig(gvr) // TODO(directxman12): remove when /oapi is removed
+
 	groupVer := gvr.GroupVersion()
 
 	return c.apiPathFor(groupVer), gvr, nil
@@ -150,7 +152,7 @@ func (c *namespacedScaleClient) Get(resource schema.GroupResource, name string) 
 
 	result := c.client.clientBase.Get().
 		AbsPath(path).
-		Namespace(c.namespace).
+		NamespaceIfScoped(c.namespace, c.namespace != "").
 		Resource(gvr.Resource).
 		Name(name).
 		SubResource("scale").
@@ -191,7 +193,7 @@ func (c *namespacedScaleClient) Update(resource schema.GroupResource, scale *aut
 
 	result := c.client.clientBase.Put().
 		AbsPath(path).
-		Namespace(c.namespace).
+		NamespaceIfScoped(c.namespace, c.namespace != "").
 		Resource(gvr.Resource).
 		Name(scale.Name).
 		SubResource("scale").
@@ -211,7 +213,7 @@ func (c *namespacedScaleClient) Patch(gvr schema.GroupVersionResource, name stri
 	groupVersion := gvr.GroupVersion()
 	result := c.client.clientBase.Patch(pt).
 		AbsPath(c.client.apiPathFor(groupVersion)).
-		Namespace(c.namespace).
+		NamespaceIfScoped(c.namespace, c.namespace != "").
 		Resource(gvr.Resource).
 		Name(name).
 		SubResource("scale").

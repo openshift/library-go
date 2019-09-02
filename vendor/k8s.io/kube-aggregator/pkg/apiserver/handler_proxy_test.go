@@ -89,6 +89,10 @@ func (r *mockedRouter) ResolveEndpoint(namespace, name string, port int32) (*url
 	return &url.URL{Scheme: "https", Host: r.destinationHost}, r.err
 }
 
+func emptyCert() []byte {
+	return []byte{}
+}
+
 func TestProxyHandler(t *testing.T) {
 	target := &targetHTTPHandler{}
 	targetServer := httptest.NewUnstartedServer(target)
@@ -276,6 +280,8 @@ func TestProxyHandler(t *testing.T) {
 				localDelegate:   http.NewServeMux(),
 				serviceResolver: serviceResolver,
 				proxyTransport:  &http.Transport{},
+				proxyClientCert: emptyCert,
+				proxyClientKey:  emptyCert,
 			}
 			server := httptest.NewServer(contextHandler(handler, tc.user))
 			defer server.Close()
@@ -419,6 +425,8 @@ func TestProxyUpgrade(t *testing.T) {
 			proxyHandler := &proxyHandler{
 				serviceResolver: &mockedRouter{destinationHost: serverURL.Host},
 				proxyTransport:  &http.Transport{},
+				proxyClientCert: emptyCert,
+				proxyClientKey:  emptyCert,
 			}
 			proxyHandler.updateAPIService(tc.APIService)
 			aggregator := httptest.NewServer(contextHandler(proxyHandler, &user.DefaultInfo{Name: "username"}))

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/utils"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -45,6 +44,11 @@ func destroy(c *linuxContainer) error {
 		}
 	}
 	err := c.cgroupManager.Destroy()
+	if c.intelRdtManager != nil {
+		if ierr := c.intelRdtManager.Destroy(); err == nil {
+			err = ierr
+		}
+	}
 	if rerr := os.RemoveAll(c.root); err == nil {
 		err = rerr
 	}
@@ -58,10 +62,9 @@ func destroy(c *linuxContainer) error {
 
 func runPoststopHooks(c *linuxContainer) error {
 	if c.config.Hooks != nil {
-		s := configs.HookState{
-			Version: c.config.Version,
-			ID:      c.id,
-			Bundle:  utils.SearchLabels(c.config.Labels, "bundle"),
+		s, err := c.currentOCIState()
+		if err != nil {
+			return err
 		}
 		for _, hook := range c.config.Hooks.Poststop {
 			if err := hook.Run(s); err != nil {

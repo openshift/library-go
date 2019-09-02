@@ -29,7 +29,7 @@ func newSignalHandler(enableSubreaper bool, notifySocket *notifySocket) *signalH
 		}
 	}
 	// ensure that we have a large buffer size so that we do not miss any signals
-	// incase we are not processing them fast enough.
+	// in case we are not processing them fast enough.
 	s := make(chan os.Signal, signalBufferSize)
 	// handle all signals for the process.
 	signal.Notify(s)
@@ -69,21 +69,19 @@ func (h *signalHandler) forward(process *libcontainer.Process, tty *tty, detach 
 		if detach {
 			h.notifySocket.run(pid1)
 			return 0, nil
-		} else {
-			go h.notifySocket.run(0)
 		}
+		go h.notifySocket.run(0)
 	}
 
-	// perform the initial tty resize.
-	if err := tty.resize(); err != nil {
-		logrus.Error(err)
-	}
+	// Perform the initial tty resize. Always ignore errors resizing because
+	// stdout might have disappeared (due to races with when SIGHUP is sent).
+	_ = tty.resize()
+	// Handle and forward signals.
 	for s := range h.signals {
 		switch s {
 		case unix.SIGWINCH:
-			if err := tty.resize(); err != nil {
-				logrus.Error(err)
-			}
+			// Ignore errors resizing, as above.
+			_ = tty.resize()
 		case unix.SIGCHLD:
 			exits, err := h.reap()
 			if err != nil {
