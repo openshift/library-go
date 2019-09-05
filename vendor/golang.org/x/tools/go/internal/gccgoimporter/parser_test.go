@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package gccgoimporter
+// Except for this comment, this file is a verbatim copy of the file
+// with the same name in $GOROOT/src/go/internal/gccgoimporter.
 
-// This is a verbatim copy of $GOROOT/src/go/internal/gccgoimporter/parser_test.go.
+package gccgoimporter
 
 import (
 	"bytes"
@@ -45,6 +46,11 @@ func TestTypeParser(t *testing.T) {
 
 		if p.tok != scanner.EOF {
 			t.Errorf("expected full parse, stopped at %q", p.lit)
+		}
+
+		// interfaces must be explicitly completed
+		if ityp, _ := typ.(*types.Interface); ityp != nil {
+			ityp.Complete()
 		}
 
 		got := typ.String()

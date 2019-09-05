@@ -3,11 +3,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runc/libcontainer/system"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -87,18 +86,14 @@ using the runc checkpoint command.`,
 			Name:  "auto-dedup",
 			Usage: "enable auto deduplication of memory images",
 		},
-		cli.BoolFlag{
-			Name:  "lazy-pages",
-			Usage: "use userfaultfd to lazily restore memory pages",
-		},
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, exactArgs); err != nil {
 			return err
 		}
 		// XXX: Currently this is untested with rootless containers.
-		if os.Geteuid() != 0 || system.RunningInUserNS() {
-			logrus.Warn("runc checkpoint is untested with rootless containers")
+		if isRootless() {
+			return fmt.Errorf("runc restore requires root")
 		}
 
 		spec, err := setupSpec(context)
@@ -106,9 +101,6 @@ using the runc checkpoint command.`,
 			return err
 		}
 		options := criuOptions(context)
-		if err := setEmptyNsMask(context, options); err != nil {
-			return err
-		}
 		status, err := startContainer(context, spec, CT_ACT_RESTORE, options)
 		if err != nil {
 			return err
@@ -136,7 +128,5 @@ func criuOptions(context *cli.Context) *libcontainer.CriuOpts {
 		FileLocks:               context.Bool("file-locks"),
 		PreDump:                 context.Bool("pre-dump"),
 		AutoDedup:               context.Bool("auto-dedup"),
-		LazyPages:               context.Bool("lazy-pages"),
-		StatusFd:                context.String("status-fd"),
 	}
 }

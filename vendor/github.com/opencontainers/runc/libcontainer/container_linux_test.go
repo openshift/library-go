@@ -4,13 +4,11 @@ package libcontainer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/intelrdt"
 	"github.com/opencontainers/runc/libcontainer/system"
 )
 
@@ -19,11 +17,6 @@ type mockCgroupManager struct {
 	allPids []int
 	stats   *cgroups.Stats
 	paths   map[string]string
-}
-
-type mockIntelRdtManager struct {
-	stats *intelrdt.Stats
-	path  string
 }
 
 func (m *mockCgroupManager) GetPids() ([]int, error) {
@@ -55,26 +48,6 @@ func (m *mockCgroupManager) GetPaths() map[string]string {
 }
 
 func (m *mockCgroupManager) Freeze(state configs.FreezerState) error {
-	return nil
-}
-
-func (m *mockIntelRdtManager) Apply(pid int) error {
-	return nil
-}
-
-func (m *mockIntelRdtManager) GetStats() (*intelrdt.Stats, error) {
-	return m.stats, nil
-}
-
-func (m *mockIntelRdtManager) Destroy() error {
-	return nil
-}
-
-func (m *mockIntelRdtManager) GetPath() string {
-	return m.path
-}
-
-func (m *mockIntelRdtManager) Set(container *configs.Config) error {
 	return nil
 }
 
@@ -114,9 +87,6 @@ func (m *mockProcess) externalDescriptors() []string {
 func (m *mockProcess) setExternalDescriptors(newFds []string) {
 }
 
-func (m *mockProcess) forwardChildLogs() {
-}
-
 func TestGetContainerPids(t *testing.T) {
 	container := &linuxContainer{
 		id:            "myid",
@@ -148,12 +118,6 @@ func TestGetContainerStats(t *testing.T) {
 				},
 			},
 		},
-		intelRdtManager: &mockIntelRdtManager{
-			stats: &intelrdt.Stats{
-				L3CacheSchema: "L3:0=f;1=f0",
-				MemBwSchema:   "MB:0=20;1=70",
-			},
-		},
 	}
 	stats, err := container.Stats()
 	if err != nil {
@@ -163,32 +127,15 @@ func TestGetContainerStats(t *testing.T) {
 		t.Fatal("cgroup stats are nil")
 	}
 	if stats.CgroupStats.MemoryStats.Usage.Usage != 1024 {
-		t.Fatalf("expected memory usage 1024 but received %d", stats.CgroupStats.MemoryStats.Usage.Usage)
-	}
-	if intelrdt.IsCatEnabled() {
-		if stats.IntelRdtStats == nil {
-			t.Fatal("intel rdt stats are nil")
-		}
-		if stats.IntelRdtStats.L3CacheSchema != "L3:0=f;1=f0" {
-			t.Fatalf("expected L3CacheSchema L3:0=f;1=f0 but received %s", stats.IntelRdtStats.L3CacheSchema)
-		}
-	}
-	if intelrdt.IsMbaEnabled() {
-		if stats.IntelRdtStats == nil {
-			t.Fatal("intel rdt stats are nil")
-		}
-		if stats.IntelRdtStats.MemBwSchema != "MB:0=20;1=70" {
-			t.Fatalf("expected MemBwSchema MB:0=20;1=70 but received %s", stats.IntelRdtStats.MemBwSchema)
-		}
+		t.Fatalf("expected memory usage 1024 but recevied %d", stats.CgroupStats.MemoryStats.Usage.Usage)
 	}
 }
 
 func TestGetContainerState(t *testing.T) {
 	var (
-		pid                  = os.Getpid()
-		expectedMemoryPath   = "/sys/fs/cgroup/memory/myid"
-		expectedNetworkPath  = fmt.Sprintf("/proc/%d/ns/net", pid)
-		expectedIntelRdtPath = "/sys/fs/resctrl/myid"
+		pid                 = os.Getpid()
+		expectedMemoryPath  = "/sys/fs/cgroup/memory/myid"
+		expectedNetworkPath = fmt.Sprintf("/proc/%d/ns/net", pid)
 	)
 	container := &linuxContainer{
 		id: "myid",
@@ -200,7 +147,6 @@ func TestGetContainerState(t *testing.T) {
 				{Type: configs.NEWUTS},
 				// emulate host for IPC
 				//{Type: configs.NEWIPC},
-				{Type: configs.NEWCGROUP},
 			},
 		},
 		initProcess: &mockProcess{
@@ -220,13 +166,6 @@ func TestGetContainerState(t *testing.T) {
 				"memory": expectedMemoryPath,
 			},
 		},
-		intelRdtManager: &mockIntelRdtManager{
-			stats: &intelrdt.Stats{
-				L3CacheSchema: "L3:0=f0;1=f",
-				MemBwSchema:   "MB:0=70;1=20",
-			},
-			path: expectedIntelRdtPath,
-		},
 	}
 	container.state = &createdState{c: container}
 	state, err := container.State()
@@ -245,15 +184,6 @@ func TestGetContainerState(t *testing.T) {
 	}
 	if memPath := paths["memory"]; memPath != expectedMemoryPath {
 		t.Fatalf("expected memory path %q but received %q", expectedMemoryPath, memPath)
-	}
-	if intelrdt.IsCatEnabled() || intelrdt.IsMbaEnabled() {
-		intelRdtPath := state.IntelRdtPath
-		if intelRdtPath == "" {
-			t.Fatal("intel rdt path should not be empty")
-		}
-		if intelRdtPath != expectedIntelRdtPath {
-			t.Fatalf("expected intel rdt path %q but received %q", expectedIntelRdtPath, intelRdtPath)
-		}
 	}
 	for _, ns := range container.config.Namespaces {
 		path := state.NamespacePaths[ns.Type]
@@ -279,8 +209,6 @@ func TestGetContainerState(t *testing.T) {
 				file = "user"
 			case configs.NEWUTS:
 				file = "uts"
-			case configs.NEWCGROUP:
-				file = "cgroup"
 			}
 			expected := fmt.Sprintf("/proc/%d/ns/%s", pid, file)
 			if expected != path {
@@ -298,16 +226,8 @@ func TestGetContainerStateAfterUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	rootDir, err := ioutil.TempDir("", "TestGetContainerStateAfterUpdate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(rootDir)
-
 	container := &linuxContainer{
-		root: rootDir,
-		id:   "myid",
+		id: "myid",
 		config: &configs.Config{
 			Namespaces: []configs.Namespace{
 				{Type: configs.NEWPID},

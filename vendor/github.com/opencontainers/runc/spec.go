@@ -61,11 +61,7 @@ container on your host.
 Alternatively, you can start a rootless container, which has the ability to run
 without root privileges. For this to work, the specification file needs to be
 adjusted accordingly. You can pass the parameter --rootless to this command to
-generate a proper rootless spec file.
-
-Note that --rootless is not needed when you execute runc as the root in a user namespace
-created by an unprivileged user.
-`,
+generate a proper rootless spec file.`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "bundle, b",
@@ -111,9 +107,14 @@ created by an unprivileged user.
 		if err != nil {
 			return err
 		}
-		return ioutil.WriteFile(specConfig, data, 0666)
+		if err := ioutil.WriteFile(specConfig, data, 0666); err != nil {
+			return err
+		}
+		return nil
 	},
 }
+
+func sPtr(s string) *string { return &s }
 
 // loadSpec loads the specification from the provided path.
 func loadSpec(cPath string) (spec *specs.Spec, err error) {
