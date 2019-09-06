@@ -1,7 +1,21 @@
 include $(addprefix ../../, \
 	golang.mk \
 	targets/openshift/rpm.mk \
+	targets/openshift/crd-schema-gen.mk \
 )
+
+# Set crd-schema-gen variables
+CRD_SCHEMA_GEN_APIS :=./pkg/apis/v1
+CRD_SCHEMA_GEN_VERSION :=v0.2.1
+
+update-codegen: crd-schema-update-with-patch
+.PHONY: update-codegen
+
+verify-codegen: verify-codegen-crds
+.PHONY: verify-codegen
+
+verify: verify-codegen
+.PHONY: verify
 
 # rpm wants build-id set
 GO_LD_EXTRAFLAGS +=-B 0x$$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n')
