@@ -100,7 +100,12 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 				}
 				files := map[string][]byte{}
 				for _, fn := range c.basicFlags.TerminateOnFiles {
-					files[fn], _ = ioutil.ReadFile(fn) // intentionally ignore error
+					fileBytes, err := ioutil.ReadFile(fn)
+					if err != nil {
+						klog.Warningf("Unable to read initial content of %q: %v", fn, err)
+						continue // intentionally ignore errors
+					}
+					files[fn] = fileBytes
 				}
 				obs.AddReactor(func(filename string, action fileobserver.ActionType) error {
 					klog.Infof("exiting because %q changed", filename)
