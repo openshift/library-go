@@ -5,7 +5,7 @@ include $(addprefix ../../, \
 )
 
 # Set crd-schema-gen variables
-CRD_SCHEMA_GEN_APIS :=./pkg/apis/v1
+CRD_SCHEMA_GEN_APIS :=$(shell echo ./pkg/apis/{v1,v1beta1})
 CRD_SCHEMA_GEN_VERSION :=v0.2.1
 
 update-codegen: crd-schema-update-with-patch
