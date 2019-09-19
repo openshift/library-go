@@ -4,7 +4,7 @@ CRD_SCHEMA_GEN_APIS ?=$(error CRD_SCHEMA_GEN_APIS is required)
 CRD_SCHEMA_GEN_MANIFESTS ?=./manifests
 CRD_SCHEMA_GEN_OUTPUT ?=./manifests
 
-crd_patches :=$(subst $(CRD_SCHEMA_GEN_MANIFESTS),$(CRD_SCHEMA_GEN_OUTPUT),$(wildcard $(CRD_SCHEMA_GEN_MANIFESTS)/*.crd.yaml-merge-patch))
+crd_patches =$(subst $(CRD_SCHEMA_GEN_MANIFESTS),$(CRD_SCHEMA_GEN_OUTPUT),$(wildcard $(CRD_SCHEMA_GEN_MANIFESTS)/*.crd.yaml-merge-patch))
 
 # $1 - crd file
 # $2 - patch file
@@ -19,7 +19,7 @@ update-codegen-crds: ensure-controller-gen ensure-yq
 		schemapatch:manifests="$(CRD_SCHEMA_GEN_MANIFESTS)" \
 		paths="$(subst $(empty) ,;,$(CRD_SCHEMA_GEN_APIS))" \
 		output:dir="$(CRD_SCHEMA_GEN_OUTPUT)"
-	cp -n $(crd_patches) '$(CRD_SCHEMA_GEN_OUTPUT)/' || true  # FIXME: centos
+	cp -n $(wildcard $(CRD_SCHEMA_GEN_MANIFESTS)/*.crd.yaml-merge-patch) '$(CRD_SCHEMA_GEN_OUTPUT)/' || true  # FIXME: centos
 	$(foreach p,$(crd_patches),$(call patch-crd,$(basename $(p)).yaml,$(p)))
 .PHONY: update-codegen-crds
 
@@ -29,10 +29,16 @@ update-generated: update-codegen-crds
 update: update-generated
 .PHONY: update
 
+# $1 - manifest (actual) crd
+# $2 - temp crd
+define diff-crd
+	diff -Naup $(1) $(2)
+
+endef
 
 verify-codegen-crds: CRD_SCHEMA_GEN_OUTPUT :=$(shell mktemp -d)
 verify-codegen-crds: update-codegen-crds
-	diff -Naup --label="" './manifests' '$(CRD_SCHEMA_GEN_OUTPUT)'
+	$(foreach p,$(wildcard $(CRD_SCHEMA_GEN_MANIFESTS)/*.crd.yaml),$(call diff-crd,$(p),$(subst $(CRD_SCHEMA_GEN_MANIFESTS),$(CRD_SCHEMA_GEN_OUTPUT),$(p))))
 .PHONY: verify-codegen-crds
 
 verify-generated: verify-codegen-crds

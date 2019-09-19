@@ -142,21 +142,7 @@ chmod +x '_output/tools/bin/yq';
 '_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' \
 	schemapatch:manifests="./manifests" \
 	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
-_output/tools/bin/yq m -i './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
---- 
-@@ -9,11 +9,6 @@ spec:
-     kind: MyOperatorResource
-     plural: myoperatorresources
-   scope: ""
--  validation:
--    openAPIV3Schema:
--      properties:
--        apiVersion:
--          pattern: ^(test|TEST)$
- status:
-   acceptedNames:
-     kind: ""
---- 
+--- ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
 @@ -11,9 +11,39 @@ spec:
    scope: ""
    version: v1beta1
@@ -216,7 +202,6 @@ Using existing yq from "_output/tools/bin/yq"
 '_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' \
 	schemapatch:manifests="./manifests" \
 	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
-_output/tools/bin/yq m -i './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
 ! diff -Naup ./testing/manifests/initial/ ./manifests/ 2>/dev/null
 diff -Naup ./testing/manifests/initial/operator.openshift.io_myoperatorresources.crd.yaml ./manifests/operator.openshift.io_myoperatorresources.crd.yaml
 --- ./testing/manifests/initial/operator.openshift.io_myoperatorresources.crd.yaml
