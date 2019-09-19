@@ -4,19 +4,19 @@ test: | test-build test-cross-build test-rpm
 .PHONY: test
 
 test-build:
-	$(MAKE) build
+	$(MAKE) build SOURCE_GIT_TAG=v42.43.44 SOURCE_GIT_COMMIT=aaa SOURCE_GIT_TREE_STATE=clean
 	[[ -f ./openshift ]]
 	[[ -f ./oc ]]
 
 	# test version is set correctly when linking
 	#   majorFromGit, minorFromGit are deprecated upstream and set to empty value
 	#   we avoid comparing time to avoid flakes
-	#   we avoid comparing git tree state
-	diff <( ./oc | grep -v -e 'clean' -e 'dirty' | sed '$$d' ) <( \
-		echo ""; \
-		echo ""; \
-		git rev-parse --short "HEAD^{commit}" 2>/dev/null; \
-		git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown'; \
+	diff <( ./oc | sed '$$d' ) <( \
+		echo '' && \
+		echo '' && \
+		echo 'aaa' && \
+		echo 'v42.43.44' && \
+		echo 'clean' \
 	)
 
 	$(MAKE) clean
