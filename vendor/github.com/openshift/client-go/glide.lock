@@ -1,5 +1,5 @@
-hash: 68080a99749338de4930c3881c2859739bf2ad1d524636bd255b19dedd938022
-updated: 2019-09-05T11:56:51.712063+02:00
+hash: 02e6137cd0718151fb7875cda54577ca2f996b068abf9858ef49aaa6f4f86a1c
+updated: 2019-09-23T11:26:18.291423+02:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
@@ -49,7 +49,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 94122c33edd36123c84d5368cfb2b69df93a0ec8
 - name: github.com/openshift/api
-  version: 4fde93ba1d71fae9af02a228c5289b744da9c032
+  version: 15918a3c2c89e249e453ee86dc4d0ebbc2a7d9c9
   subpackages:
   - apps/v1
   - authorization/v1
@@ -124,7 +124,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
-  version: bacad065d7c32c51666e1f8feb94c50504b19fb4
+  version: 95b840bb6a1f5f0462af804c8589396d294d4914
   subpackages:
   - admissionregistration/v1
   - admissionregistration/v1beta1
@@ -165,7 +165,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apimachinery
-  version: 93cd198ca677b0e97b9f205a027831ac68fb302b
+  version: 27d36303b6556f377b4f34e64705fa9024a12b0c
   subpackages:
   - pkg/api/errors
   - pkg/api/meta
@@ -210,7 +210,7 @@ imports:
   - third_party/forked/golang/json
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: 1592ba1f99b87471cd11167eb850f386bbae3e5a
+  version: 1fbdaa4c8d908275eee958429b1cafc2591a2c5d
   subpackages:
   - discovery
   - discovery/fake
@@ -242,7 +242,7 @@ imports:
   version: 33967b46c7b634d8c26d2d2e7fb8d73e6acfbfd1
   repo: https://github.com/openshift/kubernetes-code-generator.git
 - name: k8s.io/gengo
-  version: 51747d6e00da1fc578d5a333a93bb2abcbce7a95
+  version: 26a664648505d962332bda642b27306bc10d1082
 - name: k8s.io/klog
   version: 3ca30a56d8a775276f9cdae009ba326fdc05af7f
 - name: k8s.io/kube-openapi

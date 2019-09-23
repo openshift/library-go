@@ -1,5 +1,5 @@
-hash: 30549ef608876657b6042c7a0c992ac9a1e0f1677cd051f65c336b6e984def36
-updated: 2019-09-05T12:19:36.406442+02:00
+hash: 3c6dda3ef87d64a44acff1edebbd479cc820a6bee41c047c98ef43c1f8133f1c
+updated: 2019-09-23T11:31:56.208961+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -103,13 +103,13 @@ imports:
   - pkg/term
   - pkg/term/windows
 - name: github.com/docker/go-connections
-  version: 7395e3f8aa162843a74ed6d48e79627d9792ac55
+  version: 3ede32e2033de7505e6500d6c868c2b9ed9f169d
   subpackages:
   - nat
 - name: github.com/docker/go-metrics
   version: b619b3592b65de4f087d9f16863a7e6ff905973c
 - name: github.com/docker/go-units
-  version: 47565b4f722fb6ceae66b95f853feed578a4a51c
+  version: 9e638d38cf6977a37a8ea0078f3ee75a7cdb2dd1
 - name: github.com/docker/libnetwork
   version: 7f13a5c99f4bb76a4122035d495984b6a09739bb
   subpackages:
@@ -127,7 +127,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -238,9 +238,7 @@ imports:
   subpackages:
   - pbutil
 - name: github.com/Microsoft/go-winio
-  version: 6c72808b55902eae4c5943626030429ff20f3b63
-  subpackages:
-  - pkg/guid
+  version: 97e4973ce50b2ff5f09635a57e2b88a037aae829
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
@@ -252,7 +250,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/opencontainers/go-digest
-  version: ac19fd6e7483ff933754af248d80be865e543d22
+  version: a6d0ee40d4207ea02364bd3b9e8e77b9159ba1eb
 - name: github.com/opencontainers/image-spec
   version: 372ad780f63454fbbbbcc7cf80e5b90245c13e13
   subpackages:
@@ -264,7 +262,7 @@ imports:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/openshift/api
-  version: 99bed02a44f2fd2eef3bd226ba338ee63f12ee3b
+  version: 169848dd81372b8176b925c10b37a05424db5f2f
   subpackages:
   - apps
   - apps/v1
@@ -311,7 +309,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 1ede333d7ba5b2bf1a960dd1df249142c0e6ec94
+  version: 6afefc9bb37281f45d12d624156e39e363eaf4fd
   subpackages:
   - apps/clientset/versioned/scheme
   - apps/clientset/versioned/typed/apps/v1
@@ -512,7 +510,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
-  version: bacad065d7c32c51666e1f8feb94c50504b19fb4
+  version: 95b840bb6a1f5f0462af804c8589396d294d4914
   subpackages:
   - admission/v1
   - admission/v1beta1
@@ -556,7 +554,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 27869d30407ff8f5a05f1bf9915e637cece13c9f
+  version: 8f644eb6e783291c4b8cb8cb25a9983be1a74f5c
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1
@@ -564,7 +562,7 @@ imports:
   - pkg/client/clientset/clientset/scheme
   - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
-  version: 93cd198ca677b0e97b9f205a027831ac68fb302b
+  version: 27d36303b6556f377b4f34e64705fa9024a12b0c
   subpackages:
   - pkg/api/apitesting
   - pkg/api/equality
@@ -618,7 +616,7 @@ imports:
   - third_party/forked/golang/json
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
-  version: 43b0be24f0d4f467c4863a785cd82ee84e2935fc
+  version: bfa5e2e684ad413c22fd0dab55b2592af1ead049
   subpackages:
   - pkg/admission
   - pkg/admission/configuration
@@ -724,7 +722,7 @@ imports:
   - plugin/pkg/authenticator/token/webhook
   - plugin/pkg/authorizer/webhook
 - name: k8s.io/client-go
-  version: 1592ba1f99b87471cd11167eb850f386bbae3e5a
+  version: 1fbdaa4c8d908275eee958429b1cafc2591a2c5d
   subpackages:
   - discovery
   - discovery/fake
@@ -941,7 +939,7 @@ imports:
   - util/retry
   - util/workqueue
 - name: k8s.io/component-base
-  version: 0da46b42124ee088b2f0f431c8bf1ae650a7d9ff
+  version: 547f6c5d70902c6683e93ad96f84adc6b943aedf
   subpackages:
   - cli/flag
   - featuregate
@@ -952,7 +950,7 @@ imports:
 - name: k8s.io/klog
   version: 3ca30a56d8a775276f9cdae009ba326fdc05af7f
 - name: k8s.io/kube-aggregator
-  version: 34abed88ab5ebc3a85315274275b3cad0b0e4729
+  version: 8c8f079fddc3d37cba5ac273f52d52d692994394
   subpackages:
   - pkg/apis/apiregistration
   - pkg/apis/apiregistration/v1
@@ -990,6 +988,6 @@ imports:
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
 testImports:
 - name: vbom.ml/util
-  version: efcd4e0f97874370259c7d93e12aad57911dea81
+  version: db5cfe13f5cc80a4990d98e2e1b0707a4d1a5394
   subpackages:
   - sortorder
