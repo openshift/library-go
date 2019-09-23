@@ -1,21 +1,21 @@
 package: github.com/openshift/library-go
 import:
 - package: k8s.io/apimachinery
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: k8s.io/api
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: k8s.io/apiserver
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: k8s.io/client-go
-  version: kubernetes-1.16.0-beta.2
+  version: kubernetes-1.16.0
 - package: github.com/openshift/api
-  version: prebase-1.16 # this is wrong, it should be prebase-1.16.0-beta.2
+  version: prebase-1.16 
 - package: github.com/openshift/client-go
-  version: prebase-1.16.0-beta.2
+  version: prebase-1.16
 
 # sig-master - needed for file observer
 - package: github.com/sigma/go-inotify
