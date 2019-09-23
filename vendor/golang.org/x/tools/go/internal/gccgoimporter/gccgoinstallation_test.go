@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package gccgoimporter
+// Except for this comment, this file is a verbatim copy of the file
+// with the same name in $GOROOT/src/go/internal/gccgoimporter.
 
-// This is a verbatim copy of $GOROOT/src/go/internal/gccgoimporter/gccgoinstallation_test.go.
+package gccgoimporter
 
 import (
 	"go/types"
@@ -64,8 +65,6 @@ var importablePackages = [...]string{
 	"encoding/pem",
 	"encoding/xml",
 	"errors",
-	"exp/proxy",
-	"exp/terminal",
 	"expvar",
 	"flag",
 	"fmt",
@@ -116,8 +115,6 @@ var importablePackages = [...]string{
 	"net/smtp",
 	"net/textproto",
 	"net/url",
-	"old/regexp",
-	"old/template",
 	"os/exec",
 	"os",
 	"os/signal",
@@ -154,7 +151,6 @@ func TestInstallationImporter(t *testing.T) {
 	// were compiled with gccgo.
 	if runtime.Compiler != "gccgo" {
 		t.Skip("This test needs gccgo")
-		return
 	}
 
 	var inst GccgoInstallation
@@ -168,14 +164,14 @@ func TestInstallationImporter(t *testing.T) {
 	// all packages into the same map and then each individually.
 	pkgMap := make(map[string]*types.Package)
 	for _, pkg := range importablePackages {
-		_, err = imp(pkgMap, pkg)
+		_, err = imp(pkgMap, pkg, ".", nil)
 		if err != nil {
 			t.Error(err)
 		}
 	}
 
 	for _, pkg := range importablePackages {
-		_, err = imp(make(map[string]*types.Package), pkg)
+		_, err = imp(make(map[string]*types.Package), pkg, ".", nil)
 		if err != nil {
 			t.Error(err)
 		}
