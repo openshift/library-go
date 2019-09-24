@@ -60,8 +60,6 @@ Unlike the [image index](image-index.md), which contains information about a set
         - [`application/vnd.oci.image.layer.nondistributable.v1.tar+gzip`](layer.md#gzip-media-types)
 
         Manifests concerned with portability SHOULD use one of the above media types.
-        An encountered `mediaType` that is unknown to the implementation MUST be ignored.
-
 
         Entries in this field will frequently use the `+gzip` types.
 
@@ -87,7 +85,7 @@ Unlike the [image index](image-index.md), which contains information about a set
     {
       "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
       "size": 32654,
-      "digest": "sha256:9834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f0"
+      "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f"
     },
     {
       "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
