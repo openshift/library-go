@@ -223,7 +223,8 @@ type EndpointPublishingStrategy struct {
 	// zones defined by dns.config.openshift.io/cluster .spec.publicZone and
 	// .spec.privateZone.
 	//
-	// Wildcard DNS management is currently supported only on the AWS platform.
+	// Wildcard DNS management is currently supported only on the AWS, Azure,
+	// and GCP platforms.
 	//
 	// * HostNetwork
 	//
@@ -243,6 +244,8 @@ type EndpointPublishingStrategy struct {
 	// networking, and is not explicitly published. The user must manually publish
 	// the ingress controller.
 	// +unionDiscriminator
+	// +kubebuilder:validation:Required
+	// +required
 	Type EndpointPublishingStrategyType `json:"type"`
 
 	// loadBalancer holds parameters for the load balancer. Present only if

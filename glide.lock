@@ -1,5 +1,5 @@
 hash: a0b165129788498ed7cce6fbb74b199d93267da70ca145ed6f5fe489ccade8e6
-updated: 2019-09-25T06:58:15.394775-04:00
+updated: 2019-09-25T17:03:32.579815-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -264,7 +264,7 @@ imports:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/openshift/api
-  version: 97311a7bf178a5be81a1ac8acd604b7f830e2ba4
+  version: e39b0dc4e1889a9b26984998b607d76418ec2ec6
   subpackages:
   - apps
   - apps/v1
