@@ -1,5 +1,5 @@
 hash: a0b165129788498ed7cce6fbb74b199d93267da70ca145ed6f5fe489ccade8e6
-updated: 2019-09-25T17:03:32.579815-04:00
+updated: 2019-09-27T10:23:18.38794-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -259,12 +259,12 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: 7507c64ff675606c5ff96b0dd8889a60c589f14d
+  version: 84373aaa560b3f14cfda210b2f34ca14fd4b1fce
   subpackages:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/openshift/api
-  version: e39b0dc4e1889a9b26984998b607d76418ec2ec6
+  version: 86c3b775619d6cd1f651ff52202431d0ffd69586
   subpackages:
   - apps
   - apps/v1
