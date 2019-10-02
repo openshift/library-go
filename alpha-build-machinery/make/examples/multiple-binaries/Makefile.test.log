@@ -143,23 +143,13 @@ chmod +x '_output/tools/bin/yq';
 	schemapatch:manifests="./manifests" \
 	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
 --- ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
-@@ -11,9 +11,39 @@ spec:
+@@ -9,6 +9,40 @@ spec:
+     kind: MyOtherOperatorResource
+     plural: myotheroperatorresources
    scope: ""
-   version: v1beta1
-   versions:
--    - name: v1beta1
--      served: true
--      storage: true
-+  - name: v1beta1
-+    served: true
-+    storage: true
-+  "validation":
-+    "openAPIV3Schema":
++  validation:
++    openAPIV3Schema:
 +      description: MyOtherOperatorResource is an example operator configuration type
-+      type: object
-+      required:
-+      - metadata
-+      - spec
 +      properties:
 +        apiVersion:
 +          description: 'APIVersion defines the versioned schema of this representation
@@ -174,18 +164,26 @@ chmod +x '_output/tools/bin/yq';
 +        metadata:
 +          type: object
 +        spec:
-+          type: object
-+          required:
-+          - deprecatedField
-+          - name
 +          properties:
 +            deprecatedField:
 +              type: string
 +            name:
 +              type: string
- status:
-   acceptedNames:
-     kind: ""
++            overwritePattern:
++              pattern: ^(Managed|Unmanaged)$
++              type: string
++          required:
++          - deprecatedField
++          - name
++          - overwritePattern
++          type: object
++      required:
++      - metadata
++      - spec
++      type: object
+   version: v1beta1
+   versions:
+   - name: v1beta1
 make[2]: *** [verify-codegen-crds] Error 1
 make update-codegen-crds
 Using existing controller-gen from "_output/tools/src/sigs.k8s.io/controller-tools/controller-gen"
@@ -194,6 +192,8 @@ Using existing yq from "_output/tools/bin/yq"
 	schemapatch:manifests="./manifests" \
 	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
 	output:dir="./manifests"
+cp -n ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml-merge-patch './manifests/' || true  # FIXME: centos
+_output/tools/bin/yq m -i -x './manifests/operator.openshift.io_myotheroperatorresources.crd.yaml' './manifests/operator.openshift.io_myotheroperatorresources.crd.yaml-merge-patch'
 cp -n ./manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch './manifests/' || true  # FIXME: centos
 _output/tools/bin/yq m -i -x './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
 make verify-codegen-crds
@@ -221,23 +221,13 @@ diff -Naup ./testing/manifests/initial/operator.openshift.io_myoperatorresources
 diff -Naup ./testing/manifests/initial/operator.openshift.io_myotheroperatorresources.crd.yaml ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
 --- ./testing/manifests/initial/operator.openshift.io_myotheroperatorresources.crd.yaml
 +++ ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
-@@ -11,9 +11,39 @@ spec:
+@@ -9,6 +9,40 @@ spec:
+     kind: MyOtherOperatorResource
+     plural: myotheroperatorresources
    scope: ""
-   version: v1beta1
-   versions:
--    - name: v1beta1
--      served: true
--      storage: true
-+  - name: v1beta1
-+    served: true
-+    storage: true
-+  "validation":
-+    "openAPIV3Schema":
++  validation:
++    openAPIV3Schema:
 +      description: MyOtherOperatorResource is an example operator configuration type
-+      type: object
-+      required:
-+      - metadata
-+      - spec
 +      properties:
 +        apiVersion:
 +          description: 'APIVersion defines the versioned schema of this representation
@@ -252,18 +242,26 @@ diff -Naup ./testing/manifests/initial/operator.openshift.io_myotheroperatorreso
 +        metadata:
 +          type: object
 +        spec:
-+          type: object
-+          required:
-+          - deprecatedField
-+          - name
 +          properties:
 +            deprecatedField:
 +              type: string
 +            name:
 +              type: string
- status:
-   acceptedNames:
-     kind: ""
++            overwritePattern:
++              pattern: ^(Managed|Unmanaged)$
++              type: string
++          required:
++          - deprecatedField
++          - name
++          - overwritePattern
++          type: object
++      required:
++      - metadata
++      - spec
++      type: object
+   version: v1beta1
+   versions:
+   - name: v1beta1
 diff -Naup ./testing/manifests/updated/ ./manifests/ 2>/dev/null
 make clean
 rm -f oc openshift
