@@ -10,7 +10,7 @@ crd_patches =$(subst $(CRD_SCHEMA_GEN_MANIFESTS),$(CRD_SCHEMA_GEN_OUTPUT),$(wild
 # $2 - patch file
 define patch-crd
 	cp -n $(CRD_SCHEMA_GEN_MANIFESTS)/$(notdir $2) '$(CRD_SCHEMA_GEN_OUTPUT)/' || true  # FIXME: centos
-	$(YQ) m -i '$(1)' '$(2)'
+	$(YQ) m -i -x '$(1)' '$(2)'
 
 endef
 

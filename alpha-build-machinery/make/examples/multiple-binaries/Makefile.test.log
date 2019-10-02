@@ -195,7 +195,7 @@ Using existing yq from "_output/tools/bin/yq"
 	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
 	output:dir="./manifests"
 cp -n ./manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch './manifests/' || true  # FIXME: centos
-_output/tools/bin/yq m -i './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
+_output/tools/bin/yq m -i -x './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
 make verify-codegen-crds
 Using existing controller-gen from "_output/tools/src/sigs.k8s.io/controller-tools/controller-gen"
 Using existing yq from "_output/tools/bin/yq"
