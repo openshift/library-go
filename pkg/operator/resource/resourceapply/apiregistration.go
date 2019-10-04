@@ -27,6 +27,14 @@ func ApplyAPIService(client apiregistrationv1client.APIServicesGetter, recorder 
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := existing.DeepCopy()
 
+	// Since the required object does not specify a service port, and
+	// the port in the existing object is likely to be defaulted to
+	// 443, avoid thrashing by ensuring that the port is not
+	// considered when determining equality.
+	if required.Spec.Service != nil && existingCopy.Spec.Service != nil {
+		required.Spec.Service.Port = existingCopy.Spec.Service.Port
+	}
+
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	serviceSame := equality.Semantic.DeepEqual(existingCopy.Spec.Service, required.Spec.Service)
 	prioritySame := existingCopy.Spec.VersionPriority == required.Spec.VersionPriority && existingCopy.Spec.GroupPriorityMinimum == required.Spec.GroupPriorityMinimum
