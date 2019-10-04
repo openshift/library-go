@@ -99,17 +99,17 @@ func (c CertRotationController) sync() error {
 }
 
 func (c CertRotationController) syncWorker() error {
-	signingCertKeyPair, err := c.SigningRotation.ensureSigningCertKeyPair()
+	signingCertKeyPair, err := c.SigningRotation.EnsureSigningCertKeyPair()
 	if err != nil {
 		return err
 	}
 
-	cabundleCerts, err := c.CABundleRotation.ensureConfigMapCABundle(signingCertKeyPair)
+	cabundleCerts, err := c.CABundleRotation.EnsureConfigMapCABundle(signingCertKeyPair)
 	if err != nil {
 		return err
 	}
 
-	if err := c.TargetRotation.ensureTargetCertKeyPair(signingCertKeyPair, cabundleCerts); err != nil {
+	if err := c.TargetRotation.EnsureTargetCertKeyPair(signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 

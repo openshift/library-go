@@ -30,7 +30,7 @@ type SigningRotation struct {
 	EventRecorder events.Recorder
 }
 
-func (c SigningRotation) ensureSigningCertKeyPair() (*crypto.CA, error) {
+func (c SigningRotation) EnsureSigningCertKeyPair() (*crypto.CA, error) {
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err

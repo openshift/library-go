@@ -200,7 +200,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = c.ensureTargetCertKeyPair(newCA, newCA.Config.Certs)
+			err = c.EnsureTargetCertKeyPair(newCA, newCA.Config.Certs)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
@@ -393,7 +393,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = c.ensureTargetCertKeyPair(newCA, newCA.Config.Certs)
+			err = c.EnsureTargetCertKeyPair(newCA, newCA.Config.Certs)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)

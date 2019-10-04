@@ -32,7 +32,7 @@ type CABundleRotation struct {
 	EventRecorder events.Recorder
 }
 
-func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+func (c CABundleRotation) EnsureConfigMapCABundle(signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
