@@ -59,8 +59,9 @@ test-codegen:
 
 	$(MAKE) update-codegen-crds
 	$(MAKE) verify-codegen-crds
-	! diff -Naup ./testing/manifests/initial/ ./manifests/ 2>/dev/null
-	diff -Naup ./testing/manifests/updated/ ./manifests/ 2>/dev/null
+	cp -r ./testing/manifests/initial/*.crd.yaml-merge-patch ./manifests/
+	! diff -Naup ./testing/manifests/initial/ ./manifests/ 2>/dev/null 1>&2
+	diff -Naup ./testing/manifests/updated/ ./manifests/
 
 	$(MAKE) clean
 	[[ ! -d ./_output/ ]] || (ls -l ./_output/ && false)

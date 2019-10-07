@@ -133,9 +133,6 @@ Installing yq into '_output/tools/bin/yq'
 mkdir -p '_output/tools/bin/'
 curl -s -f -L https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64 -o '_output/tools/bin/yq'
 chmod +x '_output/tools/bin/yq';
-'_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' \
-	schemapatch:manifests="./manifests" \
-	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
 --- ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
 @@ -9,6 +9,40 @@ spec:
      kind: MyOtherOperatorResource
@@ -178,85 +175,19 @@ chmod +x '_output/tools/bin/yq';
    version: v1beta1
    versions:
    - name: v1beta1
-make[2]: *** [verify-codegen-crds] Error 1
+make[2]: *** [verify-codegen-crds-manifests] Error 1
 make update-codegen-crds
 Using existing controller-gen from "_output/tools/src/sigs.k8s.io/controller-tools/controller-gen"
 Using existing yq from "_output/tools/bin/yq"
-'_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' \
-	schemapatch:manifests="./manifests" \
-	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
-	output:dir="./manifests"
-cp -n ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml-merge-patch './manifests/' || true  # FIXME: centos
+'_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' schemapatch:manifests="./manifests" paths="./pkg/apis/v1;./pkg/apis/v1beta1" output:dir="./manifests"
 _output/tools/bin/yq m -i -x './manifests/operator.openshift.io_myotheroperatorresources.crd.yaml' './manifests/operator.openshift.io_myotheroperatorresources.crd.yaml-merge-patch'
-cp -n ./manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch './manifests/' || true  # FIXME: centos
 _output/tools/bin/yq m -i -x './manifests/operator.openshift.io_myoperatorresources.crd.yaml' './manifests/operator.openshift.io_myoperatorresources.crd.yaml-merge-patch'
 make verify-codegen-crds
 Using existing controller-gen from "_output/tools/src/sigs.k8s.io/controller-tools/controller-gen"
 Using existing yq from "_output/tools/bin/yq"
-'_output/tools/src/sigs.k8s.io/controller-tools/controller-gen' \
-	schemapatch:manifests="./manifests" \
-	paths="./pkg/apis/v1;./pkg/apis/v1beta1" \
-! diff -Naup ./testing/manifests/initial/ ./manifests/ 2>/dev/null
-diff -Naup ./testing/manifests/initial/operator.openshift.io_myoperatorresources.crd.yaml ./manifests/operator.openshift.io_myoperatorresources.crd.yaml
---- ./testing/manifests/initial/operator.openshift.io_myoperatorresources.crd.yaml
-+++ ./manifests/operator.openshift.io_myoperatorresources.crd.yaml
-@@ -9,6 +9,11 @@ spec:
-     kind: MyOperatorResource
-     plural: myoperatorresources
-   scope: ""
-+  validation:
-+    openAPIV3Schema:
-+      properties:
-+        apiVersion:
-+          pattern: ^(test|TEST)$
- status:
-   acceptedNames:
-     kind: ""
-diff -Naup ./testing/manifests/initial/operator.openshift.io_myotheroperatorresources.crd.yaml ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
---- ./testing/manifests/initial/operator.openshift.io_myotheroperatorresources.crd.yaml
-+++ ./manifests/operator.openshift.io_myotheroperatorresources.crd.yaml
-@@ -9,6 +9,40 @@ spec:
-     kind: MyOtherOperatorResource
-     plural: myotheroperatorresources
-   scope: ""
-+  validation:
-+    openAPIV3Schema:
-+      description: MyOtherOperatorResource is an example operator configuration type
-+      properties:
-+        apiVersion:
-+          description: 'APIVersion defines the versioned schema of this representation
-+            of an object. Servers should convert recognized schemas to the latest
-+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-+          type: string
-+        kind:
-+          description: 'Kind is a string value representing the REST resource this
-+            object represents. Servers may infer this from the endpoint the client
-+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-+          type: string
-+        metadata:
-+          type: object
-+        spec:
-+          properties:
-+            deprecatedField:
-+              type: string
-+            name:
-+              type: string
-+            overwritePattern:
-+              pattern: ^(Managed|Unmanaged)$
-+              type: string
-+          required:
-+          - deprecatedField
-+          - name
-+          - overwritePattern
-+          type: object
-+      required:
-+      - metadata
-+      - spec
-+      type: object
-   version: v1beta1
-   versions:
-   - name: v1beta1
-diff -Naup ./testing/manifests/updated/ ./manifests/ 2>/dev/null
+cp -r ./testing/manifests/initial/*.crd.yaml-merge-patch ./manifests/
+! diff -Naup ./testing/manifests/initial/ ./manifests/ 2>/dev/null 1>&2
+diff -Naup ./testing/manifests/updated/ ./manifests/
 make clean
 rm -f oc openshift
 rm -f -r '/github.com/openshift/library-go/alpha-build-machinery/make/examples/multiple-binaries/_output/srpms'
