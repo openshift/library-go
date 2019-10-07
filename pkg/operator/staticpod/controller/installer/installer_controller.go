@@ -670,6 +670,12 @@ func getInstallerPodName(revision int32, nodeName string) string {
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
 func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+	// check if the installer pod already exists early to avoid re-applying and accidentally mutating existing installer pods
+	_, err := c.podsGetter.Pods(c.targetNamespace).Get(getInstallerPodName(revision, nodeName), metav1.GetOptions{})
+	if (err != nil && !apierrors.IsNotFound(err)) || err == nil {
+		return err
+	}
+
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
