@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
@@ -496,31 +495,31 @@ func TestEnsureInstallerPod(t *testing.T) {
 	}
 }
 
-func TestCreateInstallerPodMultiNode(t *testing.T) {
-	newStaticPod := func(name string, revision int, phase corev1.PodPhase, ready bool) *corev1.Pod {
-		condStatus := corev1.ConditionTrue
-		if !ready {
-			condStatus = corev1.ConditionFalse
-		}
-		return &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: "test",
-				Labels:    map[string]string{"revision": strconv.Itoa(revision)},
-			},
-			Spec: corev1.PodSpec{},
-			Status: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{
-						Status: condStatus,
-						Type:   corev1.PodReady,
-					},
-				},
-				Phase: phase,
-			},
-		}
+func newStaticPod(name string, revision int, phase corev1.PodPhase, ready bool) *corev1.Pod {
+	condStatus := corev1.ConditionTrue
+	if !ready {
+		condStatus = corev1.ConditionFalse
 	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "test",
+			Labels:    map[string]string{"revision": strconv.Itoa(revision)},
+		},
+		Spec: corev1.PodSpec{},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Status: condStatus,
+					Type:   corev1.PodReady,
+				},
+			},
+			Phase: phase,
+		},
+	}
+}
 
+func TestCreateInstallerPodMultiNode(t *testing.T) {
 	tests := []struct {
 		name                    string
 		nodeStatuses            []operatorv1.NodeStatus
@@ -1058,27 +1057,166 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 		secrets              []revision.RevisionResource
 		command              []string
 		operatorConfigClient v1helpers.StaticPodOperatorClient
-		kubeClient           kubernetes.Interface
-		eventRecorder        events.Recorder
+		startObjects         []runtime.Object
 		queue                workqueue.RateLimitingInterface
 		installerPodImageFn  func() string
+		ownerRefsFn          func(revision int32) ([]metav1.OwnerReference, error)
 	}
 	type args struct {
 		operatorSpec           *operatorv1.StaticPodOperatorSpec
 		originalOperatorStatus *operatorv1.StaticPodOperatorStatus
 		resourceVersion        string
 	}
+
+	stuckInPendingInstallerPod := newStaticPod(mirrorPodNameForNode("installer-5", "node-0"), 5, corev1.PodPending, false)
+	stuckInPendingInstallerPod.Status.StartTime = &metav1.Time{Time: time.Now().Add(-maxInstallerPodPendingTime)}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    bool
-		wantErr bool
+		name          string
+		fields        fields
+		args          args
+		shouldRequeue bool
+		wantErr       bool
+		evalActions   func(actions []ktesting.Action) error
+		evalEvents    func(events []*corev1.Event) error
 	}{
-		// TODO: Add test cases.
+		{
+			// In this test case, the controller see a node that has target revision 4, but the latest available revision is 5.
+			// In that case the controller should requeue and wait for the target revision be updated to 5 instead of starting installation
+			// of the 4 which will be immediately replaced by newer version version.
+			name:          "target revision is older than latest available revision but newer than current revision",
+			shouldRequeue: true,
+			fields: fields{
+				targetNamespace: "test",
+				staticPodName:   "test-pod",
+			},
+			args: args{
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 5,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "node-0",
+							CurrentRevision: 3,
+							TargetRevision:  4,
+						},
+					},
+				},
+			},
+		},
+		{
+			// In this case the target revision is already installed and latest available version is the target revision.
+			name:          "target revision is the latest",
+			shouldRequeue: false,
+			fields: fields{
+				targetNamespace: "test",
+				staticPodName:   "test-pod",
+			},
+			args: args{
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 5,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "node-0",
+							CurrentRevision: 5,
+							TargetRevision:  5,
+						},
+					},
+				},
+			},
+		},
+		{
+			// In this case we have new target revision and we reconcile the existing installer pod that is pending for longer than 10 minutes.
+			// The event should be reported in that case.
+			name:          "target revision is newer than current revision and installer pod is stucked in pending",
+			shouldRequeue: false,
+			evalEvents: func(events []*corev1.Event) error {
+				for _, event := range events {
+					t.Logf("event: %+v", event)
+					if strings.Contains(event.Message, `Installer pod on node "node-0" is Pending for longer than`) {
+						return nil
+					}
+				}
+				return fmt.Errorf("expected event not found: %#+v", events)
+			},
+			fields: fields{
+				targetNamespace: "test",
+				staticPodName:   "test-pod",
+				startObjects: []runtime.Object{
+					stuckInPendingInstallerPod,
+				},
+			},
+			args: args{
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 5,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "node-0",
+							CurrentRevision: 4,
+							TargetRevision:  5,
+						},
+					},
+				},
+			},
+		},
+		{
+			// In this case the target revision is already installed and latest available version is the target revision.
+			name:          "target revision is newer than current revision",
+			shouldRequeue: false,
+			evalActions: func(actions []ktesting.Action) error {
+				createFound := false
+				for _, action := range actions {
+					if action.GetVerb() == "create" && action.GetResource().Resource == "pods" {
+						createFound = true
+						createAction := action.(ktesting.CreateAction)
+						installerPod := createAction.GetObject().(*corev1.Pod)
+						if installerPod.Name != "installer-5-node-0" {
+							return fmt.Errorf("expected installer pod name %q, got %q", "installer-5-node-0", installerPod.Name)
+						}
+					}
+				}
+				if !createFound {
+					return fmt.Errorf("expected installer pod to be created, but create action not found")
+				}
+				return nil
+			},
+			fields: fields{
+				targetNamespace: "test",
+				staticPodName:   "test-pod",
+				installerPodImageFn: func() string {
+					return "installer-image"
+				},
+				ownerRefsFn: func(revision int32) (references []metav1.OwnerReference, e error) {
+					return nil, nil
+				},
+				configMaps: []revision.RevisionResource{
+					{
+						Name: "required-configmap",
+					},
+				},
+			},
+			args: args{
+				operatorSpec: &operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						LogLevel: operatorv1.Debug,
+					},
+				},
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 5,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "node-0",
+							CurrentRevision: 4,
+							TargetRevision:  5,
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			eventRecorder := events.NewInMemoryRecorder("test")
+			kubeClient := fake.NewSimpleClientset(tt.fields.startObjects...)
 			c := &InstallerController{
 				targetNamespace:     tt.fields.targetNamespace,
 				staticPodName:       tt.fields.staticPodName,
@@ -1086,19 +1224,30 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 				secrets:             tt.fields.secrets,
 				command:             tt.fields.command,
 				operatorClient:      tt.fields.operatorConfigClient,
-				configMapsGetter:    tt.fields.kubeClient.CoreV1(),
-				podsGetter:          tt.fields.kubeClient.CoreV1(),
-				eventRecorder:       tt.fields.eventRecorder,
+				configMapsGetter:    kubeClient.CoreV1(),
+				podsGetter:          kubeClient.CoreV1(),
+				eventRecorder:       eventRecorder,
 				queue:               tt.fields.queue,
 				installerPodImageFn: tt.fields.installerPodImageFn,
+				ownerRefsFn:         tt.fields.ownerRefsFn,
 			}
-			got, err := c.manageInstallationPods(tt.args.operatorSpec, tt.args.originalOperatorStatus, tt.args.resourceVersion)
+			gotRequeue, err := c.manageInstallationPods(tt.args.operatorSpec, tt.args.originalOperatorStatus, tt.args.resourceVersion)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("InstallerController.manageInstallationPods() = %v, want %v", got, tt.want)
+			if gotRequeue != tt.shouldRequeue {
+				t.Errorf("InstallerController.manageInstallationPods() = %v, shouldRequeue %v", gotRequeue, tt.shouldRequeue)
+			}
+			if tt.evalEvents != nil {
+				if err := tt.evalEvents(eventRecorder.Events()); err != nil {
+					t.Errorf("InstallerController.manageInstallationPods() evaluate events failed: %v", err)
+				}
+			}
+			if tt.evalActions != nil {
+				if err := tt.evalActions(kubeClient.Actions()); err != nil {
+					t.Errorf("InstallerController.manageInstallationPods() evaluate client actions failed: %v", err)
+				}
 			}
 		})
 	}
