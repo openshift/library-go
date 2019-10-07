@@ -2,6 +2,7 @@ include $(addprefix ../../, \
 	golang.mk \
 	targets/openshift/rpm.mk \
 	targets/openshift/crd-schema-gen.mk \
+	targets/openshift/deps.mk \
 )
 
 # Set crd-schema-gen variables
