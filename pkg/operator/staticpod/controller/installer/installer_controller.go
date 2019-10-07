@@ -54,6 +54,7 @@ const (
 // reporting the reason and message as warnings.
 // Installer pods in pending state usually signals kubelet/networking/image problems.
 var maxInstallerPodPendingTime = 10 * time.Minute
+
 // InstallerController is a controller that watches the currentRevision and targetRevision fields for each node and spawn
 // installer pods to update the static pods on the master nodes.
 type InstallerController struct {
@@ -304,13 +305,20 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
+			// In case we notice the latest available revision is newer then target revision, it means we got an update and we should
+			// not create installer pod for older revision just to be immediately replaced by newer version.
+			if operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision {
+				c.eventRecorder.Eventf("InstallerPodSkipRevision", "Skipping revision %d on node %q because latest available revision %d found", currNodeState.TargetRevision, currNodeState.NodeName,
+					operatorStatus.LatestAvailableRevision)
+				return true, nil
+			}
+
 			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, err)
 				return true, err
 			}
 
-			pendingNewRevision := operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision
 			// This will read the current state of of the installer pod and then of the static pod on this node.
 			// If the static pod is not running, this will report why.
 			// If the installer pod is pending or failed, the reason will contain more details.
@@ -368,7 +376,7 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 		newCurrNodeState.TargetRevision = revisionToStart
 		newCurrNodeState.LastFailedRevisionErrors = nil
 
-		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
+		// if we make a change to this status, we shouldRequeue to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 			klog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
@@ -560,14 +568,6 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		if newRevisionPending {
-			// stop early, don't wait for ready static pod because a new revision is waiting
-			ret.LastFailedRevision = currNodeState.TargetRevision
-			ret.TargetRevision = 0
-			ret.LastFailedRevisionErrors = []string{fmt.Sprintf("static pod of revision has been installed, but is not ready while new revision %d is pending", currNodeState.TargetRevision)}
-			return ret, false, "new revision pending", nil
-		}
-
 		state, currentRevision, staticPodReason, failedErrors, err := c.getStaticPodState(currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			// pod not launched yet
