@@ -542,27 +542,36 @@ func MakeSelfSignedCA(certFile, keyFile, serialFile, name string, expireDays int
 }
 
 func MakeSelfSignedCAConfig(name string, expireDays int) (*TLSCertificateConfig, error) {
+	subject := pkix.Name{CommonName: name}
+	return MakeSelfSignedCAConfigForSubject(subject, expireDays)
+}
+
+func MakeSelfSignedCAConfigForSubject(subject pkix.Name, expireDays int) (*TLSCertificateConfig, error) {
 	var caLifetimeInDays = DefaultCACertificateLifetimeInDays
 	if expireDays > 0 {
 		caLifetimeInDays = expireDays
 	}
 
 	if caLifetimeInDays > DefaultCACertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(name, DefaultCACertificateLifetimeInDays)
+		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeInDays)
 	}
 
 	caLifetime := time.Duration(caLifetimeInDays) * 24 * time.Hour
-
-	return MakeSelfSignedCAConfigForDuration(name, caLifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, caLifetime)
 }
 
 func MakeSelfSignedCAConfigForDuration(name string, caLifetime time.Duration) (*TLSCertificateConfig, error) {
+	subject := pkix.Name{CommonName: name}
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, caLifetime)
+}
+
+func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	// Create CA cert
 	rootcaPublicKey, rootcaPrivateKey, err := NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
-	rootcaTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now)
+	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, time.Now)
 	rootcaCert, err := signCertificate(rootcaTemplate, rootcaPublicKey, rootcaTemplate, rootcaPrivateKey)
 	if err != nil {
 		return nil, err
