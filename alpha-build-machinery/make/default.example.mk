@@ -19,13 +19,17 @@ CODEGEN_GROUPS_VERSION :=openshiftapiserver:v1alpha1
 # You can list all codegen related variables by:
 #   $ make -n --print-data-base | grep ^CODEGEN
 
+IMAGE_REGISTRY?=registry.svc.ci.openshift.org
+IMAGE_REPO?=$(IMAGE_REGISTRY)/ocp/4.3
+IMAGE_TAG?=$(IMAGE_REPO):openshift-apiserver
+
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:
 # $1 - target name
 # $2 - image ref
 # $3 - Dockerfile path
 # $4 - context
 # It will generate target "image-$(1)" for builing the image an binding it as a prerequisite to target "images".
-$(call build-image,ocp-cli,registry.svc.ci.openshift.org/ocp/4.2:cli,./images/cli/Dockerfile.rhel,.)
+$(call build-image,ocp-openshift-apiserver,$(IMAGE_TAG),./images/Dockerfile.rhel,.)
 
 # This will call a macro called "add-bindata" which will generate bindata specific targets based on the parameters:
 # $0 - macro name

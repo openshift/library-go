@@ -4,7 +4,7 @@ build
 clean
 clean-binaries
 help
-image-ocp-cli
+image-ocp-openshift-apiserver
 images
 test
 test-unit
