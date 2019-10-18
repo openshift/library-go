@@ -6,7 +6,6 @@ include $(addprefix ../../, \
 )
 
 # Set crd-schema-gen variables
-CONTROLLER_GEN_VERSION :=v0.2.1
 CRD_APIS :=$(addprefix ./pkg/apis/,v1 v1beta1)
 
 # rpm wants build-id set
