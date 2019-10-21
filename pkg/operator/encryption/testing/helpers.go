@@ -259,7 +259,7 @@ func ValidateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.Op
 			}
 		}
 		if !actualConditionValidated {
-			ts.Fatalf("unexpected condition found %v", actualCondition)
+			ts.Fatalf("unexpected condition found %#v", actualCondition)
 		}
 
 	}

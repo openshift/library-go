@@ -623,13 +623,21 @@ func TestStateController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
-				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("")),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				func() *corev1.Secret { // encryption config in kms namespace
+					ecs := createEncryptionCfgSecret(t, "kms", "1", &apiserverconfigv1.EncryptionConfiguration{})
+					ecs.Data[encryptionconfig.EncryptionConfSecretName] = []byte{1, 2, 3} // invalid
+					return ecs
+				}(),
 			},
-			expectedActions: []string{"list:pods:kms"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms"},
+			expectedError:   fmt.Errorf("invalid encryption config kms/encryption-config-1: yaml: control characters are not allowed"),
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
-					Type:   "EncryptionStateControllerDegraded",
-					Status: "False",
+					Type:    "EncryptionStateControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: "invalid encryption config kms/encryption-config-1: yaml: control characters are not allowed",
 				}
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
@@ -639,22 +647,31 @@ func TestStateController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
+			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
 				},
-				&operatorv1.OperatorStatus{
-					// we need to set up proper conditions before the test starts because
-					// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
-					Conditions: []operatorv1.OperatorCondition{
-						{
-							Type:   "EncryptionStateControllerDegraded",
-							Status: "False",
+				&operatorv1.StaticPodOperatorStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						// we need to set up proper conditions before the test starts because
+						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
+						Conditions: []operatorv1.OperatorCondition{
+							{
+								Type:   "EncryptionStateControllerDegraded",
+								Status: "False",
+							},
 						},
+					},
+					NodeStatuses: []operatorv1.NodeStatus{
+						{NodeName: "kube-apiserver-1"},
 					},
 				},
 				nil,
+				nil,
 			)
+
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialResources...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
@@ -663,7 +680,7 @@ func TestStateController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 
-			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient)
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient, fakeOperatorClient)
 			if err != nil {
 				t.Fatal(err)
 			}
