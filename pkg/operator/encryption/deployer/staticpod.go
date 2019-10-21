@@ -12,6 +12,8 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -19,8 +21,10 @@ import (
 )
 
 type StaticPodDeployer struct {
-	podClient                corev1client.PodInterface
-	secretClient             corev1client.SecretInterface
+	podClient      corev1client.PodInterface
+	secretClient   corev1client.SecretInterface
+	operatorClient operatorv1helpers.StaticPodOperatorClient
+
 	targetNamespaceInformers informers.SharedInformerFactory
 }
 
@@ -34,10 +38,11 @@ var _ statemachine.Deployer = &StaticPodDeployer{}
 // For testing, resourceSyncer might be nil.
 func NewStaticPodDeployer(
 	targetNamespace string,
-	informers operatorv1helpers.KubeInformersForNamespaces,
+	namespaceInformers operatorv1helpers.KubeInformersForNamespaces,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
+	operatorClient operatorv1helpers.StaticPodOperatorClient,
 ) (*StaticPodDeployer, error) {
 	if resourceSyncer != nil {
 		if err := resourceSyncer.SyncSecret(
@@ -51,14 +56,23 @@ func NewStaticPodDeployer(
 	return &StaticPodDeployer{
 		podClient:                podClient.Pods(targetNamespace),
 		secretClient:             secretClient.Secrets(targetNamespace),
-		targetNamespaceInformers: informers.InformersFor(targetNamespace),
+		operatorClient:           operatorClient,
+		targetNamespaceInformers: namespaceInformers.InformersFor(targetNamespace),
 	}, nil
 }
 
 // DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 // instances of the operand have acknowledged it.
 func (d *StaticPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
-	revision, err := getAPIServerRevisionOfAllInstances(d.podClient)
+	_, status, _, err := d.operatorClient.GetStaticPodOperatorState()
+	if err != nil {
+		return nil, false, err
+	}
+	if status == nil || len(status.NodeStatuses) == 0 {
+		return nil, false, nil
+	}
+
+	revision, err := getAPIServerRevisionOfAllInstances(status.NodeStatuses, d.podClient)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get converged static pod revision: %v", err)
 	}
@@ -86,9 +100,12 @@ func (d *StaticPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) 
 	targetSecretsInformer := d.targetNamespaceInformers.Core().V1().Secrets().Informer()
 	targetSecretsInformer.AddEventHandler(handler)
 
+	d.operatorClient.Informer().AddEventHandler(handler)
+
 	return []cache.InformerSynced{
 		targetPodInformer.HasSynced,
 		targetSecretsInformer.HasSynced,
+		d.operatorClient.Informer().HasSynced,
 	}
 }
 
@@ -100,12 +117,13 @@ const revisionLabel = "revision"
 // a single revision, it returns the empty string and possibly an error.
 // Converged can be defined as:
 //   1. All running pods are ready and at the same revision
-//   2. There are no pending or unknown pods
-//   3. All succeeded and failed pods have revisions that are before the running pods
+//   2. All master nodes have a running pod
+//   3. There are no pending or unknown pods
+//   4. All succeeded and failed pods have revisions that are before the running pods
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.
-func getAPIServerRevisionOfAllInstances(podClient corev1client.PodInterface) (string, error) {
+func getAPIServerRevisionOfAllInstances(nodes []operatorv1.NodeStatus, podClient corev1client.PodInterface) (string, error) {
 	// do a live list so we never get confused about what revision we are on
 	apiServerPods, err := podClient.List(metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
@@ -114,6 +132,7 @@ func getAPIServerRevisionOfAllInstances(podClient corev1client.PodInterface) (st
 
 	revisions := sets.NewString()
 	failed := sets.NewString()
+	running := sets.NewString()
 
 	for _, apiServerPod := range apiServerPods.Items {
 		switch phase := apiServerPod.Status.Phase; phase {
@@ -122,6 +141,7 @@ func getAPIServerRevisionOfAllInstances(podClient corev1client.PodInterface) (st
 				return "", nil // pods are not fully ready
 			}
 			revisions.Insert(apiServerPod.Labels[revisionLabel])
+			running.Insert(apiServerPod.Name)
 		case corev1.PodPending:
 			return "", nil // pods are not fully ready
 		case corev1.PodUnknown:
@@ -143,6 +163,17 @@ func getAPIServerRevisionOfAllInstances(podClient corev1client.PodInterface) (st
 
 	if failed.Has(revision) {
 		return "", fmt.Errorf("api server revision %s has both running and failed pods", revision)
+	}
+
+	// make sure all expected nodes are there
+	missing := []string{}
+	for _, n := range nodes {
+		if !running.Has(n.NodeName) {
+			missing = append(missing, n.NodeName)
+		}
+	}
+	if len(missing) > 0 {
+		return "", fmt.Errorf("api server pods missing for nodes %v", missing)
 	}
 
 	revisionNum, err := strconv.Atoi(revision)

@@ -80,7 +80,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace:  "kms",
-			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms")},
+			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms")},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
@@ -97,7 +97,7 @@ func TestKeyController(t *testing.T) {
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -136,7 +136,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -150,7 +150,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865"), time.Now()),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -164,7 +164,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -178,7 +178,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -214,7 +214,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
@@ -229,7 +229,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -251,22 +251,31 @@ func TestKeyController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
+			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
 				},
-				&operatorv1.OperatorStatus{
-					// we need to set up proper conditions before the test starts because
-					// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
-					Conditions: []operatorv1.OperatorCondition{
-						{
-							Type:   "EncryptionKeyControllerDegraded",
-							Status: "False",
+				&operatorv1.StaticPodOperatorStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						// we need to set up proper conditions before the test starts because
+						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
+						Conditions: []operatorv1.OperatorCondition{
+							{
+								Type:   "EncryptionKeyControllerDegraded",
+								Status: "False",
+							},
 						},
+					},
+					NodeStatuses: []operatorv1.NodeStatus{
+						{NodeName: "kube-apiserver-1"},
 					},
 				},
 				nil,
+				nil,
 			)
+
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialObjects...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// pass informer for
@@ -280,7 +289,7 @@ func TestKeyController(t *testing.T) {
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
 
-			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient)
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient, fakeOperatorClient)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -209,22 +209,30 @@ func TestMigrationController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
-				&operatorv1.OperatorSpec{
-					ManagementState: operatorv1.Managed,
-				},
-				&operatorv1.OperatorStatus{
-					Conditions: []operatorv1.OperatorCondition{
-						{
-							Type:   "EncryptionMigrationControllerDegraded",
-							Status: "False",
-						},
-						{
-							Type:   "EncryptionMigrationControllerProgressing",
-							Status: operatorv1.ConditionFalse,
-						},
+			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
 					},
 				},
+				&operatorv1.StaticPodOperatorStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						Conditions: []operatorv1.OperatorCondition{
+							{
+								Type:   "EncryptionMigrationControllerDegraded",
+								Status: "False",
+							},
+							{
+								Type:   "EncryptionMigrationControllerProgressing",
+								Status: operatorv1.ConditionFalse,
+							},
+						},
+					},
+					NodeStatuses: []operatorv1.NodeStatus{
+						{NodeName: "kube-apiserver-1"},
+					},
+				},
+				nil,
 				nil,
 			)
 
@@ -272,7 +280,7 @@ func TestMigrationController(t *testing.T) {
 				},
 			}}
 
-			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient)
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, fakeOperatorClient)
 			if err != nil {
 				t.Fatal(err)
 			}
