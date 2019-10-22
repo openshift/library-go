@@ -66,7 +66,7 @@ func TestMigrationController(t *testing.T) {
 				},
 			},
 			initialResources: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() runtime.Object {
 					cm := createConfigMap("cm-1", "os")
 					cm.Kind = "ConfigMap"
@@ -110,7 +110,7 @@ func TestMigrationController(t *testing.T) {
 				},
 			},
 			initialResources: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() runtime.Object {
 					cm := createConfigMap("cm-1", "os")
 					cm.Kind = "ConfigMap"
@@ -229,7 +229,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					},
 					NodeStatuses: []operatorv1.NodeStatus{
-						{NodeName: "kube-apiserver-1"},
+						{NodeName: "node-1"},
 					},
 				},
 				nil,

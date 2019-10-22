@@ -72,7 +72,7 @@ func (d *StaticPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Sec
 		return nil, false, nil
 	}
 
-	revision, err := getAPIServerRevisionOfAllInstances(status.NodeStatuses, d.podClient)
+	revision, err := getAPIServerRevisionOfAllInstances("revision", status.NodeStatuses, d.podClient)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get converged static pod revision: %v", err)
 	}
@@ -109,9 +109,6 @@ func (d *StaticPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) 
 	}
 }
 
-// revisionLabel is used to find the current revision for a given API server.
-const revisionLabel = "revision"
-
 // getAPIServerRevisionOfAllInstances attempts to find the current revision that
 // the API servers are running at.  If all API servers have not converged onto a
 // a single revision, it returns the empty string and possibly an error.
@@ -123,57 +120,43 @@ const revisionLabel = "revision"
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.
-func getAPIServerRevisionOfAllInstances(nodes []operatorv1.NodeStatus, podClient corev1client.PodInterface) (string, error) {
+func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []operatorv1.NodeStatus, podClient corev1client.PodInterface) (string, error) {
 	// do a live list so we never get confused about what revision we are on
 	apiServerPods, err := podClient.List(metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
 		return "", err
 	}
 
-	revisions := sets.NewString()
-	failed := sets.NewString()
-	running := sets.NewString()
-
-	for _, apiServerPod := range apiServerPods.Items {
-		switch phase := apiServerPod.Status.Phase; phase {
-		case corev1.PodRunning: // TODO check that total running == number of masters?
-			if !podReady(apiServerPod) {
-				return "", nil // pods are not fully ready
-			}
-			revisions.Insert(apiServerPod.Labels[revisionLabel])
-			running.Insert(apiServerPod.Name)
-		case corev1.PodPending:
-			return "", nil // pods are not fully ready
-		case corev1.PodUnknown:
-			return "", fmt.Errorf("api server pod %s in unknown phase", apiServerPod.Name)
-		case corev1.PodSucceeded, corev1.PodFailed:
-			// handle failed pods carefully to make sure things are healthy
-			// since the API server should never exit, a succeeded pod is considered as failed
-			failed.Insert(apiServerPod.Labels[revisionLabel])
-		default:
-			// error in case new unexpected phases get added
-			return "", fmt.Errorf("api server pod %s has unexpected phase %v", apiServerPod.Name, phase)
-		}
+	good, bad, progressing, err := categorizePods(apiServerPods.Items)
+	if err != nil {
+		return "", err
+	}
+	if progressing {
+		return "", nil
 	}
 
-	if len(revisions) != 1 {
+	goodRevisions := revisions(revisionLabel, good)
+	goodNodes := nodeNames(good)
+	failingRevisions := revisions(revisionLabel, bad)
+
+	if len(goodRevisions) != 1 {
 		return "", nil // api servers have not converged onto a single revision
 	}
-	revision, _ := revisions.PopAny()
+	revision, _ := goodRevisions.PopAny()
 
-	if failed.Has(revision) {
+	if failingRevisions.Has(revision) {
 		return "", fmt.Errorf("api server revision %s has both running and failed pods", revision)
 	}
 
 	// make sure all expected nodes are there
-	missing := []string{}
+	missingNodes := []string{}
 	for _, n := range nodes {
-		if !running.Has(n.NodeName) {
-			missing = append(missing, n.NodeName)
+		if !goodNodes.Has(n.NodeName) {
+			missingNodes = append(missingNodes, n.NodeName)
 		}
 	}
-	if len(missing) > 0 {
-		return "", fmt.Errorf("api server pods missing for nodes %v", missing)
+	if len(missingNodes) > 0 {
+		return "", fmt.Errorf("api server pods missing for nodes %v", missingNodes)
 	}
 
 	revisionNum, err := strconv.Atoi(revision)
@@ -181,7 +164,7 @@ func getAPIServerRevisionOfAllInstances(nodes []operatorv1.NodeStatus, podClient
 		return "", fmt.Errorf("api server has invalid revision: %v", err)
 	}
 
-	for _, failedRevision := range failed.List() { // iterate in defined order
+	for _, failedRevision := range failingRevisions.List() { // iterate in defined order
 		failedRevisionNum, err := strconv.Atoi(failedRevision)
 		if err != nil {
 			return "", fmt.Errorf("api server has invalid failed revision: %v", err)
@@ -192,6 +175,46 @@ func getAPIServerRevisionOfAllInstances(nodes []operatorv1.NodeStatus, podClient
 	}
 
 	return revision, nil
+}
+
+func revisions(revisionLabel string, pods []*corev1.Pod) sets.String {
+	ret := sets.NewString()
+	for _, p := range pods {
+		ret.Insert(p.Labels[revisionLabel])
+	}
+	return ret
+}
+
+func nodeNames(pods []*corev1.Pod) sets.String {
+	ret := sets.NewString()
+	for _, p := range pods {
+		ret.Insert(p.Spec.NodeName)
+	}
+	return ret
+}
+
+func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, progressing bool, err error) {
+	for _, apiServerPod := range pods {
+		switch phase := apiServerPod.Status.Phase; phase {
+		case corev1.PodRunning:
+			if !podReady(apiServerPod) {
+				return nil, nil, true, nil // pods are not fully ready
+			}
+			good = append(good, &apiServerPod)
+		case corev1.PodPending:
+			return nil, nil, true, nil // pods are not fully ready
+		case corev1.PodUnknown:
+			return nil, nil, false, fmt.Errorf("api server pod %s in unknown phase", apiServerPod.Name)
+		case corev1.PodSucceeded, corev1.PodFailed:
+			// handle failed pods carefully to make sure things are healthy
+			// since the API server should never exit, a succeeded pod is considered as failed
+			bad = append(bad, &apiServerPod)
+		default:
+			// error in case new unexpected phases get added
+			return nil, nil, false, fmt.Errorf("api server pod %s has unexpected phase %v", apiServerPod.Name, phase)
+		}
+	}
+	return good, bad, false, nil
 }
 
 func podReady(pod corev1.Pod) bool {
