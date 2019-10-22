@@ -149,7 +149,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 			b.revisionConfigMaps,
 			b.revisionSecrets,
 			operandInformers,
-			b.staticPodOperatorClient,
+			revision.StaticPodLatestRevisionClient{StaticPodOperatorClient: b.staticPodOperatorClient},
 			configMapClient,
 			secretClient,
 			eventRecorder,
