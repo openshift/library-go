@@ -89,7 +89,7 @@ func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []s
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
-func CreateDummyKubeAPIPod(name, namespace string) *corev1.Pod {
+func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -98,6 +98,9 @@ func CreateDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 				"apiserver": "true",
 				"revision":  "1",
 			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -111,8 +114,8 @@ func CreateDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 	}
 }
 
-func CreateDummyKubeAPIPodInUnknownPhase(name, namespace string) *corev1.Pod {
-	p := CreateDummyKubeAPIPod(name, namespace)
+func CreateDummyKubeAPIPodInUnknownPhase(name, namespace string, nodeName string) *corev1.Pod {
+	p := CreateDummyKubeAPIPod(name, namespace, nodeName)
 	p.Status.Phase = corev1.PodUnknown
 	return p
 }

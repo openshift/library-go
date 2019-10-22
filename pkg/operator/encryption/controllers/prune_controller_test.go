@@ -115,7 +115,7 @@ func TestPruneController(t *testing.T) {
 						},
 					},
 					NodeStatuses: []operatorv1.NodeStatus{
-						{NodeName: "kube-apiserver-1"},
+						{NodeName: "node-1"},
 					},
 				},
 				nil,
@@ -127,7 +127,7 @@ func TestPruneController(t *testing.T) {
 				rawSecrets = append(rawSecrets, initialSecret)
 			}
 
-			fakePod := encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms")
+			fakePod := encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1")
 
 			writeKeyRaw := []byte("71ea7c91419a68fd1224f88d50316b4e") // NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=
 			writeKeyID := uint64(len(scenario.initialSecrets) + 1)

@@ -80,7 +80,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace:  "kms",
-			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms")},
+			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1")},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
@@ -97,7 +97,7 @@ func TestKeyController(t *testing.T) {
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -136,7 +136,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -150,7 +150,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865"), time.Now()),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -164,7 +164,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -178,7 +178,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -214,7 +214,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
@@ -229,7 +229,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("")),
 			},
 			apiServerObjects: apiServerAesCBC,
@@ -269,7 +269,7 @@ func TestKeyController(t *testing.T) {
 						},
 					},
 					NodeStatuses: []operatorv1.NodeStatus{
-						{NodeName: "kube-apiserver-1"},
+						{NodeName: "node-1"},
 					},
 				},
 				nil,

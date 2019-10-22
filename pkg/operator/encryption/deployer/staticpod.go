@@ -196,7 +196,7 @@ func nodeNames(pods []*corev1.Pod) sets.String {
 func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, progressing bool, err error) {
 	for _, apiServerPod := range pods {
 		switch phase := apiServerPod.Status.Phase; phase {
-		case corev1.PodRunning: // TODO check that total running == number of masters?
+		case corev1.PodRunning:
 			if !podReady(apiServerPod) {
 				return nil, nil, true, nil // pods are not fully ready
 			}
