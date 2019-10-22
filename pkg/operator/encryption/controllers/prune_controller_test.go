@@ -170,7 +170,7 @@ func TestPruneController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 
-			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, fakeOperatorClient)
+			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
 			}

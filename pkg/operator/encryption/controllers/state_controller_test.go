@@ -680,7 +680,7 @@ func TestStateController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 
-			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient, fakeOperatorClient)
+			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
 			}
