@@ -3,25 +3,22 @@ package staticpod
 import (
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/loglevel"
-	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
-
-	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
-
 	"k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/openshift/library-go/pkg/operator/status"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
