@@ -3,25 +3,22 @@ package staticpod
 import (
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/loglevel"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
-
-	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
-
 	"k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/openshift/library-go/pkg/operator/status"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -36,13 +33,13 @@ type staticPodOperatorControllerBuilder struct {
 	// resource information
 	operandNamespace   string
 	staticPodName      string
-	revisionConfigMaps []revision.RevisionResource
-	revisionSecrets    []revision.RevisionResource
+	revisionConfigMaps []revisioncontroller.RevisionResource
+	revisionSecrets    []revisioncontroller.RevisionResource
 
 	// cert information
 	certDir        string
-	certConfigMaps []revision.RevisionResource
-	certSecrets    []revision.RevisionResource
+	certConfigMaps []revisioncontroller.RevisionResource
+	certSecrets    []revisioncontroller.RevisionResource
 
 	// versioner information
 	versionRecorder   status.VersionGetter
@@ -75,8 +72,8 @@ type Builder interface {
 	WithEvents(eventRecorder events.Recorder) Builder
 	WithServiceMonitor(dynamicClient dynamic.Interface) Builder
 	WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder
-	WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revision.RevisionResource) Builder
-	WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) Builder
+	WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder
+	WithCerts(certDir string, certConfigMaps, certSecrets []revisioncontroller.RevisionResource) Builder
 	WithInstaller(command []string) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
 	ToControllers() (*staticPodOperatorControllers, error)
@@ -99,7 +96,7 @@ func (b *staticPodOperatorControllerBuilder) WithVersioning(operatorNamespace, o
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revision.RevisionResource) Builder {
+func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder {
 	b.operandNamespace = operandNamespace
 	b.staticPodName = staticPodName
 	b.revisionConfigMaps = revisionConfigMaps
@@ -107,7 +104,7 @@ func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, sta
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithCerts(certDir string, certConfigMaps, certSecrets []revision.RevisionResource) Builder {
+func (b *staticPodOperatorControllerBuilder) WithCerts(certDir string, certConfigMaps, certSecrets []revisioncontroller.RevisionResource) Builder {
 	b.certDir = certDir
 	b.certConfigMaps = certConfigMaps
 	b.certSecrets = certSecrets
@@ -144,12 +141,12 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 	clusterInformers := b.kubeInformers.InformersFor("")
 
 	if len(b.operandNamespace) > 0 {
-		controllers.revisionController = revision.NewRevisionController(
+		controllers.revisionController = revisioncontroller.NewRevisionController(
 			b.operandNamespace,
 			b.revisionConfigMaps,
 			b.revisionSecrets,
 			operandInformers,
-			b.staticPodOperatorClient,
+			revisioncontroller.StaticPodLatestRevisionClient{StaticPodOperatorClient: b.staticPodOperatorClient},
 			configMapClient,
 			secretClient,
 			eventRecorder,
@@ -266,7 +263,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 }
 
 type staticPodOperatorControllers struct {
-	revisionController                   *revision.RevisionController
+	revisionController                   *revisioncontroller.RevisionController
 	installerController                  *installer.InstallerController
 	installerStateController             *installerstate.InstallerStateController
 	staticPodStateController             *staticpodstate.StaticPodStateController

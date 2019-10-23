@@ -1,4 +1,4 @@
-package revision
+package revisioncontroller
 
 import (
 	"fmt"
@@ -30,6 +30,16 @@ import (
 
 const revisionControllerWorkQueueKey = "key"
 
+// LatestRevisionClient is an operator client for an operator status with a latest revision field.
+type LatestRevisionClient interface {
+	v1helpers.OperatorClient
+
+	// GetLatestRevisionState returns the spec, status and latest revision.
+	GetLatestRevisionState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, rev int32, rv string, err error)
+	// UpdateLatestRevisionOperatorStatus updates the status with the given latestAvailableRevision and the by applying the given updateFuncs.
+	UpdateLatestRevisionOperatorStatus(latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error)
+}
+
 // RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
 // of them. If the original resources changes, the revision counter is increased, stored in LatestAvailableRevision
 // field of the operator config and new snapshots suffixed by the revision are created.
@@ -41,7 +51,7 @@ type RevisionController struct {
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []RevisionResource
 
-	operatorClient  v1helpers.StaticPodOperatorClient
+	operatorClient  LatestRevisionClient
 	configMapGetter corev1client.ConfigMapsGetter
 	secretGetter    corev1client.SecretsGetter
 
@@ -61,7 +71,7 @@ func NewRevisionController(
 	configMaps []RevisionResource,
 	secrets []RevisionResource,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorClient v1helpers.StaticPodOperatorClient,
+	operatorClient LatestRevisionClient,
 	configMapGetter corev1client.ConfigMapsGetter,
 	secretGetter corev1client.SecretsGetter,
 	eventRecorder events.Recorder,
@@ -92,18 +102,15 @@ func NewRevisionController(
 
 // createRevisionIfNeeded takes care of creating content for the static pods to use.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.StaticPodOperatorSpec, operatorStatusOriginal *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
-	operatorStatus := operatorStatusOriginal.DeepCopy()
-
-	latestRevision := operatorStatus.LatestAvailableRevision
-	isLatestRevisionCurrent, reason := c.isLatestRevisionCurrent(latestRevision)
+func (c RevisionController) createRevisionIfNeeded(latestAvailableRevision int32, resourceVersion string) (bool, error) {
+	isLatestRevisionCurrent, reason := c.isLatestRevisionCurrent(latestAvailableRevision)
 
 	// check to make sure that the latestRevision has the exact content we expect.  No mutation here, so we start creating the next Revision only when it is required
 	if isLatestRevisionCurrent {
 		return false, nil
 	}
 
-	nextRevision := latestRevision + 1
+	nextRevision := latestAvailableRevision + 1
 	c.eventRecorder.Eventf("RevisionTriggered", "new revision %d triggered by %q", nextRevision, reason)
 	if err := c.createNewRevision(nextRevision); err != nil {
 		cond := operatorv1.OperatorCondition{
@@ -112,7 +119,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 			Reason:  "ContentCreationError",
 			Message: err.Error(),
 		}
-		if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 			c.eventRecorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
 			return true, updateError
 		}
@@ -123,17 +130,10 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Stat
 		Type:   "RevisionControllerDegraded",
 		Status: operatorv1.ConditionFalse,
 	}
-	if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(cond), func(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
-		if operatorStatus.LatestAvailableRevision == nextRevision {
-			klog.Warningf("revision %d is unexpectedly already the latest available revision. This is a possible race!", nextRevision)
-			return fmt.Errorf("conflicting latestAvailableRevision %d", operatorStatus.LatestAvailableRevision)
-		}
-		operatorStatus.LatestAvailableRevision = nextRevision
-		return nil
-	}); updateError != nil {
+	if _, updated, updateError := c.operatorClient.UpdateLatestRevisionOperatorStatus(nextRevision, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return true, updateError
 	} else if updated {
-		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", operatorStatus.LatestAvailableRevision, reason)
+		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", latestAvailableRevision, reason)
 	}
 
 	return false, nil
@@ -252,7 +252,7 @@ func (c RevisionController) createNewRevision(revision int32) error {
 
 // getLatestAvailableRevision returns the latest known revision to the operator
 // This is either the LatestAvailableRevision in the status or by checking revision status configmaps
-func (c RevisionController) getLatestAvailableRevision(operatorStatus *operatorv1.StaticPodOperatorStatus) (int32, error) {
+func (c RevisionController) getLatestAvailableRevision(operatorStatus *operatorv1.OperatorStatus) (int32, error) {
 	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		return 0, err
@@ -277,7 +277,7 @@ func (c RevisionController) getLatestAvailableRevision(operatorStatus *operatorv
 }
 
 func (c RevisionController) sync() error {
-	operatorSpec, originalOperatorStatus, resourceVersion, err := c.operatorClient.GetStaticPodOperatorStateWithQuorum()
+	operatorSpec, originalOperatorStatus, latestAvailableRevision, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func (c RevisionController) sync() error {
 
 	// If the operator status has 0 as its latest available revision, this is either the first revision
 	// or possibly the operator resource was deleted and reset back to 0, which is not what we want so check configmaps
-	if operatorStatus.LatestAvailableRevision == 0 {
+	if latestAvailableRevision == 0 {
 		// Check to see if current revision is accurate and if not, search through configmaps for latest revision
 		latestRevision, err := c.getLatestAvailableRevision(operatorStatus)
 		if err != nil {
@@ -297,16 +297,13 @@ func (c RevisionController) sync() error {
 		}
 		if latestRevision != 0 {
 			// Then make sure that revision number is what's in the operator status
-			_, _, err = v1helpers.UpdateStaticPodStatus(c.operatorClient, func(status *operatorv1.StaticPodOperatorStatus) error {
-				status.LatestAvailableRevision = latestRevision
-				return nil
-			})
+			_, _, err = c.operatorClient.UpdateLatestRevisionOperatorStatus(latestRevision)
 			// If we made a change return and requeue with the correct status
 			return fmt.Errorf("synthetic requeue request (err: %v)", err)
 		}
 	}
 
-	requeue, syncErr := c.createRevisionIfNeeded(operatorSpec, operatorStatus, resourceVersion)
+	requeue, syncErr := c.createRevisionIfNeeded(latestAvailableRevision, resourceVersion)
 	if requeue && syncErr == nil {
 		return fmt.Errorf("synthetic requeue request (err: %v)", syncErr)
 	}
@@ -322,7 +319,7 @@ func (c RevisionController) sync() error {
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
-	if _, _, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		if err == nil {
 			return updateError
 		}

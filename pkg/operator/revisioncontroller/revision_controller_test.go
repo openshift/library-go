@@ -1,4 +1,4 @@
-package revision
+package revisioncontroller
 
 import (
 	"strings"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -443,7 +443,7 @@ func TestRevisionController(t *testing.T) {
 				tc.testConfigs,
 				tc.testSecrets,
 				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(tc.targetNamespace)),
-				tc.staticPodOperatorClient,
+				StaticPodLatestRevisionClient{StaticPodOperatorClient: tc.staticPodOperatorClient},
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
