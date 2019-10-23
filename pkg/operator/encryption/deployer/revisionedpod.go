@@ -175,7 +175,7 @@ func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, po
 		}
 	}
 	if len(missingNodes) > 0 {
-		return "", fmt.Errorf("api server pods missing for nodes %v", missingNodes)
+		return "", nil // we are still progressing
 	}
 
 	revisionNum, err := strconv.Atoi(revision)
