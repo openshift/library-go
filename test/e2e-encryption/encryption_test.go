@@ -460,7 +460,7 @@ func (c *secretInterceptor) Create(s *corev1.Secret) (*corev1.Secret, error) {
 		return s, err
 	}
 
-	c.t.Logf("Create", s.Name)
+	c.t.Logf("Create %s", s.Name)
 	if s.Name == c.secretName {
 		c.output <- s
 	}
@@ -474,7 +474,7 @@ func (c *secretInterceptor) Update(s *corev1.Secret) (*corev1.Secret, error) {
 		return s, err
 	}
 
-	c.t.Logf("Update", s.Name)
+	c.t.Logf("Update %s", s.Name)
 	if s.Name == c.secretName {
 		c.output <- s
 	}
@@ -488,7 +488,7 @@ func (c *secretInterceptor) Patch(name string, pt types.PatchType, data []byte, 
 		return s, err
 	}
 
-	c.t.Logf("Patch", s.Name)
+	c.t.Logf("Patch %s", s.Name)
 	if s.Name == c.secretName {
 		c.output <- s
 	}
