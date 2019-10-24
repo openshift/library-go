@@ -213,13 +213,17 @@ func nodeNames(pods []*corev1.Pod) sets.String {
 }
 
 func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, progressing bool, err error) {
+	if len(pods) == 0 {
+		return nil, nil, true, err
+	}
 	for _, apiServerPod := range pods {
 		switch phase := apiServerPod.Status.Phase; phase {
 		case corev1.PodRunning:
 			if !podReady(apiServerPod) {
 				return nil, nil, true, nil // pods are not fully ready
 			}
-			good = append(good, &apiServerPod)
+			goodPod := apiServerPod // shallow copy because apiServerPod is bound loop var
+			good = append(good, &goodPod)
 		case corev1.PodPending:
 			return nil, nil, true, nil // pods are not fully ready
 		case corev1.PodUnknown:
@@ -227,7 +231,8 @@ func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, p
 		case corev1.PodSucceeded, corev1.PodFailed:
 			// handle failed pods carefully to make sure things are healthy
 			// since the API server should never exit, a succeeded pod is considered as failed
-			bad = append(bad, &apiServerPod)
+			badPod := apiServerPod // shallow copy because apiServerPod is bound loop var
+			bad = append(bad, &badPod)
 		default:
 			// error in case new unexpected phases get added
 			return nil, nil, false, fmt.Errorf("api server pod %s has unexpected phase %v", apiServerPod.Name, phase)
