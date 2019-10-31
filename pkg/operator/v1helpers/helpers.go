@@ -4,16 +4,33 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 )
+
+// ConvertCoreV1StatusToOperatorV1Status converts a core/v1 condition status to an operator condition status.
+func ConvertCoreV1StatusToOperatorV1Status(status corev1.ConditionStatus) operatorv1.ConditionStatus {
+	switch status {
+	case corev1.ConditionTrue:
+		return operatorv1.ConditionTrue
+	case corev1.ConditionFalse:
+		return operatorv1.ConditionFalse
+	case corev1.ConditionUnknown:
+		return operatorv1.ConditionUnknown
+	default:
+		klog.V(4).Infof("Unrecognized core/v1 status: %s", status)
+		return operatorv1.ConditionStatus(status)
+	}
+}
 
 // SetOperandVersion sets the new version and returns the previous value.
 func SetOperandVersion(versions *[]configv1.OperandVersion, operandVersion configv1.OperandVersion) string {
