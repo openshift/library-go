@@ -22,6 +22,8 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
@@ -284,18 +286,18 @@ func TestMigrationController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			migrator := migrators.NewInProcessMigrator(fakeDynamicClient, fakeDiscoveryClient)
 
 			// act
 			target := NewMigrationController(
 				deployer,
+				migrator,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
 				scenario.targetGRs,
-				fakeDynamicClient,
-				fakeDiscoveryClient,
 			)
 			err = target.sync()
 
