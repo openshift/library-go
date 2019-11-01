@@ -468,7 +468,7 @@ func (f *Fn) DLLName() string {
 	return f.dllname
 }
 
-// DLLFuncName returns DLL function name for function f.
+// DLLName returns DLL function name for function f.
 func (f *Fn) DLLFuncName() string {
 	if f.dllfuncname == "" {
 		return f.Name

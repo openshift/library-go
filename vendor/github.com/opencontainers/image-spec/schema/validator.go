@@ -67,7 +67,7 @@ func (v Validator) Validate(src io.Reader) error {
 		}
 	}
 
-	sl := newFSLoaderFactory(schemaNamespaces, fs).New(specs[v])
+	sl := gojsonschema.NewReferenceLoaderFileSystem("file:///"+specs[v], fs)
 	ml := gojsonschema.NewStringLoader(string(buf))
 
 	result, err := gojsonschema.Validate(sl, ml)
@@ -117,10 +117,8 @@ func validateManifest(r io.Reader) error {
 	for _, layer := range header.Layers {
 		if layer.MediaType != string(v1.MediaTypeImageLayer) &&
 			layer.MediaType != string(v1.MediaTypeImageLayerGzip) &&
-			layer.MediaType != string(v1.MediaTypeImageLayerZstd) &&
 			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributable) &&
-			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableGzip) &&
-			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableZstd) {
+			layer.MediaType != string(v1.MediaTypeImageLayerNonDistributableGzip) {
 			fmt.Printf("warning: layer %s has an unknown media type: %s\n", layer.Digest, layer.MediaType)
 		}
 	}
@@ -219,8 +217,8 @@ func checkPlatform(OS string, Architecture string) {
 					return
 				}
 			}
-			fmt.Printf("warning: combination of %q and %q is invalid.\n", OS, Architecture)
+			fmt.Printf("warning: combination of %q and %q is invalid.", OS, Architecture)
 		}
 	}
-	fmt.Printf("warning: operating system %q of the bundle is not supported yet.\n", OS)
+	fmt.Printf("warning: operating system %q of the bundle is not supported yet.", OS)
 }

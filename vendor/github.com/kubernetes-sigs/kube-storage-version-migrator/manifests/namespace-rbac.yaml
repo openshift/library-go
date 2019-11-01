@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: NAMESPACE
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-trigger
+rules:
+- apiGroups: ["migration.k8s.io"]
+  resources: ["storagestates"]
+  verbs: ["watch", "get", "list", "delete", "create", "update"]
+- apiGroups: ["migration.k8s.io"]
+  resources: ["storageversionmigrations"]
+  verbs: ["watch", "get", "list", "delete", "create"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-migrator
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "update"]
+- apiGroups: ["migration.k8s.io"]
+  resources: ["storageversionmigrations"]
+  verbs: ["watch"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-crd-creator
+rules:
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["create", "delete", "get"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-initializer
+rules:
+- apiGroups: ["migration.k8s.io"]
+  resources: ["storageversionmigrations"]
+  verbs: ["create"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-migrator
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: NAMESPACE
+roleRef:
+  kind: ClusterRole
+  name: storage-version-migration-migrator
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-trigger
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: NAMESPACE
+roleRef:
+  kind: ClusterRole
+  name: storage-version-migration-trigger
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-crd-creator
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: NAMESPACE
+roleRef:
+  kind: ClusterRole
+  name: storage-version-migration-crd-creator
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: storage-version-migration-initializer
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: NAMESPACE
+roleRef:
+  kind: ClusterRole
+  name: storage-version-migration-initializer
+  apiGroup: rbac.authorization.k8s.io

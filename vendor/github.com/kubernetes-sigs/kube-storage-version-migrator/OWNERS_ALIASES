@@ -1,0 +1,9 @@
+# See the OWNERS docs: https://git.k8s.io/community/docs/devel/owners.md
+
+aliases:
+  sig-api-machinery-approvers:
+    - deads2k
+    - lavalamp
+  sig-api-machinery-reviewers:
+    - deads2k
+    - lavalamp
