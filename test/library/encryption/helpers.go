@@ -1,7 +1,6 @@
 package encryption
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -10,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -269,20 +267,4 @@ func determineNextEncryptionKeyName(prevKeyName, labelSelector string) (string, 
 
 	// no encryption key - the first one will look like the following
 	return fmt.Sprintf("encryption-key-%s-1", ret[1]), nil
-}
-
-func GetRawSecretOfLife(t testing.TB, clientSet ClientSet, namespace string) string {
-	t.Helper()
-	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	secretOfLifeEtcdPrefix := fmt.Sprintf("/kubernetes.io/secrets/%s/%s", namespace, "secret-of-life")
-	resp, err := clientSet.Etcd.Get(timeout, secretOfLifeEtcdPrefix, clientv3.WithPrefix())
-	require.NoError(t, err)
-
-	if len(resp.Kvs) != 1 {
-		t.Errorf("Expected to get a single key from etcd, got %d", len(resp.Kvs))
-	}
-
-	return string(resp.Kvs[0].Value)
 }

@@ -5,14 +5,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
@@ -25,14 +23,6 @@ const (
 	aesCBCTransformerPrefixV1    = "k8s:enc:aescbc:v1:"
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
 )
-
-func AssertSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, secretOfLife *corev1.Secret) {
-	t.Helper()
-	rawSecretValue := GetRawSecretOfLife(t, clientSet, secretOfLife.Namespace)
-	if !strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
-		t.Errorf("The secret received from etcd doesn't have %q, content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
-	}
-}
 
 func AssertLastMigratedKey(t testing.TB, kubeClient kubernetes.Interface, targetGRs []schema.GroupResource, namespace, labelSelector string) {
 	t.Helper()
