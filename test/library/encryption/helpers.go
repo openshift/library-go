@@ -20,7 +20,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/test/library"
 )
 
@@ -272,14 +271,14 @@ func determineNextEncryptionKeyName(prevKeyName, labelSelector string) (string, 
 	return fmt.Sprintf("encryption-key-%s-1", ret[1]), nil
 }
 
-func setUpTearDown() func(testing.TB, bool) {
+func setUpTearDown(namespace string) func(testing.TB, bool) {
 	return func(t testing.TB, failed bool) {
 		if failed { // we don't use t.Failed() because we handle termination differently when running on a local machine
 			t.Logf("Tearing Down %s", t.Name())
 			eventsToPrint := 20
 			clientSet := GetClients(t)
 
-			eventList, err := clientSet.Kube.CoreV1().Events(operatorclient.OperatorNamespace).List(metav1.ListOptions{})
+			eventList, err := clientSet.Kube.CoreV1().Events(namespace).List(metav1.ListOptions{})
 			require.NoError(t, err)
 
 			sort.Slice(eventList.Items, func(i, j int) bool {
@@ -288,7 +287,7 @@ func setUpTearDown() func(testing.TB, bool) {
 				return first.LastTimestamp.After(second.LastTimestamp.Time)
 			})
 
-			t.Logf("Dumping %d events from %q namespace", eventsToPrint, operatorclient.OperatorNamespace)
+			t.Logf("Dumping %d events from %q namespace", eventsToPrint, namespace)
 			now := time.Now()
 			if len(eventList.Items) > eventsToPrint {
 				eventList.Items = eventList.Items[:eventsToPrint]
