@@ -17,24 +17,25 @@ type BasicScenario struct {
 	LabelSelector                   string
 	EncryptionConfigSecretName      string
 	EncryptionConfigSecretNamespace string
+	OperatorNamespace               string
 	TargetGRs                       []schema.GroupResource
 	AssertFunc                      func(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string)
 }
 
 func TestEncryptionTypeIdentity(t *testing.T, scenario BasicScenario) {
-	e := NewE(t, PrintEventsOnFailure)
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeIdentity, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
 func TestEncryptionTypeUnset(t *testing.T, scenario BasicScenario) {
-	e := NewE(t, PrintEventsOnFailure)
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, "", scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
 func TestEncryptionTypeAESCBC(t *testing.T, scenario BasicScenario) {
-	e := NewE(t, PrintEventsOnFailure)
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESCBC, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeAESCBC, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)

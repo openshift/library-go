@@ -14,8 +14,10 @@ type E struct {
 	tearDownFunc func(testing.TB, bool)
 }
 
-func PrintEventsOnFailure(e *E) {
-	e.registerTearDownFun(setUpTearDown())
+func PrintEventsOnFailure(namespace string) func(*E) {
+	return func(e *E) {
+		e.registerTearDownFun(setUpTearDown(namespace))
+	}
 }
 
 func NewE(t *testing.T, options ...func(*E)) *E {
