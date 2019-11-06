@@ -20,6 +20,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/test/library"
 )
 
@@ -128,7 +129,8 @@ func waitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, pr
 
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Failed to check if no new key will be created, err %v", err)
+		newErr := fmt.Errorf("failed to check if no new key will be created, err %v", err)
+		require.NoError(t, newErr)
 	}
 }
 
@@ -173,7 +175,8 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 		}
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Failed waiting for key %s to be used to migrate %v, due to %v", nextKeyName, prevKeyMeta.Migrated, err)
+		newErr := fmt.Errorf("failed waiting for key %s to be used to migrate %v, due to %v", nextKeyName, prevKeyMeta.Migrated, err)
+		require.NoError(t, newErr)
 	}
 }
 
@@ -267,4 +270,32 @@ func determineNextEncryptionKeyName(prevKeyName, labelSelector string) (string, 
 
 	// no encryption key - the first one will look like the following
 	return fmt.Sprintf("encryption-key-%s-1", ret[1]), nil
+}
+
+func setUpTearDown() func(testing.TB, bool) {
+	return func(t testing.TB, failed bool) {
+		if failed { // we don't use t.Failed() because we handle termination differently when running on a local machine
+			t.Logf("Tearing Down %s", t.Name())
+			eventsToPrint := 20
+			clientSet := GetClients(t)
+
+			eventList, err := clientSet.Kube.CoreV1().Events(operatorclient.OperatorNamespace).List(metav1.ListOptions{})
+			require.NoError(t, err)
+
+			sort.Slice(eventList.Items, func(i, j int) bool {
+				first := eventList.Items[i]
+				second := eventList.Items[j]
+				return first.LastTimestamp.After(second.LastTimestamp.Time)
+			})
+
+			t.Logf("Dumping %d events from %q namespace", eventsToPrint, operatorclient.OperatorNamespace)
+			now := time.Now()
+			if len(eventList.Items) > eventsToPrint {
+				eventList.Items = eventList.Items[:eventsToPrint]
+			}
+			for _, ev := range eventList.Items {
+				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
+			}
+		}
+	}
 }
