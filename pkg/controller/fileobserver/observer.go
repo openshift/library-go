@@ -10,6 +10,7 @@ import (
 
 type Observer interface {
 	Run(stopChan <-chan struct{})
+	HasSynced() bool
 	AddReactor(reaction ReactorFn, startingFileContent map[string][]byte, files ...string) Observer
 }
 
