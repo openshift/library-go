@@ -20,6 +20,16 @@ type pollingObserver struct {
 	files    map[string]string
 
 	reactorsMutex sync.RWMutex
+
+	syncedMutex sync.RWMutex
+	hasSynced   bool
+}
+
+// HasSynced indicates that the observer synced all observed files at least once.
+func (o *pollingObserver) HasSynced() bool {
+	o.syncedMutex.RLock()
+	defer o.syncedMutex.RUnlock()
+	return o.hasSynced
 }
 
 // AddReactor will add new reactor to this observer.
@@ -103,6 +113,12 @@ func (o *pollingObserver) processReactors(stopCh <-chan struct{}) {
 					klog.Errorf("Reactor for %q failed: %v", filename, err)
 				}
 			}
+		}
+		if !o.HasSynced() {
+			o.syncedMutex.Lock()
+			o.hasSynced = true
+			o.syncedMutex.Unlock()
+			klog.V(3).Info("File observer successfully synced")
 		}
 		return false, nil
 	})
