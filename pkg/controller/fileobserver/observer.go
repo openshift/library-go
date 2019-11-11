@@ -61,6 +61,6 @@ func NewObserver(interval time.Duration) (Observer, error) {
 	return &pollingObserver{
 		interval: interval,
 		reactors: map[string][]ReactorFn{},
-		files:    map[string]string{},
+		files:    map[string]fileHashAndState{},
 	}, nil
 }
