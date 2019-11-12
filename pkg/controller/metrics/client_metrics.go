@@ -45,15 +45,15 @@ type latencyAdapter struct {
 }
 
 func (l *latencyAdapter) Describe(c chan<- *prometheus.Desc) {
-	l.Describe(c)
+	l.m.Describe(c)
 }
 
 func (l *latencyAdapter) Collect(c chan<- prometheus.Metric) {
-	l.Collect(c)
+	l.m.Collect(c)
 }
 
 func (l *latencyAdapter) Create(version *semver.Version) bool {
-	return l.Create(version)
+	return l.m.Create(version)
 }
 
 func (l *latencyAdapter) Observe(verb string, u url.URL, latency time.Duration) {
@@ -65,15 +65,15 @@ type resultAdapter struct {
 }
 
 func (r *resultAdapter) Describe(c chan<- *prometheus.Desc) {
-	r.Describe(c)
+	r.m.Describe(c)
 }
 
 func (r *resultAdapter) Collect(c chan<- prometheus.Metric) {
-	r.Collect(c)
+	r.m.Collect(c)
 }
 
 func (r *resultAdapter) Create(version *semver.Version) bool {
-	return r.Create(version)
+	return r.m.Create(version)
 }
 
 func (r *resultAdapter) Increment(code, method, host string) {
