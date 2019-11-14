@@ -45,9 +45,11 @@ type inProcessMigration struct {
 
 	// non-nil when finished. *result==nil means "no error"
 	result *error
+	// when did it finish
+	timestamp time.Time
 }
 
-func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey string) (finished bool, result error, err error) {
+func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey string) (finished bool, result error, ts time.Time, err error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -55,9 +57,9 @@ func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey st
 	migration := m.running[gr]
 	if migration != nil && migration.writeKey == writeKey {
 		if migration.result == nil {
-			return false, nil, nil
+			return false, nil, time.Time{}, nil
 		}
-		return true, *migration.result, nil
+		return true, *migration.result, migration.timestamp, nil
 	}
 
 	// different key?
@@ -73,7 +75,7 @@ func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey st
 
 	v, err := preferredResourceVersion(m.discoveryClient, gr)
 	if err != nil {
-		return false, nil, err
+		return false, nil, time.Time{}, err
 	}
 
 	stopCh := make(chan struct{})
@@ -86,7 +88,7 @@ func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey st
 
 	go m.runMigration(gr.WithVersion(v), writeKey, stopCh, doneCh)
 
-	return false, nil, nil
+	return false, nil, time.Time{}, nil
 }
 
 func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeKey string, stopCh <-chan struct{}, doneCh chan<- struct{}) {
@@ -111,6 +113,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 		}
 
 		migration.result = &result
+		migration.timestamp = time.Now()
 
 		m.handler.OnAdd(&corev1.Secret{}) // fake secret to trigger event loop of controller
 	}()
