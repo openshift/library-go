@@ -26,10 +26,11 @@ import (
 )
 
 type CertSyncController struct {
-	destinationDir string
-	namespace      string
-	configMaps     []revision.RevisionResource
-	secrets        []revision.RevisionResource
+	destinationDir   string
+	cachesSyncedFile string
+	namespace        string
+	configMaps       []revision.RevisionResource
+	secrets          []revision.RevisionResource
 
 	configmapGetter corev1interface.ConfigMapInterface
 	configMapLister v1.ConfigMapLister
@@ -42,13 +43,14 @@ type CertSyncController struct {
 	preRunCaches []cache.InformerSynced
 }
 
-func NewCertSyncController(targetDir, targetNamespace string, configmaps, secrets []revision.RevisionResource, kubeClient kubernetes.Interface, informers informers.SharedInformerFactory, eventRecorder events.Recorder) (*CertSyncController, error) {
+func NewCertSyncController(targetDir, targetNamespace string, configmaps, secrets []revision.RevisionResource, kubeClient kubernetes.Interface, informers informers.SharedInformerFactory, eventRecorder events.Recorder, cachesSyncedFile string) (*CertSyncController, error) {
 	c := &CertSyncController{
-		destinationDir: targetDir,
-		namespace:      targetNamespace,
-		configMaps:     configmaps,
-		secrets:        secrets,
-		eventRecorder:  eventRecorder.WithComponentSuffix("cert-sync-controller"),
+		destinationDir:   targetDir,
+		cachesSyncedFile: cachesSyncedFile,
+		namespace:        targetNamespace,
+		configMaps:       configmaps,
+		secrets:          secrets,
+		eventRecorder:    eventRecorder.WithComponentSuffix("cert-sync-controller"),
 
 		configmapGetter: kubeClient.CoreV1().ConfigMaps(targetNamespace),
 		configMapLister: informers.Core().V1().ConfigMaps().Lister(),
@@ -297,6 +299,21 @@ func (c *CertSyncController) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 	klog.V(2).Infof("CertSyncer caches synced")
+
+	if len(c.cachesSyncedFile) != 0 {
+		// Signal caches sync using a file (e.g. for readiness probe)
+		f, err := os.OpenFile(c.cachesSyncedFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0600)
+		if err != nil {
+			klog.Fatal(err)
+		}
+
+		klog.V(1).Infof("CertSyncer caches synced file %q created.", c.cachesSyncedFile)
+
+		err = f.Close()
+		if err != nil {
+			klog.Error(err)
+		}
+	}
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)

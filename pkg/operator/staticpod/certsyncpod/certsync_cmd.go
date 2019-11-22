@@ -20,9 +20,10 @@ import (
 )
 
 type CertSyncControllerOptions struct {
-	KubeConfigFile string
-	Namespace      string
-	DestinationDir string
+	KubeConfigFile   string
+	Namespace        string
+	DestinationDir   string
+	CachesSyncedFile string
 
 	configMaps []revision.RevisionResource
 	secrets    []revision.RevisionResource
@@ -33,8 +34,9 @@ type CertSyncControllerOptions struct {
 
 func NewCertSyncControllerCommand(configmaps, secrets []revision.RevisionResource) *cobra.Command {
 	o := &CertSyncControllerOptions{
-		configMaps: configmaps,
-		secrets:    secrets,
+		configMaps:       configmaps,
+		secrets:          secrets,
+		CachesSyncedFile: "",
 	}
 
 	cmd := &cobra.Command{
@@ -52,6 +54,7 @@ func NewCertSyncControllerCommand(configmaps, secrets []revision.RevisionResourc
 	cmd.Flags().StringVar(&o.DestinationDir, "destination-dir", o.DestinationDir, "Directory to write to")
 	cmd.Flags().StringVarP(&o.Namespace, "namespace", "n", o.Namespace, "Namespace to read from (default to 'POD_NAMESPACE' environment variable)")
 	cmd.Flags().StringVar(&o.KubeConfigFile, "kubeconfig", o.KubeConfigFile, "Location of the master configuration file to run from.")
+	cmd.Flags().StringVar(&o.CachesSyncedFile, "caches-synced-file", o.CachesSyncedFile, "Name of the file to create when informer caches are synced. (Helpful for e.g. readiness probe.)")
 	cmd.Flags().StringVar(&o.tlsServerNameOverride, "tls-server-name-override", o.tlsServerNameOverride, "Server name override used by TLS to negotiate the serving cert via SNI.")
 
 	return cmd
@@ -89,6 +92,7 @@ func (o *CertSyncControllerOptions) Run() error {
 		o.kubeClient,
 		kubeInformers,
 		eventRecorder,
+		o.CachesSyncedFile,
 	)
 	if err != nil {
 		return err
