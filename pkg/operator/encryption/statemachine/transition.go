@@ -206,7 +206,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	}
 
 	//
-	// STEP 4: with consistent read-keys and write-keys, remove every read-key other than the write-key.
+	// STEP 4: with consistent read-keys and write-keys, remove every read-key other than the write-key and one last read key.
 	//
 	// Note: because read-keys are consistent, currentlyEncryptedGRs equals toBeEncryptedGRs
 	allMigrated, _, reason := state.MigratedFor(currentlyEncryptedGRs, writeKey)
@@ -214,9 +214,13 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		klog.V(4).Infof(reason)
 		return desiredEncryptionState
 	}
+	writeAndLastReadKey := []state.KeyState{writeKey}
+	if len(backedKeys) >= 2 {
+		writeAndLastReadKey = append(writeAndLastReadKey, backedKeys[1])
+	}
 	for gr := range desiredEncryptionState {
 		grState := desiredEncryptionState[gr]
-		grState.ReadKeys = []state.KeyState{writeKey}
+		grState.ReadKeys = writeAndLastReadKey
 		desiredEncryptionState[gr] = grState
 	}
 	klog.V(4).Infof("write key %s set as sole write key", writeKey.Key.Name)

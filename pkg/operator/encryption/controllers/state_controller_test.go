@@ -345,6 +345,10 @@ func TestStateController(t *testing.T) {
 							Name:   "34",
 							Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
 						},
+						{
+							Name:   "33",
+							Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
+						},
 					},
 				}
 				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
