@@ -78,7 +78,7 @@ func (c *conditionController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	currentConfig, desiredState, _, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil || len(transitioningReason) > 0 {
 		return err
 	}
@@ -86,28 +86,34 @@ func (c *conditionController) sync() error {
 	cond := operatorv1.OperatorCondition{
 		Type:    "Encrypted",
 		Status:  operatorv1.ConditionTrue,
-		Reason:  "EncryptionComplete",
-		Message: fmt.Sprintf("Resources all encrypted: %s", grString(c.encryptedGRs)),
+		Reason:  "EncryptionCompleted",
+		Message: fmt.Sprintf("All resources encrypted: %s", grString(c.encryptedGRs)),
 	}
-	currentState := encryptionconfig.ToEncryptionState(currentConfig)
+	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
 
-	// check for identity key in desired state first. This will make us catch upcoming decryption early before
-	// it settles into the current config.
-	for _, s := range desiredState {
-		if s.WriteKey.Mode != state.Identity {
-			continue
-		}
+	if len(foundSecrets) == 0 {
+		cond.Status = operatorv1.ConditionFalse
+		cond.Reason = "EncryptionDisabled"
+		cond.Message = "Encryption is not enabled"
+	} else {
+		// check for identity key in desired state first. This will make us catch upcoming decryption early before
+		// it settles into the current config.
+		for _, s := range desiredState {
+			if s.WriteKey.Mode != state.Identity {
+				continue
+			}
 
-		if allMigrated(c.encryptedGRs, s.WriteKey.Migrated.Resources) {
-			cond.Status = operatorv1.ConditionFalse
-			cond.Reason = "EverythingDecrypted"
-			cond.Message = "Encryption mode set to identity and everything is decrypted"
-		} else {
-			cond.Status = operatorv1.ConditionFalse
-			cond.Reason = "EncryptionBeingDisabled"
-			cond.Message = "Encryption mode set to identity and decryption is not finished"
+			if allMigrated(c.encryptedGRs, s.WriteKey.Migrated.Resources) {
+				cond.Status = operatorv1.ConditionFalse
+				cond.Reason = "DecryptionCompleted"
+				cond.Message = "Encryption mode set to identity and everything is decrypted"
+			} else {
+				cond.Status = operatorv1.ConditionFalse
+				cond.Reason = "DecryptionInProgress"
+				cond.Message = "Encryption mode set to identity and decryption is not finished"
+			}
+			break
 		}
-		break
 	}
 	if cond.Status == operatorv1.ConditionTrue {
 		// now that the desired state look like it won't lead to identity as write-key, test the current state
@@ -116,7 +122,7 @@ func (c *conditionController) sync() error {
 			s, ok := currentState[gr]
 			if !ok {
 				cond.Status = operatorv1.ConditionFalse
-				cond.Reason = "EncryptionIncomplete"
+				cond.Reason = "EncryptionInProgress"
 				cond.Message = fmt.Sprintf("Resource %s is not encrypted", gr.String())
 				break NextResource
 			}
@@ -124,11 +130,11 @@ func (c *conditionController) sync() error {
 			if s.WriteKey.Mode == state.Identity {
 				if allMigrated(c.encryptedGRs, s.WriteKey.Migrated.Resources) {
 					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "EverythingDecrypted"
+					cond.Reason = "DecryptionCompleted"
 					cond.Message = "Encryption mode set to identity and everything is decrypted"
 				} else {
 					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "EncryptionBeingDisabled"
+					cond.Reason = "DecryptionInProgress"
 					cond.Message = "Encryption mode set to identity and decryption is not finished"
 				}
 				break
@@ -139,7 +145,7 @@ func (c *conditionController) sync() error {
 			for _, rk := range s.ReadKeys {
 				if rk.Mode == state.Identity {
 					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "EncryptionBeingEnabled"
+					cond.Reason = "EncryptionInProgress"
 					cond.Message = "Encryption is ongoing"
 					break NextResource
 				}
@@ -149,7 +155,7 @@ func (c *conditionController) sync() error {
 			}
 
 			cond.Status = operatorv1.ConditionFalse
-			cond.Reason = "EncryptionUnfinished"
+			cond.Reason = "EncryptionInProgress"
 			cond.Message = fmt.Sprintf("Resource %s is being encrypted", gr.String())
 			break
 		}
