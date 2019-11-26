@@ -171,6 +171,46 @@ func TestEncryptionIntegration(tt *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+	conditionStatus := func(condType string) operatorv1.ConditionStatus {
+		_, status, _, err := operatorClient.GetOperatorState()
+		require.NoError(t, err)
+
+		for _, c := range status.Conditions {
+			if c.Type != condType {
+				continue
+			}
+			return c.Status
+		}
+		return operatorv1.ConditionUnknown
+	}
+	requireConditionStatus := func(condType string, expected operatorv1.ConditionStatus) {
+		t.Helper()
+		if status := conditionStatus(condType); status != expected {
+			t.Errorf("expected condition %s of status %s, found: %q", condType, expected, status)
+		}
+	}
+	waitForConditionStatus := func(condType string, expected operatorv1.ConditionStatus) {
+		t.Helper()
+		err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+			return conditionStatus(condType) == expected, nil
+		})
+		require.NoError(t, err)
+	}
+	waitForMigration := func(key string) {
+		t.Helper()
+		err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+			s, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(fmt.Sprintf("encryption-key-%s-%s", component, key), metav1.GetOptions{})
+			require.NoError(t, err)
+
+			ks, err := secrets.ToKeyState(s)
+			require.NoError(t, err)
+			return len(ks.Migrated.Resources) == 2, nil
+		})
+		require.NoError(t, err)
+	}
+
+	t.Logf("Wait for initial Encrypted condition")
+	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
 
 	t.Logf("Enable encryption, mode aescbc")
 	_, err = fakeApiServerClient.Patch("cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc"}}}`))
@@ -198,6 +238,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=identity,aescbc:1;kubeschedulers.operator.openshift.io=identity,aescbc:1",
 		"kubeapiservers.operator.openshift.io=aescbc:1,identity;kubeschedulers.operator.openshift.io=aescbc:1,identity",
 	)
+	waitForMigration("1")
+	requireConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Switch to identity")
 	_, err = fakeApiServerClient.Patch("cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"identity"}}}`))
@@ -208,12 +250,14 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=identity,aescbc:1,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aescbc:1,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=identity,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aesgcm:2",
 	)
+	requireConditionStatus("Encrypted", operatorv1.ConditionFalse)
 
 	t.Logf("Switch to empty mode")
 	_, err = fakeApiServerClient.Patch("cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":""}}}`))
 	require.NoError(t, err)
-	time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second) // give controller time to create keys (it shouldn't)
 	waitForKeys(2)
+	requireConditionStatus("Encrypted", operatorv1.ConditionFalse)
 
 	t.Logf("Switch to aescbc again")
 	_, err = fakeApiServerClient.Patch("cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc"}}}`))
@@ -224,6 +268,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=aescbc:3,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:3,identity,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=aescbc:3,identity;kubeschedulers.operator.openshift.io=aescbc:3,identity",
 	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Setting external reason")
 	setExternalReason := func(reason string) {
@@ -265,6 +310,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:5,identity",
 		"kubeapiservers.operator.openshift.io=aescbc:6,identity;kubeschedulers.operator.openshift.io=aescbc:6,identity",
 	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Delete the last key")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(fmt.Sprintf("encryption-key-%s-6", component), types.JSONPatchType, []byte(`[{"op":"remove","path":"/metadata/finalizers"}]`))
@@ -290,6 +336,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity",
 		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
 	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Delete the openshift-config-managed config")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(fmt.Sprintf("encryption-config-%s", component), types.JSONPatchType, []byte(`[{"op":"remove","path":"/metadata/finalizers"}]`))
@@ -299,6 +346,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForConfigs(
 		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
 	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Delete the openshift-config-managed config")
 	deployer.DeleteOperandConfig()
@@ -307,6 +355,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=identity,aescbc:7;kubeschedulers.operator.openshift.io=identity,aescbc:7",
 		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
 	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 }
 
 const encryptionTestOperatorCRD = `
