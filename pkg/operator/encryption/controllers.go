@@ -84,6 +84,15 @@ func NewControllers(
 				eventRecorder,
 				encryptedGRs,
 			),
+			controllers.NewConditionController(
+				deployer,
+				operatorClient,
+				kubeInformersForNamespaces,
+				secretsClient,
+				encryptionSecretSelector,
+				eventRecorder,
+				encryptedGRs,
+			),
 		},
 	}, nil
 }
