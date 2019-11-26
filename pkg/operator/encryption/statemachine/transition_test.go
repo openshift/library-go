@@ -864,8 +864,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
+									Name:   "3",
+									Secret: base64.StdEncoding.EncodeToString([]byte("3bc2bdbc2bec2ebce7b27ce792639723")),
+								}},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
 									Name:   "2",
-									Secret: base64.StdEncoding.EncodeToString([]byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
 								}},
 							},
 						}, {
@@ -883,8 +890,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
+									Name:   "3",
+									Secret: base64.StdEncoding.EncodeToString([]byte("3bc2bdbc2bec2ebce7b27ce792639723")),
+								}},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
 									Name:   "2",
-									Secret: base64.StdEncoding.EncodeToString([]byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
 								}},
 							},
 						}, {
@@ -902,7 +916,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
-					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723"), time.Now()),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 3, []byte("3bc2bdbc2bec2ebce7b27ce792639723"), time.Now()),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -913,8 +928,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
+									Name:   "3",
+									Secret: base64.StdEncoding.EncodeToString([]byte("3bc2bdbc2bec2ebce7b27ce792639723")),
+								}},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
 									Name:   "2",
-									Secret: base64.StdEncoding.EncodeToString([]byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
 								}},
 							},
 						}, {
@@ -926,8 +948,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
+									Name:   "3",
+									Secret: base64.StdEncoding.EncodeToString([]byte("3bc2bdbc2bec2ebce7b27ce792639723")),
+								}},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
 									Name:   "2",
-									Secret: base64.StdEncoding.EncodeToString([]byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
 								}},
 							},
 						}, {
