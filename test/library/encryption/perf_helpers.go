@@ -152,7 +152,7 @@ func DBLoaderRepeatParallel(times int, workers int, genNamespaceName bool, workT
 		wg := sync.WaitGroup{}
 		workPerWorker := times / workers
 		for w := 0; w < workers; w++ {
-			work := func(wg sync.WaitGroup) {
+			work := func() {
 				defer wg.Done()
 				for i := 0; i < workPerWorker; i++ {
 					if genNamespaceName {
@@ -164,7 +164,7 @@ func DBLoaderRepeatParallel(times int, workers int, genNamespaceName bool, workT
 				}
 			}
 			wg.Add(1)
-			go work(wg)
+			go work()
 		}
 		wg.Wait()
 		return nil
