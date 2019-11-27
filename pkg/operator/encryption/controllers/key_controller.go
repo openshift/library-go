@@ -309,9 +309,9 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return latestKeyID, fmt.Sprintf("encryption-config-key-%d-not-backed-by-secret", latestKeyID), true
 	}
 
-	// if the length of read secrets is more than one (i.e. we have more than just the write key),
+	// if the length of read secrets is more than two (i.e. we have more than just the write key and a previous read key),
 	// then we haven't successfully migrated and removed old keys so you should wait before generating more keys.
-	if len(grKeys.ReadKeys) > 1 {
+	if len(grKeys.ReadKeys) > 2 {
 		return 0, "", false
 	}
 
