@@ -114,7 +114,7 @@ func TestKeyController(t *testing.T) {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
 						expectedSecret := encryptiontesting.CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 1, actualSecret)
-						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "no-secrets" // TODO: Fix this
+						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "secrets-key-does-not-exist" // TODO: Fix this
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
 						}
@@ -192,7 +192,7 @@ func TestKeyController(t *testing.T) {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
 						expectedSecret := encryptiontesting.CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 6, actualSecret)
-						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "timestamp-too-old"
+						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "secrets-rotation-interval-has-passed"
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
 						}
