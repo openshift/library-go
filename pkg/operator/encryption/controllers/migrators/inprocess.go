@@ -62,7 +62,7 @@ func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey st
 
 	// different key?
 	if migration != nil && migration.result == nil {
-		klog.V(4).Infof("interrupting running migration for resource %v and write key %q", gr, migration.writeKey)
+		klog.V(2).Infof("Interrupting running migration for resource %v and write key %q", gr, migration.writeKey)
 		close(migration.stopCh)
 
 		// give go routine time to update the result
@@ -135,8 +135,8 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 				klog.Warningf("Update of %s/%s failed: %v", obj.GetNamespace(), obj.GetName(), updateErr)
 				return updateErr // not retryable or we don't know. Return error and controller will restart migration.
 			}
-			if seconds, delay := errors.SuggestsClientDelay(updateErr); delay {
-				klog.V(4).Infof("Sleeping %ds while updating %s/%s of type %v after retryable error: %v", seconds, obj.GetNamespace(), obj.GetName(), gvr, updateErr)
+			if seconds, delay := errors.SuggestsClientDelay(updateErr); delay && seconds > 0 {
+				klog.V(2).Infof("Sleeping %ds while updating %s/%s of type %v after retryable error: %v", seconds, obj.GetNamespace(), obj.GetName(), gvr, updateErr)
 				time.Sleep(time.Duration(seconds) * time.Second)
 			}
 		}
