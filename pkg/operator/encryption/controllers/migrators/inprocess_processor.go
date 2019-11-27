@@ -59,7 +59,7 @@ func (p *listProcessor) Run(gvr schema.GroupVersionResource) error {
 						return nil, err
 					}
 					opts.Continue = token
-					klog.V(4).Infof("Relisting %v after handling expired token", gvr)
+					klog.V(2).Infof("Relisting %v after handling expired token", gvr)
 					continue
 				} else if retryable := canRetry(err); retryable == nil || *retryable == false {
 					return nil, err // not retryable or we don't know. Return error and controller will restart migration.
@@ -67,18 +67,18 @@ func (p *listProcessor) Run(gvr schema.GroupVersionResource) error {
 					if seconds, delay := errors.SuggestsClientDelay(err); delay {
 						time.Sleep(time.Duration(seconds) * time.Second)
 					}
-					klog.V(4).Infof("Relisting %v after retryable error: %v", gvr, err)
+					klog.V(2).Infof("Relisting %v after retryable error: %v", gvr, err)
 					continue
 				}
 			}
 
 			migrationStarted := time.Now()
-			klog.V(4).Infof("Migrating %d objects of %v", len(allResource.Items), gvr)
+			klog.V(2).Infof("Migrating %d objects of %v", len(allResource.Items), gvr)
 			if err = p.processList(allResource); err != nil {
 				klog.Warningf("Migration of %v failed after %v: %v", gvr, time.Now().Sub(migrationStarted), err)
 				return nil, err
 			}
-			klog.V(4).Infof("Migration of %d objects of %v finished in %v", len(allResource.Items), gvr, time.Now().Sub(migrationStarted))
+			klog.V(2).Infof("Migration of %d objects of %v finished in %v", len(allResource.Items), gvr, time.Now().Sub(migrationStarted))
 
 			allResource.Items = nil // do not accumulate items, this fakes the visitor pattern
 			return allResource, nil // leave the rest of the list intact to preserve continue token
@@ -90,7 +90,7 @@ func (p *listProcessor) Run(gvr schema.GroupVersionResource) error {
 	if _, err := listPager.List(p.ctx, metav1.ListOptions{}); err != nil {
 		return err
 	}
-	klog.V(4).Infof("Migration for %v finished in %v", gvr, time.Now().Sub(migrationStarted))
+	klog.V(2).Infof("Migration for %v finished in %v", gvr, time.Now().Sub(migrationStarted))
 	return nil
 }
 
