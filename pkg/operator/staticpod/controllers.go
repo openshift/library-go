@@ -1,6 +1,7 @@
 package staticpod
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -24,8 +25,7 @@ import (
 )
 
 type RunnableController interface {
-	// TODO: Move this to ctx.Context
-	Run(workers int, stopCh <-chan struct{})
+	Run(ctx context.Context, workers int)
 }
 
 type staticPodOperatorControllerBuilder struct {
@@ -153,7 +153,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 	operandInformers := b.kubeInformers.InformersFor(b.operandNamespace)
 	clusterInformers := b.kubeInformers.InformersFor("")
 
-	errs := []error{}
+	var errs []error
 
 	if len(b.operandNamespace) > 0 {
 		controllers.add(revisioncontroller.NewRevisionController(
@@ -274,10 +274,10 @@ func (o *staticPodOperatorControllers) add(controller RunnableController) {
 	o.controllers = append(o.controllers, controller)
 }
 
-func (o *staticPodOperatorControllers) Run(workers int, stopCh <-chan struct{}) {
+func (o *staticPodOperatorControllers) Run(ctx context.Context, workers int) {
 	for i := range o.controllers {
-		go o.controllers[i].Run(workers, stopCh)
+		go o.controllers[i].Run(ctx, workers)
 	}
 
-	<-stopCh
+	<-ctx.Done()
 }
