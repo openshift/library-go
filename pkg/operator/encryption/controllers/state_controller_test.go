@@ -119,7 +119,15 @@ func TestStateController(t *testing.T) {
 				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -249,7 +257,15 @@ func TestStateController(t *testing.T) {
 				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -443,8 +459,15 @@ func TestStateController(t *testing.T) {
 				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed",
-				"create:events:kms", "create:events:kms"},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
 				for _, action := range actions {

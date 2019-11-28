@@ -143,7 +143,7 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (c *keyController) checkAndCreateKeys() error {
 	}
 
 	// avoid intended start of encryption
-	hasBeenOnBefore := currentConfig != nil || secretsFound
+	hasBeenOnBefore := currentConfig != nil || len(secrets) > 0
 	if currentMode == state.Identity && !hasBeenOnBefore {
 		return nil
 	}

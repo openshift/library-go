@@ -110,7 +110,7 @@ type eventWithReason struct {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error 
 		return nil
 	}
 
-	if currentConfig == nil && !secretsFound {
+	if currentConfig == nil && len(encryptionSecrets) == 0 {
 		// we depend on the key controller to create the first key to bootstrap encryption.
 		// Later-on either the config exists or there are keys, even in the case of disabled
 		// encryption via the apiserver config.
@@ -131,7 +131,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error 
 		return err
 	}
 
-	currentEncryptionConfig := encryptionconfig.ToEncryptionState(currentConfig)
+	currentEncryptionConfig, _ := encryptionconfig.ToEncryptionState(currentConfig, encryptionSecrets)
 	if actionEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState); len(actionEvents) > 0 {
 		for _, event := range actionEvents {
 			c.eventRecorder.Eventf(event.reason, event.message)

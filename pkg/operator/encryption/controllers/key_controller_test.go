@@ -19,6 +19,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
