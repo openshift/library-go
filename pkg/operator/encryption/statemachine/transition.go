@@ -113,7 +113,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		// potentially persisted data keys.
 		currentlyEncryptedGRs = toBeEncryptedGRs
 	}
-	expectedReadSecrets := state.KeysWithPotentiallyPersistedData(currentlyEncryptedGRs, backedKeys)
+	expectedReadSecrets := state.KeysWithPotentiallyPersistedDataAndNextReadKey(currentlyEncryptedGRs, backedKeys)
 	for gr, grState := range desiredEncryptionState {
 		changed := false
 		for _, expected := range expectedReadSecrets {
@@ -126,7 +126,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 			}
 			if !found {
 				// Just adding raw key without trusting any metadata on it
-				grState.ReadKeys = append(grState.ReadKeys, expected)
+				grState.ReadKeys = state.SortRecentFirst(append(grState.ReadKeys, expected)) // sort into right position
 				changed = true
 				allReadSecretsAsExpected = false
 				klog.V(4).Infof("encrypted resource %s misses read key %s", gr, expected.Key.Name)
@@ -178,13 +178,22 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		klog.V(4).Infof(reason)
 		return desiredEncryptionState
 	}
-	writeAndLastReadKey := []state.KeyState{writeKey}
-	if len(backedKeys) >= 2 {
-		writeAndLastReadKey = append(writeAndLastReadKey, backedKeys[1])
-	}
 	for gr := range desiredEncryptionState {
 		grState := desiredEncryptionState[gr]
-		grState.ReadKeys = writeAndLastReadKey
+
+		// cut down read keys to all expected read keys, and everything in between
+		if len(expectedReadSecrets) == 0 {
+			grState.ReadKeys = []state.KeyState{}
+		} else {
+			lastExpected := expectedReadSecrets[len(expectedReadSecrets)-1]
+			for i, rk := range grState.ReadKeys {
+				if state.EqualKeyAndEqualID(&rk, &lastExpected) {
+					grState.ReadKeys = grState.ReadKeys[:i+1]
+					break
+				}
+			}
+		}
+
 		desiredEncryptionState[gr] = grState
 	}
 	klog.V(4).Infof("write key %s set as sole write key", writeKey.Key.Name)
