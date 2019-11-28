@@ -206,7 +206,6 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForConfigs(
 		"kubeapiservers.operator.openshift.io=aescbc:1,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:1,identity,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=identity,aescbc:1,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aescbc:1,aesgcm:2",
-		"kubeapiservers.operator.openshift.io=identity,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aesgcm:2",
 	)
 
 	t.Logf("Switch to empty mode")
@@ -220,9 +219,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	waitForKeys(3)
 	waitForConfigs(
-		"kubeapiservers.operator.openshift.io=identity,aescbc:3,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aescbc:3,aesgcm:2",
+		"kubeapiservers.operator.openshift.io=identity,aescbc:3,aescbc:1,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aescbc:3,aescbc:1,aesgcm:2",
+		"kubeapiservers.operator.openshift.io=aescbc:3,aescbc:1,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:3,aescbc:1,identity,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=aescbc:3,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:3,identity,aesgcm:2",
-		"kubeapiservers.operator.openshift.io=aescbc:3,identity;kubeschedulers.operator.openshift.io=aescbc:3,identity",
 	)
 
 	t.Logf("Setting external reason")
@@ -242,18 +241,18 @@ func TestEncryptionIntegration(tt *testing.T) {
 	setExternalReason("a")
 	waitForKeys(4)
 	waitForConfigs(
-		"kubeapiservers.operator.openshift.io=aescbc:3,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:3,aescbc:4,identity",
+		"kubeapiservers.operator.openshift.io=aescbc:3,aescbc:4,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:3,aescbc:4,identity,aesgcm:2",
+		"kubeapiservers.operator.openshift.io=aescbc:4,aescbc:3,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:4,aescbc:3,identity,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=aescbc:4,aescbc:3,identity;kubeschedulers.operator.openshift.io=aescbc:4,aescbc:3,identity",
-		"kubeapiservers.operator.openshift.io=aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:4,identity",
 	)
 
 	t.Logf("Setting another external reason")
 	setExternalReason("b")
 	waitForKeys(5)
 	waitForConfigs(
-		"kubeapiservers.operator.openshift.io=aescbc:4,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:4,aescbc:5,identity",
+		"kubeapiservers.operator.openshift.io=aescbc:4,aescbc:5,aescbc:3,identity;kubeschedulers.operator.openshift.io=aescbc:4,aescbc:5,aescbc:3,identity",
+		"kubeapiservers.operator.openshift.io=aescbc:5,aescbc:4,aescbc:3,identity;kubeschedulers.operator.openshift.io=aescbc:5,aescbc:4,aescbc:3,identity",
 		"kubeapiservers.operator.openshift.io=aescbc:5,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:5,aescbc:4,identity",
-		"kubeapiservers.operator.openshift.io=aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:5,identity",
 	)
 
 	t.Logf("Expire the last key")
@@ -261,9 +260,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	waitForKeys(6)
 	waitForConfigs(
-		"kubeapiservers.operator.openshift.io=aescbc:5,aescbc:6,identity;kubeschedulers.operator.openshift.io=aescbc:5,aescbc:6,identity",
+		"kubeapiservers.operator.openshift.io=aescbc:5,aescbc:6,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:5,aescbc:6,aescbc:4,identity",
+		"kubeapiservers.operator.openshift.io=aescbc:6,aescbc:5,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:5,aescbc:4,identity",
 		"kubeapiservers.operator.openshift.io=aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:5,identity",
-		"kubeapiservers.operator.openshift.io=aescbc:6,identity;kubeschedulers.operator.openshift.io=aescbc:6,identity",
 	)
 
 	t.Logf("Delete the last key")
@@ -283,12 +282,14 @@ func TestEncryptionIntegration(tt *testing.T) {
 	//   kubeapiservers.operator.openshift.io=aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:5,identity
 	// but eventually we get the following:
 	waitForConfigEventually(
-		// 6 as preserved config key, 7 as newly created key, and 5 as fully migrated key
-		"kubeapiservers.operator.openshift.io=aescbc:6,aescbc:7,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:7,aescbc:5,identity",
+		// 6 as preserved, unbacked config key, 7 as newly created key, and 5 as fully migrated key
+		"kubeapiservers.operator.openshift.io=aescbc:6,aescbc:7,aescbc:5,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:6,aescbc:7,aescbc:5,aescbc:4,identity",
 	)
 	waitForConfigs(
+		// 7 is promoted
+		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,aescbc:4,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,aescbc:4,identity",
+		// 7 is migrated, plus one more backed key, which is 5 (6 is deleted)
 		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity",
-		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
 	)
 
 	t.Logf("Delete the openshift-config-managed config")
@@ -297,7 +298,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	err = kubeClient.CoreV1().Secrets("openshift-config-managed").Delete(fmt.Sprintf("encryption-config-%s", component), nil)
 	require.NoError(t, err)
 	waitForConfigs(
-		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
+		// one migrated read-key (7) and one more backed key (5), and everything in between (6)
+		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:6,aescbc:5,identity",
 	)
 
 	t.Logf("Delete the openshift-config-managed config")
@@ -305,7 +307,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForConfigs(
 		// 7 is migrated and hence only one needed, but we rotate through identity
 		"kubeapiservers.operator.openshift.io=identity,aescbc:7;kubeschedulers.operator.openshift.io=identity,aescbc:7",
-		"kubeapiservers.operator.openshift.io=aescbc:7,identity;kubeschedulers.operator.openshift.io=aescbc:7,identity",
+		// 7 is migrated, plus one backed key (5). 6 is deleted, and therefore is not preserved (would be if the operand config was not deleted)
+		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:5,identity",
 	)
 }
 

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
+	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -207,6 +209,48 @@ func TestKeyController(t *testing.T) {
 				if !wasSecretValidated {
 					ts.Errorf("the secret wasn't created and validated")
 				}
+			},
+		},
+
+		{
+			name: "create a new write key when the previous key expired and another read key exists",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("51def964fb967f5d7c44a2af8dab6865")),
+				func() *corev1.Secret {
+					keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
+						Resource: "secrets",
+						Keys: []apiserverconfigv1.Key{
+							{
+								Name:   "6",
+								Secret: base64.StdEncoding.EncodeToString([]byte("61def964fb967f5d7c44a2af8dab6865")),
+							},
+							{
+								Name:   "5",
+								Secret: base64.StdEncoding.EncodeToString([]byte("51def964fb967f5d7c44a2af8dab6865")),
+							},
+						},
+					}
+
+					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysResForSecrets})
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs.APIVersion = corev1.SchemeGroupVersion.String()
+
+					return ecs
+				}(),
+			},
+			apiServerObjects: apiServerAesCBC,
+			targetNamespace:  "kms",
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
 			},
 		},
 
