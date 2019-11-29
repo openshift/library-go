@@ -356,6 +356,14 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 									Secret: base64.StdEncoding.EncodeToString([]byte("3cbfbe7d76876e076b076c659cd895ff")),
 								}},
 							},
+						}, {
+							// one more read key for backup/recovery
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
+								}},
+							},
 						}},
 					},
 					{
@@ -381,6 +389,14 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 								Keys: []apiserverconfigv1.Key{{
 									Name:   "3",
 									Secret: base64.StdEncoding.EncodeToString([]byte("3cbfbe7d76876e076b076c659cd895ff")),
+								}},
+							},
+						}, {
+							// one more read key for backup/recovery
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
 								}},
 							},
 						}},
@@ -484,6 +500,14 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 								}},
 							},
 						}, {
+							// one more read key for backup/recovery
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
+								}},
+							},
+						}, {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					},
@@ -508,6 +532,14 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 								Keys: []apiserverconfigv1.Key{{
 									Name:   "3",
 									Secret: base64.StdEncoding.EncodeToString([]byte("3cbfbe7d76876e076b076c659cd895ff")),
+								}},
+							},
+						}, {
+							// one more read key for backup/recovery
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
 								}},
 							},
 						}, {
