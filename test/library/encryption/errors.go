@@ -17,6 +17,7 @@ limitations under the License.
 package encryption
 
 import (
+	gonet "net"
 	"strings"
 	"time"
 
@@ -31,13 +32,21 @@ func isConnectionRefusedError(err error) bool {
 	return strings.Contains(err.Error(), "connection refused")
 }
 
+func isGolangNetTimeout(err error) bool {
+	if err, ok := err.(*gonet.OpError); !ok {
+		return false
+	} else {
+		return err.Timeout() || err.Temporary()
+	}
+}
+
 // transientAPIError returns true if the provided error indicates that a retry
 // against an HA server has a good chance to succeed.
 func transientAPIError(err error) bool {
 	switch {
 	case err == nil:
 		return false
-	case errors.IsServerTimeout(err), errors.IsTooManyRequests(err), net.IsProbableEOF(err), net.IsConnectionReset(err), net.IsNoRoutesError(err), isConnectionRefusedError(err):
+	case errors.IsServerTimeout(err), errors.IsTooManyRequests(err), net.IsProbableEOF(err), net.IsConnectionReset(err), net.IsNoRoutesError(err), isConnectionRefusedError(err), isGolangNetTimeout(err):
 		return true
 	default:
 		return false
