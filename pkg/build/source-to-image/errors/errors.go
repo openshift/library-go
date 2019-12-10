@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/openshift/source-to-image/pkg/api/constants"
-	utillog "github.com/openshift/source-to-image/pkg/util/log"
+	utillog "github.com/openshift/library-go/pkg/build/source-to-image/log"
 )
 
 // Common S2I errors
@@ -173,7 +172,7 @@ func NewInstallError(script string) error {
 		Message:    fmt.Sprintf("failed to install %v", script),
 		Details:    nil,
 		ErrorCode:  InstallError,
-		Suggestion: fmt.Sprintf("set the scripts URL parameter with the location of the S2I scripts, or check if the image has the %q label set", constants.ScriptsURLLabel),
+		Suggestion: fmt.Sprintf("set the scripts URL parameter with the location of the S2I scripts, or check if the image has the %q label set", "io.openshift.s2i.scripts-url"),
 	}
 }
 
@@ -184,7 +183,7 @@ func NewInstallRequiredError(scripts []string, label string) error {
 		Message:    fmt.Sprintf("failed to install %v", scripts),
 		Details:    nil,
 		ErrorCode:  InstallErrorRequired,
-		Suggestion: fmt.Sprintf("set the scripts URL parameter with the location of the S2I scripts, or check if the image has the %q label set", constants.ScriptsURLLabel),
+		Suggestion: fmt.Sprintf("set the scripts URL parameter with the location of the S2I scripts, or check if the image has the %q label set", "io.openshift.s2i.scripts-url"),
 	}
 }
 
@@ -247,8 +246,8 @@ func NewAssembleUserNotAllowedError(image string, usesConfig bool) error {
 		msg = "assemble user must be numeric and within the range of allowed users"
 		suggestion = "build without the allowed UIDs or assemble user configurations set"
 	} else {
-		msg = fmt.Sprintf("image %q includes the %q label whose value is not within the allowed range", image, constants.AssembleUserLabel)
-		suggestion = fmt.Sprintf("modify the %q label in image %q to use a numeric user within the allowed range, or build without the allowed UIDs configuration set", constants.AssembleUserLabel, image)
+		msg = fmt.Sprintf("image %q includes the %q label whose value is not within the allowed range", image, "io.openshift.s2i.assemble-user")
+		suggestion = fmt.Sprintf("modify the %q label in image %q to use a numeric user within the allowed range, or build without the allowed UIDs configuration set", "io.openshift.s2i.assemble-user", image)
 	}
 	return Error{
 		Message:    msg,
