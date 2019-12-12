@@ -22,14 +22,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
+	"github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
-	"github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/fake"
 )
 
 func staleStorageState() *v1alpha1.StorageState {
@@ -41,7 +40,7 @@ func staleStorageState() *v1alpha1.StorageState {
 			Resource: v1alpha1.GroupResource{Resource: "pods"},
 		},
 		Status: v1alpha1.StorageStateStatus{
-			LastHeartbeatTime: metav1.Time{Time: metav1.Now().Add(-3 * discoveryPeriod)},
+			LastHeartbeatTime: metav1.Time{metav1.Now().Add(-3 * discoveryPeriod)},
 		},
 	}
 }
@@ -57,7 +56,7 @@ func freshStorageState() *v1alpha1.StorageState {
 		Status: v1alpha1.StorageStateStatus{
 			CurrentStorageVersionHash:     "newhash",
 			PersistedStorageVersionHashes: []string{"newhash"},
-			LastHeartbeatTime:             metav1.Time{Time: metav1.Now().Add(-1 * discoveryPeriod)},
+			LastHeartbeatTime:             metav1.Time{metav1.Now().Add(-1 * discoveryPeriod)},
 		},
 	}
 }
@@ -73,7 +72,7 @@ func freshStorageStateWithOldHash() *v1alpha1.StorageState {
 		Status: v1alpha1.StorageStateStatus{
 			CurrentStorageVersionHash:     "oldhash",
 			PersistedStorageVersionHashes: []string{"oldhash"},
-			LastHeartbeatTime:             metav1.Time{Time: metav1.Now().Add(-1 * discoveryPeriod)},
+			LastHeartbeatTime:             metav1.Time{metav1.Now().Add(-1 * discoveryPeriod)},
 		},
 	}
 }

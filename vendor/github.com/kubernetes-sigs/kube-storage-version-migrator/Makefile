@@ -1,14 +1,70 @@
-all: build
+# Copyright 2018 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+REGISTRY ?= gcr.io/google-containers
+VERSION ?= v0.1
+NAMESPACE ?= kube-system
+DELETE ?= "gcloud container images delete"
+
+.PHONY: test
+test:
+	go test ./pkg/...
+
 .PHONY: all
+all:
+ifeq ($(WHAT),)
+	go install github.com/kubernetes-sigs/kube-storage-version-migrator/cmd/...
+else
+	go install github.com/kubernetes-sigs/kube-storage-version-migrator/$(WHAT)
+endif
 
-GO_BUILD_PACKAGES :=./cmd/migrator
-GO_TEST_PACKAGES :=./pkg/...
+.PHONY: all-containers
+all-containers:
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/version.VERSION=$(VERSION)" -a -installsuffix cgo -o cmd/initializer/initializer ./cmd/initializer
+	docker build --no-cache -t $(REGISTRY)/storage-version-migration-initializer:$(VERSION) cmd/initializer
+	rm cmd/initializer/initializer
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/version.VERSION=$(VERSION)" -a -installsuffix cgo -o cmd/migrator/migrator ./cmd/migrator
+	docker build --no-cache -t $(REGISTRY)/storage-version-migration-migrator:$(VERSION) cmd/migrator
+	rm cmd/migrator/migrator
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/version.VERSION=$(VERSION)" -a -installsuffix cgo -o cmd/trigger/trigger ./cmd/trigger
+	docker build --no-cache -t $(REGISTRY)/storage-version-migration-trigger:$(VERSION) cmd/trigger
+	rm cmd/trigger/trigger
 
-include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
-	golang.mk \
-	targets/openshift/images.mk \
-)
+.PHONY: e2e-test
+e2e-test:
+	CGO_ENABLED=0 GOOS=linux go test -c -o ./test/e2e/e2e.test ./test/e2e
 
-IMAGE_REGISTRY :=registry.svc.ci.openshift.org
-$(call build-image,migrator,$(IMAGE_REGISTRY)/ocp/4.3:migrator,./images/ci/Dockerfile,.)
+.PHONY: local-manifests
+local-manifests:
+	mkdir -p manifests.local
+	cp manifests/* manifests.local/
+	find ./manifests.local -type f -exec sed -i -e "s|REGISTRY|$(REGISTRY)|g" {} \;
+	find ./manifests.local -type f -exec sed -i -e "s|VERSION|$(VERSION)|g" {} \;
+	find ./manifests.local -type f -exec sed -i -e "s|NAMESPACE|$(NAMESPACE)|g" {} \;
 
+.PHONY: all-containers
+push-all: all-containers
+	docker push $(REGISTRY)/storage-version-migration-initializer:$(VERSION)
+	docker push $(REGISTRY)/storage-version-migration-migrator:$(VERSION)
+	docker push $(REGISTRY)/storage-version-migration-trigger:$(VERSION)
+
+.PHONY: delete-all-images
+delete-all-images:
+	eval "$(DELETE) $(REGISTRY)/storage-version-migration-initializer:$(VERSION)"
+	eval "$(DELETE) $(REGISTRY)/storage-version-migration-migrator:$(VERSION)"
+	eval "$(DELETE) $(REGISTRY)/storage-version-migration-trigger:$(VERSION)"
+
+.PHONY: clean
+clean:
+	rm  -r ./manifests.local

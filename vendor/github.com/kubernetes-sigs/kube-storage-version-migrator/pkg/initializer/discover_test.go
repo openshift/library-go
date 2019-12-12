@@ -353,7 +353,7 @@ func TestFindMigratableResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []schema.GroupVersionResource{{Group: "extensions", Version: "v1beta1", Resource: "daemonsets"}}
+	expected := []schema.GroupVersionResource{schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "daemonsets"}}
 	if !reflect.DeepEqual(expected, got) {
 		t.Errorf("expected %v, got %v", expected, got)
 	}
