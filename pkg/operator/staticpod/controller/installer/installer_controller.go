@@ -304,7 +304,10 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, err)
-				return true, err
+				// if a newer revision is pending, continue, so we retry later with the latest available revision
+				if !(operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision) {
+					return true, err
+				}
 			}
 
 			newCurrNodeState, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(currNodeState, operatorStatus.LatestAvailableRevision)
