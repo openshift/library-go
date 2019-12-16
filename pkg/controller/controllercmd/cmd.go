@@ -250,7 +250,7 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 	}
 
 	exitOnChangeReactorCh := make(chan struct{})
-	ctx2, cancel := context.WithCancel(ctx)
+	controllerCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		select {
 		case <-exitOnChangeReactorCh:
@@ -266,5 +266,5 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
 		WithRestartOnChange(exitOnChangeReactorCh, startingFileContent, observedFiles...)
 
-	return builder.Run(unstructuredConfig, ctx2)
+	return builder.Run(controllerCtx, unstructuredConfig)
 }
