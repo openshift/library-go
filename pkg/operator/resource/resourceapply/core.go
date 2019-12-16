@@ -252,8 +252,24 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 		klog.Infof("Secret %s/%s changes: %v", required.Namespace, required.Name, JSONPatchSecretNoError(existing, existingCopy))
 	}
 	actual, err := client.Secrets(required.Namespace).Update(existingCopy)
-
 	reportUpdateEvent(recorder, existingCopy, err)
+
+	if err == nil {
+		return actual, true, err
+	}
+	if !strings.Contains(err.Error(), "field is immutable") {
+		return actual, true, err
+	}
+
+	// if the field was immutable on a secret, we're going to be stuck until we delete it.  Try to delete and then create
+	deleteErr := client.Secrets(required.Namespace).Delete(existingCopy.Name, nil)
+	reportDeleteEvent(recorder, existingCopy, deleteErr)
+
+	// clear the RV and track the original actual and error for the return like our create value.
+	existingCopy.ResourceVersion = ""
+	actual, err = client.Secrets(required.Namespace).Create(existingCopy)
+	reportCreateEvent(recorder, existingCopy, err)
+
 	return actual, true, err
 }
 
