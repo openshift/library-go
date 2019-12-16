@@ -1,6 +1,6 @@
 GO ?=go
 GOPATH ?=$(shell $(GO) env GOPATH)
-GO_PACKAGE ?=$(shell $(GO) list -e -f '{{ .ImportPath }}' . || echo 'no_package_detected')
+GO_PACKAGE ?=$(shell $(GO) list -m -f '{{ .Path }}' || echo 'no_package_detected')
 
 GOOS ?=$(shell $(GO) env GOOS)
 GOHOSTOS ?=$(shell $(GO) env GOHOSTOS)
