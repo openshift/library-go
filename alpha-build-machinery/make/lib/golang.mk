@@ -23,7 +23,7 @@ GO_TEST_PACKAGES ?=$(GO_PACKAGES)
 #
 # Conditional to avoid Go 1.13 bug on false double flag https://github.com/golang/go/issues/32471
 # TODO: Drop the contitional when golang is fixed so we can see the flag being explicitelly set in logs.
-ifeq "$(findstring -mod=vendor,$(GOFLAGS))" "-mod=vendor"
+ifeq "-mod=vendor" "$(findstring -mod=vendor,$(GOFLAGS))"
 GO_MOD_FLAGS ?=
 else
 GO_MOD_FLAGS ?=-mod=vendor
