@@ -3,17 +3,24 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
+	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
+	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -53,8 +60,12 @@ type APIServerControllerSet struct {
 	apiServiceController            controllerWrapper
 	clusterOperatorStatusController controllerWrapper
 	configUpgradableController      controllerWrapper
+	encryptionControllers           controllerWrapper
 	logLevelController              controllerWrapper
 	finalizerController             controllerWrapper
+
+	// errors unhandled prior to running PrepareRun()
+	unhandledErrors []error
 }
 
 func NewAPIServerControllerSet(
@@ -166,6 +177,60 @@ func (cs *APIServerControllerSet) WithoutFinalizerController() *APIServerControl
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithEncryptionControllers(
+	targetNamespace string,
+	encryptionResources []schema.GroupResource,
+	dynamicClientForMigration dynamic.Interface,
+	apiServerClient configv1client.APIServerInterface,
+	apiServerInformer configv1informers.APIServerInformer,
+	kubeClient kubernetes.Interface,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	resourceSyncController resourcesynccontroller.ResourceSyncer,
+) *APIServerControllerSet {
+	nodeProvider := NewDaemonSetNodeProvider(
+		"apiserver",
+		targetNamespace,
+		kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().DaemonSets(),
+		kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes(),
+	)
+
+	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer(
+		"revision",
+		targetNamespace,
+		kubeInformersForNamespaces,
+		resourceSyncController,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		nodeProvider,
+	)
+	if err != nil {
+		cs.unhandledErrors = append(cs.unhandledErrors, err)
+		return cs
+	}
+	migrator := migrators.NewInProcessMigrator(dynamicClientForMigration, kubeClient.Discovery())
+
+	cs.encryptionControllers.controller = encryption.NewControllers(
+		targetNamespace,
+		deployer,
+		migrator,
+		cs.operatorClient,
+		apiServerClient,
+		apiServerInformer,
+		kubeInformersForNamespaces,
+		kubeClient.CoreV1(),
+		cs.eventRecorder,
+		encryptionResources...,
+	)
+
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerControllerSet {
+	cs.encryptionControllers.controller = nil
+	cs.encryptionControllers.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
 	prepared := []controller{}
 	errs := []error{}
@@ -174,6 +239,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"apiServiceController":            cs.apiServiceController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
+		"encryptionControllers":           cs.encryptionControllers,
 		"logLevelController":              cs.logLevelController,
 		"finalizerController":             cs.finalizerController,
 	} {
@@ -187,11 +253,11 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		}
 	}
 
-	return preparedAPIServerControllerSet{controllers: prepared}, errors.NewAggregate(errs)
+	return preparedAPIServerControllerSet{controllers: prepared}, errors.NewAggregate(append(cs.unhandledErrors, errs...))
 }
 
 func (cs *preparedAPIServerControllerSet) Run(ctx context.Context) {
 	for i := range cs.controllers {
-		go cs.controllers[i].Run(ctx, 1)
+		go cs.controllers[i].Run(ctx, 1) // use index to avoid having to capture range variable
 	}
 }
