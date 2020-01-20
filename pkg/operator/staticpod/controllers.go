@@ -254,9 +254,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 		(&resourceapply.ClientHolder{}).WithKubernetes(b.kubeClient),
 		b.staticPodOperatorClient,
 		eventRecorder,
-	).
-		AddInformer(operandInformers.Core().V1().ServiceAccounts().Informer()).
-		AddInformer(operandInformers.Rbac().V1().ClusterRoleBindings().Informer()))
+	).AddKubeInformers(b.kubeInformers))
 
 	if b.dynamicClient != nil && b.enableServiceMonitorController {
 		controllers.add(monitoring.NewMonitoringResourceController(

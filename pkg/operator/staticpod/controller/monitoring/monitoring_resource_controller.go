@@ -6,8 +6,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/klog"
-
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/operator/condition"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring/bindata"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -17,16 +23,7 @@ import (
 	rbaclisterv1 "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	operatorv1 "github.com/openshift/api/operator/v1"
-
-	"github.com/openshift/library-go/pkg/assets"
-	"github.com/openshift/library-go/pkg/operator/condition"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring/bindata"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog"
 )
 
 const (
