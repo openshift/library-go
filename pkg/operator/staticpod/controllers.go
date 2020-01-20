@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -240,13 +243,20 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 		eventRecorder,
 	))
 
-	controllers.add(backingresource.NewBackingResourceController(
-		b.operandNamespace,
+	// this cleverly sets the same condition that used to be set because of the way that the names are constructed
+	controllers.add(staticresourcecontroller.NewStaticResourceController(
+		"BackingResourceController",
+		backingresource.StaticPodManifests(b.operandNamespace),
+		[]string{
+			"manifests/installer-sa.yaml",
+			"manifests/installer-cluster-rolebinding.yaml",
+		},
+		(&resourceapply.ClientHolder{}).WithKubernetes(b.kubeClient),
 		b.staticPodOperatorClient,
-		operandInformers,
-		b.kubeClient,
 		eventRecorder,
-	))
+	).
+		AddEventHandler(operandInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler).
+		AddEventHandler(operandInformers.Rbac().V1().ClusterRoleBindings().Informer().AddEventHandler))
 
 	if b.dynamicClient != nil && b.enableServiceMonitorController {
 		controllers.add(monitoring.NewMonitoringResourceController(

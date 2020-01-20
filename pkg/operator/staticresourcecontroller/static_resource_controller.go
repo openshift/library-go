@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/management"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +120,15 @@ func (c *StaticResourceController) AddNamespaceEventHandler(addEventHandler func
 	return c
 }
 
-func (c StaticResourceController) sync() error {
+func (c StaticResourceController) Sync() error {
+	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		return err
+	}
+	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+		return nil
+	}
+
 	errors := []error{}
 	directResourceResults := resourceapply.ApplyDirectly(c.clients, c.eventRecorder, c.manifests, c.files...)
 	for _, currResult := range directResourceResults {
@@ -189,7 +199,7 @@ func (c *StaticResourceController) processNextWorkItem() bool {
 	}
 	defer c.queue.Done(dsKey)
 
-	err := c.sync()
+	err := c.Sync()
 	if err == nil {
 		c.queue.Forget(dsKey)
 		return true
