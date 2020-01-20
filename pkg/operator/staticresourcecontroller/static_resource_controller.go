@@ -39,9 +39,9 @@ type StaticResourceController struct {
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
 
+	cachesToSync  []cache.InformerSynced
+	queue         workqueue.RateLimitingInterface
 	eventRecorder events.Recorder
-	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
 }
 
 // NewStaticResourceController returns a controller that maintains certain static manifests. Most "normal" types are supported,
@@ -71,52 +71,54 @@ func NewStaticResourceController(
 	return c
 }
 
-func (c *StaticResourceController) AddEventHandler(addEventHandler func(handler cache.ResourceEventHandler)) *StaticResourceController {
-	addEventHandler(c.eventHandler())
+func (c *StaticResourceController) AddInformer(informer cache.SharedIndexInformer) *StaticResourceController {
+	informer.AddEventHandler(c.eventHandler())
+	c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
 	return c
 }
 
-func (c *StaticResourceController) AddNamespaceEventHandler(addEventHandler func(handler cache.ResourceEventHandler), namespaces ...string) *StaticResourceController {
+func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedIndexInformer, namespaces ...string) *StaticResourceController {
 	interestingNamespaces := sets.NewString(namespaces...)
-	addEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				ns, ok := obj.(*corev1.Namespace)
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			ns, ok := obj.(*corev1.Namespace)
+			if !ok {
+				c.queue.Add(workQueueKey)
+			}
+			if interestingNamespaces.Has(ns.Name) {
+				c.queue.Add(workQueueKey)
+			}
+		},
+		UpdateFunc: func(old, new interface{}) {
+			ns, ok := old.(*corev1.Namespace)
+			if !ok {
+				c.queue.Add(workQueueKey)
+			}
+			if interestingNamespaces.Has(ns.Name) {
+				c.queue.Add(workQueueKey)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			ns, ok := obj.(*corev1.Namespace)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
-					c.queue.Add(workQueueKey)
+					utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
+					return
 				}
-				if interestingNamespaces.Has(ns.Name) {
-					c.queue.Add(workQueueKey)
-				}
-			},
-			UpdateFunc: func(old, new interface{}) {
-				ns, ok := old.(*corev1.Namespace)
+				ns, ok = tombstone.Obj.(*corev1.Namespace)
 				if !ok {
-					c.queue.Add(workQueueKey)
+					utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a Namespace %#v", obj))
+					return
 				}
-				if interestingNamespaces.Has(ns.Name) {
-					c.queue.Add(workQueueKey)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				ns, ok := obj.(*corev1.Namespace)
-				if !ok {
-					tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
-						return
-					}
-					ns, ok = tombstone.Obj.(*corev1.Namespace)
-					if !ok {
-						utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a Namespace %#v", obj))
-						return
-					}
-				}
-				if interestingNamespaces.Has(ns.Name) {
-					c.queue.Add(workQueueKey)
-				}
-			},
-		})
+			}
+			if interestingNamespaces.Has(ns.Name) {
+				c.queue.Add(workQueueKey)
+			}
+		},
+	})
+	c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
+
 	return c
 }
 
@@ -177,6 +179,10 @@ func (c *StaticResourceController) Run(ctx context.Context, workers int) {
 
 	klog.Infof("Starting %s", c.name)
 	defer klog.Infof("Shutting down %s", c.name)
+
+	if !cache.WaitForCacheSync(ctx.Done(), c.cachesToSync...) {
+		return
+	}
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, ctx.Done())

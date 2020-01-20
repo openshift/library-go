@@ -255,8 +255,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 		b.staticPodOperatorClient,
 		eventRecorder,
 	).
-		AddEventHandler(operandInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler).
-		AddEventHandler(operandInformers.Rbac().V1().ClusterRoleBindings().Informer().AddEventHandler))
+		AddInformer(operandInformers.Core().V1().ServiceAccounts().Informer()).
+		AddInformer(operandInformers.Rbac().V1().ClusterRoleBindings().Informer()))
 
 	if b.dynamicClient != nil && b.enableServiceMonitorController {
 		controllers.add(monitoring.NewMonitoringResourceController(
