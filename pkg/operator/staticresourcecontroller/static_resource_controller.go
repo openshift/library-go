@@ -31,6 +31,16 @@ const (
 	workQueueKey = "key"
 )
 
+var (
+	genericScheme = runtime.NewScheme()
+	genericCodecs = serializer.NewCodecFactory(genericScheme)
+	genericCodec  = genericCodecs.UniversalDeserializer()
+)
+
+func init() {
+	utilruntime.Must(api.InstallKube(genericScheme))
+}
+
 type StaticResourceController struct {
 	name      string
 	manifests resourceapply.AssetFunc
@@ -129,6 +139,8 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 		case *rbacv1.RoleBinding:
 			ret = ret.AddInformer(informer.Rbac().V1().RoleBindings().Informer())
 		default:
+			// if there's a missing case, the caller can add an informer or count on a time based trigger.
+			// if the controller doesn't handle it, then there will be failure from the underlying apply.
 			klog.V(4).Infof("unhandled type %T", requiredObj)
 		}
 	}
@@ -253,10 +265,10 @@ func (c *StaticResourceController) Run(ctx context.Context, workers int) {
 	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
 	// add time based trigger
-	go wait.Until(func() { c.queue.Add(workQueueKey) }, time.Minute, ctx.Done())
-
-	// trigger once quickly at least once
-	c.queue.Add(workQueueKey)
+	go wait.PollImmediateUntil(time.Minute, func() (bool, error) {
+		c.queue.Add(workQueueKey)
+		return false, nil
+	}, ctx.Done())
 
 	<-ctx.Done()
 }
@@ -292,14 +304,4 @@ func (c *StaticResourceController) eventHandler() cache.ResourceEventHandler {
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
 		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
 	}
-}
-
-var (
-	genericScheme = runtime.NewScheme()
-	genericCodecs = serializer.NewCodecFactory(genericScheme)
-	genericCodec  = genericCodecs.UniversalDeserializer()
-)
-
-func init() {
-	utilruntime.Must(api.InstallKube(genericScheme))
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -125,11 +125,16 @@ func ApplyDirectly(clients *ClientHolder, recorder events.Recorder, manifests As
 				result.Error = fmt.Errorf("missing kubeClient")
 			}
 			result.Result, result.Changed, result.Error = ApplyRoleBinding(clients.kubeClient.RbacV1(), recorder, t)
-		case *v1beta1.CustomResourceDefinition:
+		case *apiextensionsv1beta1.CustomResourceDefinition:
 			if clients.apiExtensionsClient == nil {
 				result.Error = fmt.Errorf("missing apiExtensionsClient")
 			}
-			result.Result, result.Changed, result.Error = ApplyCustomResourceDefinition(clients.apiExtensionsClient.ApiextensionsV1beta1(), recorder, t)
+			result.Result, result.Changed, result.Error = ApplyCustomResourceDefinitionV1Beta1(clients.apiExtensionsClient.ApiextensionsV1beta1(), recorder, t)
+		case *apiextensionsv1.CustomResourceDefinition:
+			if clients.apiExtensionsClient == nil {
+				result.Error = fmt.Errorf("missing apiExtensionsClient")
+			}
+			result.Result, result.Changed, result.Error = ApplyCustomResourceDefinitionV1(clients.apiExtensionsClient.ApiextensionsV1(), recorder, t)
 		default:
 			result.Error = fmt.Errorf("unhandled type %T", requiredObj)
 		}
