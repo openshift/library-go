@@ -3,6 +3,10 @@ package resourceapply
 import (
 	"fmt"
 
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/api"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
@@ -37,14 +41,19 @@ type ApplyResult struct {
 	Error   error
 }
 
-// TODO provide ways to provide cached getters
 type ClientHolder struct {
 	kubeClient          kubernetes.Interface
 	apiExtensionsClient apiextensionsclient.Interface
+	kubeInformers       v1helpers.KubeInformersForNamespaces
 }
 
 func (c *ClientHolder) WithKubernetes(client kubernetes.Interface) *ClientHolder {
 	c.kubeClient = client
+	return c
+}
+
+func (c *ClientHolder) WithKubernetesInformers(kubeInformers v1helpers.KubeInformersForNamespaces) *ClientHolder {
+	c.kubeInformers = kubeInformers
 	return c
 }
 
@@ -96,15 +105,17 @@ func ApplyDirectly(clients *ClientHolder, recorder events.Recorder, manifests As
 			}
 			result.Result, result.Changed, result.Error = ApplyServiceAccount(clients.kubeClient.CoreV1(), recorder, t)
 		case *corev1.ConfigMap:
-			if clients.kubeClient == nil {
+			client := clients.configMapsGetter()
+			if client == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
 			}
-			result.Result, result.Changed, result.Error = ApplyConfigMap(clients.kubeClient.CoreV1(), recorder, t)
+			result.Result, result.Changed, result.Error = ApplyConfigMap(client, recorder, t)
 		case *corev1.Secret:
-			if clients.kubeClient == nil {
+			client := clients.secretsGetter()
+			if client == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
 			}
-			result.Result, result.Changed, result.Error = ApplySecret(clients.kubeClient.CoreV1(), recorder, t)
+			result.Result, result.Changed, result.Error = ApplySecret(client, recorder, t)
 		case *rbacv1.ClusterRole:
 			if clients.kubeClient == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
@@ -143,4 +154,24 @@ func ApplyDirectly(clients *ClientHolder, recorder events.Recorder, manifests As
 	}
 
 	return ret
+}
+
+func (c *ClientHolder) configMapsGetter() corev1client.ConfigMapsGetter {
+	if c.kubeClient == nil {
+		return nil
+	}
+	if c.kubeInformers == nil {
+		return c.kubeClient.CoreV1()
+	}
+	return v1helpers.CachedConfigMapGetter(c.kubeClient.CoreV1(), c.kubeInformers)
+}
+
+func (c *ClientHolder) secretsGetter() corev1client.SecretsGetter {
+	if c.kubeClient == nil {
+		return nil
+	}
+	if c.kubeInformers == nil {
+		return c.kubeClient.CoreV1()
+	}
+	return v1helpers.CachedSecretGetter(c.kubeClient.CoreV1(), c.kubeInformers)
 }

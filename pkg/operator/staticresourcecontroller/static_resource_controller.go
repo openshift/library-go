@@ -82,6 +82,9 @@ func NewStaticResourceController(
 }
 
 func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1helpers.KubeInformersForNamespaces) *StaticResourceController {
+	// set the informers so we can have caching clients
+	c.clients = c.clients.WithKubernetesInformers(kubeInformersByNamespace)
+
 	ret := c
 	for _, file := range c.files {
 		objBytes, err := c.manifests(file)
