@@ -22,6 +22,8 @@ type ControllerFlags struct {
 	ConfigFile string
 	// KubeConfigFile points to a kubeconfig file if you don't want to use the in cluster config
 	KubeConfigFile string
+	// Namespace points to a base namespace for the controller and related events
+	Namespace string
 	// TerminateOnFiles is a list of files. If any of these changes, the process terminates.
 	TerminateOnFiles []string
 }
@@ -45,6 +47,8 @@ func (f *ControllerFlags) AddFlags(cmd *cobra.Command) {
 	cmd.MarkFlagFilename("config", "yaml", "yml")
 	flags.StringVar(&f.KubeConfigFile, "kubeconfig", f.KubeConfigFile, "Location of the master configuration file to run from.")
 	cmd.MarkFlagFilename("kubeconfig", "kubeconfig")
+	flags.StringVar(&f.Namespace, "namespace", f.Namespace, "Namespace where the controller is running. Auto-detected if run in cluster.")
+	cmd.Flags().MarkHidden("namespace")
 	flags.StringArrayVar(&f.TerminateOnFiles, "terminate-on-files", f.TerminateOnFiles, "A list of files. If one of them changes, the process will terminate.")
 }
 
