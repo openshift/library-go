@@ -103,7 +103,7 @@ func (c MonitoringResourceController) sync() error {
 		return nil
 	}
 
-	directResourceResults := resourceapply.ApplyDirectly((&resourceapply.ClientHolder{}).WithKubernetes(c.kubeClient), c.eventRecorder, c.mustTemplateAsset,
+	directResourceResults := resourceapply.ApplyDirectly(resourceapply.NewKubeClientHolder(c.kubeClient), c.eventRecorder, c.mustTemplateAsset,
 		"manifests/prometheus-role.yaml",
 		"manifests/prometheus-role-binding.yaml",
 	)
