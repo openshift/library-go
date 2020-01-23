@@ -47,6 +47,14 @@ type ClientHolder struct {
 	kubeInformers       v1helpers.KubeInformersForNamespaces
 }
 
+func NewClientHolder() *ClientHolder {
+	return &ClientHolder{}
+}
+
+func NewKubeClientHolder(client kubernetes.Interface) *ClientHolder {
+	return NewClientHolder().WithKubernetes(client)
+}
+
 func (c *ClientHolder) WithKubernetes(client kubernetes.Interface) *ClientHolder {
 	c.kubeClient = client
 	return c

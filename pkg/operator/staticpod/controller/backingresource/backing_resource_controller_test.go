@@ -180,7 +180,7 @@ func TestBackingResourceController(t *testing.T) {
 					"manifests/installer-sa.yaml",
 					"manifests/installer-cluster-rolebinding.yaml",
 				},
-				(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
+				resourceapply.NewKubeClientHolder(kubeClient),
 				tc.operatorClient,
 				eventRecorder,
 			)

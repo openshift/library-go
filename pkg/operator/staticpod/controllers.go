@@ -251,7 +251,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 			"manifests/installer-sa.yaml",
 			"manifests/installer-cluster-rolebinding.yaml",
 		},
-		(&resourceapply.ClientHolder{}).WithKubernetes(b.kubeClient),
+		resourceapply.NewKubeClientHolder(b.kubeClient),
 		b.staticPodOperatorClient,
 		eventRecorder,
 	).AddKubeInformers(b.kubeInformers))
