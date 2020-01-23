@@ -24,6 +24,10 @@ type baseController struct {
 
 var _ Controller = &baseController{}
 
+func (c baseController) Name() string {
+	return c.name
+}
+
 func (c *baseController) Run(ctx context.Context, workers int) {
 	// HandleCrash recovers panics
 	defer utilruntime.HandleCrash()
