@@ -6,22 +6,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/management"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	corev1 "k8s.io/api/core/v1"
-
+	"github.com/openshift/api"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -45,7 +45,7 @@ type StaticResourceController struct {
 }
 
 // NewStaticResourceController returns a controller that maintains certain static manifests. Most "normal" types are supported,
-// but feel free to add ones we missed.  Use .AddInformer() to provide triggering conditions.
+// but feel free to add ones we missed.  Use .AddInformer(), .AddKubeInformers(), .AddNamespaceInformer or to provide triggering conditions.
 func NewStaticResourceController(
 	name string,
 	manifests resourceapply.AssetFunc,
@@ -69,6 +69,71 @@ func NewStaticResourceController(
 	c.operatorClient.Informer().AddEventHandler(c.eventHandler())
 
 	return c
+}
+
+func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1helpers.KubeInformersForNamespaces) *StaticResourceController {
+	ret := c
+	for _, file := range c.files {
+		objBytes, err := c.manifests(file)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("missing %q: %v", file, err))
+			continue
+		}
+		requiredObj, _, err := genericCodec.Decode(objBytes, nil, nil)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("cannot decode %q: %v", file, err))
+			continue
+		}
+		metadata, err := meta.Accessor(requiredObj)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("cannot get metadata %q: %v", file, err))
+			continue
+		}
+
+		// find the right subset of informers.  Interestingly, cluster scoped resources require cluster scoped informers
+		var informer informers.SharedInformerFactory
+		if _, ok := requiredObj.(*corev1.Namespace); !ok {
+			informer := kubeInformersByNamespace.InformersFor(metadata.GetName())
+			if informer == nil {
+				utilruntime.HandleError(fmt.Errorf("missing informer for namespace %q; no dynamic wiring added, time-based only.", metadata.GetName()))
+				continue
+			}
+		} else {
+			informer := kubeInformersByNamespace.InformersFor(metadata.GetNamespace())
+			if informer == nil {
+				utilruntime.HandleError(fmt.Errorf("missing informer for namespace %q; no dynamic wiring added, time-based only.", metadata.GetNamespace()))
+				continue
+			}
+		}
+
+		// iterate through the resources we know that are related to kube informers and add the pertinent informers
+		switch t := requiredObj.(type) {
+		case *corev1.Namespace:
+			ret = ret.AddNamespaceInformer(informer.Core().V1().Namespaces().Informer(), t.Name)
+		case *corev1.Service:
+			ret = ret.AddInformer(informer.Core().V1().Namespaces().Informer())
+		case *corev1.Pod:
+			ret = ret.AddInformer(informer.Core().V1().Pods().Informer())
+		case *corev1.ServiceAccount:
+			ret = ret.AddInformer(informer.Core().V1().ServiceAccounts().Informer())
+		case *corev1.ConfigMap:
+			ret = ret.AddInformer(informer.Core().V1().ConfigMaps().Informer())
+		case *corev1.Secret:
+			ret = ret.AddInformer(informer.Core().V1().Secrets().Informer())
+		case *rbacv1.ClusterRole:
+			ret = ret.AddInformer(informer.Rbac().V1().ClusterRoles().Informer())
+		case *rbacv1.ClusterRoleBinding:
+			ret = ret.AddInformer(informer.Rbac().V1().ClusterRoleBindings().Informer())
+		case *rbacv1.Role:
+			ret = ret.AddInformer(informer.Rbac().V1().Roles().Informer())
+		case *rbacv1.RoleBinding:
+			ret = ret.AddInformer(informer.Rbac().V1().RoleBindings().Informer())
+		default:
+			klog.V(4).Infof("unhandled type %T", requiredObj)
+		}
+	}
+
+	return ret
 }
 
 func (c *StaticResourceController) AddInformer(informer cache.SharedIndexInformer) *StaticResourceController {
@@ -190,6 +255,9 @@ func (c *StaticResourceController) Run(ctx context.Context, workers int) {
 	// add time based trigger
 	go wait.Until(func() { c.queue.Add(workQueueKey) }, time.Minute, ctx.Done())
 
+	// trigger once quickly at least once
+	c.queue.Add(workQueueKey)
+
 	<-ctx.Done()
 }
 
@@ -224,4 +292,14 @@ func (c *StaticResourceController) eventHandler() cache.ResourceEventHandler {
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
 		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
 	}
+}
+
+var (
+	genericScheme = runtime.NewScheme()
+	genericCodecs = serializer.NewCodecFactory(genericScheme)
+	genericCodec  = genericCodecs.UniversalDeserializer()
+)
+
+func init() {
+	utilruntime.Must(api.InstallKube(genericScheme))
 }

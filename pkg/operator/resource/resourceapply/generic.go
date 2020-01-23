@@ -3,18 +3,17 @@ package resourceapply
 import (
 	"fmt"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-
+	"github.com/openshift/api"
+	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/openshift/api"
-	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 var (
@@ -25,6 +24,7 @@ var (
 
 func init() {
 	utilruntime.Must(api.InstallKube(genericScheme))
+	utilruntime.Must(apiextensionsv1beta1.AddToScheme(genericScheme))
 }
 
 type AssetFunc func(name string) ([]byte, error)
