@@ -22,6 +22,9 @@ type Controller interface {
 	// Sync contain the main controller logic.
 	// This should not be called directly, but can be used in unit tests to exercise the sync.
 	Sync(ctx context.Context, controllerContext SyncContext) error
+
+	// Name returns the controller name string.
+	Name() string
 }
 
 // SyncContext interface represents a context given to the Sync() function where the main controller logic happen.
