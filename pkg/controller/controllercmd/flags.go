@@ -24,6 +24,8 @@ type ControllerFlags struct {
 	KubeConfigFile string
 	// Namespace points to a base namespace for the controller and related events
 	Namespace string
+	// BindAddress is the ip:port to serve on
+	BindAddress string
 	// TerminateOnFiles is a list of files. If any of these changes, the process terminates.
 	TerminateOnFiles []string
 }
@@ -48,7 +50,7 @@ func (f *ControllerFlags) AddFlags(cmd *cobra.Command) {
 	flags.StringVar(&f.KubeConfigFile, "kubeconfig", f.KubeConfigFile, "Location of the master configuration file to run from.")
 	cmd.MarkFlagFilename("kubeconfig", "kubeconfig")
 	flags.StringVar(&f.Namespace, "namespace", f.Namespace, "Namespace where the controller is running. Auto-detected if run in cluster.")
-	flags.StringVar(&f.BindAddress, "listen", f.Namespace, "The ip:port to serve on.")
+	flags.StringVar(&f.BindAddress, "listen", f.BindAddress, "The ip:port to serve on.")
 	flags.StringArrayVar(&f.TerminateOnFiles, "terminate-on-files", f.TerminateOnFiles, "A list of files. If one of them changes, the process will terminate.")
 }
 
