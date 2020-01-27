@@ -249,6 +249,10 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 		return err
 	}
 
+	if len(c.basicFlags.BindAddress) != 0 {
+		config.ServingInfo.BindAddress = c.basicFlags.BindAddress
+	}
+
 	exitOnChangeReactorCh := make(chan struct{})
 	controllerCtx, cancel := context.WithCancel(ctx)
 	go func() {
