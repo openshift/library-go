@@ -48,7 +48,7 @@ func (f *ControllerFlags) AddFlags(cmd *cobra.Command) {
 	flags.StringVar(&f.KubeConfigFile, "kubeconfig", f.KubeConfigFile, "Location of the master configuration file to run from.")
 	cmd.MarkFlagFilename("kubeconfig", "kubeconfig")
 	flags.StringVar(&f.Namespace, "namespace", f.Namespace, "Namespace where the controller is running. Auto-detected if run in cluster.")
-	cmd.Flags().MarkHidden("namespace")
+	flags.StringVar(&f.BindAddress, "listen", f.Namespace, "The ip:port to serve on.")
 	flags.StringArrayVar(&f.TerminateOnFiles, "terminate-on-files", f.TerminateOnFiles, "A list of files. If one of them changes, the process will terminate.")
 }
 
