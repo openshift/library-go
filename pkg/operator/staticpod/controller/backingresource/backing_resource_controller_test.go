@@ -1,11 +1,13 @@
 package backingresource
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -184,7 +186,7 @@ func TestBackingResourceController(t *testing.T) {
 				tc.operatorClient,
 				eventRecorder,
 			)
-			syncErr := c.Sync()
+			syncErr := c.Sync(context.TODO(), factory.NewSyncContext("BackingResourceController", eventRecorder))
 			if tc.validateStatus != nil {
 				_, status, _, _ := tc.operatorClient.GetOperatorState()
 				tc.validateStatus(t, status)
