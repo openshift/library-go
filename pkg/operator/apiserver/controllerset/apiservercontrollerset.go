@@ -10,6 +10,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -55,6 +57,7 @@ type APIServerControllerSet struct {
 	configUpgradableController      controllerWrapper
 	logLevelController              controllerWrapper
 	finalizerController             controllerWrapper
+	staticResourceController        controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -166,6 +169,30 @@ func (cs *APIServerControllerSet) WithoutFinalizerController() *APIServerControl
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithStaticResourcesController(
+	controllerName string,
+	manifests resourceapply.AssetFunc,
+	files []string,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	kubeClient kubernetes.Interface,
+) *APIServerControllerSet {
+	cs.staticResourceController.controller = staticresourcecontroller.NewStaticResourceController(
+		controllerName,
+		manifests,
+		files,
+		resourceapply.NewKubeClientHolder(kubeClient),
+		cs.operatorClient,
+		cs.eventRecorder,
+	).AddKubeInformers(kubeInformersForNamespaces)
+
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutStaticResourcesController() {
+	cs.staticResourceController.controller = nil
+	cs.staticResourceController.emptyAllowed = true
+}
+
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
 	prepared := []controller{}
 	errs := []error{}
@@ -176,6 +203,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"configUpgradableController":      cs.configUpgradableController,
 		"logLevelController":              cs.logLevelController,
 		"finalizerController":             cs.finalizerController,
+		"staticResourceController":        cs.staticResourceController,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
