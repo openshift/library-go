@@ -112,7 +112,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 
 	// create controllers
 	eventRecorder := events.NewLoggingEventRecorder(component)
-	deployer := NewInstantDeployer(t, stopCh, kubeInformers, kubeClient.CoreV1(), fmt.Sprintf("encryption-config-%s", component))
+	deployer := NewInstantDeployer(t, stopCh, kubeClient.CoreV1(), fmt.Sprintf("encryption-config-%s", component))
 	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.DiscoveryClient)
 
 	controllers, err := encryption.NewControllers(
@@ -406,10 +406,8 @@ func toString(c *apiserverv1.EncryptionConfiguration) string {
 	return strings.Join(rs, ";")
 }
 
-func NewInstantDeployer(t T, stopCh <-chan struct{}, kubeInformers v1helpers.KubeInformersForNamespaces, secretsClient corev1client.SecretsGetter,
-	secretName string) *lockStepDeployer {
+func NewInstantDeployer(t T, stopCh <-chan struct{}, secretsClient corev1client.SecretsGetter, secretName string) *lockStepDeployer {
 	return &lockStepDeployer{
-		kubeInformers: kubeInformers,
 		secretsClient: secretsClient,
 		stopCh:        stopCh,
 		configManagedSecretsClient: secretInterceptor{
@@ -426,7 +424,6 @@ func NewInstantDeployer(t T, stopCh <-chan struct{}, kubeInformers v1helpers.Kub
 type lockStepDeployer struct {
 	stopCh <-chan struct{}
 
-	kubeInformers              v1helpers.KubeInformersForNamespaces
 	secretsClient              corev1client.SecretsGetter
 	configManagedSecretsClient secretInterceptor
 
@@ -552,13 +549,15 @@ func (c *secretInterceptor) Patch(ctx context.Context, name string, pt types.Pat
 	return s, nil
 }
 
-func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
+func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	d.handlers = append(d.handlers, handler)
+}
 
-	return []cache.InformerSynced{}
+func (d *lockStepDeployer) HasSynced() bool {
+	return true
 }
 
 func (d *lockStepDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {

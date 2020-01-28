@@ -41,6 +41,8 @@ type RevisionLabelPodDeployer struct {
 	nodeProvider MasterNodeProvider
 
 	revisionLabel string
+
+	cacheSynced []cache.InformerSynced
 }
 
 var (
@@ -122,17 +124,28 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 
 // AddEventHandler registers a event handler whenever the backing resource change
 // that might influence the result of DeployedEncryptionConfigSecret.
-func (d *RevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
+func (d *RevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
 	targetPodInformer := d.targetNamespaceInformers.Core().V1().Pods().Informer()
 	targetPodInformer.AddEventHandler(handler)
 
 	targetSecretsInformer := d.targetNamespaceInformers.Core().V1().Secrets().Informer()
 	targetSecretsInformer.AddEventHandler(handler)
 
-	return append([]cache.InformerSynced{
+	d.cacheSynced = append([]cache.InformerSynced{
 		targetPodInformer.HasSynced,
 		targetSecretsInformer.HasSynced,
 	}, d.nodeProvider.AddEventHandler(handler)...)
+}
+
+func (d *RevisionLabelPodDeployer) HasSynced() bool {
+	allSynced := true
+	for i := range d.cacheSynced {
+		if !d.cacheSynced[i]() {
+			allSynced = false
+			break
+		}
+	}
+	return allSynced
 }
 
 // getAPIServerRevisionOfAllInstances attempts to find the current revision that

@@ -28,9 +28,11 @@ func setUpInformers(
 
 	managedSecretsInformer := kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer()
 	managedSecretsInformer.AddEventHandler(eventHandler)
+	deployer.AddEventHandler(eventHandler)
 
-	return append([]cache.InformerSynced{
+	return []cache.InformerSynced{
 		operatorInformer.HasSynced,
 		managedSecretsInformer.HasSynced,
-	}, deployer.AddEventHandler(eventHandler)...)
+		deployer.HasSynced,
+	}
 }
