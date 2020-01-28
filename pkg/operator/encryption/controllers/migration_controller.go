@@ -310,21 +310,21 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 	return true, nil
 }
 
-func (c *migrationController) Run(stopCh <-chan struct{}) {
+func (c *migrationController) Run(ctx context.Context, _ int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting EncryptionMigrationController")
 	defer klog.Infof("Shutting down EncryptionMigrationController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
 
 	// only start one worker
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *migrationController) runWorker() {

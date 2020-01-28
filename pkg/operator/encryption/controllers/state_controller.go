@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -153,21 +154,21 @@ func (c *stateController) applyEncryptionConfigSecret(encryptionConfig *apiserve
 	return changed, applyErr
 }
 
-func (c *stateController) Run(stopCh <-chan struct{}) {
+func (c *stateController) Run(ctx context.Context, _ int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting EncryptionStateController")
 	defer klog.Infof("Shutting down EncryptionStateController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync for EncryptionStateController"))
 		return
 	}
 
 	// only start one worker
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *stateController) runWorker() {

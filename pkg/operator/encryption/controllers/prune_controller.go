@@ -187,21 +187,21 @@ NextEncryptionSecret:
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
 }
 
-func (c *pruneController) Run(stopCh <-chan struct{}) {
+func (c *pruneController) Run(ctx context.Context, _ int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting EncryptionPruneController")
 	defer klog.Infof("Shutting down EncryptionPruneController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
 
 	// only start one worker
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *pruneController) runWorker() {

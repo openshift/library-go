@@ -346,21 +346,21 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
 }
 
-func (c *keyController) Run(stopCh <-chan struct{}) {
+func (c *keyController) Run(ctx context.Context, _ int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting EncryptionKeyController")
 	defer klog.Infof("Shutting down EncryptionKeyController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
 
 	// only start one worker
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *keyController) runWorker() {
