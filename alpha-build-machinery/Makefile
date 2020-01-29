@@ -1,4 +1,5 @@
 SHELL :=/bin/bash
+
 all: verify
 .PHONY: all
 
@@ -45,7 +46,7 @@ update-makefiles:
 	$(foreach f,$(examples),$(call check-makefile-log,$(f),,$(dir $(f))))
 .PHONY: update-makefiles
 
-verify-makefiles: tmp_dir:=$(shell mktemp -d)
+verify-makefiles: tmp_dir:=$(shell mktemp -d)$(call error_if_shell_failed,can't create tmp dir))
 verify-makefiles:
 	$(foreach f,$(makefiles),$(call check-makefile-log,$(f),help,$(tmp_dir)/$(dir $(f))))
 	$(foreach f,$(examples),$(call check-makefile-log,$(f),,$(tmp_dir)/$(dir $(f))))
@@ -57,5 +58,5 @@ verify: verify-makefiles
 update: update-makefiles
 .PHONY: update
 
-
 include ./make/targets/help.mk
+include ./make/lib/shellstatus.mk

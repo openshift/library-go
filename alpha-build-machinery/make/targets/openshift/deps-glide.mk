@@ -1,5 +1,8 @@
-self_dir :=$(dir $(lastword $(MAKEFILE_LIST)))
-scripts_dir :=$(self_dir)/../../../scripts
+scripts_dir :=$(dir $(lastword $(MAKEFILE_LIST)))/../../../scripts
+include $(addprefix $(dir $(lastword $(MAKEFILE_LIST))), \
+	../../lib/shellstatus.mk \
+)
+
 
 # We need to force localle so different envs sort files the same way for recursive traversals
 deps_diff :=LC_COLLATE=C diff --no-dereference -N
@@ -17,7 +20,7 @@ define restore-deps
 	cd "$(1)" && $(deps_diff) -r {current,updated}/vendor/ > updated/glide.diff || true
 endef
 
-verify-deps: tmp_dir:=$(shell mktemp -d)
+verify-deps: tmp_dir:=$(shell mktemp -d)$(call error_if_shell_failed,can't create tmp dir))
 verify-deps:
 	$(call restore-deps,$(tmp_dir))
 	@echo $(deps_diff) '$(tmp_dir)'/{current,updated}/glide.diff
@@ -28,7 +31,7 @@ verify-deps:
 	)
 .PHONY: verify-deps
 
-update-deps-overrides: tmp_dir:=$(shell mktemp -d)
+update-deps-overrides: tmp_dir:=$(shell mktemp -d)$(call error_if_shell_failed,can't create tmp dir))
 update-deps-overrides:
 	$(call restore-deps,$(tmp_dir))
 	cp "$(tmp_dir)"/{updated,current}/glide.diff

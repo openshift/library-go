@@ -1,4 +1,8 @@
-TMP_GOPATH :=$(shell mktemp -d)
+include $(addprefix $(dir $(lastword $(MAKEFILE_LIST))), \
+	../../lib/shellstatus.mk \
+)
+
+TMP_GOPATH :=$(shell mktemp -d)$(call error_if_shell_failed,can't create tmp dir))
 
 
 .ensure-go-bindata:
@@ -35,7 +39,7 @@ update-bindata: update-bindata-$(1)
 
 
 verify-bindata-$(1): .ensure-go-bindata
-verify-bindata-$(1): TMP_DIR := $$(shell mktemp -d)
+verify-bindata-$(1): TMP_DIR := $$(shell mktemp -d)$$(call error_if_shell_failed,can't create tmp dir))
 verify-bindata-$(1):
 	$(call run-bindata,$(2),$(3),$(4),$(5),$$(TMP_DIR)/) && \
 	diff -Naup {.,$$(TMP_DIR)}/$(5)
