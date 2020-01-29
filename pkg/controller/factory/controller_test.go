@@ -106,51 +106,52 @@ func TestResyncController(t *testing.T) {
 
 func TestMultiWorkerControllerShutdown(t *testing.T) {
 	controllerCtx, shutdown := context.WithCancel(context.TODO())
-	factory := New().ResyncEvery(5 * time.Minute) // make sure we only call 1 sync manually
+	factory := New().ResyncEvery(10 * time.Minute) // make sure we only call 1 sync manually
 	var workersShutdownMutex sync.Mutex
+	var syncCallCountMutex sync.Mutex
+
 	workersShutdownCount := 0
 	syncCallCount := 0
-	var syncCallCountMutex sync.Mutex
-	recorder := events.NewInMemoryRecorder("shutdown-controller")
+	allWorkersBusy := make(chan struct{})
 
 	// simulate a long running sync logic that is signalled to shutdown
 	controller := factory.WithSync(func(ctx context.Context, syncContext SyncContext) error {
-		defer t.Logf("shutting down sync()")
 		syncCallCountMutex.Lock()
-		t.Logf("starting %d sync()", syncCallCount)
 		syncCallCount++
-		// First sync() enqueue 5 items which will result to all 5 workers having a job
-		if syncCallCount == 1 {
+		switch syncCallCount {
+		case 1:
 			syncContext.Queue().Add("TestKey1")
 			syncContext.Queue().Add("TestKey2")
 			syncContext.Queue().Add("TestKey3")
 			syncContext.Queue().Add("TestKey4")
-			syncContext.Queue().Add("TestKey5")
+		case 5:
+			close(allWorkersBusy)
 		}
 		syncCallCountMutex.Unlock()
-		// This will make the worker stucked until shutdown is called
+
+		// block until the shutdown is seen
 		<-ctx.Done()
-		time.Sleep(1 * time.Second) // simulate worker being busy finishing
+
+		// count workers shutdown
 		workersShutdownMutex.Lock()
 		workersShutdownCount++
 		workersShutdownMutex.Unlock()
+
 		return nil
-	}).ToController("ShutdownController", recorder)
+	}).ToController("ShutdownController", events.NewInMemoryRecorder("shutdown-controller"))
 
-	runComplete := make(chan struct{})
+	// wait for all workers to be busy, then signal shutdown
 	go func() {
-		defer close(runComplete)
-		controller.Run(controllerCtx, 5)
-	}() // start controller with 5 workers
+		defer shutdown()
+		<-allWorkersBusy
+	}()
 
-	time.Sleep(3 * time.Second) // give it time to periodically resync and call the sync() function
-
-	shutdown() // initiate controller shutdown
-	<-runComplete
+	// this blocks until all workers are shut down.
+	controller.Run(controllerCtx, 5)
 
 	workersShutdownMutex.Lock()
-	if workersShutdownCount != 6 {
-		t.Fatalf("expected all 6 workers to gracefully shutdown, got %d", workersShutdownCount)
+	if workersShutdownCount != 5 {
+		t.Fatalf("expected all workers to gracefully shutdown, got %d", workersShutdownCount)
 	}
 	workersShutdownMutex.Unlock()
 }
