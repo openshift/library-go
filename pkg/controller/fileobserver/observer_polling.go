@@ -133,7 +133,7 @@ func (o *pollingObserver) processReactors(stopCh <-chan struct{}) {
 		return false, nil
 	})
 	if err != nil {
-		klog.Fatalf("file observer failed: %v", err)
+		klog.Errorf("file observer failed: %v", err)
 	}
 }
 

@@ -207,7 +207,7 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		if err := server.PrepareRun().Run(ctx.Done()); err != nil {
 			klog.Error(err)
 		}
-		klog.Fatal("server exited")
+		klog.Error("server exited")
 	}()
 
 	protoConfig := rest.CopyConfig(clientConfig)
@@ -240,7 +240,7 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 
 	leaderElection.Callbacks.OnStartedLeading = func(ctx context.Context) {
 		if err := b.startFunc(ctx, controllerContext); err != nil {
-			klog.Fatal(err)
+			klog.Error(err)
 		}
 	}
 	leaderelection.RunOrDie(ctx, leaderElection)
