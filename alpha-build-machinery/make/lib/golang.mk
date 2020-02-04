@@ -32,7 +32,7 @@ endif
 GO_BUILD_PACKAGES ?=./cmd/...
 GO_BUILD_PACKAGES_EXPANDED ?=$(shell $(GO) list $(GO_MOD_FLAGS) $(GO_BUILD_PACKAGES))
 go_build_binaries =$(notdir $(GO_BUILD_PACKAGES_EXPANDED))
-GO_BUILD_FLAGS ?=
+GO_BUILD_FLAGS ?=-trimpath
 GO_BUILD_BINDIR ?=
 
 GO_TEST_FLAGS ?=-race
