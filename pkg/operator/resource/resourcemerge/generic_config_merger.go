@@ -128,7 +128,7 @@ func MergePrunedProcessConfig(schema runtime.Object, specialCases map[string]Mer
 	if err := json.Unmarshal(inputBytes, &inputJSON); err != nil {
 		return nil, err
 	}
-	return json.Marshal(intersectJSON(inputJSON, untypedJSON))
+	return yaml.Marshal(intersectJSON(inputJSON, untypedJSON))
 }
 
 type MergeFunc func(dst, src interface{}, currentPath string) (interface{}, error)

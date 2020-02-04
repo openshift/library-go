@@ -232,7 +232,7 @@ alpha: first
 			additional: `
 consolePublicURL: http://foo/bar
 `,
-			expected: `{"apiVersion":"foo","consolePublicURL":"http://foo/bar","kind":"the-kind"}`,
+			expected: "apiVersion: foo\nconsolePublicURL: http://foo/bar\nkind: the-kind\n",
 		},
 		{
 			name: "prune unknown values with array",
@@ -245,7 +245,7 @@ corsAllowedOrigins:
 			additional: `
 consolePublicURL: http://foo/bar
 `,
-			expected: `{"apiVersion":"foo","consolePublicURL":"http://foo/bar","corsAllowedOrigins":["(?i)//openshift(:|\\z)"],"kind":"the-kind"}`,
+			expected: "apiVersion: foo\nconsolePublicURL: http://foo/bar\ncorsAllowedOrigins:\n- (?i)//openshift(:|\\z)\nkind: the-kind\n",
 		},
 	}
 
@@ -266,6 +266,7 @@ consolePublicURL: http://foo/bar
 			}
 
 			if test.expected != string(actual) {
+				t.Log("\n=====\n" + string(actual) + "\n=====")
 				t.Error(diff.StringDiff(test.expected, string(actual)))
 			}
 		})
