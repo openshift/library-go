@@ -1,0 +1,14 @@
+make REQUIRED_VERSION:=1.12.5 CURRENT_VERSION:=1.12.6
+version is correct
+make REQUIRED_VERSION:=1.12.5 CURRENT_VERSION:=1.12.5
+version is correct
+make REQUIRED_VERSION:=1.12.5 CURRENT_VERSION:=1.13.1
+version is correct
+! make REQUIRED_VERSION:=1.12.5 CURRENT_VERSION:=1.11.6
+Makefile:15: *** `go` is required with minimal version "1.12.5", detected version "1.11.6". You can override this check by using `make REQUIRED_VERSION:=`.  Stop.
+make REQUIRED_VERSION:= CURRENT_VERSION:=1.11.6
+version is correct
+make REQUIRED_VERSION:=1 CURRENT_VERSION:=1.13.1
+version is correct
+! make REQUIRED_VERSION:=1.1.1 CURRENT_VERSION:=1.1
+Makefile:15: *** `go` is required with minimal version "1.1.1", detected version "1.1". You can override this check by using `make REQUIRED_VERSION:=`.  Stop.
