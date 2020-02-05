@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,11 +78,14 @@ func (c *baseController) Sync(ctx context.Context, syncCtx SyncContext) error {
 	return c.sync(ctx, syncCtx)
 }
 
+// QueueKey return queue key for given name.
+func QueueKey(name string) string {
+	return strings.ToLower(name) + "Key"
+}
+
 func (c *baseController) runPeriodicalResync(ctx context.Context, interval time.Duration) {
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		if err := c.sync(ctx, c.syncContext); err != nil {
-			utilruntime.HandleError(fmt.Errorf("periodical resync of controller %s failed: %v", c.name, err))
-		}
+		c.syncContext.Queue().Add(QueueKey(c.name))
 	}, interval)
 }
 
