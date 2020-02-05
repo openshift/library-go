@@ -1,7 +1,6 @@
 package factory
 
 import (
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -90,12 +89,6 @@ func (f *Factory) WithRuntimeObject() *Factory {
 func (f *Factory) WithSyncContext(ctx SyncContext) *Factory {
 	f.syncContext = ctx
 	return f
-}
-
-// QueueKey return queue key for given name.
-// Used in unit testing.
-func QueueKey(name string) string {
-	return strings.ToLower(name) + "Key"
 }
 
 // Controller produce a runnable controller.
