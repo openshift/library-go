@@ -231,10 +231,10 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		t.Error(errors)
 	}
 
-	if v1helpers.FindOperatorCondition(currStatus.Conditions, operatorv1.OperatorStatusTypeProgressing) == nil {
+	if v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerProgressingConditionType) == nil {
 		t.Error("missing Progressing")
 	}
-	if v1helpers.FindOperatorCondition(currStatus.Conditions, operatorv1.OperatorStatusTypeAvailable) == nil {
+	if v1helpers.FindOperatorCondition(currStatus.Conditions, condition.StaticPodsAvailableConditionType) == nil {
 		t.Error("missing Available")
 	}
 }
@@ -1353,14 +1353,14 @@ func TestSetConditions(t *testing.T) {
 			}
 			setAvailableProgressingNodeInstallerFailingConditions(status)
 
-			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeAvailable)
+			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.StaticPodsAvailableConditionType)
 			if availableCondition == nil {
 				t.Error("Available condition: not found")
 			} else if availableCondition.Status != tc.expectedAvailableStatus {
 				t.Errorf("Available condition: expected status %v, actual status %v", tc.expectedAvailableStatus, availableCondition.Status)
 			}
 
-			pendingCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeProgressing)
+			pendingCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.NodeInstallerProgressingConditionType)
 			if pendingCondition == nil {
 				t.Error("Progressing condition: not found")
 			} else if pendingCondition.Status != tc.expectedProgressingStatus {
