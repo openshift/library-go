@@ -459,13 +459,13 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 
 	if numAvailable > 0 {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Type:    condition.StaticPodsAvailableConditionType,
 			Status:  operatorv1.ConditionTrue,
 			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Type:    condition.StaticPodsAvailableConditionType,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "ZeroNodesActive",
 			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
@@ -475,13 +475,13 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	// Progressing means that the any node is not at the latest available revision
 	if numProgressing > 0 {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Type:    condition.NodeInstallerProgressingConditionType,
 			Status:  operatorv1.ConditionTrue,
 			Message: fmt.Sprintf("%s", revisionDescription),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Type:    condition.NodeInstallerProgressingConditionType,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "AllNodesAtLatestRevision",
 			Message: fmt.Sprintf("%s", revisionDescription),
