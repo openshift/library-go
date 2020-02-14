@@ -22,6 +22,7 @@ var HappyConditionStatus = map[configv1.ClusterStatusConditionType]configv1.Cond
 	configv1.OperatorDegraded:    configv1.ConditionFalse,
 	configv1.OperatorProgressing: configv1.ConditionFalse,
 	configv1.OperatorUpgradeable: configv1.ConditionTrue,
+	configv1.RetrievedUpdates:    configv1.ConditionTrue,
 }
 
 // SetStatusCondition sets the corresponding condition in conditions to newCondition.
@@ -71,26 +72,39 @@ func FindStatusCondition(conditions []configv1.ClusterOperatorStatusCondition, c
 	return nil
 }
 
-// GetStatusDiff returns a string representing change in condition status in human readable form.
-func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.ClusterOperatorStatus) string {
+// GetStatusDiff returns a string representing change in condition status in human readable form, and sets warning true if the new status is concerning.
+func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.ClusterOperatorStatus) (message string, warning bool) {
 	messages := []string{}
 	for _, newCondition := range newStatus.Conditions {
 		existingStatusCondition := FindStatusCondition(oldStatus.Conditions, newCondition.Type)
-		if existingStatusCondition == nil {
+		switch {
+		case existingStatusCondition == nil:
 			messages = append(messages, fmt.Sprintf("%s set to %s (%q)", newCondition.Type, newCondition.Status, newCondition.Message))
-			continue
-		}
-		if existingStatusCondition.Status != newCondition.Status {
+		case existingStatusCondition.Status != newCondition.Status:
 			messages = append(messages, fmt.Sprintf("%s changed from %s to %s (%q)", existingStatusCondition.Type, existingStatusCondition.Status, newCondition.Status, newCondition.Message))
+		case existingStatusCondition.Reason != newCondition.Reason:
+			messages = append(messages, fmt.Sprintf("%s=%s reason changed from %q to %q (%q)", existingStatusCondition.Type, existingStatusCondition.Status, existingStatusCondition.Reason, newCondition.Reason, newCondition.Message))
+		case existingStatusCondition.Message != newCondition.Message:
+			messages = append(messages, fmt.Sprintf("%s=%s %s message changed from %q to %q", existingStatusCondition.Type, existingStatusCondition.Status, existingStatusCondition.Reason, existingStatusCondition.Message, newCondition.Message))
+		default:
 			continue
 		}
-		if existingStatusCondition.Message != newCondition.Message {
-			messages = append(messages, fmt.Sprintf("%s message changed from %q to %q", existingStatusCondition.Type, existingStatusCondition.Message, newCondition.Message))
+		if happyConditionStatus, ok := HappyConditionStatus[newCondition.Type]; ok {
+			var sadConditionStatus configv1.ConditionStatus
+			if happyConditionStatus == configv1.ConditionTrue {
+				sadConditionStatus = configv1.ConditionFalse
+			} else {
+				sadConditionStatus = configv1.ConditionTrue
+			}
+			if newCondition.Status == sadConditionStatus {
+				warning = true
+			}
 		}
 	}
 	for _, oldCondition := range oldStatus.Conditions {
 		// This should not happen. It means we removed old condition entirely instead of just changing its status
 		if c := FindStatusCondition(newStatus.Conditions, oldCondition.Type); c == nil {
+			warning = true
 			messages = append(messages, fmt.Sprintf("%s was removed", oldCondition.Type))
 		}
 	}
@@ -115,7 +129,7 @@ func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.
 		messages = append(messages, diff.StringDiff(originalJSON.String(), newJSON.String()))
 	}
 
-	return strings.Join(messages, ",")
+	return strings.Join(messages, ","), warning
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to `configv1.ConditionTrue`

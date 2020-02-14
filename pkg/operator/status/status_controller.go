@@ -145,7 +145,13 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 		if _, err := c.clusterOperatorClient.ClusterOperators().UpdateStatus(ctx, clusterOperatorObj, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
-		syncCtx.Recorder().Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status))
+
+		statusDiff, warning := configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status)
+		if warning {
+			syncCtx.Recorder().Warningf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, statusDiff)
+		} else {
+			syncCtx.Recorder().Eventf("OperatorStatusChanged", "Status for operator %s changed: %s", c.clusterOperatorName, statusDiff)
+		}
 		return nil
 	}
 
@@ -174,7 +180,12 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 	if _, updateErr := c.clusterOperatorClient.ClusterOperators().UpdateStatus(ctx, clusterOperatorObj, metav1.UpdateOptions{}); err != nil {
 		return updateErr
 	}
-	syncCtx.Recorder().Eventf("OperatorStatusChanged", "Status for clusteroperator/%s changed: %s", c.clusterOperatorName, configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status))
+	statusDiff, warning := configv1helpers.GetStatusDiff(originalClusterOperatorObj.Status, clusterOperatorObj.Status)
+	if warning {
+		syncCtx.Recorder().Warningf("OperatorStatusChanged", "Status for clusteroperator/%s changed: %s", c.clusterOperatorName, statusDiff)
+	} else {
+		syncCtx.Recorder().Eventf("OperatorStatusChanged", "Status for clusteroperator/%s changed: %s", c.clusterOperatorName, statusDiff)
+	}
 	return nil
 }
 
