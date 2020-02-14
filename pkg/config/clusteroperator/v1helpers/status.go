@@ -14,6 +14,16 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 )
 
+// HappyConditionStatus indicates the happy condition status for
+// each condition type.  For instance, Available=True is good, and
+// Degraded=False is good.
+var HappyConditionStatus = map[configv1.ClusterStatusConditionType]configv1.ConditionStatus{
+	configv1.OperatorAvailable:   configv1.ConditionTrue,
+	configv1.OperatorDegraded:    configv1.ConditionFalse,
+	configv1.OperatorProgressing: configv1.ConditionFalse,
+	configv1.OperatorUpgradeable: configv1.ConditionTrue,
+}
+
 // SetStatusCondition sets the corresponding condition in conditions to newCondition.
 func SetStatusCondition(conditions *[]configv1.ClusterOperatorStatusCondition, newCondition configv1.ClusterOperatorStatusCondition) {
 	if conditions == nil {

@@ -10,16 +10,21 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+
+	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 )
 
 // UnionCondition returns a single operator condition that is the union of multiple operator conditions.
 //
-// defaultConditionStatus indicates whether you want to merge all Falses or merge all Trues.  For instance, Failures merge
-// on true, but Available merges on false.  Thing of it like an anti-default.
-//
-// If inertia is non-nil, then resist returning a condition with a status opposite the defaultConditionStatus.
-func UnionCondition(conditionType string, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) operatorv1.OperatorCondition {
+// If inertia is non-nil, then resist returning a condition with a status opposite the happy condition status.
+func UnionCondition(conditionType configv1.ClusterStatusConditionType, inertia Inertia, allConditions ...operatorv1.OperatorCondition) operatorv1.OperatorCondition {
 	var oppositeConditionStatus operatorv1.ConditionStatus
+
+	happyConditionStatus, ok := configv1helpers.HappyConditionStatus[conditionType]
+	if !ok {
+		panic(fmt.Sprintf("no happy condition status for %q", conditionType))
+	}
+	defaultConditionStatus := operatorv1.ConditionStatus(happyConditionStatus)
 	if defaultConditionStatus == operatorv1.ConditionTrue {
 		oppositeConditionStatus = operatorv1.ConditionFalse
 	} else {
@@ -30,7 +35,7 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 	badConditions := []operatorv1.OperatorCondition{}
 	badConditionStatus := operatorv1.ConditionUnknown
 	for _, condition := range allConditions {
-		if strings.HasSuffix(condition.Type, conditionType) {
+		if strings.HasSuffix(condition.Type, string(conditionType)) {
 			interestingConditions = append(interestingConditions, condition)
 
 			if condition.Status != defaultConditionStatus {
@@ -42,7 +47,7 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 		}
 	}
 
-	unionedCondition := operatorv1.OperatorCondition{Type: conditionType, Status: operatorv1.ConditionUnknown}
+	unionedCondition := operatorv1.OperatorCondition{Type: string(conditionType), Status: operatorv1.ConditionUnknown}
 	if len(interestingConditions) == 0 {
 		unionedCondition.Status = operatorv1.ConditionUnknown
 		unionedCondition.Reason = "NoData"
@@ -81,12 +86,9 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 
 // UnionClusterCondition returns a single cluster operator condition that is the union of multiple operator conditions.
 //
-// defaultConditionStatus indicates whether you want to merge all Falses or merge all Trues.  For instance, Failures merge
-// on true, but Available merges on false.  Thing of it like an anti-default.
-//
-// If inertia is non-nil, then resist returning a condition with a status opposite the defaultConditionStatus.
-func UnionClusterCondition(conditionType string, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) configv1.ClusterOperatorStatusCondition {
-	cnd := UnionCondition(conditionType, defaultConditionStatus, inertia, allConditions...)
+// If inertia is non-nil, then resist returning a condition with a status opposite the happy condition status.
+func UnionClusterCondition(conditionType configv1.ClusterStatusConditionType, inertia Inertia, allConditions ...operatorv1.OperatorCondition) configv1.ClusterOperatorStatusCondition {
+	cnd := UnionCondition(conditionType, inertia, allConditions...)
 	return OperatorConditionToClusterOperatorCondition(cnd)
 }
 
@@ -136,7 +138,7 @@ func unionMessage(conditions []operatorv1.OperatorCondition) string {
 	return strings.Join(messages, "\n")
 }
 
-func unionReason(unionConditionType string, conditions []operatorv1.OperatorCondition) string {
+func unionReason(unionConditionType configv1.ClusterStatusConditionType, conditions []operatorv1.OperatorCondition) string {
 	typeReasons := []string{}
 	for _, curr := range conditions {
 		currType := curr.Type[:len(curr.Type)-len(unionConditionType)]
