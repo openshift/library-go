@@ -177,7 +177,7 @@ func (o *InstallOptions) prefixFor(name string) string {
 func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
 	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed bool) error {
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
-	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(resourceDir, 0755); err != nil {
 		return err
 	}
 
@@ -252,7 +252,7 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 func (o *InstallOptions) copyContent(ctx context.Context) error {
 	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
-	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(resourceDir, 0755); err != nil {
 		return err
 	}
 
