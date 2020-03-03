@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog"
 
@@ -25,6 +30,7 @@ import (
 	"github.com/openshift/library-go/pkg/config/configdefaults"
 	"github.com/openshift/library-go/pkg/controller/fileobserver"
 	"github.com/openshift/library-go/pkg/crypto"
+	"github.com/openshift/library-go/pkg/operator/resource/retry"
 	"github.com/openshift/library-go/pkg/serviceability"
 
 	// for metrics
@@ -277,6 +283,52 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 
 	if !c.DisableServing {
 		builder = builder.WithServer(config.ServingInfo, config.Authentication, config.Authorization)
+
+		if len(c.basicFlags.KubeConfigFile) > 0 {
+			builder.WithHealthChecks(
+				healthz.LogHealthz,
+				healthz.NamedCheck("apiserver connection", func(r *http.Request) error {
+					clientConfig, err := builder.getClientConfig()
+					if err != nil {
+						return err
+					}
+					kubeClient := kubernetes.NewForConfigOrDie(clientConfig)
+
+					// Test that kubeconfig credentials work.
+					// We want to hit an endpoint to check Authentication and not Authorization
+					// so it is generic and not requiring any RBAC.
+					retryCtx, retryCtxCancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer retryCtxCancel()
+					err = retry.RetryOnConnectionErrors(retryCtx, func(ctx context.Context) (done bool, err error) {
+						ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+						defer cancel()
+
+						_, err = kubeClient.AuthorizationV1().SelfSubjectAccessReviews().CreateContext(
+							ctx,
+							&authorizationv1.SelfSubjectAccessReview{
+								Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+									ResourceAttributes: &authorizationv1.ResourceAttributes{
+										Verb:     "list",
+										Group:    corev1.GroupName,
+										Version:  "v1",
+										Resource: "pods",
+									},
+								},
+							})
+						if err != nil {
+							return true, err
+						}
+
+						return false, nil
+					})
+					if err != nil {
+						return fmt.Errorf("testing apiserver conectivity failed: %w", err)
+					}
+
+					return nil
+				}),
+			)
+		}
 	}
 
 	return builder.Run(controllerCtx, unstructuredConfig)
