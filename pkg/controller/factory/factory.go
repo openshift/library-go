@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -17,6 +18,7 @@ type Factory struct {
 	resyncInterval        time.Duration
 	objectQueue           bool
 	informers             []Informer
+	postStartHooks        []PostStartHook
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
@@ -33,6 +35,11 @@ type namespaceInformer struct {
 	informer   Informer
 	namespaces sets.String
 }
+
+// PostStartHook specify a function that will run after controller is started.
+// The context is cancelled when the controller is asked to shutdown and the post start hook should terminate as well.
+// The syncContext allow access to controller queue and event recorder.
+type PostStartHook func(ctx context.Context, syncContext SyncContext) error
 
 // New return new factory instance.
 func New() *Factory {
@@ -51,6 +58,12 @@ func (f *Factory) WithSync(syncFn SyncFunc) *Factory {
 // is called.
 func (f *Factory) WithInformers(informers ...Informer) *Factory {
 	f.informers = append(f.informers, informers...)
+	return f
+}
+
+// WithPostRunHooks allows to register functions that will run asynchronously after the controller is started via Run command.
+func (f *Factory) WithPostRunHooks(hooks ...PostStartHook) *Factory {
+	f.postStartHooks = append(f.postStartHooks, hooks...)
 	return f
 }
 

@@ -21,6 +21,8 @@ type baseController struct {
 	sync         func(ctx context.Context, controllerContext SyncContext) error
 	syncContext  SyncContext
 	resyncEvery  time.Duration
+
+	postRunHooks []PostStartHook
 }
 
 var _ Controller = &baseController{}
@@ -36,10 +38,10 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 		panic("timeout waiting for informer cache") // this will be recovered using HandleCrash()
 	}
 
-	var workerWaitGroup sync.WaitGroup
+	var workerWg sync.WaitGroup
 	defer func() {
 		defer klog.Infof("All %s workers have been terminated", c.name)
-		workerWaitGroup.Wait()
+		workerWg.Wait()
 	}()
 
 	// queueContext is used to track and initiate queue shutdown
@@ -47,11 +49,11 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 
 	for i := 1; i <= workers; i++ {
 		klog.Infof("Starting #%d worker of %s controller ...", i, c.name)
-		workerWaitGroup.Add(1)
+		workerWg.Add(1)
 		go func() {
 			defer func() {
 				klog.Infof("Shutting down worker of %s controller ...", c.name)
-				workerWaitGroup.Done()
+				workerWg.Done()
 			}()
 			c.runWorker(queueContext)
 		}()
@@ -59,11 +61,29 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 
 	// runPeriodicalResync is independent from queue
 	if c.resyncEvery > 0 {
-		workerWaitGroup.Add(1)
+		workerWg.Add(1)
 		go func() {
-			defer workerWaitGroup.Done()
+			defer workerWg.Done()
 			c.runPeriodicalResync(ctx, c.resyncEvery)
 		}()
+	}
+
+	// run post-run hooks (custom triggers, etc.)
+	if len(c.postRunHooks) > 0 {
+		var hookWg sync.WaitGroup
+		defer func() {
+			defer klog.Infof("All %s post-run hooks have been terminated", c.name)
+			hookWg.Wait() // wait for the post-run hooks
+		}()
+		for i := range c.postRunHooks {
+			hookWg.Add(1)
+			go func(index int) {
+				defer hookWg.Done()
+				if err := c.postRunHooks[index](ctx, c.syncContext); err != nil {
+					klog.Warningf("%s controller post run hook error: %v", c.name, err)
+				}
+			}(i)
+		}
 	}
 
 	// Handle controller shutdown
