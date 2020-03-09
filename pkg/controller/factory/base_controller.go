@@ -3,11 +3,9 @@ package factory
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -16,13 +14,12 @@ import (
 
 // baseController represents generic Kubernetes controller boiler-plate
 type baseController struct {
-	name         string
-	cachesToSync []cache.InformerSynced
-	sync         func(ctx context.Context, controllerContext SyncContext) error
-	syncContext  SyncContext
-	resyncEvery  time.Duration
-
-	postRunHooks []PostStartHook
+	name           string
+	cachesToSync   []cache.InformerSynced
+	sync           func(ctx context.Context, controllerContext SyncContext) error
+	syncContext    SyncContext
+	resyncEvery    time.Duration
+	postStartHooks []PostStartHook
 }
 
 var _ Controller = &baseController{}
@@ -68,19 +65,19 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 		}()
 	}
 
-	// run post-run hooks (custom triggers, etc.)
-	if len(c.postRunHooks) > 0 {
+	// run post-start hooks (custom triggers, etc.)
+	if len(c.postStartHooks) > 0 {
 		var hookWg sync.WaitGroup
 		defer func() {
-			defer klog.Infof("All %s post-run hooks have been terminated", c.name)
-			hookWg.Wait() // wait for the post-run hooks
+			hookWg.Wait() // wait for the post-start hooks
+			klog.Infof("All %s post start hooks have been terminated", c.name)
 		}()
-		for i := range c.postRunHooks {
+		for i := range c.postStartHooks {
 			hookWg.Add(1)
 			go func(index int) {
 				defer hookWg.Done()
-				if err := c.postRunHooks[index](ctx, c.syncContext); err != nil {
-					klog.Warningf("%s controller post run hook error: %v", c.name, err)
+				if err := c.postStartHooks[index](ctx, c.syncContext); err != nil {
+					klog.Warningf("%s controller post start hook error: %v", c.name, err)
 				}
 			}(i)
 		}
@@ -102,17 +99,12 @@ func (c *baseController) Sync(ctx context.Context, syncCtx SyncContext) error {
 	return c.sync(ctx, syncCtx)
 }
 
-// QueueKey return queue key for given name.
-func QueueKey(name string) string {
-	return strings.ToLower(name) + "Key"
-}
-
 func (c *baseController) runPeriodicalResync(ctx context.Context, interval time.Duration) {
 	if interval == 0 {
 		return
 	}
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		c.syncContext.Queue().Add(QueueKey(c.name))
+		c.syncContext.Queue().Add(DefaultQueueKey)
 	}, interval)
 }
 
@@ -137,18 +129,24 @@ func (c *baseController) runWorker(queueCtx context.Context) {
 }
 
 func (c *baseController) processNextWorkItem(queueCtx context.Context) {
-	syncObject, quit := c.syncContext.Queue().Get()
+	key, quit := c.syncContext.Queue().Get()
 	if quit {
 		return
 	}
-	defer c.syncContext.Queue().Done(syncObject)
+	defer c.syncContext.Queue().Done(key)
 
-	runtimeObject, _ := syncObject.(runtime.Object)
-	if err := c.sync(queueCtx, c.syncContext.(syncContext).withRuntimeObject(runtimeObject)); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%s controller failed to sync %+v with: %w", c.name, syncObject, err))
-		c.syncContext.Queue().AddRateLimited(syncObject)
+	syncCtx := c.syncContext.(syncContext)
+	var ok bool
+	syncCtx.queueKey, ok = key.(string)
+	if !ok {
+		klog.Warningf("Queue key is not string: %+v", key)
+	}
+
+	if err := c.sync(queueCtx, syncCtx); err != nil {
+		utilruntime.HandleError(fmt.Errorf("%s controller failed to sync %+v with: %w", c.name, key, err))
+		c.syncContext.Queue().AddRateLimited(key)
 		return
 	}
 
-	c.syncContext.Queue().Forget(syncObject)
+	c.syncContext.Queue().Forget(key)
 }
