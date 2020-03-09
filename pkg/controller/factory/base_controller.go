@@ -19,11 +19,15 @@ type baseController struct {
 	name         string
 	cachesToSync []cache.InformerSynced
 	sync         func(ctx context.Context, controllerContext SyncContext) error
-	resyncEvery  time.Duration
 	syncContext  SyncContext
+	resyncEvery  time.Duration
 }
 
 var _ Controller = &baseController{}
+
+func (c baseController) Name() string {
+	return c.name
+}
 
 func (c *baseController) Run(ctx context.Context, workers int) {
 	// HandleCrash recovers panics
@@ -84,6 +88,9 @@ func QueueKey(name string) string {
 }
 
 func (c *baseController) runPeriodicalResync(ctx context.Context, interval time.Duration) {
+	if interval == 0 {
+		return
+	}
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		c.syncContext.Queue().Add(QueueKey(c.name))
 	}, interval)

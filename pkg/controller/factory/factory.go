@@ -1,7 +1,6 @@
 package factory
 
 import (
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -14,16 +13,24 @@ import (
 // Factory is really generic and should be only used for simple controllers that does not require special stuff..
 type Factory struct {
 	sync                  SyncFunc
+	syncContext           SyncContext
 	resyncInterval        time.Duration
 	objectQueue           bool
-	informers             []cache.SharedInformer
+	informers             []Informer
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
 }
 
+// Informer represents any structure that allow to register event handlers and informs if caches are synced.
+// Any SharedInformer will comply.
+type Informer interface {
+	AddEventHandler(handler cache.ResourceEventHandler)
+	HasSynced() bool
+}
+
 type namespaceInformer struct {
-	informer   cache.SharedInformer
+	informer   Informer
 	namespaces sets.String
 }
 
@@ -42,7 +49,7 @@ func (f *Factory) WithSync(syncFn SyncFunc) *Factory {
 // WithInformers is used to register event handlers and get the caches synchronized functions.
 // Pass informers you want to use to react to changes on resources. If informer event is observed, then the Sync() function
 // is called.
-func (f *Factory) WithInformers(informers ...cache.SharedInformer) *Factory {
+func (f *Factory) WithInformers(informers ...Informer) *Factory {
 	f.informers = append(f.informers, informers...)
 	return f
 }
@@ -50,7 +57,7 @@ func (f *Factory) WithInformers(informers ...cache.SharedInformer) *Factory {
 // WithNamespaceInformer is used to register event handlers and get the caches synchronized functions.
 // The sync function will only trigger when the object observed by this informer is a namespace and its name matches the interestingNamespaces.
 // Do not use this to register non-namespace informers.
-func (f *Factory) WithNamespaceInformer(informer cache.SharedInformer, interestingNamespaces ...string) *Factory {
+func (f *Factory) WithNamespaceInformer(informer Informer, interestingNamespaces ...string) *Factory {
 	f.namespaceInformers = append(f.namespaceInformers, &namespaceInformer{
 		informer:   informer,
 		namespaces: sets.NewString(interestingNamespaces...),
@@ -76,13 +83,27 @@ func (f *Factory) WithRuntimeObject() *Factory {
 	return f
 }
 
+// WithSyncContext allows to specify custom, existing sync context for this factory.
+// This is useful during unit testing where you can override the default event recorder or mock the runtime objects.
+// If this function not called, a SyncContext is created by the factory automatically.
+func (f *Factory) WithSyncContext(ctx SyncContext) *Factory {
+	f.syncContext = ctx
+	return f
+}
+
 // Controller produce a runnable controller.
 func (f *Factory) ToController(name string, eventRecorder events.Recorder) Controller {
 	if f.sync == nil {
 		panic("Sync() function must be called before making controller")
 	}
 
-	ctx := NewSyncContext(name, eventRecorder)
+	var ctx SyncContext
+	if f.syncContext != nil {
+		ctx = f.syncContext
+	} else {
+		ctx = NewSyncContext(name, eventRecorder)
+	}
+
 	c := &baseController{
 		name:        name,
 		sync:        f.sync,
@@ -91,12 +112,12 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	}
 
 	for i := range f.informers {
-		f.informers[i].AddEventHandler(c.syncContext.(syncContext).eventHandler(strings.ToLower(name)+"Key", f.objectQueue, sets.NewString()))
+		f.informers[i].AddEventHandler(c.syncContext.(syncContext).eventHandler(QueueKey(name), f.objectQueue, sets.NewString()))
 		c.cachesToSync = append(f.cachesToSync, f.informers[i].HasSynced)
 	}
 
 	for i := range f.namespaceInformers {
-		f.namespaceInformers[i].informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(strings.ToLower(name)+"Key", f.objectQueue, f.namespaceInformers[i].namespaces))
+		f.namespaceInformers[i].informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(QueueKey(name), f.objectQueue, f.namespaceInformers[i].namespaces))
 		c.cachesToSync = append(f.cachesToSync, f.informers[i].HasSynced)
 	}
 
