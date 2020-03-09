@@ -20,10 +20,6 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const (
-	conditionWorkKey = "key"
-)
-
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
 // fully migrated read-key in the current config, and no later key is of identity type.
 type conditionController struct {
