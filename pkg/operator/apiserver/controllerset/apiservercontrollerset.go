@@ -5,9 +5,11 @@ import (
 	"fmt"
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
+	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -19,6 +21,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 )
@@ -58,6 +61,7 @@ type APIServerControllerSet struct {
 	logLevelController              controllerWrapper
 	finalizerController             controllerWrapper
 	staticResourceController        controllerWrapper
+	workloadController              controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -188,9 +192,51 @@ func (cs *APIServerControllerSet) WithStaticResourcesController(
 	return cs
 }
 
-func (cs *APIServerControllerSet) WithoutStaticResourcesController() {
+func (cs *APIServerControllerSet) WithoutStaticResourcesController() *APIServerControllerSet {
 	cs.staticResourceController.controller = nil
 	cs.staticResourceController.emptyAllowed = true
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithWorkloadController(
+	name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix string,
+	kubeClient kubernetes.Interface,
+	syncFn workload.SyncFunc,
+	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
+	versionRecorder status.VersionGetter,
+	nsInformer cache.SharedIndexInformer,
+	informers ...cache.SharedIndexInformer) *APIServerControllerSet {
+
+	workloadController := workload.NewController(
+		name,
+		operatorNamespace,
+		targetNamespace,
+		targetOperandVersion,
+		operandNamePrefix,
+		cs.operatorClient,
+		kubeClient,
+		syncFn,
+		openshiftClusterConfigClient,
+		cs.eventRecorder,
+		versionRecorder)
+
+	for _, informer := range informers {
+		workloadController.AddInformer(informer)
+	}
+
+	if nsInformer != nil {
+		workloadController.AddNamespaceInformer(nsInformer)
+	}
+
+	cs.workloadController.controller = workloadController
+
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutWorkloadController() *APIServerControllerSet {
+	cs.workloadController.controller = nil
+	cs.workloadController.emptyAllowed = true
+	return cs
 }
 
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
@@ -204,6 +250,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"logLevelController":              cs.logLevelController,
 		"finalizerController":             cs.finalizerController,
 		"staticResourceController":        cs.staticResourceController,
+		"workloadController":              cs.workloadController,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
