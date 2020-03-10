@@ -35,8 +35,14 @@ const (
 	workQueueKey = "key"
 )
 
-// SyncFunc a function that will be used for delegation. It should bring the desired workload into operation.
-type SyncFunc func() (*appsv1.Deployment, bool, []error)
+// Delegate captures a set of methods that hold a custom logic
+type Delegate interface {
+	// Sync a method that will be used for delegation. It should bring the desired workload into operation.
+	Sync() (*appsv1.Deployment, bool, []error)
+
+	// PreconditionFulfilled a method that indicates whether all prerequisites are met and we can Sync.
+	PreconditionFulfilled() (bool, error)
+}
 
 // Controller is a generic workload controller that deals with Deployment resource.
 // Callers must provide a sync function for delegation. It should bring the desired workload into operation.
@@ -53,7 +59,7 @@ type Controller struct {
 	kubeClient                   kubernetes.Interface
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface
 
-	syncFn             SyncFunc
+	delegate           Delegate
 	queue              workqueue.RateLimitingInterface
 	eventRecorder      events.Recorder
 	versionRecorder    status.VersionGetter
@@ -71,7 +77,7 @@ type Controller struct {
 func NewController(name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix string,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
-	syncFn SyncFunc,
+	delegate Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
 	versionRecorder status.VersionGetter) *Controller {
@@ -83,7 +89,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		operandNamePrefix:            operandNamePrefix,
 		operatorClient:               operatorClient,
 		kubeClient:                   kubeClient,
-		syncFn:                       syncFn,
+		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		eventRecorder:                eventRecorder.WithComponentSuffix("workload-controller"),
 		versionRecorder:              versionRecorder,
@@ -107,7 +113,11 @@ func (c *Controller) sync() error {
 		return err
 	}
 
-	workload, operatorConfigAtHighestGeneration, errs := c.syncFn()
+	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled {
+		return err
+	}
+
+	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync()
 
 	return c.updateOperatorStatus(workload, operatorConfigAtHighestGeneration, errs)
 }

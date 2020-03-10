@@ -201,7 +201,7 @@ func (cs *APIServerControllerSet) WithoutStaticResourcesController() *APIServerC
 func (cs *APIServerControllerSet) WithWorkloadController(
 	name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix string,
 	kubeClient kubernetes.Interface,
-	syncFn workload.SyncFunc,
+	delegate workload.Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
 	nsInformer cache.SharedIndexInformer,
@@ -215,7 +215,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		operandNamePrefix,
 		cs.operatorClient,
 		kubeClient,
-		syncFn,
+		delegate,
 		openshiftClusterConfigClient,
 		cs.eventRecorder,
 		versionRecorder)
