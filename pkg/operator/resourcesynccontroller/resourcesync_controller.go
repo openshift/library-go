@@ -104,7 +104,7 @@ func (c *ResourceSyncController) SyncConfigMap(destination, source ResourceLocat
 	c.configMapSyncRules[destination] = source
 
 	// make sure the new rule is picked up
-	c.queue.Add(factory.QueueKey(c.Name()))
+	c.queue.Add(factory.DefaultQueueKey)
 	return nil
 }
 
@@ -121,7 +121,7 @@ func (c *ResourceSyncController) SyncSecret(destination, source ResourceLocation
 	c.secretSyncRules[destination] = source
 
 	// make sure the new rule is picked up
-	c.queue.Add(factory.QueueKey(c.Name()))
+	c.queue.Add(factory.DefaultQueueKey)
 	return nil
 }
 
