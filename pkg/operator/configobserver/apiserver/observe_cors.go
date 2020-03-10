@@ -16,9 +16,18 @@ var clusterDefaultCORSAllowedOrigins = []string{
 }
 
 // ObserveAdditionalCORSAllowedOrigins observes the additionalCORSAllowedOrigins field
-// of the APIServer resource
-func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
-	corsAllowedOriginsPath := []string{"corsAllowedOrigins"}
+// of the APIServer resource and sets the corsAllowedOrigins field of observedConfig
+func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerObserveAdditionalCORSAllowedOrigins(genericListers, recorder, existingConfig, []string{"corsAllowedOrigins"})
+}
+
+// ObserveAdditionalCORSAllowedOriginsToArguments observes the additionalCORSAllowedOrigins field
+// of the APIServer resource and sets the cors-allowed-origins field in observedConfig.apiServerArguments
+func ObserveAdditionalCORSAllowedOriginsToArguments(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerObserveAdditionalCORSAllowedOrigins(genericListers, recorder, existingConfig, []string{"apiServerArguments", "cors-allowed-origins"})
+}
+
+func innerObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}, corsAllowedOriginsPath []string) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, corsAllowedOriginsPath)
 	}()
