@@ -48,7 +48,9 @@ type Delegate interface {
 // Callers must provide a sync function for delegation. It should bring the desired workload into operation.
 // The returned state along with errors will be converted into conditions and persisted in the status field.
 type Controller struct {
-	name                 string
+	name string
+	// conditionsPrefix an optional prefix that will be used as operator's condition type field for example APIServerDeploymentDegraded where APIServer indicates the prefix
+	conditionsPrefix     string
 	operatorNamespace    string
 	targetNamespace      string
 	targetOperandVersion string
@@ -74,7 +76,7 @@ type Controller struct {
 // the "operatorNamespace" is used to set "version-mapping" in the correct namespace
 //
 // the "targetNamespace" represent the namespace for the managed resource (DaemonSet)
-func NewController(name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix string,
+func NewController(name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	delegate Delegate,
@@ -87,6 +89,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		targetNamespace:              targetNamespace,
 		targetOperandVersion:         targetOperandVersion,
 		operandNamePrefix:            operandNamePrefix,
+		conditionsPrefix:             conditionsPrefix,
 		operatorClient:               operatorClient,
 		kubeClient:                   kubeClient,
 		delegate:                     delegate,
@@ -271,22 +274,22 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 	}
 
 	deploymentAvailableCondition := operatorv1.OperatorCondition{
-		Type:   fmt.Sprintf("%sDeployment%s", c.name, operatorv1.OperatorStatusTypeAvailable),
+		Type:   fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable),
 		Status: operatorv1.ConditionTrue,
 	}
 
 	workloadDegradedCondition := operatorv1.OperatorCondition{
-		Type:   fmt.Sprintf("%sWorkloadDegraded", c.name),
+		Type:   fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix),
 		Status: operatorv1.ConditionFalse,
 	}
 
 	deploymentDegradedCondition := operatorv1.OperatorCondition{
-		Type:   fmt.Sprintf("%sDeploymentDegraded", c.name),
+		Type:   fmt.Sprintf("%sDeploymentDegraded", c.conditionsPrefix),
 		Status: operatorv1.ConditionFalse,
 	}
 
 	deploymentProgressingCondition := operatorv1.OperatorCondition{
-		Type:   fmt.Sprintf("%sDeployment%s", c.name, operatorv1.OperatorStatusTypeProgressing),
+		Type:   fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing),
 		Status: operatorv1.ConditionFalse,
 	}
 
