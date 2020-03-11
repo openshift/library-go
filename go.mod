@@ -68,3 +68,7 @@ require (
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
 )
+
+replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200311151921-fdf269f98861
+
+replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200311173916-2981b842ff3e
