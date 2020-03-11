@@ -1,6 +1,7 @@
 package v1helpers
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -164,7 +165,7 @@ type fakeNodeLister struct {
 }
 
 func (n *fakeNodeLister) List(selector labels.Selector) ([]*corev1.Node, error) {
-	nodes, err := n.client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: selector.String()})
+	nodes, err := n.client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return nil, err
 	}

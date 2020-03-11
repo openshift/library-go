@@ -1,6 +1,7 @@
 package oauthserviceaccountclient
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -234,7 +235,7 @@ func (a *saOAuthClientAdapter) Get(name string, options metav1.GetOptions) (*oau
 		return a.delegate.Get(name, options)
 	}
 
-	sa, err := a.saClient.ServiceAccounts(saNamespace).Get(saName, metav1.GetOptions{})
+	sa, err := a.saClient.ServiceAccounts(saNamespace).Get(context.TODO(), saName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -393,13 +394,13 @@ func (a *saOAuthClientAdapter) redirectURIsFromRoutes(namespace string, osRouteN
 	routeErrors := []error{}
 	routeInterface := a.routeClient.Routes(namespace)
 	if osRouteNames.Len() > 1 {
-		if r, err := routeInterface.List(metav1.ListOptions{}); err == nil {
+		if r, err := routeInterface.List(context.TODO(), metav1.ListOptions{}); err == nil {
 			routes = r.Items
 		} else {
 			routeErrors = append(routeErrors, err)
 		}
 	} else {
-		if r, err := routeInterface.Get(osRouteNames.List()[0], metav1.GetOptions{}); err == nil {
+		if r, err := routeInterface.Get(context.TODO(), osRouteNames.List()[0], metav1.GetOptions{}); err == nil {
 			routes = append(routes, *r)
 		} else {
 			routeErrors = append(routeErrors, err)
@@ -466,7 +467,7 @@ func getScopeRestrictionsFor(namespace, name string) []oauthv1.ScopeRestriction 
 
 // getServiceAccountTokens returns all ServiceAccountToken secrets for the given ServiceAccount
 func (a *saOAuthClientAdapter) getServiceAccountTokens(sa *corev1.ServiceAccount) ([]string, error) {
-	allSecrets, err := a.secretClient.Secrets(sa.Namespace).List(metav1.ListOptions{})
+	allSecrets, err := a.secretClient.Secrets(sa.Namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
