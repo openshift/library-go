@@ -179,10 +179,6 @@ func (n *fakeNodeLister) Get(name string) (*corev1.Node, error) {
 	panic("implement me")
 }
 
-func (n *fakeNodeLister) ListWithPredicate(predicate corev1listers.NodeConditionPredicate) ([]*corev1.Node, error) {
-	panic("implement me")
-}
-
 // NewFakeOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
 func NewFakeOperatorClient(spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, triggerErr func(rv string, status *operatorv1.OperatorStatus) error) OperatorClient {
 	return &fakeOperatorClient{
