@@ -38,7 +38,7 @@ func CurrentLogLevel() operatorv1.LogLevel {
 	case klog.V(2) == true:
 		return operatorv1.Normal
 	default:
-		return operatorv1.Normal
+		return "Unknown" // no real log level, but we have to distinguish it from Normal
 	}
 }
 
