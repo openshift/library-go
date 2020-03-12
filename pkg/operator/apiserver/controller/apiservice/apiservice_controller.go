@@ -84,7 +84,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 			return errors.NewAggregate(errs)
 		}
 		for _, apiService := range apiServices {
-			if err := c.apiregistrationv1Client.APIServices().Delete(apiService.Name, nil); err != nil {
+			if err := c.apiregistrationv1Client.APIServices().Delete(ctx, apiService.Name, metav1.DeleteOptions{}); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -241,7 +241,7 @@ func (a *APIServicesToManage) GetAPIServicesToManage() ([]*apiregistrationv1.API
 }
 
 func (a *APIServicesToManage) isAPIServiceAnnotatedByExternalServer(apiService *apiregistrationv1.APIService) bool {
-	existingApiService, err := a.apiregistrationv1Client.APIServices().Get(apiService.Name, metav1.GetOptions{})
+	existingApiService, err := a.apiregistrationv1Client.APIServices().Get(context.TODO(), apiService.Name, metav1.GetOptions{})
 	if err != nil {
 		a.eventRecorder.Warningf("APIServicesToManageAnnotation", "unable to determine if the following API Service %s was annotated by an external operator (it should be) due to %v", apiService.Name, err)
 		return false

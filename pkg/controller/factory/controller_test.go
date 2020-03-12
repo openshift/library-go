@@ -131,7 +131,7 @@ func TestControllerWithInformer(t *testing.T) {
 	go controller.Run(ctx, 1)
 	time.Sleep(1 * time.Second) // Give controller time to start
 
-	if _, err := kubeClient.CoreV1().Secrets("test").Create(makeFakeSecret()); err != nil {
+	if _, err := kubeClient.CoreV1().Secrets("test").Create(ctx, makeFakeSecret(), meta.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create fake secret: %v", err)
 	}
 
@@ -175,7 +175,7 @@ func TestControllerWithQueueFunction(t *testing.T) {
 	go controller.Run(ctx, 1)
 	time.Sleep(1 * time.Second) // Give controller time to start
 
-	if _, err := kubeClient.CoreV1().Secrets("test").Create(makeFakeSecret()); err != nil {
+	if _, err := kubeClient.CoreV1().Secrets("test").Create(ctx, makeFakeSecret(), meta.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create fake secret: %v", err)
 	}
 
