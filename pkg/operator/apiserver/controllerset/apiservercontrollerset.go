@@ -3,6 +3,7 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -17,6 +18,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -204,7 +206,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	delegate workload.Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
-	nsInformer cache.SharedIndexInformer,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	informers ...cache.SharedIndexInformer) *APIServerControllerSet {
 
 	workloadController := workload.NewController(
@@ -221,12 +223,14 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		cs.eventRecorder,
 		versionRecorder)
 
+	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer())
+	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer())
+	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Informer())
+
+	workloadController.AddNamespaceInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer())
+
 	for _, informer := range informers {
 		workloadController.AddInformer(informer)
-	}
-
-	if nsInformer != nil {
-		workloadController.AddNamespaceInformer(nsInformer)
 	}
 
 	cs.workloadController.controller = workloadController
