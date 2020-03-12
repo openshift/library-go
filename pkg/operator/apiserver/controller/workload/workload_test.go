@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultControllerName = "OpenshiftAPIServer"
+	defaultControllerName = ""
 )
 
 func TestUpdateOperatorStatus(t *testing.T) {
@@ -213,6 +213,50 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Status:  operatorv1.ConditionFalse,
 						Reason:  "AsExpected",
 						Message: "",
+					},
+				}
+				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
+			},
+		},
+		{
+			name: "scenario: we have an outdated (generation) workload and no errors thus we are available and we are progressing",
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "apiserver",
+					Namespace:  "openshift-apiserver",
+					Generation: 100,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: pointer.Int32Ptr(3),
+				},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas:  3,
+					ObservedGeneration: 99,
+				},
+			},
+			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status: operatorv1.ConditionFalse,
+					},
+					{
+						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionFalse,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "NewGeneration",
+						Message: "deployment/apiserver.openshift-apiserver: observed generation is 99, desired generation is 100.",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
