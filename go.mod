@@ -26,11 +26,11 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
-	github.com/google/go-cmp v0.3.0
+	github.com/google/go-cmp v0.3.1
 	github.com/google/uuid v1.1.1
-	github.com/googleapis/gnostic v0.1.0
+	github.com/googleapis/gnostic v0.2.0
 	github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c // indirect
-	github.com/imdario/mergo v0.3.5
+	github.com/imdario/mergo v0.3.7
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -72,3 +72,5 @@ require (
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200311151921-fdf269f98861
 
 replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200311173916-2981b842ff3e
+
+replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
