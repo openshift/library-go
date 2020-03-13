@@ -26,11 +26,14 @@ type APIServerLister interface {
 
 // ObserveTLSSecurityProfile observes APIServer.Spec.TLSSecurityProfile field and sets
 // the ServingInfo.MinTLSVersion, ServingInfo.CipherSuites fields
-func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	var (
 		minTlSVersionPath = []string{"servingInfo", "minTLSVersion"}
 		cipherSuitesPath  = []string{"servingInfo", "cipherSuites"}
 	)
+	defer func() {
+		ret = configobserver.Pruned(ret, minTlSVersionPath, cipherSuitesPath)
+	}()
 
 	listers := genericListers.(APIServerLister)
 	errs := []error{}

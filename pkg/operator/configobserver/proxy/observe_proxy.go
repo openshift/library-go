@@ -28,22 +28,14 @@ type observeProxyFlags struct {
 
 // ObserveProxyConfig observes the proxy.config.openshift.io/cluster object and writes
 // its content to an unstructured object in a string map at the path from the constructor
-func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	defer func() {
+		ret = configobserver.Pruned(ret, f.configPath)
+	}()
+
 	proxyLister := genericListers.(ProxyLister)
 
 	errs := []error{}
-	prevObservedProxyConfig := map[string]interface{}{}
-
-	// grab the current Proxy config to later check whether it was updated
-	currentProxyMap, _, err := unstructured.NestedStringMap(existingConfig, f.configPath...)
-	if err != nil {
-		return prevObservedProxyConfig, append(errs, err)
-	}
-
-	if len(currentProxyMap) > 0 {
-		unstructured.SetNestedStringMap(prevObservedProxyConfig, currentProxyMap, f.configPath...)
-	}
-
 	observedConfig := map[string]interface{}{}
 	proxyConfig, err := proxyLister.ProxyLister().Get("cluster")
 	if errors.IsNotFound(err) {
@@ -60,6 +52,11 @@ func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Lis
 		if err := unstructured.SetNestedStringMap(observedConfig, newProxyMap, f.configPath...); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	currentProxyMap, _, err := unstructured.NestedStringMap(existingConfig, f.configPath...)
+	if err != nil {
+		return existingConfig, append(errs, err)
 	}
 
 	if !reflect.DeepEqual(currentProxyMap, newProxyMap) {

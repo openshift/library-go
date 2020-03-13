@@ -41,20 +41,13 @@ type featureFlags struct {
 }
 
 // ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
-func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	defer func() {
+		ret = configobserver.Pruned(ret, f.configPath)
+	}()
+
 	listers := genericListers.(FeatureGateLister)
 	errs := []error{}
-	prevObservedConfig := map[string]interface{}{}
-
-	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, f.configPath...)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if len(currentConfigValue) > 0 {
-		if err := unstructured.SetNestedStringSlice(prevObservedConfig, currentConfigValue, f.configPath...); err != nil {
-			errs = append(errs, err)
-		}
-	}
 
 	observedConfig := map[string]interface{}{}
 	configResource, err := listers.FeatureGateLister().Get("cluster")
@@ -70,13 +63,17 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 		}
 	} else if err != nil {
 		errs = append(errs, err)
-		return prevObservedConfig, errs
+		return existingConfig, errs
 	}
 
 	newConfigValue, err := f.getWhitelistedFeatureNames(configResource)
 	if err != nil {
 		errs = append(errs, err)
-		return prevObservedConfig, errs
+		return existingConfig, errs
+	}
+	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, f.configPath...)
+	if err != nil {
+		errs = append(errs, err)
 	}
 	if !reflect.DeepEqual(currentConfigValue, newConfigValue) {
 		recorder.Eventf("ObserveFeatureFlagsUpdated", "Updated %v to %s", strings.Join(f.configPath, "."), strings.Join(newConfigValue, ","))
