@@ -125,7 +125,7 @@ func (f *Factory) WithSyncContext(ctx SyncContext) *Factory {
 // Controller produce a runnable controller.
 func (f *Factory) ToController(name string, eventRecorder events.Recorder) Controller {
 	if f.sync == nil {
-		panic("Sync() function must be called before making controller")
+		panic("WithSync() must be used before calling ToController()")
 	}
 
 	var ctx SyncContext
