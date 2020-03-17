@@ -28,13 +28,14 @@ func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, 
 	defaultConfig := map[string]interface{}{}
 	if err := unstructured.SetNestedStringSlice(defaultConfig, clusterDefaultCORSAllowedOrigins, corsAllowedOriginsPath...); err != nil {
 		// this should not happen
-		return defaultConfig, append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// grab the current CORS origins to later check whether they were updated
 	currentCORSAllowedOrigins, _, err := unstructured.NestedStringSlice(existingConfig, corsAllowedOriginsPath...)
 	if err != nil {
-		return defaultConfig, append(errs, err)
+		errs = append(errs, err)
+		// keep going on read error from existing config
 	}
 	currentCORSSet := sets.NewString(currentCORSAllowedOrigins...)
 	currentCORSSet.Insert(clusterDefaultCORSAllowedOrigins...)
@@ -54,7 +55,7 @@ func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, 
 	newCORSSet := sets.NewString(clusterDefaultCORSAllowedOrigins...)
 	newCORSSet.Insert(apiServer.Spec.AdditionalCORSAllowedOrigins...)
 	if err := unstructured.SetNestedStringSlice(observedConfig, newCORSSet.List(), corsAllowedOriginsPath...); err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	if !currentCORSSet.Equal(newCORSSet) {

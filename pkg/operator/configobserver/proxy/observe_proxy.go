@@ -43,20 +43,20 @@ func (f *observeProxyFlags) ObserveProxyConfig(genericListers configobserver.Lis
 		return observedConfig, errs
 	}
 	if err != nil {
-		errs = append(errs, err)
-		return existingConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	newProxyMap := proxyToMap(proxyConfig)
 	if newProxyMap != nil {
 		if err := unstructured.SetNestedStringMap(observedConfig, newProxyMap, f.configPath...); err != nil {
-			errs = append(errs, err)
+			return existingConfig, append(errs, err)
 		}
 	}
 
 	currentProxyMap, _, err := unstructured.NestedStringMap(existingConfig, f.configPath...)
 	if err != nil {
-		return existingConfig, append(errs, err)
+		errs = append(errs, err)
+		// keep going on read error from existing config
 	}
 
 	if !reflect.DeepEqual(currentProxyMap, newProxyMap) {

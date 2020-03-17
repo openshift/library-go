@@ -60,8 +60,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		return observedConfig, errs
 	}
 	if err != nil {
-		errs = append(errs, err)
-		return existingConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	cloudProvider := getPlatformName(infrastructure.Status.Platform, recorder)
@@ -88,16 +87,13 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		sourceLocation = resourcesynccontroller.ResourceLocation{}
 	}
 
-	err = listers.ResourceSyncer().SyncConfigMap(
+	if err := listers.ResourceSyncer().SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{
 			Namespace: c.targetNamespaceName,
 			Name:      "cloud-config",
 		},
-		sourceLocation)
-
-	if err != nil {
-		errs = append(errs, err)
-		return observedConfig, errs
+		sourceLocation); err != nil {
+		return existingConfig, append(errs, err)
 	}
 
 	if len(sourceCloudConfigMap) == 0 {
@@ -109,12 +105,13 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 
 	if err := unstructured.SetNestedStringSlice(observedConfig, []string{staticCloudConfFile}, c.cloudProviderConfigPath...); err != nil {
 		recorder.Warningf("ObserveCloudProviderNames", "Failed setting cloud-config : %v", err)
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	existingCloudConfig, _, err := unstructured.NestedStringSlice(existingConfig, c.cloudProviderConfigPath...)
 	if err != nil {
-		return existingConfig, append(errs, err)
+		errs = append(errs, err)
+		// keep going on read error from existing config
 	}
 
 	if !equality.Semantic.DeepEqual(existingCloudConfig, []string{staticCloudConfFile}) {

@@ -62,18 +62,17 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 			},
 		}
 	} else if err != nil {
-		errs = append(errs, err)
-		return existingConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	newConfigValue, err := f.getWhitelistedFeatureNames(configResource)
 	if err != nil {
-		errs = append(errs, err)
-		return existingConfig, errs
+		return existingConfig, append(errs, err)
 	}
 	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, f.configPath...)
 	if err != nil {
 		errs = append(errs, err)
+		// keep going on read error from existing config
 	}
 	if !reflect.DeepEqual(currentConfigValue, newConfigValue) {
 		recorder.Eventf("ObserveFeatureFlagsUpdated", "Updated %v to %s", strings.Join(f.configPath, "."), strings.Join(newConfigValue, ","))
@@ -81,7 +80,7 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 
 	if err := unstructured.SetNestedStringSlice(observedConfig, newConfigValue, f.configPath...); err != nil {
 		recorder.Warningf("ObserveFeatureFlags", "Failed setting %v: %v", strings.Join(f.configPath, "."), err)
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	return observedConfig, errs
