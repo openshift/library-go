@@ -17,21 +17,25 @@ var clusterDefaultCORSAllowedOrigins = []string{
 
 // ObserveAdditionalCORSAllowedOrigins observes the additionalCORSAllowedOrigins field
 // of the APIServer resource
-func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	const corsAllowedOriginsPath = "corsAllowedOrigins"
+func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	corsAllowedOriginsPath := []string{"corsAllowedOrigins"}
+	defer func() {
+		ret = configobserver.Pruned(ret, corsAllowedOriginsPath)
+	}()
 
 	lister := genericListers.(APIServerLister)
 	errs := []error{}
 	defaultConfig := map[string]interface{}{}
-	if err := unstructured.SetNestedStringSlice(defaultConfig, clusterDefaultCORSAllowedOrigins, corsAllowedOriginsPath); err != nil {
+	if err := unstructured.SetNestedStringSlice(defaultConfig, clusterDefaultCORSAllowedOrigins, corsAllowedOriginsPath...); err != nil {
 		// this should not happen
-		return defaultConfig, append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// grab the current CORS origins to later check whether they were updated
-	currentCORSAllowedOrigins, _, err := unstructured.NestedStringSlice(existingConfig, corsAllowedOriginsPath)
+	currentCORSAllowedOrigins, _, err := unstructured.NestedStringSlice(existingConfig, corsAllowedOriginsPath...)
 	if err != nil {
-		return defaultConfig, append(errs, err)
+		errs = append(errs, err)
+		// keep going on read error from existing config
 	}
 	currentCORSSet := sets.NewString(currentCORSAllowedOrigins...)
 	currentCORSSet.Insert(clusterDefaultCORSAllowedOrigins...)
@@ -50,8 +54,8 @@ func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, 
 
 	newCORSSet := sets.NewString(clusterDefaultCORSAllowedOrigins...)
 	newCORSSet.Insert(apiServer.Spec.AdditionalCORSAllowedOrigins...)
-	if err := unstructured.SetNestedStringSlice(observedConfig, newCORSSet.List(), corsAllowedOriginsPath); err != nil {
-		errs = append(errs, err)
+	if err := unstructured.SetNestedStringSlice(observedConfig, newCORSSet.List(), corsAllowedOriginsPath...); err != nil {
+		return existingConfig, append(errs, err)
 	}
 
 	if !currentCORSSet.Equal(newCORSSet) {

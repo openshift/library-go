@@ -26,11 +26,14 @@ type APIServerLister interface {
 
 // ObserveTLSSecurityProfile observes APIServer.Spec.TLSSecurityProfile field and sets
 // the ServingInfo.MinTLSVersion, ServingInfo.CipherSuites fields
-func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	var (
 		minTlSVersionPath = []string{"servingInfo", "minTLSVersion"}
 		cipherSuitesPath  = []string{"servingInfo", "cipherSuites"}
 	)
+	defer func() {
+		ret = configobserver.Pruned(ret, minTlSVersionPath, cipherSuitesPath)
+	}()
 
 	listers := genericListers.(APIServerLister)
 	errs := []error{}
@@ -38,11 +41,13 @@ func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder e
 	currentMinTLSVersion, _, versionErr := unstructured.NestedString(existingConfig, minTlSVersionPath...)
 	if versionErr != nil {
 		errs = append(errs, fmt.Errorf("failed to retrieve spec.servingInfo.minTLSVersion: %v", versionErr))
+		// keep going on read error from existing config
 	}
 
 	currentCipherSuites, _, suitesErr := unstructured.NestedStringSlice(existingConfig, cipherSuitesPath...)
 	if suitesErr != nil {
 		errs = append(errs, fmt.Errorf("failed to retrieve spec.servingInfo.cipherSuites: %v", suitesErr))
+		// keep going on read error from existing config
 	}
 
 	apiServer, err := listers.APIServerLister().Get("cluster")
@@ -58,10 +63,10 @@ func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder e
 	}
 	observedMinTLSVersion, observedCipherSuites := getSecurityProfileCiphers(apiServer.Spec.TLSSecurityProfile)
 	if err = unstructured.SetNestedField(observedConfig, observedMinTLSVersion, minTlSVersionPath...); err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 	if err = unstructured.SetNestedStringSlice(observedConfig, observedCipherSuites, cipherSuitesPath...); err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	if observedMinTLSVersion != currentMinTLSVersion {
