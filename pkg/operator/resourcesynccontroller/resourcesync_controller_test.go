@@ -137,7 +137,7 @@ func TestSyncSecret(t *testing.T) {
 
 	select {
 	case <-destinationSecretCreated:
-	case <-time.After(10 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("timeout while waiting for destination secret to be created")
 	}
 
