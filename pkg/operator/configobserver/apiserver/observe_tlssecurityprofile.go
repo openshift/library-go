@@ -25,20 +25,26 @@ type APIServerLister interface {
 }
 
 // ObserveTLSSecurityProfile observes APIServer.Spec.TLSSecurityProfile field and sets
-// the ServingInfo.MinTLSVersion, ServingInfo.CipherSuites fields
-func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
-	var (
-		minTlSVersionPath = []string{"servingInfo", "minTLSVersion"}
-		cipherSuitesPath  = []string{"servingInfo", "cipherSuites"}
-	)
+// the ServingInfo.MinTLSVersion, ServingInfo.CipherSuites fields of observed config
+func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerTLSSecurityProfileObservations(genericListers, recorder, existingConfig, []string{"servingInfo", "minTLSVersion"}, []string{"servingInfo", "cipherSuites"})
+}
+
+// ObserveTLSSecurityProfileToArguments observes APIServer.Spec.TLSSecurityProfile field and sets
+// the tls-min-version and tls-cipher-suites fileds of observedConfig.apiServerArguments
+func ObserveTLSSecurityProfileToArguments(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerTLSSecurityProfileObservations(genericListers, recorder, existingConfig, []string{"apiServerArguments", "tls-min-version"}, []string{"apiServerArguments", "tls-cipher-suites"})
+}
+
+func innerTLSSecurityProfileObservations(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}, minTLSVersionPath, cipherSuitesPath []string) (ret map[string]interface{}, _ []error) {
 	defer func() {
-		ret = configobserver.Pruned(ret, minTlSVersionPath, cipherSuitesPath)
+		ret = configobserver.Pruned(ret, minTLSVersionPath, cipherSuitesPath)
 	}()
 
 	listers := genericListers.(APIServerLister)
 	errs := []error{}
 
-	currentMinTLSVersion, _, versionErr := unstructured.NestedString(existingConfig, minTlSVersionPath...)
+	currentMinTLSVersion, _, versionErr := unstructured.NestedString(existingConfig, minTLSVersionPath...)
 	if versionErr != nil {
 		errs = append(errs, fmt.Errorf("failed to retrieve spec.servingInfo.minTLSVersion: %v", versionErr))
 		// keep going on read error from existing config
@@ -58,11 +64,9 @@ func ObserveTLSSecurityProfile(genericListers configobserver.Listers, recorder e
 		return existingConfig, append(errs, err)
 	}
 
-	observedConfig := map[string]interface{}{
-		"servingInfo": map[string]interface{}{},
-	}
+	observedConfig := map[string]interface{}{}
 	observedMinTLSVersion, observedCipherSuites := getSecurityProfileCiphers(apiServer.Spec.TLSSecurityProfile)
-	if err = unstructured.SetNestedField(observedConfig, observedMinTLSVersion, minTlSVersionPath...); err != nil {
+	if err = unstructured.SetNestedField(observedConfig, observedMinTLSVersion, minTLSVersionPath...); err != nil {
 		return existingConfig, append(errs, err)
 	}
 	if err = unstructured.SetNestedStringSlice(observedConfig, observedCipherSuites, cipherSuitesPath...); err != nil {
