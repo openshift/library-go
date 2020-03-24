@@ -135,7 +135,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	fakeConfigInformer.Start(stopCh)
 	kubeInformers.Start(stopCh)
 	operatorInformer.Start(stopCh)
-	go controllers.Run(stopCh)
+	go controllers.Run(ctx, 1)
 
 	waitForConfigEventuallyCond := func(cond func(s string) bool) {
 		t.Helper()

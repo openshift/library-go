@@ -150,6 +150,9 @@ func (d *fakeDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, 
 	return d.secret, d.converged, d.err
 }
 
-func (d *fakeDeployer) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
-	return nil
+func (d *fakeDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
+}
+
+func (d *fakeDeployer) HasSynced() bool {
+	return true
 }
