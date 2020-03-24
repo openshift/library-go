@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
@@ -53,7 +54,7 @@ func (cw *controllerWrapper) prepare() (controller, error) {
 // APIServerControllerSet is a set of controllers that maintain a deployment of
 // an API server and the namespace it's running in
 //
-// TODO: add workload and encryption controllers
+// TODO: add encryption controllers
 type APIServerControllerSet struct {
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
@@ -65,6 +66,7 @@ type APIServerControllerSet struct {
 	finalizerController             controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
+	revisionController              controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -246,6 +248,34 @@ func (cs *APIServerControllerSet) WithoutWorkloadController() *APIServerControll
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithRevisionController(
+	targetNamespace string,
+	configMaps []revisioncontroller.RevisionResource,
+	secrets []revisioncontroller.RevisionResource,
+	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
+	revisionClient revisioncontroller.LatestRevisionClient,
+	configMapGetter corev1client.ConfigMapsGetter,
+	secretGetter corev1client.SecretsGetter,
+) *APIServerControllerSet {
+	cs.revisionController.controller = revisioncontroller.NewRevisionController(
+		targetNamespace,
+		configMaps,
+		secrets,
+		kubeInformersForTargetNamespace,
+		revisionClient,
+		configMapGetter,
+		secretGetter,
+		cs.eventRecorder,
+	)
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControllerSet {
+	cs.revisionController.controller = nil
+	cs.workloadController.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
 	prepared := []controller{}
 	errs := []error{}
@@ -258,6 +288,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"finalizerController":             cs.finalizerController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
+		"revisionController":              cs.revisionController,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
