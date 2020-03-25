@@ -13,9 +13,10 @@ import (
 // UnionRevisionLabelPodDeployer provides unified state from multiple distinct deployers.
 type UnionRevisionLabelPodDeployer struct {
 	delegates []statemachine.Deployer
+	hasSynced []cache.InformerSynced
 }
 
-var _ statemachine.Deployer = &RevisionLabelPodDeployer{}
+var _ statemachine.Deployer = &UnionRevisionLabelPodDeployer{}
 
 // NewUnionRevisionLabelPodDeployer creates a deployer that returns a unified state from multiple distinct deployers.
 // That means:
@@ -67,13 +68,20 @@ func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret
 	return goldenSecret, true, nil
 }
 
-// AddEventHandler registers a event handler that might influence the result of DeployedEncryptionConfigSecret for all configured deployers.
-func (d *UnionRevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
-	ret := []cache.InformerSynced{}
-
-	for _, delegate := range d.delegates {
-		ret = append(ret, delegate.AddEventHandler(handler)...)
+func (d *UnionRevisionLabelPodDeployer) HasSynced() bool {
+	for _, hasSynced := range d.hasSynced {
+		if !hasSynced() {
+			return false
+		}
 	}
+	return true
+}
 
-	return ret
+// AddEventHandler registers a event handler that might influence the result of DeployedEncryptionConfigSecret for all configured deployers.
+func (d *UnionRevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
+	d.hasSynced = []cache.InformerSynced{}
+	for _, delegate := range d.delegates {
+		delegate.AddEventHandler(handler)
+		d.hasSynced = append(d.hasSynced, delegate.HasSynced)
+	}
 }

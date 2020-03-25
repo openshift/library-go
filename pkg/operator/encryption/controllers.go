@@ -1,6 +1,8 @@
 package encryption
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -19,7 +21,7 @@ import (
 )
 
 type runner interface {
-	Run(stopCh <-chan struct{})
+	Run(ctx context.Context, workers int)
 }
 
 func NewControllers(
@@ -101,10 +103,10 @@ type Controllers struct {
 	controllers []runner
 }
 
-func (c *Controllers) Run(stopCh <-chan struct{}) {
+func (c *Controllers) Run(ctx context.Context, workers int) {
 	for _, controller := range c.controllers {
 		con := controller // capture range variable
-		go con.Run(stopCh)
+		go con.Run(ctx, workers)
 	}
-	<-stopCh
+	<-ctx.Done()
 }

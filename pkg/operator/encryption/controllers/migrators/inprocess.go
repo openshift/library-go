@@ -36,6 +36,10 @@ type InProcessMigrator struct {
 	handler cache.ResourceEventHandler
 }
 
+func (m *InProcessMigrator) HasSynced() bool {
+	return true
+}
+
 type inProcessMigration struct {
 	stopCh   chan<- struct{}
 	doneCh   <-chan struct{}
@@ -46,6 +50,8 @@ type inProcessMigration struct {
 	// when did it finish
 	timestamp time.Time
 }
+
+var _ Migrator = &InProcessMigrator{}
 
 func (m *InProcessMigrator) EnsureMigration(gr schema.GroupResource, writeKey string) (finished bool, result error, ts time.Time, err error) {
 	m.lock.Lock()
@@ -164,9 +170,8 @@ func (m *InProcessMigrator) PruneMigration(gr schema.GroupResource) error {
 	return nil
 }
 
-func (m *InProcessMigrator) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
+func (m *InProcessMigrator) AddEventHandler(handler cache.ResourceEventHandler) {
 	m.handler = handler
-	return nil
 }
 
 func preferredResourceVersion(c discovery.ServerResourcesInterface, gr schema.GroupResource) (string, error) {
