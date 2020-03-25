@@ -11,6 +11,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
+	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -21,9 +24,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
@@ -51,10 +56,7 @@ func (cw *controllerWrapper) prepare() (controller, error) {
 	return cw.controller, nil
 }
 
-// APIServerControllerSet is a set of controllers that maintain a deployment of
-// an API server and the namespace it's running in
-//
-// TODO: add encryption controllers
+// APIServerControllerSet is a set of controllers that maintain a deployment of an API server and the namespace it's running in
 type APIServerControllerSet struct {
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
@@ -67,6 +69,7 @@ type APIServerControllerSet struct {
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
 	revisionController              controllerWrapper
+	encryptionControllers           controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -276,6 +279,38 @@ func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControll
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithEncryptionControllers(
+	component string,
+	deployer statemachine.Deployer,
+	migrator migrators.Migrator,
+	secretsClient corev1.SecretsGetter,
+	apiServerClient configv1client.APIServerInterface,
+	apiServerInformer configv1informers.APIServerInformer,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	encryptedGRs ...schema.GroupResource,
+) *APIServerControllerSet {
+	cs.encryptionControllers.controller = encryption.NewControllers(
+		component,
+		deployer,
+		migrator,
+		cs.operatorClient,
+		apiServerClient,
+		apiServerInformer,
+		kubeInformersForNamespaces,
+		secretsClient,
+		cs.eventRecorder,
+		encryptedGRs...,
+	)
+
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerControllerSet {
+	cs.encryptionControllers.controller = nil
+	cs.encryptionControllers.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
 	prepared := []controller{}
 	errs := []error{}
@@ -289,6 +324,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
 		"revisionController":              cs.revisionController,
+		"encryptionControllers":           cs.encryptionControllers,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
