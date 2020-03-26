@@ -37,9 +37,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e // indirect
-	github.com/openshift/api v0.0.0-20200320142426-0de0d539b0c3
+	github.com/openshift/api v0.0.0-20200326160804-ecb9283fe820
 	github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160
-	github.com/openshift/client-go v0.0.0-20200320150128-a906f3d8e723
+	github.com/openshift/client-go v0.0.0-20200326155132-2a6cd50aedd0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.1.0
@@ -55,15 +55,15 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.18.0-beta.2
-	k8s.io/apiextensions-apiserver v0.18.0-beta.2
-	k8s.io/apimachinery v0.18.0-beta.2
-	k8s.io/apiserver v0.18.0-beta.2
-	k8s.io/client-go v0.18.0-beta.2
-	k8s.io/component-base v0.18.0-beta.2
+	k8s.io/api v0.18.0
+	k8s.io/apiextensions-apiserver v0.18.0
+	k8s.io/apimachinery v0.18.0
+	k8s.io/apiserver v0.18.0
+	k8s.io/client-go v0.18.0
+	k8s.io/component-base v0.18.0
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.18.0-beta.2
-	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab
+	k8s.io/kube-aggregator v0.18.0
+	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
