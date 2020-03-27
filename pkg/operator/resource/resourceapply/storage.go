@@ -30,25 +30,29 @@ func ApplyStorageClass(client storageclientv1.StorageClassesGetter, recorder eve
 		return nil, false, err
 	}
 
+	// First, let's compare ObjectMeta from both objects
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := existing.DeepCopy()
-
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
-	contentSame := equality.Semantic.DeepEqual(existingCopy, required)
+
+	// Second, let's compare the other fields. StorageClass doesn't have a spec and we don't
+	// want to miss fields, so we have to copy required to get all fields
+	// and then overwrite ObjectMeta and TypeMeta from the original.
+	requiredCopy := required.DeepCopy()
+	requiredCopy.ObjectMeta = *existingCopy.ObjectMeta.DeepCopy()
+	requiredCopy.TypeMeta = existingCopy.TypeMeta
+
+	contentSame := equality.Semantic.DeepEqual(existingCopy, requiredCopy)
 	if contentSame && !*modified {
-		return existingCopy, false, nil
+		return existing, false, nil
 	}
 
-	objectMeta := existingCopy.ObjectMeta.DeepCopy()
-	existingCopy = required.DeepCopy()
-	existingCopy.ObjectMeta = *objectMeta
-
 	if klog.V(4) {
-		klog.Infof("StorageClass %q changes: %v", required.Name, JSONPatchNoError(existing, existingCopy))
+		klog.Infof("StorageClass %q changes: %v", required.Name, JSONPatchNoError(existingCopy, requiredCopy))
 	}
 
 	// TODO if provisioner, parameters, reclaimpolicy, or volumebindingmode are different, update will fail so delete and recreate
-	actual, err := client.StorageClasses().Update(context.TODO(), existingCopy, metav1.UpdateOptions{})
+	actual, err := client.StorageClasses().Update(context.TODO(), requiredCopy, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
 	return actual, true, err
 }
