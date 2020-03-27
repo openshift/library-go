@@ -35,7 +35,7 @@ func NewControllers(
 	secretsClient corev1.SecretsGetter,
 	eventRecorder events.Recorder,
 	encryptedGRs ...schema.GroupResource,
-) (*Controllers, error) {
+) *Controllers {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
 	// this is fine in terms of performance since these controllers will be idle most of the time
@@ -96,7 +96,7 @@ func NewControllers(
 				encryptedGRs,
 			),
 		},
-	}, nil
+	}
 }
 
 type Controllers struct {
