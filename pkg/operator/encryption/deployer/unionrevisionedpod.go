@@ -36,6 +36,9 @@ func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret
 		if !converged || err != nil {
 			return nil, converged, err
 		}
+		if secret == nil {
+			continue
+		}
 
 		seenSecrets = append(seenSecrets, secret)
 	}

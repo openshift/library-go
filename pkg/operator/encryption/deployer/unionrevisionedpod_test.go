@@ -76,6 +76,15 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 			name:      "no-op when no deployers",
 			deployers: []statemachine.Deployer{},
 		},
+		{
+			name: "happy path with deployer2 returning nil secret",
+			deployers: []statemachine.Deployer{
+				newFakeDeployer(createDefaultSecretWithEncryptionConfig(t), true, nil),
+				newFakeDeployer(nil, true, nil),
+			},
+			expectedConverged: true,
+			expectedSecret:    createDefaultSecretWithEncryptionConfig(t),
+		},
 	}
 
 	for _, scenario := range scenarios {
