@@ -112,11 +112,11 @@ func (c *Controller) sync() error {
 		return err
 	}
 
-	if fulfilled, err := c.preconditionFulfilled(operatorSpec); !fulfilled {
+	if fulfilled, err := c.preconditionFulfilled(operatorSpec); !fulfilled || err != nil {
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled {
+	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled || err != nil {
 		return err
 	}
 

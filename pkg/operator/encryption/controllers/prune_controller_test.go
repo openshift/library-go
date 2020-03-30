@@ -177,15 +177,16 @@ func TestPruneController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			provider := newTestProvider(scenario.targetGRs)
 
 			target := NewPruneController(
+				provider,
 				deployer,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
-				scenario.targetGRs,
 			)
 
 			// act

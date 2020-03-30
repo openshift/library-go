@@ -716,15 +716,17 @@ func TestStateController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			provider := newTestProvider(scenario.targetGRs)
+
 			target := NewStateController(
 				scenario.targetNamespace,
+				provider,
 				deployer,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
-				scenario.targetGRs,
 			)
 
 			// act

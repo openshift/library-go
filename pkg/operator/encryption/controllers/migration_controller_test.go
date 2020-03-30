@@ -640,10 +640,12 @@ func TestMigrationController(t *testing.T) {
 				ensureReplies: scenario.migratorEnsureReplies,
 				pruneReplies:  scenario.migratorPruneReplies,
 			}
+			provider := newTestProvider(scenario.targetGRs)
 
 			// act
 			target := NewMigrationController(
 				"kms",
+				provider,
 				deployer,
 				migrator,
 				fakeOperatorClient,
@@ -651,7 +653,6 @@ func TestMigrationController(t *testing.T) {
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
-				scenario.targetGRs,
 			)
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 

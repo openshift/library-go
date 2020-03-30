@@ -60,18 +60,18 @@ type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 
-	encryptedGRs []schema.GroupResource
-
 	component                string
 	name                     string
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
 	secretClient corev1client.SecretsGetter
+	provider     Provider
 }
 
 func NewKeyController(
 	component string,
+	provider Provider,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
@@ -80,18 +80,17 @@ func NewKeyController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs []schema.GroupResource,
 ) factory.Controller {
 	c := &keyController{
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 
-		encryptedGRs: encryptedGRs,
-		component:    component,
-		name:         "EncryptionKeyController",
+		component: component,
+		name:      "EncryptionKeyController",
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
+		provider:                 provider,
 		secretClient:             secretClient,
 	}
 
@@ -107,11 +106,11 @@ func NewKeyController(
 }
 
 func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.checkAndCreateKeys(syncCtx)
+	configError := c.checkAndCreateKeys(syncCtx, c.provider.EncryptedGRs())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -130,13 +129,13 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) e
 	return configError
 }
 
-func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext) error {
+func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
 	currentMode, externalReason, err := c.getCurrentModeAndExternalReason()
 	if err != nil {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext) erro
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, c.encryptedGRs)
+		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
 		if !needed {
 			continue
 		}

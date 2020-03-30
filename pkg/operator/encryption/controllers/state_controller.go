@@ -36,7 +36,6 @@ const stateWorkKey = "key"
 // is converted into a single encryption config.  The logic for determining
 // the current write key is of special interest.
 type stateController struct {
-	encryptedGRs             []schema.GroupResource
 	component                string
 	name                     string
 	encryptionSecretSelector metav1.ListOptions
@@ -44,28 +43,29 @@ type stateController struct {
 	operatorClient operatorv1helpers.OperatorClient
 	secretClient   corev1client.SecretsGetter
 	deployer       statemachine.Deployer
+	provider       Provider
 }
 
 func NewStateController(
 	component string,
+	provider Provider,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs []schema.GroupResource,
 ) factory.Controller {
 	c := &stateController{
 		operatorClient: operatorClient,
 		name:           "EncryptionStateController",
 
-		encryptedGRs: encryptedGRs,
-		component:    component,
+		component: component,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
 		deployer:                 deployer,
+		provider:                 provider,
 	}
 
 	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
@@ -77,11 +77,11 @@ func NewStateController(
 }
 
 func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.generateAndApplyCurrentEncryptionConfigSecret(syncCtx.Queue(), syncCtx.Recorder())
+	configError := c.generateAndApplyCurrentEncryptionConfigSecret(syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -105,8 +105,8 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(queue workqueue.RateLimitingInterface, recorder events.Recorder) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
