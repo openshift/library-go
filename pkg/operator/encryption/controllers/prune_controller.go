@@ -37,30 +37,29 @@ const (
 type pruneController struct {
 	operatorClient operatorv1helpers.OperatorClient
 
-	encryptedGRs []schema.GroupResource
-
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
+	provider     Provider
 	secretClient corev1client.SecretsGetter
 	name         string
 }
 
 func NewPruneController(
+	provider Provider,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs []schema.GroupResource,
 ) factory.Controller {
 	c := &pruneController{
 		operatorClient:           operatorClient,
 		name:                     "EncryptionPruneController",
-		encryptedGRs:             encryptedGRs,
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
+		provider:                 provider,
 		secretClient:             secretClient,
 	}
 
@@ -72,11 +71,11 @@ func NewPruneController(
 }
 
 func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.deleteOldMigratedSecrets(syncCtx)
+	configError := c.deleteOldMigratedSecrets(syncCtx, c.provider.EncryptedGRs())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -95,8 +94,8 @@ func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	return configError
 }
 
-func (c *pruneController) deleteOldMigratedSecrets(syncContext factory.SyncContext) error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+func (c *pruneController) deleteOldMigratedSecrets(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}

@@ -25,30 +25,28 @@ import (
 type conditionController struct {
 	operatorClient operatorv1helpers.OperatorClient
 
-	encryptedGRs []schema.GroupResource
-
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
+	provider     Provider
 	secretClient corev1client.SecretsGetter
 }
 
 func NewConditionController(
+	provider Provider,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs []schema.GroupResource,
 ) factory.Controller {
 	c := &conditionController{
 		operatorClient: operatorClient,
 
-		encryptedGRs: encryptedGRs,
-
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
+		provider:                 provider,
 		secretClient:             secretClient,
 	}
 
@@ -60,11 +58,12 @@ func NewConditionController(
 }
 
 func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptedGRs := c.provider.EncryptedGRs()
+	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil || len(transitioningReason) > 0 {
 		return err
 	}
@@ -73,7 +72,7 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 		Type:    "Encrypted",
 		Status:  operatorv1.ConditionTrue,
 		Reason:  "EncryptionCompleted",
-		Message: fmt.Sprintf("All resources encrypted: %s", grString(c.encryptedGRs)),
+		Message: fmt.Sprintf("All resources encrypted: %s", grString(encryptedGRs)),
 	}
 	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
 
@@ -89,7 +88,7 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 				continue
 			}
 
-			if allMigrated(c.encryptedGRs, s.WriteKey.Migrated.Resources) {
+			if allMigrated(encryptedGRs, s.WriteKey.Migrated.Resources) {
 				cond.Status = operatorv1.ConditionFalse
 				cond.Reason = "DecryptionCompleted"
 				cond.Message = "Encryption mode set to identity and everything is decrypted"
@@ -104,7 +103,7 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 	if cond.Status == operatorv1.ConditionTrue {
 		// now that the desired state look like it won't lead to identity as write-key, test the current state
 	NextResource:
-		for _, gr := range c.encryptedGRs {
+		for _, gr := range encryptedGRs {
 			s, ok := currentState[gr]
 			if !ok {
 				cond.Status = operatorv1.ConditionFalse
@@ -114,7 +113,7 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 			}
 
 			if s.WriteKey.Mode == state.Identity {
-				if allMigrated(c.encryptedGRs, s.WriteKey.Migrated.Resources) {
+				if allMigrated(encryptedGRs, s.WriteKey.Migrated.Resources) {
 					cond.Status = operatorv1.ConditionFalse
 					cond.Reason = "DecryptionCompleted"
 					cond.Message = "Encryption mode set to identity and everything is decrypted"

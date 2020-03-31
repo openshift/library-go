@@ -34,6 +34,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -114,9 +115,15 @@ func TestEncryptionIntegration(tt *testing.T) {
 	eventRecorder := events.NewLoggingEventRecorder(component)
 	deployer := NewInstantDeployer(t, stopCh, kubeClient.CoreV1(), fmt.Sprintf("encryption-config-%s", component))
 	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.DiscoveryClient)
+	provider := newProvider([]schema.GroupResource{
+		// some random low-cardinality GVRs:
+		{Group: "operator.openshift.io", Resource: "kubeapiservers"},
+		{Group: "operator.openshift.io", Resource: "kubeschedulers"},
+	})
 
-	controllers, err := encryption.NewControllers(
+	controllers := encryption.NewControllers(
 		component,
+		provider,
 		deployer,
 		migrator,
 		operatorClient,
@@ -125,11 +132,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		eventRecorder,
-		// some random low-cardinality GVRs:
-		schema.GroupResource{Group: "operator.openshift.io", Resource: "kubeapiservers"},
-		schema.GroupResource{Group: "operator.openshift.io", Resource: "kubeschedulers"},
 	)
-	require.NoError(t, err)
 
 	// launch controllers
 	fakeConfigInformer.Start(stopCh)
@@ -602,4 +605,20 @@ func (l fmtLogger) Logf(format string, args ...interface{}) {
 	l.T.Helper()
 	fmt.Printf("STEP: "+format+"\n", args...)
 	l.T.Logf(format, args...)
+}
+
+type provider struct {
+	encryptedGRs []schema.GroupResource
+}
+
+func newProvider(encryptedGRs []schema.GroupResource) controllers.Provider {
+	return &provider{encryptedGRs: encryptedGRs}
+}
+
+func (p *provider) EncryptedGRs() []schema.GroupResource {
+	return p.encryptedGRs
+}
+
+func (p *provider) ShouldRunEncryptionControllers() (bool, error) {
+	return true, nil
 }

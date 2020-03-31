@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -24,7 +25,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -281,16 +281,17 @@ func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControll
 
 func (cs *APIServerControllerSet) WithEncryptionControllers(
 	component string,
+	provider controllers.Provider,
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
 	secretsClient corev1.SecretsGetter,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	encryptedGRs ...schema.GroupResource,
 ) *APIServerControllerSet {
 	cs.encryptionControllers.controller = encryption.NewControllers(
 		component,
+		provider,
 		deployer,
 		migrator,
 		cs.operatorClient,
@@ -299,7 +300,6 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		kubeInformersForNamespaces,
 		secretsClient,
 		cs.eventRecorder,
-		encryptedGRs...,
 	)
 
 	return cs
