@@ -30,9 +30,11 @@ func TestSyncSecret(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "config", Name: "foo"},
+			Type:       corev1.SecretTypeOpaque,
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "operator", Name: "to-remove"},
+			Type:       corev1.SecretTypeOpaque,
 		},
 	)
 
