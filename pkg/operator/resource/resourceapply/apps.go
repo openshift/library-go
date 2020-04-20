@@ -16,8 +16,10 @@ import (
 )
 
 // ApplyDeployment merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
-func ApplyDeployment(client appsclientv1.DeploymentsGetter, recorder events.Recorder, required *appsv1.Deployment, expectedGeneration int64,
+func ApplyDeployment(client appsclientv1.DeploymentsGetter, recorder events.Recorder, requiredOriginal *appsv1.Deployment, expectedGeneration int64,
 	forceRollout bool) (*appsv1.Deployment, bool, error) {
+
+	required := requiredOriginal.DeepCopy()
 	if required.Annotations == nil {
 		required.Annotations = map[string]string{}
 	}
@@ -67,7 +69,8 @@ func ApplyDeployment(client appsclientv1.DeploymentsGetter, recorder events.Reco
 }
 
 // ApplyDaemonSet merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
-func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, required *appsv1.DaemonSet, expectedGeneration int64, forceRollout bool) (*appsv1.DaemonSet, bool, error) {
+func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, requiredOriginal *appsv1.DaemonSet, expectedGeneration int64, forceRollout bool) (*appsv1.DaemonSet, bool, error) {
+	required := requiredOriginal.DeepCopy()
 	if required.Annotations == nil {
 		required.Annotations = map[string]string{}
 	}
