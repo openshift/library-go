@@ -159,13 +159,49 @@ func ApplyDeploymentWithForce(client appsclientv1.DeploymentsGetter, recorder ev
 	return actual, true, err
 }
 
-// ApplyDaemonSet merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
-func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, requiredOriginal *appsv1.DaemonSet, expectedGeneration int64, forceRollout bool) (*appsv1.DaemonSet, bool, error) {
+// ApplyDaemonSet ensures the form of the specified daemonset is present in the API. If it
+// does not exist, it will be created. If it does exist, the metadata of the required
+// daemonset will be merged with the existing daemonset and an update performed if the
+// daemonset spec and metadata differ from the previously required spec and metadata. For
+// further detail, check the top-level comment.
+//
+// NOTE: The previous implementation of this method was renamed to ApplyDaemonSetWithForce. If
+// are reading this in response to a compile error due to the change in signature, you have
+// the following options:
+//
+// - Update the calling code to rely on the spec comparison provided by the new
+// implementation. If the code in question was specifying the force parameter to ensure
+// rollout in response to changes in resources external to the daemonset, it will need to be
+// revised to set that external state as an annotation e.g.
+//
+//   myoperator.openshift.io/my-resource: <resourceVersion>
+//
+// - Update the call to use ApplyDaemonSetWithForce. This is available as a temporary measure
+// but the method is deprecated and will be removed in 4.6.
+func ApplyDaemonSet(client appsclientv1.DaemonSetsGetter, recorder events.Recorder,
+	requiredOriginal *appsv1.DaemonSet, expectedGeneration int64) (*appsv1.DaemonSet, bool, error) {
+
+	required := requiredOriginal.DeepCopy()
+	err := SetSpecHashAnnotation(&required.ObjectMeta, required.Spec)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return ApplyDaemonSetWithForce(client, recorder, required, expectedGeneration, false)
+}
+
+// ApplyDaemonSetWithForce merges objectmeta and requires matching generation. It returns the final Object, whether any change as made, and an error
+// DEPRECATED - This method will be removed in 4.6 and callers will need to migrate to ApplyDaemonSet before then.
+func ApplyDaemonSetWithForce(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, requiredOriginal *appsv1.DaemonSet, expectedGeneration int64, forceRollout bool) (*appsv1.DaemonSet, bool, error) {
 	required := requiredOriginal.DeepCopy()
 	if required.Annotations == nil {
 		required.Annotations = map[string]string{}
 	}
-	required.Annotations["operator.openshift.io/pull-spec"] = required.Spec.Template.Spec.Containers[0].Image
+	if _, ok := required.Annotations[specHashAnnotation]; !ok {
+		// If the spec hash annotation is not present, the caller expects the
+		// pull-spec annotation to be applied.
+		required.Annotations["operator.openshift.io/pull-spec"] = required.Spec.Template.Spec.Containers[0].Image
+	}
 	existing, err := client.DaemonSets(required.Namespace).Get(context.TODO(), required.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		actual, err := client.DaemonSets(required.Namespace).Create(context.TODO(), required, metav1.CreateOptions{})
