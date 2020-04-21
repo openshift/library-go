@@ -20,7 +20,8 @@ const DefaultQueueKey = "key"
 type Factory struct {
 	sync                  SyncFunc
 	syncContext           SyncContext
-	syncDegradedClient    operatorv1helpers.OperatorClient
+	syncOperatorClient    operatorv1helpers.OperatorClient
+	syncConditionsTypes   sets.String
 	resyncInterval        time.Duration
 	informers             []Informer
 	informerQueueKeys     []informersWithQueueKey
@@ -28,6 +29,9 @@ type Factory struct {
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
+
+	// DEPRECATED: Use WithOperatorClient instead (this is here for backward compatibility)
+	WithSyncDegradedOnError func(operatorClient operatorv1helpers.OperatorClient) *Factory
 }
 
 // Informer represents any structure that allow to register event handlers and informs if caches are synced.
@@ -59,7 +63,9 @@ type ObjectQueueKeyFunc func(runtime.Object) string
 
 // New return new factory instance.
 func New() *Factory {
-	return &Factory{}
+	f := &Factory{}
+	f.WithSyncDegradedOnError = f.WithOperatorClient
+	return f
 }
 
 // Sync is used to set the controller synchronization function. This function is the core of the controller and is
@@ -124,10 +130,29 @@ func (f *Factory) WithSyncContext(ctx SyncContext) *Factory {
 	return f
 }
 
-// WithSyncDegradedOnError encapsulate the controller sync() function, so when this function return an error, the operator client
-// is used to set the degraded condition to (eg. "ControllerFooDegraded"). The degraded condition name is set based on the controller name.
-func (f *Factory) WithSyncDegradedOnError(operatorClient operatorv1helpers.OperatorClient) *Factory {
-	f.syncDegradedClient = operatorClient
+// WithOperatorClient if used, the errors controller sync() function return will be transformed into operator conditions.
+// By default, any error will be reported as "Degraded=True" with "SyncError" as the reason and error message as condition message.
+// For more fine-tuned operator conditions, use WithOperatorConditionTypes().
+func (f *Factory) WithOperatorClient(operatorClient operatorv1helpers.OperatorClient) *Factory {
+	f.syncOperatorClient = operatorClient
+	return f
+}
+
+// WithOperatorConditionTypes lists all condition types the sync function is allowed to return for NewDegradedConditionError, NewAvailableConditionError and NewUpgradeableConditionError.
+// This allows more tight control on the conditions set when WithOperatorClient is used.
+//
+// NOTE: Every condition error type returned from sync loop **must** be listed here, otherwise the condition won't be set and "unknown condition" error
+//       will be returned instead.
+//
+// For example:
+//   factory.New().WithOperatorConditionTypes("OperatorDegraded")
+//
+//   func sync(ctx context.Context, syncCtx factory.SyncContext) error {
+//     return syncCtx.NewDegradedConditionError("OperatorDegraded", "SomethingFailed", "Something failed terribly")
+//   }
+//
+func (f *Factory) WithOperatorConditionTypes(types ...string) *Factory {
+	f.syncConditionsTypes = sets.NewString(types...)
 	return f
 }
 
@@ -145,12 +170,13 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	}
 
 	c := &baseController{
-		name:               name,
-		syncDegradedClient: f.syncDegradedClient,
-		sync:               f.sync,
-		resyncEvery:        f.resyncInterval,
-		cachesToSync:       append([]cache.InformerSynced{}, f.cachesToSync...),
-		syncContext:        ctx,
+		name:                name,
+		syncOperatorClient:  f.syncOperatorClient,
+		syncConditionsTypes: f.syncConditionsTypes,
+		sync:                f.sync,
+		resyncEvery:         f.resyncInterval,
+		cachesToSync:        append([]cache.InformerSynced{}, f.cachesToSync...),
+		syncContext:         ctx,
 	}
 
 	for i := range f.informerQueueKeys {

@@ -39,6 +39,15 @@ type SyncContext interface {
 
 	// Recorder provide access to event recorder.
 	Recorder() events.Recorder
+
+	// NewDegradedConditionError when returned from the sync() function cause the operator Degraded condition go to True.
+	NewDegradedConditionError(conditionType, reason, message string) error
+
+	// NewAvailableConditionError when returned from the sync() function cause the operator Available condition go to False.
+	NewAvailableConditionError(conditionType, reason, message string) error
+
+	// NewUpgradeableConditionError when returned from the sync() function cause the operator Upgradeable condition go to False.
+	NewUpgradeableConditionError(conditionType, reason, message string) error
 }
 
 // SyncFunc is a function that contain main controller logic.
