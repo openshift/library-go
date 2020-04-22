@@ -81,9 +81,9 @@ func TestSyncSecret(t *testing.T) {
 				destinationSecretBarChecked = true
 				destinationSecretBarCheckedMutex.Unlock()
 			case "empty-source":
-				destinationSecretBarCheckedMutex.Lock()
+				destinationSecretEmptySourceCheckedMutex.Lock()
 				destinationSecretEmptySourceChecked = true
-				destinationSecretBarCheckedMutex.Unlock()
+				destinationSecretEmptySourceCheckedMutex.Unlock()
 			}
 		}
 		return false, nil, nil
