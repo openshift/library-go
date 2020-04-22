@@ -210,7 +210,7 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 	if b.versionInfo != nil {
 		buildInfo := metrics.NewGaugeVec(
 			&metrics.GaugeOpts{
-				Name: strings.Replace(b.componentNamespace, "-", "_", -1) + "_build_info",
+				Name: strings.Replace(namespace, "-", "_", -1) + "_build_info",
 				Help: "A metric with a constant '1' value labeled by major, minor, git version, git commit, git tree state, build date, Go version, " +
 					"and compiler from which " + b.componentName + " was built, and platform on which it is running.",
 				StabilityLevel: metrics.ALPHA,
