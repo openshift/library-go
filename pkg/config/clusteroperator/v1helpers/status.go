@@ -62,20 +62,28 @@ func FindStatusCondition(conditions []configv1.ClusterOperatorStatusCondition, c
 }
 
 // GetStatusDiff returns a string representing change in condition status in human readable form.
-func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.ClusterOperatorStatus) string {
+func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.ClusterOperatorStatus, forEvent bool) string {
 	messages := []string{}
 	for _, newCondition := range newStatus.Conditions {
 		existingStatusCondition := FindStatusCondition(oldStatus.Conditions, newCondition.Type)
 		if existingStatusCondition == nil {
-			messages = append(messages, fmt.Sprintf("%s set to %s (%q)", newCondition.Type, newCondition.Status, newCondition.Message))
+			condMessage := ""
+			if !forEvent {
+				condMessage = fmt.Sprintf(" (%s)", newCondition.Message)
+			}
+			messages = append(messages, fmt.Sprintf("%s set to %s%s", newCondition.Type, newCondition.Status, condMessage))
 			continue
 		}
 		if existingStatusCondition.Status != newCondition.Status {
-			messages = append(messages, fmt.Sprintf("%s changed from %s to %s (%q)", existingStatusCondition.Type, existingStatusCondition.Status, newCondition.Status, newCondition.Message))
+			if forEvent {
+				messages = append(messages, fmt.Sprintf("%s changed from %s to %s", existingStatusCondition.Type, existingStatusCondition.Status, newCondition.Status))
+				continue
+			}
+			messages = append(messages, fmt.Sprintf("%s changed from %s (%s) to %s (%s)", existingStatusCondition.Type, existingStatusCondition.Status, existingStatusCondition.Message, newCondition.Status, newCondition.Message))
 			continue
 		}
 		if existingStatusCondition.Message != newCondition.Message {
-			messages = append(messages, fmt.Sprintf("%s message changed from %q to %q", existingStatusCondition.Type, existingStatusCondition.Message, newCondition.Message))
+			messages = append(messages, fmt.Sprintf("%s message changed to %q", existingStatusCondition.Type, newCondition.Message))
 		}
 	}
 	for _, oldCondition := range oldStatus.Conditions {
@@ -99,6 +107,10 @@ func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.
 		newJSON := &bytes.Buffer{}
 		json.NewEncoder(newJSON).Encode(newStatus)
 		messages = append(messages, diff.StringDiff(originalJSON.String(), newJSON.String()))
+	}
+
+	if !forEvent {
+		return strings.Join(messages, ",\n")
 	}
 
 	return strings.Join(messages, ",")

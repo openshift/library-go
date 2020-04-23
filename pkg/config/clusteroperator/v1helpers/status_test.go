@@ -14,6 +14,7 @@ func TestGetStatusConditionDiff(t *testing.T) {
 		newConditions    []configv1.ClusterOperatorStatusCondition
 		oldConditions    []configv1.ClusterOperatorStatusCondition
 		expectedMessages []string
+		forEvent         bool
 	}{
 		{
 			name: "new condition",
@@ -24,7 +25,37 @@ func TestGetStatusConditionDiff(t *testing.T) {
 					Message: "test",
 				},
 			},
-			expectedMessages: []string{`RetrievedUpdates set to True ("test")`},
+			expectedMessages: []string{`RetrievedUpdates set to True`},
+			forEvent:         true,
+		},
+		{
+			name: "new multiple condition",
+			newConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionTrue,
+					Message: "test",
+				},
+				{
+					Type:    "AnotherDegraded",
+					Status:  configv1.ConditionTrue,
+					Message: "bar",
+				},
+			},
+			expectedMessages: []string{"RetrievedUpdates set to True (test)", "\nAnotherDegraded set to True (bar)"},
+			forEvent:         false,
+		},
+		{
+			name: "new condition for log",
+			newConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionTrue,
+					Message: "test",
+				},
+			},
+			expectedMessages: []string{`RetrievedUpdates set to True (test)`},
+			forEvent:         false,
 		},
 		{
 			name: "condition status change",
@@ -42,7 +73,27 @@ func TestGetStatusConditionDiff(t *testing.T) {
 					Message: "test",
 				},
 			},
-			expectedMessages: []string{`RetrievedUpdates changed from True to False ("test")`},
+			expectedMessages: []string{`RetrievedUpdates changed from True to False`},
+			forEvent:         true,
+		},
+		{
+			name: "condition status change for log",
+			newConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionFalse,
+					Message: "test",
+				},
+			},
+			oldConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionTrue,
+					Message: "test",
+				},
+			},
+			expectedMessages: []string{`RetrievedUpdates changed from True (test) to False (test)`},
+			forEvent:         false,
 		},
 		{
 			name: "condition message change",
@@ -60,7 +111,27 @@ func TestGetStatusConditionDiff(t *testing.T) {
 					Message: "bar",
 				},
 			},
-			expectedMessages: []string{`RetrievedUpdates message changed from "bar" to "foo"`},
+			expectedMessages: []string{`RetrievedUpdates message changed to "foo"`},
+			forEvent:         true,
+		},
+		{
+			name: "condition message change for log",
+			newConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionTrue,
+					Message: "foo",
+				},
+			},
+			oldConditions: []configv1.ClusterOperatorStatusCondition{
+				{
+					Type:    configv1.RetrievedUpdates,
+					Status:  configv1.ConditionTrue,
+					Message: "bar",
+				},
+			},
+			expectedMessages: []string{`RetrievedUpdates message changed to "foo"`},
+			forEvent:         false,
 		},
 		{
 			name: "condition message deleted",
@@ -72,13 +143,14 @@ func TestGetStatusConditionDiff(t *testing.T) {
 				},
 			},
 			expectedMessages: []string{"RetrievedUpdates was removed"},
+			forEvent:         true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := GetStatusDiff(configv1.ClusterOperatorStatus{Conditions: test.oldConditions}, configv1.ClusterOperatorStatus{Conditions: test.newConditions})
+			result := GetStatusDiff(configv1.ClusterOperatorStatus{Conditions: test.oldConditions}, configv1.ClusterOperatorStatus{Conditions: test.newConditions}, test.forEvent)
 			if !reflect.DeepEqual(test.expectedMessages, strings.Split(result, ",")) {
-				t.Errorf("expected %#v, got %#v", test.expectedMessages, result)
+				t.Errorf("expected %#v, got %#v", test.expectedMessages, strings.Split(result, ","))
 			}
 		})
 	}
