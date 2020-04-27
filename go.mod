@@ -26,7 +26,7 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.2.0
 	github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c // indirect
@@ -51,6 +51,9 @@ require (
 	github.com/vishvananda/netlink v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
+	go.opentelemetry.io/otel v0.4.3
+	go.opentelemetry.io/otel/exporters/otlp v0.4.3
+	go.opentelemetry.io/otel/exporters/trace/jaeger v0.4.3
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
