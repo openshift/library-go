@@ -20,6 +20,7 @@ require (
 	github.com/getsentry/raven-go v0.0.0-20190513200303-c977f96e1095
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
+	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/gonum/blas v0.0.0-20181208220705-f22b278b28ac // indirect
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
@@ -51,11 +52,13 @@ require (
 	github.com/vishvananda/netlink v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200425165423-262c93980547 // indirect
 	go.opentelemetry.io/otel v0.4.3
 	go.opentelemetry.io/otel/exporters/otlp v0.4.3
 	go.opentelemetry.io/otel/exporters/trace/jaeger v0.4.3
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/sys v0.0.0-20200427175716-29b57079015a // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
