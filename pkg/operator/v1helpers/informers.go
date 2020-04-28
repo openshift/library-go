@@ -10,6 +10,8 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
+	"github.com/openshift/library-go/pkg/operator/trace"
 )
 
 // KubeInformersForNamespaces is a simple way to combine several shared informers into a single struct with unified listing power
@@ -22,7 +24,12 @@ type KubeInformersForNamespaces interface {
 	SecretLister() corev1listers.SecretLister
 }
 
-func NewKubeInformersForNamespaces(kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
+func NewKubeInformersForNamespaces(traceContext *trace.TraceContext, kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
+	if traceContext != nil {
+		span := traceContext.StartSpan("NewKubeInformersForNamespaces")
+		defer span.End()
+	}
+
 	ret := kubeInformersForNamespaces{}
 	for _, namespace := range namespaces {
 		if len(namespace) == 0 {
