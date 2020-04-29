@@ -1,6 +1,7 @@
 package v1helpers
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -24,9 +25,9 @@ type KubeInformersForNamespaces interface {
 	SecretLister() corev1listers.SecretLister
 }
 
-func NewKubeInformersForNamespaces(traceContext *trace.TraceContext, kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
-	if traceContext != nil {
-		span := traceContext.StartSpan("NewKubeInformersForNamespaces")
+func NewKubeInformersForNamespaces(ctx context.Context, kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
+	if tp := trace.TraceProvider(); tp != nil {
+		_, span := tp.Tracer("library-go/informers").Start(ctx, "NewKubeInformersForNamespaces")
 		defer span.End()
 	}
 
