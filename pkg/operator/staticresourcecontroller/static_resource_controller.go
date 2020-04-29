@@ -25,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/trace"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -58,6 +59,7 @@ type StaticResourceController struct {
 // NewStaticResourceController returns a controller that maintains certain static manifests. Most "normal" types are supported,
 // but feel free to add ones we missed.  Use .AddInformer(), .AddKubeInformers(), .AddNamespaceInformer or to provide triggering conditions.
 func NewStaticResourceController(
+	ctx context.Context,
 	name string,
 	manifests resourceapply.AssetFunc,
 	files []string,
@@ -65,6 +67,9 @@ func NewStaticResourceController(
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) *StaticResourceController {
+	_, span := trace.TraceProvider().Tracer("library-go/static-resource-controller").Start(ctx, "NewStaticResourceController")
+	defer span.End()
+
 	c := &StaticResourceController{
 		name:      name,
 		manifests: manifests,

@@ -1,6 +1,7 @@
 package staticpod
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/controller/manager"
@@ -25,11 +26,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
 	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/trace"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type staticPodOperatorControllerBuilder struct {
+	ctx context.Context
+
 	// clients and related
 	staticPodOperatorClient v1helpers.StaticPodOperatorClient
 	kubeClient              kubernetes.Interface
@@ -67,11 +71,13 @@ type staticPodOperatorControllerBuilder struct {
 }
 
 func NewBuilder(
+	ctx context.Context,
 	staticPodOperatorClient v1helpers.StaticPodOperatorClient,
 	kubeClient kubernetes.Interface,
 	kubeInformers v1helpers.KubeInformersForNamespaces,
 ) Builder {
 	return &staticPodOperatorControllerBuilder{
+		ctx:                     ctx,
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
 		kubeInformers:           kubeInformers,
@@ -151,6 +157,9 @@ func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, stati
 }
 
 func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.ControllerManager, error) {
+	ctx, span := trace.TraceProvider().Tracer("library-go/controllers").Start(b.ctx, "ToControllers")
+	defer span.End()
+
 	manager := manager.NewControllerManager()
 
 	eventRecorder := b.eventRecorder
@@ -260,6 +269,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	// this cleverly sets the same condition that used to be set because of the way that the names are constructed
 	manager.WithController(staticresourcecontroller.NewStaticResourceController(
+		ctx,
 		"BackingResourceController",
 		backingresource.StaticPodManifests(b.operandNamespace),
 		[]string{
