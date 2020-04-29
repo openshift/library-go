@@ -44,6 +44,7 @@ func init() {
 }
 
 type StaticResourceController struct {
+	ctx       context.Context
 	name      string
 	manifests resourceapply.AssetFunc
 	files     []string
@@ -71,6 +72,7 @@ func NewStaticResourceController(
 	defer span.End()
 
 	c := &StaticResourceController{
+		ctx:       ctx,
 		name:      name,
 		manifests: manifests,
 		files:     files,
@@ -87,6 +89,9 @@ func NewStaticResourceController(
 }
 
 func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1helpers.KubeInformersForNamespaces) *StaticResourceController {
+	_, span := trace.TraceProvider().Tracer("library-go/static-resource-controller").Start(c.ctx, "AddKubeInformers")
+	defer span.End()
+	
 	// set the informers so we can have caching clients
 	c.clients = c.clients.WithKubernetesInformers(kubeInformersByNamespace)
 
