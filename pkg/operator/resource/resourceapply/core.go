@@ -79,12 +79,15 @@ func ApplyService(client coreclientv1.ServicesGetter, recorder events.Recorder, 
 		typeSame = true
 	}
 
-	if selectorSame && typeSame && !*modified {
+	portsSame := equality.Semantic.DeepEqual(existingCopy.Spec.Ports, required.Spec.Ports)
+
+	if selectorSame && typeSame && portsSame && !*modified {
 		return existingCopy, false, nil
 	}
 
 	existingCopy.Spec.Selector = required.Spec.Selector
 	existingCopy.Spec.Type = required.Spec.Type // if this is different, the update will fail.  Status will indicate it.
+	existingCopy.Spec.Ports = required.Spec.Ports
 
 	if klog.V(4) {
 		klog.Infof("Service %q changes: %v", required.Namespace+"/"+required.Name, JSONPatchNoError(existing, required))
