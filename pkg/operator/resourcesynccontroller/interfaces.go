@@ -4,6 +4,7 @@ package resourcesynccontroller
 type ResourceLocation struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
+	Required  bool   `json:"required,omitempty"`
 }
 
 var emptyResourceLocation = ResourceLocation{}
