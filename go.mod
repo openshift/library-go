@@ -71,3 +71,5 @@ require (
 )
 
 replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+
+replace github.com/openshift/api => github.com/damemi/api v0.0.0-20200512160453-172279894583
