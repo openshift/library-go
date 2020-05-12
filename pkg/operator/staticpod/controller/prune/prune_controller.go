@@ -78,19 +78,23 @@ func NewPruneController(
 	return factory.New().WithInformers(operatorClient.Informer()).WithSync(c.sync).ToController("PruneController", eventRecorder)
 }
 
-func getRevisionLimits(operatorSpec *operatorv1.StaticPodOperatorSpec) (int32, int32) {
+func getRevisionLimits(operatorSpec *operatorv1.StaticPodOperatorSpec) (int32, int32, int32) {
 	failedRevisionLimit := defaultRevisionLimit
 	succeededRevisionLimit := defaultRevisionLimit
+	unknownRevisionLimit := defaultRevisionLimit
 	if operatorSpec.FailedRevisionLimit != 0 {
 		failedRevisionLimit = operatorSpec.FailedRevisionLimit
 	}
 	if operatorSpec.SucceededRevisionLimit != 0 {
 		succeededRevisionLimit = operatorSpec.SucceededRevisionLimit
 	}
-	return failedRevisionLimit, succeededRevisionLimit
+	if operatorSpec.UnknownRevisionLimit != 0 {
+		unknownRevisionLimit = operatorSpec.UnknownRevisionLimit
+	}
+	return failedRevisionLimit, succeededRevisionLimit, unknownRevisionLimit
 }
 
-func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder events.Recorder, failedRevisionLimit, succeededRevisionLimit int32) ([]int, error) {
+func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder events.Recorder, failedRevisionLimit, succeededRevisionLimit, unknownRevisionLimit int32) ([]int, error) {
 	var succeededRevisions, failedRevisions, inProgressRevisions, unknownStatusRevisions []int
 
 	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(ctx, metav1.ListOptions{})
@@ -118,7 +122,6 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 				inProgressRevisions = append(inProgressRevisions, revisionNumber)
 
 			default:
-				// protect things you don't understand
 				unknownStatusRevisions = append(unknownStatusRevisions, revisionNumber)
 				recorder.Event("UnknownRevisionStatus", fmt.Sprintf("unknown status for revision %d: %v", revisionNumber, configMap.Data["status"]))
 			}
@@ -126,7 +129,7 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 	}
 
 	// Return early if nothing to prune
-	if len(succeededRevisions)+len(failedRevisions) == 0 {
+	if len(succeededRevisions)+len(failedRevisions)+len(unknownStatusRevisions) == 0 {
 		klog.V(2).Info("no revision IDs currently eligible to prune")
 		return []int{}, nil
 	}
@@ -134,12 +137,13 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 	// Get list of protected IDs
 	protectedSucceededRevisions := protectedRevisions(succeededRevisions, int(succeededRevisionLimit))
 	protectedFailedRevisions := protectedRevisions(failedRevisions, int(failedRevisionLimit))
+	protectedUnknownRevisions := protectedRevisions(unknownStatusRevisions, int(unknownRevisionLimit))
 
-	excludedRevisions := make([]int, 0, len(protectedSucceededRevisions)+len(protectedFailedRevisions)+len(inProgressRevisions)+len(unknownStatusRevisions))
+	excludedRevisions := make([]int, 0, len(protectedSucceededRevisions)+len(protectedFailedRevisions)+len(inProgressRevisions)+len(protectedUnknownRevisions))
 	excludedRevisions = append(excludedRevisions, protectedSucceededRevisions...)
 	excludedRevisions = append(excludedRevisions, protectedFailedRevisions...)
 	excludedRevisions = append(excludedRevisions, inProgressRevisions...)
-	excludedRevisions = append(excludedRevisions, unknownStatusRevisions...)
+	excludedRevisions = append(excludedRevisions, protectedUnknownRevisions...)
 	sort.Ints(excludedRevisions)
 
 	// There should always be at least 1 excluded ID, otherwise we'll delete the current revision
@@ -269,9 +273,9 @@ func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	if err != nil {
 		return err
 	}
-	failedLimit, succeededLimit := getRevisionLimits(operatorSpec)
+	failedLimit, succeededLimit, unknownLimit := getRevisionLimits(operatorSpec)
 
-	excludedRevisions, err := c.excludedRevisionHistory(ctx, syncCtx.Recorder(), failedLimit, succeededLimit)
+	excludedRevisions, err := c.excludedRevisionHistory(ctx, syncCtx.Recorder(), failedLimit, succeededLimit, unknownLimit)
 	if err != nil {
 		return err
 	}

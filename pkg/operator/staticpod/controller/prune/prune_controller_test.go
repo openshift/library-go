@@ -30,6 +30,7 @@ func TestPruneAPIResources(t *testing.T) {
 		targetNamespace string
 		failedLimit     int32
 		succeededLimit  int32
+		unknownLimit    int32
 		currentRevision int
 		configMaps      []configMapInfo
 		testSecrets     []string
@@ -61,13 +62,26 @@ func TestPruneAPIResources(t *testing.T) {
 				},
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-4", Namespace: "prune-api"},
 					Data: map[string]string{
-						"status":   string(v1.PodFailed),
+						"status":   "foo",
 						"revision": "4",
+					},
+				},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-5", Namespace: "prune-api"},
+					Data: map[string]string{
+						"status":   "bar",
+						"revision": "5",
+					},
+				},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-6", Namespace: "prune-api"},
+					Data: map[string]string{
+						"status":   string(v1.PodFailed),
+						"revision": "6",
 					},
 				},
 			},
 			failedLimit:    1,
 			succeededLimit: 1,
+			unknownLimit:   1,
 			expectedObjects: []runtime.Object{
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-2", Namespace: "prune-api"},
 					Data: map[string]string{
@@ -75,16 +89,22 @@ func TestPruneAPIResources(t *testing.T) {
 						"revision": "2",
 					},
 				},
-				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-4", Namespace: "prune-api"},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-5", Namespace: "prune-api"},
+					Data: map[string]string{
+						"status":   "bar",
+						"revision": "5",
+					},
+				},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-6", Namespace: "prune-api"},
 					Data: map[string]string{
 						"status":   string(v1.PodFailed),
-						"revision": "4",
+						"revision": "6",
 					},
 				},
 			},
 		},
 		{
-			name:            "protects InProgress and unknown revision statuses",
+			name:            "protects InProgress revision statuses",
 			targetNamespace: "prune-api",
 			startingObjects: []runtime.Object{
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: "prune-api"},
@@ -182,6 +202,7 @@ func TestPruneAPIResources(t *testing.T) {
 			&operatorv1.StaticPodOperatorSpec{
 				FailedRevisionLimit:    tc.failedLimit,
 				SucceededRevisionLimit: tc.succeededLimit,
+				UnknownRevisionLimit:   tc.unknownLimit,
 				OperatorSpec: operatorv1.OperatorSpec{
 					ManagementState: operatorv1.Managed,
 				},
@@ -219,9 +240,9 @@ func TestPruneAPIResources(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error %q", err)
 		}
-		failedLimit, succeededLimit := getRevisionLimits(operatorSpec)
+		failedLimit, succeededLimit, unknownRevisionLimit := getRevisionLimits(operatorSpec)
 
-		excludedRevisions, err := c.excludedRevisionHistory(context.TODO(), eventRecorder, failedLimit, succeededLimit)
+		excludedRevisions, err := c.excludedRevisionHistory(context.TODO(), eventRecorder, failedLimit, succeededLimit, unknownRevisionLimit)
 		if err != nil {
 			t.Fatalf("unexpected error %q", err)
 		}
@@ -234,7 +255,7 @@ func TestPruneAPIResources(t *testing.T) {
 			t.Fatalf("unexpected error %q", err)
 		}
 		if len(statusConfigMaps.Items) != len(tc.expectedObjects) {
-			t.Errorf("expected objects %+v but got %+v", tc.expectedObjects, statusConfigMaps.Items)
+			t.Errorf("expected objects %+v\n\nbut got: %+v", tc.expectedObjects, statusConfigMaps.Items)
 		}
 	}
 }
@@ -244,6 +265,7 @@ func TestPruneDiskResources(t *testing.T) {
 		name                string
 		failedLimit         int32
 		succeededLimit      int32
+		unknownLimit        int32
 		maxEligibleRevision int
 		protectedRevisions  string
 		configMaps          []configMapInfo
@@ -270,11 +292,24 @@ func TestPruneDiskResources(t *testing.T) {
 					revision:  "3",
 					phase:     string(v1.PodSucceeded),
 				},
+				{
+					name:      "revision-status-4",
+					namespace: "test",
+					revision:  "4",
+					phase:     "foo",
+				},
+				{
+					name:      "revision-status-5",
+					namespace: "test",
+					revision:  "5",
+					phase:     "bar",
+				},
 			},
-			maxEligibleRevision: 3,
-			protectedRevisions:  "2,3",
+			maxEligibleRevision: 5,
+			protectedRevisions:  "2,3,5",
 			failedLimit:         1,
 			succeededLimit:      1,
+			unknownLimit:        1,
 		},
 
 		{
@@ -301,26 +336,6 @@ func TestPruneDiskResources(t *testing.T) {
 			},
 			maxEligibleRevision: 3,
 			protectedRevisions:  "1,2,3",
-		},
-
-		{
-			name: "protects unknown revision status",
-			configMaps: []configMapInfo{
-				{
-					name:      "revision-status-1",
-					namespace: "test",
-					revision:  "1",
-					phase:     string(v1.PodSucceeded),
-				},
-				{
-					name:      "revision-status-2",
-					namespace: "test",
-					revision:  "2",
-					phase:     "garbage",
-				},
-			},
-			maxEligibleRevision: 2,
-			protectedRevisions:  "1,2",
 		},
 		{
 			name: "handles revisions of only one type of phase",
@@ -383,6 +398,7 @@ func TestPruneDiskResources(t *testing.T) {
 				&operatorv1.StaticPodOperatorSpec{
 					FailedRevisionLimit:    test.failedLimit,
 					SucceededRevisionLimit: test.succeededLimit,
+					UnknownRevisionLimit:   test.unknownLimit,
 					OperatorSpec: operatorv1.OperatorSpec{
 						ManagementState: operatorv1.Managed,
 					},
@@ -431,9 +447,9 @@ func TestPruneDiskResources(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error %q", err)
 			}
-			failedLimit, succeededLimit := getRevisionLimits(operatorSpec)
+			failedLimit, succeededLimit, unknownLimit := getRevisionLimits(operatorSpec)
 
-			excludedRevisions, err := c.excludedRevisionHistory(context.TODO(), eventRecorder, failedLimit, succeededLimit)
+			excludedRevisions, err := c.excludedRevisionHistory(context.TODO(), eventRecorder, failedLimit, succeededLimit, unknownLimit)
 			if err != nil {
 				t.Fatalf("unexpected error %q", err)
 			}
