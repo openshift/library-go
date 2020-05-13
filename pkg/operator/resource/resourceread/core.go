@@ -30,7 +30,20 @@ func ReadSecretV1OrDie(objBytes []byte) *corev1.Secret {
 	if err != nil {
 		panic(err)
 	}
-	return requiredObj.(*corev1.Secret)
+
+	secret := requiredObj.(*corev1.Secret)
+	if len(secret.StringData) > 0 {
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+		for k, v := range secret.StringData {
+			secret.Data[k] = []byte(v)
+		}
+
+		secret.StringData = nil
+	}
+
+	return secret
 }
 
 func ReadNamespaceV1OrDie(objBytes []byte) *corev1.Namespace {
