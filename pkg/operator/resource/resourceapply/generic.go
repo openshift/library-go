@@ -5,6 +5,7 @@ import (
 
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/api"
@@ -32,6 +33,20 @@ func init() {
 }
 
 type AssetFunc func(name string) ([]byte, error)
+
+func BindataWithTemplate(bindataFn AssetFunc, templateInputFn func() interface{}) AssetFunc {
+	return func(name string) ([]byte, error) {
+		template, err := bindataFn(name)
+		if err != nil {
+			return nil, err
+		}
+		if err != nil {
+			return nil, err
+		}
+		asset, err := assets.AssetFromTemplate(name, template, templateInputFn())
+		return asset.Data, nil
+	}
+}
 
 type ApplyResult struct {
 	File    string

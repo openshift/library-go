@@ -81,6 +81,14 @@ func NewStaticResourceController(
 	return c
 }
 
+// WithInformers is used to register event handlers and get the caches synchronized functions.
+// Pass informers you want to use to react to changes on resources. If informer event is observed, then the Sync() function
+// is called.
+func (c *StaticResourceController) WithInformers(informers ...factory.Informer) *StaticResourceController {
+	c.factory = c.factory.WithInformers(informers...)
+	return c
+}
+
 func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1helpers.KubeInformersForNamespaces) *StaticResourceController {
 	// set the informers so we can have caching clients
 	c.clients = c.clients.WithKubernetesInformers(kubeInformersByNamespace)

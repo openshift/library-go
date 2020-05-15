@@ -39,7 +39,7 @@ func New(dir string, data interface{}, predicates ...FileInfoPredicate) (Assets,
 	var as Assets
 	var errs []error
 	for path, bs := range files {
-		a, err := assetFromTemplate(path, bs, data)
+		a, err := AssetFromTemplate(path, bs, data)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to render %q: %v", path, err))
 			continue
@@ -87,14 +87,14 @@ func (a Asset) WriteFile(path string) error {
 
 // MustCreateAssetFromTemplate process the given template using and return an asset.
 func MustCreateAssetFromTemplate(name string, template []byte, config interface{}) Asset {
-	asset, err := assetFromTemplate(name, template, config)
+	asset, err := AssetFromTemplate(name, template, config)
 	if err != nil {
 		panic(err)
 	}
 	return *asset
 }
 
-func assetFromTemplate(name string, tb []byte, data interface{}) (*Asset, error) {
+func AssetFromTemplate(name string, tb []byte, data interface{}) (*Asset, error) {
 	bs, err := renderFile(name, tb, data)
 	if err != nil {
 		return nil, err
