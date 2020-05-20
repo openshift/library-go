@@ -44,8 +44,13 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 
 	unionedCondition := operatorv1.OperatorCondition{Type: conditionType, Status: operatorv1.ConditionUnknown}
 	if len(interestingConditions) == 0 {
-		unionedCondition.Status = operatorv1.ConditionUnknown
-		unionedCondition.Reason = "NoData"
+		if conditionType == "Upgradeable" {
+			unionedCondition.Status = defaultConditionStatus
+			unionedCondition.Reason = "AsExpected"
+		} else {
+			unionedCondition.Status = operatorv1.ConditionUnknown
+			unionedCondition.Reason = "NoData"
+		}
 		return unionedCondition
 	}
 
