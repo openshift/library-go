@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	v1 "k8s.io/api/core/v1"
@@ -36,6 +37,22 @@ func filterCreateActions(actions []clienttesting.Action) []runtime.Object {
 	return createdObjects
 }
 
+func filterUpdateActions(actions []clienttesting.Action) []runtime.Object {
+	var updatedObjects []runtime.Object
+	for _, a := range actions {
+		updateAction, isUpdate := a.(clienttesting.UpdateAction)
+		if !isUpdate {
+			continue
+		}
+		_, isEvent := updateAction.GetObject().(*v1.Event)
+		if isEvent {
+			continue
+		}
+		updatedObjects = append(updatedObjects, updateAction.GetObject())
+	}
+	return updatedObjects
+}
+
 const targetNamespace = "copy-resources"
 
 func TestRevisionController(t *testing.T) {
@@ -50,6 +67,57 @@ func TestRevisionController(t *testing.T) {
 		validateStatus          func(t *testing.T, status *operatorv1.StaticPodOperatorStatus)
 		expectSyncError         string
 	}{
+		{
+			testName:        "update InProgress to Abandoned revisions when interrupted",
+			targetNamespace: targetNamespace,
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				&operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 1,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-1",
+							CurrentRevision: 1,
+							TargetRevision:  2,
+						},
+					},
+				},
+				nil,
+				nil,
+			),
+			testConfigs: []RevisionResource{{Name: "test-config"}},
+			testSecrets: []RevisionResource{{Name: "test-secret"}},
+			startingObjects: []runtime.Object{
+				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
+				&v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
+					Data:       map[string]string{"revision": "1", "status": prune.StatusInProgress},
+				},
+			},
+			validateActions: func(t *testing.T, actions []clienttesting.Action) {
+				updatedObjects := filterUpdateActions(actions)
+				if len(updatedObjects) == 0 {
+					t.Errorf("expected updated configmaps, but got none")
+				}
+				revisionStatus, hasStatus := updatedObjects[0].(*v1.ConfigMap)
+				if !hasStatus {
+					t.Errorf("expected config to be updated")
+					return
+				}
+				if revisionStatus.Name != "revision-status-1" {
+					t.Errorf("expected config to have name 'revision-status-1', got %q", revisionStatus.Name)
+				}
+				if revisionStatus.Data["status"] != prune.StatusAbandoned {
+					t.Errorf("expected config to have status 'Abandoned', got %s", revisionStatus.Data["status"])
+				}
+			},
+		},
 		{
 			testName:        "set-latest-revision-by-configmap",
 			targetNamespace: targetNamespace,

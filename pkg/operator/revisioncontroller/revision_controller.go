@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -191,20 +192,41 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 }
 
 func (c RevisionController) createNewRevision(recorder events.Recorder, revision int32) error {
+	// Before we create a new revision, check if any of the existing revisions got interrupted while InProgress
+	// If so, mark them Abandoned.
+	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, configMap := range configMaps.Items {
+		if !strings.HasPrefix(configMap.Name, "revision-status-") {
+			continue
+		}
+		if configMap.Data["status"] == prune.StatusInProgress {
+			configMap.Data["status"] = prune.StatusAbandoned
+			_, _, err = resourceapply.ApplyConfigMap(c.configMapGetter, recorder, &configMap)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Create a new InProgress status configmap
 	statusConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.targetNamespace,
 			Name:      nameFor("revision-status", revision),
 		},
 		Data: map[string]string{
-			"status":   "InProgress",
+			"status":   prune.StatusInProgress,
 			"revision": fmt.Sprintf("%d", revision),
 		},
 	}
-	statusConfigMap, _, err := resourceapply.ApplyConfigMap(c.configMapGetter, recorder, statusConfigMap)
+	statusConfigMap, _, err = resourceapply.ApplyConfigMap(c.configMapGetter, recorder, statusConfigMap)
 	if err != nil {
 		return err
 	}
+
 	ownerRefs := []metav1.OwnerReference{{
 		APIVersion: "v1",
 		Kind:       "ConfigMap",

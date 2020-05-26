@@ -48,6 +48,9 @@ const (
 	pruneControllerWorkQueueKey = "key"
 	statusConfigMapName         = "revision-status-"
 	defaultRevisionLimit        = int32(5)
+
+	StatusInProgress = "InProgress"
+	StatusAbandoned  = "Abandoned"
 )
 
 // NewPruneController creates a new pruning controller
@@ -94,8 +97,8 @@ func getRevisionLimits(operatorSpec *operatorv1.StaticPodOperatorSpec) (int32, i
 	return failedRevisionLimit, succeededRevisionLimit, unknownRevisionLimit
 }
 
-func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder events.Recorder, failedRevisionLimit, succeededRevisionLimit, unknownRevisionLimit int32) ([]int, error) {
-	var succeededRevisions, failedRevisions, inProgressRevisions, unknownStatusRevisions []int
+func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder events.Recorder, failedRevisionLimit, succeededRevisionLimit, unknownRevisionLimit, abandonedRevisionLimit int32) ([]int, error) {
+	var succeededRevisions, failedRevisions, inProgressRevisions, unknownStatusRevisions, abandonedRevisions []int
 
 	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -116,8 +119,9 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 				succeededRevisions = append(succeededRevisions, revisionNumber)
 			case string(corev1.PodFailed):
 				failedRevisions = append(failedRevisions, revisionNumber)
-
-			case "InProgress":
+			case StatusAbandoned:
+				abandonedRevisions = append(abandonedRevisions, revisionNumber)
+			case StatusInProgress:
 				// we always protect inprogress
 				inProgressRevisions = append(inProgressRevisions, revisionNumber)
 
@@ -129,7 +133,7 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 	}
 
 	// Return early if nothing to prune
-	if len(succeededRevisions)+len(failedRevisions)+len(unknownStatusRevisions) == 0 {
+	if len(succeededRevisions)+len(failedRevisions)+len(unknownStatusRevisions)+len(abandonedRevisions) == 0 {
 		klog.V(2).Info("no revision IDs currently eligible to prune")
 		return []int{}, nil
 	}
@@ -138,12 +142,14 @@ func (c *PruneController) excludedRevisionHistory(ctx context.Context, recorder 
 	protectedSucceededRevisions := protectedRevisions(succeededRevisions, int(succeededRevisionLimit))
 	protectedFailedRevisions := protectedRevisions(failedRevisions, int(failedRevisionLimit))
 	protectedUnknownRevisions := protectedRevisions(unknownStatusRevisions, int(unknownRevisionLimit))
+	protectedAbandonedRevisions := protectedRevisions(abandonedRevisions, int(abandonedRevisionLimit))
 
-	excludedRevisions := make([]int, 0, len(protectedSucceededRevisions)+len(protectedFailedRevisions)+len(inProgressRevisions)+len(protectedUnknownRevisions))
+	excludedRevisions := make([]int, 0, len(protectedSucceededRevisions)+len(protectedFailedRevisions)+len(inProgressRevisions)+len(protectedUnknownRevisions)+len(protectedAbandonedRevisions))
 	excludedRevisions = append(excludedRevisions, protectedSucceededRevisions...)
 	excludedRevisions = append(excludedRevisions, protectedFailedRevisions...)
 	excludedRevisions = append(excludedRevisions, inProgressRevisions...)
 	excludedRevisions = append(excludedRevisions, protectedUnknownRevisions...)
+	excludedRevisions = append(excludedRevisions, protectedAbandonedRevisions...)
 	sort.Ints(excludedRevisions)
 
 	// There should always be at least 1 excluded ID, otherwise we'll delete the current revision
@@ -275,7 +281,7 @@ func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 	failedLimit, succeededLimit, unknownLimit := getRevisionLimits(operatorSpec)
 
-	excludedRevisions, err := c.excludedRevisionHistory(ctx, syncCtx.Recorder(), failedLimit, succeededLimit, unknownLimit)
+	excludedRevisions, err := c.excludedRevisionHistory(ctx, syncCtx.Recorder(), failedLimit, succeededLimit, unknownLimit, defaultRevisionLimit)
 	if err != nil {
 		return err
 	}
