@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -16,6 +17,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
+
+// SyntheticRequeueError can be returned from sync() in case of forcing a sync() retry artificially.
+// This can be also done by re-adding the key to queue, but this is cheaper and more convenient.
+var SyntheticRequeueError error = errors.New("synthetic requeue request")
 
 // baseController represents generic Kubernetes controller boiler-plate
 type baseController struct {
@@ -177,7 +182,12 @@ func (c *baseController) processNextWorkItem(queueCtx context.Context) {
 	}
 
 	if err := c.reconcile(queueCtx, syncCtx); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.name, key, err))
+		if err == SyntheticRequeueError {
+			// logging this helps detecting wedged controllers with missing pre-requirements
+			klog.Infof("%q controller requested synthetic requeue with key %q", c.name, key)
+		} else {
+			utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.name, key, err))
+		}
 		c.syncContext.Queue().AddRateLimited(key)
 		return
 	}
