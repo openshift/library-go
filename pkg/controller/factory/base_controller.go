@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/robfig/cron/v3"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -30,6 +32,7 @@ type baseController struct {
 	syncContext        SyncContext
 	syncDegradedClient operatorv1helpers.OperatorClient
 	resyncEvery        time.Duration
+	resyncSchedule     cron.Schedule
 	postStartHooks     []PostStartHook
 }
 
@@ -37,6 +40,23 @@ var _ Controller = &baseController{}
 
 func (c baseController) Name() string {
 	return c.name
+}
+
+type scheduledJob struct {
+	queue workqueue.RateLimitingInterface
+	name  string
+}
+
+func newScheduledJob(name string, queue workqueue.RateLimitingInterface) cron.Job {
+	return &scheduledJob{
+		queue: queue,
+		name:  name,
+	}
+}
+
+func (s *scheduledJob) Run() {
+	klog.V(4).Infof("Triggering scheduled %q controller run", s.name)
+	s.queue.Add(DefaultQueueKey)
 }
 
 func (c *baseController) Run(ctx context.Context, workers int) {
@@ -65,6 +85,14 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 			}()
 			c.runWorker(queueContext)
 		}()
+	}
+
+	// if scheduled run is requested, run the cron scheduler
+	if c.resyncSchedule != nil {
+		scheduler := cron.New(cron.WithSeconds())
+		scheduler.Schedule(c.resyncSchedule, newScheduledJob(c.name, c.syncContext.Queue()))
+		scheduler.Start()
+		defer scheduler.Stop()
 	}
 
 	// runPeriodicalResync is independent from queue
@@ -153,7 +181,7 @@ func (c *baseController) reconcile(ctx context.Context, syncCtx SyncContext) err
 			Message: err.Error(),
 		}))
 		if updateErr != nil {
-			klog.Warningf("Updating status of %q failed: %w", c.Name(), updateErr)
+			klog.Warningf("Updating status of %q failed: %v", c.Name(), updateErr)
 		}
 		return err
 	}
