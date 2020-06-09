@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	"github.com/googleapis/gnostic/openapiv2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
