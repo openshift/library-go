@@ -40,7 +40,18 @@ var (
 	errSecretRecreated = fmt.Errorf("%s secret cannot be recreated", bootstrapUserBasicAuth)
 )
 
-func New(getter BootstrapUserDataGetter) authenticator.Password {
+// Password checks a username and password against a backing authentication
+// store and returns a Response or an error if the password could not be
+// checked.
+//
+// This was copied from
+// k8s.io/apiserver/pkg/authentication/authenticator due to its
+// removal in 1.19.
+type Password interface {
+	AuthenticatePassword(ctx context.Context, user, password string) (*authenticator.Response, bool, error)
+}
+
+func New(getter BootstrapUserDataGetter) Password {
 	return &bootstrapPassword{
 		getter: getter,
 		names:  sets.NewString(BootstrapUser, bootstrapUserBasicAuth),
