@@ -22,7 +22,7 @@ import (
 
 // SyntheticRequeueError can be returned from sync() in case of forcing a sync() retry artificially.
 // This can be also done by re-adding the key to queue, but this is cheaper and more convenient.
-var SyntheticRequeueError error = errors.New("synthetic requeue request")
+var SyntheticRequeueError = errors.New("synthetic requeue request")
 
 // baseController represents generic Kubernetes controller boiler-plate
 type baseController struct {
@@ -32,7 +32,7 @@ type baseController struct {
 	syncContext        SyncContext
 	syncDegradedClient operatorv1helpers.OperatorClient
 	resyncEvery        time.Duration
-	resyncSchedule     cron.Schedule
+	resyncSchedules    []cron.Schedule
 	postStartHooks     []PostStartHook
 }
 
@@ -88,9 +88,11 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 	}
 
 	// if scheduled run is requested, run the cron scheduler
-	if c.resyncSchedule != nil {
+	if c.resyncSchedules != nil {
 		scheduler := cron.New(cron.WithSeconds())
-		scheduler.Schedule(c.resyncSchedule, newScheduledJob(c.name, c.syncContext.Queue()))
+		for _, s := range c.resyncSchedules {
+			scheduler.Schedule(s, newScheduledJob(c.name, c.syncContext.Queue()))
+		}
 		scheduler.Start()
 		defer scheduler.Stop()
 	}
