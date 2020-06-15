@@ -7,6 +7,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"k8s.io/apimachinery/pkg/runtime"
+	errorutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
@@ -24,7 +25,7 @@ type Factory struct {
 	syncContext           SyncContext
 	syncDegradedClient    operatorv1helpers.OperatorClient
 	resyncInterval        time.Duration
-	resyncSchedule        string
+	resyncSchedules       []string
 	informers             []Informer
 	informerQueueKeys     []informersWithQueueKey
 	bareInformers         []Informer
@@ -140,8 +141,8 @@ func (f *Factory) ResyncEvery(interval time.Duration) *Factory {
 //
 // Note: The controller context passed to Sync() function in this case does not contain the object metadata or object itself.
 //       This can be used to detect periodical resyncs, but normal Sync() have to be cautious about `nil` objects.
-func (f *Factory) ResyncSchedule(schedule string) *Factory {
-	f.resyncSchedule = schedule
+func (f *Factory) ResyncSchedule(schedules ...string) *Factory {
+	f.resyncSchedules = append(f.resyncSchedules, schedules...)
 	return f
 }
 
@@ -173,12 +174,18 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		ctx = NewSyncContext(name, eventRecorder)
 	}
 
-	var cronSchedule cron.Schedule
-	if len(f.resyncSchedule) > 0 {
-		var err error
-		cronSchedule, err = cron.ParseStandard(f.resyncSchedule)
-		if err != nil {
-			panic(fmt.Errorf("Failed to parse schedule for %q: %v", name, err))
+	var cronSchedules []cron.Schedule
+	if len(f.resyncSchedules) > 0 {
+		var errors []error
+		for _, schedule := range f.resyncSchedules {
+			if s, err := cron.ParseStandard(schedule); err != nil {
+				errors = append(errors, err)
+			} else {
+				cronSchedules = append(cronSchedules, s)
+			}
+		}
+		if err := errorutil.NewAggregate(errors); err != nil {
+			panic(fmt.Errorf("failed to parse controller schedules for %q: %v", name, err))
 		}
 	}
 
@@ -187,7 +194,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		syncDegradedClient: f.syncDegradedClient,
 		sync:               f.sync,
 		resyncEvery:        f.resyncInterval,
-		resyncSchedule:     cronSchedule,
+		resyncSchedules:    cronSchedules,
 		cachesToSync:       append([]cache.InformerSynced{}, f.cachesToSync...),
 		syncContext:        ctx,
 	}
