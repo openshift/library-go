@@ -2,6 +2,7 @@ package eventwatch
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,7 @@ import (
 const (
 	// eventAckAnnotationName is an annotation we place on event that was processed by this controller.
 	// This is used to not process same event multiple times.
-	eventAckAnnotationName = "eventwatch.openshift.io/acknowledged"
+	eventAckAnnotationName = "eventwatch.openshift.io/last-seen-count"
 )
 
 // Controller observes the events in given informer namespaces and match them with configured event handlers.
@@ -109,8 +110,11 @@ func isAcknowledgedEvent(e *corev1.Event) bool {
 	if e.Annotations == nil {
 		return false
 	}
-	_, ok := e.Annotations[eventAckAnnotationName]
-	return ok
+	lastSeenCount, ok := e.Annotations[eventAckAnnotationName]
+	if !ok {
+		return false
+	}
+	return fmt.Sprintf("%d", e.Count) == lastSeenCount
 }
 
 func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -143,10 +147,10 @@ func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) erro
 	if seenEvent.Annotations == nil {
 		seenEvent.Annotations = map[string]string{}
 	}
-	seenEvent.Annotations[eventAckAnnotationName] = "true"
+	seenEvent.Annotations[eventAckAnnotationName] = fmt.Sprintf("%d", seenEvent.Count)
 	if _, err := c.eventClient.Events(namespace).Update(ctx, seenEvent, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
-	return eventHandler.process(event)
+	return eventHandler.process(seenEvent)
 }
