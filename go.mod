@@ -31,16 +31,15 @@ require (
 	github.com/googleapis/gnostic v0.2.0
 	github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c // indirect
 	github.com/imdario/mergo v0.3.7
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e // indirect
-	github.com/openshift/api v0.0.0-20200619200343-6cafd5cd116b
+	github.com/openshift/api v0.0.0-20200623075207-eb651a5bb0ad
 	github.com/openshift/build-machinery-go v0.0.0-20200424080330-082bf86082cc
-	github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
+	github.com/openshift/client-go v0.0.0-20200623090625-83993cebb5ae
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.1.0
@@ -53,13 +52,13 @@ require (
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.18.3
+	k8s.io/api v0.18.4
 	k8s.io/apiextensions-apiserver v0.18.3
-	k8s.io/apimachinery v0.18.3
+	k8s.io/apimachinery v0.18.4
 	k8s.io/apiserver v0.18.3
 	k8s.io/client-go v0.18.3
 	k8s.io/component-base v0.18.3
