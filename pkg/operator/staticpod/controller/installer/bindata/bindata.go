@@ -76,8 +76,10 @@ spec:
       resources:
         requests:
           memory: 100M
+          cpu: 150m
         limits:
           memory: 100M
+          cpu: 150m
   restartPolicy: Never
   priorityClassName: system-node-critical
   tolerations:
@@ -87,7 +89,8 @@ spec:
   volumes:
     - hostPath:
         path: /etc/kubernetes/
-      name: kubelet-dir`)
+      name: kubelet-dir
+`)
 
 func pkgOperatorStaticpodControllerInstallerManifestsInstallerPodYamlBytes() ([]byte, error) {
 	return _pkgOperatorStaticpodControllerInstallerManifestsInstallerPodYaml, nil
