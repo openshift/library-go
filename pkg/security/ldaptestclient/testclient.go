@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"time"
 
-	"gopkg.in/ldap.v2"
+	"github.com/go-ldap/ldap"
 )
 
 // Fake is a mock client for an LDAP server
@@ -73,6 +73,11 @@ func (c *Fake) Del(delRequest *ldap.DelRequest) error {
 
 // Modify forwards a modification request to the LDAP server
 func (c *Fake) Modify(modifyRequest *ldap.ModifyRequest) error {
+	return nil
+}
+
+// ModifyDN renames the given DN and optionally move to another base
+func (c *Fake) ModifyDN(modifyDNRequest *ldap.ModifyDNRequest) error {
 	return nil
 }
 

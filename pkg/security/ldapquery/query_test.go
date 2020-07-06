@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/go-ldap/ldap"
 	"github.com/openshift/library-go/pkg/security/ldaptestclient"
 	"github.com/openshift/library-go/pkg/security/ldaputil"
-	"gopkg.in/ldap.v2"
 )
 
 const (

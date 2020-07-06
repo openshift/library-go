@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/ldap.v2"
+	"github.com/go-ldap/ldap"
 	"k8s.io/klog"
 
 	"github.com/openshift/library-go/pkg/security/ldapclient"
