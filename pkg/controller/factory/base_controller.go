@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	"github.com/robfig/cron"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -89,7 +89,7 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 
 	// if scheduled run is requested, run the cron scheduler
 	if c.resyncSchedules != nil {
-		scheduler := cron.New(cron.WithSeconds())
+		scheduler := cron.New()
 		for _, s := range c.resyncSchedules {
 			scheduler.Schedule(s, newScheduledJob(c.name, c.syncContext.Queue()))
 		}
