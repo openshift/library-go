@@ -36,6 +36,7 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 		evalEvents        func([]*corev1.Event, *testing.T)
 		startingVerbosity klog.Level
 		expectedVerbosity klog.Level
+		defaultLoglevel   *operatorv1.LogLevel
 		retrySyncTimes    int
 	}{
 		{
@@ -111,6 +112,17 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 			startingVerbosity: 0,
 			expectedVerbosity: 2,
 		},
+
+		{
+			name: "when OperatorLogLevel is not set but default loglevel is provided",
+			operatorSpec: operatorv1.OperatorSpec{
+				OperatorLogLevel: "",
+			},
+			defaultLoglevel:   &operatorv1.Debug,
+			retrySyncTimes:    5,
+			startingVerbosity: 0,
+			expectedVerbosity: 4,
+		},
 	}
 
 	for _, test := range tests {
@@ -134,6 +146,9 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 				operatorClient: fakeStaticPodOperatorClient,
 				setLogLevelFn:  setLogLevel,
 				getLogLevelFn:  GetLogLevel,
+			}
+			if test.defaultLoglevel != nil {
+				c.defaultLogLevel = *test.defaultLoglevel
 			}
 			syncCtx := factory.NewSyncContext("LoggingController", recorder)
 			for i := 0; i <= test.retrySyncTimes; i++ {
