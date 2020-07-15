@@ -111,11 +111,41 @@ func TestController(t *testing.T) {
 		evalActions          func(t *testing.T, actions []ktesting.Action)
 	}{
 		{
-			name: "got test reason",
+			name: "got exact reason",
 			handlers: []eventHandler{
 				{
-					reason:    "TestReason",
-					namespace: "test",
+					reasonPattern: "TestReason",
+					namespace:     "test",
+				},
+			},
+			sendEvents: func(recorder events.Recorder) {
+				recorder.Warningf("TestReason", "Test")
+			},
+			expectedProcessCount: 1,
+			expectedEventsKeys: []string{
+				"test/name/TestReason",
+			},
+		},
+		{
+			name: "does not match test reason without glob",
+			handlers: []eventHandler{
+				{
+					reasonPattern: "Test",
+					namespace:     "test",
+				},
+			},
+			sendEvents: func(recorder events.Recorder) {
+				recorder.Warningf("TestReason", "Test")
+			},
+			expectedProcessCount: 0,
+			expectedEventsKeys:   []string{},
+		},
+		{
+			name: "match test reason with glob",
+			handlers: []eventHandler{
+				{
+					reasonPattern: "Test*",
+					namespace:     "test",
 				},
 			},
 			sendEvents: func(recorder events.Recorder) {
@@ -130,8 +160,8 @@ func TestController(t *testing.T) {
 			name: "ignore other events",
 			handlers: []eventHandler{
 				{
-					reason:    "TestReason",
-					namespace: "test",
+					reasonPattern: "TestReason",
+					namespace:     "test",
 				},
 			},
 			sendEvents: func(recorder events.Recorder) {
@@ -147,8 +177,8 @@ func TestController(t *testing.T) {
 			name: "test reason event acknowledged",
 			handlers: []eventHandler{
 				{
-					reason:    "TestReason",
-					namespace: "test",
+					reasonPattern: "TestReason",
+					namespace:     "test",
 				},
 			},
 			sendEvents: func(recorder events.Recorder) {
@@ -190,7 +220,7 @@ func TestController(t *testing.T) {
 			processCount := 0
 			var processCountLock sync.Mutex
 			for _, h := range test.handlers {
-				b = b.WithEventHandler(h.namespace, h.reason, func(event *corev1.Event) error {
+				b = b.WithEventHandler(h.namespace, h.reasonPattern, func(event *corev1.Event) error {
 					defer func() {
 						processCountLock.Lock()
 						processCount++
@@ -235,8 +265,13 @@ func TestController(t *testing.T) {
 						finish = true
 						break
 					}
-				case <-time.After(30 * time.Second):
-					t.Fatal("timeout")
+				case <-time.After(3 * time.Second):
+					if len(test.expectedEventsKeys) != 0 {
+						t.Fatal("timeout")
+						return
+					}
+					finish = true
+					break
 				}
 			}
 

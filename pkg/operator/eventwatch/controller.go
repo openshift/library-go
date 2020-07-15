@@ -33,9 +33,9 @@ type Controller struct {
 }
 
 type eventHandler struct {
-	reason    string
-	namespace string
-	process   func(event *corev1.Event) error
+	reasonPattern string
+	namespace     string
+	process       func(event *corev1.Event) error
 }
 
 type Builder struct {
@@ -47,13 +47,14 @@ func New() *Builder {
 	return &Builder{}
 }
 
-// WithEventHandler add handler for event matching the namespace and the reason.
+// WithEventHandler add handler for event matching the namespace and the reason pattern.
 // This can be called multiple times.
-func (b *Builder) WithEventHandler(namespace, reason string, processEvent func(event *corev1.Event) error) *Builder {
+// The reason pattern can contain glob ("*") as prefix or suffix. If no glob is used a strict match is required
+func (b *Builder) WithEventHandler(namespace, reasonPattern string, processEvent func(event *corev1.Event) error) *Builder {
 	b.eventConfig = append(b.eventConfig, eventHandler{
-		reason:    reason,
-		namespace: namespace,
-		process:   processEvent,
+		reasonPattern: reasonPattern,
+		namespace:     namespace,
+		process:       processEvent,
 	})
 	return b
 }
@@ -99,7 +100,7 @@ func (c *Controller) getEventHandler(eventKey string) *eventHandler {
 		return nil
 	}
 	for i := range c.events {
-		if c.events[i].namespace == namespace && c.events[i].reason == reason {
+		if c.events[i].namespace == namespace && reasonMatch(c.events[i].reasonPattern, reason) {
 			return &c.events[i]
 		}
 	}
