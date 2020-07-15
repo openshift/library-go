@@ -28,7 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // WithAuthentication creates an http handler that tries to authenticate the given request as a user, and then
@@ -47,6 +47,7 @@ func WithAuthentication(handler http.Handler, auth authenticator.Request, failed
 			req = req.WithContext(authenticator.WithAudiences(req.Context(), apiAuds))
 		}
 		resp, ok, err := auth.AuthenticateRequest(req)
+		traceFilterStep(req.Context(), "Authenticate check done")
 		defer recordAuthMetrics(resp, ok, err, apiAuds, authenticationStart)
 		if err != nil || !ok {
 			if err != nil {
@@ -71,11 +72,8 @@ func WithAuthentication(handler http.Handler, auth authenticator.Request, failed
 	})
 }
 
-func Unauthorized(s runtime.NegotiatedSerializer, supportsBasicAuth bool) http.Handler {
+func Unauthorized(s runtime.NegotiatedSerializer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if supportsBasicAuth {
-			w.Header().Set("WWW-Authenticate", `Basic realm="kubernetes-master"`)
-		}
 		ctx := req.Context()
 		requestInfo, found := genericapirequest.RequestInfoFrom(ctx)
 		if !found {

@@ -828,7 +828,7 @@ var map_InfrastructureStatus = map[string]string{
 	"platform":             "platform is the underlying infrastructure provider for the cluster.\n\nDeprecated: Use platformStatus.type instead.",
 	"platformStatus":       "platformStatus holds status information specific to the underlying infrastructure provider.",
 	"etcdDiscoveryDomain":  "etcdDiscoveryDomain is the domain used to fetch the SRV records for discovering etcd servers and clients. For more info: https://github.com/etcd-io/etcd/blob/329be66e8b3f9e2e6af83c123ff89297e49ebd15/Documentation/op-guide/clustering.md#dns-discovery",
-	"apiServerURL":         "apiServerURL is a valid URI with scheme(http/https), address and port.  apiServerURL can be used by components like the web console to tell users where to find the Kubernetes API.",
+	"apiServerURL":         "apiServerURL is a valid URI with scheme(http/https), address and optionally a port (defaulting to 80 for http and 443 for https).  apiServerURL can be used by components like the web console to tell users where to find the Kubernetes API.",
 	"apiServerInternalURI": "apiServerInternalURL is a valid URI with scheme(http/https), address and port.  apiServerInternalURL can be used by components like kubelets, to contact the Kubernetes API server using the infrastructure provider rather than Kubernetes networking.",
 }
 
@@ -868,7 +868,7 @@ var map_OvirtPlatformStatus = map[string]string{
 	"":                    "OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.",
 	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
 	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for oVirt deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"nodeDNSIP":           "deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.",
 }
 
 func (OvirtPlatformStatus) SwaggerDoc() map[string]string {
