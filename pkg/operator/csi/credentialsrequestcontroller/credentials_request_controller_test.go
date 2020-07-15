@@ -20,6 +20,8 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -55,8 +57,8 @@ func TestSync(t *testing.T) {
 			// Initialize
 			dynamicClient := &fakeDynamicClient{}
 			if tc.manifest != nil {
-				cr := readCredentialRequestsOrDie(tc.manifest)
-				addCredentialsRequestHash(cr)
+				cr := resourceread.ReadCredentialRequestsOrDie(tc.manifest)
+				resourceapply.AddCredentialsRequestHash(cr)
 				dynamicClient.credentialRequest = cr
 			}
 
@@ -118,7 +120,7 @@ func checkCredentialsRequestSanity(obj *unstructured.Unstructured) error {
 	}
 
 	manifest := makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace)
-	expectedObj := readCredentialRequestsOrDie(manifest)
+	expectedObj := resourceread.ReadCredentialRequestsOrDie(manifest)
 	expectedSpec := expectedObj.Object["spec"]
 	actualSpec := obj.Object["spec"]
 	if !reflect.DeepEqual(expectedSpec, actualSpec) {
@@ -138,7 +140,10 @@ var (
 	_ dynamic.ResourceInterface              = &fakeDynamicClient{}
 	_ dynamic.NamespaceableResourceInterface = &fakeDynamicClient{}
 
-	credentialsGR schema.GroupResource = schema.GroupResource{Group: credentialsRequestGroup, Resource: credentialsRequestResource}
+	credentialsGR schema.GroupResource = schema.GroupResource{
+		Group:    resourceapply.CredentialsRequestGroup,
+		Resource: resourceapply.CredentialsRequestResource,
+	}
 )
 
 func (fake *fakeDynamicClient) Resource(resource schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {

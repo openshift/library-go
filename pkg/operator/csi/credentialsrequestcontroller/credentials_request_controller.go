@@ -2,6 +2,7 @@ package credentialsrequestcontroller
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,12 +13,15 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // CredentialsRequestController is a simple controller that maintains a CredentialsRequest static manifest.
 // It uses unstructured.Unstructured as currently there's no API type for this resource.
+// TODO: the functionality in this controller should be moved to the StatisResourceController.
 type CredentialsRequestController struct {
 	name            string
 	operatorClient  v1helpers.OperatorClient
@@ -51,8 +55,8 @@ func NewCredentialsRequestController(
 	).WithSyncDegradedOnError(
 		operatorClient,
 	).ToController(
-		name,
-		recorder.WithComponentSuffix(name),
+		c.name,
+		recorder.WithComponentSuffix("credentials-request-controller-"+strings.ToLower(name)),
 	)
 }
 
@@ -60,7 +64,7 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	status *opv1.OperatorStatus,
 	syncContext factory.SyncContext,
 ) (*unstructured.Unstructured, error) {
-	cr := readCredentialRequestsOrDie(c.manifest)
+	cr := resourceread.ReadCredentialRequestsOrDie(c.manifest)
 	err := unstructured.SetNestedField(cr.Object, c.targetNamespace, "spec", "secretRef", "namespace")
 	if err != nil {
 		return nil, err
@@ -69,14 +73,17 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	var expectedGeneration int64 = -1
 	generation := resourcemerge.GenerationFor(
 		status.Generations,
-		schema.GroupResource{Group: credentialsRequestGroup, Resource: credentialsRequestResource},
+		schema.GroupResource{
+			Group:    resourceapply.CredentialsRequestGroup,
+			Resource: resourceapply.CredentialsRequestResource,
+		},
 		cr.GetNamespace(),
 		cr.GetName())
 	if generation != nil {
 		expectedGeneration = generation.LastGeneration
 	}
 
-	cr, _, err = applyCredentialsRequest(c.dynamicClient, syncContext.Recorder(), cr, expectedGeneration)
+	cr, _, err = resourceapply.ApplyCredentialsRequest(c.dynamicClient, syncContext.Recorder(), cr, expectedGeneration)
 	return cr, err
 }
 

@@ -1,4 +1,4 @@
-package credentialsrequestcontroller
+package resourceapply
 
 import (
 	"context"
@@ -12,36 +12,38 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/openshift/client-go/config/clientset/versioned/scheme"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 )
 
 const (
-	credentialsRequestGroup    = "cloudcredential.openshift.io"
-	credentialsRequestVersion  = "v1"
-	credentialsRequestResource = "credentialsrequests"
-
-	specHashAnnotation = "operator.openshift.io/spec-hash"
+	CredentialsRequestGroup    = "cloudcredential.openshift.io"
+	CredentialsRequestVersion  = "v1"
+	CredentialsRequestResource = "credentialsrequests"
 )
 
-var (
-	credentialsRequestResourceGVR schema.GroupVersionResource = schema.GroupVersionResource{
-		Group:    credentialsRequestGroup,
-		Version:  credentialsRequestVersion,
-		Resource: credentialsRequestResource,
-	}
-)
-
-func readCredentialRequestsOrDie(objBytes []byte) *unstructured.Unstructured {
-	udi, _, err := scheme.Codecs.UniversalDecoder().Decode(objBytes, nil, &unstructured.Unstructured{})
-	if err != nil {
-		panic(err)
-	}
-	return udi.(*unstructured.Unstructured)
+var credentialsRequestResourceGVR schema.GroupVersionResource = schema.GroupVersionResource{
+	Group:    CredentialsRequestGroup,
+	Version:  CredentialsRequestVersion,
+	Resource: CredentialsRequestResource,
 }
 
-func applyCredentialsRequest(
+func AddCredentialsRequestHash(cr *unstructured.Unstructured) error {
+	jsonBytes, err := json.Marshal(cr.Object["spec"])
+	if err != nil {
+		return err
+	}
+	specHash := fmt.Sprintf("%x", sha256.Sum256(jsonBytes))
+	annotations := cr.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[specHashAnnotation] = specHash
+	cr.SetAnnotations(annotations)
+	return nil
+}
+
+func ApplyCredentialsRequest(
 	client dynamic.Interface,
 	recorder events.Recorder,
 	required *unstructured.Unstructured,
@@ -51,7 +53,7 @@ func applyCredentialsRequest(
 		return nil, false, fmt.Errorf("invalid object: name cannot be empty")
 	}
 
-	if err := addCredentialsRequestHash(required); err != nil {
+	if err := AddCredentialsRequestHash(required); err != nil {
 		return nil, false, err
 	}
 
@@ -100,19 +102,4 @@ func applyCredentialsRequest(
 		return nil, false, err
 	}
 	return actual, existing.GetResourceVersion() != actual.GetResourceVersion(), nil
-}
-
-func addCredentialsRequestHash(cr *unstructured.Unstructured) error {
-	jsonBytes, err := json.Marshal(cr.Object["spec"])
-	if err != nil {
-		return err
-	}
-	specHash := fmt.Sprintf("%x", sha256.Sum256(jsonBytes))
-	annotations := cr.GetAnnotations()
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
-	annotations[specHashAnnotation] = specHash
-	cr.SetAnnotations(annotations)
-	return nil
 }

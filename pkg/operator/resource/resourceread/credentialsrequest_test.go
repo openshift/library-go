@@ -1,4 +1,4 @@
-package credentialsrequestcontroller
+package resourceread
 
 import (
 	"fmt"
@@ -174,7 +174,7 @@ status:
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cr := readCredentialRequestsOrDie([]byte(test.credentialsRequest))
+			cr := ReadCredentialRequestsOrDie([]byte(test.credentialsRequest))
 			msg := getCredentialsRequestFailure(cr)
 			if msg != test.expectedMessage {
 				t.Errorf("expected %q, got %q", test.expectedMessage, msg)

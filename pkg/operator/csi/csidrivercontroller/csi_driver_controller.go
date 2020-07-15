@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -128,14 +128,15 @@ func NewCSIDriverController(
 		assetFunc:          assetFunc,
 		images:             imagesFromEnv(),
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), csiDriverName),
-		eventRecorder:      eventRecorder,
+		eventRecorder:      eventRecorder.WithComponentSuffix("csi-driver-controller-recorder-" + strings.ToLower(name)),
 	}
 	operatorClient.Informer().AddEventHandler(c.eventHandler(csiDriverName))
 	c.informersSynced = append(c.informersSynced, operatorClient.Informer().HasSynced)
 	return c
 }
 
-// WithControllerService returns a Controller with the CSI Controller Service.
+// WithControllerService returns a controller with the CSI Controller Service.
+// The CSI Controller Service is represented by a Deployment.
 func (c *CSIDriverController) WithControllerService(informer appsinformersv1.DeploymentInformer, file string) *CSIDriverController {
 	informer.Informer().AddEventHandler(c.eventHandler("deployment"))
 	c.informersSynced = append(c.informersSynced, informer.Informer().HasSynced)
@@ -143,7 +144,8 @@ func (c *CSIDriverController) WithControllerService(informer appsinformersv1.Dep
 	return c
 }
 
-// WithNodeService returns a Controller with the CSI Node Service.
+// WithNodeService returns a controller with the CSI Node Service.
+// The CSI Node Service is represented by a DaemonSet.
 func (c *CSIDriverController) WithNodeService(informer appsinformersv1.DaemonSetInformer, file string) *CSIDriverController {
 	informer.Informer().AddEventHandler(c.eventHandler("daemonSet"))
 	c.informersSynced = append(c.informersSynced, informer.Informer().HasSynced)
@@ -268,7 +270,12 @@ func (c *CSIDriverController) updateSyncError(status *opv1.OperatorStatus, err e
 	}
 }
 
-func (c *CSIDriverController) handleSync(resourceVersion string, meta *metav1.ObjectMeta, spec *opv1.OperatorSpec, status *opv1.OperatorStatus) error {
+func (c *CSIDriverController) handleSync(
+	resourceVersion string,
+	meta *metav1.ObjectMeta,
+	spec *opv1.OperatorSpec,
+	status *opv1.OperatorStatus,
+) error {
 	var controllerService *appsv1.Deployment
 	if c.controllerManifest != nil {
 		c, err := c.syncDeployment(spec, status)
@@ -301,15 +308,12 @@ func (c *CSIDriverController) enqueue(obj interface{}) {
 func (c *CSIDriverController) eventHandler(kind string) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			logInformerEvent(kind, obj, "added")
 			c.enqueue(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			logInformerEvent(kind, new, "updated")
 			c.enqueue(new)
 		},
 		DeleteFunc: func(obj interface{}) {
-			logInformerEvent(kind, obj, "deleted")
 			c.enqueue(obj)
 		},
 	}
@@ -349,16 +353,6 @@ func (c *CSIDriverController) handleErr(err error, key interface{}) {
 	klog.V(2).Infof("Dropping operator %q out of the queue: %v", key, err)
 	c.queue.Forget(key)
 	c.queue.AddAfter(key, 1*time.Minute)
-}
-
-func logInformerEvent(kind, obj interface{}, message string) {
-	if klog.V(6) {
-		objMeta, err := meta.Accessor(obj)
-		if err != nil {
-			return
-		}
-		klog.V(6).Infof("Received event: %s %s %s", kind, objMeta.GetName(), message)
-	}
 }
 
 func imagesFromEnv() images {
