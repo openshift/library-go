@@ -168,7 +168,7 @@ func (c *CSIDriverController) Run(ctx context.Context, workers int) {
 	if !cache.WaitForCacheSync(stopCh, c.informersSynced...) {
 		return
 	}
-	klog.Infof("Caches synced, running the controller")
+	klog.V(4).Infof("Caches synced, running the controller")
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
@@ -197,9 +197,9 @@ func (c *CSIDriverController) sync() error {
 	}
 
 	startTime := time.Now()
-	klog.Info("Starting syncing operator at ", startTime)
+	klog.V(4).Info("Starting syncing controller at ", startTime)
 	defer func() {
-		klog.Info("Finished syncing operator at ", time.Since(startTime))
+		klog.V(4).Info("Finished syncing controller at ", time.Since(startTime))
 	}()
 
 	syncErr := c.handleSync(opResourceVersion, meta, opSpec, opStatus)
