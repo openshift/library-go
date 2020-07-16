@@ -59,8 +59,8 @@ const (
 //
 // 1. Container image location
 //
-// The controller will replace the image specified in the static files if its respective environemnt variable is set. This
-// is a list of environment variables that the controller understands:
+// The controller will replace the image specified in the static files if it follows a certain nomenclature AND its
+// respective environemnt variable is set. This is a list of environment variables that the controller understands:
 //
 // DRIVER_IMAGE
 // PROVISIONER_IMAGE
@@ -70,13 +70,14 @@ const (
 // NODE_DRIVER_REGISTRAR_IMAGE
 // LIVENESS_PROBE_IMAGE
 //
+// As for the static files, the names above should be wrapped by a ${}, e.g., ${DIVER_IMAGE}.
+//
 // 2. Log level
 //
 // The controller can also override the log level passed in to the CSI driver container.
 //
-// In order to do that, the flag `--v=` passed in to the csi-driver container is replaced with value specified
-// in the OperatorClient resource (Spec.LogLevel). That being said, it's expected that the csi-driver container sets
-// its log level based on the `--v=` flag, which is initialized by default if the driver uses the package klog.
+// In order to do that, the placeholder ${LOG_LEVEL} from the manifest file is replaced with the value specified
+// in the OperatorClient resource (Spec.LogLevel).
 type CSIDriverController struct {
 	// Controller
 	name            string

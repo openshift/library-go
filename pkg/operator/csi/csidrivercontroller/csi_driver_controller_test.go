@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,14 @@ const (
 	controllerName   = "TestCSIDriverController"
 	operandName      = "test-csi-driver"
 	operandNamespace = "openshift-test-csi-driver"
+
+	csiDriverContainerName           = "csi-driver"
+	provisionerContainerName         = "csi-provisioner"
+	attacherContainerName            = "csi-attacher"
+	resizerContainerName             = "csi-resizer"
+	snapshotterContainerName         = "csi-snapshotter"
+	livenessProbeContainerName       = "csi-liveness-probe"
+	nodeDriverRegistrarContainerName = "csi-node-driver-registrar"
 
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
@@ -63,7 +72,7 @@ type testObjects struct {
 }
 
 type testContext struct {
-	operator       *CSIDriverController
+	controller     *CSIDriverController
 	operatorClient v1helpers.OperatorClient
 	coreClient     *fakecore.Clientset
 	coreInformers  coreinformers.SharedInformerFactory
@@ -111,7 +120,7 @@ func newOperator(test testCase, t *testing.T) *testContext {
 
 	// fakeDriverInstance also fulfils the OperatorClient interface
 	fakeOperatorClient := test.initialObjects.driver
-	op := NewCSIDriverController(
+	controller := NewCSIDriverController(
 		controllerName,
 		operandName,
 		operandNamespace,
@@ -127,8 +136,11 @@ func newOperator(test testCase, t *testing.T) *testContext {
 		"daemonSet",
 	)
 
+	// Pretend env vars are set
+	controller.images = test.images
+
 	return &testContext{
-		operator:       op,
+		controller:     controller,
 		operatorClient: fakeOperatorClient,
 		coreClient:     coreClient,
 		coreInformers:  coreInformerFactory,
@@ -235,6 +247,15 @@ func withFalseConditions(conditions ...string) driverModifier {
 	}
 }
 
+func getIndex(containers []v1.Container, name string) int {
+	for i := range containers {
+		if containers[i].Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
 // Deployments
 
 type deploymentModifier func(*appsv1.Deployment) *appsv1.Deployment
@@ -242,6 +263,8 @@ type deploymentModifier func(*appsv1.Deployment) *appsv1.Deployment
 func getDeployment(logLevel int, images images, modifiers ...deploymentModifier) *appsv1.Deployment {
 	manifest := makeFakeManifest("deployment")
 	dep := resourceread.ReadDeploymentV1OrDie(manifest)
+
+	// Replace the placeholders in the manifest (, ${DRIVER_IMAGE}, ${LOG_LEVEL})
 	containers := dep.Spec.Template.Spec.Containers
 	if images.csiDriver != "" {
 		if idx := getIndex(containers, csiDriverContainerName); idx > -1 {
@@ -279,9 +302,6 @@ func getDeployment(logLevel int, images images, modifiers ...deploymentModifier)
 		}
 	}
 
-	var one int32 = 1
-	dep.Spec.Replicas = &one
-
 	for i, container := range dep.Spec.Template.Spec.Containers {
 		for j, arg := range container.Args {
 			if strings.HasPrefix(arg, "--v=") {
@@ -289,6 +309,9 @@ func getDeployment(logLevel int, images images, modifiers ...deploymentModifier)
 			}
 		}
 	}
+
+	var one int32 = 1
+	dep.Spec.Replicas = &one
 
 	for _, modifier := range modifiers {
 		dep = modifier(dep)
@@ -330,6 +353,8 @@ type daemonSetModifier func(*appsv1.DaemonSet) *appsv1.DaemonSet
 func getDaemonSet(logLevel int, images images, modifiers ...daemonSetModifier) *appsv1.DaemonSet {
 	manifest := makeFakeManifest("daemonSet")
 	ds := resourceread.ReadDaemonSetV1OrDie(manifest)
+
+	// Replace the placeholders in the manifest (, ${DRIVER_IMAGE}, ${LOG_LEVEL})
 	containers := ds.Spec.Template.Spec.Containers
 	if images.csiDriver != "" {
 		if idx := getIndex(containers, csiDriverContainerName); idx > -1 {
@@ -646,7 +671,7 @@ func TestSync(t *testing.T) {
 			ctx := newOperator(test, t)
 
 			// Act
-			err := ctx.operator.sync()
+			err := ctx.controller.sync()
 
 			// Assert
 			// Check error
@@ -833,11 +858,11 @@ spec:
     spec:
       containers:
         - name: csi-driver
-          image: quay.io/openshift/origin-test-csi-driver:latest
+          image: ${DRIVER_IMAGE}
           args:
             - --endpoint=$(CSI_ENDPOINT)
             - --logtostderr
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
@@ -849,12 +874,12 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-provisioner
-          image: quay.io/openshift/origin-csi-external-provisioner:latest
+          image: ${PROVISIONER_IMAGE}
           args:
             - --provisioner=test.csi.openshift.io
             - --csi-address=$(ADDRESS)
             - --feature-gates=Topology=true
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -862,10 +887,10 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-attacher
-          image: quay.io/openshift/origin-csi-external-attacher:latest
+          image: ${ATTACHER_IMAGE}
           args:
             - --csi-address=$(ADDRESS)
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -873,10 +898,10 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-resizer
-          image: quay.io/openshift/origin-csi-external-resizer:latest
+          image: ${RESIZER_IMAGE}
           args:
             - --csi-address=$(ADDRESS)
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -884,10 +909,10 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-snapshotter
-          image: quay.io/openshift/origin-csi-external-snapshotter:latest
+          image: ${SNAPSHOTTER_IMAGE}
           args:
             - --csi-address=$(ADDRESS)
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
           - name: ADDRESS
             value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -918,11 +943,11 @@ spec:
     spec:
       containers:
         - name: csi-driver
-          image: quay.io/openshift/origin-test-csi-driver:latest
+          image: ${DRIVER_IMAGE}
           args:
             - --endpoint=$(CSI_ENDPOINT)
             - --logtostderr
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: CSI_ENDPOINT
               value: unix:/csi/csi.sock
@@ -947,11 +972,11 @@ spec:
             periodSeconds: 10
             failureThreshold: 5
         - name: csi-node-driver-registrar
-          image: quay.io/openshift/origin-csi-node-driver-registrar:latest
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
           args:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
-            - --v=5
+            - --v=${LOG_LEVEL}
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -963,7 +988,7 @@ spec:
             - name: registration-dir
               mountPath: /registration
         - name: csi-liveness-probe
-          image: quay.io/openshift/origin-csi-livenessprobe:latest
+          image: ${LIVENESS_PROBE_IMAGE}
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s

@@ -2,10 +2,10 @@ package csidrivercontroller
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	opv1 "github.com/openshift/api/operator/v1"
@@ -13,16 +13,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-)
-
-const (
-	csiDriverContainerName           = "csi-driver"
-	provisionerContainerName         = "csi-provisioner"
-	attacherContainerName            = "csi-attacher"
-	resizerContainerName             = "csi-resizer"
-	snapshotterContainerName         = "csi-snapshotter"
-	livenessProbeContainerName       = "csi-liveness-probe"
-	nodeDriverRegistrarContainerName = "csi-node-driver-registrar"
 )
 
 func (c *CSIDriverController) syncDeployment(spec *opv1.OperatorSpec, status *opv1.OperatorStatus) (*appsv1.Deployment, error) {
@@ -169,98 +159,13 @@ func (c *CSIDriverController) syncStatus(
 }
 
 func (c *CSIDriverController) getExpectedDeployment(spec *opv1.OperatorSpec) *appsv1.Deployment {
-	deployment := resourceread.ReadDeploymentV1OrDie(c.controllerManifest)
-
-	containers := deployment.Spec.Template.Spec.Containers
-	if c.images.csiDriver != "" {
-		if idx := getIndex(containers, csiDriverContainerName); idx > -1 {
-			containers[idx].Image = c.images.csiDriver
-		}
-	}
-
-	if c.images.provisioner != "" {
-		if idx := getIndex(containers, provisionerContainerName); idx > -1 {
-			containers[idx].Image = c.images.provisioner
-		}
-	}
-
-	if c.images.attacher != "" {
-		if idx := getIndex(containers, attacherContainerName); idx > -1 {
-			containers[idx].Image = c.images.attacher
-		}
-	}
-
-	if c.images.resizer != "" {
-		if idx := getIndex(containers, resizerContainerName); idx > -1 {
-			containers[idx].Image = c.images.resizer
-		}
-	}
-
-	if c.images.snapshotter != "" {
-		if idx := getIndex(containers, snapshotterContainerName); idx > -1 {
-			containers[idx].Image = c.images.snapshotter
-		}
-	}
-
-	if c.images.livenessProbe != "" {
-		if idx := getIndex(containers, livenessProbeContainerName); idx > -1 {
-			containers[idx].Image = c.images.livenessProbe
-		}
-	}
-
-	logLevel := getLogLevel(spec.LogLevel)
-	for i, container := range containers {
-		for j, arg := range container.Args {
-			if strings.HasPrefix(arg, "--v=") {
-				containers[i].Args[j] = fmt.Sprintf("--v=%d", logLevel)
-			}
-		}
-	}
-
-	return deployment
+	manifest := replacePlaceHolders(c.controllerManifest, c.images, spec)
+	return resourceread.ReadDeploymentV1OrDie(manifest)
 }
 
 func (c *CSIDriverController) getExpectedDaemonSet(spec *opv1.OperatorSpec) *appsv1.DaemonSet {
-	daemonSet := resourceread.ReadDaemonSetV1OrDie(c.nodeManifest)
-
-	containers := daemonSet.Spec.Template.Spec.Containers
-	if c.images.csiDriver != "" {
-		if idx := getIndex(containers, csiDriverContainerName); idx > -1 {
-			containers[idx].Image = c.images.csiDriver
-		}
-	}
-
-	if c.images.nodeDriverRegistrar != "" {
-		if idx := getIndex(containers, nodeDriverRegistrarContainerName); idx > -1 {
-			containers[idx].Image = c.images.nodeDriverRegistrar
-		}
-	}
-
-	if c.images.livenessProbe != "" {
-		if idx := getIndex(containers, livenessProbeContainerName); idx > -1 {
-			containers[idx].Image = c.images.livenessProbe
-		}
-	}
-
-	logLevel := getLogLevel(spec.LogLevel)
-	for i, container := range containers {
-		for j, arg := range container.Args {
-			if strings.HasPrefix(arg, "--v=") {
-				containers[i].Args[j] = fmt.Sprintf("--v=%d", logLevel)
-			}
-		}
-	}
-
-	return daemonSet
-}
-
-func getIndex(containers []v1.Container, name string) int {
-	for i := range containers {
-		if containers[i].Name == name {
-			return i
-		}
-	}
-	return -1
+	manifest := replacePlaceHolders(c.nodeManifest, c.images, spec)
+	return resourceread.ReadDaemonSetV1OrDie(manifest)
 }
 
 func (c *CSIDriverController) getDaemonSetProgress(status *opv1.OperatorStatus, daemonSet *appsv1.DaemonSet) (bool, string) {
@@ -303,6 +208,46 @@ func isDaemonSetAvailable(d *appsv1.DaemonSet) bool {
 
 func isDeploymentAvailable(d *appsv1.Deployment) bool {
 	return d != nil && d.Status.AvailableReplicas > 0
+}
+
+func replacePlaceHolders(manifest []byte, img images, spec *opv1.OperatorSpec) []byte {
+	pairs := []string{}
+
+	// Replace container images by env vars if they are set
+	if img.csiDriver != "" {
+		pairs = append(pairs, []string{"${DRIVER_IMAGE}", img.csiDriver}...)
+	}
+
+	if img.provisioner != "" {
+		pairs = append(pairs, []string{"${PROVISIONER_IMAGE}", img.provisioner}...)
+	}
+
+	if img.attacher != "" {
+		pairs = append(pairs, []string{"${ATTACHER_IMAGE}", img.attacher}...)
+	}
+
+	if img.resizer != "" {
+		pairs = append(pairs, []string{"${RESIZER_IMAGE}", img.resizer}...)
+	}
+
+	if img.snapshotter != "" {
+		pairs = append(pairs, []string{"${SNAPSHOTTER_IMAGE}", img.snapshotter}...)
+	}
+
+	if img.livenessProbe != "" {
+		pairs = append(pairs, []string{"${LIVENESS_PROBE_IMAGE}", img.livenessProbe}...)
+	}
+
+	if img.nodeDriverRegistrar != "" {
+		pairs = append(pairs, []string{"${NODE_DRIVER_REGISTRAR_IMAGE}", img.nodeDriverRegistrar}...)
+	}
+
+	// Log level
+	logLevel := getLogLevel(spec.LogLevel)
+	pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
+
+	replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
+	return []byte(replaced)
 }
 
 func getLogLevel(logLevel opv1.LogLevel) int {
