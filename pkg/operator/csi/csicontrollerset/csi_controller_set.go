@@ -3,6 +3,7 @@ package csicontrollerset
 import (
 	"context"
 
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -68,7 +69,10 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.csiDriverController,
 	} {
 		if controller != nil {
-			go controller.Run(ctx, 1)
+			go func() {
+				defer utilruntime.HandleCrash()
+				controller.Run(ctx, 1)
+			}()
 		}
 	}
 }
