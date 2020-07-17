@@ -57,23 +57,23 @@ type CSIControllerSet struct {
 	eventRecorder  events.Recorder
 }
 
+type controller interface {
+	Run(context.Context, int)
+}
+
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
-	for _, controller := range []interface {
-		Run(context.Context, int)
-	}{
+	for _, ctrl := range []controller{
 		c.logLevelController,
 		c.managementStateController,
 		c.staticResourcesController,
 		c.credentialsRequestController,
 		c.csiDriverController,
 	} {
-		if controller != nil {
-			go func() {
-				defer utilruntime.HandleCrash()
-				controller.Run(ctx, 1)
-			}()
-		}
+		go func(ctrl controller) {
+			defer utilruntime.HandleCrash()
+			ctrl.Run(ctx, 1)
+		}(ctrl)
 	}
 }
 
