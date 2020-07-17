@@ -7,24 +7,27 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	corelisterv1 "k8s.io/client-go/listers/core/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 )
 
 const (
-	cloudProviderConfFilePath = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/%s"
-	configNamespace           = "openshift-config"
+	cloudProviderConfFilePath       = "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/%s"
+	configNamespace                 = "openshift-config"
+	machineSpecifiedConfigNamespace = "openshift-config-managed"
+	machineSpecifiedConfig          = "kube-cloud-config"
 )
 
 // InfrastructureLister lists infrastrucre information and allows resources to be synced
 type InfrastructureLister interface {
 	InfrastructureLister() configlistersv1.InfrastructureLister
 	ResourceSyncer() resourcesynccontroller.ResourceSyncer
+	ConfigMapLister() corelisterv1.ConfigMapLister
 }
 
 // NewCloudProviderObserver returns a new cloudprovider observer for syncing cloud provider specific
@@ -72,13 +75,25 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 
 	sourceCloudConfigMap := infrastructure.Spec.CloudConfig.Name
 	sourceCloudConfigNamespace := configNamespace
+	sourceCloudConfigKey := infrastructure.Spec.CloudConfig.Key
+
+	// If a managed cloud-provider config is available, it should be used instead of the default. If the configmap is not
+	// found, the default values should be used.
+	if _, err = listers.ConfigMapLister().ConfigMaps(machineSpecifiedConfigNamespace).Get(machineSpecifiedConfig); err == nil {
+		sourceCloudConfigMap = machineSpecifiedConfig
+		sourceCloudConfigNamespace = machineSpecifiedConfigNamespace
+		sourceCloudConfigKey = "cloud.conf"
+	} else if !errors.IsNotFound(err) {
+		return existingConfig, append(errs, err)
+	}
+
 	sourceLocation := resourcesynccontroller.ResourceLocation{
 		Namespace: sourceCloudConfigNamespace,
 		Name:      sourceCloudConfigMap,
 	}
 
 	// we set cloudprovider configmap values only for some cloud providers.
-	validCloudProviders := sets.NewString("azure", "gce", "openstack", "vsphere")
+	validCloudProviders := sets.NewString("aws", "azure", "gce", "openstack", "vsphere")
 	if !validCloudProviders.Has(cloudProvider) {
 		sourceCloudConfigMap = ""
 	}
@@ -100,8 +115,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		return observedConfig, errs
 	}
 
-	// usually key will be simply config but we should refer it just in case
-	staticCloudConfFile := fmt.Sprintf(cloudProviderConfFilePath, infrastructure.Spec.CloudConfig.Key)
+	staticCloudConfFile := fmt.Sprintf(cloudProviderConfFilePath, sourceCloudConfigKey)
 
 	if err := unstructured.SetNestedStringSlice(observedConfig, []string{staticCloudConfFile}, c.cloudProviderConfigPath...); err != nil {
 		recorder.Warningf("ObserveCloudProviderNames", "Failed setting cloud-config : %v", err)
