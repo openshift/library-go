@@ -234,10 +234,18 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 }
 
 // ApplySecret merges objectmeta, requires data
-func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret) (*corev1.Secret, bool, error) {
-	if len(required.StringData) > 0 {
-		return nil, false, fmt.Errorf("Secret.stringData is not supported")
+func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret) (*corev1.Secret, bool, error) {
+	// copy the stringData to data.  Error on a data content conflict inside required.  This is usually a bug.
+	required := requiredInput.DeepCopy()
+	for k, v := range required.StringData {
+		if dataV, ok := required.Data[k]; ok {
+			if string(dataV) != v {
+				return nil, false, fmt.Errorf("Secret.stringData[%q] conflicts with Secret.data[%q]", k, k)
+			}
+		}
+		required.Data[k] = []byte(v)
 	}
+	required.StringData = nil
 
 	existing, err := client.Secrets(required.Namespace).Get(context.TODO(), required.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
