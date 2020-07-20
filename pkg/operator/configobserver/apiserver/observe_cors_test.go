@@ -66,7 +66,7 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 					}
 				}
 				listers := testLister{
-					lister: configlistersv1.NewAPIServerLister(indexer),
+					apiLister: configlistersv1.NewAPIServerLister(indexer),
 				}
 
 				var gotConfig map[string]interface{}
