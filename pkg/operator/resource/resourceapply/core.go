@@ -237,6 +237,9 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret) (*corev1.Secret, bool, error) {
 	// copy the stringData to data.  Error on a data content conflict inside required.  This is usually a bug.
 	required := requiredInput.DeepCopy()
+	if required.Data == nil {
+		required.Data = map[string][]byte{}
+	}
 	for k, v := range required.StringData {
 		if dataV, ok := required.Data[k]; ok {
 			if string(dataV) != v {
