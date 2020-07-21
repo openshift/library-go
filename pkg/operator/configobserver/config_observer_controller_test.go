@@ -3,6 +3,7 @@ package configobserver
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strings"
 	"testing"
@@ -33,9 +34,13 @@ func (c *fakeOperatorClient) GetObjectMeta() (*metav1.ObjectMeta, error) {
 }
 
 func (c *fakeOperatorClient) GetOperatorState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, resourceVersion string, err error) {
+	if c.onUpdateSpec != nil && c.counter > 0 {
+		return c.onUpdateSpec, &operatorv1.OperatorStatus{}, "", nil
+	}
+	c.counter = c.counter + 1
 	return c.startingSpec, &operatorv1.OperatorStatus{}, "", nil
-
 }
+
 func (c *fakeOperatorClient) UpdateOperatorSpec(rv string, in *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	if c.specUpdateFailure != nil {
 		return &operatorv1.OperatorSpec{}, rv, c.specUpdateFailure
@@ -50,7 +55,9 @@ func (c *fakeOperatorClient) UpdateOperatorStatus(rv string, in *operatorv1.Oper
 
 type fakeOperatorClient struct {
 	startingSpec      *operatorv1.OperatorSpec
+	onUpdateSpec      *operatorv1.OperatorSpec
 	specUpdateFailure error
+	counter           int
 
 	status *operatorv1.OperatorStatus
 	spec   *operatorv1.OperatorSpec
@@ -398,6 +405,446 @@ func TestWithPrefix(t *testing.T) {
 
 			if modified != tt.shouldModify {
 				t.Errorf("existing config was modified but it should not have been")
+			}
+
+		})
+	}
+}
+
+var scenario2CfgJson = `{
+ "operandTwo": {
+ "foo1": "one",
+ "bar1": "two",
+ "baz1": "three"
+ }
+}`
+
+var scenario3CfgJson = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "two",
+ "baz": "three"
+ },
+ "operandTwo": {
+  "foo1": "one",
+  "bar1": "two",
+  "baz1": "three"
+ }
+}`
+
+var scenario4CfgJson = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "outdated",
+ "baz": "three"
+ },
+}`
+
+var scenario5CfgJson = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "two",
+ "baz": "outdated"
+ },
+"operandTwo": {
+ "foo1": "one",
+ "bar1": "two",
+ "baz1": "three"
+ }
+}`
+
+var scenario6CfgJson = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "two",
+ "baz": "outdated"
+ },
+"operandTwo": {
+ "foo1": "one",
+ "bar1": "two",
+ "baz1": "three"
+ }
+}`
+
+var scenario7CfgJson = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "two",
+ "baz": "three"
+ },
+ "operandTwo": {
+  "foo1": "one",
+  "bar1": "two",
+  "baz1": "three"
+ }
+}`
+
+var scenario7CfgJsonChanged = `{
+"operandOne": {
+ "foo": "one",
+ "bar": "two",
+ "baz": "three"
+ },
+ "operandTwo": {
+  "newField": "one",
+  "bar1": "two",
+  "baz1": "three"
+ }
+}`
+
+func TestSyncStatusWithNestedConfig(t *testing.T) {
+	testCases := []struct {
+		name             string
+		nestedConfigPath []string
+		fakeClient       func() *fakeOperatorClient
+		observers        []ObserveConfigFunc
+
+		expectError            bool
+		expectEvents           [][]string
+		expectedObservedConfig *unstructured.Unstructured
+		expectedCondition      *operatorv1.OperatorCondition
+	}{
+		// checks what happens when there was no existing config
+		{
+			name:             "scenario1: happy path for nested config",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{},
+				}
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"baz": "three"}, nil
+				}, "operandOne"),
+			},
+
+			expectError: false,
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"foo": "one",
+					"bar": "two",
+					"baz": "three",
+				},
+			}},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+
+		// checks what happens when there was no existing config for operandOne but there was for operandTwo
+		{
+			name:             "scenario2: with operandTwo config",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario2CfgJson)},
+					},
+				}
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"baz": "three"}, nil
+				}, "operandOne"),
+			},
+			expectError: false,
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"foo": "one",
+					"bar": "two",
+					"baz": "three",
+				},
+				"operandTwo": map[string]interface{}{
+					"foo1": "one",
+					"bar1": "two",
+					"baz1": "three",
+				},
+			}},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+
+		// checks what happens when there were existing configs for operandOne and operandTwo
+		{
+			name:             "scenario3: with operandOne and operandTwo configs",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario3CfgJson)},
+					},
+				}
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"baz": "three"}, nil
+				}, "operandOne"),
+			},
+			expectError: false,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+
+		// checks what happens when there was outdated operandOne config
+		{
+			name:             "scenario4: with outdated operandOne config",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario4CfgJson)},
+					},
+				}
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"baz": "three"}, nil
+				}, "operandOne"),
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			expectError: false,
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"foo": "one",
+					"bar": "two",
+					"baz": "three",
+				},
+			}},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+
+		// checks what happens when there was outdated operandOne config and existing operandTwo
+		{
+			name:             "scenario5: with outdated operandOne config and existing operandTwo",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario5CfgJson)},
+					},
+				}
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"baz": "three"}, nil
+				}, "operandOne"),
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			expectError: false,
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"foo": "one",
+					"bar": "two",
+					"baz": "three",
+				},
+				"operandTwo": map[string]interface{}{
+					"foo1": "one",
+					"bar1": "two",
+					"baz1": "three",
+				},
+			}},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+
+		// checks what happens when there was outdated operandOne config and existing operandTwo
+		{
+			name:             "scenario6: with outdated operandOne config, existing operandTwo and a faulty observer",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario6CfgJson)},
+					},
+				}
+			},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": "one"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"bar": "two"}, nil
+				}, "operandOne"),
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					errs = append(errs, fmt.Errorf("some failure"))
+					return observedConfig, errs
+				}, "operandOne"),
+			},
+
+			expectError: true,
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"foo": "one",
+					"bar": "two",
+				},
+				"operandTwo": map[string]interface{}{
+					"foo1": "one",
+					"bar1": "two",
+					"baz1": "three",
+				},
+			}},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    condition.ConfigObservationDegradedConditionType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "Error",
+				Message: "some failure",
+			},
+		},
+
+		// checks what happens when a different section in the same config has already changed (during processing)
+		{
+			name:             "scenario7: operandTwo changed while processing the config for operandOne",
+			nestedConfigPath: []string{"operandOne"},
+			fakeClient: func() *fakeOperatorClient {
+				return &fakeOperatorClient{
+					startingSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario7CfgJson)},
+					},
+					onUpdateSpec: &operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{Raw: []byte(scenario7CfgJsonChanged)},
+					},
+				}
+			},
+			observers: []ObserveConfigFunc{
+				WithPrefix(func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"newFoo": "newOne"}, nil
+				}, "operandOne"),
+			},
+			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"operandOne": map[string]interface{}{
+					"newFoo": "newOne",
+				},
+				"operandTwo": map[string]interface{}{
+					"newField": "one",
+					"bar1":     "two",
+					"baz1":     "three",
+				},
+			}},
+			expectEvents: [][]string{
+				{"ObservedConfigChanged", "Writing updated section (\"operandOne\") of observed config"},
+			},
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   condition.ConfigObservationDegradedConditionType,
+				Status: operatorv1.ConditionFalse,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			operatorConfigClient := tc.fakeClient()
+			eventClient := fake.NewSimpleClientset()
+
+			configObserver := ConfigObserver{
+				listers:          &fakeLister{},
+				operatorClient:   operatorConfigClient,
+				observers:        tc.observers,
+				nestedConfigPath: tc.nestedConfigPath,
+			}
+			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
+			if tc.expectError && err == nil {
+				t.Fatal("error expected")
+			}
+			if !tc.expectError && err != nil {
+				t.Fatal(err)
+			}
+
+			observedEvents := [][]string{}
+			for _, action := range eventClient.Actions() {
+				if !action.Matches("create", "events") {
+					continue
+				}
+				event := action.(ktesting.CreateAction).GetObject().(*corev1.Event)
+				observedEvents = append(observedEvents, []string{event.Reason, event.Message})
+			}
+			for i, event := range tc.expectEvents {
+				if observedEvents[i][0] != event[0] {
+					t.Errorf("expected %d event reason to be %q, got %q", i, event[0], observedEvents[i][0])
+				}
+				if !strings.HasPrefix(observedEvents[i][1], event[1]) {
+					t.Errorf("expected %d event message to be %q, got %q", i, event[1], observedEvents[i][1])
+				}
+			}
+			if len(tc.expectEvents) != len(observedEvents) {
+				t.Errorf("expected %d events, got %d (%#v)", len(tc.expectEvents), len(observedEvents), observedEvents)
+			}
+
+			switch {
+			case tc.expectedObservedConfig != nil && operatorConfigClient.spec == nil:
+				t.Error("missing expected spec")
+			case tc.expectedObservedConfig != nil:
+				if !reflect.DeepEqual(tc.expectedObservedConfig, operatorConfigClient.spec.ObservedConfig.Object) {
+					t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(tc.expectedObservedConfig), toYAML(operatorConfigClient.spec.ObservedConfig.Object))
+				}
+			}
+
+			switch {
+			case tc.expectedCondition != nil && operatorConfigClient.status == nil:
+				t.Error("missing expected status")
+			case tc.expectedCondition != nil:
+				condition := v1helpers.FindOperatorCondition(operatorConfigClient.status.Conditions, condition.ConfigObservationDegradedConditionType)
+				condition.LastTransitionTime = tc.expectedCondition.LastTransitionTime
+				if !reflect.DeepEqual(tc.expectedCondition, condition) {
+					t.Fatalf("\n===== condition expected:\n%v\n===== condition actual:\n%v", toYAML(tc.expectedCondition), toYAML(condition))
+				}
+			default:
+				if operatorConfigClient.status != nil {
+					t.Errorf("unexpected %v", spew.Sdump(operatorConfigClient.status))
+				}
 			}
 
 		})
