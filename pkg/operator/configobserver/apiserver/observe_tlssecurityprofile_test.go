@@ -13,24 +13,8 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
-type testLister struct {
-	lister configlistersv1.APIServerLister
-}
-
-func (l testLister) APIServerLister() configlistersv1.APIServerLister {
-	return l.lister
-}
-
-func (l testLister) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
-	return nil
-}
-
-func (l testLister) PreRunHasSynced() []cache.InformerSynced {
-	return nil
-}
 func TestObserveTLSSecurityProfile(t *testing.T) {
 	existingTLSVersion := "VersionTLS11"
 	existingCipherSuites := []interface{}{"DES-CBC3-SHA"}
@@ -91,7 +75,7 @@ func TestObserveTLSSecurityProfile(t *testing.T) {
 					}
 				}
 				listers := testLister{
-					lister: configlistersv1.NewAPIServerLister(indexer),
+					apiLister: configlistersv1.NewAPIServerLister(indexer),
 				}
 
 				existingConfig := map[string]interface{}{}
