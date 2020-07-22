@@ -21,26 +21,45 @@ const (
 	EtcdEndpointName = "host-etcd-2"
 )
 
+var (
+	OldStorageConfigURLsPath = []string{"storageConfig", "urls"}
+	StorageConfigURLsPath    = []string{"apiServerArguments", "etcd-servers"}
+)
+
 type fallBackObserverFn func(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}, storageConfigURLsPath []string) (map[string]interface{}, []error)
 
-// ObserveStorageURLs observes the storage config URLs and sets storageConfig field in the observerConfig.
-//  If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
+// ObserveStorageURLs observes the storage config URLs and sets storageConfig field in the observerConfig under OldStorageConfigURLsPath.
+// If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
+// This function always adds a localhost endpoint to the list of etcd servers.
+func ObserveStorageURLsWithAlwaysLocal(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerObserveStorageURLs(nil, true, genericListers, recorder, currentConfig, OldStorageConfigURLsPath)
+}
+
+// ObserveStorageURLs observes the storage config URLs and sets storageConfig field in the observerConfig under StorageConfigURLsPath.
+// If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
+// This function always adds a localhost endpoint to the list of etcd servers.
+func ObserveStorageURLsToArgumentsWithAlwaysLocal(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerObserveStorageURLs(nil, true, genericListers, recorder, currentConfig, StorageConfigURLsPath)
+}
+
+// ObserveStorageURLs observes the storage config URLs and sets storageConfig field in the observerConfig under OldStorageConfigURLsPath.
+// If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
 func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
-	return innerObserveStorageURLs(innerObserveStorageURLsFromOldEndPoint, genericListers, recorder, currentConfig, []string{"storageConfig", "urls"})
+	return innerObserveStorageURLs(innerObserveStorageURLsFromOldEndPoint, false, genericListers, recorder, currentConfig, OldStorageConfigURLsPath)
 }
 
-// ObserveStorageURLsToArguments observes the storage config URLs and sets etcd-servers field in observedConfig.apiServerArguments
-//  If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
+// ObserveStorageURLs observes the storage config URLs and sets storageConfig field in the observerConfig under StorageConfigURLsPath.
+// If there is a problem observing the current storage config URLs, then the previously observed storage config URLs will be re-used.
 func ObserveStorageURLsToArguments(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
-	return innerObserveStorageURLs(innerObserveStorageURLsFromOldEndPoint, genericListers, recorder, currentConfig, []string{"apiServerArguments", "etcd-servers"})
+	return innerObserveStorageURLs(innerObserveStorageURLsFromOldEndPoint, false, genericListers, recorder, currentConfig, StorageConfigURLsPath)
 }
 
-func innerObserveStorageURLs(fallbackObserver fallBackObserverFn, genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}, storageConfigURLsPath []string) (ret map[string]interface{}, _ []error) {
+func innerObserveStorageURLs(fallbackObserver fallBackObserverFn, alwaysAppendLocalhost bool, genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}, storageConfigURLsPath []string) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, storageConfigURLsPath)
 	}()
 
-	lister := genericListers.(ConfigmapLister)
+	lister := genericListers.(ConfigMapLister)
 	var errs []error
 
 	previouslyObservedConfig := map[string]interface{}{}
@@ -55,8 +74,8 @@ func innerObserveStorageURLs(fallbackObserver fallBackObserverFn, genericListers
 	}
 
 	var etcdURLs []string
-	etcdEndpoints, err := lister.ConfigmapLister().ConfigMaps(EtcdEndpointNamespace).Get(etcdEndpointName)
-	if errors.IsNotFound(err) {
+	etcdEndpoints, err := lister.ConfigMapLister().ConfigMaps(EtcdEndpointNamespace).Get(etcdEndpointName)
+	if errors.IsNotFound(err) && fallbackObserver != nil {
 		// In clusters prior to 4.5, fall back to reading the old host-etcd-2 endpoint
 		// resource, if possible. In 4.6 we can assume consumers have been updated to
 		// use the configmap, delete the fallback code, and throw an error if the
@@ -101,7 +120,14 @@ func innerObserveStorageURLs(fallbackObserver fallBackObserverFn, genericListers
 	if len(etcdURLs) == 0 {
 		emptyURLErr := fmt.Errorf("configmaps %s/%s: no etcd endpoint addresses found", EtcdEndpointNamespace, etcdEndpointName)
 		recorder.Warning("ObserveStorageFailed", emptyURLErr.Error())
-		return previouslyObservedConfig, append(errs, emptyURLErr)
+		errs = append(errs, emptyURLErr)
+		if !alwaysAppendLocalhost {
+			return previouslyObservedConfig, errs
+		}
+	}
+
+	if alwaysAppendLocalhost {
+		etcdURLs = append(etcdURLs, "https://localhost:2379")
 	}
 
 	sort.Strings(etcdURLs)

@@ -211,7 +211,7 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 			if tt.fallbackFor == nil {
 				tt.fallbackFor = fallbackFor(nil)
 			}
-			actual, errs := innerObserveStorageURLs(tt.fallbackFor(storageConfigURLsPath...), listers, events.NewInMemoryRecorder("test"), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
+			actual, errs := innerObserveStorageURLs(tt.fallbackFor(storageConfigURLsPath...), false, listers, events.NewInMemoryRecorder("test"), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
 			if tt.expectErrors && len(errs) == 0 {
 				t.Errorf("errors expectedConfigFor")
 			}
