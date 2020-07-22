@@ -55,18 +55,22 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.19.0-rc.1
-	k8s.io/apiextensions-apiserver v0.19.0-rc.1
-	k8s.io/apimachinery v0.19.0-rc.1
-	k8s.io/apiserver v0.19.0-rc.1
-	k8s.io/client-go v0.19.0-rc.1
-	k8s.io/component-base v0.19.0-rc.1
+	k8s.io/api v0.19.0-rc.2
+	k8s.io/apiextensions-apiserver v0.19.0-rc.2
+	k8s.io/apimachinery v0.19.0-rc.2
+	k8s.io/apiserver v0.19.0-rc.2
+	k8s.io/client-go v0.19.0-rc.2
+	k8s.io/component-base v0.19.0-rc.2
 	k8s.io/klog/v2 v2.2.0
-	k8s.io/kube-aggregator v0.19.0-rc.1
-	k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
+	k8s.io/kube-aggregator v0.19.0-rc.2
+	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
 )
 
 replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+
+replace github.com/openshift/client-go => github.com/marun/client-go v0.0.0-20200722055543-aae01103f213
+
+replace github.com/openshift/api => github.com/marun/api v0.0.0-20200722054824-ad6e9566fac5
