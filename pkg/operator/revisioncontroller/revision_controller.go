@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -150,7 +150,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
-			if klog.V(4) {
+			if klog.V(4).Enabled() {
 				klog.Infof("configmap %q changes for revision %d: %s", cm.Name, revision, resourceapply.JSONPatchNoError(existing, required))
 			}
 			configChanges = append(configChanges, fmt.Sprintf("configmap/%s has changed", cm.Name))
@@ -177,7 +177,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 			existingData = existing.Data
 		}
 		if !equality.Semantic.DeepEqual(existingData, requiredData) {
-			if klog.V(4) {
+			if klog.V(4).Enabled() {
 				klog.Infof("Secret %q changes for revision %d: %s", s.Name, revision, resourceapply.JSONPatchSecretNoError(existing, required))
 			}
 			secretChanges = append(secretChanges, fmt.Sprintf("secret/%s has changed", s.Name))

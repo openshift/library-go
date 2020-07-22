@@ -7,7 +7,6 @@ require (
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/certifi/gocertifi v0.0.0-20180905225744-ee1a9a0726d2 // indirect
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
-	github.com/coreos/bbolt v1.3.1-coreos.6 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
@@ -26,46 +25,45 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1
-	github.com/googleapis/gnostic v0.2.0
+	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c // indirect
 	github.com/imdario/mergo v0.3.7
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e // indirect
-	github.com/openshift/api v0.0.0-20200701144905-de5b010b2b38
-	github.com/openshift/build-machinery-go v0.0.0-20200424080330-082bf86082cc
-	github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	github.com/pkg/errors v0.8.1
+	github.com/openshift/api v0.0.0-20200722170803-0ba2c3658da6
+	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
+	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
-	github.com/prometheus/client_golang v1.1.0
-	github.com/robfig/cron v1.1.0
-	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/cobra v0.0.5
+	github.com/prometheus/client_golang v1.7.1
+	github.com/robfig/cron v1.2.0
+	github.com/sirupsen/logrus v1.6.0
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.18.3
-	k8s.io/apiextensions-apiserver v0.18.3
-	k8s.io/apimachinery v0.18.3
-	k8s.io/apiserver v0.18.3
-	k8s.io/client-go v0.18.3
-	k8s.io/component-base v0.18.3
-	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.18.3
-	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
+	k8s.io/api v0.19.0-rc.2
+	k8s.io/apiextensions-apiserver v0.19.0-rc.2
+	k8s.io/apimachinery v0.19.0-rc.2
+	k8s.io/apiserver v0.19.0-rc.2
+	k8s.io/client-go v0.19.0-rc.2
+	k8s.io/component-base v0.19.0-rc.2
+	k8s.io/klog/v2 v2.2.0
+	k8s.io/kube-aggregator v0.19.0-rc.2
+	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
