@@ -21,14 +21,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// PruneController is a controller that watches the operand pods and deletes old
+// SecretRevisionPruneController is a controller that watches the operand pods and deletes old
 // revisioned secrets that are not used anymore.
-type PruneController struct {
+type SecretRevisionPruneController struct {
 	targetNamespace string
 	secretPrefixes  []string
+	podSelector     labels.Selector
 
 	secretGetter   corev1client.SecretsGetter
-	podGetter      corev1client.PodsGetter
 	podInformer    corev1informer.PodInformer
 	secretInformer corev1informer.SecretInformer
 }
@@ -37,21 +37,21 @@ const (
 	numOldRevisionsToPreserve = 5
 )
 
-// NewPruneController creates a new pruning controller
-func NewPruneController(
+// NewSecretRevisionPruneController creates a new pruning controller
+func NewSecretRevisionPruneController(
 	targetNamespace string,
 	secretPrefixes []string,
+	podLabelSelector labels.Selector,
 	secretGetter corev1client.SecretsGetter,
-	podGetter corev1client.PodsGetter,
 	informers v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
 ) factory.Controller {
-	c := &PruneController{
+	c := &SecretRevisionPruneController{
 		targetNamespace: targetNamespace,
 		secretPrefixes:  secretPrefixes,
+		podSelector:     podLabelSelector,
 
 		secretGetter:   secretGetter,
-		podGetter:      podGetter,
 		podInformer:    informers.InformersFor(targetNamespace).Core().V1().Pods(),
 		secretInformer: informers.InformersFor(targetNamespace).Core().V1().Secrets(),
 	}
@@ -59,13 +59,13 @@ func NewPruneController(
 	return factory.New().WithInformers(
 		c.podInformer.Informer(),
 		c.secretInformer.Informer(),
-	).WithSync(c.sync).ToController("PruneController", eventRecorder.WithComponentSuffix("prune-controller"))
+	).WithSync(c.sync).ToController("SecretRevisionPruneController", eventRecorder.WithComponentSuffix("secret-revision-prune-controller"))
 }
 
-func (c *PruneController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	klog.V(5).Info("Syncing revision pruner")
+func (c *SecretRevisionPruneController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.V(5).Infof("revision pruner sync for ns/%s", c.targetNamespace)
 
-	pods, err := c.podInformer.Lister().Pods(c.targetNamespace).List(labels.SelectorFromSet(map[string]string{"apiserver": "true"}))
+	pods, err := c.podInformer.Lister().Pods(c.targetNamespace).List(c.podSelector)
 	if err != nil {
 		return err
 	}

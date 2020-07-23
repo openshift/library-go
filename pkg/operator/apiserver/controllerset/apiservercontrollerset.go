@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -288,11 +289,11 @@ func (cs *APIServerControllerSet) WithSecretRevisionPruneController(
 	podGetter corev1.PodsGetter,
 	kubeInformersForTargetNamesace v1helpers.KubeInformersForNamespaces,
 ) *APIServerControllerSet {
-	cs.pruneController.controller = secretspruner.NewPruneController(
+	cs.pruneController.controller = secretspruner.NewSecretRevisionPruneController(
 		targetNamespace,
 		secretPrefixes,
+		labels.SelectorFromSet(map[string]string{"apiserver": "true"}),
 		secretGetter,
-		podGetter,
 		kubeInformersForTargetNamesace,
 		cs.eventRecorder,
 	)
