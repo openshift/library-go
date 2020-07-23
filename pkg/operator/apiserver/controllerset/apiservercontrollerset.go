@@ -275,7 +275,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 
 func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControllerSet {
 	cs.revisionController.controller = nil
-	cs.workloadController.emptyAllowed = true
+	cs.revisionController.emptyAllowed = true
 	return cs
 }
 
