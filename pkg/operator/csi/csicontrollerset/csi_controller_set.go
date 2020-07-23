@@ -134,6 +134,7 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 // WithCSIDriverController returns a *ControllerSet with a CSI Driver controller initialized.
 func (c *CSIControllerSet) WithCSIDriverController(
 	name string,
+	configName string,
 	csiDriverName string,
 	csiDriverNamespace string,
 	assetFunc func(string) []byte,
@@ -145,6 +146,7 @@ func (c *CSIControllerSet) WithCSIDriverController(
 		name,
 		csiDriverName,
 		csiDriverNamespace,
+		configName,
 		c.operatorClient,
 		assetFunc,
 		kubeClient,
