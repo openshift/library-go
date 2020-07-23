@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
+	"github.com/openshift/library-go/pkg/operator/secretspruner"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
@@ -64,12 +65,13 @@ type APIServerControllerSet struct {
 	apiServiceController            controllerWrapper
 	clusterOperatorStatusController controllerWrapper
 	configUpgradableController      controllerWrapper
-	logLevelController              controllerWrapper
+	encryptionControllers           controllerWrapper
 	finalizerController             controllerWrapper
+	logLevelController              controllerWrapper
+	pruneController                 controllerWrapper
+	revisionController              controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
-	revisionController              controllerWrapper
-	encryptionControllers           controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -279,6 +281,30 @@ func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControll
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithSecretRevisionPruneController(
+	targetNamespace string,
+	secretPrefixes []string,
+	secretGetter corev1client.SecretsGetter,
+	podGetter corev1.PodsGetter,
+	kubeInformersForTargetNamesace v1helpers.KubeInformersForNamespaces,
+) *APIServerControllerSet {
+	cs.pruneController.controller = secretspruner.NewPruneController(
+		targetNamespace,
+		secretPrefixes,
+		secretGetter,
+		podGetter,
+		kubeInformersForTargetNamesace,
+		cs.eventRecorder,
+	)
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutPruneController() *APIServerControllerSet {
+	cs.pruneController.controller = nil
+	cs.pruneController.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) WithEncryptionControllers(
 	component string,
 	provider controllers.Provider,
@@ -319,12 +345,13 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"apiServiceController":            cs.apiServiceController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
-		"logLevelController":              cs.logLevelController,
+		"encryptionControllers":           cs.encryptionControllers,
 		"finalizerController":             cs.finalizerController,
+		"logLevelController":              cs.logLevelController,
+		"pruneController":                 cs.pruneController,
+		"revisionController":              cs.revisionController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
-		"revisionController":              cs.revisionController,
-		"encryptionControllers":           cs.encryptionControllers,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
