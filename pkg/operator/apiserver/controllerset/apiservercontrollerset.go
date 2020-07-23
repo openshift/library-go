@@ -19,12 +19,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
+	"github.com/openshift/library-go/pkg/operator/secretspruner"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -64,12 +66,13 @@ type APIServerControllerSet struct {
 	apiServiceController            controllerWrapper
 	clusterOperatorStatusController controllerWrapper
 	configUpgradableController      controllerWrapper
-	logLevelController              controllerWrapper
+	encryptionControllers           controllerWrapper
 	finalizerController             controllerWrapper
+	logLevelController              controllerWrapper
+	pruneController                 controllerWrapper
+	revisionController              controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
-	revisionController              controllerWrapper
-	encryptionControllers           controllerWrapper
 }
 
 func NewAPIServerControllerSet(
@@ -275,7 +278,31 @@ func (cs *APIServerControllerSet) WithRevisionController(
 
 func (cs *APIServerControllerSet) WithoutRevisionController() *APIServerControllerSet {
 	cs.revisionController.controller = nil
-	cs.workloadController.emptyAllowed = true
+	cs.revisionController.emptyAllowed = true
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithSecretRevisionPruneController(
+	targetNamespace string,
+	secretPrefixes []string,
+	secretGetter corev1client.SecretsGetter,
+	podGetter corev1.PodsGetter,
+	kubeInformersForTargetNamesace v1helpers.KubeInformersForNamespaces,
+) *APIServerControllerSet {
+	cs.pruneController.controller = secretspruner.NewSecretRevisionPruneController(
+		targetNamespace,
+		secretPrefixes,
+		labels.SelectorFromSet(map[string]string{"apiserver": "true"}),
+		secretGetter,
+		kubeInformersForTargetNamesace,
+		cs.eventRecorder,
+	)
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutPruneController() *APIServerControllerSet {
+	cs.pruneController.controller = nil
+	cs.pruneController.emptyAllowed = true
 	return cs
 }
 
@@ -319,12 +346,13 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"apiServiceController":            cs.apiServiceController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
-		"logLevelController":              cs.logLevelController,
+		"encryptionControllers":           cs.encryptionControllers,
 		"finalizerController":             cs.finalizerController,
+		"logLevelController":              cs.logLevelController,
+		"pruneController":                 cs.pruneController,
+		"revisionController":              cs.revisionController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
-		"revisionController":              cs.revisionController,
-		"encryptionControllers":           cs.encryptionControllers,
 	} {
 		c, err := cw.prepare()
 		if err != nil {
