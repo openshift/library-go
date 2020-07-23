@@ -32,8 +32,6 @@ const (
 	nodeDriverRegistrarImageEnvName = "NODE_DRIVER_REGISTRAR_IMAGE"
 	livenessProbeImageEnvName       = "LIVENESS_PROBE_IMAGE"
 
-	globalConfigName = "cluster"
-
 	maxRetries = 15
 )
 
@@ -95,6 +93,7 @@ type CSIDriverController struct {
 
 	// Resources
 	kubeClient     kubernetes.Interface
+	configName     string
 	operatorClient v1helpers.OperatorClient
 }
 
@@ -115,6 +114,7 @@ func NewCSIDriverController(
 	name string,
 	csiDriverName string,
 	csiDriverNamespace string,
+	instanceName string,
 	operatorClient v1helpers.OperatorClient,
 	assetFunc func(string) []byte,
 	kubeClient kubernetes.Interface,
@@ -125,6 +125,7 @@ func NewCSIDriverController(
 		csiDriverName:      csiDriverName,
 		csiDriverNamespace: csiDriverNamespace,
 		kubeClient:         kubeClient,
+		configName:         instanceName,
 		operatorClient:     operatorClient,
 		assetFunc:          assetFunc,
 		images:             imagesFromEnv(),
@@ -303,7 +304,7 @@ func (c *CSIDriverController) handleSync(
 }
 
 func (c *CSIDriverController) enqueue(obj interface{}) {
-	c.queue.Add(globalConfigName)
+	c.queue.Add(c.configName)
 }
 
 func (c *CSIDriverController) eventHandler(kind string) cache.ResourceEventHandler {

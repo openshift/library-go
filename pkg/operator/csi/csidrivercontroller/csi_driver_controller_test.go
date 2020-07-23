@@ -124,6 +124,7 @@ func newOperator(test testCase, t *testing.T) *testContext {
 		controllerName,
 		operandName,
 		operandNamespace,
+		"cluster",
 		fakeOperatorClient,
 		makeFakeManifest,
 		coreClient,
@@ -714,7 +715,7 @@ func TestSync(t *testing.T) {
 			if test.expectedObjects.driver != nil {
 				_, actualStatus, _, err := ctx.operatorClient.GetOperatorState()
 				if err != nil {
-					t.Errorf("Failed to get Driver %s: %v", globalConfigName, err)
+					t.Errorf("Failed to get Driver %s: %v", ctx.controller.configName, err)
 				}
 				sanitizeInstanceStatus(actualStatus)
 				sanitizeInstanceStatus(&test.expectedObjects.driver.Status)
