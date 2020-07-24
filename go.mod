@@ -7,7 +7,6 @@ require (
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/certifi/gocertifi v0.0.0-20180905225744-ee1a9a0726d2 // indirect
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
 	github.com/docker/go-connections v0.3.0 // indirect
@@ -50,6 +49,7 @@ require (
 	github.com/vishvananda/netlink v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200716221620-18dfb9cca345
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
