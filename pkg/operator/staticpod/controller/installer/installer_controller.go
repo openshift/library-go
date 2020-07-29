@@ -401,7 +401,9 @@ func (c *InstallerController) updateConfigMapForRevision(ctx context.Context, cu
 		if err != nil {
 			return err
 		}
+		args := c.getInstallerArgs(currentRevision, operatorv1.Normal)
 		statusConfigMap.Data["status"] = status
+		statusConfigMap.Data["installerArgs"] = strings.Join(args, "\n")
 		_, _, err = resourceapply.ApplyConfigMap(c.configMapsGetter, c.eventRecorder, statusConfigMap)
 		if err != nil {
 			return err
@@ -639,30 +641,11 @@ func getInstallerPodName(revision int32, nodeName string) string {
 	return fmt.Sprintf("installer-%d-%s", revision, nodeName)
 }
 
-// ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
-	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
-
-	pod.Namespace = c.targetNamespace
-	pod.Name = getInstallerPodName(revision, nodeName)
-	pod.Spec.NodeName = nodeName
-	pod.Spec.Containers[0].Image = c.installerPodImageFn()
-	pod.Spec.Containers[0].Command = c.command
-
-	ownerRefs, err := c.ownerRefsFn(revision)
-	if err != nil {
-		return fmt.Errorf("unable to set installer pod ownerrefs: %+v", err)
-	}
-	pod.OwnerReferences = ownerRefs
-
-	if c.configMaps[0].Optional {
-		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
-	}
-
+func (c *InstallerController) getInstallerArgs(revision int32, logLevel operatorv1.LogLevel) []string {
 	args := []string{
-		fmt.Sprintf("-v=%d", loglevel.LogLevelToVerbosity(operatorSpec.LogLevel)),
+		fmt.Sprintf("-v=%d", loglevel.LogLevelToVerbosity(logLevel)),
 		fmt.Sprintf("--revision=%d", revision),
-		fmt.Sprintf("--namespace=%s", pod.Namespace),
+		fmt.Sprintf("--namespace=%s", c.targetNamespace),
 		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),
 		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
@@ -698,8 +681,30 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 			}
 		}
 	}
+	return args
+}
 
-	pod.Spec.Containers[0].Args = args
+// ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
+
+	pod.Namespace = c.targetNamespace
+	pod.Name = getInstallerPodName(revision, nodeName)
+	pod.Spec.NodeName = nodeName
+	pod.Spec.Containers[0].Image = c.installerPodImageFn()
+	pod.Spec.Containers[0].Command = c.command
+
+	ownerRefs, err := c.ownerRefsFn(revision)
+	if err != nil {
+		return fmt.Errorf("unable to set installer pod ownerrefs: %+v", err)
+	}
+	pod.OwnerReferences = ownerRefs
+
+	if c.configMaps[0].Optional {
+		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
+	}
+
+	pod.Spec.Containers[0].Args = c.getInstallerArgs(revision, operatorSpec.LogLevel)
 
 	// Some owners need to change aspects of the pod.  Things like arguments for instance
 	for _, fn := range c.installerPodMutationFns {

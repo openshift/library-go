@@ -199,8 +199,9 @@ func (c RevisionController) createNewRevision(recorder events.Recorder, revision
 			Name:      nameFor("revision-status", revision),
 		},
 		Data: map[string]string{
-			"status":   prune.StatusInProgress,
-			"revision": fmt.Sprintf("%d", revision),
+			"status":        prune.StatusInProgress,
+			"revision":      fmt.Sprintf("%d", revision),
+			"installerArgs": prune.StatusInProgress,
 		},
 	}
 	statusConfigMap, _, err := resourceapply.ApplyConfigMap(c.configMapGetter, recorder, statusConfigMap)
