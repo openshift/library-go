@@ -2,10 +2,9 @@ package workload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -20,7 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -326,7 +325,7 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 			v1helpers.UpdateConditionFn(workloadDegradedCondition)); updateError != nil {
 			return updateError
 		}
-		return errors.NewAggregate(errs)
+		return kerrors.NewAggregate(errs)
 	}
 
 	if workload.Status.AvailableReplicas == 0 {
@@ -391,24 +390,24 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 	}
 
 	if len(errs) > 0 {
-		return errors.NewAggregate(errs)
+		return kerrors.NewAggregate(errs)
 	}
 	return nil
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
 // one pod of a given replicaset from landing on a node. It accomplishes this
-// by adding a uuid as a label on the template and updates the pod
-// anti-affinity term to include that label. Since the deployment is only
-// written (via ApplyDeployment) when the metadata differs or the generations
-// don't match, the uuid should only be updated in the API when a new
-// replicaset is created.
-func EnsureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec) error {
-	uuidKey := "anti-affinity-uuid"
-	uuidValue := uuid.New().String()
+// by adding a label on the template and updates the pod anti-affinity term to include that label.
+func EnsureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec, component string) error {
+	if len(component) == 0 {
+		return errors.New("please specify the component name")
+	}
+
+	antiAffinityKey := fmt.Sprintf("%s-anti-affinity", component)
+	antiAffinityValue := "true"
 
 	// Label the pod template with the template hash
-	spec.Template.Labels[uuidKey] = uuidValue
+	spec.Template.Labels[antiAffinityKey] = antiAffinityValue
 
 	// Ensure that match labels are defined
 	if spec.Selector == nil {
@@ -420,7 +419,7 @@ func EnsureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec) error {
 
 	// Ensure anti-affinity selects on the uuid
 	antiAffinityMatchLabels := map[string]string{
-		uuidKey: uuidValue,
+		antiAffinityKey: antiAffinityValue,
 	}
 	// Ensure anti-affinity selects on the same labels as the deployment
 	for key, value := range spec.Selector.MatchLabels {
