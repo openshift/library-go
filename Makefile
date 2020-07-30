@@ -18,6 +18,7 @@ $(call add-bindata,backingresources,./pkg/operator/staticpod/controller/backingr
 $(call add-bindata,monitoring,./pkg/operator/staticpod/controller/monitoring/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/monitoring/bindata/bindata.go)
 $(call add-bindata,installer,./pkg/operator/staticpod/controller/installer/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/installer/bindata/bindata.go)
 $(call add-bindata,staticpod,./pkg/operator/staticpod/controller/prune/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/prune/bindata/bindata.go)
+$(call add-bindata,auditpolicies,./pkg/operator/apiserver/audit/manifests/...,bindata,bindata,./pkg/operator/apiserver/audit/bindata/bindata.go)
 
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 .PHONY: test-e2e-encryption
