@@ -57,13 +57,12 @@ func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
 	return auditPoliciesForTargetNs, nil
 }
 
-// NewAuditPolicyPathGetter returns a path getter for audit policy file mounted into
-// the '/var/run/configmaps/audit' directory of a Pod.
+// NewAuditPolicyPathGetter returns a path getter for audit policy file mounted into the given path of a Pod as a directory.
 //
 // openshift-apiserver and oauth-apiserver mounts the audit policy ConfigMap into
 // the above path inside the Pod.
-func NewAuditPolicyPathGetter() (libgoapiserver.AuditPolicyPathGetterFunc, error) {
-	return newAuditPolicyPathGetter("/var/run/configmaps/audit")
+func NewAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {
+	return newAuditPolicyPathGetter(path)
 }
 
 func newAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {

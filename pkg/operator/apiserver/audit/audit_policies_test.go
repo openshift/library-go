@@ -128,7 +128,7 @@ func TestNewAuditPolicyPathGetter(t *testing.T) {
 		},
 	}
 
-	pathGetter, err := NewAuditPolicyPathGetter()
+	pathGetter, err := NewAuditPolicyPathGetter("/var/run/configmaps/audit")
 	if err != nil {
 		t.Fatal(err)
 	}
