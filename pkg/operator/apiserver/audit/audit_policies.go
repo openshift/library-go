@@ -23,7 +23,7 @@ const (
 )
 
 // WithAuditPolicies is meant to wrap a standard Asset function usually provided by an operator.
-// It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace.
+// It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace and name.
 func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
 	return func(file string) ([]byte, error) {
 		if file == AuditPoliciesConfigMapFileName {
@@ -33,7 +33,17 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 	}
 }
 
-// getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces
+// GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
+func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
+	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
+}
+
+// getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces and name
 func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
 	if len(targetNamespace) == 0 {
 		return nil, errors.New("please specify the target namespace")
