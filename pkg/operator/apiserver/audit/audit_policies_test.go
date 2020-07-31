@@ -94,6 +94,62 @@ func TestGetAuditPolicies(t *testing.T) {
 	}
 }
 
+func TestNewAuditPolicyPathGetter(t *testing.T) {
+	tests := []struct {
+		name         string
+		profile      string
+		expectedPath string
+		errExpected  bool
+	}{
+		{
+			name:         "Default audit policy",
+			profile:      "Default",
+			expectedPath: "/var/run/configmaps/audit/default.yaml",
+		},
+		{
+			name:         "WriteRequestBodies audit policy",
+			profile:      "WriteRequestBodies",
+			expectedPath: "/var/run/configmaps/audit/writerequestbodies.yaml",
+		},
+		{
+			name:         "AllRequestBodies audit policiys",
+			profile:      "AllRequestBodies",
+			expectedPath: "/var/run/configmaps/audit/allrequestbodies.yaml",
+		},
+		{
+			name:        "audit policy does not exist",
+			profile:     "Foo",
+			errExpected: true,
+		},
+	}
+
+	pathGetter, err := NewAuditPolicyPathGetter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pathGot, err := pathGetter(test.profile)
+
+			if test.errExpected {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Error(err)
+			}
+			if test.expectedPath != pathGot {
+				t.Errorf("path: got=%s, want=%s", pathGot, test.expectedPath)
+			}
+		})
+	}
+}
+
 func readBytesFromFile(t *testing.T, filename string) []byte {
 	file, err := os.Open(filename)
 	if err != nil {
