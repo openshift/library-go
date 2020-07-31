@@ -17,18 +17,21 @@ func TestWithAuditPolicies(t *testing.T) {
 		name            string
 		delegate        *fakeAsset
 		targetNamespace string
+		targetName      string
 		targetFilename  string
 		goldenFile      string
 	}{
 		{
 			name:            "happy path: the audit policies file for target namespace is created when the target file name matches",
 			targetNamespace: "ScenarioOne",
+			targetName:      "audit",
 			targetFilename:  "audit-policies-cm.yaml",
 			goldenFile:      "./testdata/audit-policies-cm-scenario-1.yaml",
 		},
 		{
 			name:            "the delegate is called when the target file name doesn't match",
 			targetNamespace: "ScenarioTwo",
+			targetName:      "audit",
 			targetFilename:  "trusted_ca_cm.yaml",
 			delegate:        &fakeAsset{"", "trusted_ca_cm.yaml"},
 		},
@@ -39,7 +42,7 @@ func TestWithAuditPolicies(t *testing.T) {
 			if scenario.delegate == nil {
 				scenario.delegate = &fakeAsset{}
 			}
-			target := WithAuditPolicies(scenario.targetNamespace, scenario.delegate.AssetFunc)
+			target := WithAuditPolicies(scenario.targetName, scenario.targetNamespace, scenario.delegate.AssetFunc)
 			actualAuditPoliciesData, err := target(scenario.targetFilename)
 			if err != nil {
 				t.Fatal(err)
@@ -65,18 +68,20 @@ func TestGetAuditPolicies(t *testing.T) {
 	scenarios := []struct {
 		name            string
 		targetNamespace string
+		targetName      string
 		goldenFile      string
 	}{
 		{
 			name:            "happy path: the audit policies file for target namespace is created",
 			targetNamespace: "ScenarioOne",
+			targetName:      "audit",
 			goldenFile:      "./testdata/audit-policies-cm-scenario-1.yaml",
 		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// act
-			actualAuditPoliciesData, err := getAuditPolicies(scenario.targetNamespace)
+			actualAuditPoliciesData, err := getRawAuditPolicies(scenario.targetName, scenario.targetNamespace)
 			if err != nil {
 				t.Fatal(err)
 			}

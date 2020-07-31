@@ -24,19 +24,22 @@ const (
 
 // WithAuditPolicies is meant to wrap a standard Asset function usually provided by an operator.
 // It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace.
-func WithAuditPolicies(targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
+func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
 	return func(file string) ([]byte, error) {
 		if file == AuditPoliciesConfigMapFileName {
-			return getAuditPolicies(targetNamespace)
+			return getRawAuditPolicies(targetName, targetNamespace)
 		}
 		return assetDelegateFunc(file)
 	}
 }
 
-// GetAuditPolicies returns a raw config map that holds the audit policies for the target namespaces
-func getAuditPolicies(targetNamespace string) ([]byte, error) {
+// getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces
+func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
 	if len(targetNamespace) == 0 {
 		return nil, errors.New("please specify the target namespace")
+	}
+	if len(targetName) == 0 {
+		return nil, errors.New("please specify the target name")
 	}
 	auditPoliciesTemplate, err := assets.Asset(auditPolicyAsset)
 	if err != nil {
@@ -44,6 +47,7 @@ func getAuditPolicies(targetNamespace string) ([]byte, error) {
 	}
 
 	r := strings.NewReplacer(
+		"${TARGET_NAME}", targetName,
 		"${TARGET_NAMESPACE}", targetNamespace,
 	)
 	auditPoliciesForTargetNs := []byte(r.Replace(string(auditPoliciesTemplate)))
