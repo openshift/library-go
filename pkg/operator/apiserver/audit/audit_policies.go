@@ -23,20 +23,33 @@ const (
 )
 
 // WithAuditPolicies is meant to wrap a standard Asset function usually provided by an operator.
-// It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace.
-func WithAuditPolicies(targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
+// It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace and name.
+func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
 	return func(file string) ([]byte, error) {
 		if file == AuditPoliciesConfigMapFileName {
-			return getAuditPolicies(targetNamespace)
+			return getRawAuditPolicies(targetName, targetNamespace)
 		}
 		return assetDelegateFunc(file)
 	}
 }
 
-// GetAuditPolicies returns a raw config map that holds the audit policies for the target namespaces
-func getAuditPolicies(targetNamespace string) ([]byte, error) {
+// GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
+func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
+	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
+}
+
+// getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces and name
+func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
 	if len(targetNamespace) == 0 {
 		return nil, errors.New("please specify the target namespace")
+	}
+	if len(targetName) == 0 {
+		return nil, errors.New("please specify the target name")
 	}
 	auditPoliciesTemplate, err := assets.Asset(auditPolicyAsset)
 	if err != nil {
@@ -44,6 +57,7 @@ func getAuditPolicies(targetNamespace string) ([]byte, error) {
 	}
 
 	r := strings.NewReplacer(
+		"${TARGET_NAME}", targetName,
 		"${TARGET_NAMESPACE}", targetNamespace,
 	)
 	auditPoliciesForTargetNs := []byte(r.Replace(string(auditPoliciesTemplate)))
@@ -53,13 +67,12 @@ func getAuditPolicies(targetNamespace string) ([]byte, error) {
 	return auditPoliciesForTargetNs, nil
 }
 
-// NewAuditPolicyPathGetter returns a path getter for audit policy file mounted into
-// the '/var/run/configmaps/audit' directory of a Pod.
+// NewAuditPolicyPathGetter returns a path getter for audit policy file mounted into the given path of a Pod as a directory.
 //
 // openshift-apiserver and oauth-apiserver mounts the audit policy ConfigMap into
 // the above path inside the Pod.
-func NewAuditPolicyPathGetter() (libgoapiserver.AuditPolicyPathGetterFunc, error) {
-	return newAuditPolicyPathGetter("/var/run/configmaps/audit")
+func NewAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {
+	return newAuditPolicyPathGetter(path)
 }
 
 func newAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {

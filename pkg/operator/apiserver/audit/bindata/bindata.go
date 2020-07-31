@@ -57,7 +57,7 @@ func (fi bindataFileInfo) Sys() interface{} {
 var _pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: audit
+  name: ${TARGET_NAME}
   namespace: ${TARGET_NAMESPACE}
 data:
   default.yaml: |
