@@ -3,7 +3,6 @@ package configobserver
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,18 +10,21 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes/fake"
-	ktesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 )
 
 func (c *fakeOperatorClient) Informer() cache.SharedIndexInformer {
@@ -216,9 +218,10 @@ func TestSyncStatus(t *testing.T) {
 			eventClient := fake.NewSimpleClientset()
 
 			configObserver := ConfigObserver{
-				listers:        &fakeLister{},
-				operatorClient: operatorConfigClient,
-				observers:      tc.observers,
+				listers:               &fakeLister{},
+				operatorClient:        operatorConfigClient,
+				observers:             tc.observers,
+				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
 			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
 			if tc.expectError && err == nil {
@@ -790,10 +793,11 @@ func TestSyncStatusWithNestedConfig(t *testing.T) {
 			eventClient := fake.NewSimpleClientset()
 
 			configObserver := ConfigObserver{
-				listers:          &fakeLister{},
-				operatorClient:   operatorConfigClient,
-				observers:        tc.observers,
-				nestedConfigPath: tc.nestedConfigPath,
+				listers:               &fakeLister{},
+				operatorClient:        operatorConfigClient,
+				observers:             tc.observers,
+				nestedConfigPath:      tc.nestedConfigPath,
+				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
 			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
 			if tc.expectError && err == nil {
