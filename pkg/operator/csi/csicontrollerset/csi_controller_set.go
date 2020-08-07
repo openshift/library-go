@@ -17,60 +17,37 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
-	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 )
-
-// CSIDriverControllerOptions contains file names for manifests for both CSI Driver Deployment and DaemonSet.
-type CSIDriverControllerOptions struct {
-	controllerManifest string
-	nodeManifest       string
-}
-
-// CSIDriverControllerOption is a modifier function for CSIDriverControllerOptions.
-type CSIDriverControllerOption func(*CSIDriverControllerOptions)
-
-// WithControllerService returns a CSIDriverControllerOption
-// with a Deployment (CSI Controller Service) manifest file.
-func WithControllerService(file string) CSIDriverControllerOption {
-	return func(o *CSIDriverControllerOptions) {
-		o.controllerManifest = file
-	}
-}
-
-// WithNodeService returns a CSIDriverControllerOption
-// with a DaemonSet (CSI Node Service) manifest file.
-func WithNodeService(file string) CSIDriverControllerOption {
-	return func(o *CSIDriverControllerOptions) {
-		o.nodeManifest = file
-	}
-}
 
 // CSIControllerSet contains a set of controllers that are usually used to deploy CSI Drivers.
 type CSIControllerSet struct {
-	logLevelController           factory.Controller
-	managementStateController    factory.Controller
-	staticResourcesController    factory.Controller
-	credentialsRequestController factory.Controller
-	csiDriverController          *csidrivercontroller.CSIDriverController
+	logLevelController                   factory.Controller
+	managementStateController            factory.Controller
+	staticResourcesController            factory.Controller
+	credentialsRequestController         factory.Controller
+	csiDriverControllerServiceController factory.Controller
+	csiDriverNodeServiceController       factory.Controller
 
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 }
 
-type controller interface {
-	Run(context.Context, int)
-}
-
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
-	for _, ctrl := range []controller{
+	for _, ctrl := range []factory.Controller{
 		c.logLevelController,
 		c.managementStateController,
 		c.staticResourcesController,
 		c.credentialsRequestController,
-		c.csiDriverController,
+		c.csiDriverControllerServiceController,
+		c.csiDriverNodeServiceController,
 	} {
-		go func(ctrl controller) {
+		if ctrl == nil {
+			continue
+		}
+		go func(ctrl factory.Controller) {
 			defer utilruntime.HandleCrash()
 			ctrl.Run(ctx, 1)
 		}(ctrl)
@@ -131,43 +108,41 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 	return c
 }
 
-// WithCSIDriverController returns a *ControllerSet with a CSI Driver controller initialized.
-func (c *CSIControllerSet) WithCSIDriverController(
+func (c *CSIControllerSet) WithCSIDriverControllerService(
 	name string,
-	configName string,
-	csiDriverName string,
-	csiDriverNamespace string,
 	assetFunc func(string) []byte,
+	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
-	setters ...CSIDriverControllerOption,
 ) *CSIControllerSet {
-	cdc := csidrivercontroller.NewCSIDriverController(
+	manifestFile := assetFunc(file)
+	c.csiDriverControllerServiceController = csidrivercontrollerservicecontroller.NewCSIDriverControllerServiceController(
 		name,
-		csiDriverName,
-		csiDriverNamespace,
-		configName,
+		manifestFile,
 		c.operatorClient,
-		assetFunc,
 		kubeClient,
+		namespacedInformerFactory.Apps().V1().Deployments(),
 		c.eventRecorder,
 	)
+	return c
+}
 
-	opts := &CSIDriverControllerOptions{}
-	for _, setter := range setters {
-		setter(opts)
-	}
-
-	if opts.controllerManifest != "" {
-		cdc = cdc.WithControllerService(namespacedInformerFactory.Apps().V1().Deployments(), opts.controllerManifest)
-	}
-
-	if opts.nodeManifest != "" {
-		cdc = cdc.WithNodeService(namespacedInformerFactory.Apps().V1().DaemonSets(), opts.nodeManifest)
-	}
-
-	c.csiDriverController = cdc
-
+func (c *CSIControllerSet) WithCSIDriverNodeService(
+	name string,
+	assetFunc func(string) []byte,
+	file string,
+	kubeClient kubernetes.Interface,
+	namespacedInformerFactory informers.SharedInformerFactory,
+) *CSIControllerSet {
+	manifestFile := assetFunc(file)
+	c.csiDriverNodeServiceController = csidrivernodeservicecontroller.NewCSIDriverNodeServiceController(
+		name,
+		manifestFile,
+		c.operatorClient,
+		kubeClient,
+		namespacedInformerFactory.Apps().V1().DaemonSets(),
+		c.eventRecorder,
+	)
 	return c
 }
 
