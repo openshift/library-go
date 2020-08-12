@@ -88,6 +88,16 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 			},
 			startingVerbosity: 4,
 			expectedVerbosity: 2,
+			defaultLoglevel:   &operatorv1.Normal,
+			evalEvents: func(events []*corev1.Event, t *testing.T) {
+				if len(events) != 1 {
+					t.Errorf("expected exactly one event, got %d", len(events))
+					return
+				}
+				if !strings.Contains(events[0].Message, `Invalid logLevel "Unknown", falling back to "Normal"`) {
+					t.Errorf("expected message to be %q, got %q", `Invalid logLevel "Unknown", falling back to "Normal"`, events[0].Message)
+				}
+			},
 		},
 		{
 			name: "when OperatorLogLevel is set to Normal operator must set V(2) once",
