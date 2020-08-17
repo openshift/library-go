@@ -28,22 +28,44 @@ import (
 const (
 	operandName                = "test-csi-driver"
 	operandNamespace           = "test-csi-driver-namespace"
+	controllerName             = "TestController"
 	credentialsRequestKind     = "CredentialsRequest"
 	credentialRequestNamespace = "openshift-cloud-credential-operator"
 )
 
+var (
+	conditionTrue        = opv1.ConditionTrue
+	conditionFalse       = opv1.ConditionFalse
+	availableCondition   = controllerName + opv1.OperatorStatusTypeAvailable
+	progressingCondition = controllerName + opv1.OperatorStatusTypeProgressing
+)
+
 type testCase struct {
-	name                  string
-	manifest              []byte
-	expectedFailingStatus bool
+	name                         string
+	manifest                     []byte
+	inputSecretProvisioned       bool
+	expectedAvailableCondition   *opv1.ConditionStatus
+	expectedProgressingCondition *opv1.ConditionStatus
+	expectedFailingStatus        bool
 }
 
 func TestSync(t *testing.T) {
 	tests := []testCase{
 		{
-			name:                  "Initial sync, controller not degraded",
-			manifest:              makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace),
-			expectedFailingStatus: false,
+			name:                         "Secret provisioned by cloud-credential-operator, healthy conditions",
+			manifest:                     makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace),
+			inputSecretProvisioned:       true,
+			expectedAvailableCondition:   &conditionTrue,
+			expectedProgressingCondition: &conditionFalse,
+			expectedFailingStatus:        false,
+		},
+		{
+			name:                         "Secret not provisioned by cloud-credential-operator, bad conditions",
+			manifest:                     makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace),
+			inputSecretProvisioned:       false,
+			expectedAvailableCondition:   &conditionFalse,
+			expectedProgressingCondition: &conditionTrue,
+			expectedFailingStatus:        false,
 		},
 		{
 			name:                  "Bad CredentialRequest manifest, controller degraded",
@@ -56,16 +78,15 @@ func TestSync(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Initialize
 			dynamicClient := &fakeDynamicClient{}
-			if tc.manifest != nil {
-				cr := resourceread.ReadCredentialRequestsOrDie(tc.manifest)
-				resourceapply.AddCredentialsRequestHash(cr)
-				dynamicClient.credentialRequest = cr
-			}
+			cr := resourceread.ReadCredentialRequestsOrDie(tc.manifest)
+			resourceapply.AddCredentialsRequestHash(cr)
+			unstructured.SetNestedField(cr.Object, tc.inputSecretProvisioned, "status", "provisioned")
+			dynamicClient.credentialRequest = cr
 
 			operatorClient := v1helpers.NewFakeOperatorClient(&opv1.OperatorSpec{}, &opv1.OperatorStatus{}, nil)
 			recorder := events.NewInMemoryRecorder("test")
 			controller := NewCredentialsRequestController(
-				"TestController",
+				controllerName,
 				operandNamespace,
 				tc.manifest,
 				dynamicClient,
@@ -77,6 +98,8 @@ func TestSync(t *testing.T) {
 			err := controller.Sync(context.TODO(), factory.NewSyncContext("test", recorder))
 
 			// Assert
+			_, status, _, _ := operatorClient.GetOperatorState()
+
 			if tc.expectedFailingStatus && err == nil {
 				t.Fatalf("expected failed sync")
 			}
@@ -84,8 +107,31 @@ func TestSync(t *testing.T) {
 			if !tc.expectedFailingStatus && err != nil {
 				t.Fatalf("unexpected failed sync: %v", err)
 			}
+
+			if tc.expectedAvailableCondition != nil {
+				if !isConditionSet(availableCondition, *tc.expectedAvailableCondition, status.Conditions) {
+					t.Fatalf("expected %s=%s, found conditions %+v", availableCondition, *tc.expectedAvailableCondition, status.Conditions)
+				}
+			}
+
+			if tc.expectedProgressingCondition != nil {
+				if !isConditionSet(progressingCondition, *tc.expectedProgressingCondition, status.Conditions) {
+					t.Fatalf("expected %s=%s, found conditions %+v", progressingCondition, *tc.expectedProgressingCondition, status.Conditions)
+				}
+			}
 		})
 	}
+}
+
+func isConditionSet(condition string, status opv1.ConditionStatus, conditions []opv1.OperatorCondition) bool {
+	for i := range conditions {
+		if condition == conditions[i].Type {
+			if conditions[i].Status == status {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func makeFakeManifest(operandName, crNamespace, operandNamespace string) []byte {
