@@ -2,6 +2,7 @@ package credentialsrequestcontroller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -21,7 +22,10 @@ import (
 
 // CredentialsRequestController is a simple controller that maintains a CredentialsRequest static manifest.
 // It uses unstructured.Unstructured as currently there's no API type for this resource.
-// TODO: the functionality in this controller should be moved to the StatisResourceController.
+// This controller produces the following conditions:
+// <name>Available: indicates that the secret was successfully provisioned by cloud-credential-operator.
+// <name>Progressing: indicates that the secret is yet to be provisioned by cloud-credential-operator.
+// <name>Degraded: produced when the sync() method returns an error.
 type CredentialsRequestController struct {
 	name            string
 	operatorClient  v1helpers.OperatorClient
@@ -60,6 +64,52 @@ func NewCredentialsRequestController(
 	)
 }
 
+func (c CredentialsRequestController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	_, status, _, err := c.operatorClient.GetOperatorState()
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	cr, err := c.syncCredentialsRequest(status, syncContext)
+	if err != nil {
+		return err
+	}
+
+	isCredentialsProvisioned, err := isProvisioned(cr)
+	if err != nil {
+		return err
+	}
+
+	availableCondition := opv1.OperatorCondition{
+		Type:   c.name + opv1.OperatorStatusTypeAvailable,
+		Status: opv1.ConditionTrue,
+	}
+
+	progressingCondition := opv1.OperatorCondition{
+		Type:   c.name + opv1.OperatorStatusTypeProgressing,
+		Status: opv1.ConditionFalse,
+	}
+
+	if !isCredentialsProvisioned {
+		availableCondition.Status = opv1.ConditionFalse
+		availableCondition.Message = "Credentials not yet provisioned by cloud-credential-operator"
+		availableCondition.Reason = "CredentialsNotProvisionedYet"
+		progressingCondition.Status = opv1.ConditionTrue
+		progressingCondition.Message = "Waiting for cloud-credential-operator to provision the credentials"
+		progressingCondition.Reason = "CredentialsNotProvisionedYet"
+	}
+
+	_, _, err = v1helpers.UpdateStatus(
+		c.operatorClient,
+		v1helpers.UpdateConditionFn(availableCondition),
+		v1helpers.UpdateConditionFn(progressingCondition),
+	)
+	return err
+}
+
 func (c CredentialsRequestController) syncCredentialsRequest(
 	status *opv1.OperatorStatus,
 	syncContext factory.SyncContext,
@@ -87,12 +137,24 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	return cr, err
 }
 
-func (c CredentialsRequestController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	_, status, _, err := c.operatorClient.GetOperatorState()
-	if apierrors.IsNotFound(err) {
-		syncContext.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.name)
-		return nil
+func isProvisioned(cr *unstructured.Unstructured) (bool, error) {
+	provisionedVal, found, err := unstructured.NestedFieldNoCopy(cr.Object, "status", "provisioned")
+	if err != nil {
+		return false, fmt.Errorf("error reading status.provisioned field from %q: %v", cr.GetName(), err)
 	}
-	_, err = c.syncCredentialsRequest(status, syncContext)
-	return err
+
+	if !found {
+		return false, nil
+	}
+
+	if provisionedVal == nil {
+		return false, fmt.Errorf("invalid status.provisioned field in %q", cr.GetName())
+	}
+
+	provisionedValBool, ok := provisionedVal.(bool)
+	if !ok {
+		return false, fmt.Errorf("invalid status.provisioned field in %q: expected a boolean", cr.GetName())
+	}
+
+	return provisionedValBool, nil
 }
