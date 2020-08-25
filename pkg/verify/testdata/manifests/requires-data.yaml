@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-verification
+  namespace: openshift-config-managed
+  annotations:
+    release.openshift.io/verification-config-map: ""
