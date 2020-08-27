@@ -13,7 +13,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libnetwork v0.0.0-20190731215715-7f13a5c99f4b // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/evanphx/json-patch v4.2.0+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fsouza/go-dockerclient v0.0.0-20171004212419-da3951ba2e9e
 	github.com/getsentry/raven-go v0.0.0-20190513200303-c977f96e1095
 	github.com/ghodss/yaml v1.0.0
@@ -34,9 +34,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e // indirect
-	github.com/openshift/api v0.0.0-20200723134351-89de68875e7c
-	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
-	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15
+	github.com/openshift/api v0.0.0-20200827090112-c05698d102cf
+	github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7
+	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.7.1
@@ -48,21 +48,21 @@ require (
 	github.com/vishvananda/netlink v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20200716221620-18dfb9cca345
-	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.19.0-rc.2
-	k8s.io/apiextensions-apiserver v0.19.0-rc.2
-	k8s.io/apimachinery v0.19.0-rc.2
-	k8s.io/apiserver v0.19.0-rc.2
-	k8s.io/client-go v0.19.0-rc.2
-	k8s.io/component-base v0.19.0-rc.2
-	k8s.io/klog/v2 v2.2.0
-	k8s.io/kube-aggregator v0.19.0-rc.2
-	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
+	k8s.io/api v0.19.0
+	k8s.io/apiextensions-apiserver v0.19.0
+	k8s.io/apimachinery v0.19.0
+	k8s.io/apiserver v0.19.0
+	k8s.io/client-go v0.19.0
+	k8s.io/component-base v0.19.0
+	k8s.io/klog/v2 v2.3.0
+	k8s.io/kube-aggregator v0.19.0
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
