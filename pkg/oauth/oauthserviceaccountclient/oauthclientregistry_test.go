@@ -96,7 +96,7 @@ func TestGetClient(t *testing.T) {
 				}),
 			routeClient:         routev1fake.NewSimpleClientset(),
 			expectedErr:         `system:serviceaccount:ns-01:default has no redirectURIs; set serviceaccounts.openshift.io/oauth-redirecturi.<some-value>`,
-			expectedEventMsg:    `Warning NoSAOAuthRedirectURIs [parse ::: missing protocol scheme, system:serviceaccount:ns-01:default has no redirectURIs; set serviceaccounts.openshift.io/oauth-redirecturi.<some-value>=<redirect> or create a dynamic URI using serviceaccounts.openshift.io/oauth-redirectreference.<some-value>=<reference>]`,
+			expectedEventMsg:    `Warning NoSAOAuthRedirectURIs [parse "::": missing protocol scheme, system:serviceaccount:ns-01:default has no redirectURIs; set serviceaccounts.openshift.io/oauth-redirecturi.<some-value>=<redirect> or create a dynamic URI using serviceaccounts.openshift.io/oauth-redirectreference.<some-value>=<reference>]`,
 			expectedKubeActions: []clientgotesting.Action{clientgotesting.NewGetAction(serviceAccountsResource, "ns-01", "default")},
 			expectedOSActions:   []clientgotesting.Action{},
 		},
