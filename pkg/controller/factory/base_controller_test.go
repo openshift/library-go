@@ -35,6 +35,69 @@ func (f *fakeInformer) HasSynced() bool {
 	return true
 }
 
+func TestBaseController_RunPanicOnCacheSync(t *testing.T) {
+	c := &baseController{
+		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		cacheSyncTimeout: 1 * time.Second,
+		cachesToSync: []cache.InformerSynced{
+			func() bool {
+				return false
+			},
+		},
+	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	runFinished := make(chan struct{})
+
+	go func() {
+		defer close(runFinished)
+		defer func() {
+			if err := recover(); err == nil {
+				t.Error("expected panic on cache sync timeout")
+			}
+		}()
+		c.Run(ctx, 1)
+	}()
+
+	select {
+	case <-runFinished:
+	case <-time.After(5 * time.Second):
+		t.Error("expected cache wait timeout, got test timeout")
+	}
+}
+
+func TestBaseController_RunNoPanicOnShutdown(t *testing.T) {
+	c := &baseController{
+		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		cacheSyncTimeout: 10 * time.Second,
+		cachesToSync: []cache.InformerSynced{
+			func() bool {
+				return false
+			},
+		},
+	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	runFinished := make(chan struct{})
+
+	go func() {
+		time.AfterFunc(1*time.Second, cancel) // cancel the main context simulates shutdown
+		defer close(runFinished)
+		defer func() {
+			if err := recover(); err != nil {
+				t.Errorf("expected no panic when controller shutting down, got %v", err)
+			}
+		}()
+		c.Run(ctx, 1)
+	}()
+
+	select {
+	case <-runFinished:
+	case <-time.After(5 * time.Second):
+		t.Error("test timeout while waiting for run to shutdown")
+	}
+}
+
 func TestBaseController_Reconcile(t *testing.T) {
 	operatorClient := v1helpers.NewFakeOperatorClient(
 		&operatorv1.OperatorSpec{},
