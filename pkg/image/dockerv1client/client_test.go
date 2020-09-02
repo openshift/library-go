@@ -9,9 +9,21 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fsouza/go-dockerclient"
+	dockerv10 "github.com/openshift/api/image/docker10"
 )
 
 // tests of running registries are done in the integration client test
+
+func TestImageConversion(t *testing.T) {
+	if err := ImageScheme.Convert(&docker.Image{}, &dockerv10.DockerImage{}, nil); err != nil {
+		t.Errorf("Unexpected error when converting Image to DockerImage: %v", err)
+	}
+	if err := ImageScheme.Convert(&dockerv10.DockerImage{}, &docker.Image{}, nil); err != nil {
+		t.Errorf("Unexpected error when converting DockerImage to Image: %v", err)
+	}
+}
 
 func TestHTTPFallback(t *testing.T) {
 	called := make(chan struct{}, 2)
