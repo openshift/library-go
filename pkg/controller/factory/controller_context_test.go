@@ -44,10 +44,10 @@ func (s *threadSafeStringSet) Insert(items ...string) *threadSafeStringSet {
 
 func TestSyncContext_eventHandler(t *testing.T) {
 	tests := []struct {
-		name                  string
-		syncContext           SyncContext
-		queueKeyFunc          ObjectQueueKeyFunc
-		interestingNamespaces sets.String
+		name         string
+		syncContext  SyncContext
+		queueKeyFunc ObjectQueueKeyFunc
+		filterFunc   func(obj interface{}) bool
 		// event handler test
 
 		runEventHandlers  func(cache.ResourceEventHandler)
@@ -85,7 +85,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				m, _ := meta.Accessor(object)
 				return m.GetName()
 			},
-			interestingNamespaces: sets.NewString("add"),
+			filterFunc: namespaceChecker([]string{"add"}),
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
 				handler.OnAdd(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "add"}})
 				handler.OnUpdate(nil, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "update"}})
@@ -105,7 +105,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				m, _ := meta.Accessor(object)
 				return m.GetName()
 			},
-			interestingNamespaces: sets.NewString("delete"),
+			filterFunc: namespaceChecker([]string{"delete"}),
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
 				handler.OnDelete(cache.DeletedFinalStateUnknown{
 					Obj: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "delete"}},
@@ -122,7 +122,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := test.syncContext.(syncContext).eventHandler(test.queueKeyFunc, test.interestingNamespaces)
+			handler := test.syncContext.(syncContext).eventHandler(test.queueKeyFunc, test.filterFunc)
 			itemsReceived := newThreadSafeStringSet()
 			queueCtx, shutdown := context.WithCancel(context.Background())
 			c := &baseController{
@@ -162,22 +162,19 @@ func TestSyncContext_isInterestingNamespace(t *testing.T) {
 	tests := []struct {
 		name              string
 		obj               interface{}
-		namespaces        sets.String
-		expectNamespace   bool
+		namespaces        []string
 		expectInteresting bool
 	}{
 		{
 			name:              "got interesting namespace",
 			obj:               &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}},
-			namespaces:        sets.NewString("test"),
-			expectNamespace:   true,
+			namespaces:        []string{"test"},
 			expectInteresting: true,
 		},
 		{
 			name:              "got non-interesting namespace",
 			obj:               &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}},
-			namespaces:        sets.NewString("non-test"),
-			expectNamespace:   true,
+			namespaces:        []string{"non-test"},
 			expectInteresting: false,
 		},
 		{
@@ -185,8 +182,7 @@ func TestSyncContext_isInterestingNamespace(t *testing.T) {
 			obj: cache.DeletedFinalStateUnknown{
 				Obj: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}},
 			},
-			namespaces:        sets.NewString("test"),
-			expectNamespace:   true,
+			namespaces:        []string{"test"},
 			expectInteresting: true,
 		},
 		{
@@ -194,22 +190,15 @@ func TestSyncContext_isInterestingNamespace(t *testing.T) {
 			obj: cache.DeletedFinalStateUnknown{
 				Obj: &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test"}},
 			},
-			namespaces:        sets.NewString("test"),
-			expectNamespace:   false,
+			namespaces:        []string{"test"},
 			expectInteresting: false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c := syncContext{}
-			gotNamespace, isInteresting := c.isInterestingNamespace(test.obj, test.namespaces)
-			if !gotNamespace && test.expectNamespace {
-				t.Errorf("expected to get Namespace, got false")
-			}
-			if gotNamespace && !test.expectNamespace {
-				t.Errorf("expected to not get Namespace, got true")
-			}
+			c := namespaceChecker(test.namespaces)
+			isInteresting := c(test.obj)
 			if !isInteresting && test.expectInteresting {
 				t.Errorf("expected Namespace to be interesting, got false")
 			}

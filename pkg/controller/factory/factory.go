@@ -43,8 +43,8 @@ type Informer interface {
 }
 
 type namespaceInformer struct {
-	informer   Informer
-	namespaces sets.String
+	informer Informer
+	nsFilter EventFilterFunc
 }
 
 type informersWithQueueKey struct {
@@ -61,6 +61,9 @@ type PostStartHook func(ctx context.Context, syncContext SyncContext) error
 // This can extract the "namespace/name" if you need to or just return "key" if you building controller that only use string
 // triggers.
 type ObjectQueueKeyFunc func(runtime.Object) string
+
+// EventFilterFunc is used to filter informer events to prevent Sync() from being called
+type EventFilterFunc func(obj interface{}) bool
 
 // New return new factory instance.
 func New() *Factory {
@@ -115,8 +118,8 @@ func (f *Factory) WithPostStartHooks(hooks ...PostStartHook) *Factory {
 // Do not use this to register non-namespace informers.
 func (f *Factory) WithNamespaceInformer(informer Informer, interestingNamespaces ...string) *Factory {
 	f.namespaceInformers = append(f.namespaceInformers, &namespaceInformer{
-		informer:   informer,
-		namespaces: sets.NewString(interestingNamespaces...),
+		informer: informer,
+		nsFilter: namespaceChecker(interestingNamespaces),
 	})
 	return f
 }
@@ -204,7 +207,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		for d := range f.informerQueueKeys[i].informers {
 			informer := f.informerQueueKeys[i].informers[d]
 			queueKeyFn := f.informerQueueKeys[i].queueKeyFn
-			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, sets.NewString()))
+			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, nil))
 			c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
 		}
 	}
@@ -212,7 +215,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	for i := range f.informers {
 		f.informers[i].AddEventHandler(c.syncContext.(syncContext).eventHandler(func(runtime.Object) string {
 			return DefaultQueueKey
-		}, sets.NewString()))
+		}, nil))
 		c.cachesToSync = append(c.cachesToSync, f.informers[i].HasSynced)
 	}
 
@@ -223,7 +226,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	for i := range f.namespaceInformers {
 		f.namespaceInformers[i].informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(func(runtime.Object) string {
 			return DefaultQueueKey
-		}, f.namespaceInformers[i].namespaces))
+		}, f.namespaceInformers[i].nsFilter))
 		c.cachesToSync = append(c.cachesToSync, f.namespaceInformers[i].informer.HasSynced)
 	}
 
