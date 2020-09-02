@@ -13,6 +13,12 @@ import (
 
 const certificateLifetime = 365 * 2
 
+func TestDefaultCipherSuite(t *testing.T) {
+	// Ensure that conversion of the default cipher suite to names
+	// completes without panic.
+	_ = CipherSuitesToNamesOrDie(DefaultCiphers())
+}
+
 func TestConstantMaps(t *testing.T) {
 	pkg, err := importer.Default().Import("crypto/tls")
 	if err != nil {
