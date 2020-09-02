@@ -26,7 +26,7 @@ type Factory struct {
 	syncDegradedClient    operatorv1helpers.OperatorClient
 	resyncInterval        time.Duration
 	resyncSchedules       []string
-	informers             []Informer
+	informers             []filteredInformers
 	informerQueueKeys     []informersWithQueueKey
 	bareInformers         []Informer
 	postStartHooks        []PostStartHook
@@ -49,7 +49,13 @@ type namespaceInformer struct {
 
 type informersWithQueueKey struct {
 	informers  []Informer
+	filter     EventFilterFunc
 	queueKeyFn ObjectQueueKeyFunc
+}
+
+type filteredInformers struct {
+	informers []Informer
+	filter    EventFilterFunc
 }
 
 // PostStartHook specify a function that will run after controller is started.
@@ -81,7 +87,19 @@ func (f *Factory) WithSync(syncFn SyncFunc) *Factory {
 // Pass informers you want to use to react to changes on resources. If informer event is observed, then the Sync() function
 // is called.
 func (f *Factory) WithInformers(informers ...Informer) *Factory {
-	f.informers = append(f.informers, informers...)
+	f.WithFilteredEventsInformers(nil, informers...)
+	return f
+}
+
+// WithFilteredEventsInformers is used to register event handlers and get the caches synchronized functions.
+// Pass the informers you want to use to react to changes on resources. If informer event is observed, then the Sync() function
+// is called.
+// Pass filter to filter out events that should not trigger Sync() call.
+func (f *Factory) WithFilteredEventsInformers(filter EventFilterFunc, informers ...Informer) *Factory {
+	f.informers = append(f.informers, filteredInformers{
+		informers: informers,
+		filter:    filter,
+	})
 	return f
 }
 
@@ -102,6 +120,20 @@ func (f *Factory) WithBareInformers(informers ...Informer) *Factory {
 func (f *Factory) WithInformersQueueKeyFunc(queueKeyFn ObjectQueueKeyFunc, informers ...Informer) *Factory {
 	f.informerQueueKeys = append(f.informerQueueKeys, informersWithQueueKey{
 		informers:  informers,
+		queueKeyFn: queueKeyFn,
+	})
+	return f
+}
+
+// WithFilteredEventsInformersQueueKeyFunc is used to register event handlers and get the caches synchronized functions.
+// Pass informers you want to use to react to changes on resources. If informer event is observed, then the Sync() function
+// is called.
+// Pass the queueKeyFn you want to use to transform the informer runtime.Object into string key used by work queue.
+// Pass filter to filter out events that should not trigger Sync() call.
+func (f *Factory) WithFilteredEventsInformersQueueKeyFunc(queueKeyFn ObjectQueueKeyFunc, filter EventFilterFunc, informers ...Informer) *Factory {
+	f.informerQueueKeys = append(f.informerQueueKeys, informersWithQueueKey{
+		informers:  informers,
+		filter:     filter,
 		queueKeyFn: queueKeyFn,
 	})
 	return f
@@ -207,16 +239,19 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		for d := range f.informerQueueKeys[i].informers {
 			informer := f.informerQueueKeys[i].informers[d]
 			queueKeyFn := f.informerQueueKeys[i].queueKeyFn
-			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, nil))
+			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, f.informerQueueKeys[i].filter))
 			c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
 		}
 	}
 
 	for i := range f.informers {
-		f.informers[i].AddEventHandler(c.syncContext.(syncContext).eventHandler(func(runtime.Object) string {
-			return DefaultQueueKey
-		}, nil))
-		c.cachesToSync = append(c.cachesToSync, f.informers[i].HasSynced)
+		for d := range f.informers[i].informers {
+			informer := f.informers[i].informers[d]
+			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(func(runtime.Object) string {
+				return DefaultQueueKey
+			}, f.informers[i].filter))
+			c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
+		}
 	}
 
 	for i := range f.bareInformers {

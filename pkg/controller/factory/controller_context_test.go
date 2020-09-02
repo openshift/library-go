@@ -118,6 +118,41 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:        "annotated secret event handler",
+			syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+			filterFunc: func(object interface{}) bool {
+				obj, ok := object.(runtime.Object)
+				if !ok {
+					return false
+				}
+				m, _ := meta.Accessor(obj)
+				_, ok = m.GetAnnotations()["onlyFireWhenSet"]
+				return ok
+			},
+			queueKeyFunc: func(object runtime.Object) string {
+				m, _ := meta.Accessor(object)
+				return fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())
+			},
+			runEventHandlers: func(handler cache.ResourceEventHandler) {
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
+				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "update"}})
+				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "delete"}})
+
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "add", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
+				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "update", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
+				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "delete", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
+			},
+			expectedItemCount: 3,
+			evalQueueItems: func(s *threadSafeStringSet, t *testing.T) {
+				expect := []string{"add", "update", "delete"}
+				for _, e := range expect {
+					if !s.Has("bar/" + e) {
+						t.Errorf("expected %#v to have 'bar/%s'", s.List(), e)
+					}
+				}
+			},
+		},
 	}
 
 	for _, test := range tests {
