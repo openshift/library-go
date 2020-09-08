@@ -37,6 +37,7 @@ type Repository interface {
 	Commit(dir string, message string) error
 	AddRemote(dir string, name, url string) error
 	AddLocalConfig(dir, name, value string) error
+	AddGlobalConfig(name, value string) error
 	ShowFormat(dir, commit, format string) (string, error)
 	ListRemote(url string, args ...string) (string, string, error)
 	TimedListRemote(timeout time.Duration, url string, args ...string) (string, string, error)
@@ -257,6 +258,12 @@ func (r *repository) AddRemote(location, name, url string) error {
 // AddLocalConfig adds a value to the current repository
 func (r *repository) AddLocalConfig(location, name, value string) error {
 	_, _, err := r.git(location, "config", "--local", "--add", name, value)
+	return err
+}
+
+// AddGlobalConfig adds a value to the global git configuration
+func (r *repository) AddGlobalConfig(name, value string) error {
+	_, _, err := r.git("config", "--global", "--add", name, value)
 	return err
 }
 
