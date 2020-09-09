@@ -1,6 +1,7 @@
 package git
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
@@ -106,6 +107,57 @@ func TestCheckout(t *testing.T) {
 	err := r.Checkout("/test/dir", "branch2")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestAddGlobalConfig(t *testing.T) {
+	r := &repository{git: makeExecFunc("", nil)}
+	err := r.AddGlobalConfig("http.proxy", "http://bad.proxy")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestSafeForLoggingArgs(t *testing.T) {
+	cases := []struct {
+		name     string
+		args     []string
+		expected []string
+	}{
+		{
+			name: "no change",
+			args: []string{"git",
+				"clone",
+				"https://github.com/sclorg/nodejs-ex.git",
+			},
+			expected: []string{"git",
+				"clone",
+				"https://github.com/sclorg/nodejs-ex.git",
+			},
+		},
+		{
+			name: "redact credentials",
+			args: []string{"git",
+				"config",
+				"--add",
+				"https.proxy",
+				"https://user:pass@bad.proxy",
+			},
+			expected: []string{"git",
+				"config",
+				"--add",
+				"https.proxy",
+				"https://redacted@bad.proxy",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			safeArgs := safeForLoggingArgs(tc.args...)
+			if !reflect.DeepEqual(safeArgs, tc.expected) {
+				t.Errorf("expected args %s, got %s", tc.expected, safeArgs)
+			}
+		})
 	}
 }
 
