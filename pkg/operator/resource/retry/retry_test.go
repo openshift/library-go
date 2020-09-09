@@ -3,11 +3,13 @@ package retry
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/net"
 )
 
 func TestRetryOnConnectionErrors(t *testing.T) {
@@ -33,6 +35,22 @@ func TestRetryOnConnectionErrors(t *testing.T) {
 			evalAttempts: func(t *testing.T, attempts int) {
 				if attempts != 1 {
 					t.Errorf("expected only one attempt, got %d", attempts)
+				}
+			},
+		},
+		{
+			name:           "retry on connection error",
+			contextTimeout: 500 * time.Millisecond,
+			jobDuration:    200 * time.Millisecond,
+			jobError:       syscall.ECONNREFUSED,
+			evalError: func(t *testing.T, e error) {
+				if !net.IsConnectionRefused(e) {
+					t.Errorf("expected connection refused error, got %v", e)
+				}
+			},
+			evalAttempts: func(t *testing.T, attempts int) {
+				if attempts <= 1 {
+					t.Errorf("expected more than one attempt, got %d", attempts)
 				}
 			},
 		},
