@@ -28,7 +28,6 @@ require (
 	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/mux v0.0.0-20191024121256-f395758b854c // indirect
 	github.com/imdario/mergo v0.3.7
-	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0-rc1
@@ -63,11 +62,10 @@ require (
 	k8s.io/klog/v2 v2.3.0
 	k8s.io/kube-aggregator v0.19.0
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	sigs.k8s.io/kube-storage-version-migrator v0.0.3
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
 
 )
-
-replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
 
 replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
