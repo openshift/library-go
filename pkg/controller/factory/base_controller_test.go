@@ -3,6 +3,8 @@ package factory
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +37,7 @@ func (f *fakeInformer) HasSynced() bool {
 	return true
 }
 
-func TestBaseController_RunPanicOnCacheSync(t *testing.T) {
+func TestBaseController_ExitOneIfCachesWontSync(t *testing.T) {
 	c := &baseController{
 		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
 		cacheSyncTimeout: 1 * time.Second,
@@ -45,57 +47,42 @@ func TestBaseController_RunPanicOnCacheSync(t *testing.T) {
 			},
 		},
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	runFinished := make(chan struct{})
 
-	go func() {
-		defer close(runFinished)
-		defer func() {
-			if err := recover(); err == nil {
-				t.Error("expected panic on cache sync timeout")
-			}
-		}()
+	if os.Getenv("BE_CRASHER") == "1" {
 		c.Run(ctx, 1)
-	}()
+		return
+	}
 
-	select {
-	case <-runFinished:
-	case <-time.After(5 * time.Second):
-		t.Error("expected cache wait timeout, got test timeout")
+	cmd := exec.Command(os.Args[0], "-test.run=TestBaseController_ExitOneIfCachesWontSync")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	e, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("unexpected error %#v", err)
+	}
+
+	exitCode := e.ExitCode()
+	if exitCode != 1 {
+		t.Fatalf("expected exit code %d, got %d", 1, exitCode)
 	}
 }
 
-func TestBaseController_RunNoPanicOnShutdown(t *testing.T) {
+func TestBaseController_ReturnOnGracefulShutdownWhileWaitingForCachesToSync(t *testing.T) {
 	c := &baseController{
 		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-		cacheSyncTimeout: 10 * time.Second,
+		cacheSyncTimeout: 666 * time.Minute,
 		cachesToSync: []cache.InformerSynced{
 			func() bool {
 				return false
 			},
 		},
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	runFinished := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // close context immediately
 
-	go func() {
-		time.AfterFunc(1*time.Second, cancel) // cancel the main context simulates shutdown
-		defer close(runFinished)
-		defer func() {
-			if err := recover(); err != nil {
-				t.Errorf("expected no panic when controller shutting down, got %v", err)
-			}
-		}()
-		c.Run(ctx, 1)
-	}()
-
-	select {
-	case <-runFinished:
-	case <-time.After(5 * time.Second):
-		t.Error("test timeout while waiting for run to shutdown")
-	}
+	c.Run(ctx, 1)
 }
 
 func TestBaseController_Reconcile(t *testing.T) {
