@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	migrationv1alpha1 "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
-	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
-	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/cache"
+	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
+	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1"
 )
 
 const writeKeyAnnotationKey = "encryption.apiserver.operator.openshift.io/write-key"
