@@ -2,8 +2,12 @@ package workload
 
 import (
 	"fmt"
-	"k8s.io/utils/pointer"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/utils/pointer"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -22,6 +26,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		name string
 
 		workload                        *appsv1.Deployment
+		pods                            []*corev1.Pod
 		operatorConfigAtHighestRevision bool
 		errors                          []error
 
@@ -100,10 +105,31 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: pointer.Int32Ptr(3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 0,
+				},
+			},
+			pods: []*corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodPending,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "test",
+								Ready: false,
+								State: corev1.ContainerState{
+									Waiting: &corev1.ContainerStateWaiting{
+										Reason:  "ImagePull",
+										Message: "slow registry",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
@@ -122,7 +148,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
 						Status:  operatorv1.ConditionTrue,
 						Reason:  "UnavailablePod",
-						Message: "3 of 3 requested instances are unavailable for apiserver.openshift-apiserver",
+						Message: "3 of 3 requested instances are unavailable for apiserver.openshift-apiserver (container is waiting in pending apiserver pod)",
 					},
 					{
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
@@ -142,10 +168,31 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: pointer.Int32Ptr(3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 2,
+				},
+			},
+			pods: []*corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver"},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodSucceeded,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "test",
+								Ready: true,
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{
+										Reason:  "PodKilled",
+										Message: "john wick was here",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
@@ -164,7 +211,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
 						Status:  operatorv1.ConditionTrue,
 						Reason:  "UnavailablePod",
-						Message: "1 of 3 requested instances are unavailable for apiserver.openshift-apiserver",
+						Message: "1 of 3 requested instances are unavailable for apiserver.openshift-apiserver ()",
 					},
 					{
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
@@ -278,7 +325,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			}
 
 			// act
-			target := &Controller{operatorClient: fakeOperatorClient, name: defaultControllerName, targetNamespace: targetNs}
+			target := &Controller{operatorClient: fakeOperatorClient, name: defaultControllerName, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
 			err := target.updateOperatorStatus(scenario.workload, scenario.operatorConfigAtHighestRevision, scenario.errors)
 			if err != nil && len(scenario.errors) == 0 {
 				t.Fatal(err)
@@ -294,6 +341,32 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+type fakePodLister struct {
+	pods []*corev1.Pod
+}
+
+type fakePodNamespaceLister struct {
+	lister *fakePodLister
+}
+
+func (f *fakePodNamespaceLister) List(selector labels.Selector) (ret []*corev1.Pod, err error) {
+	return f.lister.pods, nil
+}
+
+func (f *fakePodNamespaceLister) Get(name string) (*corev1.Pod, error) {
+	panic("implement me")
+}
+
+func (f *fakePodLister) List(selector labels.Selector) (ret []*corev1.Pod, err error) {
+	return f.pods, nil
+}
+
+func (f *fakePodLister) Pods(namespace string) corev1listers.PodNamespaceLister {
+	return &fakePodNamespaceLister{
+		lister: f,
 	}
 }
 
