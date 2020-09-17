@@ -1,9 +1,9 @@
-hash: 91584f0baddd4298ec2658d88517bf49d382310423e5365bf4075dcdf116a8fb
-updated: 2019-11-25T14:26:07.949552+01:00
+hash: 3d6ae724630dee4d43e2d1353c9fdd3130477790584c2eb6ce2d85f65b5bc3fe
+updated: 2020-09-07T14:38:44.936860608+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
-  version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
-  vcs: hg
+  version: a547fc61f48d567d5b4ec6f8aee5573d8efce11d
+  repo: https://github.com/munnerz/goautoneg.git
 - name: github.com/Azure/go-ansiterm
   version: d6e3b3328b783f23731bc4d058875b0371ff8109
   subpackages:
@@ -273,7 +273,7 @@ imports:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/openshift/api
-  version: 371e06d3a8a73b95b67bf6d0b7fb6259c67a5e62
+  version: a843dc3262a0cdc5fe6c20620f3e47f5f905efd1
   subpackages:
   - apps
   - apps/v1
@@ -1010,8 +1010,9 @@ imports:
   - value
 - name: sigs.k8s.io/yaml
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
-testImports:
 - name: vbom.ml/util
   version: db5cfe13f5cc80a4990d98e2e1b0707a4d1a5394
+  repo: https://github.com/fvbommel/util.git
   subpackages:
   - sortorder
+testImports: []
