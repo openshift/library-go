@@ -216,6 +216,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
 	informers ...cache.SharedIndexInformer) *APIServerControllerSet {
 
 	workloadController := workload.NewController(
@@ -227,6 +228,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		conditionsPrefix,
 		cs.operatorClient,
 		kubeClient,
+		kubeInformersForTargetNamespace,
 		delegate,
 		openshiftClusterConfigClient,
 		cs.eventRecorder,
