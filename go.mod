@@ -15,7 +15,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libnetwork v0.0.0-20190731215715-7f13a5c99f4b // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/evanphx/json-patch v4.2.0+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fsouza/go-dockerclient v0.0.0-20171004212419-da3951ba2e9e
 	github.com/getsentry/raven-go v0.0.0-20190513200303-c977f96e1095
 	github.com/ghodss/yaml v1.0.0
@@ -56,14 +56,14 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.18.3
-	k8s.io/apiextensions-apiserver v0.18.3
-	k8s.io/apimachinery v0.18.3
-	k8s.io/apiserver v0.18.3
-	k8s.io/client-go v0.18.3
-	k8s.io/component-base v0.18.3
+	k8s.io/api v0.18.9
+	k8s.io/apiextensions-apiserver v0.18.9
+	k8s.io/apimachinery v0.18.9
+	k8s.io/apiserver v0.18.9
+	k8s.io/client-go v0.18.9
+	k8s.io/component-base v0.18.9
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.18.3
+	k8s.io/kube-aggregator v0.18.9
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/yaml v1.2.0
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787
