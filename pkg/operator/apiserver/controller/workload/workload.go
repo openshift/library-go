@@ -16,7 +16,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -83,7 +82,7 @@ type Controller struct {
 func NewController(name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
-	kubeInformersForTargetNamespace informers.SharedInformerFactory,
+	podLister corev1listers.PodLister,
 	delegate Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
@@ -97,7 +96,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		conditionsPrefix:             conditionsPrefix,
 		operatorClient:               operatorClient,
 		kubeClient:                   kubeClient,
-		podsLister:                   kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
+		podsLister:                   podLister,
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		eventRecorder:                eventRecorder.WithComponentSuffix("workload-controller"),

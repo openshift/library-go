@@ -216,7 +216,6 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
 	informers ...cache.SharedIndexInformer) *APIServerControllerSet {
 
 	workloadController := workload.NewController(
@@ -228,7 +227,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		conditionsPrefix,
 		cs.operatorClient,
 		kubeClient,
-		kubeInformersForTargetNamespace,
+		kubeInformersForNamespaces.PodLister(),
 		delegate,
 		openshiftClusterConfigClient,
 		cs.eventRecorder,
@@ -236,6 +235,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 
 	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer())
 	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer())
+	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer())
 	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Informer())
 	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().Nodes().Informer())
 
