@@ -2,13 +2,20 @@ package connectivitycheckcontroller
 
 import (
 	"context"
+	"encoding/json"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller/bindata"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -26,6 +33,8 @@ func NewConnectivityCheckController(
 	namespace string,
 	operatorClient v1helpers.OperatorClient,
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
+	apiextensionsClient *apiextensionsclient.Clientset,
+	apiextensionsInformers apiextensionsinformers.SharedInformerFactory,
 	triggers []factory.Informer,
 	recorder events.Recorder,
 ) ConnectivityCheckController {
@@ -33,9 +42,13 @@ func NewConnectivityCheckController(
 		namespace:                  namespace,
 		operatorClient:             operatorClient,
 		operatorcontrolplaneClient: operatorcontrolplaneClient,
+		apiextensionsClient:        apiextensionsClient,
 	}
 
-	allTriggers := []factory.Informer{operatorClient.Informer()}
+	allTriggers := []factory.Informer{
+		operatorClient.Informer(),
+		apiextensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
+	}
 	allTriggers = append(allTriggers, triggers...)
 
 	c.Controller = factory.New().
@@ -50,6 +63,7 @@ type connectivityCheckController struct {
 	namespace                  string
 	operatorClient             v1helpers.OperatorClient
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset
+	apiextensionsClient        *apiextensionsclient.Clientset
 
 	podNetworkConnectivityCheckFn PodNetworkConnectivityCheckFunc
 }
@@ -60,6 +74,16 @@ func (c *connectivityCheckController) WithPodNetworkConnectivityCheckFn(podNetwo
 	c.podNetworkConnectivityCheckFn = podNetworkConnectivityCheckFn
 	return c
 }
+
+// unsupportedConfigOverrides is a partial struct to deserialize just the parts of
+// spec.unsupportedConfigOverrides that we are interested in.
+type unsupportedConfigOverrides struct {
+	Operator struct {
+		EnableConnectivityCheckController string `json:"enableConnectivityCheckController"`
+	} `json:"operator"`
+}
+
+const podnetworkconnectivitychecksCRDName = "podnetworkconnectivitychecks.controlplane.operator.openshift.io"
 
 func (c *connectivityCheckController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
@@ -75,6 +99,40 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	default:
 		syncContext.Recorder().Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return nil
+	}
+
+	// is this controller enabled?
+	enabled, err := Enabled(operatorSpec)
+	if err != nil {
+		return err
+	}
+
+	_, getCRDErr := c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, podnetworkconnectivitychecksCRDName, metav1.GetOptions{})
+	if getCRDErr != nil && !errors.IsNotFound(getCRDErr) {
+		return getCRDErr
+	}
+
+	if !enabled {
+		// controller is not enabled
+		if errors.IsNotFound(getCRDErr) {
+			return nil
+		}
+		// delete the podnetworkconnectivitycheck crd that should not exist
+		return c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, podnetworkconnectivitychecksCRDName, metav1.DeleteOptions{})
+	}
+
+	// controller is enabled
+	if errors.IsNotFound(getCRDErr) {
+		// create the podnetworkconnectivitycheck crd that should exist
+		applyResults := resourceapply.ApplyDirectly(
+			resourceapply.NewClientHolder().WithAPIExtensionsClient(c.apiextensionsClient),
+			syncContext.Recorder(),
+			func(name string) ([]byte, error) { return bindata.Asset(name) },
+			"pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
+		)
+		if applyResults[0].Error != nil {
+			return applyResults[0].Error
+		}
 	}
 
 	checks, err := c.podNetworkConnectivityCheckFn(ctx, syncContext)
@@ -99,7 +157,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 			}
 			syncContext.Recorder().Eventf("EndpointCheckUpdated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
 		}
-		if apierrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			_, err = pnccClient.Create(ctx, check, metav1.CreateOptions{})
 		}
 		if err != nil {
@@ -114,4 +172,24 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	// TODO reap old connectivity checks
 
 	return nil
+}
+
+func Enabled(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
+	overrides := unsupportedConfigOverrides{}
+	if raw := operatorSpec.UnsupportedConfigOverrides.Raw; len(raw) > 0 {
+		jsonRaw, err := kyaml.ToJSON(raw)
+		if err != nil {
+			klog.Warning(err)
+			jsonRaw = raw
+		}
+		if err := json.Unmarshal(jsonRaw, &overrides); err != nil {
+			return false, err
+		}
+	}
+	if overrides.Operator.EnableConnectivityCheckController == "True" {
+		klog.V(3).Info("ConnectivityCheckController is enabled as requested by an unsupported configuration option.")
+		return true, nil
+	}
+	klog.V(3).Info("ConnectivityCheckController is disabled by default.")
+	return false, nil
 }
