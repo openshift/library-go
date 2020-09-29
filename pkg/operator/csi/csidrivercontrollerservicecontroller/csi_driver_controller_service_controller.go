@@ -142,7 +142,7 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 	} else {
 		availableCondition.Status = opv1.ConditionFalse
 		availableCondition.Message = "Waiting for Deployment to deploy the CSI Controller Service"
-		availableCondition.Reason = "AsExpected"
+		availableCondition.Reason = "Deploying"
 	}
 
 	progressingCondition := opv1.OperatorCondition{
@@ -153,7 +153,7 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 	if ok, msg := isProgressing(opStatus, deployment); ok {
 		progressingCondition.Status = opv1.ConditionTrue
 		progressingCondition.Message = msg
-		progressingCondition.Reason = "AsExpected"
+		progressingCondition.Reason = "Deploying"
 	}
 
 	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {

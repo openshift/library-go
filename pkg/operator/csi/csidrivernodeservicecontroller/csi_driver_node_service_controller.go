@@ -136,7 +136,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 	} else {
 		availableCondition.Status = opv1.ConditionFalse
 		availableCondition.Message = "Waiting for the DaemonSet to deploy the CSI Node Service"
-		availableCondition.Reason = "AsExpected"
+		availableCondition.Reason = "Deploying"
 	}
 
 	progressingCondition := opv1.OperatorCondition{
@@ -147,7 +147,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 	if ok, msg := isProgressing(opStatus, daemonSet); ok {
 		progressingCondition.Status = opv1.ConditionTrue
 		progressingCondition.Message = msg
-		progressingCondition.Reason = "AsExpected"
+		progressingCondition.Reason = "Deploying"
 	}
 
 	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {
