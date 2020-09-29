@@ -310,3 +310,61 @@ func TestControllerWithQueueFunction(t *testing.T) {
 		t.Fatal("test timeout")
 	}
 }
+
+func TestControllerWithQueueKeysFunction(t *testing.T) {
+	kubeClient := fake.NewSimpleClientset()
+
+	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	go kubeInformers.Start(ctx.Done())
+
+	queueKeysFn := func(obj runtime.Object) []string {
+		metaObj, err := apimeta.Accessor(obj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return []string{
+			fmt.Sprintf("%s/%s/key1", metaObj.GetNamespace(), metaObj.GetName()),
+			fmt.Sprintf("%s/%s/key2", metaObj.GetNamespace(), metaObj.GetName()),
+		}
+	}
+
+	factory := New().WithMultipleInformersQueueKeysFunc(queueKeysFn, kubeInformers.Core().V1().Secrets().Informer())
+
+	controllerSynced := make(chan struct{})
+
+	// Wait until two syncs are processed
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	controller := factory.WithSync(func(ctx context.Context, syncContext SyncContext) error {
+		defer wg.Done()
+		if syncContext.Queue() == nil {
+			t.Errorf("expected queue to be initialized, it is not")
+		}
+
+		key := syncContext.QueueKey()
+		if key != "test/test-secret/key1" && key != "test/test-secret/key2" {
+			t.Errorf("expected queue key to be 'test/test-secret/key1' or 'test/test-secret/key2', got %q", key)
+		}
+		return nil
+	}).ToController("FakeController", events.NewInMemoryRecorder("fake-controller"))
+
+	go controller.Run(ctx, 1)
+	time.Sleep(1 * time.Second) // Give controller time to start
+
+	if _, err := kubeClient.CoreV1().Secrets("test").Create(ctx, makeFakeSecret(), meta.CreateOptions{}); err != nil {
+		t.Fatalf("failed to create fake secret: %v", err)
+	}
+
+	go func() {
+		wg.Wait()
+		close(controllerSynced)
+	}()
+
+	select {
+	case <-controllerSynced:
+		cancel()
+	case <-time.After(30 * time.Second):
+		t.Fatal("test timeout")
+	}
+}
