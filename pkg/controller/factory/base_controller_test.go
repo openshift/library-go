@@ -92,8 +92,10 @@ func TestBaseController_Reconcile(t *testing.T) {
 		nil,
 	)
 	c := &baseController{
-		name:               "TestController",
-		syncDegradedClient: operatorClient,
+		name:           "TestController",
+		operatorClient: operatorClient,
+
+		handleSyncDegraded: true,
 	}
 
 	c.sync = func(ctx context.Context, controllerContext SyncContext) error {

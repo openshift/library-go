@@ -125,12 +125,12 @@ func NewCSIDriverControllerServiceController(
 		c.sync,
 	).ResyncEvery(
 		time.Minute,
-	).WithSyncDegradedOnError(
-		operatorClient,
-	).ToController(
-		c.name,
-		recorder.WithComponentSuffix("csi-driver-controller-service_"+strings.ToLower(name)),
-	)
+	).WithSyncDegradedOnError().
+		WithOperatorClient(operatorClient).
+		ToController(
+			c.name,
+			recorder.WithComponentSuffix("csi-driver-controller-service_"+strings.ToLower(name)),
+		)
 }
 
 func (c *CSIDriverControllerServiceController) Name() string {

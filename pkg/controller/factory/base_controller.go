@@ -27,15 +27,18 @@ var defaultCacheSyncTimeout = 10 * time.Minute
 
 // baseController represents generic Kubernetes controller boiler-plate
 type baseController struct {
-	name               string
-	cachesToSync       []cache.InformerSynced
-	sync               func(ctx context.Context, controllerContext SyncContext) error
-	syncContext        SyncContext
-	syncDegradedClient v1helpers.OperatorClient
-	resyncEvery        time.Duration
-	resyncSchedules    []cron.Schedule
-	postStartHooks     []PostStartHook
-	cacheSyncTimeout   time.Duration
+	name             string
+	cachesToSync     []cache.InformerSynced
+	sync             func(ctx context.Context, controllerContext SyncContext) error
+	syncContext      SyncContext
+	operatorClient   v1helpers.OperatorClient
+	resyncEvery      time.Duration
+	resyncSchedules  []cron.Schedule
+	postStartHooks   []PostStartHook
+	cacheSyncTimeout time.Duration
+
+	handleSyncDegraded      bool
+	managementStateHandlers map[operatorv1.ManagementState]ManagementStateHandler
 }
 
 var _ Controller = &baseController{}
@@ -199,14 +202,32 @@ func (c *baseController) runWorker(queueCtx context.Context) {
 	workerWaitGroup.Wait()
 }
 
-// reconcile wraps the sync() call and if operator client is set, it handle the degraded condition if sync() returns an error.
+// reconcile wraps the sync() call so that:
+// 1. if any management state handlers are set, execute them first (after getting the operator's management state)
+// 2. perform sync if the management state handlers allow it
+// 3. if we're configured to handle sync errors by going degraded, perform degraded = false/true based on whether the sync() errored out or not
 func (c *baseController) reconcile(ctx context.Context, syncCtx SyncContext) error {
+	if len(c.managementStateHandlers) > 0 {
+		operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+		if err != nil {
+			return fmt.Errorf("failed to get operator's state: %v", err)
+		}
+
+		managementStateHandler := c.managementStateHandlers[operatorSpec.ManagementState]
+		if managementStateHandler != nil {
+			runSync, err := managementStateHandler(ctx, syncCtx)
+			if err != nil || !runSync {
+				return err
+			}
+		}
+	}
+
 	err := c.sync(ctx, syncCtx)
-	if c.syncDegradedClient == nil {
+	if !c.handleSyncDegraded {
 		return err
 	}
 	if err != nil {
-		_, _, updateErr := v1helpers.UpdateStatus(c.syncDegradedClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+		_, _, updateErr := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:    c.name + "Degraded",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "SyncError",
@@ -217,7 +238,7 @@ func (c *baseController) reconcile(ctx context.Context, syncCtx SyncContext) err
 		}
 		return err
 	}
-	_, _, updateErr := v1helpers.UpdateStatus(c.syncDegradedClient,
+	_, _, updateErr := v1helpers.UpdateStatus(c.operatorClient,
 		v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:   c.name + "Degraded",
 			Status: operatorv1.ConditionFalse,
