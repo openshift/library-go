@@ -17,7 +17,6 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // SyntheticRequeueError can be returned from sync() in case of forcing a sync() retry artificially.
@@ -32,7 +31,7 @@ type baseController struct {
 	cachesToSync       []cache.InformerSynced
 	sync               func(ctx context.Context, controllerContext SyncContext) error
 	syncContext        SyncContext
-	syncDegradedClient operatorv1helpers.OperatorClient
+	syncDegradedClient v1helpers.OperatorClient
 	resyncEvery        time.Duration
 	resyncSchedules    []cron.Schedule
 	postStartHooks     []PostStartHook
