@@ -74,7 +74,7 @@ func (c *CSIControllerSet) WithLogLevelController() *CSIControllerSet {
 func (c *CSIControllerSet) WithManagementStateController(operandName string, supportsOperandRemoval bool) *CSIControllerSet {
 	c.managementStateController = management.NewOperatorManagementStateController(operandName, c.operatorClient, c.eventRecorder)
 	if supportsOperandRemoval {
-		management.SetOperatorNotRemovable()
+		v1helpers.SetOperatorNotRemovable()
 	}
 	return c
 }

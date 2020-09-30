@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -75,7 +74,7 @@ func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.Syn
 		return err
 	}
 
-	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+	if !v1helpers.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 

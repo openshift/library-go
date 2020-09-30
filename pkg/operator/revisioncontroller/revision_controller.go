@@ -19,7 +19,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -289,7 +288,7 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 	}
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
-	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+	if !v1helpers.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 
