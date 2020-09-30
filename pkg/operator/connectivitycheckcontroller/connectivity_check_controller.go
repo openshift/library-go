@@ -37,12 +37,14 @@ func NewConnectivityCheckController(
 	apiextensionsInformers apiextensionsinformers.SharedInformerFactory,
 	triggers []factory.Informer,
 	recorder events.Recorder,
+	enabledByDefault bool,
 ) ConnectivityCheckController {
 	c := &connectivityCheckController{
 		namespace:                  namespace,
 		operatorClient:             operatorClient,
 		operatorcontrolplaneClient: operatorcontrolplaneClient,
 		apiextensionsClient:        apiextensionsClient,
+		enabledByDefault:           enabledByDefault,
 	}
 
 	allTriggers := []factory.Informer{
@@ -66,6 +68,8 @@ type connectivityCheckController struct {
 	apiextensionsClient        *apiextensionsclient.Clientset
 
 	podNetworkConnectivityCheckFn PodNetworkConnectivityCheckFunc
+
+	enabledByDefault bool
 }
 
 type PodNetworkConnectivityCheckFunc func(ctx context.Context, syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error)
@@ -102,7 +106,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	}
 
 	// is this controller enabled?
-	enabled, err := Enabled(operatorSpec)
+	enabled, err := c.enabled(operatorSpec)
 	if err != nil {
 		return err
 	}
@@ -174,7 +178,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	return nil
 }
 
-func Enabled(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
+func (c *connectivityCheckController) enabled(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
 	overrides := unsupportedConfigOverrides{}
 	if raw := operatorSpec.UnsupportedConfigOverrides.Raw; len(raw) > 0 {
 		jsonRaw, err := kyaml.ToJSON(raw)
@@ -186,10 +190,18 @@ func Enabled(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
 			return false, err
 		}
 	}
-	if overrides.Operator.EnableConnectivityCheckController == "True" {
+	switch {
+	case c.enabledByDefault && overrides.Operator.EnableConnectivityCheckController == "False":
+		klog.V(3).Info("ConnectivityCheckController is disabled as requested by an unsupported configuration option.")
+		return false, nil
+	case !c.enabledByDefault && overrides.Operator.EnableConnectivityCheckController == "True":
 		klog.V(3).Info("ConnectivityCheckController is enabled as requested by an unsupported configuration option.")
 		return true, nil
+	case c.enabledByDefault:
+		klog.V(3).Info("ConnectivityCheckController is enabled by default.")
+		return true, nil
+	default:
+		klog.V(3).Info("ConnectivityCheckController is disabled by default.")
+		return false, nil
 	}
-	klog.V(3).Info("ConnectivityCheckController is disabled by default.")
-	return false, nil
 }
