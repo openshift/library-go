@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -315,7 +313,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 			// it's an extra write/read, but it makes the state debuggable from outside this process
 			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
-				klog.Infof("%q moving to %v because %s", currNodeState.NodeName, spew.Sdump(*newCurrNodeState), reason)
+				klog.Infof(nodeStatusDiffMessage(newCurrNodeState, currNodeState))
 				newOperatorStatus, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
 				if updateError != nil {
 					return false, updateError
@@ -356,7 +354,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
-			klog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
+			klog.Infof(nodeStatusDiffMessage(newCurrNodeState, currNodeState))
 			if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions); updateError != nil {
 				return false, updateError
 			} else if updated && currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
@@ -370,6 +368,23 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 	}
 
 	return false, nil
+}
+
+func nodeStatusDiffMessage(newCurrNodeState *operatorv1.NodeStatus, currNodeState *operatorv1.NodeStatus) string {
+	compareLog := fmt.Sprintf("Node %s at revision %d targets revision %d.", newCurrNodeState.NodeName, newCurrNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
+	if currNodeState.LastFailedRevision != newCurrNodeState.LastFailedRevision {
+		compareLog += fmt.Sprintf(" The last failed revision changed from %d to %d.", currNodeState.LastFailedRevision, newCurrNodeState.LastFailedRevision)
+	} else {
+		compareLog += fmt.Sprintf(" The last failed revision remains %d.", newCurrNodeState.LastFailedRevision)
+	}
+	if newCurrNodeState.LastFailedRevisionErrors == nil {
+		compareLog += " There are zero errors of failed revisions."
+	} else if !equality.Semantic.DeepEqual(currNodeState.LastFailedRevisionErrors, newCurrNodeState.LastFailedRevisionErrors) {
+		compareLog += fmt.Sprintf(" The failed revisions errors are %v.", newCurrNodeState.LastFailedRevisionErrors)
+	} else {
+		compareLog += fmt.Sprintf(" The failed revisions errors remained the same %v.", newCurrNodeState.LastFailedRevisionErrors)
+	}
+	return compareLog
 }
 
 func (c *InstallerController) updateRevisionStatus(ctx context.Context, operatorStatus *operatorv1.StaticPodOperatorStatus) error {
