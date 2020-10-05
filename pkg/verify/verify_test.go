@@ -171,7 +171,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			v := NewReleaseVerifier(tt.verifiers, tt.store)
 			if err := v.Verify(context.Background(), tt.releaseDigest); (err != nil) != tt.wantErr {
-				t.Errorf("ReleaseVerifier.Verify() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("releaseVerifier.Verify() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -218,8 +218,8 @@ func Test_ReleaseVerifier_String(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := NewReleaseVerifier(tt.verifiers, tt.store)
-			if got := v.String(); got != tt.want {
-				t.Errorf("ReleaseVerifier.String() = %v, want %v", got, tt.want)
+			if got := fmt.Sprintf("%v", v); got != tt.want {
+				t.Errorf("releaseVerifier.String() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -245,10 +245,11 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 	goodStore.Data[signedDigest] = [][]byte{expectedSignature}
 
 	// verify we don't cache a negative result
-	verifier := NewReleaseVerifier(
-		map[string]openpgp.EntityList{"redhat": redhatPublic},
-		&memory.Store{},
-	)
+	verifier := &releaseVerifier{
+		verifiers:      map[string]openpgp.EntityList{"redhat": redhatPublic},
+		store:          &memory.Store{},
+		signatureCache: make(map[string][][]byte),
+	}
 	if err := verifier.Verify(context.Background(), signedDigest); err == nil || err.Error() != "unable to locate a valid signature for one or more sources" {
 		t.Fatal(err)
 	}
@@ -257,10 +258,11 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 	}
 
 	// verify we cache a valid request
-	verifier = NewReleaseVerifier(
-		map[string]openpgp.EntityList{"redhat": redhatPublic},
-		goodStore,
-	)
+	verifier = &releaseVerifier{
+		verifiers:      map[string]openpgp.EntityList{"redhat": redhatPublic},
+		store:          goodStore,
+		signatureCache: make(map[string][][]byte),
+	}
 	if err := verifier.Verify(context.Background(), signedDigest); err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +271,7 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 	}
 
 	// verify we hit the cache instead of verifying, even after changing the store
-	verifier.Store = &memory.Store{}
+	verifier.store = &memory.Store{}
 	if err := verifier.Verify(context.Background(), signedDigest); err != nil {
 		t.Fatal(err)
 	}
@@ -278,10 +280,11 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 	}
 
 	// verify we maintain a maximum number of cache entries a valid request
-	verifier = NewReleaseVerifier(
-		map[string]openpgp.EntityList{"redhat": redhatPublic},
-		goodStore,
-	)
+	verifier = &releaseVerifier{
+		verifiers:      map[string]openpgp.EntityList{"redhat": redhatPublic},
+		store:          goodStore,
+		signatureCache: make(map[string][][]byte),
+	}
 	for i := 0; i < maxSignatureCacheSize*2; i++ {
 		verifier.signatureCache[fmt.Sprintf("test-%d", i)] = [][]byte{[]byte("blah")}
 	}
