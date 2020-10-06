@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -114,6 +115,7 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
+	optionalConfigInformer configinformers.SharedInformerFactory,
 ) *CSIControllerSet {
 	manifestFile := assetFunc(file)
 	c.csiDriverControllerServiceController = csidrivercontrollerservicecontroller.NewCSIDriverControllerServiceController(
@@ -122,6 +124,7 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 		c.operatorClient,
 		kubeClient,
 		namespacedInformerFactory.Apps().V1().Deployments(),
+		optionalConfigInformer,
 		c.eventRecorder,
 	)
 	return c
