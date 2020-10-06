@@ -1,0 +1,14 @@
+approvers:
+  - frobware
+  - knobunc
+  - Miciah
+  - sgreene570
+  - smarterclayton
+reviewers:
+  - danehans
+  - frobware
+  - knobunc
+  - Miciah
+  - sgreene570
+  - smarterclayton
+component: Routing
