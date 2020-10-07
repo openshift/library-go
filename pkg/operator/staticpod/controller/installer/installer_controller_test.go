@@ -1307,7 +1307,6 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 }
 
 func TestSetConditions(t *testing.T) {
-
 	type TestCase struct {
 		name                      string
 		latestAvailableRevision   int32
@@ -1316,9 +1315,12 @@ func TestSetConditions(t *testing.T) {
 		expectedAvailableStatus   operatorv1.ConditionStatus
 		expectedProgressingStatus operatorv1.ConditionStatus
 		expectedFailingStatus     operatorv1.ConditionStatus
+		expectedAvailableMessage  string
+		expectedPendingMessage    string
+		expectedFailingMessage    string
 	}
 
-	testCase := func(name string, available, progressing, failed bool, lastFailedRevision, latest int32, current ...int32) TestCase {
+	testCase := func(name string, available, progressing, failed bool, lastFailedRevision, latest int32, availableMessage, pendingMessage, failingMessage string, current ...int32) TestCase {
 		availableStatus := operatorv1.ConditionFalse
 		pendingStatus := operatorv1.ConditionFalse
 		expectedFailingStatus := operatorv1.ConditionFalse
@@ -1331,16 +1333,56 @@ func TestSetConditions(t *testing.T) {
 		if failed {
 			expectedFailingStatus = operatorv1.ConditionTrue
 		}
-		return TestCase{name, latest, lastFailedRevision, current, availableStatus, pendingStatus, expectedFailingStatus}
+		return TestCase{
+			name:                      name,
+			latestAvailableRevision:   latest,
+			lastFailedRevision:        lastFailedRevision,
+			currentRevisions:          current,
+			expectedAvailableStatus:   availableStatus,
+			expectedProgressingStatus: pendingStatus,
+			expectedFailingStatus:     expectedFailingStatus,
+			expectedAvailableMessage:  availableMessage,
+			expectedPendingMessage:    pendingMessage,
+			expectedFailingMessage:    failingMessage,
+		}
 	}
 
 	testCases := []TestCase{
-		testCase("AvailableProgressingDegraded", true, true, true, 1, 2, 2, 1, 2, 1),
-		testCase("AvailableProgressing", true, true, false, 0, 2, 2, 1, 2, 1),
-		testCase("AvailableNotProgressing", true, false, false, 0, 2, 2, 2, 2),
-		testCase("NotAvailableProgressing", false, true, false, 0, 2, 0, 0),
-		testCase("NotAvailableAtOldLevelProgressing", true, true, false, 0, 2, 1, 1),
-		testCase("NotAvailableNotProgressing", false, false, false, 0, 2),
+		testCase("AvailableProgressingDegraded", true, true, true, 1, 2,
+			"some nodes are on old revisions (1), 2 nodes reached latest available revision 2",
+			"some nodes are on old revisions (1), 2 nodes reached latest available revision 2",
+			"4/4 nodes are failing to achieve revision 1:\n",
+			2, 1, 2, 1),
+		testCase("AvailableProgressingSingular", true, true, true, 1, 2,
+			"nodes progressing towards revision 2",
+			"nodes progressing towards revision 2",
+			"4/4 nodes are failing to achieve revision 1:\n",
+			1, 1, 3, 1),
+		testCase("AvailableProgressing", true, true, false, 0, 2,
+			"some nodes are on old revisions (1), 2 nodes reached latest available revision 2",
+			"some nodes are on old revisions (1), 2 nodes reached latest available revision 2",
+			"",
+			2, 1, 2, 1),
+		testCase("AvailableNotProgressing", true, false, false, 0, 2,
+			"all nodes reached revision 2",
+			"all nodes reached revision 2",
+			"",
+			2, 2, 2),
+		testCase("NotAvailableProgressing", false, true, false, 0, 2,
+			"none of the nodes are available",
+			"none of the nodes are available",
+			"",
+			0, 0),
+		testCase("NotAvailableAtOldLevelProgressing", true, true, false, 0, 2,
+			"nodes progressing towards revision 2",
+			"nodes progressing towards revision 2",
+			"",
+			1, 1),
+		testCase("NotAvailableNotProgressing", false, false, false, 0, 2,
+			"none of the nodes are available",
+			"none of the nodes are available",
+			"",
+		),
 	}
 
 	for _, tc := range testCases {
@@ -1351,27 +1393,44 @@ func TestSetConditions(t *testing.T) {
 			for _, current := range tc.currentRevisions {
 				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current, LastFailedRevision: tc.lastFailedRevision})
 			}
-			setAvailableProgressingNodeInstallerFailingConditions(status)
+			if err := setAvailableProgressingNodeInstallerFailingConditions(status); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.StaticPodsAvailableConditionType)
 			if availableCondition == nil {
 				t.Error("Available condition: not found")
-			} else if availableCondition.Status != tc.expectedAvailableStatus {
+				return
+			}
+			if availableCondition.Status != tc.expectedAvailableStatus {
 				t.Errorf("Available condition: expected status %v, actual status %v", tc.expectedAvailableStatus, availableCondition.Status)
+			}
+			if availableCondition.Message != tc.expectedAvailableMessage {
+				t.Errorf("expected available message:\n%q\ngot:\n%q\n", tc.expectedAvailableMessage, availableCondition.Message)
 			}
 
 			pendingCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.NodeInstallerProgressingConditionType)
 			if pendingCondition == nil {
 				t.Error("Progressing condition: not found")
-			} else if pendingCondition.Status != tc.expectedProgressingStatus {
+				return
+			}
+			if pendingCondition.Status != tc.expectedProgressingStatus {
 				t.Errorf("Progressing condition: expected status %v, actual status %v", tc.expectedProgressingStatus, pendingCondition.Status)
+			}
+			if pendingCondition.Message != tc.expectedPendingMessage {
+				t.Errorf("expected pending message:\n%q\ngot:\n%q\n", tc.expectedPendingMessage, pendingCondition.Message)
 			}
 
 			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.NodeInstallerDegradedConditionType)
 			if failingCondition == nil {
 				t.Error("Failing condition: not found")
-			} else if failingCondition.Status != tc.expectedFailingStatus {
+				return
+			}
+			if failingCondition.Status != tc.expectedFailingStatus {
 				t.Errorf("Failing condition: expected status %v, actual status %v", tc.expectedFailingStatus, failingCondition.Status)
+			}
+			if failingCondition.Message != tc.expectedFailingMessage {
+				t.Errorf("expected failing message:\n%q\ngot:\n%q\n", tc.expectedFailingMessage, failingCondition.Message)
 			}
 		})
 	}

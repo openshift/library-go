@@ -422,15 +422,77 @@ func setNodeStatusFn(status *operatorv1.NodeStatus) v1helpers.UpdateStaticPodSta
 	}
 }
 
+type revisionDescriptionPrinter struct {
+	nodes          []operatorv1.NodeStatus
+	latestRevision int32
+	progressing    bool
+}
+
+func newRevisionDescriptionPrinter(nodes []operatorv1.NodeStatus, latestRevision int32, progressing bool) *revisionDescriptionPrinter {
+	return &revisionDescriptionPrinter{nodes: nodes, latestRevision: latestRevision, progressing: progressing}
+}
+
+func pluralizedNode(i int) string {
+	if i < 2 {
+		return "node"
+	}
+	return "nodes"
+}
+
+func (r revisionDescriptionPrinter) String() string {
+	currentRevisions := sets.NewInt32()
+	latestCount := 0
+	availableCount := 0
+	for i := range r.nodes {
+		c := r.nodes[i].CurrentRevision
+		currentRevisions.Insert(c)
+		if c == r.latestRevision {
+			latestCount++
+		}
+		if c != 0 {
+			availableCount++
+		}
+	}
+
+	notAvailable := fmt.Sprintf("%d %s are not available and ", availableCount, pluralizedNode(availableCount))
+	if availableCount == len(r.nodes) {
+		notAvailable = ""
+	}
+	if availableCount == 0 {
+		return "none of the nodes are available"
+	}
+
+	if !currentRevisions.Has(r.latestRevision) {
+		if r.progressing {
+			return fmt.Sprintf("%snodes progressing towards revision %d", notAvailable, r.latestRevision)
+		}
+		return fmt.Sprintf("%snone of the nodes reached latest available revision %d", notAvailable, r.latestRevision)
+	}
+	if currentRevisions.Equal(sets.NewInt32(r.latestRevision)) {
+		return fmt.Sprintf("%sall nodes reached revision %d", notAvailable, r.latestRevision)
+	}
+	if currentRevisions.Has(r.latestRevision) {
+		oldRevisionStringList := []string{}
+		for _, i := range currentRevisions.Difference(sets.NewInt32(r.latestRevision)).List() {
+			oldRevisionStringList = append(oldRevisionStringList, fmt.Sprintf("%d", i))
+		}
+		return fmt.Sprintf("%ssome nodes are on old revisions (%s), %d %s reached latest available revision %d", notAvailable, strings.Join(oldRevisionStringList, ","), latestCount, pluralizedNode(latestCount), r.latestRevision)
+	}
+	return ""
+}
+
 // setAvailableProgressingConditions sets the Available and Progressing conditions
 func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1.StaticPodOperatorStatus) error {
 	// Available means that we have at least one pod at the latest level
 	numAvailable := 0
 	numAtLatestRevision := 0
 	numProgressing := 0
+	numNodes := len(newStatus.NodeStatuses)
 	counts := map[int32]int{}
 	failingCount := map[int32]int{}
 	failing := map[int32][]string{}
+	var latestRevision int32
+
 	for _, currNodeStatus := range newStatus.NodeStatuses {
 		counts[currNodeStatus.CurrentRevision] = counts[currNodeStatus.CurrentRevision] + 1
 		if currNodeStatus.CurrentRevision != 0 {
@@ -448,31 +510,26 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 		} else {
 			numProgressing += 1
 		}
+
+		if newStatus.LatestAvailableRevision > latestRevision {
+			latestRevision = newStatus.LatestAvailableRevision
+		}
 	}
 
-	revisionStrings := []string{}
-	for _, currentRevision := range Int32KeySet(counts).List() {
-		count := counts[currentRevision]
-		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, currentRevision))
-	}
-	// if we are progressing and no nodes have achieved that level, we should indicate
-	if numProgressing > 0 && counts[newStatus.LatestAvailableRevision] == 0 {
-		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes have achieved new revision %d", 0, newStatus.LatestAvailableRevision))
-	}
-	revisionDescription := strings.Join(revisionStrings, "; ")
+	revisionDescription := newRevisionDescriptionPrinter(newStatus.NodeStatuses, latestRevision, numProgressing > 0).String()
 
 	if numAvailable > 0 {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    condition.StaticPodsAvailableConditionType,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
+			Message: revisionDescription,
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    condition.StaticPodsAvailableConditionType,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "ZeroNodesActive",
-			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
+			Message: revisionDescription,
 		})
 	}
 
@@ -481,14 +538,14 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    condition.NodeInstallerProgressingConditionType,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%s", revisionDescription),
+			Message: revisionDescription,
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    condition.NodeInstallerProgressingConditionType,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "AllNodesAtLatestRevision",
-			Message: fmt.Sprintf("%s", revisionDescription),
+			Message: revisionDescription,
 		})
 	}
 
@@ -496,7 +553,11 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 		failingStrings := []string{}
 		for _, failingRevision := range Int32KeySet(failing).List() {
 			errorStrings := failing[failingRevision]
-			failingStrings = append(failingStrings, fmt.Sprintf("%d nodes are failing on revision %d:\n%v", failingCount[failingRevision], failingRevision, strings.Join(errorStrings, "\n")))
+			if count := failingCount[failingRevision]; count == 1 {
+				failingStrings = append(failingStrings, fmt.Sprintf("%d/%d node is failing to achieve revision %d:\n%v", failingCount[failingRevision], numNodes, failingRevision, strings.Join(errorStrings, "\n")))
+			} else {
+				failingStrings = append(failingStrings, fmt.Sprintf("%d/%d nodes are failing to achieve revision %d:\n%v", failingCount[failingRevision], numNodes, failingRevision, strings.Join(errorStrings, "\n")))
+			}
 		}
 		failingDescription := strings.Join(failingStrings, "; ")
 
