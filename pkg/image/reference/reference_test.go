@@ -163,6 +163,30 @@ func TestParse(t *testing.T) {
 			Tag:      "tag",
 		},
 		{
+			From:     "quay.io",
+			Registry: "quay.io",
+			Name:     "",
+			Tag:      "",
+		},
+		{
+			From:     "quay.io/org",
+			Registry: "quay.io",
+			Name:     "org",
+			Tag:      "",
+		},
+		{
+			From:     "localhost:5000",
+			Registry: "localhost:5000",
+			Name:     "",
+			Tag:      "",
+		},
+		{
+			From:     "localhost:5000/org",
+			Registry: "localhost:5000",
+			Name:     "org",
+			Tag:      "",
+		},
+		{
 			// registry/namespace/name > 255 chars
 			From: fmt.Sprintf("bar:5000/%s/%s:tag", strings.Repeat("a", 63), strings.Repeat("b", 183)),
 			Err:  true,
