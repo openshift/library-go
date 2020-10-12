@@ -246,6 +246,9 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(syncContext f
 			}
 
 			changed, err := setResourceMigrated(gr, s)
+			if err != nil {
+				return err
+			}
 			if !changed {
 				return nil
 			}
