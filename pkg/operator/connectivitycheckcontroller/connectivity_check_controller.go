@@ -3,6 +3,7 @@ package connectivitycheckcontroller
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
@@ -111,7 +112,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		return err
 	}
 
-	_, getCRDErr := c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, podnetworkconnectivitychecksCRDName, metav1.GetOptions{})
+	crd, getCRDErr := c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, podnetworkconnectivitychecksCRDName, metav1.GetOptions{})
 	if getCRDErr != nil && !errors.IsNotFound(getCRDErr) {
 		return getCRDErr
 	}
@@ -119,10 +120,39 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	if !enabled {
 		// controller is not enabled
 		if errors.IsNotFound(getCRDErr) {
+			// crd has already been removed
 			return nil
 		}
+
+		// delete all podnetworkconnectivitychecks managed by this controller instance
+		checks, err := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(c.namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, check := range checks.Items {
+			err := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(c.namespace).Delete(ctx, check.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		// if there are still podnetworkconnectivitychecks resources in other namespaces, do not delete the crd
+		checks, err = c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(checks.Items) > 0 {
+			return nil
+		}
+
+		// if podnetworkconnectivitycheck crd is less than 2 minutes old, don't delete the crd yet. This allows another
+		// instance that has been enabled up to 2 minutes to create its podnetworkconnectivitycheck resources.
+		if crd.CreationTimestamp.Time.After(time.Now().Add(-2 * time.Minute)) {
+			return nil
+		}
+
 		// delete the podnetworkconnectivitycheck crd that should not exist
-		return c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, podnetworkconnectivitychecksCRDName, metav1.DeleteOptions{})
+		return c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
 	}
 
 	// controller is enabled
