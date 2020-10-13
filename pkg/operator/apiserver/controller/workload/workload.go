@@ -25,7 +25,6 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/library-go/pkg/apps/deployment"
-	clusteroperatorv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -114,10 +113,6 @@ func (c *Controller) sync() error {
 	}
 
 	if run, err := c.shouldSync(operatorSpec); !run {
-		return err
-	}
-
-	if fulfilled, err := c.preconditionFulfilled(operatorSpec); !fulfilled || err != nil {
 		return err
 	}
 
@@ -250,26 +245,6 @@ func (c *Controller) shouldSync(operatorSpec *operatorv1.OperatorSpec) (bool, er
 		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return false, nil
 	}
-}
-
-// preconditionFulfilled checks if kube-apiserver is present and available
-func (c *Controller) preconditionFulfilled(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
-	kubeAPIServerClusterOperator, err := c.openshiftClusterConfigClient.Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		message := "clusteroperator/kube-apiserver not found"
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return false, fmt.Errorf(message)
-	}
-	if err != nil {
-		return false, err
-	}
-	if !clusteroperatorv1helpers.IsStatusConditionTrue(kubeAPIServerClusterOperator.Status.Conditions, "Available") {
-		message := fmt.Sprintf("clusteroperator/%s is not Available", kubeAPIServerClusterOperator.Name)
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return false, fmt.Errorf(message)
-	}
-
-	return true, nil
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
