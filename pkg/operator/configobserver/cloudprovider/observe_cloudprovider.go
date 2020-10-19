@@ -154,6 +154,7 @@ func getPlatformName(platformType configv1.PlatformType, recorder events.Recorde
 		cloudProvider = "openstack"
 	case configv1.NonePlatformType:
 	case configv1.OvirtPlatformType:
+	case configv1.KubevirtPlatformType:
 	default:
 		// the new doc on the infrastructure fields requires that we treat an unrecognized thing the same bare metal.
 		// TODO find a way to indicate to the user that we didn't honor their choice
