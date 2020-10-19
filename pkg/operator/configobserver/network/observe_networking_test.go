@@ -82,18 +82,18 @@ func TestObserveServiceClusterIPRanges(t *testing.T) {
 	if err := indexer.Add(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Status: configv1.NetworkStatus{
-			ServiceNetwork: []string{"serviceCIDR"},
+			ServiceNetwork: []string{"serviceCIDRv4", "serviceCIDRv6"},
 		},
 	},
 	); err != nil {
 		t.Fatal(err.Error())
 	}
-	result, err := GetServiceCIDR(configlistersv1.NewNetworkLister(indexer), events.NewInMemoryRecorder("network"))
+	result, err := GetServiceCIDRs(configlistersv1.NewNetworkLister(indexer), events.NewInMemoryRecorder("network"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if expected := "serviceCIDR"; !reflect.DeepEqual(expected, result) {
+	if expected := []string{"serviceCIDRv4", "serviceCIDRv6"}; !reflect.DeepEqual(expected, result) {
 		t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(expected), toYAML(result))
 	}
 }
