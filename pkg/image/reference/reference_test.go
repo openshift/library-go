@@ -187,6 +187,12 @@ func TestParse(t *testing.T) {
 			Tag:      "",
 		},
 		{
+			From:     "wildfly:15.0",
+			Registry: "",
+			Name:     "wildfly",
+			Tag:      "15.0",
+		},
+		{
 			// registry/namespace/name > 255 chars
 			From: fmt.Sprintf("bar:5000/%s/%s:tag", strings.Repeat("a", 63), strings.Repeat("b", 183)),
 			Err:  true,
