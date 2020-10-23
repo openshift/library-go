@@ -98,7 +98,7 @@ func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.Syn
 				// We will still reflect the container not ready state in error conditions, but we don't set the operator as failed.
 				running := ""
 				if containerStatus.State.Running != nil {
-					running = fmt.Sprintf(" running for %s but", time.Now().Sub(containerStatus.State.Running.StartedAt.Time))
+					running = fmt.Sprintf(" running since %s but", containerStatus.State.Running.StartedAt.Time)
 				}
 				errs = append(errs, fmt.Errorf("pod/%s container %q is%s not ready: %s", pod.Name, containerStatus.Name, running, describeWaitingContainerState(containerStatus.State.Waiting)))
 			}
