@@ -3,6 +3,7 @@
 package network
 
 import (
+	"context"
 	"net"
 	"os"
 	"syscall"
@@ -11,17 +12,31 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func dialerWithDefaultOptions() *net.Dialer {
-	return &net.Dialer{
+func dialerWithDefaultOptions() DialContext {
+	nd := &net.Dialer{
 		// TCP_USER_TIMEOUT does affect the behaviour of connect() which is controlled by this field so we set it to the same value
 		Timeout: 25 * time.Second,
-		Control: func(network, address string, con syscall.RawConn) error {
-			var err error
-			err = con.Control(func(fd uintptr) {
-				err = setDefaultSocketOptions(int(fd))
-			})
-			return err
-		},
+	}
+	return wrapDialContext(nd.DialContext)
+}
+
+func wrapDialContext(dc DialContext) DialContext {
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		conn, err := dc(ctx, network, address)
+		if err != nil {
+			return conn, err
+		}
+
+		if tcpCon, ok := conn.(*net.TCPConn); ok {
+			tcpFD, err := tcpCon.File()
+			if err != nil {
+				return conn, err
+			}
+			if err := setDefaultSocketOptions(int(tcpFD.Fd())); err != nil {
+				return conn, err
+			}
+		}
+		return conn, nil
 	}
 }
 
