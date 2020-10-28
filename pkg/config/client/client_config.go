@@ -99,8 +99,7 @@ func (c ClientTransportOverrides) DefaultClientTransport(rt http.RoundTripper) h
 		return rt
 	}
 
-	dialer := network.DefaultClientDialer()
-	transport.DialContext = dialer.DialContext
+	transport.DialContext = network.DefaultClientDialContext()
 
 	// Hold open more internal idle connections
 	transport.MaxIdleConnsPerHost = 100
