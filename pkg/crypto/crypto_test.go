@@ -6,9 +6,13 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"go/importer"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 const certificateLifetime = 365 * 2
@@ -361,4 +365,51 @@ func TestValidityPeriodOfSigningCertificate(t *testing.T) {
 			t.Errorf("expected that CA certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
 		}
 	}
+}
+
+func TestWhitelistEtcdCipherSuites(t *testing.T) {
+	tests := []struct {
+		name    string
+		ciphers []string
+		want    []string
+	}{
+		{
+			name:    "test TLS v1.3",
+			ciphers: configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
+			want:    []string{},
+		},
+		{
+			name:    "test DefaultCiphers()",
+			ciphers: CipherSuitesToNamesOrDie(DefaultCiphers()),
+			want: []string{
+				// TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, valid go 1.14+
+				// TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, valid go 1.14+
+				"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+				"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+				"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+				"TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_RSA_WITH_AES_128_CBC_SHA",
+				"TLS_RSA_WITH_AES_256_CBC_SHA",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := WhitelistEtcdCipherSuites(test.ciphers)
+			sort.Strings(test.want)
+			if !reflect.DeepEqual(test.want, got) {
+				t.Errorf("want %v got %v", test.want, got)
+			}
+		})
+	}
+
 }
