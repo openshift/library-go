@@ -44,6 +44,8 @@ import (
 	utiltrace "k8s.io/utils/trace"
 )
 
+var namespaceGVK = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
+
 func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Interface, includeName bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		// For performance tracking purposes.
@@ -54,9 +56,6 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 			scope.err(errors.NewBadRequest("the dryRun feature is disabled"), w, req)
 			return
 		}
-
-		// TODO: we either want to remove timeout or document it (if we document, move timeout out of this function and declare it in api_installer)
-		timeout := parseTimeout(req.URL.Query().Get("timeout"))
 
 		namespace, name, err := scope.Namer.Name(req)
 		if err != nil {
@@ -74,9 +73,8 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 			}
 		}
 
-		ctx, cancel := context.WithTimeout(req.Context(), timeout)
+		ctx, cancel := context.WithTimeout(req.Context(), requestTimeout)
 		defer cancel()
-		ctx = request.WithNamespace(ctx, namespace)
 		outputMediaType, _, err := negotiation.NegotiateOutputMediaType(req, scope.Serializer, scope)
 		if err != nil {
 			scope.err(err, w, req)
@@ -128,16 +126,20 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 		}
 		trace.Step("Conversion done")
 
+		// On create, get name from new object if unset
+		if len(name) == 0 {
+			_, name, _ = scope.Namer.ObjectName(obj)
+		}
+		if len(namespace) == 0 && *gvk == namespaceGVK {
+			namespace = name
+		}
+		ctx = request.WithNamespace(ctx, namespace)
+
 		ae := request.AuditEventFrom(ctx)
 		admit = admission.WithAudit(admit, ae)
 		audit.LogRequestObject(ae, obj, scope.Resource, scope.Subresource, scope.Serializer)
 
 		userInfo, _ := request.UserFrom(ctx)
-
-		// On create, get name from new object if unset
-		if len(name) == 0 {
-			_, name, _ = scope.Namer.ObjectName(obj)
-		}
 
 		trace.Step("About to store object in database")
 		admissionAttributes := admission.NewAttributesRecord(obj, nil, scope.Kind, namespace, name, scope.Resource, scope.Subresource, admission.Create, options, dryrun.IsDryRun(options.DryRun), userInfo)
@@ -150,7 +152,7 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 				options,
 			)
 		}
-		result, err := finishRequest(timeout, func() (runtime.Object, error) {
+		result, err := finishRequest(ctx, func() (runtime.Object, error) {
 			if scope.FieldManager != nil {
 				liveObj, err := scope.Creater.New(scope.Kind)
 				if err != nil {
