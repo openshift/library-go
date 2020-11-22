@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -110,11 +111,47 @@ func TestCheckout(t *testing.T) {
 	}
 }
 
+func TestAddConfig(t *testing.T) {
+	r := &repository{git: makeExecFunc("", nil)}
+	err := r.AddConfig("test/dir", "http.proxy", "http://bad.proxy")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestAddLocalConfig(t *testing.T) {
+	r := &repository{git: makeExecFunc("", nil)}
+	err := r.AddLocalConfig("/tmp/git", "http.proxy", "http://bad.proxy")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	msg := "cannot have more than one .gitconfig file"
+	r.git = makeExecFunc("", errors.New(msg))
+	err = r.AddLocalConfig("/tmp/git", "http.proxy", "http://bad.proxy")
+	if err == nil {
+		t.Error("expected error, got nil")
+		return
+	}
+	if err.Error() != msg {
+		t.Errorf("expected error %q, got %v", msg, err)
+	}
+}
+
 func TestAddGlobalConfig(t *testing.T) {
 	r := &repository{git: makeExecFunc("", nil)}
 	err := r.AddGlobalConfig("http.proxy", "http://bad.proxy")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	}
+	msg := "cannot have more than one .gitconfig file"
+	r.git = makeExecFunc("", errors.New(msg))
+	err = r.AddGlobalConfig("http.proxy", "http://bad.proxy")
+	if err == nil {
+		t.Error("expected error, got nil")
+		return
+	}
+	if err.Error() != msg {
+		t.Errorf("expected error %q, got %v", msg, err)
 	}
 }
 
