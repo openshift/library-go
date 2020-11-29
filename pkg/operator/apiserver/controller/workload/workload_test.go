@@ -28,6 +28,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		workload                        *appsv1.Deployment
 		pods                            []*corev1.Pod
 		operatorConfigAtHighestRevision bool
+		operatorPreconditionsNotReady   bool
 		errors                          []error
 
 		validateOperatorStatus func(*operatorv1.OperatorStatus) error
@@ -309,6 +310,37 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
 			},
 		},
+		{
+			name:                          "preconditions not fulfilled",
+			operatorPreconditionsNotReady: true,
+			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
+						Status:  operatorv1.ConditionFalse,
+						Reason:  "PreconditionNotFulfilled",
+						Message: "",
+					},
+					{
+						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "PreconditionNotFulfilled",
+						Message: "the operator didn't specify what preconditions are missing",
+					},
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
+						Status:  operatorv1.ConditionFalse,
+						Reason:  "PreconditionNotFulfilled",
+						Message: "",
+					},
+					{
+						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status: operatorv1.ConditionFalse,
+					},
+				}
+				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -326,7 +358,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 
 			// act
 			target := &Controller{operatorClient: fakeOperatorClient, name: defaultControllerName, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
-			err := target.updateOperatorStatus(scenario.workload, scenario.operatorConfigAtHighestRevision, scenario.errors)
+			err := target.updateOperatorStatus(scenario.workload, scenario.operatorConfigAtHighestRevision, !scenario.operatorPreconditionsNotReady, scenario.errors)
 			if err != nil && len(scenario.errors) == 0 {
 				t.Fatal(err)
 			}
