@@ -13,7 +13,6 @@ import (
 
 	appsv1 "github.com/openshift/api/apps/v1"
 	templatev1 "github.com/openshift/api/template/v1"
-	"github.com/openshift/library-go/pkg/legacyapi/legacygroupification"
 	. "github.com/openshift/library-go/pkg/template/generator"
 )
 
@@ -74,7 +73,7 @@ func (p *Processor) Process(template *templatev1.Template) field.ErrorList {
 		if len(item.Raw) > 0 {
 			// TODO: use runtime.DecodeList when it returns ValidationErrorList
 			decodedObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, item.Raw)
-			if err != nil {
+			if err != nil || decodedObj == nil {
 				templateErrors = append(templateErrors, field.Invalid(idxPath.Child("objects"), item, fmt.Sprintf("unable to handle object: %v", err)))
 				continue
 			}
@@ -94,10 +93,12 @@ func (p *Processor) Process(template *templatev1.Template) field.ErrorList {
 			templateErrors = append(templateErrors, field.Invalid(idxPath.Child("parameters"), template.Parameters, err.Error()))
 		}
 
-		// this changes oapi GVKs to groupified GVKs so they can be submitted to modern, aggregated servers
-		// It is done after substitution in case someone substitutes a kind.
+		// This can only happen when currObj is nil, but better be safe than sorry.
+		if newItem == nil {
+			continue
+		}
+
 		gvk := currObj.GetObjectKind().GroupVersionKind()
-		legacygroupification.OAPIToGroupifiedGVK(&gvk)
 		newItem.GetObjectKind().SetGroupVersionKind(gvk)
 
 		if err := addObjectLabels(newItem, template.ObjectLabels); err != nil {
