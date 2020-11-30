@@ -560,7 +560,7 @@ func TestStateController(t *testing.T) {
 		//
 		// verifies if removing a target GR doesn't have effect - we will keep encrypting that GR
 		{
-			name:            "a user can't stop encrypting config maps",
+			name:            "a controller can stop encrypting config maps",
 			targetNamespace: "kms",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
@@ -620,7 +620,38 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keysRes := encryptiontesting.EncryptionKeysResourceTuple{
+					Resource: "secrets",
+					Keys: []apiserverconfigv1.Key{
+						{
+							Name:   "34",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
+					},
+				}
+				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
+				return ec
+			}(),
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						actualSecret := updateAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 		},
 
 		// scenario 10

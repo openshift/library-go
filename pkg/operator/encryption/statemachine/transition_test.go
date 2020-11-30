@@ -209,7 +209,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			}),
 		},
 		{
-			"config exists with two resources => 2nd resource stays",
+			"config exists with two resources, GRs reduced => only one resource stays",
 			args{
 				&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
@@ -248,19 +248,6 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
-						Providers: []apiserverconfigv1.ProviderConfiguration{{
-							AESCBC: &apiserverconfigv1.AESConfiguration{
-								Keys: []apiserverconfigv1.Key{{
-									Name:   "1",
-									Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
-								}},
-							},
-						}, {
-							Identity: &apiserverconfigv1.IdentityConfiguration{},
-						}},
-					},
-					{
-						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
