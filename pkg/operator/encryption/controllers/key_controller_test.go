@@ -343,7 +343,7 @@ func TestKeyController(t *testing.T) {
 			}
 			provider := newTestProvider(scenario.targetGRs)
 
-			target := NewKeyController(scenario.targetNamespace, provider, deployer, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
+			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
 
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
@@ -366,6 +366,102 @@ func TestKeyController(t *testing.T) {
 			}
 			if scenario.validateOperatorClientFunc != nil {
 				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
+			}
+		})
+	}
+}
+
+var flatEncryptionJSON = `
+{
+  "encryption": {
+    "reason": "need-a-new-key"
+  }
+}
+`
+
+var nestedEncryptionConfigJSON = `
+{
+  "oauthAPIServer": {
+    "encryption": {
+      "reason": "a-new-key-is-needed"
+    }
+  }
+}
+`
+
+var complexNestedEncryptionConfigJSON = `
+{
+  "encryption": {
+    "reason": "top-level-reason"
+  },
+  "oauthAPIServer": {
+    "encryption": {
+      "reason": "oauth-api-reason"
+    }
+  },
+  "differentAPIServer": {
+    "encryption": {
+      "reason": "different-api-reason"
+    }
+  }
+}
+`
+
+func TestGetCurrentModeAndExternalReason(t *testing.T) {
+	scenarios := []struct {
+		name                  string
+		observedConfig        []byte
+		prefix                []string
+		apiServerObjects      []runtime.Object
+		expectedReasonFromCfg string
+	}{
+		{
+			name:                  "no prefix provided, flat observed config",
+			observedConfig:        []byte(flatEncryptionJSON),
+			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			expectedReasonFromCfg: "need-a-new-key",
+		},
+
+		{
+			name:                  "with prefix and nested observed config",
+			observedConfig:        []byte(nestedEncryptionConfigJSON),
+			prefix:                []string{"oauthAPIServer"},
+			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			expectedReasonFromCfg: "a-new-key-is-needed",
+		},
+
+		{
+			name:                  "with prefix and complex observed config",
+			observedConfig:        []byte(complexNestedEncryptionConfigJSON),
+			prefix:                []string{"oauthAPIServer"},
+			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			expectedReasonFromCfg: "oauth-api-reason",
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			// setup
+			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						UnsupportedConfigOverrides: runtime.RawExtension{Raw: scenario.observedConfig},
+					},
+				}, &operatorv1.StaticPodOperatorStatus{}, nil, nil,
+			)
+			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
+			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
+
+			// act
+			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
+			_, externalReason, err := target.getCurrentModeAndExternalReason()
+
+			// validate
+			if err != nil {
+				t.Error(err)
+			}
+			if externalReason != scenario.expectedReasonFromCfg {
+				t.Errorf("unexpected reason read from the config: %q, expected: %q", externalReason, scenario.expectedReasonFromCfg)
 			}
 		})
 	}
