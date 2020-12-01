@@ -17,18 +17,17 @@ import (
 
 func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 	tests := []struct {
-		name     string
-		existing []runtime.Object
-		input    *admissionv1.ValidatingWebhookConfiguration
+		name            string
+		existing        []runtime.Object
+		input           *admissionv1.ValidatingWebhookConfiguration
+		inputGeneration int64
 
 		expectedModified bool
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
-			name: "create",
-			input: &admissionv1.ValidatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-			},
+			name:  "create",
+			input: validatingwebhook("webhook1"),
 
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -41,9 +40,8 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 				if !actions[1].Matches("create", "validatingwebhookconfigurations") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &admissionv1.ValidatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				}
+				expected := validatingwebhookWithSpecHash("webhook1")
+
 				actual := actions[1].(clienttesting.CreateAction).GetObject().(*admissionv1.ValidatingWebhookConfiguration)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
@@ -51,24 +49,10 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 			},
 		},
 		{
-			name: "update webhooks",
-			input: &admissionv1.ValidatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Webhooks: []admissionv1.ValidatingWebhook{
-					{
-						Name: "webhook1",
-					},
-				},
-			},
+			name:  "update webhooks",
+			input: validatingwebhook("webhook1"),
 			existing: []runtime.Object{
-				&admissionv1.ValidatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.ValidatingWebhook{
-						{
-							Name: "webhook2",
-						},
-					},
-				},
+				validatingwebhookWithSpecHash("webhook2"),
 			},
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -81,14 +65,7 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 				if !actions[1].Matches("update", "validatingwebhookconfigurations") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &admissionv1.ValidatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.ValidatingWebhook{
-						{
-							Name: "webhook1",
-						},
-					},
-				}
+				expected := validatingwebhookWithSpecHash("webhook1")
 				actual := actions[1].(clienttesting.UpdateActionImpl).GetObject().(*admissionv1.ValidatingWebhookConfiguration)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
@@ -96,30 +73,53 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 			},
 		},
 		{
-			name: "no update",
-			input: &admissionv1.ValidatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Webhooks: []admissionv1.ValidatingWebhook{
-					{
-						Name: "webhook1",
-					},
-					{
-						Name: "webhook2",
-					},
-				},
+			name:             "no update",
+			input:            validatingwebhook("webhook1"),
+			existing:         []runtime.Object{validatingwebhookWithSpecHash("webhook1")},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "validatingwebhookconfigurations") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
 			},
+		},
+		{
+			name:            "update by different generation",
+			input:           validatingwebhook("webhook1"),
+			inputGeneration: 0,
 			existing: []runtime.Object{
-				&admissionv1.ValidatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.ValidatingWebhook{
-						{
-							Name: "webhook1",
-						},
-						{
-							Name: "webhook2",
-						},
-					},
-				},
+				func() *admissionv1.ValidatingWebhookConfiguration {
+					hook := validatingwebhookWithSpecHash("webhook1")
+					hook.Generation = 1
+					return hook
+				}(),
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "validatingwebhookconfigurations") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "validatingwebhookconfigurations") {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name:            "update with default CAbundle set",
+			input:           validatingwebhook("webhook1"),
+			inputGeneration: 0,
+			existing: []runtime.Object{
+				func() *admissionv1.ValidatingWebhookConfiguration {
+					hook := validatingwebhookWithSpecHash("webhook1")
+					hook.Webhooks[0].ClientConfig.CABundle = []byte("test")
+					return hook
+				}(),
 			},
 			expectedModified: false,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -136,7 +136,7 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyValidatingWebhookConfiguration(client.AdmissionregistrationV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyValidatingWebhookConfiguration(client.AdmissionregistrationV1(), events.NewInMemoryRecorder("test"), test.input, test.inputGeneration)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -150,18 +150,17 @@ func TestApplyValidatingWebhookConfiguration(t *testing.T) {
 
 func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 	tests := []struct {
-		name     string
-		existing []runtime.Object
-		input    *admissionv1.MutatingWebhookConfiguration
+		name            string
+		existing        []runtime.Object
+		input           *admissionv1.MutatingWebhookConfiguration
+		inputGeneration int64
 
 		expectedModified bool
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
-			name: "create",
-			input: &admissionv1.MutatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-			},
+			name:  "create",
+			input: mutatingwebhook("webhook1"),
 
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -174,9 +173,7 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 				if !actions[1].Matches("create", "mutatingwebhookconfigurations") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &admissionv1.MutatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				}
+				expected := mutatingwebhookWithSpecHash("webhook1")
 				actual := actions[1].(clienttesting.CreateAction).GetObject().(*admissionv1.MutatingWebhookConfiguration)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
@@ -184,24 +181,10 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 			},
 		},
 		{
-			name: "update webhooks",
-			input: &admissionv1.MutatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Webhooks: []admissionv1.MutatingWebhook{
-					{
-						Name: "webhook1",
-					},
-				},
-			},
+			name:  "update webhooks",
+			input: mutatingwebhook("webhook1"),
 			existing: []runtime.Object{
-				&admissionv1.MutatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.MutatingWebhook{
-						{
-							Name: "webhook2",
-						},
-					},
-				},
+				mutatingwebhookWithSpecHash("webhook2"),
 			},
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -214,14 +197,7 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 				if !actions[1].Matches("update", "mutatingwebhookconfigurations") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &admissionv1.MutatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.MutatingWebhook{
-						{
-							Name: "webhook1",
-						},
-					},
-				}
+				expected := mutatingwebhookWithSpecHash("webhook1")
 				actual := actions[1].(clienttesting.UpdateActionImpl).GetObject().(*admissionv1.MutatingWebhookConfiguration)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
@@ -229,30 +205,53 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 			},
 		},
 		{
-			name: "no update",
-			input: &admissionv1.MutatingWebhookConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Webhooks: []admissionv1.MutatingWebhook{
-					{
-						Name: "webhook1",
-					},
-					{
-						Name: "webhook2",
-					},
-				},
+			name:             "no update",
+			input:            mutatingwebhook("webhook1"),
+			existing:         []runtime.Object{mutatingwebhookWithSpecHash("webhook1")},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "mutatingwebhookconfigurations") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
 			},
+		},
+		{
+			name:            "update with differernt generation",
+			input:           mutatingwebhook("webhook1"),
+			inputGeneration: 0,
 			existing: []runtime.Object{
-				&admissionv1.MutatingWebhookConfiguration{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Webhooks: []admissionv1.MutatingWebhook{
-						{
-							Name: "webhook1",
-						},
-						{
-							Name: "webhook2",
-						},
-					},
-				},
+				func() *admissionv1.MutatingWebhookConfiguration {
+					hook := mutatingwebhookWithSpecHash("webhook1")
+					hook.Generation = 1
+					return hook
+				}(),
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "mutatingwebhookconfigurations") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "mutatingwebhookconfigurations") {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name:            "update with default CAbundle set",
+			input:           mutatingwebhook("webhook1"),
+			inputGeneration: 0,
+			existing: []runtime.Object{
+				func() *admissionv1.MutatingWebhookConfiguration {
+					hook := mutatingwebhookWithSpecHash("webhook1")
+					hook.Webhooks[0].ClientConfig.CABundle = []byte("test")
+					return hook
+				}(),
 			},
 			expectedModified: false,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -269,7 +268,7 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyMutatingWebhookConfiguration(client.AdmissionregistrationV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyMutatingWebhookConfiguration(client.AdmissionregistrationV1(), events.NewInMemoryRecorder("test"), test.input, test.inputGeneration)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -279,4 +278,50 @@ func TestApplyMutatingWebhookConfiguration(t *testing.T) {
 			test.verifyActions(client.Actions(), t)
 		})
 	}
+}
+
+func validatingwebhook(webhookName string) *admissionv1.ValidatingWebhookConfiguration {
+	return &admissionv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+		Webhooks: []admissionv1.ValidatingWebhook{
+			{
+				Name: webhookName,
+				ClientConfig: admissionv1.WebhookClientConfig{
+					Service: &admissionv1.ServiceReference{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+				},
+			},
+		},
+	}
+}
+
+func validatingwebhookWithSpecHash(webhookName string) *admissionv1.ValidatingWebhookConfiguration {
+	hook := validatingwebhook(webhookName)
+	SetSpecHashAnnotation(&hook.ObjectMeta, hook.Webhooks)
+	return hook
+}
+
+func mutatingwebhook(webhookName string) *admissionv1.MutatingWebhookConfiguration {
+	return &admissionv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+		Webhooks: []admissionv1.MutatingWebhook{
+			{
+				Name: webhookName,
+				ClientConfig: admissionv1.WebhookClientConfig{
+					Service: &admissionv1.ServiceReference{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+				},
+			},
+		},
+	}
+}
+
+func mutatingwebhookWithSpecHash(webhookName string) *admissionv1.MutatingWebhookConfiguration {
+	hook := mutatingwebhook(webhookName)
+	SetSpecHashAnnotation(&hook.ObjectMeta, hook.Webhooks)
+	return hook
 }
