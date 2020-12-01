@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
@@ -257,29 +256,9 @@ func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, e
 		return "", "", err
 	}
 
-	rawOperatorConfig, err := unstructuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
+	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
 		return "", "", err
-	}
-
-	// TODO make this un-settable once set
-	// ex: we could require the tech preview no upgrade flag to be set before we will honor this field
-	type unsupportedEncryptionConfig struct {
-		Encryption struct {
-			Reason string `json:"reason"`
-		} `json:"encryption"`
-	}
-	encryptionConfig := &unsupportedEncryptionConfig{}
-	if raw := rawOperatorConfig; len(raw) > 0 {
-		jsonRaw, err := kyaml.ToJSON(raw)
-		if err != nil {
-			klog.Warning(err)
-			// maybe it's just json
-			jsonRaw = raw
-		}
-		if err := json.Unmarshal(jsonRaw, encryptionConfig); err != nil {
-			return "", "", err
-		}
 	}
 
 	reason := encryptionConfig.Encryption.Reason
@@ -348,8 +327,35 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
 }
 
+// TODO make this un-settable once set
+// ex: we could require the tech preview no upgrade flag to be set before we will honor this field
+type unsupportedEncryptionConfig struct {
+	Encryption struct {
+		Reason string `json:"reason"`
+	} `json:"encryption"`
+}
+
+// structuredUnsupportedConfigFrom returns unsupportedEncryptionConfig from the operator's observedConfig
+func structuredUnsupportedConfigFrom(rawConfig []byte, prefix []string) (unsupportedEncryptionConfig, error) {
+	if len(rawConfig) == 0 {
+		return unsupportedEncryptionConfig{}, nil
+	}
+
+	unstructuredRawJSONCfg, err := unstructuredUnsupportedConfigFromWithPrefix(rawConfig, prefix)
+	if err != nil {
+		return unsupportedEncryptionConfig{}, err
+	}
+
+	encryptionConfig := unsupportedEncryptionConfig{}
+	if err := json.Unmarshal(unstructuredRawJSONCfg, &encryptionConfig); err != nil {
+		return unsupportedEncryptionConfig{}, err
+	}
+
+	return encryptionConfig, nil
+}
+
 // unstructuredUnsupportedConfigFrom returns the configuration from the operator's observedConfig field in the subtree given by the prefix
-func unstructuredUnsupportedConfigFrom(rawConfig []byte, prefix []string) ([]byte, error) {
+func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []string) ([]byte, error) {
 	if len(prefix) == 0 {
 		return rawConfig, nil
 	}
@@ -357,6 +363,7 @@ func unstructuredUnsupportedConfigFrom(rawConfig []byte, prefix []string) ([]byt
 	prefixedConfig := map[string]interface{}{}
 	if err := json.NewDecoder(bytes.NewBuffer(rawConfig)).Decode(&prefixedConfig); err != nil {
 		klog.V(4).Infof("decode of existing config failed with error: %v", err)
+		return nil, err
 	}
 
 	actualConfig, _, err := unstructured.NestedFieldCopy(prefixedConfig, prefix...)
