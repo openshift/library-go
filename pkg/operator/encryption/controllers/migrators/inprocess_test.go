@@ -41,6 +41,10 @@ func TestInProcessMigrator(t *testing.T) {
 		{Resource: "configmaps"},
 		{Resource: "secrets"},
 	}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		schema.GroupResource{Resource: "secrets"}.WithVersion("v1"):    "SecretList",
+		schema.GroupResource{Resource: "configmaps"}.WithVersion("v1"): "ConfigMapList",
+	}
 
 	tests := []struct {
 		name      string
@@ -74,7 +78,7 @@ func TestInProcessMigrator(t *testing.T) {
 				unstructured.SetNestedField(rawUnstructured, reflect.TypeOf(rawObject).Elem().Name(), "kind")
 				unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: rawUnstructured})
 			}
-			dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, unstructuredObjs...)
+			dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, unstructuredObjs...)
 
 			discoveryClient := &fakeDisco{
 				delegate: fakeKubeClient.Discovery(),
