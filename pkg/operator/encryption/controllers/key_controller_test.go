@@ -437,6 +437,17 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			expectedReasonFromCfg: "oauth-api-reason",
 		},
+
+		{
+			name:             "with prefix reading empty config works",
+			prefix:           []string{"oauthAPIServer"},
+			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+		},
+
+		{
+			name:             "reading empty config works",
+			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+		},
 	}
 
 	for _, scenario := range scenarios {
