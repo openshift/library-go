@@ -25,6 +25,7 @@ type runner interface {
 
 func NewControllers(
 	component string,
+	unsupportedConfigPrefix []string,
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
@@ -45,6 +46,7 @@ func NewControllers(
 		controllers: []runner{
 			controllers.NewKeyController(
 				component,
+				unsupportedConfigPrefix,
 				provider,
 				deployer,
 				operatorClient,

@@ -66,7 +66,7 @@ type APIServerControllerSet struct {
 	apiServiceController            controllerWrapper
 	clusterOperatorStatusController controllerWrapper
 	configUpgradableController      controllerWrapper
-	encryptionControllers           controllerWrapper
+	encryptionControllers           encryptionControllerBuilder
 	finalizerController             controllerWrapper
 	logLevelController              controllerWrapper
 	pruneController                 controllerWrapper
@@ -318,19 +318,26 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 ) *APIServerControllerSet {
-	cs.encryptionControllers.controller = encryption.NewControllers(
-		component,
-		provider,
-		deployer,
-		migrator,
-		cs.operatorClient,
-		apiServerClient,
-		apiServerInformer,
-		kubeInformersForNamespaces,
-		secretsClient,
-		cs.eventRecorder,
-	)
 
+	cs.encryptionControllers = encryptionControllerBuilder{
+		operatorClient: cs.operatorClient,
+		eventRecorder:  cs.eventRecorder,
+
+		component:                  component,
+		provider:                   provider,
+		deployer:                   deployer,
+		migrator:                   migrator,
+		apiServerClient:            apiServerClient,
+		apiServerInformer:          apiServerInformer,
+		kubeInformersForNamespaces: kubeInformersForNamespaces,
+		secretsClient:              secretsClient,
+	}
+
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithUnsupportedConfigPrefixForEncryptionControllers(prefix ...string) *APIServerControllerSet {
+	cs.encryptionControllers.unsupportedConfigPrefix = prefix
 	return cs
 }
 
@@ -348,7 +355,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"apiServiceController":            cs.apiServiceController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
-		"encryptionControllers":           cs.encryptionControllers,
+		"encryptionControllers":           cs.encryptionControllers.build(),
 		"finalizerController":             cs.finalizerController,
 		"logLevelController":              cs.logLevelController,
 		"pruneController":                 cs.pruneController,
@@ -373,4 +380,43 @@ func (cs *preparedAPIServerControllerSet) Run(ctx context.Context) {
 	for i := range cs.controllers {
 		go cs.controllers[i].Run(ctx, 1)
 	}
+}
+
+type encryptionControllerBuilder struct {
+	controllerWrapper
+
+	operatorClient v1helpers.OperatorClient
+	eventRecorder  events.Recorder
+
+	component                  string
+	provider                   controllers.Provider
+	deployer                   statemachine.Deployer
+	migrator                   migrators.Migrator
+	secretsClient              corev1.SecretsGetter
+	apiServerClient            configv1client.APIServerInterface
+	apiServerInformer          configv1informers.APIServerInformer
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
+
+	unsupportedConfigPrefix []string
+}
+
+func (e *encryptionControllerBuilder) build() controllerWrapper {
+	if e.emptyAllowed {
+		return e.controllerWrapper
+	}
+	e.controllerWrapper.controller = encryption.NewControllers(
+		e.component,
+		e.unsupportedConfigPrefix,
+		e.provider,
+		e.deployer,
+		e.migrator,
+		e.operatorClient,
+		e.apiServerClient,
+		e.apiServerInformer,
+		e.kubeInformersForNamespaces,
+		e.secretsClient,
+		e.eventRecorder,
+	)
+
+	return e.controllerWrapper
 }

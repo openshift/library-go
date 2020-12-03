@@ -91,6 +91,24 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		}
 	}
 
+	// remove unused GRs from the desired encryption configuration
+	// toBeEncryptedGRs is not static and can change over time
+	// here we are removing resources that his operator doesn't manage anymore
+	for actualGR := range desiredEncryptionState {
+		found := false
+		for _, desiredGR := range toBeEncryptedGRs {
+			if actualGR == desiredGR {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			delete(desiredEncryptionState, actualGR)
+			klog.V(4).Infof("removed %s from the encryption config as this operator doesn't manage this GR anymore", actualGR.String())
+		}
+	}
+
 	//
 	// STEP 1: without secrets, wait for the key controller to create one
 	//
@@ -198,5 +216,6 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		desiredEncryptionState[gr] = grState
 	}
 	klog.V(4).Infof("write key %s set as sole write key", writeKey.Key.Name)
+
 	return desiredEncryptionState
 }

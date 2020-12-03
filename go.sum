@@ -475,12 +475,12 @@ github.com/opencontainers/image-spec v1.0.1 h1:JMemWkRwHx4Zj+fVxWoMCFm/8sYGGrUVo
 github.com/opencontainers/image-spec v1.0.1/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e h1:NKMVwQeEqNOp8DVM4J1HjpZHRcQO7MAVfZwFxs+Bqec=
 github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
-github.com/openshift/api v0.0.0-20201119144013-9f0856e7c657 h1:bkT9oJOhxwbkWd4v7AJ5X3RYAZ/OALAWDvmng6+Sxjo=
-github.com/openshift/api v0.0.0-20201119144013-9f0856e7c657/go.mod h1:NKnEfTE3b7Uah3CIQm3hMHIfT9hmf7z4JovNbFeI7oI=
+github.com/openshift/api v0.0.0-20201202154616-6e9423fef259 h1:w0eey4js5EqRaW8/ESAxWOhQwLOnYZJcsH2t/KMbf4w=
+github.com/openshift/api v0.0.0-20201202154616-6e9423fef259/go.mod h1:NKnEfTE3b7Uah3CIQm3hMHIfT9hmf7z4JovNbFeI7oI=
 github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab h1:lBrojddP6C9C2p67EMs2vcdpC8eF+H0DDom+fgI2IF0=
 github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
-github.com/openshift/client-go v0.0.0-20201119144744-148025d790a9 h1:n59VoDq8KbNDmUGPNGhX5+ZTJfkjbjzKzZ9djjRKtWA=
-github.com/openshift/client-go v0.0.0-20201119144744-148025d790a9/go.mod h1:kIO8lpOckX7wa2eh9nsi015iba5m886wKj57kQYlJac=
+github.com/openshift/client-go v0.0.0-20201202195122-30169f98c901 h1:rVzIYOJnhAs4sSFTXDIyryrhp534mZMhrvsLs1T8bR0=
+github.com/openshift/client-go v0.0.0-20201202195122-30169f98c901/go.mod h1:id9bmwMB1KX2n8+URh8tr1zE9q0r9/aEfUkfgQA4qCI=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=

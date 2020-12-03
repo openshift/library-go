@@ -2,6 +2,7 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -341,6 +343,121 @@ func TestDegraded(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRelatedObjects(t *testing.T) {
+	// save typing
+	ref := func(name string) configv1.ObjectReference {
+		return configv1.ObjectReference{
+			Group:     "A",
+			Resource:  "A",
+			Namespace: "A",
+			Name:      name,
+		}
+	}
+
+	testCases := []struct {
+		name       string
+		hasDynamic bool
+		staticRO   []configv1.ObjectReference
+		dynamicRO  []configv1.ObjectReference
+		existingRO []configv1.ObjectReference
+		expected   []configv1.ObjectReference
+	}{
+		{
+			name:       "static",
+			hasDynamic: false,
+			staticRO:   []configv1.ObjectReference{ref("A")},
+			existingRO: []configv1.ObjectReference{ref("B")},
+			expected:   []configv1.ObjectReference{ref("A")},
+		},
+		{
+			name:       "dynamic",
+			hasDynamic: true,
+			dynamicRO:  []configv1.ObjectReference{ref("A")},
+			existingRO: []configv1.ObjectReference{ref("B")},
+			expected:   []configv1.ObjectReference{ref("A")},
+		},
+		{
+			name:       "dynamic and static",
+			hasDynamic: true,
+			dynamicRO:  []configv1.ObjectReference{ref("A")},
+			staticRO:   []configv1.ObjectReference{ref("B")},
+			existingRO: []configv1.ObjectReference{ref("C")},
+			expected:   []configv1.ObjectReference{ref("A"), ref("B")},
+		},
+		{
+			name:       "dynamic unset",
+			hasDynamic: true,
+			dynamicRO:  nil,
+			existingRO: []configv1.ObjectReference{ref("C")},
+			expected:   []configv1.ObjectReference{ref("C")},
+		},
+		{
+			name:       "dynamic unset static existing",
+			hasDynamic: true,
+			dynamicRO:  nil,
+			staticRO:   []configv1.ObjectReference{ref("B")},
+			existingRO: []configv1.ObjectReference{ref("C")},
+			expected:   []configv1.ObjectReference{ref("B"), ref("C")},
+		},
+	}
+	for idx, tc := range testCases {
+		t.Run(fmt.Sprintf("%d/%s", idx, tc.name), func(t *testing.T) {
+
+			clusterOperator := &configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+				Status: configv1.ClusterOperatorStatus{
+					RelatedObjects: tc.existingRO,
+				},
+			}
+			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			indexer.Add(clusterOperator)
+
+			statusClient := &statusClient{
+				t:      t,
+				status: operatorv1.OperatorStatus{},
+			}
+			controller := &StatusSyncer{
+				clusterOperatorName:   "OPERATOR_NAME",
+				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:        statusClient,
+				versionGetter:         NewVersionGetter(),
+				relatedObjects:        tc.staticRO,
+			}
+			controller = controller.WithDegradedInertia(MustNewInertia(
+				2*time.Minute,
+				InertiaCondition{
+					ConditionTypeMatcher: regexp.MustCompile("^TypeCDegraded$"),
+					Duration:             5 * time.Minute,
+				},
+				InertiaCondition{
+					ConditionTypeMatcher: regexp.MustCompile("^TypeDDegraded$"),
+					Duration:             time.Minute,
+				},
+			).Inertia)
+
+			if tc.hasDynamic {
+				controller.WithRelatedObjectsFunc(func() (bool, []configv1.ObjectReference) {
+					if tc.dynamicRO == nil {
+						return false, nil
+					}
+					return true, tc.dynamicRO
+				})
+			}
+
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+				t.Errorf("unexpected sync error: %v", err)
+				return
+			}
+			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
+			assert.ElementsMatch(t, tc.expected, result.Status.RelatedObjects)
+		})
+	}
+
 }
 
 // OperatorStatusProvider
