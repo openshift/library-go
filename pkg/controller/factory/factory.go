@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/robfig/cron"
 	"k8s.io/apimachinery/pkg/runtime"
-	errorutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
@@ -161,6 +159,7 @@ func (f *Factory) WithNamespaceInformer(informer Informer, interestingNamespaces
 // If this is not called, no periodical resync will happen.
 // Note: The controller context passed to Sync() function in this case does not contain the object metadata or object itself.
 //       This can be used to detect periodical resyncs, but normal Sync() have to be cautious about `nil` objects.
+// DEPRECATED: Use "ResyncSchedule()" instead (eg. .ResyncSchedule("@every 60s"))
 func (f *Factory) ResyncEvery(interval time.Duration) *Factory {
 	f.resyncInterval = interval
 	return f
@@ -209,27 +208,16 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		ctx = NewSyncContext(name, eventRecorder)
 	}
 
-	var cronSchedules []cron.Schedule
-	if len(f.resyncSchedules) > 0 {
-		var errors []error
-		for _, schedule := range f.resyncSchedules {
-			if s, err := cron.ParseStandard(schedule); err != nil {
-				errors = append(errors, err)
-			} else {
-				cronSchedules = append(cronSchedules, s)
-			}
-		}
-		if err := errorutil.NewAggregate(errors); err != nil {
-			panic(fmt.Errorf("failed to parse controller schedules for %q: %v", name, err))
-		}
+	// resyncInterval use cron scheduler to run every <duration>.
+	if f.resyncInterval > 0 {
+		f.resyncSchedules = append(f.resyncSchedules, fmt.Sprintf("@every %s", f.resyncInterval))
 	}
 
 	c := &baseController{
 		name:               name,
 		syncDegradedClient: f.syncDegradedClient,
 		sync:               f.sync,
-		resyncEvery:        f.resyncInterval,
-		resyncSchedules:    cronSchedules,
+		resyncSchedules:    f.resyncSchedules,
 		cachesToSync:       append([]cache.InformerSynced{}, f.cachesToSync...),
 		syncContext:        ctx,
 		postStartHooks:     f.postStartHooks,

@@ -131,6 +131,30 @@ func TestBaseController_Reconcile(t *testing.T) {
 	}
 }
 
+func TestBaseController_Resync(t *testing.T) {
+	controllerCtx, cancel := context.WithCancel(context.Background())
+	syncCount := 0
+	c := &baseController{
+		name: "test",
+		sync: func(ctx context.Context, syncCtx SyncContext) error {
+			defer func() { syncCount++ }()
+			defer t.Logf("Sync() call with %q", syncCtx.QueueKey())
+			return nil
+		},
+		syncContext:     NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		resyncSchedules: []string{"@every 200ms"},
+	}
+
+	time.AfterFunc(3*time.Second, func() {
+		cancel()
+	})
+	c.Run(controllerCtx, 1)
+
+	if syncCount < 2 {
+		t.Errorf("expected more than 2 resync, got %d", syncCount)
+	}
+}
+
 func TestBaseController_Run(t *testing.T) {
 	informer := &fakeInformer{hasSyncedDelay: 200 * time.Millisecond}
 	controllerCtx, cancel := context.WithCancel(context.Background())
@@ -150,8 +174,8 @@ func TestBaseController_Run(t *testing.T) {
 			}
 			return nil
 		},
-		syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-		resyncEvery: 200 * time.Millisecond,
+		syncContext:     NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		resyncSchedules: []string{"@every 200ms"},
 		postStartHooks: []PostStartHook{func(ctx context.Context, syncContext SyncContext) error {
 			defer func() {
 				postStartHookDone = true

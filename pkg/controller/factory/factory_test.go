@@ -97,7 +97,7 @@ func makeFakeSecret() *v1.Secret {
 
 func TestResyncController(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
-	factory := New().ResyncEvery(100 * time.Millisecond)
+	factory := New().ResyncSchedule("@every 100ms")
 
 	controllerSynced := make(chan struct{})
 	syncCallCount := 0
@@ -253,7 +253,7 @@ func TestControllerScheduled(t *testing.T) {
 
 func TestControllerSyncAfterStart(t *testing.T) {
 	syncCalled := make(chan struct{})
-	controller := New().ResyncEvery(10*time.Second).WithSync(func(ctx context.Context, controllerContext SyncContext) error {
+	controller := New().ResyncSchedule("@every 10s").WithSync(func(ctx context.Context, controllerContext SyncContext) error {
 		close(syncCalled)
 		return nil
 	}).ToController("test", events.NewInMemoryRecorder("fake-controller"))

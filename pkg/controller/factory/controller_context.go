@@ -85,7 +85,7 @@ func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, filter EventF
 	}
 }
 
-// namespaceChecker returns a function which returns true if an inpuut obj
+// namespaceChecker returns a function which returns true if an input obj
 // (or its tombstone) is a namespace  and it matches a name of any namespaces
 // that we are interested in
 func namespaceChecker(interestingNamespaces []string) func(obj interface{}) bool {
