@@ -121,11 +121,10 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			expectedEvents: []string{updateEvent, updateEvent},
 		},
 		{
-			name:           "Should update webhook, but preserve caBundle field",
+			name:           "Should update webhook, but preserve caBundle field if it is not set",
 			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				hook.Annotations = map[string]string{genericCABundleInjectorAnnotation: "true"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.MutatingWebhook{Name: "test"},
 					admissionregistrationv1.MutatingWebhook{Name: "second"})
@@ -137,12 +136,49 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 				hook := defaultHook.DeepCopy()
 				// Webhook has changed externally since last observation
 				hook.SetGeneration(2)
-				hook.Annotations = map[string]string{genericCABundleInjectorAnnotation: "true"}
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
 					Name: "test",
 					ClientConfig: admissionregistrationv1.WebhookClientConfig{
 						CABundle: []byte("test"),
 					},
+					AdmissionReviewVersions: []string{"v1beta1"},
+				})
+				return hook
+			},
+			checkUpdated: func(hook *admissionregistrationv1.MutatingWebhookConfiguration) error {
+				if len(hook.Webhooks) != 2 {
+					return fmt.Errorf("Expected to find both webhooks, got: %+v", hook.Webhooks)
+				}
+				for _, webhook := range hook.Webhooks {
+					if string(webhook.ClientConfig.CABundle) == "test" {
+						return nil
+					}
+				}
+				return fmt.Errorf("Expected to find webhook with unchanged clientConfig.caBundle injection == 'test', got: %#v", hook)
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should update webhook, and force caBundle field if is set",
+			expectModified: true,
+			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				hook.Webhooks = append(hook.Webhooks,
+					admissionregistrationv1.MutatingWebhook{
+						Name:         "test",
+						ClientConfig: admissionregistrationv1.WebhookClientConfig{CABundle: []byte("test")},
+					},
+					admissionregistrationv1.MutatingWebhook{Name: "second"})
+				return hook
+			},
+			observedGeneration: 1,
+			expectedGeneration: 3,
+			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				// Webhook has changed externally since last observation
+				hook.SetGeneration(2)
+				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
+					Name:                    "test",
 					AdmissionReviewVersions: []string{"v1beta1"},
 				})
 				return hook
@@ -313,11 +349,10 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			expectedEvents: []string{updateEvent, updateEvent},
 		},
 		{
-			name:           "Should update webhook, but preserve caBundle field",
+			name:           "Should update webhook, but preserve caBundle field if it is not set",
 			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				hook.Annotations = map[string]string{genericCABundleInjectorAnnotation: "true"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.ValidatingWebhook{Name: "test"},
 					admissionregistrationv1.ValidatingWebhook{Name: "second"})
@@ -329,12 +364,49 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 				hook := defaultHook.DeepCopy()
 				// Webhook has changed externally since last observation
 				hook.SetGeneration(2)
-				hook.Annotations = map[string]string{genericCABundleInjectorAnnotation: "true"}
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
 					Name: "test",
 					ClientConfig: admissionregistrationv1.WebhookClientConfig{
 						CABundle: []byte("test"),
 					},
+					AdmissionReviewVersions: []string{"v1beta1"},
+				})
+				return hook
+			},
+			checkUpdated: func(hook *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				if len(hook.Webhooks) != 2 {
+					return fmt.Errorf("Expected to find both webhooks, got: %+v", hook.Webhooks)
+				}
+				for _, webhook := range hook.Webhooks {
+					if string(webhook.ClientConfig.CABundle) == "test" {
+						return nil
+					}
+				}
+				return fmt.Errorf("Expected to find webhook with unchanged clientConfig.caBundle injection == 'test', got: %#v", hook)
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should update webhook, and force caBundle field if is set",
+			expectModified: true,
+			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				hook.Webhooks = append(hook.Webhooks,
+					admissionregistrationv1.ValidatingWebhook{
+						Name:         "test",
+						ClientConfig: admissionregistrationv1.WebhookClientConfig{CABundle: []byte("test")},
+					},
+					admissionregistrationv1.ValidatingWebhook{Name: "second"})
+				return hook
+			},
+			observedGeneration: 1,
+			expectedGeneration: 3,
+			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				// Webhook has changed externally since last observation
+				hook.SetGeneration(2)
+				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
+					Name:                    "test",
 					AdmissionReviewVersions: []string{"v1beta1"},
 				})
 				return hook

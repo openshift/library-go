@@ -14,8 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const genericCABundleInjectorAnnotation = "service.beta.openshift.io/inject-cabundle"
-
 // ApplyMutatingWebhookConfiguration ensures the form of the specified
 // mutatingwebhookconfiguration is present in the API. If it does not exist,
 // it will be created. If it does exist, the metadata of the required
@@ -51,12 +49,7 @@ func ApplyMutatingWebhookConfiguration(client admissionregistrationclientv1.Muta
 	}
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
 	toWrite := existingCopy // shallow copy so the code reads easier
-
-	// Providing upgrade compatibility with service-ca-bundle operator
-	// and ignore clientConfig.caBundle changes on "inject-cabundle" label
-	if required.GetAnnotations() != nil && required.GetAnnotations()[genericCABundleInjectorAnnotation] != "" {
-		copyMutatingWebhookCABundle(existing, required)
-	}
+	copyMutatingWebhookCABundle(existing, required)
 	toWrite.Webhooks = required.Webhooks
 
 	klog.V(4).Infof("MutatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
@@ -69,21 +62,19 @@ func ApplyMutatingWebhookConfiguration(client admissionregistrationclientv1.Muta
 	return actual, *modified || actual.GetGeneration() > existingCopy.GetGeneration(), nil
 }
 
-// copyMutatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource
+// copyMutatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource if it was set before
+// and is not set in present. This provides upgrade compatibility with service-ca-bundle operator.
 func copyMutatingWebhookCABundle(from, to *admissionregistrationv1.MutatingWebhookConfiguration) {
-	existingMutatingWebhooks := make(map[string]admissionregistrationv1.MutatingWebhook, len(from.Webhooks))
-	for _, mutatingWebhook := range from.Webhooks {
-		existingMutatingWebhooks[mutatingWebhook.Name] = mutatingWebhook
+	fromMap := make(map[string]admissionregistrationv1.MutatingWebhook, len(from.Webhooks))
+	for _, webhook := range from.Webhooks {
+		fromMap[webhook.Name] = webhook
 	}
 
-	webhooks := make([]admissionregistrationv1.MutatingWebhook, len(to.Webhooks))
-	for i, mutatingWebhook := range to.Webhooks {
-		if webhook, ok := existingMutatingWebhooks[mutatingWebhook.Name]; ok {
-			mutatingWebhook.ClientConfig.CABundle = webhook.ClientConfig.CABundle
+	for i, wh := range to.Webhooks {
+		if existing, ok := fromMap[wh.Name]; ok && wh.ClientConfig.CABundle == nil {
+			to.Webhooks[i].ClientConfig.CABundle = existing.ClientConfig.CABundle
 		}
-		webhooks[i] = mutatingWebhook
 	}
-	to.Webhooks = webhooks
 }
 
 // ApplyValidatingWebhookConfiguration ensures the form of the specified
@@ -120,12 +111,7 @@ func ApplyValidatingWebhookConfiguration(client admissionregistrationclientv1.Va
 	}
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
 	toWrite := existingCopy // shallow copy so the code reads easier
-	// Providing upgrade compatibility with service-ca-bundle operator
-	// and ignore clientConfig.caBundle changes on "inject-cabundle" label
-	if required.GetAnnotations() != nil && required.GetAnnotations()[genericCABundleInjectorAnnotation] != "" {
-		// Populate unpopulated webhooks[].clientConfig.caBundle fields from existing resource
-		copyValidatingWebhookCABundle(existing, required)
-	}
+	copyValidatingWebhookCABundle(existing, required)
 	toWrite.Webhooks = required.Webhooks
 
 	klog.V(4).Infof("ValidatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
@@ -138,19 +124,17 @@ func ApplyValidatingWebhookConfiguration(client admissionregistrationclientv1.Va
 	return actual, *modified || actual.GetGeneration() > existingCopy.GetGeneration(), nil
 }
 
-// copyValidatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource
+// copyValidatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource if it was set before
+// and is not set in present. This provides upgrade compatibility with service-ca-bundle operator.
 func copyValidatingWebhookCABundle(from, to *admissionregistrationv1.ValidatingWebhookConfiguration) {
-	existingMutatingWebhooks := make(map[string]admissionregistrationv1.ValidatingWebhook, len(from.Webhooks))
-	for _, validatingWebhook := range from.Webhooks {
-		existingMutatingWebhooks[validatingWebhook.Name] = validatingWebhook
+	fromMap := make(map[string]admissionregistrationv1.ValidatingWebhook, len(from.Webhooks))
+	for _, webhook := range from.Webhooks {
+		fromMap[webhook.Name] = webhook
 	}
 
-	webhooks := make([]admissionregistrationv1.ValidatingWebhook, len(to.Webhooks))
-	for i, validatingWebhook := range to.Webhooks {
-		if webhook, ok := existingMutatingWebhooks[validatingWebhook.Name]; ok {
-			validatingWebhook.ClientConfig.CABundle = webhook.ClientConfig.CABundle
+	for i, wh := range to.Webhooks {
+		if existing, ok := fromMap[wh.Name]; ok && wh.ClientConfig.CABundle == nil {
+			to.Webhooks[i].ClientConfig.CABundle = existing.ClientConfig.CABundle
 		}
-		webhooks[i] = validatingWebhook
 	}
-	to.Webhooks = webhooks
 }
