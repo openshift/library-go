@@ -117,6 +117,26 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 	namespacedInformerFactory informers.SharedInformerFactory,
 	optionalConfigInformer configinformers.SharedInformerFactory,
 ) *CSIControllerSet {
+	return c.WithCSIDriverControllerServiceWithExtraReplaces(
+		name,
+		assetFunc,
+		file,
+		kubeClient,
+		namespacedInformerFactory,
+		optionalConfigInformer,
+		nil,
+	)
+}
+
+func (c *CSIControllerSet) WithCSIDriverControllerServiceWithExtraReplaces(
+	name string,
+	assetFunc func(string) []byte,
+	file string,
+	kubeClient kubernetes.Interface,
+	namespacedInformerFactory informers.SharedInformerFactory,
+	optionalConfigInformer configinformers.SharedInformerFactory,
+	extraReplaces func() (map[string]string, error),
+) *CSIControllerSet {
 	manifestFile := assetFunc(file)
 	c.csiDriverControllerServiceController = csidrivercontrollerservicecontroller.NewCSIDriverControllerServiceController(
 		name,
@@ -125,6 +145,7 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 		kubeClient,
 		namespacedInformerFactory.Apps().V1().Deployments(),
 		optionalConfigInformer,
+		extraReplaces,
 		c.eventRecorder,
 	)
 	return c

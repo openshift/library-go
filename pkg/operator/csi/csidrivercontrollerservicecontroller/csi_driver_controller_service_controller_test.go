@@ -64,6 +64,7 @@ type images struct {
 type testCase struct {
 	name            string
 	images          images
+	extraReplaces   func() (map[string]string, error)
 	initialObjects  testObjects
 	expectedObjects testObjects
 	expectErr       bool
@@ -120,6 +121,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
 		configInformerFactory,
+		test.extraReplaces,
 		events.NewInMemoryRecorder(operandName),
 	)
 
@@ -557,7 +559,7 @@ func TestSync(t *testing.T) {
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
 					withLogLevel(opv1.Trace), // User changed the log level...
-					withGeneration(2, 1)),    //... which caused the Generation to increase
+					withGeneration(2, 1)),    // ... which caused the Generation to increase
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
@@ -602,6 +604,34 @@ func TestSync(t *testing.T) {
 					// withStatus(replica1),
 					withGenerations(2),
 					withTrueConditions(conditionAvailable, conditionProgressing)),
+			},
+		},
+		{
+			// Extra replacements are applied to deployment
+			name:   "extra replacements",
+			images: defaultImages(),
+			extraReplaces: func() (map[string]string, error) {
+				return map[string]string{"ANNOTATION_REPLACEMENT": "sample value"}, nil
+			},
+			initialObjects: testObjects{
+				driver: makeFakeDriverInstance(),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(1, 0),
+					func(d *appsv1.Deployment) *appsv1.Deployment {
+						d.Annotations["sample-annotation"] = "sample value"
+						return d
+					},
+				),
+				driver: makeFakeDriverInstance(
+					// withStatus(replica0),
+					withGenerations(1),
+					withTrueConditions(conditionProgressing),
+					withFalseConditions(conditionAvailable)), // Degraded is set later on
 			},
 		},
 	}
@@ -714,6 +744,8 @@ apiVersion: apps/v1
 metadata:
   name: test-csi-driver-controller
   namespace: openshift-test-csi-driver
+  annotations:
+    sample-annotation: ${ANNOTATION_REPLACEMENT}
 spec:
   selector:
     matchLabels:

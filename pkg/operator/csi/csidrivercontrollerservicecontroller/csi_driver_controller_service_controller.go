@@ -2,6 +2,7 @@ package csidrivercontrollerservicecontroller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -79,6 +80,8 @@ type CSIDriverControllerServiceController struct {
 	deployInformer appsinformersv1.DeploymentInformer
 	// Optional, used by CSI drivers to tag volumes and snapshots
 	optionalConfigInformer configinformers.SharedInformerFactory
+	// Optional, used to make custom replaces where the value may change at runtime
+	extraReplaces func() (map[string]string, error)
 }
 
 func NewCSIDriverControllerServiceController(
@@ -88,6 +91,7 @@ func NewCSIDriverControllerServiceController(
 	kubeClient kubernetes.Interface,
 	deployInformer appsinformersv1.DeploymentInformer,
 	optionalConfigInformer configinformers.SharedInformerFactory,
+	extraReplaces func() (map[string]string, error),
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &CSIDriverControllerServiceController{
@@ -97,6 +101,7 @@ func NewCSIDriverControllerServiceController(
 		kubeClient:             kubeClient,
 		deployInformer:         deployInformer,
 		optionalConfigInformer: optionalConfigInformer,
+		extraReplaces:          extraReplaces,
 	}
 
 	informers := []factory.Informer{
@@ -147,7 +152,15 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 		clusterID = infra.Status.InfrastructureName
 	}
 
-	manifest := replacePlaceholders(c.manifest, opSpec, clusterID)
+	var extras map[string]string
+	if c.extraReplaces != nil {
+		e, err := c.extraReplaces()
+		if err != nil {
+			return err
+		}
+		extras = e
+	}
+	manifest := replacePlaceholders(c.manifest, opSpec, clusterID, extras)
 	required := resourceread.ReadDeploymentV1OrDie(manifest)
 
 	deployment, _, err := resourceapply.ApplyDeployment(
@@ -219,7 +232,7 @@ func isProgressing(status *opv1.OperatorStatus, deployment *appsv1.Deployment) (
 	return false, ""
 }
 
-func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID string) []byte {
+func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID string, extras map[string]string) []byte {
 	pairs := []string{}
 
 	// Replace container images by env vars if they are set
@@ -259,6 +272,10 @@ func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID str
 	// Log level
 	logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)
 	pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
+
+	for k, v := range extras {
+		pairs = append(pairs, fmt.Sprintf("${%s}", k), v)
+	}
 
 	replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 	return []byte(replaced)
