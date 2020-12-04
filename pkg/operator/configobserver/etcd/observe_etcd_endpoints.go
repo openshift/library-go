@@ -23,7 +23,9 @@ const (
 
 var (
 	OldStorageConfigURLsPath = []string{"storageConfig", "urls"}
-	StorageConfigURLsPath    = []string{"apiServerArguments", "etcd-servers"}
+	StorageConfigURLsPath    = []string{"apiServerArguments", StorageConfigURLsKey}
+
+	StorageConfigURLsKey = "etcd-servers"
 )
 
 type fallBackObserverFn func(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}, storageConfigURLsPath []string) (map[string]interface{}, []error)
