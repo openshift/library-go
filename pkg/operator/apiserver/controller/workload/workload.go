@@ -41,6 +41,10 @@ type Delegate interface {
 	Sync() (*appsv1.Deployment, bool, []error)
 
 	// PreconditionFulfilled a method that indicates whether all prerequisites are met and we can Sync.
+	//
+	// missing preconditions will be reported in the operator's status
+	// operator will be degraded, not available and not progressing
+	// returned errors (if any) will be added to the Message field
 	PreconditionFulfilled() (bool, error)
 }
 
@@ -117,12 +121,12 @@ func (c *Controller) sync() error {
 	}
 
 	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled || err != nil {
-		return err
+		return c.updateOperatorStatus(nil, false, false, []error{err})
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync()
 
-	return c.updateOperatorStatus(workload, operatorConfigAtHighestGeneration, errs)
+	return c.updateOperatorStatus(workload, operatorConfigAtHighestGeneration, true, errs)
 }
 
 // Run starts workload controller and blocks until stopCh is closed.
@@ -248,7 +252,7 @@ func (c *Controller) shouldSync(operatorSpec *operatorv1.OperatorSpec) (bool, er
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, errs []error) error {
+func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) error {
 	if errs == nil {
 		errs = []error{}
 	}
@@ -271,6 +275,37 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 	deploymentProgressingCondition := operatorv1.OperatorCondition{
 		Type:   fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing),
 		Status: operatorv1.ConditionFalse,
+	}
+
+	if !preconditionsReady {
+		var message string
+		for _, err := range errs {
+			message = message + err.Error() + "\n"
+		}
+		if len(message) == 0 {
+			message = "the operator didn't specify what preconditions are missing"
+		}
+
+		// we are degraded, not available and we are not progressing
+
+		deploymentDegradedCondition.Status = operatorv1.ConditionTrue
+		deploymentDegradedCondition.Reason = "PreconditionNotFulfilled"
+		deploymentDegradedCondition.Message = message
+
+		deploymentAvailableCondition.Status = operatorv1.ConditionFalse
+		deploymentAvailableCondition.Reason = "PreconditionNotFulfilled"
+
+		deploymentProgressingCondition.Status = operatorv1.ConditionFalse
+		deploymentProgressingCondition.Reason = "PreconditionNotFulfilled"
+
+		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient,
+			v1helpers.UpdateConditionFn(deploymentAvailableCondition),
+			v1helpers.UpdateConditionFn(deploymentDegradedCondition),
+			v1helpers.UpdateConditionFn(deploymentProgressingCondition),
+			v1helpers.UpdateConditionFn(workloadDegradedCondition)); updateError != nil {
+			return updateError
+		}
+		return kerrors.NewAggregate(errs)
 	}
 
 	if len(errs) > 0 {
