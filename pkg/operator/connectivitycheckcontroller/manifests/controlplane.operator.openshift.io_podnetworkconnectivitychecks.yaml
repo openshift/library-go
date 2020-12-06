@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
   name: podnetworkconnectivitychecks.controlplane.operator.openshift.io
 spec:
   group: controlplane.operator.openshift.io
