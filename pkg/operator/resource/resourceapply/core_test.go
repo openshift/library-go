@@ -600,6 +600,28 @@ func TestApplyNamespace(t *testing.T) {
 			},
 		},
 		{
+			name: "don't report modified if the removed annotation is already not present",
+			existing: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"some-label": "labelval"}},
+				},
+			},
+			input: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"run-level-": ""}},
+			},
+
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+
+				if !actions[0].Matches("get", "namespaces") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
 			name: "add run-level if requested",
 			existing: []runtime.Object{
 				&corev1.Namespace{
