@@ -32,6 +32,7 @@ import (
 
 const (
 	controllerName   = "TestCSIDriverControllerServiceController"
+	deploymentName   = "test-csi-driver-controller"
 	operandName      = "test-csi-driver"
 	operandNamespace = "openshift-test-csi-driver"
 
@@ -45,6 +46,9 @@ const (
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
 	defaultClusterID   = "ID1234"
+
+	hookDeploymentAnnKey = "operator.openshift.io/foo"
+	hookDeploymentAnnVal = "bar"
 )
 
 var (
@@ -184,7 +188,7 @@ func withGenerations(deployment int64) driverModifier {
 			{
 				Group:          appsv1.GroupName,
 				LastGeneration: deployment,
-				Name:           "test-csi-driver-controller",
+				Name:           deploymentName,
 				Namespace:      operandNamespace,
 				Resource:       "deployments",
 			},
@@ -363,6 +367,49 @@ func addGenerationReactor(client *fakecore.Clientset) {
 	})
 }
 
+func deploymentAnnotationHook(instance *appsv1.Deployment) error {
+	if instance.Annotations == nil {
+		instance.Annotations = map[string]string{}
+	}
+	instance.Annotations[hookDeploymentAnnKey] = hookDeploymentAnnVal
+	return nil
+}
+
+func TestDeploymentHook(t *testing.T) {
+	// Initialize
+	coreClient := fakecore.NewSimpleClientset()
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(coreClient, 0 /*no resync */)
+	driverInstance := makeFakeDriverInstance()
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
+	controller := NewCSIDriverControllerServiceController(
+		controllerName,
+		makeFakeManifest(),
+		fakeOperatorClient,
+		coreClient,
+		coreInformerFactory.Apps().V1().Deployments(),
+		nil, /* config informer*/
+		events.NewInMemoryRecorder(operandName),
+		deploymentAnnotationHook,
+	)
+
+	// Act
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	if err != nil {
+		t.Fatalf("sync() returned unexpected error: %v", err)
+	}
+
+	// Assert
+	actualDeployment, err := coreClient.AppsV1().Deployments(operandNamespace).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Deployment %s: %v", deploymentName, err)
+	}
+
+	// Deployment should have the annotation specified in the hook function
+	if actualDeployment.Annotations[hookDeploymentAnnKey] != hookDeploymentAnnVal {
+		t.Fatalf("Annotation %q not found in Deployment", hookDeploymentAnnKey)
+	}
+}
+
 func TestSync(t *testing.T) {
 	const (
 		replica0 = 0
@@ -393,33 +440,6 @@ func TestSync(t *testing.T) {
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
 					withFalseConditions(conditionAvailable)), // Degraded is set later on
-			},
-		},
-		{
-			// Deployment is fully deployed and its status is synced to CR
-			name:   "deployment fully deployed",
-			images: defaultImages(),
-			initialObjects: testObjects{
-				deployment: makeDeployment(
-					defaultClusterID,
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
-				driver: makeFakeDriverInstance(withGenerations(1)),
-			},
-			expectedObjects: testObjects{
-				deployment: makeDeployment(
-					defaultClusterID,
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
-				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
-					withGenerations(1),
-					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
 			},
 		},
 		{
