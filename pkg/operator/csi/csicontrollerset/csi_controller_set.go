@@ -138,6 +138,7 @@ func (c *CSIControllerSet) WithCSIDriverNodeService(
 	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
+	optionalDaemonSetHooks ...csidrivernodeservicecontroller.DaemonSetHookFunc,
 ) *CSIControllerSet {
 	manifestFile := assetFunc(file)
 	c.csiDriverNodeServiceController = csidrivernodeservicecontroller.NewCSIDriverNodeServiceController(
@@ -147,6 +148,7 @@ func (c *CSIControllerSet) WithCSIDriverNodeService(
 		kubeClient,
 		namespacedInformerFactory.Apps().V1().DaemonSets(),
 		c.eventRecorder,
+		optionalDaemonSetHooks...,
 	)
 	return c
 }
