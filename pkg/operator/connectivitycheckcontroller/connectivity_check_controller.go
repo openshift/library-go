@@ -3,7 +3,6 @@ package connectivitycheckcontroller
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
@@ -112,19 +111,15 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		return err
 	}
 
-	crd, getCRDErr := c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, podnetworkconnectivitychecksCRDName, metav1.GetOptions{})
-	if getCRDErr != nil && !errors.IsNotFound(getCRDErr) {
-		return getCRDErr
+	// TODO remove the following call in in 4.8
+	// re-create crd if deleted during an upgrade from 4.6
+	err = ensureConnectivityCheckCRDExists(ctx, syncContext, c.apiextensionsClient)
+	if err != nil {
+		return err
 	}
 
 	if !enabled {
-		// controller is not enabled
-		if errors.IsNotFound(getCRDErr) {
-			// crd has already been removed
-			return nil
-		}
-
-		// delete all podnetworkconnectivitychecks managed by this controller instance
+		// controller is not enabled, delete all podnetworkconnectivitychecks managed by this controller instance
 		checks, err := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(c.namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -135,38 +130,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 				return err
 			}
 		}
-
-		// if there are still podnetworkconnectivitychecks resources in other namespaces, do not delete the crd
-		checks, err = c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		if len(checks.Items) > 0 {
-			return nil
-		}
-
-		// if podnetworkconnectivitycheck crd is less than 2 minutes old, don't delete the crd yet. This allows another
-		// instance that has been enabled up to 2 minutes to create its podnetworkconnectivitycheck resources.
-		if crd.CreationTimestamp.Time.After(time.Now().Add(-2 * time.Minute)) {
-			return nil
-		}
-
-		// delete the podnetworkconnectivitycheck crd that should not exist
-		return c.apiextensionsClient.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
-	}
-
-	// controller is enabled
-	if errors.IsNotFound(getCRDErr) {
-		// create the podnetworkconnectivitycheck crd that should exist
-		applyResults := resourceapply.ApplyDirectly(
-			resourceapply.NewClientHolder().WithAPIExtensionsClient(c.apiextensionsClient),
-			syncContext.Recorder(),
-			func(name string) ([]byte, error) { return bindata.Asset(name) },
-			"pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
-		)
-		if applyResults[0].Error != nil {
-			return applyResults[0].Error
-		}
+		return nil
 	}
 
 	checks, err := c.podNetworkConnectivityCheckFn(ctx, syncContext)
@@ -205,6 +169,26 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 
 	// TODO reap old connectivity checks
 
+	return nil
+}
+
+func ensureConnectivityCheckCRDExists(ctx context.Context, syncContext factory.SyncContext, client *apiextensionsclient.Clientset) error {
+	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, podnetworkconnectivitychecksCRDName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if errors.IsNotFound(err) {
+		// create the podnetworkconnectivitycheck crd that should exist
+		applyResults := resourceapply.ApplyDirectly(
+			resourceapply.NewClientHolder().WithAPIExtensionsClient(client),
+			syncContext.Recorder(),
+			func(name string) ([]byte, error) { return bindata.Asset(name) },
+			"pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
+		)
+		if applyResults[0].Error != nil {
+			return applyResults[0].Error
+		}
+	}
 	return nil
 }
 
