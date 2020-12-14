@@ -19,11 +19,12 @@ import (
 
 func TestInprocessProcessor(t *testing.T) {
 	scenarios := []struct {
-		name         string
-		workerFunc   func(*unstructured.Unstructured) error
-		validateFunc func(ts *testing.T, actions []clientgotesting.Action, count int, err error)
-		resources    []runtime.Object
-		gvr          schema.GroupVersionResource
+		name          string
+		workerFunc    func(*unstructured.Unstructured) error
+		validateFunc  func(ts *testing.T, actions []clientgotesting.Action, count int, err error)
+		resources     []runtime.Object
+		gvr           schema.GroupVersionResource
+		gvrToListKind map[schema.GroupVersionResource]string
 	}{
 		// scenario 1:
 		{
@@ -53,6 +54,9 @@ func TestInprocessProcessor(t *testing.T) {
 				return ret
 			}(),
 			gvr: schema.GroupResource{Resource: "secrets"}.WithVersion("v1"),
+			gvrToListKind: map[schema.GroupVersionResource]string{
+				schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+			},
 		},
 
 		// scenario 2:
@@ -76,6 +80,9 @@ func TestInprocessProcessor(t *testing.T) {
 				return ret
 			}(),
 			gvr: schema.GroupResource{Resource: "secrets"}.WithVersion("v1"),
+			gvrToListKind: map[schema.GroupVersionResource]string{
+				schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+			},
 		},
 
 		// scenario 3:
@@ -106,6 +113,9 @@ func TestInprocessProcessor(t *testing.T) {
 				return ret
 			}(),
 			gvr: schema.GroupResource{Resource: "secrets"}.WithVersion("v1"),
+			gvrToListKind: map[schema.GroupVersionResource]string{
+				schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+			},
 		},
 
 		// scenario 4:
@@ -132,6 +142,9 @@ func TestInprocessProcessor(t *testing.T) {
 				return ret
 			}(),
 			gvr: schema.GroupResource{Resource: "secrets"}.WithVersion("v1"),
+			gvrToListKind: map[schema.GroupVersionResource]string{
+				schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+			},
 		},
 
 		// scenario 5:
@@ -164,6 +177,9 @@ func TestInprocessProcessor(t *testing.T) {
 				return ret
 			}(),
 			gvr: schema.GroupResource{Resource: "secrets"}.WithVersion("v1"),
+			gvrToListKind: map[schema.GroupVersionResource]string{
+				schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+			},
 		},
 	}
 	for _, scenario := range scenarios {
@@ -180,7 +196,7 @@ func TestInprocessProcessor(t *testing.T) {
 				unstructured.SetNestedField(rawUnstructured, reflect.TypeOf(rawObject).Elem().Name(), "kind")
 				unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: rawUnstructured})
 			}
-			dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, unstructuredObjs...)
+			dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, scenario.gvrToListKind, unstructuredObjs...)
 
 			// act
 			totalCountCh := make(chan int)
@@ -228,6 +244,9 @@ func TestInprocessProcessorContextCancellation(t *testing.T) {
 		return ret
 	}()
 	gvr := schema.GroupResource{Resource: "secrets"}.WithVersion("v1")
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		schema.GroupResource{Resource: "secrets"}.WithVersion("v1"): "SecretList",
+	}
 
 	scheme := runtime.NewScheme()
 	unstructuredObjs := []runtime.Object{}
@@ -240,7 +259,7 @@ func TestInprocessProcessorContextCancellation(t *testing.T) {
 		unstructured.SetNestedField(rawUnstructured, reflect.TypeOf(rawObject).Elem().Name(), "kind")
 		unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: rawUnstructured})
 	}
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, unstructuredObjs...)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, unstructuredObjs...)
 
 	// act
 	listProcessor := newListProcessor(ctx, dynamicClient, func(obj *unstructured.Unstructured) error {
