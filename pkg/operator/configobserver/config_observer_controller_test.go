@@ -100,7 +100,10 @@ func TestSyncStatus(t *testing.T) {
 			},
 			observers: []ObserveConfigFunc{
 				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
-					return map[string]interface{}{"foo": "one"}, nil
+					return map[string]interface{}{"foo": map[string]interface{}{"one": "1"}}, nil
+				},
+				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+					return map[string]interface{}{"foo": map[string]interface{}{"two": ""}}, nil
 				},
 				func(listers Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 					return map[string]interface{}{"bar": "two"}, nil
@@ -112,7 +115,7 @@ func TestSyncStatus(t *testing.T) {
 
 			expectError: false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
-				"foo": "one",
+				"foo": map[string]interface{}{"one": "1", "two": ""},
 				"bar": "two",
 				"baz": "three",
 			}},
