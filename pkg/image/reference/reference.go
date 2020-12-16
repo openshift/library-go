@@ -205,10 +205,6 @@ func (r DockerImageReference) NameString() string {
 
 // Exact returns a string representation of the set fields on the DockerImageReference
 func (r DockerImageReference) Exact() string {
-	name := r.NameString()
-	if len(name) == 0 {
-		return name
-	}
 	s := r.Registry
 	if len(s) > 0 {
 		s += "/"
@@ -217,6 +213,15 @@ func (r DockerImageReference) Exact() string {
 	if len(r.Namespace) != 0 {
 		s += r.Namespace + "/"
 	}
+
+	name := r.NameString()
+	if len(name) == 0 {
+		if len(r.Registry) == 0 {
+			return ""
+		}
+		return s
+	}
+
 	return s + name
 }
 
