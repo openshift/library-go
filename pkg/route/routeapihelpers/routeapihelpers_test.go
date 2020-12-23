@@ -9,6 +9,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	field "k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestIngressURI(t *testing.T) {
@@ -297,5 +298,85 @@ func TestIngressURI(t *testing.T) {
 				t.Fatal(ingress)
 			}
 		})
+	}
+}
+
+// TestValidateHost ensures not specifying a proper host name results in error and
+// that a correctly specified host name passes successfully
+func TestValidateRoute(t *testing.T) {
+	tests := []struct {
+		name              string
+		host              string
+		allowNonCompliant string
+		expectedErrors    int
+	}{
+		{
+			name:              "Non-DNS-compliant host with non-compliance allowed",
+			host:              "host",
+			allowNonCompliant: "true",
+			expectedErrors:    0,
+		},
+		{
+			name:              "Non-DNS-compliant host with non-compliance not allowed",
+			host:              "host",
+			allowNonCompliant: "false",
+			expectedErrors:    1,
+		},
+		{
+			name:           "Non-DNS-compliant host without non-compliance annotation",
+			host:           "host",
+			expectedErrors: 1,
+		},
+		{
+			name:              "Specified label too long",
+			host:              "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host.com",
+			allowNonCompliant: "",
+			expectedErrors:    1,
+		},
+		{
+			name:              "Specified label too long, is not an error with non-compliance allowed",
+			host:              "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host.com",
+			allowNonCompliant: "true",
+			expectedErrors:    0,
+		},
+		{
+			name: "Specified host name too long",
+			host: "1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1",
+			allowNonCompliant: "",
+			expectedErrors:    1,
+		},
+		{
+			name: "Specified host name too long, is still an error even with non-compliance allowed",
+			host: "1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1",
+			allowNonCompliant: "true",
+			expectedErrors:    1,
+		},
+		{
+			name:              "No host",
+			host:              "",
+			allowNonCompliant: "",
+			expectedErrors:    1,
+		},
+		{
+			name:              "Invalid DNS 952 host",
+			host:              "**",
+			allowNonCompliant: "",
+			expectedErrors:    1,
+		},
+	}
+
+	for _, tc := range tests {
+		errs := ValidateHost(tc.host, tc.allowNonCompliant, field.NewPath("spec.host"))
+		if len(errs) != tc.expectedErrors {
+			t.Errorf("Test case %q expected %d error(s), got %d: %v", tc.name, tc.expectedErrors, len(errs), errs)
+		}
 	}
 }

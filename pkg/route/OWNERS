@@ -4,6 +4,7 @@ approvers:
   - Miciah
   - sgreene570
   - smarterclayton
+  - candita
 reviewers:
   - danehans
   - frobware
@@ -11,4 +12,5 @@ reviewers:
   - Miciah
   - sgreene570
   - smarterclayton
+  - candita
 component: Routing
