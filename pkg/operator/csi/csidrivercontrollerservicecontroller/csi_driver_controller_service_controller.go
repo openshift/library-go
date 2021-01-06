@@ -2,6 +2,7 @@ package csidrivercontrollerservicecontroller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -33,6 +34,9 @@ const (
 
 	infraConfigName = "cluster"
 )
+
+// DeploymentHookFunc is a hook function to modify the Deployment.
+type DeploymentHookFunc func(*appsv1.Deployment) error
 
 // CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
 //
@@ -77,8 +81,13 @@ type CSIDriverControllerServiceController struct {
 	operatorClient v1helpers.OperatorClient
 	kubeClient     kubernetes.Interface
 	deployInformer appsinformersv1.DeploymentInformer
-	// Optional, used by CSI drivers to tag volumes and snapshots
+	// Optional config informer used to get cluster information.
 	optionalConfigInformer configinformers.SharedInformerFactory
+	// Optional hook functions to modify the Deployment.
+	// If one of these functions returns an error, the sync
+	// fails indicating the ordinal position of the failed function.
+	// Also, in that scenario the Degraded status is set to True.
+	optionalDeploymentHooks []DeploymentHookFunc
 }
 
 func NewCSIDriverControllerServiceController(
@@ -89,14 +98,16 @@ func NewCSIDriverControllerServiceController(
 	deployInformer appsinformersv1.DeploymentInformer,
 	optionalConfigInformer configinformers.SharedInformerFactory,
 	recorder events.Recorder,
+	optionalDeploymentHooks ...DeploymentHookFunc,
 ) factory.Controller {
 	c := &CSIDriverControllerServiceController{
-		name:                   name,
-		manifest:               manifest,
-		operatorClient:         operatorClient,
-		kubeClient:             kubeClient,
-		deployInformer:         deployInformer,
-		optionalConfigInformer: optionalConfigInformer,
+		name:                    name,
+		manifest:                manifest,
+		operatorClient:          operatorClient,
+		kubeClient:              kubeClient,
+		deployInformer:          deployInformer,
+		optionalConfigInformer:  optionalConfigInformer,
+		optionalDeploymentHooks: optionalDeploymentHooks,
 	}
 
 	informers := []factory.Informer{
@@ -149,6 +160,13 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 
 	manifest := replacePlaceholders(c.manifest, opSpec, clusterID)
 	required := resourceread.ReadDeploymentV1OrDie(manifest)
+
+	for i := range c.optionalDeploymentHooks {
+		err := c.optionalDeploymentHooks[i](required)
+		if err != nil {
+			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
 		c.kubeClient.AppsV1(),

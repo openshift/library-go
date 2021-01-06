@@ -29,6 +29,7 @@ import (
 
 const (
 	controllerName   = "TestCSIDriverNodeServiceController"
+	daemonSetName    = "test-csi-driver-node"
 	operandName      = "test-csi-driver"
 	operandNamespace = "openshift-test-csi-driver"
 
@@ -38,6 +39,9 @@ const (
 
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
+
+	hookDaemonSetAnnKey = "operator.openshift.io/foo"
+	hookDaemonSetAnnVal = "bar"
 )
 
 var (
@@ -163,7 +167,7 @@ func withGenerations(daemonSet int64) driverModifier {
 			{
 				Group:          appsv1.GroupName,
 				LastGeneration: daemonSet,
-				Name:           "test-csi-driver-node",
+				Name:           daemonSetName,
 				Namespace:      operandNamespace,
 				Resource:       "daemonsets",
 			},
@@ -291,6 +295,48 @@ func addGenerationReactor(client *fakecore.Clientset) {
 		}
 		return false, nil, nil
 	})
+}
+
+func daemonSetAnnotationHook(instance *appsv1.DaemonSet) error {
+	if instance.Annotations == nil {
+		instance.Annotations = map[string]string{}
+	}
+	instance.Annotations[hookDaemonSetAnnKey] = hookDaemonSetAnnVal
+	return nil
+}
+
+func TestDaemonSetHook(t *testing.T) {
+	// Initialize
+	coreClient := fakecore.NewSimpleClientset()
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(coreClient, 0 /*no resync */)
+	driverInstance := makeFakeDriverInstance()
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
+	controller := NewCSIDriverNodeServiceController(
+		controllerName,
+		makeFakeManifest(),
+		fakeOperatorClient,
+		coreClient,
+		coreInformerFactory.Apps().V1().DaemonSets(),
+		events.NewInMemoryRecorder(operandName),
+		daemonSetAnnotationHook,
+	)
+
+	// Act
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	if err != nil {
+		t.Fatalf("sync() returned unexpected error: %v", err)
+	}
+
+	// Assert
+	actualDaemonSet, err := coreClient.AppsV1().DaemonSets(operandNamespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get DaemonSet %s: %v", daemonSetName, err)
+	}
+
+	// DaemonSet should have the annotation specified in the hook function
+	if actualDaemonSet.Annotations[hookDaemonSetAnnKey] != hookDaemonSetAnnVal {
+		t.Fatalf("Annotation %q not found in DaemonSet", hookDaemonSetAnnKey)
+	}
 }
 
 func TestSync(t *testing.T) {
