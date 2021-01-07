@@ -30,7 +30,7 @@ const (
 )
 
 // DaemonSetHookFunc is a hook function to modify the DaemonSet.
-type DaemonSetHookFunc func(*appsv1.DaemonSet) error
+type DaemonSetHookFunc func(*opv1.OperatorSpec, *appsv1.DaemonSet) error
 
 // CSIDriverNodeServiceController is a controller that deploys a CSI Node Service to a given namespace.
 //
@@ -128,7 +128,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 	required := resourceread.ReadDaemonSetV1OrDie(manifest)
 
 	for i := range c.optionalDaemonSetHooks {
-		err := c.optionalDaemonSetHooks[i](required)
+		err := c.optionalDaemonSetHooks[i](opSpec, required)
 		if err != nil {
 			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
 		}

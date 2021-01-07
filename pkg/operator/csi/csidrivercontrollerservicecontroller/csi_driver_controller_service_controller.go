@@ -8,10 +8,14 @@ import (
 	"strings"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
+	"k8s.io/client-go/kubernetes"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -19,9 +23,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	appsv1 "k8s.io/api/apps/v1"
-	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 )
 
 // DeploymentHookFunc is a hook function to modify the Deployment.
-type DeploymentHookFunc func(*appsv1.Deployment) error
+type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 
 // CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
 //
@@ -162,7 +163,7 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 	required := resourceread.ReadDeploymentV1OrDie(manifest)
 
 	for i := range c.optionalDeploymentHooks {
-		err := c.optionalDeploymentHooks[i](required)
+		err := c.optionalDeploymentHooks[i](opSpec, required)
 		if err != nil {
 			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
 		}

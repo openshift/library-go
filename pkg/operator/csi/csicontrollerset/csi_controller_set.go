@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -18,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 )
@@ -28,6 +30,7 @@ type CSIControllerSet struct {
 	managementStateController            factory.Controller
 	staticResourcesController            factory.Controller
 	credentialsRequestController         factory.Controller
+	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
 	csiDriverNodeServiceController       factory.Controller
 
@@ -42,6 +45,7 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.managementStateController,
 		c.staticResourcesController,
 		c.credentialsRequestController,
+		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
 	} {
@@ -104,6 +108,19 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 		manifestFile,
 		dynamicClient,
 		c.operatorClient,
+		c.eventRecorder,
+	)
+	return c
+}
+
+func (c *CSIControllerSet) WithCSIConfigObserverController(
+	name string,
+	configinformers configinformers.SharedInformerFactory,
+) *CSIControllerSet {
+	c.csiConfigObserverController = csiconfigobservercontroller.NewCSIConfigObserverController(
+		name,
+		c.operatorClient,
+		configinformers,
 		c.eventRecorder,
 	)
 	return c

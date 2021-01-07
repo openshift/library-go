@@ -367,7 +367,7 @@ func addGenerationReactor(client *fakecore.Clientset) {
 	})
 }
 
-func deploymentAnnotationHook(instance *appsv1.Deployment) error {
+func deploymentAnnotationHook(opSpec *opv1.OperatorSpec, instance *appsv1.Deployment) error {
 	if instance.Annotations == nil {
 		instance.Annotations = map[string]string{}
 	}
