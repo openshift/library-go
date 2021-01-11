@@ -1282,18 +1282,19 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 }
 
 func TestSetConditions(t *testing.T) {
-
 	type TestCase struct {
 		name                      string
 		latestAvailableRevision   int32
 		lastFailedRevision        int32
+		lastFailedTime            *metav1.Time
+		lastFailedCount           int
 		currentRevisions          []int32
 		expectedAvailableStatus   operatorv1.ConditionStatus
 		expectedProgressingStatus operatorv1.ConditionStatus
 		expectedFailingStatus     operatorv1.ConditionStatus
 	}
 
-	testCase := func(name string, available, progressing, failed bool, lastFailedRevision, latest int32, current ...int32) TestCase {
+	testCase := func(name string, available, progressing, failed bool, lastFailedRevision int32, lastFailedCount int, latest int32, current ...int32) TestCase {
 		availableStatus := operatorv1.ConditionFalse
 		pendingStatus := operatorv1.ConditionFalse
 		expectedFailingStatus := operatorv1.ConditionFalse
@@ -1306,16 +1307,22 @@ func TestSetConditions(t *testing.T) {
 		if failed {
 			expectedFailingStatus = operatorv1.ConditionTrue
 		}
-		return TestCase{name, latest, lastFailedRevision, current, availableStatus, pendingStatus, expectedFailingStatus}
+		var lastFailedTime *metav1.Time
+		if lastFailedRevision != 0 {
+			now := metav1.NewTime(time.Now())
+			lastFailedTime = &now
+		}
+		return TestCase{name, latest, lastFailedRevision, lastFailedTime, lastFailedCount, current, availableStatus, pendingStatus, expectedFailingStatus}
 	}
 
 	testCases := []TestCase{
-		testCase("AvailableProgressingDegraded", true, true, true, 1, 2, 2, 1, 2, 1),
-		testCase("AvailableProgressing", true, true, false, 0, 2, 2, 1, 2, 1),
-		testCase("AvailableNotProgressing", true, false, false, 0, 2, 2, 2, 2),
-		testCase("NotAvailableProgressing", false, true, false, 0, 2, 0, 0),
-		testCase("NotAvailableAtOldLevelProgressing", true, true, false, 0, 2, 1, 1),
-		testCase("NotAvailableNotProgressing", false, false, false, 0, 2),
+		testCase("AvailableProgressingDegraded", true, true, true, 1, 1, 2, 2, 1, 2, 1),
+		testCase("AvailableProgressingDegraded", true, true, true, 1, 3, 2, 2, 1, 2, 1),
+		testCase("AvailableProgressing", true, true, false, 0, 1, 2, 2, 1, 2, 1),
+		testCase("AvailableNotProgressing", true, false, false, 0, 1, 2, 2, 2, 2),
+		testCase("NotAvailableProgressing", false, true, false, 0, 1, 2, 0, 0),
+		testCase("NotAvailableAtOldLevelProgressing", true, true, false, 0, 1, 2, 1, 1),
+		testCase("NotAvailableNotProgressing", false, false, false, 0, 1, 2),
 	}
 
 	for _, tc := range testCases {
@@ -1324,7 +1331,12 @@ func TestSetConditions(t *testing.T) {
 				LatestAvailableRevision: tc.latestAvailableRevision,
 			}
 			for _, current := range tc.currentRevisions {
-				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current, LastFailedRevision: tc.lastFailedRevision})
+				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{
+					CurrentRevision:    current,
+					LastFailedRevision: tc.lastFailedRevision,
+					LastFailedTime:     tc.lastFailedTime,
+					LastFailedCount:    tc.lastFailedCount,
+				})
 			}
 			setAvailableProgressingNodeInstallerFailingConditions(status)
 
