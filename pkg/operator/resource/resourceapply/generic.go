@@ -30,6 +30,7 @@ var (
 func init() {
 	utilruntime.Must(api.InstallKube(genericScheme))
 	utilruntime.Must(apiextensionsv1beta1.AddToScheme(genericScheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(genericScheme))
 }
 
 type AssetFunc func(name string) ([]byte, error)
