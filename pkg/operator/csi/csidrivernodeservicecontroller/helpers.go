@@ -3,9 +3,8 @@ package csidrivernodeservicecontroller
 import (
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
-
 	opv1 "github.com/openshift/api/operator/v1"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -21,9 +20,6 @@ func WithObservedProxyDaemonSetHook() DaemonSetHookFunc {
 			opSpec.ObservedConfig.Raw,
 			csiconfigobservercontroller.ProxyConfigPath()...,
 		)
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	}
 }
