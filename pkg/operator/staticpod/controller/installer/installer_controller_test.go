@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -221,12 +222,12 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	}
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if generation := currStatus.NodeStatuses[0].LastFailedRevision; generation != 0 {
-		t.Errorf("expected last failed revision generation for node to be 0, got %d", generation)
+	if revision := currStatus.NodeStatuses[0].LastFailedRevision; revision != 2 {
+		t.Errorf("expected last failed revision revision for node to be 2, got %d", revision)
 	}
 
-	// installer pod failures are suppressed
-	if errors := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errors) != 0 {
+	// installer pod failures show up in status
+	if errors := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errors) != 1 || !strings.Contains(errors[0], "fake death") {
 		t.Error(errors)
 	}
 
@@ -468,7 +469,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
-			err := c.ensureInstallerPod("test-node-1", &operatorv1.StaticPodOperatorSpec{}, 1)
+			err := c.ensureInstallerPod("test-node-1", &operatorv1.StaticPodOperatorSpec{}, 1, 0)
 			if err != nil {
 				if tt.expectedErr == "" {
 					t.Errorf("InstallerController.ensureInstallerPod() expected no error, got = %v", err)
@@ -504,6 +505,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		staticPods              []*corev1.Pod
 		latestAvailableRevision int32
 		expectedUpgradeOrder    []int
+		expectedRetryCounts     []int
 		expectedSyncError       []bool
 		updateStatusErrors      []error
 		numOfInstallersOOM      int
@@ -622,7 +624,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
-			expectedUpgradeOrder: []int{},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{1},
 		},
 		{
 			name:                    "three nodes, 2 not updated, one with failure in old revision",
@@ -674,6 +677,116 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
 		{
+			name:                    "three nodes with outdated current revision and new target revision set, but failed",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					LastFailedRevision: 2,
+					TargetRevision:     2,
+					LastFailedCount:    10,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{10, 0, 0},
+		},
+		{
+			name:                    "three nodes with outdated current revision, installer failed, no target revision set",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					LastFailedRevision: 2,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{1, 0, 0},
+		},
+		{
+			name:                    "three nodes with outdated current revision, installer failed, no target revision set, but new operand launched and is ready",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					TargetRevision:     2,
+					LastFailedRevision: 2,
+					LastFailedCount:    10,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{10, 0, 0},
+		},
+		{
+			name:                    "three nodes with outdated current revision, installer failed, no target revision set, but new operand launched and is not ready",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					TargetRevision:     2,
+					LastFailedRevision: 2,
+					LastFailedCount:    10,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{10, 0, 0},
+		},
+		{
 			name:                    "four nodes with outdated current revision, installer of 2nd was OOM killed, two more OOM happen, then success",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
@@ -698,11 +811,12 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			// we call sync 2*3 times:
 			// 1. notice update of node 1
 			// 2. create installer for node 1, OOM, fall-through, notice update of node 1
-			// 3. create installer for node 1, OOM, fall-through, notice update of node 1
-			// 4. create installer for node 1, which succeeds, set CurrentRevision
+			// 3. create installer for node 1, retry 1, OOM, fall-through, notice update of node 1
+			// 4. create installer for node 1, retry 2, which succeeds, set CurrentRevision
 			// 5. notice update of node 2
 			// 6. create installer for node 2, which succeeds, set CurrentRevision
 			expectedUpgradeOrder: []int{1, 1, 1, 2},
+			expectedRetryCounts:  []int{0, 1, 2, 0},
 			numOfInstallersOOM:   2,
 		},
 		{
@@ -902,13 +1016,25 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 			namespace := fmt.Sprintf("test-%d", i)
 
-			installerNodeAndID := func(installerName string) (string, int) {
-				ss := strings.SplitN(strings.TrimPrefix(installerName, "installer-"), "-", 2)
-				id, err := strconv.Atoi(ss[0])
-				if err != nil {
-					t.Fatalf("unexpected id derived from install pod name %q: %v", installerName, err)
+			installerNodeAndID := func(installerName string) (string, int, int) {
+				pat := `^installer-([0-9]*)-(retry-([0-9]*)-)?(.*)$`
+				re := regexp.MustCompile(pat)
+				ss := re.FindStringSubmatch(installerName)
+				if len(ss) < 5 {
+					t.Fatalf("unexpected isntaller pod name %q, expected to match %q: %v", installerName, pat, ss)
 				}
-				return ss[1], id
+				revision, err := strconv.Atoi(ss[1])
+				if err != nil {
+					t.Fatalf("unexpected revision derived from installer pod name %q: %v", installerName, err)
+				}
+				var retry int
+				if len(ss[2]) > 0 {
+					retry, err = strconv.Atoi(ss[3])
+					if err != nil {
+						t.Fatalf("unexpected retry count derived from installer pod name %q: %v", installerName, err)
+					}
+				}
+				return ss[4], revision, retry
 			}
 
 			kubeClient := fake.NewSimpleClientset(
@@ -947,7 +1073,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					// to rule out timing bugs.
 					createdPod.Status.Phase = corev1.PodSucceeded
 
-					nodeName, id := installerNodeAndID(createdPod.Name)
+					nodeName, id, _ := installerNodeAndID(createdPod.Name)
 					staticPodName := mirrorPodNameForNode("test-pod", nodeName)
 
 					updatedStaticPods[staticPodName] = newStaticPod(staticPodName, id, corev1.PodRunning, true)
@@ -1049,9 +1175,19 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					t.Fatalf("expected more (got only %d) installer pods in the node order %v", len(createdInstallerPods), test.expectedUpgradeOrder[i:])
 				}
 
-				nodeName, _ := installerNodeAndID(createdInstallerPods[i].Name)
+				nodeName, revision, retry := installerNodeAndID(createdInstallerPods[i].Name)
 				if expected, got := test.nodeStatuses[test.expectedUpgradeOrder[i]].NodeName, nodeName; expected != got {
 					t.Errorf("expected installer pod number %d to be for node %q, but got %q", i, expected, got)
+				}
+
+				expectedRetry := 0
+				if i < len(test.expectedRetryCounts) {
+					expectedRetry = test.expectedRetryCounts[i]
+				}
+				if expected, got := revision, int(test.latestAvailableRevision); expected != got {
+					t.Errorf("expected revision %d in round %d, but got %d", expected, i, got)
+				} else if expectedRetry != retry {
+					t.Errorf("expected retry count %d in round %d, but got %d", expectedRetry, i, retry)
 				}
 			}
 			if len(test.expectedUpgradeOrder) < len(createdInstallerPods) {
