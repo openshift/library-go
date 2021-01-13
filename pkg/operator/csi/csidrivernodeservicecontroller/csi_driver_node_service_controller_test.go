@@ -297,7 +297,7 @@ func addGenerationReactor(client *fakecore.Clientset) {
 	})
 }
 
-func daemonSetAnnotationHook(instance *appsv1.DaemonSet) error {
+func daemonSetAnnotationHook(opSpec *opv1.OperatorSpec, instance *appsv1.DaemonSet) error {
 	if instance.Annotations == nil {
 		instance.Annotations = map[string]string{}
 	}
