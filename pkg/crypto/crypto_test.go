@@ -6,9 +6,12 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"go/importer"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 const certificateLifetime = 365 * 2
@@ -360,5 +363,36 @@ func TestValidityPeriodOfSigningCertificate(t *testing.T) {
 		if expectedExpirationDate != expirationDate {
 			t.Errorf("expected that CA certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
 		}
+	}
+}
+
+// TestOpenSSLToIANACipherSuites tests that the name mapping between TLSProfiles and OpenSSLToIANACipherSuites is maintained overtime
+// for the configurable TLS 1.2 cipher suites.
+func TestOpenSSLToIANACipherSuites(t *testing.T) {
+	tests := []struct {
+		name    string
+		ciphers []string
+		want    []string
+	}{
+		{
+			name:    "test TLS Profile TLSProfileIntermediateType",
+			ciphers: configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers,
+			want: []string{
+				"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+				"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := OpenSSLToIANACipherSuites(test.ciphers)
+			if !reflect.DeepEqual(test.want, got) {
+				t.Errorf("want %v got %v", test.want, got)
+			}
+		})
 	}
 }
