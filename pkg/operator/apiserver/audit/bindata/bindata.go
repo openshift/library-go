@@ -311,7 +311,54 @@ data:
       - group: "oauth.openshift.io"
         resources: ["oauthclients"]
     # catch-all rule to log all other requests with request and response payloads
-    - level: RequestResponse`)
+    - level: RequestResponse
+
+  userrequests.yaml: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    metadata:
+      name: UserRequests
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Logs request and response for oauthaccess tokens.
+    - level: RequestResponse
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens"]
+      verbs:
+      - create
+      - delete
+    # Logs at Metadata level for these users and groups.
+    - level: Metadata
+      userGroups: ["system:authenticated:oauth"]
+    - level: Metadata
+      users: ["kube:admin"]
+
+  secure-oauth-storage-userrequests.yaml: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    metadata:
+      name: UserRequests
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Logs request and response for oauthaccess tokens.
+    - level: RequestResponse
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens"]
+      verbs:
+      - create
+      - delete
+    # Logs at Metadata level for these users and groups.
+    - level: Metadata
+      userGroups: ["system:authenticated:oauth"]
+    - level: Metadata
+      users: ["kube:admin"]
+`)
 
 func pkgOperatorApiserverAuditManifestsAuditPoliciesCmYamlBytes() ([]byte, error) {
 	return _pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml, nil
