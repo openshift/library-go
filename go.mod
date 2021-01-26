@@ -13,6 +13,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libnetwork v0.0.0-20190731215715-7f13a5c99f4b // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
+	github.com/elastic/gosigar v0.13.0
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fsouza/go-dockerclient v0.0.0-20171004212419-da3951ba2e9e
 	github.com/getsentry/raven-go v0.0.0-20190513200303-c977f96e1095
