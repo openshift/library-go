@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller/bindata"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -35,6 +38,7 @@ func NewConnectivityCheckController(
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
 	apiextensionsClient *apiextensionsclient.Clientset,
 	apiextensionsInformers apiextensionsinformers.SharedInformerFactory,
+	configInformers configinformers.SharedInformerFactory,
 	triggers []factory.Informer,
 	recorder events.Recorder,
 	enabledByDefault bool,
@@ -44,12 +48,14 @@ func NewConnectivityCheckController(
 		operatorClient:             operatorClient,
 		operatorcontrolplaneClient: operatorcontrolplaneClient,
 		apiextensionsClient:        apiextensionsClient,
+		clusterVersionLister:       configInformers.Config().V1().ClusterVersions().Lister(),
 		enabledByDefault:           enabledByDefault,
 	}
 
 	allTriggers := []factory.Informer{
 		operatorClient.Informer(),
 		apiextensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
+		configInformers.Config().V1().ClusterVersions().Informer(),
 	}
 	allTriggers = append(allTriggers, triggers...)
 
@@ -66,6 +72,7 @@ type connectivityCheckController struct {
 	operatorClient             v1helpers.OperatorClient
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset
 	apiextensionsClient        *apiextensionsclient.Clientset
+	clusterVersionLister       configv1listers.ClusterVersionLister
 
 	podNetworkConnectivityCheckFn PodNetworkConnectivityCheckFunc
 
@@ -111,8 +118,28 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		return err
 	}
 
-	// TODO remove the following call in in 4.8
-	// re-create crd if deleted during an upgrade from 4.6
+	// do nothing while an upgrade is in progress
+	clusterVersion, err := c.clusterVersionLister.Get("version")
+	if err != nil {
+		return err
+	}
+	desired := clusterVersion.Status.Desired.Version
+	history := clusterVersion.Status.History
+	// upgrade is in progress if there is no history, or the latest history entry matches the desired version and is not completed
+	if len(history) == 0 {
+		klog.V(1).Infof("ConnectivityCheckController is waiting for transition to first desired version (%s) to be completed.", desired)
+		return nil
+	}
+	if history[0].Version != desired {
+		klog.V(1).Infof("ConnectivityCheckController is waiting for transition to desired version (%s) to be started.", desired)
+		return nil
+	}
+	if history[0].State != configv1.CompletedUpdate {
+		klog.V(1).Infof("ConnectivityCheckController is waiting for transition to desired version (%s) to be completed.", desired)
+		return nil
+	}
+
+	// re-create crd if deleted during an upgrade
 	err = ensureConnectivityCheckCRDExists(ctx, syncContext, c.apiextensionsClient)
 	if err != nil {
 		return err
