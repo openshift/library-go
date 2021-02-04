@@ -2,23 +2,26 @@ package csicontrollerset
 
 import (
 	"context"
+	"fmt"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
-	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
-	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
 )
 
 // CSIControllerSet contains a set of controllers that are usually used to deploy CSI Drivers.
@@ -27,20 +30,27 @@ type CSIControllerSet struct {
 	managementStateController            factory.Controller
 	staticResourcesController            factory.Controller
 	credentialsRequestController         factory.Controller
+	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
 	csiDriverNodeServiceController       factory.Controller
 
-	operatorClient v1helpers.OperatorClient
-	eventRecorder  events.Recorder
+	preRunCachesSynced []cache.InformerSynced
+	operatorClient     v1helpers.OperatorClient
+	eventRecorder      events.Recorder
 }
 
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
+		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
+		return
+	}
 	for _, ctrl := range []factory.Controller{
 		c.logLevelController,
 		c.managementStateController,
 		c.staticResourcesController,
 		c.credentialsRequestController,
+		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
 	} {
@@ -108,12 +118,27 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 	return c
 }
 
+func (c *CSIControllerSet) WithCSIConfigObserverController(
+	name string,
+	configinformers configinformers.SharedInformerFactory,
+) *CSIControllerSet {
+	c.csiConfigObserverController = csiconfigobservercontroller.NewCSIConfigObserverController(
+		name,
+		c.operatorClient,
+		configinformers,
+		c.eventRecorder,
+	)
+	return c
+}
+
 func (c *CSIControllerSet) WithCSIDriverControllerService(
 	name string,
 	assetFunc func(string) []byte,
 	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
+	optionalConfigInformer configinformers.SharedInformerFactory,
+	optionalDeploymentHooks ...csidrivercontrollerservicecontroller.DeploymentHookFunc,
 ) *CSIControllerSet {
 	manifestFile := assetFunc(file)
 	c.csiDriverControllerServiceController = csidrivercontrollerservicecontroller.NewCSIDriverControllerServiceController(
@@ -122,7 +147,9 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 		c.operatorClient,
 		kubeClient,
 		namespacedInformerFactory.Apps().V1().Deployments(),
+		optionalConfigInformer,
 		c.eventRecorder,
+		optionalDeploymentHooks...,
 	)
 	return c
 }
@@ -133,6 +160,7 @@ func (c *CSIControllerSet) WithCSIDriverNodeService(
 	file string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
+	optionalDaemonSetHooks ...csidrivernodeservicecontroller.DaemonSetHookFunc,
 ) *CSIControllerSet {
 	manifestFile := assetFunc(file)
 	c.csiDriverNodeServiceController = csidrivernodeservicecontroller.NewCSIDriverNodeServiceController(
@@ -142,7 +170,17 @@ func (c *CSIControllerSet) WithCSIDriverNodeService(
 		kubeClient,
 		namespacedInformerFactory.Apps().V1().DaemonSets(),
 		c.eventRecorder,
+		optionalDaemonSetHooks...,
 	)
+	return c
+}
+
+// WithExtraInformers adds informers that individual controllers don't wait for. These are typically
+// informers used by hook functions in csidrivercontrollerservicecontroller and csidrivernodeservicecontroller.
+func (c *CSIControllerSet) WithExtraInformers(informers ...cache.SharedIndexInformer) *CSIControllerSet {
+	for i := range informers {
+		c.preRunCachesSynced = append(c.preRunCachesSynced, informers[i].HasSynced)
+	}
 	return c
 }
 

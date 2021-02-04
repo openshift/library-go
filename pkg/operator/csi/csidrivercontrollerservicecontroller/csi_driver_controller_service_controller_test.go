@@ -18,7 +18,10 @@ import (
 	core "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
+	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
+	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -29,6 +32,7 @@ import (
 
 const (
 	controllerName   = "TestCSIDriverControllerServiceController"
+	deploymentName   = "test-csi-driver-controller"
 	operandName      = "test-csi-driver"
 	operandNamespace = "openshift-test-csi-driver"
 
@@ -41,6 +45,10 @@ const (
 
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
+	defaultClusterID   = "ID1234"
+
+	hookDeploymentAnnKey = "operator.openshift.io/foo"
+	hookDeploymentAnnVal = "bar"
 )
 
 var (
@@ -78,7 +86,7 @@ type testContext struct {
 }
 
 func newTestContext(test testCase, t *testing.T) *testContext {
-	// Convert to []runtime.Object
+	// Add deployment to informer
 	var initialObjects []runtime.Object
 	if test.initialObjects.deployment != nil {
 		resourceapply.SetSpecHashAnnotation(&test.initialObjects.deployment.ObjectMeta, test.initialObjects.deployment.Spec)
@@ -96,6 +104,13 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	// Add global reactors
 	addGenerationReactor(coreClient)
 
+	// Add a fake Infrastructure object to informer. This is not
+	// optional because it is always present in the cluster.
+	initialInfras := []runtime.Object{makeInfra()}
+	configClient := fakeconfig.NewSimpleClientset(initialInfras...)
+	configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+	configInformerFactory.Config().V1().Infrastructures().Informer().GetIndexer().Add(initialInfras[0])
+
 	// fakeDriverInstance also fulfils the OperatorClient interface
 	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
 		&test.initialObjects.driver.Spec,
@@ -108,6 +123,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
+		configInformerFactory,
 		events.NewInMemoryRecorder(operandName),
 	)
 
@@ -172,7 +188,7 @@ func withGenerations(deployment int64) driverModifier {
 			{
 				Group:          appsv1.GroupName,
 				LastGeneration: deployment,
-				Name:           "test-csi-driver-controller",
+				Name:           deploymentName,
 				Namespace:      operandNamespace,
 				Resource:       "deployments",
 			},
@@ -224,7 +240,7 @@ func getIndex(containers []v1.Container, name string) int {
 
 type deploymentModifier func(*appsv1.Deployment) *appsv1.Deployment
 
-func makeDeployment(logLevel int, images images, modifiers ...deploymentModifier) *appsv1.Deployment {
+func makeDeployment(clusterID string, logLevel int, images images, modifiers ...deploymentModifier) *appsv1.Deployment {
 	manifest := makeFakeManifest()
 	dep := resourceread.ReadDeploymentV1OrDie(manifest)
 
@@ -233,6 +249,11 @@ func makeDeployment(logLevel int, images images, modifiers ...deploymentModifier
 	if images.csiDriver != "" {
 		if idx := getIndex(containers, csiDriverContainerName); idx > -1 {
 			containers[idx].Image = images.csiDriver
+			for j, arg := range containers[idx].Args {
+				if strings.HasPrefix(arg, "--k8s-tag-cluster-id=") {
+					dep.Spec.Template.Spec.Containers[idx].Args[j] = fmt.Sprintf("--k8s-tag-cluster-id=%s", clusterID)
+				}
+			}
 		}
 	}
 
@@ -310,6 +331,23 @@ func withDeploymentGeneration(generations ...int64) deploymentModifier {
 	}
 }
 
+// Infrastructure
+func makeInfra() *configv1.Infrastructure {
+	return &configv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      infraConfigName,
+			Namespace: v1.NamespaceAll,
+		},
+		Status: configv1.InfrastructureStatus{
+			InfrastructureName: defaultClusterID,
+			Platform:           configv1.AWSPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				AWS: &configv1.AWSPlatformStatus{},
+			},
+		},
+	}
+}
+
 // This reactor is always enabled and bumps Deployment generation when it gets updated.
 func addGenerationReactor(client *fakecore.Clientset) {
 	client.PrependReactor("*", "deployments", func(action core.Action) (handled bool, ret runtime.Object, err error) {
@@ -327,6 +365,49 @@ func addGenerationReactor(client *fakecore.Clientset) {
 		}
 		return false, nil, nil
 	})
+}
+
+func deploymentAnnotationHook(opSpec *opv1.OperatorSpec, instance *appsv1.Deployment) error {
+	if instance.Annotations == nil {
+		instance.Annotations = map[string]string{}
+	}
+	instance.Annotations[hookDeploymentAnnKey] = hookDeploymentAnnVal
+	return nil
+}
+
+func TestDeploymentHook(t *testing.T) {
+	// Initialize
+	coreClient := fakecore.NewSimpleClientset()
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(coreClient, 0 /*no resync */)
+	driverInstance := makeFakeDriverInstance()
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
+	controller := NewCSIDriverControllerServiceController(
+		controllerName,
+		makeFakeManifest(),
+		fakeOperatorClient,
+		coreClient,
+		coreInformerFactory.Apps().V1().Deployments(),
+		nil, /* config informer*/
+		events.NewInMemoryRecorder(operandName),
+		deploymentAnnotationHook,
+	)
+
+	// Act
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	if err != nil {
+		t.Fatalf("sync() returned unexpected error: %v", err)
+	}
+
+	// Assert
+	actualDeployment, err := coreClient.AppsV1().Deployments(operandNamespace).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Deployment %s: %v", deploymentName, err)
+	}
+
+	// Deployment should have the annotation specified in the hook function
+	if actualDeployment.Annotations[hookDeploymentAnnKey] != hookDeploymentAnnVal {
+		t.Fatalf("Annotation %q not found in Deployment", hookDeploymentAnnKey)
+	}
 }
 
 func TestSync(t *testing.T) {
@@ -350,6 +431,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 0)),
@@ -366,6 +448,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -374,31 +457,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
-				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
-					withGenerations(1),
-					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
-			},
-		},
-		{
-			// Deployment is fully deployed and its status is synced to CR
-			name:   "deployment fully deployed",
-			images: defaultImages(),
-			initialObjects: testObjects{
-				deployment: makeDeployment(
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
-				driver: makeFakeDriverInstance(withGenerations(1)),
-			},
-			expectedObjects: testObjects{
-				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -416,6 +475,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentReplicas(2),      // User changed replicas
@@ -425,6 +485,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentReplicas(1),      // The operator fixed replica count
@@ -443,6 +504,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -456,6 +518,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -474,6 +537,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -487,6 +551,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -504,6 +569,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(1, 1),
@@ -515,6 +581,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel6, // The operator changed cmdline arguments with a new log level
 					defaultImages(),
 					withDeploymentGeneration(2, 1), // ... which caused the Generation to increase
@@ -533,6 +600,7 @@ func TestSync(t *testing.T) {
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					oldImages(),
 					withDeploymentGeneration(1, 1),
@@ -545,6 +613,7 @@ func TestSync(t *testing.T) {
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
+					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
 					withDeploymentGeneration(2, 1),
@@ -681,6 +750,7 @@ spec:
           image: ${DRIVER_IMAGE}
           args:
             - --endpoint=$(CSI_ENDPOINT)
+            - --k8s-tag-cluster-id=${CLUSTER_ID}
             - --logtostderr
             - --v=${LOG_LEVEL}
           env:

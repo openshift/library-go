@@ -2,14 +2,20 @@ package csidrivercontrollerservicecontroller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
+	"k8s.io/client-go/kubernetes"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -17,9 +23,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	appsv1 "k8s.io/api/apps/v1"
-	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -29,7 +32,12 @@ const (
 	resizerImageEnvName       = "RESIZER_IMAGE"
 	snapshotterImageEnvName   = "SNAPSHOTTER_IMAGE"
 	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
+
+	infraConfigName = "cluster"
 )
+
+// DeploymentHookFunc is a hook function to modify the Deployment.
+type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 
 // CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
 //
@@ -58,6 +66,11 @@ const (
 // In order to do that, the placeholder ${LOG_LEVEL} from the manifest file is replaced with the value specified
 // in the OperatorClient resource (Spec.LogLevel).
 //
+// 3. Cluster ID
+//
+// The placeholder ${CLUSTER_ID} specified in the static file can also be replaced if optionalConfigInformer is not nil.
+// This is mostly used by CSI drivers to tag volumes and snapshots so that those resources can be cleaned up on cluster deletion.
+//
 // This controller produces the following conditions:
 //
 // <name>Available: indicates that the CSI Controller Service was successfully deployed and at least one Deployment replica is available.
@@ -69,6 +82,13 @@ type CSIDriverControllerServiceController struct {
 	operatorClient v1helpers.OperatorClient
 	kubeClient     kubernetes.Interface
 	deployInformer appsinformersv1.DeploymentInformer
+	// Optional config informer used to get cluster information.
+	optionalConfigInformer configinformers.SharedInformerFactory
+	// Optional hook functions to modify the Deployment.
+	// If one of these functions returns an error, the sync
+	// fails indicating the ordinal position of the failed function.
+	// Also, in that scenario the Degraded status is set to True.
+	optionalDeploymentHooks []DeploymentHookFunc
 }
 
 func NewCSIDriverControllerServiceController(
@@ -77,19 +97,30 @@ func NewCSIDriverControllerServiceController(
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	deployInformer appsinformersv1.DeploymentInformer,
+	optionalConfigInformer configinformers.SharedInformerFactory,
 	recorder events.Recorder,
+	optionalDeploymentHooks ...DeploymentHookFunc,
 ) factory.Controller {
 	c := &CSIDriverControllerServiceController{
-		name:           name,
-		manifest:       manifest,
-		operatorClient: operatorClient,
-		kubeClient:     kubeClient,
-		deployInformer: deployInformer,
+		name:                    name,
+		manifest:                manifest,
+		operatorClient:          operatorClient,
+		kubeClient:              kubeClient,
+		deployInformer:          deployInformer,
+		optionalConfigInformer:  optionalConfigInformer,
+		optionalDeploymentHooks: optionalDeploymentHooks,
+	}
+
+	informers := []factory.Informer{
+		operatorClient.Informer(),
+		deployInformer.Informer(),
+	}
+	if c.optionalConfigInformer != nil {
+		informers = append(informers, optionalConfigInformer.Config().V1().Infrastructures().Informer())
 	}
 
 	return factory.New().WithInformers(
-		operatorClient.Informer(),
-		deployInformer.Informer(),
+		informers...,
 	).WithSync(
 		c.sync,
 	).ResyncEvery(
@@ -119,8 +150,24 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 		return nil
 	}
 
-	manifest := replacePlaceholders(c.manifest, opSpec)
+	var clusterID string
+	if c.optionalConfigInformer != nil {
+		infra, err := c.optionalConfigInformer.Config().V1().Infrastructures().Lister().Get(infraConfigName)
+		if err != nil {
+			return err
+		}
+		clusterID = infra.Status.InfrastructureName
+	}
+
+	manifest := replacePlaceholders(c.manifest, opSpec, clusterID)
 	required := resourceread.ReadDeploymentV1OrDie(manifest)
+
+	for i := range c.optionalDeploymentHooks {
+		err := c.optionalDeploymentHooks[i](opSpec, required)
+		if err != nil {
+			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
 		c.kubeClient.AppsV1(),
@@ -191,7 +238,7 @@ func isProgressing(status *opv1.OperatorStatus, deployment *appsv1.Deployment) (
 	return false, ""
 }
 
-func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec) []byte {
+func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID string) []byte {
 	pairs := []string{}
 
 	// Replace container images by env vars if they are set
@@ -224,6 +271,9 @@ func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec) []byte {
 	if livenessProbe != "" {
 		pairs = append(pairs, []string{"${LIVENESS_PROBE_IMAGE}", livenessProbe}...)
 	}
+
+	// Cluster ID
+	pairs = append(pairs, []string{"${CLUSTER_ID}", clusterID}...)
 
 	// Log level
 	logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)

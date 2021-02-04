@@ -2,6 +2,7 @@ package csidrivernodeservicecontroller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -27,6 +28,9 @@ const (
 	nodeDriverRegistrarImageEnvName = "NODE_DRIVER_REGISTRAR_IMAGE"
 	livenessProbeImageEnvName       = "LIVENESS_PROBE_IMAGE"
 )
+
+// DaemonSetHookFunc is a hook function to modify the DaemonSet.
+type DaemonSetHookFunc func(*opv1.OperatorSpec, *appsv1.DaemonSet) error
 
 // CSIDriverNodeServiceController is a controller that deploys a CSI Node Service to a given namespace.
 //
@@ -63,6 +67,11 @@ type CSIDriverNodeServiceController struct {
 	operatorClient v1helpers.OperatorClient
 	kubeClient     kubernetes.Interface
 	dsInformer     appsinformersv1.DaemonSetInformer
+	// Optional hook functions to modify the DaemonSet.
+	// If one of these functions returns an error, the sync
+	// fails indicating the ordinal position of the failed function.
+	// Also, in that scenario the Degraded status is set to True.
+	optionalDaemonSetHooks []DaemonSetHookFunc
 }
 
 func NewCSIDriverNodeServiceController(
@@ -72,13 +81,15 @@ func NewCSIDriverNodeServiceController(
 	kubeClient kubernetes.Interface,
 	dsInformer appsinformersv1.DaemonSetInformer,
 	recorder events.Recorder,
+	optionalDaemonSetHooks ...DaemonSetHookFunc,
 ) factory.Controller {
 	c := &CSIDriverNodeServiceController{
-		name:           name,
-		manifest:       manifest,
-		operatorClient: operatorClient,
-		kubeClient:     kubeClient,
-		dsInformer:     dsInformer,
+		name:                   name,
+		manifest:               manifest,
+		operatorClient:         operatorClient,
+		kubeClient:             kubeClient,
+		dsInformer:             dsInformer,
+		optionalDaemonSetHooks: optionalDaemonSetHooks,
 	}
 
 	return factory.New().WithInformers(
@@ -115,6 +126,13 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 
 	manifest := replacePlaceholders(c.manifest, opSpec)
 	required := resourceread.ReadDaemonSetV1OrDie(manifest)
+
+	for i := range c.optionalDaemonSetHooks {
+		err := c.optionalDaemonSetHooks[i](opSpec, required)
+		if err != nil {
+			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
 
 	daemonSet, _, err := resourceapply.ApplyDaemonSet(
 		c.kubeClient.AppsV1(),
