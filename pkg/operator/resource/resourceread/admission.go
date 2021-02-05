@@ -4,6 +4,7 @@ import (
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 var (
@@ -12,9 +13,7 @@ var (
 )
 
 func init() {
-	if err := admissionv1.AddToScheme(admissionScheme); err != nil {
-		panic(err)
-	}
+	utilruntime.Must(admissionv1.AddToScheme(admissionScheme))
 }
 
 func ReadValidatingWebhookConfigurationV1OrDie(objBytes []byte) *admissionv1.ValidatingWebhookConfiguration {

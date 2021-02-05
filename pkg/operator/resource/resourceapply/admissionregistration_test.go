@@ -5,21 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	ktesting "k8s.io/client-go/testing"
-
-	"github.com/openshift/client-go/config/clientset/versioned/scheme"
 	"github.com/openshift/library-go/pkg/operator/events"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
 )
-
-func init() {
-	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme.Scheme))
-}
 
 func TestApplyMutatingConfiguration(t *testing.T) {
 	defaultHook := &admissionregistrationv1.MutatingWebhookConfiguration{}
