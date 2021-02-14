@@ -48,6 +48,7 @@ type FakeInfrastructureLister struct {
 	ResourceSync          resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced    []cache.InformerSynced
 	ConfigMapLister_      corelisterv1.ConfigMapLister
+	FeatureGateLister_    configlistersv1.FeatureGateLister
 }
 
 func (l FakeInfrastructureLister) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
@@ -64,6 +65,10 @@ func (l FakeInfrastructureLister) PreRunHasSynced() []cache.InformerSynced {
 
 func (l FakeInfrastructureLister) ConfigMapLister() corelisterv1.ConfigMapLister {
 	return l.ConfigMapLister_
+}
+
+func (l FakeInfrastructureLister) FeatureGateLister() configlistersv1.FeatureGateLister {
+	return l.FeatureGateLister_
 }
 
 func TestObserveCloudProviderNames(t *testing.T) {

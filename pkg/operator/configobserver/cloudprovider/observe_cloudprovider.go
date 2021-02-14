@@ -26,6 +26,7 @@ const (
 // InfrastructureLister lists infrastrucre information and allows resources to be synced
 type InfrastructureLister interface {
 	InfrastructureLister() configlistersv1.InfrastructureLister
+	FeatureGateLister() configlistersv1.FeatureGateLister
 	ResourceSyncer() resourcesynccontroller.ResourceSyncer
 	ConfigMapLister() corelisterv1.ConfigMapLister
 }
