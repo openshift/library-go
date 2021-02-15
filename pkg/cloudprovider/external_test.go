@@ -31,7 +31,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 			},
 		},
 		expected:    false,
-		expectedErr: fmt.Errorf("enabled FeatureSet Unknown does not have a corresponding config"),
+		expectedErr: fmt.Errorf(".spec.featureSet \"Unknown\" not found"),
 	}, {
 		name:     "FeatureSet: TechPreviewNoUpgrade, Platform: OpenStack",
 		platform: configv1.OpenStackPlatformType,
@@ -80,7 +80,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected: false,
 	}, {
-		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: OpenStack",
+		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled), Platform: OpenStack",
 		platform: configv1.OpenStackPlatformType,
 		featureGate: &configv1.FeatureGate{
 			Spec: configv1.FeatureGateSpec{
@@ -93,6 +93,35 @@ func TestIsCloudProviderExternal(t *testing.T) {
 			},
 		},
 		expected: true,
+	}, {
+		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled & Disabled), Platform: OpenStack",
+		platform: configv1.OpenStackPlatformType,
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled:  []string{ExternalCloudProviderFeature},
+						Disabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: false,
+	}, {
+		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate Disabled), Platform: OpenStack",
+		platform: configv1.OpenStackPlatformType,
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Disabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: false,
 	}, {
 		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: AWS",
 		platform: configv1.AWSPlatformType,
