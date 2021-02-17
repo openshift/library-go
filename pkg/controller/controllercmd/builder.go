@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer"
+	"k8s.io/apiserver/pkg/authorization/union"
+
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/component-base/metrics"
@@ -249,6 +252,12 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		if err != nil {
 			return err
 		}
+		serverConfig.Authorization.Authorizer = union.New(
+			// prefix the authorizer with the permissions for metrics scraping which are well known.
+			// openshift RBAC policy will always allow this user to read metrics.
+			hardcodedauthorizer.NewHardcodedMetricsScaperAuthorizer(),
+			serverConfig.Authorization.Authorizer,
+		)
 		serverConfig.HealthzChecks = append(serverConfig.HealthzChecks, b.healthChecks...)
 
 		server, err = serverConfig.Complete(nil).New(b.componentName, genericapiserver.NewEmptyDelegate())
