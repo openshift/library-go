@@ -1,6 +1,7 @@
 package cloudprovider
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -10,11 +11,25 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
+// NewCloudVolumePluginObserver returns a new cloudprovider observer for syncing cloud provider specific
+// information to controller-manager, leaving only storage controller loops enabled.
+func NewCloudVolumePluginObserver(targetNamespaceName string, cloudVolumePluginPath, cloudProviderConfigPath []string) configobserver.ObserveConfigFunc {
+	cloudObserver := &cloudProviderObserver{
+		targetNamespaceName:     targetNamespaceName,
+		cloudProviderNamePath:   cloudVolumePluginPath,
+		cloudProviderConfigPath: cloudProviderConfigPath,
+	}
+	return cloudObserver.ObserveCloudVolumePlugin
+}
+
 // ObserveCloudVolumePlugin fills in the cluster-name extended argument for the controller-manager with the cluster's infra ID
-func ObserveCloudVolumePlugin(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func (c *cloudProviderObserver) ObserveCloudVolumePlugin(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
+	defer func() {
+		ret = configobserver.Pruned(ret, c.cloudProviderConfigPath, c.cloudProviderNamePath)
+	}()
+
 	listers := genericListers.(InfrastructureLister)
-	errs := []error{}
-	volumePluginPath := []string{"extendedArguments", "external-cloud-volume-plugin"}
+	volumePluginPath := c.cloudProviderNamePath
 	previouslyObservedConfig := map[string]interface{}{}
 
 	if currentVolumePlugin, _, _ := unstructured.NestedStringSlice(existingConfig, volumePluginPath...); len(currentVolumePlugin) > 0 {
@@ -54,6 +69,27 @@ func ObserveCloudVolumePlugin(genericListers configobserver.Listers, recorder ev
 		if err := unstructured.SetNestedStringSlice(observedConfig, []string{cloudProvider}, volumePluginPath...); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	// Set cloudProviderConfig value
+	existingCloudConfig, _, err := unstructured.NestedStringSlice(existingConfig, c.cloudProviderConfigPath...)
+	if err != nil {
+		errs = append(errs, err)
+		// keep going on read error from existing config
+	}
+
+	cloudProviderConfig, configErrs := c.getCloudProviderConfig(genericListers, recorder, infrastructure)
+	if configErrs != nil {
+		errs = append(errs, configErrs...)
+	}
+
+	if err := unstructured.SetNestedStringSlice(observedConfig, []string{cloudProviderConfig}, c.cloudProviderConfigPath...); err != nil {
+		recorder.Warningf("ObserveCloudProviderNames", "Failed setting cloud-config : %v", err)
+		return nil, append(errs, err)
+	}
+
+	if !equality.Semantic.DeepEqual(existingCloudConfig, []string{cloudProviderConfig}) {
+		recorder.Eventf("ObserveCloudProviderNamesChanges", "CloudProvider config file changed to %s", cloudProviderConfig)
 	}
 
 	return observedConfig, errs
