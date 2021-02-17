@@ -67,6 +67,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		return existingConfig, append(errs, err)
 	}
 
+	// Set cloudProvider value
 	cloudProvider := getPlatformName(infrastructure.Status.Platform, recorder)
 	if len(cloudProvider) > 0 {
 		if err := unstructured.SetNestedStringSlice(observedConfig, []string{cloudProvider}, c.cloudProviderNamePath...); err != nil {
@@ -74,24 +75,53 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		}
 	}
 
+	// Set cloudProviderConfig value
+	existingCloudConfig, _, err := unstructured.NestedStringSlice(existingConfig, c.cloudProviderConfigPath...)
+	if err != nil {
+		errs = append(errs, err)
+		// keep going on read error from existing config
+	}
+
+	cloudProviderConfig, configErrs := c.getCloudProviderConfig(genericListers, recorder, infrastructure)
+	if configErrs != nil {
+		errs = append(errs, configErrs...)
+	}
+
+	if err := unstructured.SetNestedStringSlice(observedConfig, []string{cloudProviderConfig}, c.cloudProviderConfigPath...); err != nil {
+		recorder.Warningf("ObserveCloudProviderNames", "Failed setting cloud-config : %v", err)
+		return nil, append(errs, err)
+	}
+
+	if !equality.Semantic.DeepEqual(existingCloudConfig, []string{cloudProviderConfig}) {
+		recorder.Eventf("ObserveCloudProviderNamesChanges", "CloudProvider config file changed to %s", cloudProviderConfig)
+	}
+
+	return observedConfig, errs
+}
+
+func (c *cloudProviderObserver) getCloudProviderConfig(genericListers configobserver.Listers, recorder events.Recorder, infrastructure *configv1.Infrastructure) (_ string, errs []error) {
+	listers := genericListers.(InfrastructureLister)
+
 	sourceCloudConfigMap := infrastructure.Spec.CloudConfig.Name
 	sourceCloudConfigNamespace := configNamespace
 	sourceCloudConfigKey := infrastructure.Spec.CloudConfig.Key
 
 	// If a managed cloud-provider config is available, it should be used instead of the default. If the configmap is not
 	// found, the default values should be used.
-	if _, err = listers.ConfigMapLister().ConfigMaps(machineSpecifiedConfigNamespace).Get(machineSpecifiedConfig); err == nil {
+	if _, err := listers.ConfigMapLister().ConfigMaps(machineSpecifiedConfigNamespace).Get(machineSpecifiedConfig); err == nil {
 		sourceCloudConfigMap = machineSpecifiedConfig
 		sourceCloudConfigNamespace = machineSpecifiedConfigNamespace
 		sourceCloudConfigKey = "cloud.conf"
 	} else if !errors.IsNotFound(err) {
-		return existingConfig, append(errs, err)
+		return "", append(errs, err)
 	}
 
 	sourceLocation := resourcesynccontroller.ResourceLocation{
 		Namespace: sourceCloudConfigNamespace,
 		Name:      sourceCloudConfigMap,
 	}
+
+	cloudProvider := getPlatformName(infrastructure.Status.Platform, recorder)
 
 	// we set cloudprovider configmap values only for some cloud providers.
 	validCloudProviders := sets.NewString("aws", "azure", "gce", "openstack", "vsphere")
@@ -109,31 +139,16 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 			Name:      "cloud-config",
 		},
 		sourceLocation); err != nil {
-		return existingConfig, append(errs, err)
+		return "", append(errs, err)
 	}
 
 	if len(sourceCloudConfigMap) == 0 {
-		return observedConfig, errs
+		return "", errs
 	}
 
 	staticCloudConfFile := fmt.Sprintf(cloudProviderConfFilePath, sourceCloudConfigKey)
 
-	if err := unstructured.SetNestedStringSlice(observedConfig, []string{staticCloudConfFile}, c.cloudProviderConfigPath...); err != nil {
-		recorder.Warningf("ObserveCloudProviderNames", "Failed setting cloud-config : %v", err)
-		return existingConfig, append(errs, err)
-	}
-
-	existingCloudConfig, _, err := unstructured.NestedStringSlice(existingConfig, c.cloudProviderConfigPath...)
-	if err != nil {
-		errs = append(errs, err)
-		// keep going on read error from existing config
-	}
-
-	if !equality.Semantic.DeepEqual(existingCloudConfig, []string{staticCloudConfFile}) {
-		recorder.Eventf("ObserveCloudProviderNamesChanges", "CloudProvider config file changed to %s", staticCloudConfFile)
-	}
-
-	return observedConfig, errs
+	return staticCloudConfFile, errs
 }
 
 func getPlatformName(platformType configv1.PlatformType, recorder events.Recorder) string {

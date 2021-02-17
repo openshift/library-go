@@ -138,3 +138,88 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCloudProviderConfig(t *testing.T) {
+	defaultCloudConfig := &corev1.ConfigMap{}
+	defaultCloudConfig.SetName(machineSpecifiedConfig)
+	defaultCloudConfig.SetNamespace(machineSpecifiedConfigNamespace)
+
+	cases := []struct {
+		platform                configv1.PlatformType
+		configRef               configv1.ConfigMapFileReference
+		createDeafaultConfigMap bool
+		expectedConfig          string
+		expectErrs              []error
+	}{{
+		platform:       configv1.AWSPlatformType,
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}, {
+		platform:       configv1.AzurePlatformType,
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}, {
+		platform:       configv1.GCPPlatformType,
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}, {
+		platform:       configv1.OpenStackPlatformType,
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}, {
+		platform:       configv1.VSpherePlatformType,
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}, {
+		platform:       configv1.BareMetalPlatformType,
+		expectedConfig: "",
+	}, {
+		platform:       configv1.LibvirtPlatformType,
+		expectedConfig: "",
+	}, {
+		platform:       "",
+		expectedConfig: "",
+	}, {
+		platform: configv1.AWSPlatformType,
+		configRef: configv1.ConfigMapFileReference{
+			Name: "other-cloud-config",
+			Key:  "test",
+		},
+		expectedConfig: "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/test",
+	}, {
+		platform: configv1.AWSPlatformType,
+		configRef: configv1.ConfigMapFileReference{
+			Name: "other-cloud-config",
+			Key:  "test",
+		},
+		createDeafaultConfigMap: true,
+		expectedConfig:          "/etc/kubernetes/static-pod-resources/configmaps/cloud-config/cloud.conf",
+	}}
+	for _, c := range cases {
+		t.Run(string(c.platform), func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			cloudConfigConfigMap := defaultCloudConfig.DeepCopy()
+			if c.configRef != (configv1.ConfigMapFileReference{}) {
+				cloudConfigConfigMap.SetName(c.configRef.Name)
+			}
+			if err := indexer.Add(cloudConfigConfigMap); err != nil {
+				t.Fatal(err.Error())
+			}
+			if c.createDeafaultConfigMap {
+				if err := indexer.Add(defaultCloudConfig); err != nil {
+					t.Fatal(err.Error())
+				}
+			}
+			infrastructure := &configv1.Infrastructure{ObjectMeta: v1.ObjectMeta{Name: "cluster"},
+				Spec:   configv1.InfrastructureSpec{CloudConfig: c.configRef},
+				Status: configv1.InfrastructureStatus{Platform: c.platform}}
+			listers := FakeInfrastructureLister{
+				ResourceSync:     &FakeResourceSyncer{},
+				ConfigMapLister_: corelisterv1.NewConfigMapLister(indexer),
+			}
+			cloudObserver := &cloudProviderObserver{targetNamespaceName: "kube-controller-manager"}
+			cloudProviderConfig, errs := cloudObserver.getCloudProviderConfig(listers, events.NewInMemoryRecorder("cloud"), infrastructure)
+			if len(errs) > 0 {
+				t.Fatal(errs)
+			}
+			if cloudProviderConfig != c.expectedConfig {
+				t.Fatalf("expected cloud-config == %s, got %s", c.expectedConfig, cloudProviderConfig)
+			}
+		})
+	}
+}
