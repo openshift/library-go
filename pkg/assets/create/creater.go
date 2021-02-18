@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/client/openshiftrestmapper"
 )
 
 // CreateOptions allow to specify additional create options.
@@ -133,7 +134,9 @@ func fetchLatestDiscoveryInfo(dc *discovery.DiscoveryClient) (meta.RESTMapper, e
 	if err != nil {
 		return nil, err
 	}
-	return restmapper.NewDiscoveryRESTMapper(gr), nil
+	defaultRESTMapper := restmapper.NewDiscoveryRESTMapper(gr)
+	wrappedRESTMapper := openshiftrestmapper.NewOpenShiftHardcodedRESTMapper(defaultRESTMapper)
+	return wrappedRESTMapper, nil
 }
 
 // create will attempt to create all manifests provided using dynamic client.
