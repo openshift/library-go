@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/client/openshiftrestmapper"
 )
 
 // CreateOptions allow to specify additional create options.
@@ -113,7 +114,11 @@ func newClients(config *rest.Config) (dynamic.Interface, *discovery.DiscoveryCli
 
 	// TODO: We can use cacheddiscovery.NewMemCacheClient(dc) and then call .Invalidate() instead of fetchLatestDiscoveryInfo.
 	// It will require more work in unit test though.
-	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	// discovery is very bursty and we have lots and lots of groups
+	discoveryConfig := rest.CopyConfig(config)
+	discoveryConfig.Burst = 200
+	discoveryConfig.QPS = 50
+	dc, err := discovery.NewDiscoveryClientForConfig(discoveryConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -129,7 +134,9 @@ func fetchLatestDiscoveryInfo(dc *discovery.DiscoveryClient) (meta.RESTMapper, e
 	if err != nil {
 		return nil, err
 	}
-	return restmapper.NewDiscoveryRESTMapper(gr), nil
+	defaultRESTMapper := restmapper.NewDiscoveryRESTMapper(gr)
+	wrappedRESTMapper := openshiftrestmapper.NewOpenShiftHardcodedRESTMapper(defaultRESTMapper)
+	return wrappedRESTMapper, nil
 }
 
 // create will attempt to create all manifests provided using dynamic client.
