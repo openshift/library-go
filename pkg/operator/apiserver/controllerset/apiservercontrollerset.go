@@ -8,6 +8,7 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
@@ -32,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 )
@@ -216,7 +216,7 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	informers ...cache.SharedIndexInformer) *APIServerControllerSet {
+	informers ...factory.Informer) *APIServerControllerSet {
 
 	workloadController := workload.NewController(
 		name,
@@ -228,22 +228,19 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		cs.operatorClient,
 		kubeClient,
 		kubeInformersForNamespaces.PodLister(),
+		append(informers,
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Informer(),
+			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().Nodes().Informer(),
+		),
+		[]factory.Informer{kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer()},
+
 		delegate,
 		openshiftClusterConfigClient,
 		cs.eventRecorder,
 		versionRecorder)
-
-	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer())
-	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer())
-	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer())
-	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Informer())
-	workloadController.AddInformer(kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().Nodes().Informer())
-
-	workloadController.AddNamespaceInformer(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer())
-
-	for _, informer := range informers {
-		workloadController.AddInformer(informer)
-	}
 
 	cs.workloadController.controller = workloadController
 

@@ -357,7 +357,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			}
 
 			// act
-			target := &Controller{operatorClient: fakeOperatorClient, name: defaultControllerName, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
+			target := &Controller{operatorClient: fakeOperatorClient, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
 			err := target.updateOperatorStatus(scenario.workload, scenario.operatorConfigAtHighestRevision, !scenario.operatorPreconditionsNotReady, scenario.errors)
 			if err != nil && len(scenario.errors) == 0 {
 				t.Fatal(err)
