@@ -322,8 +322,8 @@ data:
     omitStages:
     - "RequestReceived"
     rules:
-    # Logs request and response for oauthaccess tokens.
-    - level: RequestResponse
+    # Don't log for oauth tokens.
+    - level: None
       resources:
       - group: "oauth.openshift.io"
         resources: ["oauthaccesstokens"]
@@ -345,8 +345,8 @@ data:
     omitStages:
     - "RequestReceived"
     rules:
-    # Logs request and response for oauthaccess tokens.
-    - level: RequestResponse
+    # Log at Request level for oauth tokens
+    - level: Request
       resources:
       - group: "oauth.openshift.io"
         resources: ["oauthaccesstokens"]
