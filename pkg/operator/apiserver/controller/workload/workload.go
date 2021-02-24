@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,18 +12,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/library-go/pkg/apps/deployment"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -38,7 +34,7 @@ const (
 // Delegate captures a set of methods that hold a custom logic
 type Delegate interface {
 	// Sync a method that will be used for delegation. It should bring the desired workload into operation.
-	Sync() (*appsv1.Deployment, bool, []error)
+	Sync(ctx context.Context, controllerContext factory.SyncContext) (*appsv1.Deployment, bool, []error)
 
 	// PreconditionFulfilled a method that indicates whether all prerequisites are met and we can Sync.
 	//
@@ -52,7 +48,6 @@ type Delegate interface {
 // Callers must provide a sync function for delegation. It should bring the desired workload into operation.
 // The returned state along with errors will be converted into conditions and persisted in the status field.
 type Controller struct {
-	name string
 	// conditionsPrefix an optional prefix that will be used as operator's condition type field for example APIServerDeploymentDegraded where APIServer indicates the prefix
 	conditionsPrefix     string
 	operatorNamespace    string
@@ -69,7 +64,6 @@ type Controller struct {
 
 	delegate           Delegate
 	queue              workqueue.RateLimitingInterface
-	eventRecorder      events.Recorder
 	versionRecorder    status.VersionGetter
 	preRunCachesSynced []cache.InformerSynced
 }
@@ -86,13 +80,15 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	podLister corev1listers.PodLister,
+	informers []factory.Informer,
+	tagetNamespaceInformers []factory.Informer,
 	delegate Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
-	versionRecorder status.VersionGetter) *Controller {
+	versionRecorder status.VersionGetter,
+) factory.Controller {
 	controllerRef := &Controller{
 		operatorNamespace:            operatorNamespace,
-		name:                         fmt.Sprintf("%sWorkloadController", name),
 		targetNamespace:              targetNamespace,
 		targetOperandVersion:         targetOperandVersion,
 		operandNamePrefix:            operandNamePrefix,
@@ -102,21 +98,27 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		podsLister:                   podLister,
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
-		eventRecorder:                eventRecorder.WithComponentSuffix("workload-controller"),
 		versionRecorder:              versionRecorder,
 		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
 	}
 
-	return controllerRef
+	c := factory.New()
+	for _, nsi := range tagetNamespaceInformers {
+		c.WithNamespaceInformer(nsi, targetNamespace)
+	}
+
+	return c.WithSync(controllerRef.sync).
+		WithInformers(informers...).
+		ToController(fmt.Sprintf("%sWorkloadController", name), eventRecorder)
 }
 
-func (c *Controller) sync() error {
+func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
 	}
 
-	if run, err := c.shouldSync(operatorSpec); !run {
+	if run, err := c.shouldSync(ctx, operatorSpec, controllerContext.Recorder()); !run {
 		return err
 	}
 
@@ -124,129 +126,25 @@ func (c *Controller) sync() error {
 		return c.updateOperatorStatus(nil, false, false, []error{err})
 	}
 
-	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync()
+	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
 
 	return c.updateOperatorStatus(workload, operatorConfigAtHighestGeneration, true, errs)
 }
 
-// Run starts workload controller and blocks until stopCh is closed.
-// Note that setting workers doesn't have any effect, the controller is single-threaded.
-func (c *Controller) Run(ctx context.Context, workers int) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	klog.Infof("Starting %s", c.name)
-	defer klog.Infof("Shutting down %s", c.name)
-	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
-		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
-		return
-	}
-
-	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, ctx.Done())
-
-	<-ctx.Done()
-}
-
-func (c *Controller) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *Controller) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(dsKey)
-
-	err := c.sync()
-	if err == nil {
-		c.queue.Forget(dsKey)
-		return true
-	}
-
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
-
-	return true
-}
-
-// AddInformer queues the given informer to check spec, status and managed resources
-func (c *Controller) AddInformer(informer cache.SharedIndexInformer) *Controller {
-	informer.AddEventHandler(c.eventHandler())
-	c.preRunCachesSynced = append(c.preRunCachesSynced, informer.HasSynced)
-	return c
-}
-
-// AddNamespaceInformer queues the given ns informer for the targetNamespace
-func (c *Controller) AddNamespaceInformer(informer cache.SharedIndexInformer) *Controller {
-	interestingNamespaces := sets.NewString(c.targetNamespace)
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ns, ok := obj.(*corev1.Namespace)
-			if !ok {
-				c.queue.Add(workQueueKey)
-			}
-			if interestingNamespaces.Has(ns.Name) {
-				c.queue.Add(workQueueKey)
-			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			ns, ok := old.(*corev1.Namespace)
-			if !ok {
-				c.queue.Add(workQueueKey)
-			}
-			if interestingNamespaces.Has(ns.Name) {
-				c.queue.Add(workQueueKey)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			ns, ok := obj.(*corev1.Namespace)
-			if !ok {
-				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
-					return
-				}
-				ns, ok = tombstone.Obj.(*corev1.Namespace)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a Namespace %#v", obj))
-					return
-				}
-			}
-			if interestingNamespaces.Has(ns.Name) {
-				c.queue.Add(workQueueKey)
-			}
-		},
-	})
-	c.preRunCachesSynced = append(c.preRunCachesSynced, informer.HasSynced)
-
-	return c
-}
-
-func (c *Controller) eventHandler() cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
-	}
-}
-
 // shouldSync checks ManagementState to determine if we can run this operator, probably set by a cluster administrator.
-func (c *Controller) shouldSync(operatorSpec *operatorv1.OperatorSpec) (bool, error) {
+func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.OperatorSpec, eventsRecorder events.Recorder) (bool, error) {
 	switch operatorSpec.ManagementState {
 	case operatorv1.Managed:
 		return true, nil
 	case operatorv1.Unmanaged:
 		return false, nil
 	case operatorv1.Removed:
-		if err := c.kubeClient.CoreV1().Namespaces().Delete(context.TODO(), c.targetNamespace, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.kubeClient.CoreV1().Namespaces().Delete(ctx, c.targetNamespace, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return false, err
 		}
 		return false, nil
 	default:
-		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
+		eventsRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return false, nil
 	}
 }
