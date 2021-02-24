@@ -827,8 +827,12 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 }
 
 func (ca *CA) MakeClientCertificateForDuration(u user.Info, lifetime time.Duration) (*TLSCertificateConfig, error) {
+	return ca.MakeClientCertificateForSubjectAndDuration(userToSubject(u), lifetime)
+}
+
+func (ca *CA) MakeClientCertificateForSubjectAndDuration(subject pkix.Name, lifetime time.Duration) (*TLSCertificateConfig, error) {
 	clientPublicKey, clientPrivateKey, _ := NewKeyPair()
-	clientTemplate := newClientCertificateTemplateForDuration(userToSubject(u), lifetime, time.Now)
+	clientTemplate := newClientCertificateTemplateForDuration(subject, lifetime, time.Now)
 	clientCrt, err := ca.signCertificate(clientTemplate, clientPublicKey)
 	if err != nil {
 		return nil, err
