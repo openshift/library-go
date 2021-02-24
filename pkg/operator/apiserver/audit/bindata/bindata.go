@@ -354,7 +354,7 @@ data:
       - create
       - delete
     # Logs at Metadata level for these users and groups.
-    - level: Metadata
+    - level: RequestResponse
       userGroups: ["system:authenticated:oauth"]
     - level: Metadata
       users: ["kube:admin"]
