@@ -291,7 +291,11 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 	// which should immediately result in a deployment generation diff, which should cause this block to be skipped until it is ready.
 	workloadHasAllPodsUpdated := workload.Status.UpdatedReplicas == desiredReplicas
 	if workloadAtHighestGeneration && workloadHasAllPodsAvailable && workloadHasAllPodsUpdated && operatorConfigAtHighestGeneration {
-		c.versionRecorder.SetVersion(fmt.Sprintf("%s-%s", c.operandNamePrefix, workload.Name), c.targetOperandVersion)
+		operandName := workload.Name
+		if len(c.operandNamePrefix) > 0 {
+			operandName = fmt.Sprintf("%s-%s", c.operandNamePrefix, workload.Name)
+		}
+		c.versionRecorder.SetVersion(operandName, c.targetOperandVersion)
 	}
 
 	updateGenerationFn := func(newStatus *operatorv1.OperatorStatus) error {
