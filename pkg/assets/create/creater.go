@@ -178,34 +178,36 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 		}
 		resourceString := mappings.Resource.Resource + "." + mappings.Resource.Version + "." + mappings.Resource.Group + "/" + manifests[path].GetName() + " -n " + manifests[path].GetNamespace()
 
-		incluster, err := resource.Create(ctx, manifests[path], metav1.CreateOptions{})
-
-		if err == nil && options.Verbose {
-			fmt.Fprintf(options.StdErr, "Created %q %s\n", path, resourceString)
-		}
-
-		// Resource already exists means we already succeeded
-		// This should never happen as we remove already created items from the manifest list, unless the resource existed beforehand.
-		if kerrors.IsAlreadyExists(err) {
+		incluster, err := resource.Get(ctx, manifests[path].GetName(), metav1.GetOptions{})
+		switch {
+		case err == nil:
 			if options.Verbose {
 				fmt.Fprintf(options.StdErr, "Skipped %q %s as it already exists\n", path, resourceString)
 			}
-			incluster, err = resource.Get(ctx, manifests[path].GetName(), metav1.GetOptions{})
-			if err != nil {
+			// fall through as if it was just created
+		case !kerrors.IsNotFound(err):
+			if options.Verbose {
+				fmt.Fprintf(options.StdErr, "Failed to get %q %s: %v\n", path, resourceString, err)
+			}
+			errs[path] = fmt.Errorf("failed to get %s: %v", resourceString, err)
+			continue
+		case kerrors.IsNotFound(err):
+			incluster, err = resource.Create(ctx, manifests[path], metav1.CreateOptions{})
+			if err == nil && options.Verbose {
+				fmt.Fprintf(options.StdErr, "Created %q %s\n", path, resourceString)
+			}
+			if kerrors.IsAlreadyExists(err) {
 				if options.Verbose {
-					fmt.Fprintf(options.StdErr, "Failed to get already existing %q %s: %v\n", path, resourceString, err)
+					fmt.Fprintf(options.StdErr, "Skipped creating %q %s as it already exists\n", path, resourceString)
 				}
-				errs[path] = fmt.Errorf("failed to get %s: %v", resourceString, err)
+				// fall through as if it was just created
+			} else if err != nil {
+				if options.Verbose {
+					fmt.Fprintf(options.StdErr, "Failed to create %q %s: %v\n", path, resourceString, err)
+				}
+				errs[path] = fmt.Errorf("failed to create %s: %v", resourceString, err)
 				continue
 			}
-		}
-
-		if err != nil {
-			if options.Verbose {
-				fmt.Fprintf(options.StdErr, "Failed to create %q %s: %v\n", path, resourceString, err)
-			}
-			errs[path] = fmt.Errorf("failed to create %s: %v", resourceString, err)
-			continue
 		}
 
 		if _, ok := manifests[path].Object["status"]; ok {
