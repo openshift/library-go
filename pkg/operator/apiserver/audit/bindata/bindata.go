@@ -313,7 +313,7 @@ data:
     # catch-all rule to log all other requests with request and response payloads
     - level: RequestResponse
 
-  userrequests.yaml: |
+  userrequestbodies.yaml: |
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
     metadata:
@@ -336,7 +336,7 @@ data:
     - level: Metadata
       users: ["kube:admin"]
 
-  secure-oauth-storage-userrequests.yaml: |
+  secure-oauth-storage-userrequestbodies.yaml: |
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
     metadata:
