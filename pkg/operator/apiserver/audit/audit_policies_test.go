@@ -124,7 +124,7 @@ func TestNewAuditPolicyPathGetter(t *testing.T) {
 		{
 			name:         "UserRequests audit policy",
 			profile:      "UserRequests",
-			expectedPath: "/var/run/configmaps/audit/userrequests.yaml",
+			expectedPath: "/var/run/configmaps/audit/userrequestbodies.yaml",
 		},
 		{
 			name:        "audit policy does not exist",
