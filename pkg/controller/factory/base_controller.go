@@ -29,6 +29,7 @@ var defaultCacheSyncTimeout = 10 * time.Minute
 // baseController represents generic Kubernetes controller boiler-plate
 type baseController struct {
 	name               string
+	description        string
 	cachesToSync       []cache.InformerSynced
 	sync               func(ctx context.Context, controllerContext SyncContext) error
 	syncContext        SyncContext
