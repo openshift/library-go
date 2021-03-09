@@ -101,7 +101,7 @@ func NewFileWatcherWatchdog() *cobra.Command {
 			klog.V(1).Info(spew.Sdump(o))
 
 			// Handle shutdown
-			termHandler := server.SetupSignalHandler()
+			termHandler := server.SetupSignalHandler(true)
 			ctx, shutdown := context.WithCancel(context.TODO())
 			go func() {
 				defer shutdown()

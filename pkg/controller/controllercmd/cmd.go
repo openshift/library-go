@@ -81,7 +81,7 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 
 			// handle SIGTERM and SIGINT by cancelling the context.
 			shutdownCtx, cancel := context.WithCancel(ctx)
-			shutdownHandler := server.SetupSignalHandler()
+			shutdownHandler := server.SetupSignalHandler(true)
 			go func() {
 				defer cancel()
 				<-shutdownHandler
