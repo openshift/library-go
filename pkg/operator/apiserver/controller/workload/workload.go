@@ -41,7 +41,7 @@ type Delegate interface {
 	// missing preconditions will be reported in the operator's status
 	// operator will be degraded, not available and not progressing
 	// returned errors (if any) will be added to the Message field
-	PreconditionFulfilled() (bool, error)
+	PreconditionFulfilled(ctx context.Context) (bool, error)
 }
 
 // Controller is a generic workload controller that deals with Deployment resource.
@@ -122,7 +122,7 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled || err != nil {
+	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
 		return c.updateOperatorStatus(nil, false, false, []error{err})
 	}
 
