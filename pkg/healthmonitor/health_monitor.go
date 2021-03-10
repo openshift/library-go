@@ -17,6 +17,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var (
+	defaultProbeResponseTimeout = 1 * time.Second
+	defaultProbeInterval        = 2 * time.Second
+
+	defaultUnhealthyProbesThreshold = 3
+	defaultHealthyProbesThreshold   = 5
+)
+
 type HealthMonitor struct {
 	// targetProvider provides a list of targets to monitor
 	// it also can schedule refreshing the list by simply calling Enqueue method
@@ -24,9 +32,6 @@ type HealthMonitor struct {
 
 	// client is an HTTP client that is used to probe health checks for targets
 	client *http.Client
-
-	// probeResponseTimeout specifies a time limit for requests made by the HTTP client for the health check
-	probeResponseTimeout time.Duration
 
 	// probeInterval specifies a time interval at which health checks are send
 	probeInterval time.Duration
@@ -64,12 +69,23 @@ var _ Listener = &HealthMonitor{}
 var _ Notifier = &HealthMonitor{}
 
 // New creates a health monitor that periodically sends requests to the provided targets to check their health.
-// This method also allows you to configure behaviour of the monitor upfront.
 //
-//   unhealthyProbesThreshold - that specifies consecutive failed health checks after which a target is considered unhealthy
-//   healthyProbesThreshold   - that specifies consecutive successful health checks after which a target is considered healthy
-//   probeResponseTimeout     - that specifies a time limit for requests made by the HTTP client for the health check
-//   probeInterval            - that specifies a time interval at which health checks are send
+// The following methods allows you to configure behaviour of the monitor after creation.
+//
+//   WithUnHealthyProbesThreshold - that specifies consecutive failed health checks after which a target is considered unhealthy
+//                                  the default value is: 3
+//
+//   WithHealthyProbesThreshold   - that specifies consecutive successful health checks after which a target is considered healthy
+//                                  the default value is: 5
+//
+//   WithProbeResponseTimeout     - that specifies a time limit for requests made by the HTTP client for the health check
+//                                  the default value is: 1 second
+//
+//   WithProbeInterval            - that specifies a time interval at which health checks are send
+//                                  the default value is: 2 seconds
+//
+//   WithMetrics                  - that specifies a set of methods that are used to register various metrics
+//                                  the default value is: no metrics
 //
 //
 // Additionally the monitor implements Listener and Notifier interfaces.
@@ -80,32 +96,27 @@ var _ Notifier = &HealthMonitor{}
 // Interested parties can register a listener for notifications about healthy/unhealthy targets changes via AddListener.
 // TODO: instead of restConfig we could accept transport so that it is reused instead of creating a new connection to targets
 //       reusing the transport has the advantage of using the same connection as other clients
-func New(targetProvider TargetProvider, restConfig *rest.Config, unhealthyProbesThreshold int, healthyProbesThreshold int, probeResponseTimeout, probeInterval time.Duration, metrics *Metrics) (*HealthMonitor, error) {
-	client, err := createHealthCheckHTTPClient(probeResponseTimeout, restConfig)
+func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor, error) {
+	client, err := createHealthCheckHTTPClient(defaultProbeResponseTimeout, restConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	if metrics == nil {
-		metrics = &Metrics{
-			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
-			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
-		}
 	}
 
 	hm := &HealthMonitor{
 		client:                   client,
 		targetProvider:           targetProvider,
 		targetsToMonitor:         targetProvider.CurrentTargetsList(),
-		probeResponseTimeout:     probeResponseTimeout,
-		probeInterval:            probeInterval,
-		unhealthyProbesThreshold: unhealthyProbesThreshold,
-		healthyProbesThreshold:   healthyProbesThreshold,
+		probeInterval:            defaultProbeInterval,
+		unhealthyProbesThreshold: defaultUnhealthyProbesThreshold,
+		healthyProbesThreshold:   defaultHealthyProbesThreshold,
 
 		consecutiveSuccessfulProbes: map[string]int{},
 		consecutiveFailedProbes:     map[string][]error{},
 
-		metrics: metrics,
+		metrics: &Metrics{
+			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
+			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
+		},
 	}
 	hm.exportedHealthyTargets.Store([]string{})
 	hm.exportedUnhealthyTargets.Store([]string{})
@@ -122,7 +133,7 @@ func New(targetProvider TargetProvider, restConfig *rest.Config, unhealthyProbes
 func (sm *HealthMonitor) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 
-	klog.Infof("Starting the health monitor with Interval = %v, Timeout = %v, HealthyThreshold = %v, UnhealthyThreshold = %v ", sm.probeInterval, sm.probeResponseTimeout, sm.healthyProbesThreshold, sm.unhealthyProbesThreshold)
+	klog.Infof("Starting the health monitor with Interval = %v, Timeout = %v, HealthyThreshold = %v, UnhealthyThreshold = %v ", sm.probeInterval, sm.client.Timeout, sm.healthyProbesThreshold, sm.unhealthyProbesThreshold)
 	defer klog.Info("Shutting down the health monitor")
 
 	wait.Until(sm.healthCheckRegisteredTargets, sm.probeInterval, stopCh)
