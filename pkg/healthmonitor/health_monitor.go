@@ -3,6 +3,7 @@ package healthmonitor
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -114,9 +115,10 @@ func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor
 		consecutiveFailedProbes:     map[string][]error{},
 
 		metrics: &Metrics{
-			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
-			CurrentHealthyTargets: noopMetrics{}.TargetsGauge,
-			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
+			HealthyTargetsTotal:        noopMetrics{}.TargetsTotal,
+			CurrentHealthyTargets:      noopMetrics{}.TargetsGauge,
+			UnHealthyTargetsTotal:      noopMetrics{}.TargetsTotal,
+			ReadyzProtocolRequestTotal: noopMetrics{}.TargetsWithCodeTotal,
 		},
 	}
 	hm.exportedHealthyTargets.Store([]string{})
@@ -322,10 +324,14 @@ func (sm *HealthMonitor) healthCheckSingleTarget(target string) error {
 
 	resp, err := sm.client.Do(newReq)
 	if err != nil {
+		sm.metrics.ReadyzProtocolRequestTotal("<error>", target)
 		return err
 	}
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != http.StatusInternalServerError {
+			sm.metrics.ReadyzProtocolRequestTotal(strconv.Itoa(resp.StatusCode), target)
+		}
 		return fmt.Errorf("bad status from %v: %v, expected HTTP 200", url, resp.StatusCode)
 	}
 

@@ -423,6 +423,8 @@ func newHealthMonitor() *HealthMonitor {
 	}
 	hm.exportedHealthyTargets.Store([]string{})
 	hm.exportedUnhealthyTargets.Store([]string{})
+	fakeMetrics := &fakeMetrics{}
+	hm.metrics = &Metrics{HealthyTargetsTotal: fakeMetrics.HealthyTargetsTotal, UnHealthyTargetsTotal: fakeMetrics.UnHealthyTargetsTotal, CurrentHealthyTargets: fakeMetrics.CurrentHealthyTargets}
 
 	return hm
 }
