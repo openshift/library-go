@@ -3,6 +3,7 @@ package healthmonitor
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -316,8 +317,11 @@ func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []target
 
 func (sm *HealthMonitor) healthCheckSingleTarget(target string) error {
 	// TODO: make the protocol, port and the path configurable
-	url := fmt.Sprintf("https://%s/%s", target, "readyz")
-	newReq, err := http.NewRequest("GET", url, nil)
+	targetURL, err := url.Parse(fmt.Sprintf("https://%s/%s", target, "readyz"))
+	if err != nil {
+		return err
+	}
+	newReq, err := http.NewRequest("GET", targetURL.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -332,7 +336,7 @@ func (sm *HealthMonitor) healthCheckSingleTarget(target string) error {
 		if resp.StatusCode != http.StatusInternalServerError {
 			sm.metrics.ReadyzProtocolRequestTotal(strconv.Itoa(resp.StatusCode), target)
 		}
-		return fmt.Errorf("bad status from %v: %v, expected HTTP 200", url, resp.StatusCode)
+		return fmt.Errorf("bad status from %v: %v, expected HTTP 200", targetURL.String(), resp.StatusCode)
 	}
 
 	return err
