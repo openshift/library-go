@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
 )
@@ -299,7 +301,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	}
 
 	// Gather pod yaml from config map
-	var rawPodBytes string
+	var podYAML string
 
 	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
 		klog.Infof("Getting pod configmaps/%s -n %s", o.nameFor(o.PodConfigMapNamePrefix), o.Namespace)
@@ -311,16 +313,20 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 			return true, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
 		}
 		podConfigMap = o.substituteConfigMap(podConfigMap)
-		rawPodBytes = podConfigMap.Data["pod.yaml"]
+		podYAML = podConfigMap.Data["pod.yaml"]
 		return true, nil
 	})
+	if err != nil {
+		return err
+	}
+	rawPodBytes, err := yaml.YAMLToJSON([]byte(podYAML))
 	if err != nil {
 		return err
 	}
 	// the kubelet has a bug that prevents graceful termination from working on static pods with the same name, filename
 	// and uuid.  By setting the pod UID we can work around the kubelet bug and get our graceful termination honored.
 	// Per the node team, this is hard to fix in the kubelet, though it will affect all static pods.
-	pod, err := resourceread.ReadPodV1([]byte(rawPodBytes))
+	pod, err := resourceread.ReadPodV1(rawPodBytes)
 	if err != nil {
 		return err
 	}
@@ -332,13 +338,18 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 			return err
 		}
 	}
-	finalPodBytes := resourceread.WritePodV1OrDie(pod)
+
+	// Convert pod to yaml so the resulting static pod is human readable
+	finalPodYAML, err := resourcehelper.InterfaceToYAML(pod)
+	if err != nil {
+		return err
+	}
 
 	// Write secrets, config maps and pod to disk
 	// This does not need timeout, instead we should fail hard when we are not able to write.
 	podFileName := o.PodConfigMapNamePrefix + ".yaml"
 	klog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, podFileName))
-	if err := ioutil.WriteFile(path.Join(resourceDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
+	if err := ioutil.WriteFile(path.Join(resourceDir, podFileName), finalPodYAML, 0644); err != nil {
 		return err
 	}
 
@@ -348,8 +359,8 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		return err
 	}
 
-	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, podFileName), finalPodBytes)
-	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
+	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, podFileName), string(finalPodYAML))
+	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, podFileName), finalPodYAML, 0644); err != nil {
 		return err
 	}
 
@@ -359,7 +370,10 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 func (o *InstallOptions) substituteConfigMap(obj *corev1.ConfigMap) *corev1.ConfigMap {
 	ret := obj.DeepCopy()
 	for k, oldContent := range obj.Data {
-		newContent := strings.ReplaceAll(oldContent, "REVISION", o.Revision)
+		// Quote the revision intended to be set in a label to ensure the value will be unmarshalled
+		// to json as a string (the required type for metadata.label).
+		newContent := strings.ReplaceAll(oldContent, "REVISION_LABEL", fmt.Sprintf("%q", o.Revision))
+		newContent = strings.ReplaceAll(newContent, "REVISION", o.Revision)
 		newContent = strings.ReplaceAll(newContent, "NODE_NAME", o.NodeName)
 		newContent = strings.ReplaceAll(newContent, "NODE_ENVVAR_NAME", strings.ReplaceAll(strings.ReplaceAll(o.NodeName, "-", "_"), ".", "_"))
 		ret.Data[k] = newContent

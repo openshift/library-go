@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -129,7 +130,8 @@ func MergePrunedProcessConfig(schema runtime.Object, specialCases map[string]Mer
 	if err := json.Unmarshal(inputBytes, &inputJSON); err != nil {
 		return nil, err
 	}
-	return json.Marshal(intersectJSON(inputJSON, untypedJSON))
+	intersectedJSON := intersectJSON(inputJSON, untypedJSON)
+	return resourcehelper.InterfaceToYAML(intersectedJSON)
 }
 
 type MergeFunc func(dst, src interface{}, currentPath string) (interface{}, error)

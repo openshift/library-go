@@ -1,10 +1,13 @@
 package resourcehelper
 
 import (
+	"encoding/json"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/api"
 )
@@ -73,4 +76,13 @@ func GuessObjectGroupVersionKind(object runtime.Object) schema.GroupVersionKind 
 		return kinds[0]
 	}
 	return schema.GroupVersionKind{Kind: "<unknown>"}
+}
+
+// InterfaceToYAML converts an interface to pretty printed YAML.
+func InterfaceToYAML(v interface{}) ([]byte, error) {
+	jsonBytes, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return yaml.JSONToYAML(jsonBytes)
 }

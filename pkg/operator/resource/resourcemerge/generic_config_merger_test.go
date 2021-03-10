@@ -232,7 +232,10 @@ alpha: first
 			additional: `
 consolePublicURL: http://foo/bar
 `,
-			expected: `{"apiVersion":"foo","consolePublicURL":"http://foo/bar","kind":"the-kind"}`,
+			expected: `apiVersion: foo
+consolePublicURL: http://foo/bar
+kind: the-kind
+`,
 		},
 		{
 			name: "prune unknown values with array",
@@ -245,7 +248,12 @@ corsAllowedOrigins:
 			additional: `
 consolePublicURL: http://foo/bar
 `,
-			expected: `{"apiVersion":"foo","consolePublicURL":"http://foo/bar","corsAllowedOrigins":["(?i)//openshift(:|\\z)"],"kind":"the-kind"}`,
+			expected: `apiVersion: foo
+consolePublicURL: http://foo/bar
+corsAllowedOrigins:
+- (?i)//openshift(:|\z)
+kind: the-kind
+`,
 		},
 	}
 
