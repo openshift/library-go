@@ -1,6 +1,7 @@
 package healthmonitor
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -134,13 +135,13 @@ func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor
 
 // Run starts monitoring the provided targets until stop channel is closed
 // This method is blocking and it is meant to be launched in a separate goroutine
-func (sm *HealthMonitor) Run(stopCh <-chan struct{}) {
+func (sm *HealthMonitor) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 
 	klog.Infof("Starting the health monitor with Interval = %v, Timeout = %v, HealthyThreshold = %v, UnhealthyThreshold = %v ", sm.probeInterval, sm.client.Timeout, sm.healthyProbesThreshold, sm.unhealthyProbesThreshold)
 	defer klog.Info("Shutting down the health monitor")
 
-	wait.Until(sm.healthCheckRegisteredTargets, sm.probeInterval, stopCh)
+	wait.Until(sm.healthCheckRegisteredTargets, sm.probeInterval, ctx.Done())
 }
 
 // Enqueue schedules refreshing the target list on the next probeInterval
