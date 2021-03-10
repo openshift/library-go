@@ -115,6 +115,7 @@ func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor
 
 		metrics: &Metrics{
 			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
+			CurrentHealthyTargets: noopMetrics{}.TargetsGauge,
 			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
 		},
 	}
@@ -301,6 +302,9 @@ func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []target
 	}
 
 	if notifyListeners {
+		// something has changed update the currently healthy targets metric
+		sm.metrics.CurrentHealthyTargets(float64(len(sm.healthyTargets)))
+
 		// notify listeners about the new healthy/unhealthy targets
 		for _, listener := range sm.listeners {
 			listener.Enqueue()
