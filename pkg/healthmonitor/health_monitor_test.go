@@ -415,6 +415,11 @@ func newHealthMonitor() *HealthMonitor {
 
 		consecutiveSuccessfulProbes: map[string]int{},
 		consecutiveFailedProbes:     map[string][]error{},
+
+		metrics: &Metrics{
+			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
+			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
+		},
 	}
 	hm.exportedHealthyTargets.Store([]string{})
 	hm.exportedUnhealthyTargets.Store([]string{})

@@ -55,6 +55,9 @@ type HealthMonitor struct {
 
 	// listeners holds a list of interested parties to be notified when the list of healthy targets changes
 	listeners []Listener
+
+	// metrics specifies a set of methods that are used to register various metrics
+	metrics *Metrics
 }
 
 var _ Listener = &HealthMonitor{}
@@ -77,10 +80,17 @@ var _ Notifier = &HealthMonitor{}
 // Interested parties can register a listener for notifications about healthy/unhealthy targets changes via AddListener.
 // TODO: instead of restConfig we could accept transport so that it is reused instead of creating a new connection to targets
 //       reusing the transport has the advantage of using the same connection as other clients
-func New(targetProvider TargetProvider, restConfig *rest.Config, unhealthyProbesThreshold int, healthyProbesThreshold int, probeResponseTimeout, probeInterval time.Duration) (*HealthMonitor, error) {
+func New(targetProvider TargetProvider, restConfig *rest.Config, unhealthyProbesThreshold int, healthyProbesThreshold int, probeResponseTimeout, probeInterval time.Duration, metrics *Metrics) (*HealthMonitor, error) {
 	client, err := createHealthCheckHTTPClient(probeResponseTimeout, restConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	if metrics == nil {
+		metrics = &Metrics{
+			HealthyTargetsTotal:   noopMetrics{}.TargetsTotal,
+			UnHealthyTargetsTotal: noopMetrics{}.TargetsTotal,
+		}
 	}
 
 	hm := &HealthMonitor{
@@ -94,6 +104,8 @@ func New(targetProvider TargetProvider, restConfig *rest.Config, unhealthyProbes
 
 		consecutiveSuccessfulProbes: map[string]int{},
 		consecutiveFailedProbes:     map[string][]error{},
+
+		metrics: metrics,
 	}
 	hm.exportedHealthyTargets.Store([]string{})
 	hm.exportedUnhealthyTargets.Store([]string{})
@@ -204,7 +216,6 @@ func (sm *HealthMonitor) healthCheckRegisteredTargets() {
 	sm.updateHealthChecksFor(currentHealthCheckProbes)
 }
 
-// TODO: add metrics
 // updateHealthChecksFor examines the health of targets based on the provided probes and the current configuration.
 // It also notifies interested parties about changes in the health condition.
 // Interested parties can be registered by calling AddListener method.
@@ -255,6 +266,7 @@ func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []target
 		exportedUnhealthyTargets := make([]string, len(sm.unhealthyTargets))
 		for index, unhealthyTarget := range sm.unhealthyTargets {
 			exportedUnhealthyTargets[index] = unhealthyTarget
+			sm.metrics.UnHealthyTargetsTotal(unhealthyTarget)
 		}
 		sm.exportedUnhealthyTargets.Store(exportedUnhealthyTargets)
 		notifyListeners = true
@@ -271,6 +283,7 @@ func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []target
 		exportedHealthyTargets := make([]string, len(sm.healthyTargets))
 		for index, healthyTarget := range sm.healthyTargets {
 			exportedHealthyTargets[index] = healthyTarget
+			sm.metrics.HealthyTargetsTotal(healthyTarget)
 		}
 		sm.exportedHealthyTargets.Store(exportedHealthyTargets)
 		notifyListeners = true
