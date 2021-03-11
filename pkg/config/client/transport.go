@@ -1,6 +1,7 @@
 package client
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 
@@ -28,7 +29,13 @@ func DefaultServerName(config *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	config.ServerName = u.Host
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		// assume u.Host contains only host portion
+		config.ServerName = u.Host
+		return nil
+	}
+	config.ServerName = host
 	return nil
 }
 
