@@ -30,6 +30,387 @@ import (
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
+	before := metav1.NewTime(time.Date(2021, 1, 2, 3, 3, 4, 5, time.UTC))
+	now := metav1.NewTime(time.Date(2021, 1, 2, 3, 4, 5, 6, time.UTC))
+	//nowString := now().Format(time.RFC3339)
+
+	installer := func(name string, phase corev1.PodPhase) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "test",
+			},
+			Spec: corev1.PodSpec{},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Status: corev1.ConditionFalse,
+						Type:   corev1.PodReady,
+					},
+				},
+				Phase: phase,
+			},
+		}
+	}
+	withMessage := func(p *corev1.Pod, msg string) *corev1.Pod {
+		p.Status.ContainerStatuses = []corev1.ContainerStatus{{
+			Name: "container",
+			State: corev1.ContainerState{
+				Terminated: &corev1.ContainerStateTerminated{
+					Message: msg,
+				},
+			},
+		}}
+		p.Status.Message = msg
+		return p
+	}
+	operand := func(name string, revision string, phase corev1.PodPhase, ready bool) *corev1.Pod {
+		readyStatus := corev1.ConditionFalse
+		if ready {
+			readyStatus = corev1.ConditionTrue
+		}
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mirrorPodNameForNode(name, "test-node-1"),
+				Namespace: "test",
+				Labels:    map[string]string{"revision": revision},
+			},
+			Spec: corev1.PodSpec{},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Status: readyStatus,
+						Type:   corev1.PodReady,
+					},
+				},
+				Phase: phase,
+			},
+		}
+	}
+
+	type Expected struct {
+		nodeStatus         *operatorv1.NodeStatus
+		installerPodFailed bool
+		reason             string
+		err                bool
+	}
+	type Test struct {
+		name                    string
+		pods                    []*corev1.Pod
+		latestAvailableRevision int32
+		current                 operatorv1.NodeStatus
+		expected                Expected
+	}
+	for _, test := range []Test{
+		{"installer-pending", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodPending),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"",
+			false,
+		}},
+
+		{"installer-running", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodRunning),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"",
+			false,
+		}},
+
+		{"installer-missing", []*corev1.Pod{}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			true,
+			"pod installer-1-test-node-1 disappeared",
+			false,
+		}},
+
+		{"installer-failed", []*corev1.Pod{
+			withMessage(installer("installer-1-test-node-1", corev1.PodFailed), "bla bla OOM bla bla"),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1,
+				LastFailedRevision:       1,
+				LastFailedTime:           &now,
+				LastFailedCount:          1,
+				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
+			},
+			true,
+			"installer pod failed: container: bla bla OOM bla bla",
+			false,
+		}},
+
+		{"installer-failed-without-message", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodFailed),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1,
+				LastFailedRevision:       1,
+				LastFailedTime:           &now,
+				LastFailedCount:          1,
+				LastFailedRevisionErrors: []string{"no detailed termination message, see `oc get -oyaml -n \"test\" pods \"installer-1-test-node-1\"`"},
+			},
+			true,
+			"installer pod failed: no detailed termination message, see `oc get -oyaml -n \"test\" pods \"installer-1-test-node-1\"`",
+			false,
+		}},
+
+		{"installer-retry-failed", []*corev1.Pod{
+			withMessage(installer("installer-1-retry-2-test-node-1", corev1.PodFailed), "bla bla OOM bla bla 2"),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          0,
+			TargetRevision:           1,
+			LastFailedCount:          2,
+			LastFailedRevision:       1,
+			LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
+			LastFailedTime:           &before,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1,
+				LastFailedRevision:       1,
+				LastFailedTime:           &now,
+				LastFailedCount:          3,
+				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla 2"},
+			},
+			true,
+			"installer pod failed: container: bla bla OOM bla bla 2",
+			false,
+		}},
+
+		{"installer-succeeded-and-operand-missing", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"static pod is pending",
+			false,
+		}},
+
+		{"installer-succeeded-and-operand-old", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+			operand("test-pod", "0", corev1.PodRunning, true),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"waiting for static pod of revision 1, found 0",
+			false,
+		}},
+
+		{"installer-succeeded-and-operand-not-ready", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+			operand("test-pod", "1", corev1.PodRunning, false),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"static pod is pending",
+			false,
+		}},
+
+		{"installer-succeeded-and-operand-ready", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+			operand("test-pod", "1", corev1.PodRunning, true),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 1,
+				TargetRevision:  0,
+			},
+			false,
+			"static pod is ready",
+			false,
+		}},
+
+		{"installer-succeeded-and-new-revision-pending", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+			operand("test-pod", "1", corev1.PodPending, false),
+		}, 2, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  0,
+			},
+			false,
+			"new revision pending",
+			false,
+		}},
+
+		{"installer-failed-and-new-revision-pending", []*corev1.Pod{
+			withMessage(installer("installer-1-test-node-1", corev1.PodFailed), "bla bla OOM bla bla"),
+		}, 2, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1, // this is changed to 2 outside of newNodeStateForInstallInProgress
+				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
+				LastFailedRevision:       1,
+				LastFailedCount:          1,
+				LastFailedTime:           &now,
+			},
+			true,
+			"installer pod failed: container: bla bla OOM bla bla",
+			false,
+		}},
+
+		{"installer-retry-failed-and-new-revision-pending", []*corev1.Pod{
+			withMessage(installer("installer-1-retry-2-test-node-1", corev1.PodFailed), "bla bla OOM bla bla 2"),
+		}, 2, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          0,
+			TargetRevision:           1,
+			LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
+			LastFailedRevision:       1,
+			LastFailedCount:          2,
+			LastFailedTime:           &before,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1, // this is changed to 2 outside of newNodeStateForInstallInProgress
+				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla 2"},
+				LastFailedRevision:       1,
+				LastFailedCount:          3,
+				LastFailedTime:           &now,
+			},
+			true,
+			"installer pod failed: container: bla bla OOM bla bla 2",
+			false,
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset()
+			for _, p := range test.pods {
+				kubeClient.Tracker().Add(p)
+			}
+			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
+			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				&operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: test.latestAvailableRevision,
+					NodeStatuses:            []operatorv1.NodeStatus{test.current},
+				},
+				nil,
+				nil,
+			)
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			c := NewInstallerController(
+				"test", "test-pod",
+				[]revision.RevisionResource{{Name: "test-config"}},
+				[]revision.RevisionResource{{Name: "test-secret"}},
+				[]string{"/bin/true", "--foo=test", "--bar"},
+				kubeInformers,
+				fakeStaticPodOperatorClient,
+				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
+				eventRecorder,
+			)
+			c.now = func() time.Time { return now.Time }
+
+			nodeStatus, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(context.TODO(), &test.current, test.latestAvailableRevision)
+			if err == nil && test.expected.err {
+				t.Fatal("expected error, but didn't get any")
+			} else if err != nil && !test.expected.err {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if nodeStatus == nil && test.expected.nodeStatus != nil {
+				t.Errorf("expected nodeStatus, but got nil: %#v", test.expected.nodeStatus)
+			} else if nodeStatus != nil && test.expected.nodeStatus == nil {
+				t.Errorf("expected nil nodeStatus, but got: %#v", nodeStatus)
+			} else if nodeStatus != nil && !reflect.DeepEqual(nodeStatus, test.expected.nodeStatus) {
+				t.Errorf("unexpected nodeStatus, got:\n%#v\nexpected:\n%#v", *nodeStatus, *test.expected.nodeStatus)
+			}
+			if reason != test.expected.reason {
+				t.Errorf("unexpected reason %q, expected %q", reason, test.expected.reason)
+			}
+			if installerPodFailed != test.expected.installerPodFailed {
+				t.Errorf("unexpected installerPodFailed=%v, expected %v", installerPodFailed, test.expected.installerPodFailed)
+			}
+		})
+	}
+}
+
+func TestSync(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
