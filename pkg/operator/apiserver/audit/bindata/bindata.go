@@ -218,7 +218,7 @@ data:
     # Log the full Identity API resource object so that the audit trail
     # allows us to match the username with the IDP identity.
     - level: RequestResponse
-      verbs: ["create", "update", "patch"]
+      verbs: ["create", "update", "patch", "delete"]
       resources:
         - group: "user.openshift.io"
           resources: ["identities"]
