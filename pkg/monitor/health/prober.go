@@ -28,7 +28,7 @@ var (
 	defaultHealthyProbesThreshold   = 5
 )
 
-type HealthMonitor struct {
+type Prober struct {
 	// targetProvider provides a list of targets to monitor
 	// it also can schedule refreshing the list by simply calling Enqueue method
 	targetProvider TargetProvider
@@ -68,8 +68,8 @@ type HealthMonitor struct {
 	metrics *Metrics
 }
 
-var _ Listener = &HealthMonitor{}
-var _ Notifier = &HealthMonitor{}
+var _ Listener = &Prober{}
+var _ Notifier = &Prober{}
 
 // New creates a health monitor that periodically sends requests to the provided targets to check their health.
 //
@@ -99,13 +99,13 @@ var _ Notifier = &HealthMonitor{}
 // Interested parties can register a listener for notifications about healthy/unhealthy targets changes via AddListener.
 // TODO: instead of restConfig we could accept transport so that it is reused instead of creating a new connection to targets
 //       reusing the transport has the advantage of using the same connection as other clients
-func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor, error) {
+func New(targetProvider TargetProvider, restConfig *rest.Config) (*Prober, error) {
 	client, err := createHealthCheckHTTPClient(defaultProbeResponseTimeout, restConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	hm := &HealthMonitor{
+	hm := &Prober{
 		client:                   client,
 		targetProvider:           targetProvider,
 		targetsToMonitor:         targetProvider.CurrentTargetsList(),
@@ -135,7 +135,7 @@ func New(targetProvider TargetProvider, restConfig *rest.Config) (*HealthMonitor
 
 // Run starts monitoring the provided targets until stop channel is closed
 // This method is blocking and it is meant to be launched in a separate goroutine
-func (sm *HealthMonitor) Run(ctx context.Context) {
+func (sm *Prober) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 
 	klog.Infof("Starting the health monitor with Interval = %v, Timeout = %v, HealthyThreshold = %v, UnhealthyThreshold = %v ", sm.probeInterval, sm.client.Timeout, sm.healthyProbesThreshold, sm.unhealthyProbesThreshold)
@@ -146,14 +146,14 @@ func (sm *HealthMonitor) Run(ctx context.Context) {
 
 // Enqueue schedules refreshing the target list on the next probeInterval
 // This method is used by the TargetProvider to notify that the list has changed
-func (sm *HealthMonitor) Enqueue() {
+func (sm *Prober) Enqueue() {
 	sm.refreshTargetsLock.Lock()
 	defer sm.refreshTargetsLock.Unlock()
 	sm.refreshTargets = true
 }
 
 // Targets returns a list of healthy and unhealthy targets
-func (sm *HealthMonitor) Targets() ([]string, []string) {
+func (sm *Prober) Targets() ([]string, []string) {
 	return sm.exportedHealthyTargets.Load().([]string), sm.exportedUnhealthyTargets.Load().([]string)
 }
 
@@ -161,7 +161,7 @@ func (sm *HealthMonitor) Targets() ([]string, []string) {
 //
 // Note:
 // this method is not thread safe and mustn't be called after calling StartMonitoring() method
-func (sm *HealthMonitor) AddListener(listener Listener) {
+func (sm *Prober) AddListener(listener Listener) {
 	sm.listeners = append(sm.listeners, listener)
 }
 
@@ -171,7 +171,7 @@ type targetErrTuple struct {
 }
 
 // refreshTargetsLocked updates the internal targets list to monitor if it was requested (via the Enqueue method)
-func (sm *HealthMonitor) refreshTargetsLocked() {
+func (sm *Prober) refreshTargetsLocked() {
 	sm.refreshTargetsLock.Lock()
 	defer sm.refreshTargetsLock.Unlock()
 	if !sm.refreshTargets {
@@ -208,7 +208,7 @@ func (sm *HealthMonitor) refreshTargetsLocked() {
 	sm.targetsToMonitor = freshTargets
 }
 
-func (sm *HealthMonitor) healthCheckRegisteredTargets() {
+func (sm *Prober) healthCheckRegisteredTargets() {
 	sm.refreshTargetsLocked()
 	var wg sync.WaitGroup
 	resTargetErrTupleCh := make(chan targetErrTuple, len(sm.targetsToMonitor))
@@ -235,7 +235,7 @@ func (sm *HealthMonitor) healthCheckRegisteredTargets() {
 // updateHealthChecksFor examines the health of targets based on the provided probes and the current configuration.
 // It also notifies interested parties about changes in the health condition.
 // Interested parties can be registered by calling AddListener method.
-func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []targetErrTuple) {
+func (sm *Prober) updateHealthChecksFor(currentHealthCheckProbes []targetErrTuple) {
 	newUnhealthyTargets := []string{}
 	newHealthyTargets := []string{}
 
@@ -316,7 +316,7 @@ func (sm *HealthMonitor) updateHealthChecksFor(currentHealthCheckProbes []target
 	}
 }
 
-func (sm *HealthMonitor) healthCheckSingleTarget(target string) error {
+func (sm *Prober) healthCheckSingleTarget(target string) error {
 	// TODO: make the protocol, port and the path configurable
 	targetURL, err := url.Parse(fmt.Sprintf("https://%s/%s", target, "readyz"))
 	if err != nil {
