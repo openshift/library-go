@@ -1,4 +1,4 @@
-package healthmonitor
+package health
 
 import "time"
 
