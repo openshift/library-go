@@ -1,4 +1,4 @@
-package healthmonitor
+package health
 
 // Listener is an interface to use to notify interested parties of a change.
 type Listener interface {

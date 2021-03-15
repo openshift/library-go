@@ -1,4 +1,4 @@
-package healthmonitor
+package health
 
 import (
 	"errors"
@@ -408,8 +408,8 @@ func TestHealthProbes(t *testing.T) {
 	}
 }
 
-func newHealthMonitor() *HealthMonitor {
-	hm := &HealthMonitor{
+func newHealthMonitor() *Prober {
+	hm := &Prober{
 		unhealthyProbesThreshold: 2,
 		healthyProbesThreshold:   3,
 

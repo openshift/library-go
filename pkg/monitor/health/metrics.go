@@ -1,4 +1,4 @@
-package healthmonitor
+package health
 
 import (
 	compbasemetrics "k8s.io/component-base/metrics"
