@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/management"
 	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -56,6 +59,8 @@ type DaemonSetHookFunc func(*opv1.OperatorSpec, *appsv1.DaemonSet) error
 // In order to do that, the placeholder ${LOG_LEVEL} from the manifest file is replaced with the value specified
 // in the OperatorClient resource (Spec.LogLevel).
 //
+// This controller supports removable operands, as configured in pkg/operator/management.
+//
 // This controller produces the following conditions:
 //
 // <name>Available: indicates that the CSI Node Service was successfully deployed.
@@ -64,7 +69,7 @@ type DaemonSetHookFunc func(*opv1.OperatorSpec, *appsv1.DaemonSet) error
 type CSIDriverNodeServiceController struct {
 	name           string
 	manifest       []byte
-	operatorClient v1helpers.OperatorClient
+	operatorClient v1helpers.OperatorClientWithFinalizers
 	kubeClient     kubernetes.Interface
 	dsInformer     appsinformersv1.DaemonSetInformer
 	// Optional hook functions to modify the DaemonSet.
@@ -77,7 +82,7 @@ type CSIDriverNodeServiceController struct {
 func NewCSIDriverNodeServiceController(
 	name string,
 	manifest []byte,
-	operatorClient v1helpers.OperatorClient,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
 	kubeClient kubernetes.Interface,
 	dsInformer appsinformersv1.DaemonSetInformer,
 	recorder events.Recorder,
@@ -114,24 +119,34 @@ func (c *CSIDriverNodeServiceController) Name() string {
 func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	opSpec, opStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
 		return err
 	}
 
-	if opSpec.ManagementState != opv1.Managed {
+	action := management.GetSyncAction(opSpec.ManagementState)
+	klog.V(4).Infof("Syncing with managementState %q: %s", opSpec.ManagementState, action)
+	switch action {
+	case management.SyncActionManage:
+		return c.syncManaged(opSpec, opStatus, ctx, syncContext)
+	case management.SyncActionDelete:
+		return c.syncRemoved(opSpec, opStatus, ctx, syncContext)
+	case management.SyncActionIgnore:
 		return nil
+	default:
+		return fmt.Errorf("unrecognized managementState: %q: %s", opSpec.ManagementState, action)
+	}
+}
+
+func (c *CSIDriverNodeServiceController) syncManaged(opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, ctx context.Context, syncContext factory.SyncContext) error {
+	if !management.IsOperatorNotRemovable() {
+		err := c.operatorClient.EnsureFinalizer(c.name)
+		if err != nil {
+			return err
+		}
 	}
 
-	manifest := replacePlaceholders(c.manifest, opSpec)
-	required := resourceread.ReadDaemonSetV1OrDie(manifest)
-
-	for i := range c.optionalDaemonSetHooks {
-		err := c.optionalDaemonSetHooks[i](opSpec, required)
-		if err != nil {
-			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
-		}
+	required, err := c.getDaemonSet(opSpec)
+	if err != nil {
+		return err
 	}
 
 	daemonSet, _, err := resourceapply.ApplyDaemonSet(
@@ -184,6 +199,19 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 	return err
 }
 
+func (c *CSIDriverNodeServiceController) getDaemonSet(opSpec *opv1.OperatorSpec) (*appsv1.DaemonSet, error) {
+	manifest := replacePlaceholders(c.manifest, opSpec)
+	required := resourceread.ReadDaemonSetV1OrDie(manifest)
+
+	for i := range c.optionalDaemonSetHooks {
+		err := c.optionalDaemonSetHooks[i](opSpec, required)
+		if err != nil {
+			return nil, fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
+	return required, nil
+}
+
 func isProgressing(status *opv1.OperatorStatus, daemonSet *appsv1.DaemonSet) (bool, string) {
 	switch {
 	case daemonSet.Generation != daemonSet.Status.ObservedGeneration:
@@ -220,4 +248,25 @@ func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec) []byte {
 
 	replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 	return []byte(replaced)
+}
+
+func (c *CSIDriverNodeServiceController) syncRemoved(opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, ctx context.Context, syncContext factory.SyncContext) error {
+	required, err := c.getDaemonSet(opSpec)
+	if err != nil {
+		return err
+	}
+
+	err = c.kubeClient.AppsV1().DaemonSets(required.Namespace).Delete(ctx, required.Namespace, metav1.DeleteOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	// All removed, remove the finalizer as the last step
+	err = c.operatorClient.RemoveFinalizer(c.name)
+	if err != nil {
+		return err
+	}
+	return nil
 }

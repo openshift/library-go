@@ -38,7 +38,7 @@ type CSIControllerSet struct {
 	csiDriverNodeServiceController       factory.Controller
 
 	preRunCachesSynced []cache.InformerSynced
-	operatorClient     v1helpers.OperatorClient
+	operatorClient     v1helpers.OperatorClientWithFinalizers
 	eventRecorder      events.Recorder
 }
 
@@ -84,7 +84,7 @@ func (c *CSIControllerSet) WithLogLevelController() *CSIControllerSet {
 // WithManagementStateController returns a *ControllerSet with a management state controller initialized.
 func (c *CSIControllerSet) WithManagementStateController(operandName string, supportsOperandRemoval bool) *CSIControllerSet {
 	c.managementStateController = management.NewOperatorManagementStateController(operandName, c.operatorClient, c.eventRecorder)
-	if supportsOperandRemoval {
+	if !supportsOperandRemoval {
 		management.SetOperatorNotRemovable()
 	}
 	return c
@@ -196,7 +196,7 @@ func (c *CSIControllerSet) WithExtraInformers(informers ...cache.SharedIndexInfo
 }
 
 // New returns a basic *ControllerSet without any controller.
-func NewCSIControllerSet(operatorClient v1helpers.OperatorClient, eventRecorder events.Recorder) *CSIControllerSet {
+func NewCSIControllerSet(operatorClient v1helpers.OperatorClientWithFinalizers, eventRecorder events.Recorder) *CSIControllerSet {
 	return &CSIControllerSet{
 		operatorClient: operatorClient,
 		eventRecorder:  eventRecorder,
