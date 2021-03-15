@@ -3,6 +3,7 @@ package csicontrollerset
 import (
 	"context"
 	"fmt"
+	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -24,6 +25,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+var defaultCacheSyncTimeout = 10 * time.Minute
+
 // CSIControllerSet contains a set of controllers that are usually used to deploy CSI Drivers.
 type CSIControllerSet struct {
 	logLevelController                   factory.Controller
@@ -41,7 +44,15 @@ type CSIControllerSet struct {
 
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
-	if !cache.WaitForCacheSync(ctx.Done(), c.preRunCachesSynced...) {
+	defer utilruntime.HandleCrash()
+
+	// Create a custom context to sync informers added  with .WithExtraInformers().
+	// This context is not used for individual controllers because factory.Factory
+	// will overwrite the timeout value.
+	cacheSyncCtx, cacheSyncCancel := context.WithTimeout(ctx, defaultCacheSyncTimeout)
+	defer cacheSyncCancel()
+
+	if !cache.WaitForCacheSync(cacheSyncCtx.Done(), c.preRunCachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
