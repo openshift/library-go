@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -49,7 +50,9 @@ func NewClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersion
 
 }
 
-func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schema.GroupVersionResource, configName string) (v1helpers.OperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
+type OperatorClientOption func(*dynamicOperatorClient)
+
+func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schema.GroupVersionResource, configName string, options ...OperatorClientOption) (v1helpers.OperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
 	if len(configName) < 1 {
 		return nil, nil, fmt.Errorf("config name cannot be empty")
 	}
@@ -58,14 +61,27 @@ func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schem
 		return nil, nil, err
 	}
 	d.configName = configName
+	for _, opt := range options {
+		opt(d)
+	}
 	return d, informers, nil
 
 }
 
+// WithFakeMissingInstance will craft a fake OperatorSpec/Status instances when a CR is actually missing in the API server.
+// The instances have ManagementState = Unmanaged, no other spec nor status fields.
+// All Update* calls are no-op and return success.
+func WithFakeMissingInstance() OperatorClientOption {
+	return func(c *dynamicOperatorClient) {
+		c.fakeMissingInstance = true
+	}
+}
+
 type dynamicOperatorClient struct {
-	configName string
-	informer   informers.GenericInformer
-	client     dynamic.ResourceInterface
+	configName          string
+	informer            informers.GenericInformer
+	client              dynamic.ResourceInterface
+	fakeMissingInstance bool
 }
 
 func (c dynamicOperatorClient) Informer() cache.SharedIndexInformer {
@@ -74,8 +90,12 @@ func (c dynamicOperatorClient) Informer() cache.SharedIndexInformer {
 
 func (c dynamicOperatorClient) GetObjectMeta() (*metav1.ObjectMeta, error) {
 	uncastInstance, err := c.informer.Lister().Get(c.configName)
+	if errors.IsNotFound(err) && c.fakeMissingInstance {
+		return &metav1.ObjectMeta{}, nil
+	}
 	if err != nil {
 		return nil, err
+
 	}
 	instance := uncastInstance.(*unstructured.Unstructured)
 	return getObjectMetaFromUnstructured(instance.UnstructuredContent())
@@ -83,6 +103,12 @@ func (c dynamicOperatorClient) GetObjectMeta() (*metav1.ObjectMeta, error) {
 
 func (c dynamicOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
 	uncastInstance, err := c.informer.Lister().Get(c.configName)
+	if errors.IsNotFound(err) && c.fakeMissingInstance {
+		return &operatorv1.OperatorSpec{ManagementState: operatorv1.Unmanaged},
+			&operatorv1.OperatorStatus{},
+			"",
+			nil
+	}
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -105,6 +131,9 @@ func (c dynamicOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *op
 // no correspondence in operatorv1.OperatorSpec.
 func (c dynamicOperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operatorv1.OperatorSpec) (*operatorv1.OperatorSpec, string, error) {
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	if errors.IsNotFound(err) && c.fakeMissingInstance {
+		return spec, resourceVersion, nil
+	}
 	if err != nil {
 		return nil, "", err
 	}
@@ -133,6 +162,9 @@ func (c dynamicOperatorClient) UpdateOperatorSpec(resourceVersion string, spec *
 // no correspondence in operatorv1.OperatorStatus.
 func (c dynamicOperatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	if errors.IsNotFound(err) && c.fakeMissingInstance {
+		return status, nil
+	}
 	if err != nil {
 		return nil, err
 	}
