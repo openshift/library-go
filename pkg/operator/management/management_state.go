@@ -1,7 +1,7 @@
 package management
 
 import (
-	"github.com/openshift/api/operator/v1"
+	v1 "github.com/openshift/api/operator/v1"
 )
 
 var (
@@ -29,6 +29,8 @@ func SetOperatorAlwaysManaged() {
 // SetOperatorNotRemovable is one time choice the operator author can make to indicate the operator does not support
 // removing of his operand. This makes sense for operators like kube-apiserver where removing operand will lead to a
 // bricked, non-automatically recoverable state.
+// Unless explicitly set, an operator supports Removed state.
+// Note that most library-go controllers do not support Removed state, please check each controller separately.
 func SetOperatorNotRemovable() {
 	allowOperatorRemovedState = false
 }
@@ -53,6 +55,7 @@ func IsOperatorUnknownState(state v1.ManagementState) bool {
 }
 
 // IsOperatorManaged indicates whether the operator management state allows the control loop to proceed and manage the operand.
+// Deprecated: use GetSyncAction instead to have better support for Removed state.
 func IsOperatorManaged(state v1.ManagementState) bool {
 	if IsOperatorAlwaysManaged() || IsOperatorNotRemovable() {
 		return true
@@ -66,4 +69,35 @@ func IsOperatorManaged(state v1.ManagementState) bool {
 		return false
 	}
 	return true
+}
+
+// SyncAction tells caller of GetSyncAction what to do on operator Sync() based on the management state
+type SyncAction string
+
+const (
+	// SyncActionManage means the operator should manage its operands (create them if missing, update when needed).
+	SyncActionManage = "SyncActionManage"
+	// SyncActionDelete means the operator should delete its operands.
+	SyncActionDelete = "SyncActionDelete"
+	// SyncActionIgnore means the operator should ingore this Sync() call.
+	SyncActionIgnore = "SyncActionIgnore"
+)
+
+func GetSyncAction(state v1.ManagementState) SyncAction {
+	if IsOperatorAlwaysManaged() {
+		return SyncActionManage
+	}
+
+	switch state {
+	case v1.Managed:
+		return SyncActionManage
+	case v1.Unmanaged:
+		return SyncActionIgnore
+	case v1.Removed:
+		if IsOperatorNotRemovable() {
+			return SyncActionManage
+		}
+		return SyncActionDelete
+	}
+	return SyncActionManage
 }
