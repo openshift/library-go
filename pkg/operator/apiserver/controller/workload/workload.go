@@ -41,7 +41,7 @@ type Delegate interface {
 	// missing preconditions will be reported in the operator's status
 	// operator will be degraded, not available and not progressing
 	// returned errors (if any) will be added to the Message field
-	PreconditionFulfilled() (bool, error)
+	PreconditionFulfilled(ctx context.Context) (bool, error)
 }
 
 // Controller is a generic workload controller that deals with Deployment resource.
@@ -122,7 +122,7 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(); !fulfilled || err != nil {
+	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
 		return c.updateOperatorStatus(nil, false, false, []error{err})
 	}
 
@@ -291,7 +291,11 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 	// which should immediately result in a deployment generation diff, which should cause this block to be skipped until it is ready.
 	workloadHasAllPodsUpdated := workload.Status.UpdatedReplicas == desiredReplicas
 	if workloadAtHighestGeneration && workloadHasAllPodsAvailable && workloadHasAllPodsUpdated && operatorConfigAtHighestGeneration {
-		c.versionRecorder.SetVersion(fmt.Sprintf("%s-%s", c.operandNamePrefix, workload.Name), c.targetOperandVersion)
+		operandName := workload.Name
+		if len(c.operandNamePrefix) > 0 {
+			operandName = fmt.Sprintf("%s-%s", c.operandNamePrefix, workload.Name)
+		}
+		c.versionRecorder.SetVersion(operandName, c.targetOperandVersion)
 	}
 
 	updateGenerationFn := func(newStatus *operatorv1.OperatorStatus) error {
