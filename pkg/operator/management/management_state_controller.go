@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
@@ -43,6 +43,27 @@ func (c ManagementStateController) sync(ctx context.Context, syncContext factory
 		return nil
 	}
 
+	if !IsOperatorNotRemovable() && detailedSpec.ManagementState == operatorv1.Managed {
+		// Turn the ManagementState to Removed when deletionTimestamp is present
+		// to tell other Controllers of the operator to start removing its operands.
+		objMeta, err := c.operatorClient.GetObjectMeta()
+		if err != nil {
+			return err
+		}
+		if objMeta.DeletionTimestamp != nil && len(objMeta.Finalizers) > 0 {
+			// DeletionTimestamp is set and there is still something to remove (= a finalizer is present) -> set
+			// Removed status
+			detailedSpec, _, err = v1helpers.UpdateSpec(c.operatorClient, func(spec *operatorv1.OperatorSpec) error {
+				spec.ManagementState = operatorv1.Removed
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			klog.V(2).Infof("DeletionTimestamp detected, changed managementState to \"Removed\"")
+			// Pass the updated detailedSpec further down this function.
+		}
+	}
 	cond := operatorv1.OperatorCondition{
 		Type:   condition.ManagementStateDegradedConditionType,
 		Status: operatorv1.ConditionFalse,
