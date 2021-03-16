@@ -1,0 +1,19 @@
+package factory
+
+import (
+	"fmt"
+	"strings"
+
+	metav1 "k8s.io/apimachiner/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+func NamespacedObjectToQueueKey(obj runtime.Object) string {
+	metaObj := obj.(metav1.Object)
+	return fmt.Sprintf("%s/%s", metaObj.GetNamespace(), metaObj.GetName())
+}
+
+func NamespacedObjectFromQueueKey(qKey string) (namespace, name string) {
+	nsAndName := strings.SplitN(qKey, "/", 2)
+	namespace, name = nsAndName[0], nsAndName[1]
+}

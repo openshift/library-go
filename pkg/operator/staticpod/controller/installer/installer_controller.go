@@ -27,7 +27,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata"
@@ -807,7 +806,7 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 	}
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
-	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+	if !v1helpers.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 

@@ -24,7 +24,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -171,7 +170,7 @@ func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.
 	if err != nil {
 		return err
 	}
-	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+	if !v1helpers.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 

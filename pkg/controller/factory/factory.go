@@ -11,7 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -23,7 +26,7 @@ const DefaultQueueKey = "key"
 type Factory struct {
 	sync                  SyncFunc
 	syncContext           SyncContext
-	syncDegradedClient    operatorv1helpers.OperatorClient
+	operatorClient        operatorv1helpers.OperatorClient
 	resyncInterval        time.Duration
 	resyncSchedules       []string
 	informers             []filteredInformers
@@ -33,6 +36,9 @@ type Factory struct {
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
+
+	handleSyncDegraded      bool // requires operatorClient to be set
+	managementStateHandlers map[operatorv1.ManagementState]ManagementStateHandler
 }
 
 // Informer represents any structure that allow to register event handlers and informs if caches are synced.
@@ -62,6 +68,10 @@ type filteredInformers struct {
 // The context is cancelled when the controller is asked to shutdown and the post start hook should terminate as well.
 // The syncContext allow access to controller queue and event recorder.
 type PostStartHook func(ctx context.Context, syncContext SyncContext) error
+
+// ManagementStateHandler handles operator's managements state and returns boolean value
+// to signal whether Sync() should still be called after this handler is processed or not
+type ManagementStateHandler func(ctx context.Context, syncContext SyncContext) (bool, error)
 
 // ObjectQueueKeyFunc is used to make a string work queue key out of the runtime object that is passed to it.
 // This can extract the "namespace/name" if you need to or just return "key" if you building controller that only use string
@@ -189,10 +199,35 @@ func (f *Factory) WithSyncContext(ctx SyncContext) *Factory {
 	return f
 }
 
-// WithSyncDegradedOnError encapsulate the controller sync() function, so when this function return an error, the operator client
+// WithOperatorClient adds an operator client to be used for either getting ManagementState
+// or setting the Degraded state on Sync() errors. It also adds the operatorClient's
+// informer among other informers to synchronize cache with, as if called with WithBareInformers()
+//
+// The client is meant to be used in combination with WithSyncDegradedOnError() and/or WithManagementStateHandler()
+func (f *Factory) WithOperatorClient(operatorClient v1helpers.OperatorClient) *Factory {
+	f.operatorClient = operatorClient
+	return f.WithBareInformers(f.operatorClient.Informer())
+}
+
+// WithSyncDegradedOnError encapsulate the controller sync() function, so that when this function returns an error, the operator client
 // is used to set the degraded condition to (eg. "ControllerFooDegraded"). The degraded condition name is set based on the controller name.
-func (f *Factory) WithSyncDegradedOnError(operatorClient operatorv1helpers.OperatorClient) *Factory {
-	f.syncDegradedClient = operatorClient
+//
+// Requires WithOperatorClient() be called before the controller is created by *factory.ToController()
+func (f *Factory) WithSyncDegradedOnError() *Factory {
+	f.handleSyncDegraded = true
+	return f
+}
+
+// WithManagementStateHandler allows to register a handler for each of the operator management states and to
+// influence wheter Sync() should be called or not. If there is no handler registered for the current
+// operator management state, Sync() will be called.
+//
+// This is helpful for handling states like "Removed", or "Unmanaged", but can also serve for pre-condition handling
+// in the "Managed" state.
+//
+// Requires WithOperatorClient() be called before the controller is created by *factory.ToController()
+func (f *Factory) WithManagementStateHandler(managementState operatorv1.ManagementState, managementStateHandler ManagementStateHandler) *Factory {
+	f.managementStateHandlers[managementState] = managementStateHandler
 	return f
 }
 
@@ -200,6 +235,10 @@ func (f *Factory) WithSyncDegradedOnError(operatorClient operatorv1helpers.Opera
 func (f *Factory) ToController(name string, eventRecorder events.Recorder) Controller {
 	if f.sync == nil {
 		panic(fmt.Errorf("WithSync() must be used before calling ToController() in %q", name))
+	}
+
+	if (f.handleSyncDegraded || len(f.managementStateHandlers) > 0) && f.operatorClient == nil {
+		panic(fmt.Errorf("handling of either degraded syncs or operator managements states require calling WithOperatorClient() before calling ToController() in %q", name))
 	}
 
 	var ctx SyncContext
@@ -225,15 +264,18 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	}
 
 	c := &baseController{
-		name:               name,
-		syncDegradedClient: f.syncDegradedClient,
-		sync:               f.sync,
-		resyncEvery:        f.resyncInterval,
-		resyncSchedules:    cronSchedules,
-		cachesToSync:       append([]cache.InformerSynced{}, f.cachesToSync...),
-		syncContext:        ctx,
-		postStartHooks:     f.postStartHooks,
-		cacheSyncTimeout:   defaultCacheSyncTimeout,
+		name:             name,
+		operatorClient:   f.operatorClient,
+		sync:             f.sync,
+		resyncEvery:      f.resyncInterval,
+		resyncSchedules:  cronSchedules,
+		cachesToSync:     append([]cache.InformerSynced{}, f.cachesToSync...),
+		syncContext:      ctx,
+		postStartHooks:   f.postStartHooks,
+		cacheSyncTimeout: defaultCacheSyncTimeout,
+
+		handleSyncDegraded:      f.handleSyncDegraded,
+		managementStateHandlers: f.managementStateHandlers,
 	}
 
 	for i := range f.informerQueueKeys {

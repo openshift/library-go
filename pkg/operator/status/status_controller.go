@@ -19,7 +19,6 @@ import (
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -149,7 +148,7 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 	}
 	clusterOperatorObj := originalClusterOperatorObj.DeepCopy()
 
-	if detailedSpec.ManagementState == operatorv1.Unmanaged && !management.IsOperatorAlwaysManaged() {
+	if detailedSpec.ManagementState == operatorv1.Unmanaged && !operatorv1helpers.IsOperatorAlwaysManaged() {
 		clusterOperatorObj.Status = configv1.ClusterOperatorStatus{}
 
 		configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, configv1.ClusterOperatorStatusCondition{Type: configv1.OperatorAvailable, Status: configv1.ConditionUnknown, Reason: "Unmanaged"})

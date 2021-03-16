@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -41,7 +40,7 @@ func (c *UnsupportedConfigOverridesController) sync(ctx context.Context, syncCtx
 		return err
 	}
 
-	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+	if !v1helpers.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
 

@@ -48,19 +48,19 @@ func (c ManagementStateController) sync(ctx context.Context, syncContext factory
 		Status: operatorv1.ConditionFalse,
 	}
 
-	if IsOperatorAlwaysManaged() && detailedSpec.ManagementState == operatorv1.Unmanaged {
+	if v1helpers.IsOperatorAlwaysManaged() && detailedSpec.ManagementState == operatorv1.Unmanaged {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Unmanaged"
 		cond.Message = fmt.Sprintf("Unmanaged is not supported for %s operator", c.operatorName)
 	}
 
-	if IsOperatorNotRemovable() && detailedSpec.ManagementState == operatorv1.Removed {
+	if v1helpers.IsOperatorNotRemovable() && detailedSpec.ManagementState == operatorv1.Removed {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Removed"
 		cond.Message = fmt.Sprintf("Removed is not supported for %s operator", c.operatorName)
 	}
 
-	if IsOperatorUnknownState(detailedSpec.ManagementState) {
+	if v1helpers.IsOperatorUnknownState(detailedSpec.ManagementState) {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Unknown"
 		cond.Message = fmt.Sprintf("Unsupported management state %q for %s operator", detailedSpec.ManagementState, c.operatorName)

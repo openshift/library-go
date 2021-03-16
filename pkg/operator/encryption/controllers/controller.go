@@ -3,7 +3,7 @@ package controllers
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -27,5 +27,5 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClie
 		return false, err
 	}
 
-	return management.IsOperatorManaged(operatorSpec.ManagementState), nil
+	return v1helpers.IsOperatorManaged(operatorSpec.ManagementState), nil
 }

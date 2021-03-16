@@ -56,12 +56,12 @@ func NewCredentialsRequestController(
 		c.sync,
 	).ResyncEvery(
 		time.Minute,
-	).WithSyncDegradedOnError(
-		operatorClient,
-	).ToController(
-		c.name,
-		recorder.WithComponentSuffix("credentials-request-controller-"+strings.ToLower(name)),
-	)
+	).WithSyncDegradedOnError().
+		WithOperatorClient(operatorClient).
+		ToController(
+			c.name,
+			recorder.WithComponentSuffix("credentials-request-controller-"+strings.ToLower(name)),
+		)
 }
 
 func (c CredentialsRequestController) sync(ctx context.Context, syncContext factory.SyncContext) error {

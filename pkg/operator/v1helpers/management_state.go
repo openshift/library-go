@@ -1,22 +1,12 @@
-package management
+package v1helpers
 
 import (
-	"github.com/openshift/api/operator/v1"
+	v1 "github.com/openshift/api/operator/v1"
 )
 
 var (
 	allowOperatorUnmanagedState = true
 	allowOperatorRemovedState   = true
-)
-
-// These are for unit testing
-var (
-	getAllowedOperatorUnmanaged = func() bool {
-		return allowOperatorUnmanagedState
-	}
-	getAllowedOperatorRemovedState = func() bool {
-		return allowOperatorRemovedState
-	}
 )
 
 // SetOperatorAlwaysManaged is one time choice when an operator want to opt-out from supporting the "unmanaged" state.
@@ -35,12 +25,12 @@ func SetOperatorNotRemovable() {
 
 // IsOperatorAlwaysManaged means the operator can't be set to unmanaged state.
 func IsOperatorAlwaysManaged() bool {
-	return !getAllowedOperatorUnmanaged()
+	return !allowOperatorUnmanagedState
 }
 
 // IsOperatorNotRemovable means the operator can't bet set to removed state.
 func IsOperatorNotRemovable() bool {
-	return !getAllowedOperatorRemovedState()
+	return !allowOperatorRemovedState
 }
 
 func IsOperatorUnknownState(state v1.ManagementState) bool {
