@@ -137,7 +137,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 }
 
 func (c *CSIDriverNodeServiceController) syncManaged(opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, ctx context.Context, syncContext factory.SyncContext) error {
-	if !management.IsOperatorNotRemovable() {
+	if management.IsOperatorRemovable() {
 		err := c.operatorClient.EnsureFinalizer(c.name)
 		if err != nil {
 			return err
