@@ -172,11 +172,13 @@ func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName st
 	return staticPodStatePending, pod.Labels[revisionLabel], fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, nil
 }
 
+type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error)
+
 // nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
 // - not updating
 // - ready
 // - at the revision claimed in CurrentRevision.
-func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error), nodes []operatorv1.NodeStatus) (int, string, error) {
+func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodes []operatorv1.NodeStatus) (int, string, error) {
 	if len(nodes) == 0 {
 		return 0, "", fmt.Errorf("nodes array cannot be empty")
 	}
@@ -194,7 +196,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx con
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, runningRevision, _, _, err := getStaticPodState(ctx, currNodeState.NodeName)
+		state, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -221,7 +223,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx con
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		_, runningRevision, _, _, err := getStaticPodState(ctx, currNodeState.NodeName)
+		_, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
