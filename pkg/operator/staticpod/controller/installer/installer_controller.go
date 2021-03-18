@@ -8,21 +8,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/klog/v2"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
-
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -33,6 +22,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -55,6 +54,17 @@ type InstallerController struct {
 	configMaps []revision.RevisionResource
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []revision.RevisionResource
+	// minReadySeconds is the time to wait between the completion of an operand becoming ready (all containers ready)
+	// and starting the rollout onto the next node.  This avoids a problem with an external load balancer that looks like
+	//  1. for some reason we have two instances, maybe a liveness check blipped on one node. it doesn't matter why
+	//  2. we bring down an instance on m0 to start a new revision
+	//  3. at this point we have one instance running on m1
+	//  4. m0 starts up and goes ready, but the LB ready check just timed out and is waiting for X seconds
+	//  5. we bring down an instance on m1 to start the new revision.
+	//  6. the LB thinks all backends are down and routes randomly
+	//  7. no profit.
+	// setting this field to 30s can prevent the kube-apiserver from triggering the above flow on AWS.
+	minReadyDuration time.Duration
 	// command is the string to use for the installer pod command
 	command []string
 
@@ -78,6 +88,7 @@ type InstallerController struct {
 	installerPodMutationFns []InstallerPodMutationFunc
 
 	factory *factory.Factory
+	clock   clock.Clock
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -85,6 +96,11 @@ type InstallerPodMutationFunc func(pod *corev1.Pod, nodeName string, operatorSpe
 
 func (c *InstallerController) WithInstallerPodMutationFn(installerPodMutationFn InstallerPodMutationFunc) *InstallerController {
 	c.installerPodMutationFns = append(c.installerPodMutationFns, installerPodMutationFn)
+	return c
+}
+
+func (c *InstallerController) WithMinReadyDuration(minReadyDuration time.Duration) *InstallerController {
+	c.minReadyDuration = minReadyDuration
 	return c
 }
 
@@ -136,6 +152,7 @@ func NewInstallerController(
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 
 		installerPodImageFn: getInstallerPodImageFromEnv,
+		clock:               clock.RealClock{},
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -172,11 +189,13 @@ func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName st
 	return staticPodStatePending, pod.Labels[revisionLabel], fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, nil
 }
 
+type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error)
+
 // nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
 // - not updating
 // - ready
 // - at the revision claimed in CurrentRevision.
-func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error), nodes []operatorv1.NodeStatus) (int, string, error) {
+func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodes []operatorv1.NodeStatus) (int, string, error) {
 	if len(nodes) == 0 {
 		return 0, "", fmt.Errorf("nodes array cannot be empty")
 	}
@@ -194,7 +213,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx con
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, runningRevision, _, _, err := getStaticPodState(ctx, currNodeState.NodeName)
+		state, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -221,7 +240,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx con
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		_, runningRevision, _, _, err := getStaticPodState(ctx, currNodeState.NodeName)
+		_, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -262,6 +281,43 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodState func(ctx con
 	return 0, reason, nil
 }
 
+// timeToWaitBeforeInstallingNextPod determines the amount of time to delay before creating the next installer pod.
+// We delay to avoid issues where the the LB doesn't observe readyz for ready pods as quickly as kubelet does.
+// See godoc on minReadyDuration.
+func (c *InstallerController) timeToWaitBeforeInstallingNextPod(ctx context.Context, nodeStatuses []operatorv1.NodeStatus) time.Duration {
+	if c.minReadyDuration == 0 {
+		return 0
+	}
+	// long enough that we would notice if something went really wrong.  Short enough that a customer cluster will still function
+	minDurationPodHasBeenReady := 600 * time.Second
+	for _, nodeStatus := range nodeStatuses {
+		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, mirrorPodNameForNode(c.staticPodName, nodeStatus.NodeName), metav1.GetOptions{})
+		if err != nil {
+			// if we have an issue getting the static pod, just don't bother delaying for minReadySeconds at all
+			continue
+		}
+		for _, podCondition := range pod.Status.Conditions {
+			if podCondition.Type != corev1.PodReady {
+				continue
+			}
+			if podCondition.Status != corev1.ConditionTrue {
+				continue
+			}
+			durationPodHasBeenReady := c.clock.Now().Sub(podCondition.LastTransitionTime.Time)
+			if durationPodHasBeenReady < minDurationPodHasBeenReady {
+				minDurationPodHasBeenReady = durationPodHasBeenReady
+			}
+		}
+	}
+	// if we've been ready longer than the minimum, don't wait
+	if minDurationPodHasBeenReady > c.minReadyDuration {
+		return 0
+	}
+
+	// otherwise wait the balance
+	return c.minReadyDuration - minDurationPodHasBeenReady
+}
+
 // manageInstallationPods takes care of creating content for the static pods to install.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
 func (c *InstallerController) manageInstallationPods(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
@@ -282,6 +338,15 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses)
 	if err != nil {
 		return true, err
+	}
+
+	// determine the amount of time to delay before creating the next installer pod.  We delay to avoid an LB outage (see godoc on minReadySeconds)
+	sleepTime := c.timeToWaitBeforeInstallingNextPod(ctx, operatorStatus.NodeStatuses)
+	if sleepTime > 0 {
+		select {
+		case <-ctx.Done():
+		case <-time.After(sleepTime):
+		}
 	}
 
 	for l := 0; l < len(operatorStatus.NodeStatuses); l++ {

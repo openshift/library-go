@@ -9,24 +9,23 @@ import (
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-	ktesting "k8s.io/client-go/testing"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
-
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -499,30 +498,6 @@ func TestEnsureInstallerPod(t *testing.T) {
 }
 
 func TestCreateInstallerPodMultiNode(t *testing.T) {
-	newStaticPod := func(name string, revision int, phase corev1.PodPhase, ready bool) *corev1.Pod {
-		condStatus := corev1.ConditionTrue
-		if !ready {
-			condStatus = corev1.ConditionFalse
-		}
-		return &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: "test",
-				Labels:    map[string]string{"revision": strconv.Itoa(revision)},
-			},
-			Spec: corev1.PodSpec{},
-			Status: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{
-						Status: condStatus,
-						Type:   corev1.PodReady,
-					},
-				},
-				Phase: phase,
-			},
-		}
-	}
-
 	tests := []struct {
 		name                    string
 		nodeStatuses            []operatorv1.NodeStatus
@@ -1479,4 +1454,137 @@ func TestEnsureRequiredResources(t *testing.T) {
 
 		})
 	}
+}
+
+func newStaticPod(name string, revision int, phase corev1.PodPhase, ready bool) *corev1.Pod {
+	condStatus := corev1.ConditionTrue
+	if !ready {
+		condStatus = corev1.ConditionFalse
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "test",
+			Labels:    map[string]string{"revision": strconv.Itoa(revision)},
+		},
+		Spec: corev1.PodSpec{},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Status: condStatus,
+					Type:   corev1.PodReady,
+				},
+			},
+			Phase: phase,
+		},
+	}
+}
+
+func newStaticPodWithReadyTime(name string, revision int, phase corev1.PodPhase, ready bool, readyTime time.Time) *corev1.Pod {
+	ret := newStaticPod(name, revision, phase, ready)
+	ret.Status.Conditions[0].LastTransitionTime = metav1.NewTime(readyTime)
+	return ret
+}
+
+func TestTimeToWait(t *testing.T) {
+	nodeStatuses := []operatorv1.NodeStatus{
+		{
+			NodeName: "test-node-1",
+		},
+		{
+			NodeName: "test-node-2",
+		},
+		{
+			NodeName: "test-node-3",
+		},
+	}
+	fakeNow := time.Now()
+	fakeClock := clock.NewFakeClock(fakeNow)
+
+	tenSecondsAgo := fakeNow.Add(-10 * time.Second)
+	thirtySecondsAgo := fakeNow.Add(-30 * time.Second)
+	thirtyMinutesAgo := fakeNow.Add(-30 * time.Minute)
+
+	tests := []struct {
+		name            string
+		minReadySeconds time.Duration
+		staticPods      []runtime.Object
+		expected        time.Duration
+	}{
+		{
+			name:            "all long ready",
+			minReadySeconds: 35 * time.Second,
+			staticPods: []runtime.Object{
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true, thirtyMinutesAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true, thirtyMinutesAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true, thirtyMinutesAgo),
+			},
+			expected: 0,
+		},
+		{
+			name:            "no pods",
+			minReadySeconds: 35 * time.Second,
+			expected:        0 * time.Second,
+		},
+		{
+			name:            "exact match",
+			minReadySeconds: 30 * time.Second,
+			staticPods: []runtime.Object{
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true, thirtySecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true, thirtyMinutesAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true, thirtyMinutesAgo),
+			},
+			expected: 0,
+		},
+		{
+			name:            "one short",
+			minReadySeconds: 30 * time.Second,
+			staticPods: []runtime.Object{
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true, thirtySecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false, tenSecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true, tenSecondsAgo),
+			},
+			expected: 20 * time.Second,
+		},
+		{
+			name:            "one not ready",
+			minReadySeconds: 30 * time.Second,
+			staticPods: []runtime.Object{
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true, thirtySecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false, tenSecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true, tenSecondsAgo),
+			},
+			expected: 20 * time.Second,
+		},
+		{
+			name:            "none ready",
+			minReadySeconds: 30 * time.Second,
+			staticPods: []runtime.Object{
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, false, thirtySecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false, tenSecondsAgo),
+				newStaticPodWithReadyTime(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, false, tenSecondsAgo),
+			},
+			expected: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset(test.staticPods...)
+
+			c := &InstallerController{
+				targetNamespace:  "test",
+				staticPodName:    "test-pod",
+				minReadyDuration: test.minReadySeconds,
+				podsGetter:       kubeClient.CoreV1(),
+				clock:            fakeClock,
+			}
+
+			actual := c.timeToWaitBeforeInstallingNextPod(context.TODO(), nodeStatuses)
+			if actual != test.expected {
+				t.Fatal(actual)
+			}
+		})
+	}
+
 }
