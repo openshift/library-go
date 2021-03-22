@@ -3,6 +3,7 @@ package registryclient
 import (
 	"bytes"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,11 +16,17 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"k8s.io/client-go/rest"
+	klog "k8s.io/klog/v2"
+
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	registryclient "github.com/docker/distribution/registry/client"
 	"github.com/opencontainers/go-digest"
+	imagereference "github.com/openshift/library-go/pkg/image/reference"
 	"golang.org/x/net/context"
 )
 
@@ -840,4 +847,135 @@ func (s *fakeBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r 
 
 func (s *fakeBlobStore) Delete(ctx context.Context, dgst digest.Digest) error {
 	panic("not implemented")
+}
+
+type fakeAlternateBlobStrategy struct {
+	FirstAlternates []imagereference.DockerImageReference
+	FirstErr        error
+
+	FailureAlternates []imagereference.DockerImageReference
+	FailureErr        error
+}
+
+func (s *fakeAlternateBlobStrategy) FirstRequest(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
+	return s.FirstAlternates, s.FirstErr
+}
+func (s *fakeAlternateBlobStrategy) OnFailure(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
+	return s.FailureAlternates, s.FailureErr
+}
+
+func TestMirroredRegistry_BlobGet(t *testing.T) {
+	// HACK for debugging, remove
+	// klog.InitFlags(flag.CommandLine)
+	// cliflag.InitFlags()
+	// flag.CommandLine.Lookup("v").Value.Set("10")
+
+	rt, err := rest.TransportFor(&rest.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	insecureRT, err := rest.TransportFor(&rest.Config{TLSClientConfig: rest.TLSClientConfig{Insecure: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewContext(rt, insecureRT)
+
+	r, err := c.Repository(context.Background(), &url.URL{Host: "registry-1.docker.io"}, "library/postgres", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := r.Blobs(context.Background()).Get(context.Background(), digest.Digest("sha256:bb3d505cd0cb857db56eae10f575eb036b898adf0ca80ff0b7934b6e01adb92c"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) == 0 {
+		t.Fatal("Expected data to be present")
+	}
+
+	c.Alternates = &fakeAlternateBlobStrategy{
+		FirstAlternates: []imagereference.DockerImageReference{
+			{Registry: "quay.io", Namespace: "library", Name: "postgres"},
+			{Registry: "docker.io", Namespace: "library", Name: "postgres"},
+		},
+		FirstErr: nil,
+	}
+	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData, err := r.Blobs(context.Background()).Get(context.Background(), digest.Digest("sha256:bb3d505cd0cb857db56eae10f575eb036b898adf0ca80ff0b7934b6e01adb92c"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) == 0 {
+		t.Fatal("Expected data to be present")
+	}
+	if !bytes.Equal(data, otherData) {
+		t.Fatalf("Mirror and non mirror request did not match")
+	}
+}
+
+func TestMirroredRegistry_ManifestGet(t *testing.T) {
+	opt := distribution.WithManifestMediaTypes([]string{
+		manifestlist.MediaTypeManifestList,
+		schema2.MediaTypeManifest,
+	})
+
+	klog.InitFlags(flag.CommandLine)
+	//cliflag.InitFlags()
+	flag.CommandLine.Lookup("v").Value.Set("10")
+	rt, err := rest.TransportFor(&rest.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	insecureRT, err := rest.TransportFor(&rest.Config{TLSClientConfig: rest.TLSClientConfig{Insecure: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewContext(rt, insecureRT)
+
+	r, err := c.Repository(context.Background(), &url.URL{Host: "registry-1.docker.io"}, "library/postgres", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := m.Get(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest == nil {
+		t.Fatal("Expected data to be present")
+	}
+
+	t.Logf("next request")
+
+	c.Alternates = &fakeAlternateBlobStrategy{
+		FirstAlternates: []imagereference.DockerImageReference{
+			{Registry: "quay.io", Namespace: "library", Name: "postgres"},
+			{Registry: "docker.io", Namespace: "library", Name: "postgres"},
+		},
+		FirstErr: nil,
+	}
+	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherManifest, err := m.Get(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if otherManifest == nil {
+		t.Fatal("Expected data to be present")
+	}
+	if !reflect.DeepEqual(manifest, otherManifest) {
+		t.Fatalf("Mirror and non mirror request did not match")
+	}
 }
