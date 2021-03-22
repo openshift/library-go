@@ -410,7 +410,31 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	}
 }
 
+type testSyncInstallerBehaviour int
+
+const (
+	testSyncInstallerSuccess testSyncInstallerBehaviour = iota
+	testSyncInstallerFails
+	testSyncInstallerDisappears
+)
+
 func TestSync(t *testing.T) {
+	type Test struct {
+		name               string
+		installerBehaviour testSyncInstallerBehaviour
+	}
+	for _, tst := range []Test{
+		{"happy case", testSyncInstallerSuccess},
+		{"installer fails", testSyncInstallerFails},
+		{"installer disappears", testSyncInstallerDisappears},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			testSync(t, tst.installerBehaviour)
+		})
+	}
+}
+
+func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
@@ -420,15 +444,26 @@ func TestSync(t *testing.T) {
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 2)}},
 	)
 
-	var installerPod *corev1.Pod
+	var installerPods []*corev1.Pod
 
 	kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-		if installerPod != nil {
-			return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "pods"}, installerPod.Name)
+		pod := action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
+		for _, p := range installerPods {
+			if p.Namespace == action.GetNamespace() && p.Name == pod.Name {
+				return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "pods"}, pod.Name)
+			}
 		}
-		installerPod = action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
-		kubeClient.PrependReactor("get", "pods", getPodsReactor(installerPod))
-		return true, installerPod, nil
+		installerPods = append(installerPods, pod)
+		return true, pod, nil
+	})
+	kubeClient.PrependReactor("get", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		podName := action.(ktesting.GetAction).GetName()
+		for _, p := range installerPods {
+			if p.Namespace == action.GetNamespace() && p.Name == podName {
+				return true, p, nil
+			}
+		}
+		return false, nil, nil
 	})
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
@@ -476,7 +511,7 @@ func TestSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if installerPod != nil {
+	if len(installerPods) > 0 {
 		t.Fatalf("not expected to create installer pod yet")
 	}
 
@@ -490,34 +525,30 @@ func TestSync(t *testing.T) {
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
 	}
-	if installerPod == nil {
-		t.Fatalf("expected to create installer pod")
+	if len(installerPods) != 1 {
+		t.Fatalf("expected to create one installer pod, got %d", len(installerPods))
 	}
 
-	t.Run("VerifyPodCommand", func(t *testing.T) {
-		cmd := installerPod.Spec.Containers[0].Command
-		if !reflect.DeepEqual(podCommand, cmd) {
-			t.Errorf("expected pod command %#v to match resulting installer pod command: %#v", podCommand, cmd)
-		}
-	})
+	cmd := installerPods[0].Spec.Containers[0].Command
+	if !reflect.DeepEqual(podCommand, cmd) {
+		t.Fatalf("expected pod command %#v to match resulting installer pod command: %#v", podCommand, cmd)
+	}
 
-	t.Run("VerifyPodArguments", func(t *testing.T) {
-		args := installerPod.Spec.Containers[0].Args
-		if len(args) == 0 {
-			t.Errorf("pod args should not be empty")
+	args := installerPods[0].Spec.Containers[0].Args
+	if len(args) == 0 {
+		t.Fatalf("pod args should not be empty")
+	}
+	foundRevision := false
+	for _, arg := range args {
+		if arg == "--revision=1" {
+			foundRevision = true
 		}
-		foundRevision := false
-		for _, arg := range args {
-			if arg == "--revision=1" {
-				foundRevision = true
-			}
-		}
-		if !foundRevision {
-			t.Errorf("revision installer argument not found")
-		}
-	})
+	}
+	if !foundRevision {
+		t.Fatalf("revision installer argument not found")
+	}
 
-	t.Log("synching again, nothing happens")
+	t.Log("syncing again, nothing happens")
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
 	}
@@ -529,8 +560,97 @@ func TestSync(t *testing.T) {
 		t.Fatalf("expected current revision generation 0, got: %d", currStatus.NodeStatuses[0].CurrentRevision)
 	}
 
-	t.Log("installer succeeded")
-	installerPod.Status.Phase = corev1.PodSucceeded
+	switch firstInstallerBehaviour {
+	case testSyncInstallerSuccess:
+		t.Log("installer succeeded")
+		installerPods[0].Status.Phase = corev1.PodSucceeded
+	case testSyncInstallerFails:
+		t.Log("installer failed")
+		installerPods[0].Status.Phase = corev1.PodFailed
+		installerPods[0].Status.ContainerStatuses = []corev1.ContainerStatus{
+			{
+				Name: "installer",
+				State: corev1.ContainerState{
+					Terminated: &corev1.ContainerStateTerminated{Message: "fake death"},
+				},
+			},
+		}
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
+			t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
+		}
+		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 1 {
+			t.Fatalf("expected failed count to be 1, got %d", count)
+		}
+		if c := v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerProgressingConditionType); c == nil {
+			t.Fatalf("missing %s condition", condition.NodeInstallerProgressingConditionType)
+		} else if c.Status != operatorv1.ConditionTrue {
+			t.Fatalf("expected %s condition to be true", condition.NodeInstallerProgressingConditionType)
+		}
+		if c := v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerDegradedConditionType); c == nil {
+			t.Fatalf("missing %s condition", condition.NodeInstallerDegradedConditionType)
+		} else if c.Status != operatorv1.ConditionTrue {
+			t.Fatalf("expected %s condition to be true", condition.NodeInstallerDegradedConditionType)
+		}
+
+		t.Log("launch 2nd installer")
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+		if len(installerPods) != 2 {
+			t.Fatal("expected second installer pod after failure")
+		}
+		if errs := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errs) != 1 || !strings.Contains(errs[0], "fake death") {
+			t.Fatalf("expected pod termination message in lastFailedRevisionErrors, but found: %s", errs)
+		}
+		if c := v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerProgressingConditionType); c == nil {
+			t.Fatalf("missing %s condition", condition.NodeInstallerProgressingConditionType)
+		} else if c.Status != operatorv1.ConditionTrue {
+			t.Fatalf("expected %s condition to be true", condition.NodeInstallerProgressingConditionType)
+		}
+		if c := v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerDegradedConditionType); c == nil {
+			t.Fatalf("missing %s condition", condition.NodeInstallerDegradedConditionType)
+		} else if c.Status != operatorv1.ConditionTrue {
+			t.Fatalf("expected %s condition to be true", condition.NodeInstallerDegradedConditionType)
+		}
+
+		t.Log("2nd installer succeeded")
+		installerPods[1].Status.Phase = corev1.PodSucceeded
+
+	case testSyncInstallerDisappears:
+		t.Log("installer disappeared")
+		installerPods = nil
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
+			t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
+		}
+		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 0 {
+			t.Fatalf("expected failed count to be 0, got %d", count)
+		}
+		if len(installerPods) != 1 {
+			t.Fatal("expected second installer pod after first disappear")
+		}
+		if c := v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerProgressingConditionType); c == nil {
+			t.Fatalf("missing %s condition", condition.NodeInstallerProgressingConditionType)
+		} else if c.Status != operatorv1.ConditionTrue {
+			t.Fatalf("expected %s condition to be true", condition.NodeInstallerProgressingConditionType)
+		}
+
+		// NodeInstallerDegraded is not set because we don't see the prior existence of the installer in the state machine
+
+		t.Log("2nd installer succeeded")
+		installerPods[0].Status.Phase = corev1.PodSucceeded
+	}
 
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
@@ -567,7 +687,7 @@ func TestSync(t *testing.T) {
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
 	if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
-		t.Errorf("expected current revision generation for node to be 0, got %d", generation)
+		t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
 	}
 
 	t.Log("static pod is ready")
@@ -579,44 +699,7 @@ func TestSync(t *testing.T) {
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
 	if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 1 {
-		t.Errorf("expected current revision generation for node to be 1, got %d", generation)
-	}
-
-	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	currStatus.LatestAvailableRevision = 2
-	currStatus.NodeStatuses[0].TargetRevision = 2
-	currStatus.NodeStatuses[0].CurrentRevision = 1
-	fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus("1", currStatus)
-
-	installerPod.Name = "installer-2-test-node-1"
-	installerPod.Status.Phase = corev1.PodFailed
-	installerPod.Status.ContainerStatuses = []corev1.ContainerStatus{
-		{
-			Name: "installer",
-			State: corev1.ContainerState{
-				Terminated: &corev1.ContainerStateTerminated{Message: "fake death"},
-			},
-		},
-	}
-	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
-		t.Fatal(err)
-	}
-
-	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if revision := currStatus.NodeStatuses[0].LastFailedRevision; revision != 2 {
-		t.Errorf("expected last failed revision revision for node to be 2, got %d", revision)
-	}
-
-	// installer pod failures show up in status
-	if errors := currStatus.NodeStatuses[0].LastFailedRevisionErrors; len(errors) != 1 || !strings.Contains(errors[0], "fake death") {
-		t.Error(errors)
-	}
-
-	if v1helpers.FindOperatorCondition(currStatus.Conditions, condition.NodeInstallerProgressingConditionType) == nil {
-		t.Error("missing Progressing")
-	}
-	if v1helpers.FindOperatorCondition(currStatus.Conditions, condition.StaticPodsAvailableConditionType) == nil {
-		t.Error("missing Available")
+		t.Fatalf("expected current revision generation for node to be 1, got %d", generation)
 	}
 }
 
