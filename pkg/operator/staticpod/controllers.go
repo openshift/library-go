@@ -48,9 +48,8 @@ type staticPodOperatorControllerBuilder struct {
 	certSecrets    []revisioncontroller.RevisionResource
 
 	// versioner information
-	versionRecorder   status.VersionGetter
-	operatorNamespace string
-	operandName       string
+	versionRecorder status.VersionGetter
+	operandName     string
 
 	// installer information
 	installCommand           []string
@@ -82,7 +81,7 @@ func NewBuilder(
 type Builder interface {
 	WithEvents(eventRecorder events.Recorder) Builder
 	WithServiceMonitor(dynamicClient dynamic.Interface) Builder
-	WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder
+	WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder
 	WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder
 	WithCerts(certDir string, certConfigMaps, certSecrets []revisioncontroller.RevisionResource) Builder
 	WithInstaller(command []string) Builder
@@ -107,8 +106,7 @@ func (b *staticPodOperatorControllerBuilder) WithServiceMonitor(dynamicClient dy
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder {
-	b.operatorNamespace = operatorNamespace
+func (b *staticPodOperatorControllerBuilder) WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder {
 	b.operandName = operandName
 	b.versionRecorder = versionRecorder
 	return b
@@ -232,7 +230,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		manager.WithController(staticpodstate.NewStaticPodStateController(
 			b.operandNamespace,
 			b.staticPodName,
-			b.operatorNamespace,
 			b.operandName,
 			operandInformers,
 			b.staticPodOperatorClient,
