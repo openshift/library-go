@@ -29,6 +29,7 @@ func SetGeneration(generations *[]operatorsv1.GenerationStatus, newGeneration op
 
 	existingGeneration := GenerationFor(*generations, schema.GroupResource{Group: newGeneration.Group, Resource: newGeneration.Resource}, newGeneration.Namespace, newGeneration.Name)
 	if existingGeneration == nil {
+		newGeneration.LastGeneration = 1
 		*generations = append(*generations, newGeneration)
 		return
 	}
