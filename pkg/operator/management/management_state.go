@@ -38,9 +38,14 @@ func IsOperatorAlwaysManaged() bool {
 	return !getAllowedOperatorUnmanaged()
 }
 
-// IsOperatorNotRemovable means the operator can't bet set to removed state.
+// IsOperatorNotRemovable means the operator can't be set to removed state.
 func IsOperatorNotRemovable() bool {
 	return !getAllowedOperatorRemovedState()
+}
+
+// IsOperatorRemovable means the operator can be set to removed state.
+func IsOperatorRemovable() bool {
+	return getAllowedOperatorRemovedState()
 }
 
 func IsOperatorUnknownState(state v1.ManagementState) bool {
