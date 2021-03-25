@@ -341,7 +341,7 @@ func TestObserverSimple(t *testing.T) {
 			t.Logf("recv: %#v", reactions.get(testFile))
 			return true, nil
 		}, stopCh); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	}()
 
@@ -363,7 +363,7 @@ func TestObserverSimple(t *testing.T) {
 			t.Logf("recv: %#v", reactions.get(testFile))
 			return true, nil
 		}, stopCh); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	}()
 
@@ -384,7 +384,7 @@ func TestObserverSimple(t *testing.T) {
 			t.Logf("recv: %#v", reactions.get(testFile))
 			return true, nil
 		}, stopCh); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	}()
 
@@ -439,7 +439,7 @@ func TestObserverSimpleContentSpecified(t *testing.T) {
 			t.Logf("recv: %#v", reactions.get(testFile))
 			return true, nil
 		}, stopCh); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Errorf("unexpected error: %v", err)
 		}
 	}()
 

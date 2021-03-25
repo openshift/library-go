@@ -106,7 +106,7 @@ func TestWatchdogRun(t *testing.T) {
 	go func() {
 		defer close(commandTerminatedCh)
 		if err := opts.Run(commandCtx); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
