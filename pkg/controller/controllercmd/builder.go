@@ -52,6 +52,9 @@ type ControllerContext struct {
 
 	// Server is the GenericAPIServer serving healthz checks and debug info
 	Server *genericapiserver.GenericAPIServer
+
+	// Namespace where the operator runs. Either specified on the command line or autodetected.
+	OperatorNamespace string
 }
 
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
@@ -274,11 +277,12 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 	protoConfig.ContentType = "application/vnd.kubernetes.protobuf"
 
 	controllerContext := &ControllerContext{
-		ComponentConfig: config,
-		KubeConfig:      clientConfig,
-		ProtoKubeConfig: protoConfig,
-		EventRecorder:   eventRecorder,
-		Server:          server,
+		ComponentConfig:   config,
+		KubeConfig:        clientConfig,
+		ProtoKubeConfig:   protoConfig,
+		EventRecorder:     eventRecorder,
+		Server:            server,
+		OperatorNamespace: namespace,
 	}
 
 	if b.leaderElection == nil {
