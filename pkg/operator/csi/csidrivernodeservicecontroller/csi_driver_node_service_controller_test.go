@@ -7,10 +7,12 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	coreinformers "k8s.io/client-go/informers"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -42,6 +45,8 @@ const (
 
 	hookDaemonSetAnnKey = "operator.openshift.io/foo"
 	hookDaemonSetAnnVal = "bar"
+
+	finalizerName = controllerName
 )
 
 var (
@@ -58,6 +63,7 @@ type images struct {
 type testCase struct {
 	name            string
 	images          images
+	removable       bool
 	initialObjects  testObjects
 	expectedObjects testObjects
 	expectErr       bool
@@ -95,7 +101,8 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	addGenerationReactor(coreClient)
 
 	// fakeDriverInstance also fulfils the OperatorClient interface
-	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+	fakeOperatorClient := v1helpers.NewFakeOperatorClientWithObjectMeta(
+		&test.initialObjects.driver.ObjectMeta,
 		&test.initialObjects.driver.Spec,
 		&test.initialObjects.driver.Status,
 		nil, /*triggerErr func*/
@@ -203,6 +210,21 @@ func withFalseConditions(conditions ...string) driverModifier {
 				Status: opv1.ConditionFalse,
 			})
 		}
+		return i
+	}
+}
+
+func withFinalizers(finalizers ...string) driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		i.Finalizers = finalizers
+		return i
+	}
+}
+
+func withDeletionTimestamp() driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		// Use a constant time to get ObjectMeta comparison right.
+		i.DeletionTimestamp = &metav1.Time{Time: time.Unix(0, 0)}
 		return i
 	}
 }
@@ -514,12 +536,63 @@ func TestSync(t *testing.T) {
 					withTrueConditions(conditionAvailable, conditionProgressing)),
 			},
 		},
+		{
+			// Finalizer is added to removable CR
+			// (and DaemonSet is created)
+			name:      "add finalizer",
+			images:    defaultImages(),
+			removable: true,
+			initialObjects: testObjects{
+				driver: makeFakeDriverInstance(),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 0)),
+				driver: makeFakeDriverInstance(
+					// withStatus(replica0),
+					withGenerations(1),
+					withTrueConditions(conditionProgressing),
+					withFalseConditions(conditionAvailable), // Degraded is set later on
+					withFinalizers(finalizerName)),
+			},
+		},
+		{
+			// DaemonSet and finalizer are deleted on DeletionTimestamp
+			name:      "remove daemonset",
+			images:    defaultImages(),
+			removable: true,
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withFinalizers(finalizerName),
+					withDeletionTimestamp()),
+			},
+			expectedObjects: testObjects{
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					// No conditions are updated!
+					// (only Degraded condition might be set on error)
+					withDeletionTimestamp()),
+			},
+		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			// Initialize
 			ctx := newTestContext(test, t)
+			if test.removable {
+				management.SetOperatorRemovable()
+			} else {
+				management.SetOperatorNotRemovable()
+			}
 
 			// Act
 			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
@@ -546,6 +619,16 @@ func TestSync(t *testing.T) {
 					t.Errorf("Unexpected DaemonSet %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.daemonSet, actualDaemonSet))
 				}
 			}
+			if test.expectedObjects.daemonSet == nil && test.initialObjects.daemonSet != nil {
+				dsName := test.initialObjects.daemonSet.Name
+				actualDaemonSet, err := ctx.coreClient.AppsV1().DaemonSets(operandNamespace).Get(context.TODO(), dsName, metav1.GetOptions{})
+				if err == nil {
+					t.Errorf("Expected DaemonSet to be deleted, found generation %d", actualDaemonSet.Generation)
+				}
+				if !errors.IsNotFound(err) {
+					t.Errorf("Expecetd error to be NotFound, got %s", err)
+				}
+			}
 
 			// Check expectedObjects.driver.Status
 			if test.expectedObjects.driver != nil {
@@ -557,6 +640,18 @@ func TestSync(t *testing.T) {
 				sanitizeInstanceStatus(&test.expectedObjects.driver.Status)
 				if !equality.Semantic.DeepEqual(test.expectedObjects.driver.Status, *actualStatus) {
 					t.Errorf("Unexpected Driver %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.driver.Status, *actualStatus))
+				}
+
+				// Check expected ObjectMeta
+				actualMeta, err := ctx.operatorClient.GetObjectMeta()
+				if err != nil {
+					t.Errorf("Failed to get Driver: %v", err)
+				}
+				sanitizeObjectMeta(actualMeta)
+				expectedMeta := &test.expectedObjects.driver.ObjectMeta
+				sanitizeObjectMeta(expectedMeta)
+				if !equality.Semantic.DeepEqual(actualMeta, expectedMeta) {
+					t.Errorf("Unexpected Driver %+v ObjectMeta content:\n%s", operandName, cmp.Diff(expectedMeta, actualMeta))
 				}
 			}
 		})
@@ -586,6 +681,13 @@ func sanitizeInstanceStatus(status *opv1.OperatorStatus) {
 		return status.Conditions[i].Type < status.Conditions[j].Type
 	})
 }
+
+func sanitizeObjectMeta(meta *metav1.ObjectMeta) {
+	if len(meta.Finalizers) == 0 {
+		meta.Finalizers = nil
+	}
+}
+
 func defaultImages() images {
 	return images{
 		csiDriver:           "quay.io/openshift/origin-test-csi-driver:latest",

@@ -1,7 +1,7 @@
 package management
 
 import (
-	"github.com/openshift/api/operator/v1"
+	v1 "github.com/openshift/api/operator/v1"
 )
 
 var (
@@ -27,6 +27,13 @@ func SetOperatorUnmanageable() {
 // bricked, non-automatically recoverable state.
 func SetOperatorNotRemovable() {
 	allowOperatorRemovedState = false
+}
+
+// SetOperatorRemovable is one time choice the operator author can make to indicate the operator supports
+// removing of his operand.
+// This is the default setting, provided here mostly for unit tests.
+func SetOperatorRemovable() {
+	allowOperatorRemovedState = true
 }
 
 // IsOperatorAlwaysManaged means the operator can't be set to unmanaged state.
