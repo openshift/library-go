@@ -1009,9 +1009,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{0, 1, 2},
 		},
@@ -1034,9 +1034,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
@@ -1059,9 +1059,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
@@ -1084,9 +1084,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{1},
@@ -1121,6 +1121,10 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
 					NodeName:        "test-node-1",
 					CurrentRevision: 1,
 				},
@@ -1128,15 +1132,11 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 1,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
@@ -1161,9 +1161,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{10, 0, 0},
@@ -1187,9 +1187,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{1, 0, 0},
@@ -1215,9 +1215,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{10, 0, 0},
@@ -1243,9 +1243,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, false),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{10, 0, 0},
@@ -1255,30 +1255,30 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
-					NodeName:        "test-node-1",
+					NodeName:        "test-node-0",
 					CurrentRevision: 2,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
 				},
 				{
 					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 1,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			// we call sync 2*3 times:
-			// 1. notice update of node 1
-			// 2. create installer for node 1, OOM, fall-through, notice update of node 1
-			// 3. create installer for node 1, retry 1, OOM, fall-through, notice update of node 1
-			// 4. create installer for node 1, retry 2, which succeeds, set CurrentRevision
-			// 5. notice update of node 2
-			// 6. create installer for node 2, which succeeds, set CurrentRevision
+			// 1. notice update of node 0
+			// 2. create installer for node 0, OOM, fall-through, notice update of node 0
+			// 3. create installer for node 0, retry 0, OOM, fall-through, notice update of node 0
+			// 4. create installer for node 0, retry 1, which succeeds, set CurrentRevision
+			// 5. notice update of node 1
+			// 6. create installer for node 1, which succeeds, set CurrentRevision
 			expectedUpgradeOrder: []int{1, 1, 1, 2},
 			expectedRetryCounts:  []int{0, 1, 2, 0},
 			numOfInstallersOOM:   2,
@@ -1288,6 +1288,10 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
 					NodeName:        "test-node-1",
 					CurrentRevision: 1,
 				},
@@ -1295,15 +1299,11 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 1,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, false),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, false),
 			},
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
@@ -1312,22 +1312,22 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
-					NodeName:        "test-node-1",
+					NodeName:        "test-node-0",
 					CurrentRevision: 1,
 				},
 				{
-					NodeName:        "test-node-2",
+					NodeName:        "test-node-1",
 					CurrentRevision: 2,
 				},
 				{
-					NodeName:        "test-node-3",
+					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, false),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 		},
@@ -1336,22 +1336,22 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 5,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
-					NodeName:        "test-node-1",
+					NodeName:        "test-node-0",
 					CurrentRevision: 4,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
 				},
 				{
 					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 1,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 4, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 4, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
@@ -1360,22 +1360,22 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
-					NodeName:        "test-node-1",
+					NodeName:        "test-node-0",
 					CurrentRevision: 3,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
 				},
 				{
 					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 1,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 3, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 3, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodSucceeded, true),
 			},
 			expectedUpgradeOrder: []int{1, 2},
 		},
@@ -1384,22 +1384,22 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
-					NodeName:        "test-node-1",
+					NodeName:        "test-node-0",
 					CurrentRevision: 3,
 				},
 				{
-					NodeName:        "test-node-2",
+					NodeName:        "test-node-1",
 					CurrentRevision: 2,
 				},
 				{
-					NodeName:        "test-node-3",
+					NodeName:        "test-node-2",
 					CurrentRevision: 1,
 				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 3, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 1, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 3, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodSucceeded, true),
 			},
 			expectedUpgradeOrder: []int{2, 1},
 		},
@@ -1408,6 +1408,10 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			latestAvailableRevision: 3,
 			nodeStatuses: []operatorv1.NodeStatus{
 				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 2,
+				},
+				{
 					NodeName:        "test-node-1",
 					CurrentRevision: 2,
 				},
@@ -1415,15 +1419,11 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeName:        "test-node-2",
 					CurrentRevision: 2,
 				},
-				{
-					NodeName:        "test-node-3",
-					CurrentRevision: 2,
-				},
 			},
 			staticPods: []*corev1.Pod{
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, false),
-				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 2, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, false),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 2, corev1.PodRunning, false),
 			},
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
