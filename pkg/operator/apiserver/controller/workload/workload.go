@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -113,7 +114,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 }
 
 func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+	operatorSpec, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
 	}
@@ -123,12 +124,12 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 	}
 
 	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
-		return c.updateOperatorStatus(nil, false, false, []error{err})
+		return c.updateOperatorStatus(operatorStatus, nil, false, false, []error{err})
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
 
-	return c.updateOperatorStatus(workload, operatorConfigAtHighestGeneration, true, errs)
+	return c.updateOperatorStatus(operatorStatus, workload, operatorConfigAtHighestGeneration, true, errs)
 }
 
 // shouldSync checks ManagementState to determine if we can run this operator, probably set by a cluster administrator.
@@ -150,7 +151,7 @@ func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.Op
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
+func (c *Controller) updateOperatorStatus(previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
 	if errs == nil {
 		errs = []error{}
 	}
@@ -254,27 +255,36 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		deploymentAvailableCondition.Reason = "AsExpected"
 	}
 
+	desiredReplicas := int32(1)
+	if workload.Spec.Replicas != nil {
+		desiredReplicas = *(workload.Spec.Replicas)
+	}
+
 	// If the workload is up to date, then we are no longer progressing
 	workloadAtHighestGeneration := workload.ObjectMeta.Generation == workload.Status.ObservedGeneration
+	workloadIsBeingUpdated := workload.Status.UpdatedReplicas < desiredReplicas
+	workloadIsBeingUpdatedTooLong, err := isUpdatingTooLong(previousStatus, deploymentProgressingCondition.Type)
 	if !workloadAtHighestGeneration {
 		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
 		deploymentProgressingCondition.Reason = "NewGeneration"
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: observed generation is %d, desired generation is %d.", workload.Name, c.targetNamespace, workload.Status.ObservedGeneration, workload.ObjectMeta.Generation)
+	} else if workloadIsBeingUpdated {
+		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
+		if workloadIsBeingUpdatedTooLong {
+			deploymentProgressingCondition.Status = operatorv1.ConditionFalse
+		}
+		deploymentProgressingCondition.Reason = "PodsUpdating"
+		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas)
 	} else {
 		deploymentProgressingCondition.Status = operatorv1.ConditionFalse
 		deploymentProgressingCondition.Reason = "AsExpected"
-	}
-
-	desiredReplicas := int32(1)
-	if workload.Spec.Replicas != nil {
-		desiredReplicas = *(workload.Spec.Replicas)
 	}
 
 	// During a rollout the default maxSurge (25%) will allow the available
 	// replicas to temporarily exceed the desired replica count. If this were
 	// to occur, the operator should not report degraded.
 	workloadHasAllPodsAvailable := workload.Status.AvailableReplicas >= desiredReplicas
-	if !workloadHasAllPodsAvailable {
+	if !workloadHasAllPodsAvailable && (!workloadIsBeingUpdated || workloadIsBeingUpdatedTooLong) {
 		numNonAvailablePods := desiredReplicas - workload.Status.AvailableReplicas
 		deploymentDegradedCondition.Status = operatorv1.ConditionTrue
 		deploymentDegradedCondition.Reason = "UnavailablePod"
@@ -311,6 +321,11 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		return kerrors.NewAggregate(errs)
 	}
 	return nil
+}
+
+func isUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
+	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
+	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(5*time.Minute)), nil
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
