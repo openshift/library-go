@@ -150,7 +150,7 @@ func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.Op
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) error {
+func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
 	if errs == nil {
 		errs = []error{}
 	}
@@ -175,6 +175,23 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		Status: operatorv1.ConditionFalse,
 	}
 
+	// only set updateGenerationFn to update the observed generation if everything is available
+	var updateGenerationFn func(newStatus *operatorv1.OperatorStatus) error
+	defer func() {
+		updates := []v1helpers.UpdateStatusFunc{
+			v1helpers.UpdateConditionFn(deploymentAvailableCondition),
+			v1helpers.UpdateConditionFn(deploymentDegradedCondition),
+			v1helpers.UpdateConditionFn(deploymentProgressingCondition),
+			v1helpers.UpdateConditionFn(workloadDegradedCondition),
+		}
+		if updateGenerationFn != nil {
+			updates = append(updates, updateGenerationFn)
+		}
+		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, updates...); updateError != nil {
+			err = updateError
+		}
+	}()
+
 	if !preconditionsReady {
 		var message string
 		for _, err := range errs {
@@ -196,13 +213,6 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		deploymentProgressingCondition.Status = operatorv1.ConditionFalse
 		deploymentProgressingCondition.Reason = "PreconditionNotFulfilled"
 
-		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient,
-			v1helpers.UpdateConditionFn(deploymentAvailableCondition),
-			v1helpers.UpdateConditionFn(deploymentDegradedCondition),
-			v1helpers.UpdateConditionFn(deploymentProgressingCondition),
-			v1helpers.UpdateConditionFn(workloadDegradedCondition)); updateError != nil {
-			return updateError
-		}
 		return kerrors.NewAggregate(errs)
 	}
 
@@ -232,13 +242,6 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		deploymentDegradedCondition.Reason = "NoDeployment"
 		deploymentDegradedCondition.Message = message
 
-		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient,
-			v1helpers.UpdateConditionFn(deploymentAvailableCondition),
-			v1helpers.UpdateConditionFn(deploymentDegradedCondition),
-			v1helpers.UpdateConditionFn(deploymentProgressingCondition),
-			v1helpers.UpdateConditionFn(workloadDegradedCondition)); updateError != nil {
-			return updateError
-		}
 		return kerrors.NewAggregate(errs)
 	}
 
@@ -298,18 +301,10 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 		c.versionRecorder.SetVersion(operandName, c.targetOperandVersion)
 	}
 
-	updateGenerationFn := func(newStatus *operatorv1.OperatorStatus) error {
+	// set updateGenerationFn so that it is invoked in defer
+	updateGenerationFn = func(newStatus *operatorv1.OperatorStatus) error {
 		resourcemerge.SetDeploymentGeneration(&newStatus.Generations, workload)
 		return nil
-	}
-
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient,
-		v1helpers.UpdateConditionFn(deploymentAvailableCondition),
-		v1helpers.UpdateConditionFn(deploymentDegradedCondition),
-		v1helpers.UpdateConditionFn(deploymentProgressingCondition),
-		v1helpers.UpdateConditionFn(workloadDegradedCondition),
-		updateGenerationFn); updateError != nil {
-		return updateError
 	}
 
 	if len(errs) > 0 {
