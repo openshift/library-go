@@ -57,7 +57,7 @@ func NewStaticPodStateController(
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
-	).WithSync(c.sync).ResyncEvery(30*time.Second).ToController("StaticPodStateController", eventRecorder)
+	).WithSync(c.sync).ResyncEvery(time.Minute).ToController("StaticPodStateController", eventRecorder)
 }
 
 func describeWaitingContainerState(waiting *v1.ContainerStateWaiting) string {
