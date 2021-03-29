@@ -50,7 +50,7 @@ func NewFinalizerController(
 		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
 	}
 
-	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 		kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer(),
 	).ToController(fullname, eventRecorder.WithComponentSuffix("finalizer-controller"))
