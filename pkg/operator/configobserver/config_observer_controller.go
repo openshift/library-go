@@ -62,7 +62,7 @@ func NewConfigObserver(
 		listers:        listers,
 	}
 
-	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(append(informers, listersToInformer(listers)...)...).ToController("ConfigObserver", eventRecorder.WithComponentSuffix("config-observer"))
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(append(informers, listersToInformer(listers)...)...).ToController("ConfigObserver", eventRecorder.WithComponentSuffix("config-observer"))
 }
 
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
