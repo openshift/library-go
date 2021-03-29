@@ -96,7 +96,7 @@ func NewKeyController(
 
 	return factory.New().
 		WithSync(c.sync).
-		ResyncEvery(time.Second). // TODO: Is the 1s resync really necessary?
+		ResyncEvery(time.Minute).
 		WithInformers(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),

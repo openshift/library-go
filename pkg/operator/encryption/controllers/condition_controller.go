@@ -54,7 +54,7 @@ func NewConditionController(
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		operatorClient.Informer(),
 		deployer,
-	).ResyncEvery(time.Second).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
+	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
 }
 
 func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) error {

@@ -90,7 +90,7 @@ func NewMigrationController(
 		provider:                 provider,
 	}
 
-	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		migrator,
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
