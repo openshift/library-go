@@ -238,8 +238,14 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 
 	// Warn about too fast resyncs as they might drain the operators QPS.
 	// This event is cheap as it is only emitted on operator startup.
-	if c.resyncEvery.Seconds() < 60 {
+	if c.resyncEvery.Seconds() > 0 && c.resyncEvery.Seconds() < 60 {
 		ctx.Recorder().Warningf("FastControllerResync", "Controller %q resync interval is set to %s which might lead to client request throttling", name, c.resyncEvery)
+	}
+
+	// Warn when a controller is created without any resync mechanism defined
+	// This include scheduled resync or informer based resync.
+	if c.resyncEvery.Seconds() == 0 && len(f.resyncSchedules) == 0 && len(f.informers) == 0 && len(f.bareInformers) == 0 && len(f.namespaceInformers) == 0 && len(f.informerQueueKeys) == 0 {
+		ctx.Recorder().Warningf("ControllerWithNoSync", "Controller %q has no informers or resync interval specified which mean it is not running", name)
 	}
 
 	for i := range f.informerQueueKeys {
