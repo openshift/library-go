@@ -67,6 +67,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"NodeDisruptionExclusion=true",
 				"ServiceNodeExclusion=true",
 				"DownwardAPIHugePages=true",
+				"CSIDriverAzureDisk=true",
+				"CSIDriverVSphere=true",
 				"LegacyNodeRoleBehavior=false",
 			},
 		},
