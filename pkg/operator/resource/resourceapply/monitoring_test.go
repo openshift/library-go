@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
 
@@ -97,7 +98,9 @@ func TestApplyServiceMonitor(t *testing.T) {
 
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, readServiceMonitorFromBytes([]byte(fakeServiceMonitor)))
 
-	modified, err := ApplyServiceMonitor(dynamicClient, events.NewInMemoryRecorder("monitor-test"), []byte(fakeIncompleteServiceMonitor))
+	required := resourceread.ReadUnstructuredOrDie([]byte(fakeIncompleteServiceMonitor))
+
+	_, modified, err := ApplyServiceMonitor(dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
