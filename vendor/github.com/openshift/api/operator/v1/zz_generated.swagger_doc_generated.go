@@ -204,6 +204,7 @@ var map_ConsoleCustomization = map[string]string{
 	"customProductName":    "customProductName is the name that will be displayed in page titles, logo alt text, and the about dialog instead of the normal OpenShift product name.",
 	"customLogoFile":       "customLogoFile replaces the default OpenShift logo in the masthead and about dialog. It is a reference to a ConfigMap in the openshift-config namespace. This can be created with a command like 'oc create configmap custom-logo --from-file=/path/to/file -n openshift-config'. Image size must be less than 1 MB due to constraints on the ConfigMap size. The ConfigMap key should include a file extension so that the console serves the file with the correct MIME type. Recommended logo specifications: Dimensions: Max height of 68px and max width of 200px SVG format preferred",
 	"developerCatalog":     "developerCatalog allows to configure the shown developer catalog categories.",
+	"projectAccess":        "projectAccess allows customizing the available list of ClusterRoles in the Developer perspective Project access page which can be used by a project admin to specify roles to other users and restrict access within the project. If set, the list will replace the default ClusterRole options.",
 }
 
 func (ConsoleCustomization) SwaggerDoc() map[string]string {
@@ -266,6 +267,15 @@ var map_DeveloperConsoleCatalogCustomization = map[string]string{
 
 func (DeveloperConsoleCatalogCustomization) SwaggerDoc() map[string]string {
 	return map_DeveloperConsoleCatalogCustomization
+}
+
+var map_ProjectAccess = map[string]string{
+	"":                      "ProjectAccess contains options for project access roles",
+	"availableClusterRoles": "availableClusterRoles is the list of ClusterRole names that are assignable to users through the project access tab.",
+}
+
+func (ProjectAccess) SwaggerDoc() map[string]string {
+	return map_ProjectAccess
 }
 
 var map_StatuspageProvider = map[string]string{
@@ -363,9 +373,20 @@ func (DNSList) SwaggerDoc() map[string]string {
 	return map_DNSList
 }
 
+var map_DNSNodePlacement = map[string]string{
+	"":             "DNSNodePlacement describes the node scheduling configuration for DNS pods.",
+	"nodeSelector": "nodeSelector is the node selector applied to DNS pods.\n\nIf empty, the default is used, which is currently the following:\n\n  beta.kubernetes.io/os: linux\n\nThis default is subject to change.\n\nIf set, the specified selector is used and replaces the default.",
+	"tolerations":  "tolerations is a list of tolerations applied to DNS pods.\n\nThe default is an empty list.  This default is subject to change.\n\nSee https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+}
+
+func (DNSNodePlacement) SwaggerDoc() map[string]string {
+	return map_DNSNodePlacement
+}
+
 var map_DNSSpec = map[string]string{
-	"":        "DNSSpec is the specification of the desired behavior of the DNS.",
-	"servers": "servers is a list of DNS resolvers that provide name query delegation for one or more subdomains outside the scope of the cluster domain. If servers consists of more than one Server, longest suffix match will be used to determine the Server.\n\nFor example, if there are two Servers, one for \"foo.com\" and another for \"a.foo.com\", and the name query is for \"www.a.foo.com\", it will be routed to the Server with Zone \"a.foo.com\".\n\nIf this field is nil, no servers are created.",
+	"":              "DNSSpec is the specification of the desired behavior of the DNS.",
+	"servers":       "servers is a list of DNS resolvers that provide name query delegation for one or more subdomains outside the scope of the cluster domain. If servers consists of more than one Server, longest suffix match will be used to determine the Server.\n\nFor example, if there are two Servers, one for \"foo.com\" and another for \"a.foo.com\", and the name query is for \"www.a.foo.com\", it will be routed to the Server with Zone \"a.foo.com\".\n\nIf this field is nil, no servers are created.",
+	"nodePlacement": "nodePlacement provides explicit control over the scheduling of DNS pods.\n\nGenerally, it is useful to run a DNS pod on every node so that DNS queries are always handled by a local DNS pod instead of going over the network to a DNS pod on another node.  However, security policies may require restricting the placement of DNS pods to specific nodes. For example, if a security policy prohibits pods on arbitrary nodes from communicating with the API, a node selector can be specified to restrict DNS pods to nodes that are permitted to communicate with the API.  Conversely, if running DNS pods on nodes with a particular taint is desired, a toleration can be specified for that taint.\n\nIf unset, defaults are used. See nodePlacement for more details.",
 }
 
 func (DNSSpec) SwaggerDoc() map[string]string {
@@ -490,7 +511,8 @@ func (GCPLoadBalancerParameters) SwaggerDoc() map[string]string {
 }
 
 var map_HostNetworkStrategy = map[string]string{
-	"": "HostNetworkStrategy holds parameters for the HostNetwork endpoint publishing strategy.",
+	"":         "HostNetworkStrategy holds parameters for the HostNetwork endpoint publishing strategy.",
+	"protocol": "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
 }
 
 func (HostNetworkStrategy) SwaggerDoc() map[string]string {
@@ -662,7 +684,8 @@ func (NodePlacement) SwaggerDoc() map[string]string {
 }
 
 var map_NodePortStrategy = map[string]string{
-	"": "NodePortStrategy holds parameters for the NodePortService endpoint publishing strategy.",
+	"":         "NodePortStrategy holds parameters for the NodePortService endpoint publishing strategy.",
+	"protocol": "protocol specifies whether the IngressController expects incoming connections to use plain TCP or whether the IngressController expects PROXY protocol.\n\nPROXY protocol can be used with load balancers that support it to communicate the source addresses of client connections when forwarding those connections to the IngressController.  Using PROXY protocol enables the IngressController to report those source addresses instead of reporting the load balancer's address in HTTP headers and logs.  Note that enabling PROXY protocol on the IngressController will cause connections to fail if you are not using a load balancer that uses PROXY protocol to forward connections to the IngressController.  See http://www.haproxy.org/download/2.2/doc/proxy-protocol.txt for information about PROXY protocol.\n\nThe following values are valid for this field:\n\n* The empty string. * \"TCP\". * \"PROXY\".\n\nThe empty string specifies the default, which is TCP without PROXY protocol.  Note that the default is subject to change.",
 }
 
 func (NodePortStrategy) SwaggerDoc() map[string]string {
