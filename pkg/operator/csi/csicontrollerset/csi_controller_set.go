@@ -36,6 +36,7 @@ type CSIControllerSet struct {
 	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
 	csiDriverNodeServiceController       factory.Controller
+	serviceMonitorController             factory.Controller
 
 	preRunCachesSynced []cache.InformerSynced
 	operatorClient     v1helpers.OperatorClient
@@ -64,6 +65,7 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
+		c.serviceMonitorController,
 	} {
 		if ctrl == nil {
 			continue
@@ -183,6 +185,26 @@ func (c *CSIControllerSet) WithCSIDriverNodeService(
 		c.eventRecorder,
 		optionalDaemonSetHooks...,
 	)
+	return c
+}
+
+// WithServiceMonitorController returns a *ControllerSet that creates ServiceMonitor.
+func (c *CSIControllerSet) WithServiceMonitorController(
+	name string,
+	dynamicClient dynamic.Interface,
+	assetFunc resourceapply.AssetFunc,
+	file string,
+) *CSIControllerSet {
+	// Use StaticResourceController to apply ServiceMonitors.
+	// Ensure that NotFound errors are ignored, e.g. when ServiceMonitor CRD missing.
+	c.serviceMonitorController = staticresourcecontroller.NewStaticResourceController(
+		name,
+		assetFunc,
+		[]string{file},
+		(&resourceapply.ClientHolder{}).WithDynamicClient(dynamicClient),
+		c.operatorClient,
+		c.eventRecorder,
+	).WithIgnoreNotFoundOnCreate()
 	return c
 }
 
