@@ -7,9 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EnsureObjectMeta writes namespace, name, labels, and annotations.  Don't set other things here.
+// EnsureObjectMeta is the func to merge object meta.
+var EnsureObjectMeta func(modified *bool, existing *metav1.ObjectMeta, required metav1.ObjectMeta) = EnsureObjectMetaDefault
+
+// EnsureObjectMetaDefaul writes namespace, name, labels, and annotations.  Don't set other things here.
 // TODO finalizer support maybe?
-func EnsureObjectMeta(modified *bool, existing *metav1.ObjectMeta, required metav1.ObjectMeta) {
+func EnsureObjectMetaDefault(modified *bool, existing *metav1.ObjectMeta, required metav1.ObjectMeta) {
 	SetStringIfSet(modified, &existing.Namespace, required.Namespace)
 	SetStringIfSet(modified, &existing.Name, required.Name)
 	MergeMap(modified, &existing.Labels, required.Labels)
