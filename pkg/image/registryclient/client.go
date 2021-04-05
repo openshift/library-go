@@ -237,7 +237,7 @@ func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName st
 }
 
 // connectToRegistry is private and returns a non-wrapped, non-mirrorable repository.
-func (c *Context) connectToRegistry(ctx context.Context, locator repositoryLocator, insecure bool) (distribution.Repository, error) {
+func (c *Context) connectToRegistry(ctx context.Context, locator repositoryLocator, insecure bool) (RepositoryWithLocation, error) {
 	var named reference.Named = locator.named
 	var registryURL *url.URL = locator.url
 	var path string
@@ -276,7 +276,7 @@ func (c *Context) connectToRegistry(ctx context.Context, locator repositoryLocat
 	if limiter == nil {
 		limiter = rate.NewLimiter(rate.Limit(5), 5)
 	}
-	return NewLimitedRetryRepository(repo, c.Retries, limiter), nil
+	return NewLimitedRetryRepository(locator.ref, repo, c.Retries, limiter), nil
 }
 
 func (c *Context) ping(registry url.URL, insecure bool, transport http.RoundTripper) (*url.URL, error) {
@@ -411,6 +411,7 @@ var nowFn = time.Now
 type retryRepository struct {
 	distribution.Repository
 
+	ref     imagereference.DockerImageReference
 	limiter *rate.Limiter
 	retries int
 	sleepFn func(time.Duration)
@@ -418,14 +419,19 @@ type retryRepository struct {
 
 // NewLimitedRetryRepository wraps a distribution.Repository with helpers that will retry temporary failures
 // over a limited time window and duration, and also obeys a rate limit.
-func NewLimitedRetryRepository(repo distribution.Repository, retries int, limiter *rate.Limiter) distribution.Repository {
+func NewLimitedRetryRepository(ref imagereference.DockerImageReference, repo distribution.Repository, retries int, limiter *rate.Limiter) RepositoryWithLocation {
 	return &retryRepository{
 		Repository: repo,
 
+		ref:     ref,
 		limiter: limiter,
 		retries: retries,
 		sleepFn: time.Sleep,
 	}
+}
+
+func (r *retryRepository) Ref() imagereference.DockerImageReference {
+	return r.ref
 }
 
 // isTemporaryHTTPError returns true if the error indicates a temporary or partial HTTP failure
