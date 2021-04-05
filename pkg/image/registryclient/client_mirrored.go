@@ -31,10 +31,31 @@ type AlternateBlobSourceStrategy interface {
 	OnFailure(ctx context.Context, locator reference.DockerImageReference) (alternateRepositories []reference.DockerImageReference, err error)
 }
 
+// ManifestWithLocationService extends the ManifestService to allow clients to retrieve a manifest and
+// get the location of the mirrored manifest. Not all ManifestServices returned from a Repository will
+// support this interface and it must be conditional.
+type ManifestWithLocationService interface {
+	distribution.ManifestService
+
+	// GetWithLocation returns the registry URL the provided manifest digest was retrieved from which may be Repository.Named(),
+	// or one of the blob mirrors if alternate location for blob sources was provided. It returns an error if the digest could not be
+	// located - if an error is returned the source reference (Repository.Named()) will be set.
+	GetWithLocation(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, reference.DockerImageReference, error)
+}
+
+// RepositoryWithLocation extends the Repository and allows clients to know which repository registry this talks to
+// as primary (as a complement to Named() which does not include the URL).
+type RepositoryWithLocation interface {
+	distribution.Repository
+
+	// Ref returns the DockerImageReference representing this repository.
+	Ref() reference.DockerImageReference
+}
+
 // blobMirroredRepoRetriever allows a caller to retrieve a distribution.Repository. It may perform
 // requests to authorize the client and will return an error if it fails.
 type blobMirroredRepoRetriever interface {
-	connectToRegistry(context.Context, repositoryLocator, bool) (distribution.Repository, error)
+	connectToRegistry(context.Context, repositoryLocator, bool) (RepositoryWithLocation, error)
 }
 
 // repositoryLocator caches the components necessary to connect to a single image repository.
@@ -62,12 +83,17 @@ type blobMirroredRepository struct {
 
 	lock  sync.Mutex
 	order []reference.DockerImageReference
-	repos map[reference.DockerImageReference]distribution.Repository
+	repos map[reference.DockerImageReference]RepositoryWithLocation
 }
 
 // Named returns the name of the repository.
 func (r *blobMirroredRepository) Named() distributionreference.Named {
 	return r.locator.named
+}
+
+// Named returns the name of the repository.
+func (r *blobMirroredRepository) Ref() reference.DockerImageReference {
+	return r.locator.ref
 }
 
 // Manifests wraps the manifest service in a blobMirroredManifest for shared retries.
@@ -132,7 +158,7 @@ func (r *blobMirroredRepository) errorRepos(ctx context.Context) ([]reference.Do
 }
 
 // attemptRepos will invoke fn on all repos until fn returns no error. fn is expected to be idempotent.
-func (r *blobMirroredRepository) attemptRepos(ctx context.Context, repos []reference.DockerImageReference, fn func(r distribution.Repository) error) error {
+func (r *blobMirroredRepository) attemptRepos(ctx context.Context, repos []reference.DockerImageReference, fn func(r RepositoryWithLocation) error) error {
 	var firstErr error
 	for _, ref := range repos {
 		klog.V(5).Infof("Attempting to connect to %s", ref)
@@ -155,7 +181,7 @@ func (r *blobMirroredRepository) attemptRepos(ctx context.Context, repos []refer
 }
 
 // attemptFirstConnectedRepo will invoke fn on the first repo that successfully connects.
-func (r *blobMirroredRepository) attemptFirstConnectedRepo(ctx context.Context, repos []reference.DockerImageReference, fn func(r distribution.Repository) error) error {
+func (r *blobMirroredRepository) attemptFirstConnectedRepo(ctx context.Context, repos []reference.DockerImageReference, fn func(r RepositoryWithLocation) error) error {
 	var firstErr error
 	for _, ref := range repos {
 		klog.V(5).Infof("Attempting to connect to %s", ref)
@@ -172,7 +198,7 @@ func (r *blobMirroredRepository) attemptFirstConnectedRepo(ctx context.Context, 
 }
 
 // alternates accesses the set of repositories that may be valid alternatives for accessing content
-func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r distribution.Repository) error) error {
+func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r RepositoryWithLocation) error) error {
 	repos, loaded, err := r.initialRepos(ctx)
 	if err != nil {
 		return err
@@ -198,7 +224,7 @@ func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r distr
 // firstConnectedAlternate invokes fn on the first alternate that can be connected to. Use when the
 // function can only be invoked once (such as a method with side effects, like ServeBlob which writes
 // to the response).
-func (r *blobMirroredRepository) firstConnectedAlternate(ctx context.Context, fn func(r distribution.Repository) error) error {
+func (r *blobMirroredRepository) firstConnectedAlternate(ctx context.Context, fn func(r RepositoryWithLocation) error) error {
 	repos, loaded, err := r.initialRepos(ctx)
 	if err != nil {
 		return err
@@ -233,7 +259,7 @@ func (r *blobMirroredRepository) source(ctx context.Context, fn func(r distribut
 
 // connect reuses or creates a connection to the provided reference, returning a repository instance
 // or an error. This method expects that the connection only talks to the provided registry.
-func (r *blobMirroredRepository) connect(ctx context.Context, ref reference.DockerImageReference) (distribution.Repository, error) {
+func (r *blobMirroredRepository) connect(ctx context.Context, ref reference.DockerImageReference) (RepositoryWithLocation, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -249,7 +275,7 @@ func (r *blobMirroredRepository) connect(ctx context.Context, ref reference.Dock
 		return nil, err
 	}
 	if r.repos == nil {
-		r.repos = make(map[reference.DockerImageReference]distribution.Repository)
+		r.repos = make(map[reference.DockerImageReference]RepositoryWithLocation)
 	}
 	r.repos[ref] = repo
 	return repo, nil
@@ -268,6 +294,7 @@ type blobMirroredManifest struct {
 }
 
 var _ distribution.ManifestService = &blobMirroredManifest{}
+var _ ManifestWithLocationService = &blobMirroredManifest{}
 
 // init retrieves or caches a manifets service for the provided repository, since each manifest
 // service has local state.
@@ -291,13 +318,13 @@ func (f *blobMirroredManifest) init(ctx context.Context, r distribution.Reposito
 }
 
 // alternates invokes fn once per alternate repo until fn returns without error.
-func (f *blobMirroredManifest) alternates(ctx context.Context, fn func(r distribution.ManifestService) error) error {
-	return f.repo.alternates(ctx, func(r distribution.Repository) error {
-		ms, err := f.init(ctx, r)
+func (f *blobMirroredManifest) alternates(ctx context.Context, fn func(m distribution.ManifestService, repo RepositoryWithLocation) error) error {
+	return f.repo.alternates(ctx, func(repo RepositoryWithLocation) error {
+		ms, err := f.init(ctx, repo)
 		if err != nil {
 			return err
 		}
-		return fn(ms)
+		return fn(ms, repo)
 	})
 }
 
@@ -330,9 +357,9 @@ func (f *blobMirroredManifest) Delete(ctx context.Context, dgst digest.Digest) e
 
 func (f *blobMirroredManifest) Exists(ctx context.Context, dgst digest.Digest) (bool, error) {
 	var ok bool
-	err := f.alternates(ctx, func(r distribution.ManifestService) error {
+	err := f.alternates(ctx, func(m distribution.ManifestService, repo RepositoryWithLocation) error {
 		var err error
-		ok, err = r.Exists(ctx, dgst)
+		ok, err = m.Exists(ctx, dgst)
 		return err
 	})
 	return ok, err
@@ -340,13 +367,28 @@ func (f *blobMirroredManifest) Exists(ctx context.Context, dgst digest.Digest) (
 
 func (f *blobMirroredManifest) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
 	var manifest distribution.Manifest
-	err := f.alternates(ctx, func(r distribution.ManifestService) error {
+	err := f.alternates(ctx, func(m distribution.ManifestService, repo RepositoryWithLocation) error {
 		var err error
-		manifest, err = r.Get(ctx, dgst, options...)
-		klog.V(5).Infof("get manifest for %s served from %#v: %v", dgst, r, err)
+		manifest, err = m.Get(ctx, dgst, options...)
+		klog.V(5).Infof("get manifest for %s served from %#v: %v", dgst, m, err)
 		return err
 	})
 	return manifest, err
+}
+
+func (f *blobMirroredManifest) GetWithLocation(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, reference.DockerImageReference, error) {
+	var manifest distribution.Manifest
+	var ref = f.repo.locator.ref
+	err := f.alternates(ctx, func(m distribution.ManifestService, repo RepositoryWithLocation) error {
+		var err error
+		manifest, err = m.Get(ctx, dgst, options...)
+		klog.V(5).Infof("get manifest for %s served from %#v: %v", dgst, m, err)
+		if err == nil {
+			ref = repo.Ref()
+		}
+		return err
+	})
+	return manifest, ref, err
 }
 
 // blobMirroredBlobstore wraps the blob store and invokes retries on the repo.
@@ -358,7 +400,7 @@ var _ distribution.BlobService = blobMirroredBlobstore{}
 
 func (f blobMirroredBlobstore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
 	var data []byte
-	err := f.repo.alternates(ctx, func(r distribution.Repository) error {
+	err := f.repo.alternates(ctx, func(r RepositoryWithLocation) error {
 		var err error
 		data, err = r.Blobs(ctx).Get(ctx, dgst)
 		klog.V(5).Infof("get for %s served from %s: %v", dgst, r.Named(), err)
@@ -369,7 +411,7 @@ func (f blobMirroredBlobstore) Get(ctx context.Context, dgst digest.Digest) ([]b
 
 func (f blobMirroredBlobstore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
 	var desc distribution.Descriptor
-	err := f.repo.alternates(ctx, func(r distribution.Repository) error {
+	err := f.repo.alternates(ctx, func(r RepositoryWithLocation) error {
 		var err error
 		desc, err = r.Blobs(ctx).Stat(ctx, dgst)
 		return err
@@ -378,7 +420,7 @@ func (f blobMirroredBlobstore) Stat(ctx context.Context, dgst digest.Digest) (di
 }
 
 func (f blobMirroredBlobstore) ServeBlob(ctx context.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
-	err := f.repo.firstConnectedAlternate(ctx, func(r distribution.Repository) error {
+	err := f.repo.firstConnectedAlternate(ctx, func(r RepositoryWithLocation) error {
 		return r.Blobs(ctx).ServeBlob(ctx, w, req, dgst)
 	})
 	return err
@@ -386,7 +428,7 @@ func (f blobMirroredBlobstore) ServeBlob(ctx context.Context, w http.ResponseWri
 
 func (f blobMirroredBlobstore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	var rsc distribution.ReadSeekCloser
-	err := f.repo.alternates(ctx, func(r distribution.Repository) error {
+	err := f.repo.alternates(ctx, func(r RepositoryWithLocation) error {
 		var err error
 		rsc, err = r.Blobs(ctx).Open(ctx, dgst)
 		return err
