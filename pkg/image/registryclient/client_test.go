@@ -251,7 +251,7 @@ func (temporaryError) Timeout() bool   { return false }
 func (temporaryError) Temporary() bool { return true }
 
 func TestShouldRetry(t *testing.T) {
-	r := NewLimitedRetryRepository(nil, 1, unlimited).(*retryRepository)
+	r := NewLimitedRetryRepository(imagereference.DockerImageReference{}, nil, 1, unlimited).(*retryRepository)
 	sleeps := 0
 	r.sleepFn = func(time.Duration) { sleeps++ }
 
@@ -278,7 +278,7 @@ func TestShouldRetry(t *testing.T) {
 		return now
 	}
 	// should retry a temporary error
-	r = NewLimitedRetryRepository(nil, 1, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, nil, 1, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = func(time.Duration) { sleeps++ }
 	if !r.shouldRetry(0, temporaryError{}) {
@@ -299,7 +299,7 @@ func TestRetryFailure(t *testing.T) {
 	ctx := context.Background()
 	// do not retry on Manifests()
 	repo := &mockRepository{repoErr: fmt.Errorf("does not support v2 API")}
-	r := NewLimitedRetryRepository(repo, 1, unlimited).(*retryRepository)
+	r := NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 1, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err := r.Manifests(ctx); m != nil || err != repo.repoErr || r.retries != 1 {
@@ -308,7 +308,7 @@ func TestRetryFailure(t *testing.T) {
 
 	// do not retry on Manifests()
 	repo = &mockRepository{repoErr: temporaryError{}}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err := r.Manifests(ctx); m != nil || err != repo.repoErr || r.retries != 4 {
@@ -317,7 +317,7 @@ func TestRetryFailure(t *testing.T) {
 
 	// do not retry on non standard errors
 	repo = &mockRepository{getErr: fmt.Errorf("does not support v2 API")}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	m, err := r.Manifests(ctx)
@@ -338,7 +338,7 @@ func TestRetryFailure(t *testing.T) {
 			openErr: errcode.ErrorCodeUnknown.WithDetail(struct{}{}),
 		},
 	}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err = r.Manifests(ctx); err != nil {
@@ -387,7 +387,7 @@ func TestRetryFailure(t *testing.T) {
 			openErr:  &registryclient.UnexpectedHTTPResponseError{StatusCode: http.StatusInternalServerError},
 		},
 	}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err = r.Manifests(ctx); err != nil {
@@ -436,7 +436,7 @@ func TestRetryFailure(t *testing.T) {
 			openErr:  &registryclient.UnexpectedHTTPResponseError{StatusCode: http.StatusInternalServerError},
 		},
 	}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err = r.Manifests(ctx); err != nil {
@@ -485,7 +485,7 @@ func TestRetryFailure(t *testing.T) {
 			openErr:  temporaryError{},
 		},
 	}
-	r = NewLimitedRetryRepository(repo, 4, unlimited).(*retryRepository)
+	r = NewLimitedRetryRepository(imagereference.DockerImageReference{}, repo, 4, unlimited).(*retryRepository)
 	sleeps = 0
 	r.sleepFn = sleepFn
 	if m, err = r.Manifests(ctx); err != nil {
@@ -977,5 +977,24 @@ func TestMirroredRegistry_ManifestGet(t *testing.T) {
 	}
 	if !reflect.DeepEqual(manifest, otherManifest) {
 		t.Fatalf("Mirror and non mirror request did not match")
+	}
+
+	mwl, ok := m.(ManifestWithLocationService)
+	if !ok {
+		t.Fatalf("Expected service to implement location retrieval")
+	}
+
+	otherManifest, ref, err := mwl.GetWithLocation(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if otherManifest == nil {
+		t.Fatal("Expected data to be present")
+	}
+	if !reflect.DeepEqual(manifest, otherManifest) {
+		t.Fatalf("Mirror and non mirror request did not match")
+	}
+	if !reflect.DeepEqual(ref, imagereference.DockerImageReference{Registry: "docker.io", Namespace: "library", Name: "postgres"}) {
+		t.Fatalf("Unexpected reference: %#v", ref)
 	}
 }
