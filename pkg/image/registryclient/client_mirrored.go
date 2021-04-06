@@ -123,8 +123,6 @@ func (r *blobMirroredRepository) initialRepos(ctx context.Context) ([]reference.
 		return []reference.DockerImageReference{r.locator.ref}, false, nil
 	}
 
-	r.lock.Lock()
-	defer r.lock.Unlock()
 	if r.order != nil {
 		return r.order, true, nil
 	}
@@ -132,6 +130,10 @@ func (r *blobMirroredRepository) initialRepos(ctx context.Context) ([]reference.
 	if err != nil {
 		return nil, false, err
 	}
+	if len(alternates) == 0 {
+		alternates, err = r.errorRepos(ctx)
+	}
+
 	r.order = alternates
 	return r.order, true, nil
 }
@@ -202,9 +204,6 @@ func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r Repos
 	repos, loaded, err := r.initialRepos(ctx)
 	if err != nil {
 		return err
-	}
-	if len(repos) == 0 {
-		return errNoValidAlternates
 	}
 	if attemptErr := r.attemptRepos(ctx, repos, fn); attemptErr != nil {
 		if loaded {

@@ -219,7 +219,7 @@ func (c *Context) RepositoryForRef(ctx context.Context, ref imagereference.Docke
 // is true, HTTP connections are allowed and HTTPS certificate verification errors will be ignored. The returned
 // Repository instance is threadsafe but the ManifestService, TagService, or BlobService are not. Note - the caller
 // is responsible for providing a valid registry url for docker.io - use RepositoryForRef() to avoid that.
-func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName string, insecure bool) (distribution.Repository, error) {
+func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName string, insecure bool) (RepositoryWithLocation, error) {
 	named, err := reference.WithName(repoName)
 	if err != nil {
 		return nil, err
