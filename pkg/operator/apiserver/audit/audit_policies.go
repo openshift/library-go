@@ -22,6 +22,21 @@ const (
 	auditPolicyAsset = "pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml"
 )
 
+// DefaultPolicy brings back the default.yaml audit policy to init the api
+func DefaultPolicy() ([]byte, error) {
+	// none is used on target name and namespace as it's not a key in the default.yaml
+	cm, err := GetAuditPolicies("none", "none")
+	if err != nil {
+		return nil, fmt.Errorf("failed to retreive audit policies - %w", err)
+	}
+
+	cmData := []byte(cm.Data["default.yaml"])
+	if len(cmData) == 0 {
+		return nil, errors.New("failed to locate the default policy from configmap")
+	}
+	return cmData, nil
+}
+
 // WithAuditPolicies is meant to wrap a standard Asset function usually provided by an operator.
 // It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace and name.
 func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {

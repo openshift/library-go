@@ -155,6 +155,29 @@ func TestNewAuditPolicyPathGetter(t *testing.T) {
 	}
 }
 
+func TestDefaultPolicy(t *testing.T) {
+	scenarios := []struct {
+		name string
+	}{
+		{
+			name: "Get default audit policy for the kube-apiserver",
+		},
+	}
+	for _, test := range scenarios {
+		t.Run(test.name, func(t *testing.T) {
+			// act
+			data, err := DefaultPolicy()
+			// assert
+			if err != nil {
+				t.Errorf("expected no error, but got: %v", err)
+			}
+			if len(data) == 0 {
+				t.Error("expected a non empty default policy")
+			}
+		})
+	}
+}
+
 func readBytesFromFile(t *testing.T, filename string) []byte {
 	file, err := os.Open(filename)
 	if err != nil {
