@@ -141,6 +141,11 @@ func (c *Context) WithCredentials(credentials auth.CredentialStore) *Context {
 	return c
 }
 
+func (c *Context) WithAlternateBlobSourceStrategy(alternateStrategy AlternateBlobSourceStrategy) *Context {
+	c.Alternates = alternateStrategy
+	return c
+}
+
 // Reset clears any cached repository info for this context.
 func (c *Context) Reset() {
 	c.lock.Lock()
