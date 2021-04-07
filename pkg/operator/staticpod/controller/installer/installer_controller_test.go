@@ -103,6 +103,23 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	}
 	for _, test := range []Test{
 		{"installer-pending", []*corev1.Pod{
+			withMessage(installer("installer-1-test-node-1", corev1.PodPending), "creating containers"),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  1,
+			},
+			false,
+			"installer is not finished: creating containers",
+			false,
+		}},
+
+		{"installer-pending-no-message", []*corev1.Pod{
 			installer("installer-1-test-node-1", corev1.PodPending),
 		}, 1, operatorv1.NodeStatus{
 			NodeName:        "test-node-1",
@@ -115,7 +132,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				TargetRevision:  1,
 			},
 			false,
-			"",
+			"installer is not finished, but in Pending phase",
 			false,
 		}},
 
@@ -132,7 +149,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				TargetRevision:  1,
 			},
 			false,
-			"",
+			"installer is not finished, but in Running phase",
 			false,
 		}},
 
