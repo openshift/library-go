@@ -707,6 +707,13 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		}
 		ret.LastFailedRevisionErrors = errors
 		return ret, true, fmt.Sprintf("installer pod failed: %v", strings.Join(errors, "\n")), nil
+
+	default:
+		if len(installerPod.Status.Message) > 0 {
+			reason = fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message)
+		} else {
+			reason = fmt.Sprintf("installer is not finished, but in %s phase", installerPod.Status.Phase)
+		}
 	}
 
 	return ret, false, reason, nil
