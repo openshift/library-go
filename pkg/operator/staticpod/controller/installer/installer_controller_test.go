@@ -332,16 +332,12 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			TargetRevision:  1,
 		}, Expected{
 			&operatorv1.NodeStatus{
-				NodeName:                 "test-node-1",
-				CurrentRevision:          0,
-				TargetRevision:           1, // this is changed to 2 outside of newNodeStateForInstallInProgress
-				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
-				LastFailedRevision:       1,
-				LastFailedCount:          1,
-				LastFailedTime:           &now,
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  0,
 			},
-			true,
-			"installer pod failed: container: bla bla OOM bla bla",
+			false,
+			"new revision pending",
 			false,
 		}},
 
@@ -357,16 +353,29 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedTime:           &before,
 		}, Expected{
 			&operatorv1.NodeStatus{
-				NodeName:                 "test-node-1",
-				CurrentRevision:          0,
-				TargetRevision:           1, // this is changed to 2 outside of newNodeStateForInstallInProgress
-				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla 2"},
-				LastFailedRevision:       1,
-				LastFailedCount:          3,
-				LastFailedTime:           &now,
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  0,
 			},
-			true,
-			"installer pod failed: container: bla bla OOM bla bla 2",
+			false,
+			"new revision pending",
+			false,
+		}},
+
+		{"installer-pending-and-new-revision-pending", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodPending),
+		}, 2, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 0,
+				TargetRevision:  0,
+			},
+			false,
+			"new revision pending",
 			false,
 		}},
 	} {
