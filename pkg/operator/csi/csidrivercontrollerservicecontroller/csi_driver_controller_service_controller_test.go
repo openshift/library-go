@@ -42,6 +42,7 @@ const (
 	resizerContainerName       = "csi-resizer"
 	snapshotterContainerName   = "csi-snapshotter"
 	livenessProbeContainerName = "csi-liveness-probe"
+	kubeRBACProxyContainerName = "provisioner-kube-rbac-proxy"
 
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
@@ -63,6 +64,7 @@ type images struct {
 	resizer       string
 	snapshotter   string
 	livenessProbe string
+	kubeRBACProxy string
 }
 
 type testCase struct {
@@ -135,6 +137,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	os.Setenv(snapshotterImageEnvName, test.images.snapshotter)
 	os.Setenv(resizerImageEnvName, test.images.resizer)
 	os.Setenv(livenessProbeImageEnvName, test.images.livenessProbe)
+	os.Setenv(kubeRBACProxyImageEnvName, test.images.kubeRBACProxy)
 
 	return &testContext{
 		controller:     controller,
@@ -284,6 +287,12 @@ func makeDeployment(clusterID string, logLevel int, images images, modifiers ...
 	if images.livenessProbe != "" {
 		if idx := getIndex(containers, livenessProbeContainerName); idx > -1 {
 			containers[idx].Image = images.livenessProbe
+		}
+	}
+
+	if images.kubeRBACProxy != "" {
+		if idx := getIndex(containers, kubeRBACProxyContainerName); idx > -1 {
+			containers[idx].Image = images.kubeRBACProxy
 		}
 	}
 
@@ -706,6 +715,7 @@ func defaultImages() images {
 		resizer:       "quay.io/openshift/origin-csi-external-resizer:latest",
 		snapshotter:   "quay.io/openshift/origin-csi-external-snapshotter:latest",
 		livenessProbe: "quay.io/openshift/origin-csi-livenessprobe:latest",
+		kubeRBACProxy: "quay.io/openshift/origin-kube-rbac-proxy:latest",
 	}
 }
 
@@ -717,6 +727,7 @@ func oldImages() images {
 		resizer:       "quay.io/openshift/origin-csi-external-resizer:old",
 		snapshotter:   "quay.io/openshift/origin-csi-external-snapshotter:old",
 		livenessProbe: "quay.io/openshift/origin-csi-livenessprobe:old",
+		kubeRBACProxy: "quay.io/openshift/origin-kube-rbac-proxy:old",
 	}
 }
 
@@ -769,6 +780,7 @@ spec:
             - --provisioner=test.csi.openshift.io
             - --csi-address=$(ADDRESS)
             - --feature-gates=Topology=true
+            - --http-endpoint=localhost:8202
             - --v=${LOG_LEVEL}
           env:
             - name: ADDRESS
@@ -776,6 +788,27 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
+        # In reality, each sidecar needs its own kube-rbac-proxy. Using just one for the unit tests.
+        - name: provisioner-kube-rbac-proxy
+          args:
+          - --secure-listen-address=0.0.0.0:9202
+          - --upstream=http://127.0.0.1:8202/
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --logtostderr=true
+          image: ${KUBE_RBAC_PROXY_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 9202
+            name: provisioner-m
+            protocol: TCP
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 10m
+          volumeMounts:
+          - mountPath: /etc/tls/private
+            name: metrics-serving-cert
         - name: csi-attacher
           image: ${ATTACHER_IMAGE}
           args:
@@ -812,5 +845,8 @@ spec:
       volumes:
         - name: socket-dir
           emptyDir: {}
+        - name: metrics-serving-cert
+          secret:
+            secretName: gcp-pd-csi-driver-controller-metrics-serving-cert
 `)
 }

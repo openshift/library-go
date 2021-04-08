@@ -27,6 +27,7 @@ const (
 	driverImageEnvName              = "DRIVER_IMAGE"
 	nodeDriverRegistrarImageEnvName = "NODE_DRIVER_REGISTRAR_IMAGE"
 	livenessProbeImageEnvName       = "LIVENESS_PROBE_IMAGE"
+	kubeRBACProxyImageEnvName       = "KUBE_RBAC_PROXY_IMAGE"
 )
 
 // DaemonSetHookFunc is a hook function to modify the DaemonSet.
@@ -212,6 +213,11 @@ func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec) []byte {
 	livenessProbe := os.Getenv(livenessProbeImageEnvName)
 	if livenessProbe != "" {
 		pairs = append(pairs, []string{"${LIVENESS_PROBE_IMAGE}", livenessProbe}...)
+	}
+
+	kubeRBACProxy := os.Getenv(kubeRBACProxyImageEnvName)
+	if kubeRBACProxy != "" {
+		pairs = append(pairs, []string{"${KUBE_RBAC_PROXY_IMAGE}", kubeRBACProxy}...)
 	}
 
 	// Log level
