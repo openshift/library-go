@@ -183,21 +183,20 @@ func (c *baseController) runPeriodicalResync(ctx context.Context, interval time.
 // The worker is asked to terminate when the passed context is cancelled and is given terminationGraceDuration time
 // to complete its shutdown.
 func (c *baseController) runWorker(queueCtx context.Context) {
-	var workerWaitGroup sync.WaitGroup
-	workerWaitGroup.Add(1)
-	go func() {
-		defer utilruntime.HandleCrash(c.degradedPanicHandler)
-		defer workerWaitGroup.Done()
-		for {
-			select {
-			case <-queueCtx.Done():
-				return
-			default:
-				c.processNextWorkItem(queueCtx)
+	wait.UntilWithContext(
+		queueCtx,
+		func(queueCtx context.Context) {
+			defer utilruntime.HandleCrash(c.degradedPanicHandler)
+			for {
+				select {
+				case <-queueCtx.Done():
+					return
+				default:
+					c.processNextWorkItem(queueCtx)
+				}
 			}
-		}
-	}()
-	workerWaitGroup.Wait()
+		},
+		1*time.Second)
 }
 
 // reconcile wraps the sync() call and if operator client is set, it handle the degraded condition if sync() returns an error.
