@@ -76,7 +76,7 @@ func waitForNamedCacheSync(controllerName string, stopCh <-chan struct{}, cacheS
 
 func (c *baseController) Run(ctx context.Context, workers int) {
 	// HandleCrash recovers panics
-	defer utilruntime.HandleCrash()
+	defer utilruntime.HandleCrash(c.degradedPanicHandler)
 
 	// give caches 10 minutes to sync
 	cacheSyncCtx, cacheSyncCancel := context.WithTimeout(ctx, c.cacheSyncTimeout)
@@ -186,7 +186,7 @@ func (c *baseController) runWorker(queueCtx context.Context) {
 	var workerWaitGroup sync.WaitGroup
 	workerWaitGroup.Add(1)
 	go func() {
-		defer utilruntime.HandleCrash()
+		defer utilruntime.HandleCrash(c.degradedPanicHandler)
 		defer workerWaitGroup.Done()
 		for {
 			select {
@@ -203,20 +203,34 @@ func (c *baseController) runWorker(queueCtx context.Context) {
 // reconcile wraps the sync() call and if operator client is set, it handle the degraded condition if sync() returns an error.
 func (c *baseController) reconcile(ctx context.Context, syncCtx SyncContext) error {
 	err := c.sync(ctx, syncCtx)
+	return c.reportDegraded(ctx, err)
+}
+
+// degradedPanicHandler will go degraded on failures, then we should catch potential panics and covert them into bad status.
+func (c *baseController) degradedPanicHandler(panicVal interface{}) {
 	if c.syncDegradedClient == nil {
-		return err
+		// if we don't have a client for reporting degraded condition, then let the existing panic handler do the work
+		return
 	}
-	if err != nil {
+	_ = c.reportDegraded(context.TODO(), fmt.Errorf("panic caught:\n%v", panicVal))
+}
+
+// reportDegraded updates status with an indication of degraded-ness
+func (c *baseController) reportDegraded(ctx context.Context, reportedError error) error {
+	if c.syncDegradedClient == nil {
+		return reportedError
+	}
+	if reportedError != nil {
 		_, _, updateErr := v1helpers.UpdateStatus(c.syncDegradedClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:    c.name + "Degraded",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "SyncError",
-			Message: err.Error(),
+			Message: reportedError.Error(),
 		}))
 		if updateErr != nil {
 			klog.Warningf("Updating status of %q failed: %v", c.Name(), updateErr)
 		}
-		return err
+		return reportedError
 	}
 	_, _, updateErr := v1helpers.UpdateStatus(c.syncDegradedClient,
 		v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
