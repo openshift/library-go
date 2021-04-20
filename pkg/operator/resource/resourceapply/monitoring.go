@@ -18,7 +18,7 @@ import (
 
 var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
 
-func ensureServiceMonitorSpec(required, existing *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+func ensureGenericSpec(required, existing *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
 	requiredSpec, _, err := unstructured.NestedMap(required.UnstructuredContent(), "spec")
 	if err != nil {
 		return nil, false, err
@@ -64,7 +64,7 @@ func ApplyServiceMonitor(client dynamic.Interface, recorder events.Recorder, req
 
 	existingCopy := existing.DeepCopy()
 
-	updated, endpointsModified, err := ensureServiceMonitorSpec(required, existingCopy)
+	updated, endpointsModified, err := ensureGenericSpec(required, existingCopy)
 	if err != nil {
 		return nil, false, err
 	}
@@ -84,5 +84,50 @@ func ApplyServiceMonitor(client dynamic.Interface, recorder events.Recorder, req
 	}
 
 	recorder.Eventf("ServiceMonitorUpdated", "Updated ServiceMonitor.monitoring.coreos.com/v1 because it changed")
+	return newObj, true, err
+}
+
+var prometheusRuleGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
+
+// ApplyPrometheusRule applies the PrometheusRule
+func ApplyPrometheusRule(client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	namespace := required.GetNamespace()
+
+	existing, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Get(context.TODO(), required.GetName(), metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		newObj, createErr := client.Resource(prometheusRuleGVR).Namespace(namespace).Create(context.TODO(), required, metav1.CreateOptions{})
+		if createErr != nil {
+			recorder.Warningf("PrometheusRuleCreateFailed", "Failed to create PrometheusRule.monitoring.coreos.com/v1: %v", createErr)
+			return nil, true, createErr
+		}
+		recorder.Eventf("PrometheusRuleCreated", "Created PrometheusRule.monitoring.coreos.com/v1 because it was missing")
+		return newObj, true, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	existingCopy := existing.DeepCopy()
+
+	updated, endpointsModified, err := ensureGenericSpec(required, existingCopy)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !endpointsModified {
+		return nil, false, nil
+	}
+
+	if klog.V(4).Enabled() {
+		klog.Infof("PrometheusRule %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, existingCopy))
+	}
+
+	newObj, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Update(context.TODO(), updated, metav1.UpdateOptions{})
+	if err != nil {
+		recorder.Warningf("PrometheusRuleUpdateFailed", "Failed to update PrometheusRule.monitoring.coreos.com/v1: %v", err)
+		return nil, true, err
+	}
+
+	recorder.Eventf("PrometheusRuleUpdated", "Updated PrometheusRule.monitoring.coreos.com/v1 because it changed")
 	return newObj, true, err
 }
