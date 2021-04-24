@@ -34,7 +34,7 @@ import (
 type RepositoryRetriever interface {
 	// Repository returns a properly authenticated distribution.Repository for the given registry, repository
 	// name, and insecure toleration behavior.
-	Repository(ctx context.Context, registry *url.URL, repoName string, insecure bool) (distribution.Repository, error)
+	Repository(ctx context.Context, registry *url.URL, repoName string, insecure bool) (RepositoryWithLocation, error)
 }
 
 // ErrNotV2Registry is returned when the server does not report itself as a V2 Docker registry
