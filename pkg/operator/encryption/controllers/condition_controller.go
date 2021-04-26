@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"strings"
 	"time"
 
@@ -58,6 +59,8 @@ func NewConditionController(
 }
 
 func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Info("conditionController sync called")
+	defer klog.Info("conditionController ended calling sync")
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}

@@ -99,6 +99,8 @@ func NewMigrationController(
 }
 
 func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Info("migrationController sync called")
+	defer klog.Info("migrationController ended calling sync")
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}

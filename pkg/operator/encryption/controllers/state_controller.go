@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,6 +78,8 @@ func NewStateController(
 }
 
 func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Info("stateController sync called")
+	defer klog.Info("stateController ended calling sync")
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}

@@ -111,6 +111,8 @@ func NewKeyController(
 }
 
 func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Info("keyController sync called")
+	defer klog.Info("keyController ended calling sync")
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}

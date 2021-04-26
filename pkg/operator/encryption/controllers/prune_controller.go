@@ -71,6 +71,8 @@ func NewPruneController(
 }
 
 func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Info("pruneController sync called")
+	defer klog.Info("pruneController ended calling sync")
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
