@@ -340,6 +340,13 @@ func withDeploymentGeneration(generations ...int64) deploymentModifier {
 	}
 }
 
+func withDeploymentNodeSelector(selector map[string]string) deploymentModifier {
+	return func(instance *appsv1.Deployment) *appsv1.Deployment {
+		instance.Spec.Template.Spec.NodeSelector = selector
+		return instance
+	}
+}
+
 // Infrastructure
 func makeInfra() *configv1.Infrastructure {
 	return &configv1.Infrastructure{
@@ -756,6 +763,8 @@ spec:
       labels:
         app: test-csi-driver-controller
     spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
       containers:
         - name: csi-driver
           image: ${DRIVER_IMAGE}
