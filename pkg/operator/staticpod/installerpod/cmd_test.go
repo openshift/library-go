@@ -41,7 +41,7 @@ func TestCopyContent(t *testing.T) {
 				Namespace:              "some-ns",
 				PodConfigMapNamePrefix: "kube-apiserver-pod",
 				SecretNamePrefixes:     []string{"first", "second"},
-				ConfigMapNamePrefixes:  []string{"alpha", "bravo"},
+				ConfigMapNamePrefixes:  []string{"kube-apiserver-pod", "alpha", "bravo"},
 			},
 			client: func() *fake.Clientset {
 				return fake.NewSimpleClientset(
@@ -102,7 +102,7 @@ func TestCopyContent(t *testing.T) {
 				PodConfigMapNamePrefix:        "kube-apiserver-pod",
 				SecretNamePrefixes:            []string{"first", "second"},
 				OptionalSecretNamePrefixes:    []string{"third", "fourth"},
-				ConfigMapNamePrefixes:         []string{"alpha", "bravo"},
+				ConfigMapNamePrefixes:         []string{"kube-apiserver-pod", "alpha", "bravo"},
 				OptionalConfigMapNamePrefixes: []string{"charlie", "delta"},
 			},
 			client: func() *fake.Clientset {

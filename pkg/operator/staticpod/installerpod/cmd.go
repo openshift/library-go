@@ -15,7 +15,6 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
@@ -298,22 +297,10 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		}
 	}
 
-	// Gather pod yaml from config map
-	var rawPodBytes string
-
-	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
-		klog.Infof("Getting pod configmaps/%s -n %s", o.nameFor(o.PodConfigMapNamePrefix), o.Namespace)
-		podConfigMap, err := o.KubeClient.CoreV1().ConfigMaps(o.Namespace).Get(ctx, o.nameFor(o.PodConfigMapNamePrefix), metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		if _, exists := podConfigMap.Data["pod.yaml"]; !exists {
-			return true, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
-		}
-		podConfigMap = o.substituteConfigMap(podConfigMap)
-		rawPodBytes = podConfigMap.Data["pod.yaml"]
-		return true, nil
-	})
+	// Gather pod yaml from config map entry already written to the disk
+	podYamlFileName := path.Join(resourceDir, "configmaps", o.PodConfigMapNamePrefix, "pod.yaml")
+	klog.Infof("Reading pod from %s", podYamlFileName)
+	rawPodBytes, err := ioutil.ReadFile(podYamlFileName)
 	if err != nil {
 		return err
 	}
