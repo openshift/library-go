@@ -1,12 +1,14 @@
 package deployer
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -54,10 +56,27 @@ func (p DeploymentNodeProvider) MasterNodeNames() ([]string, error) {
 
 func (p DeploymentNodeProvider) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
 	p.targetNamespaceDeploymentInformer.Informer().AddEventHandler(handler)
-	p.nodeInformer.Informer().AddEventHandler(handler)
+	p.nodeInformer.Informer().AddEventHandler(wrappedNodeEventHandler(handler))
 
 	return []cache.InformerSynced{
 		p.targetNamespaceDeploymentInformer.Informer().HasSynced,
 		p.nodeInformer.Informer().HasSynced,
+	}
+}
+
+func wrappedNodeEventHandler(delegate cache.ResourceEventHandler) cache.ResourceEventHandler {
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) { delegate.OnAdd(obj) },
+		UpdateFunc: func(old, new interface{}) {
+			if _, isNode := new.(*corev1.Node); isNode {
+				// ignore updates to Nodes
+				// names are not allowed to change
+				klog.Info("ignoring update to a node")
+				return
+			}
+
+			delegate.OnUpdate(old, new)
+		},
+		DeleteFunc: func(obj interface{}) { delegate.OnDelete(obj) },
 	}
 }
