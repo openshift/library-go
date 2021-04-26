@@ -5,6 +5,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 
@@ -41,6 +42,9 @@ func NewControllers(
 	// this is fine in terms of performance since these controllers will be idle most of the time
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
+
+	// TODO:
+	operatorClient = newOperatorClientWrapper(operatorClient)
 
 	return &Controllers{
 		controllers: []runner{
@@ -110,4 +114,16 @@ func (c *Controllers) Run(ctx context.Context, workers int) {
 		go con.Run(ctx, workers)
 	}
 	<-ctx.Done()
+}
+
+func newOperatorClientWrapper(operatorClient operatorv1helpers.OperatorClient) operatorv1helpers.OperatorClient {
+	return &operatorClientWrapper{operatorClient}
+}
+
+type operatorClientWrapper struct {
+	operatorv1helpers.OperatorClient
+}
+
+func (ocw *operatorClientWrapper) Informer() cache.SharedIndexInformer {
+	return controllers.NewResourceVersionProtector(ocw.OperatorClient.Informer())
 }
