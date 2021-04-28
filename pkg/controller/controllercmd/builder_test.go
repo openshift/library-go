@@ -2,10 +2,24 @@ package controllercmd
 
 import (
 	"context"
+	"crypto/x509/pkix"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k8s.io/client-go/rest"
+
+	"github.com/openshift/library-go/pkg/crypto"
+
+	configv1 "github.com/openshift/api/config/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 )
@@ -97,6 +111,82 @@ func TestControllerBuilder_GracefulShutdown(t *testing.T) {
 	case <-stoppedCh:
 	case <-time.After(5 * time.Second):
 		t.Fatal("unexpected timeout while terminating")
+	}
+}
+
+func TestControllerBuilder_WithServer_Serve_Metrics_And_Debug(t *testing.T) {
+	ctx, shutdown := context.WithCancel(context.Background())
+	defer shutdown()
+
+	startedCh := make(chan struct{})
+	b := &ControllerBuilder{
+		componentNamespace: "test",
+		eventRecorder:      eventstesting.NewTestingEventRecorder(t),
+		startFunc: func(ctx context.Context, controllerContext *ControllerContext) error {
+			close(startedCh)
+			<-ctx.Done()
+			return nil
+		},
+	}
+
+	// make certificates for local server
+	config, err := crypto.MakeSelfSignedCAConfigForSubject(pkix.Name{CommonName: "127.0.0.1:8888"}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certFile, _ := ioutil.TempFile(os.TempDir(), "test-")
+	defer os.Remove(certFile.Name())
+	keyFile, _ := ioutil.TempFile(os.TempDir(), "test-")
+	defer os.Remove(keyFile.Name())
+	if err := config.WriteCertConfigFile(certFile.Name(), keyFile.Name()); err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		b := b.WithServer(configv1.HTTPServingInfo{
+			ServingInfo: configv1.ServingInfo{
+				BindAddress: "127.0.0.1:8888",
+				CertInfo: configv1.CertInfo{
+					CertFile: certFile.Name(),
+					KeyFile:  keyFile.Name(),
+				},
+			},
+		}, operatorv1alpha1.DelegatedAuthentication{Disabled: true}, operatorv1alpha1.DelegatedAuthorization{Disabled: true})
+
+		// override the authorizer
+		b.authorizer = nil
+		if err := b.Run(ctx, nil); err != nil {
+			t.Errorf("failed to run: %v", err)
+		}
+	}()
+
+	// wait for the server to start
+	<-startedCh
+
+	// make poor man HTTP client
+	debugClient, err := rest.RESTClientFor(&rest.Config{
+		Host:            "127.0.0.1:8888",
+		ContentConfig:   rest.ContentConfig{GroupVersion: &schema.GroupVersion{}, NegotiatedSerializer: runtime.NewSimpleNegotiatedSerializer(runtime.SerializerInfo{})},
+		TLSClientConfig: rest.TLSClientConfig{Insecure: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	debugBytes, err := debugClient.Get().AbsPath("/debug/pprof/allocs").DoRaw(ctx)
+	if err != nil {
+		t.Fatalf("failed to query pprof data: %v", err)
+	}
+	if len(debugBytes) == 0 {
+		t.Errorf("allocs should not be empty")
+	}
+
+	metricsBytes, err := debugClient.Get().AbsPath("/metrics").DoRaw(ctx)
+	if err != nil {
+		t.Fatalf("failed to query metrics data: %v", err)
+	}
+	if len(metricsBytes) == 0 {
+		t.Errorf("metrics should not be empty")
 	}
 }
 

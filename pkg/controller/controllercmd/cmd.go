@@ -90,9 +90,6 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 
 			defer logs.FlushLogs()
 			defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), c.version)()
-			defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
-
-			serviceability.StartProfiler()
 
 			if err := c.basicFlags.Validate(); err != nil {
 				klog.Fatal(err)
