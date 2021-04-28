@@ -76,8 +76,6 @@ func TestMigrationController(t *testing.T) {
 			},
 			initialSecrets: nil,
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 			},
 		},
@@ -145,8 +143,6 @@ func TestMigrationController(t *testing.T) {
 				{Group: "", Resource: "configmaps"}: {"1": {finished: false}},
 			},
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 			},
@@ -238,8 +234,6 @@ func TestMigrationController(t *testing.T) {
 				{Group: "", Resource: "configmaps"}: {"1": {finished: true}},
 			},
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
@@ -335,8 +329,6 @@ func TestMigrationController(t *testing.T) {
 				{Group: "", Resource: "configmaps"}: {"1": {finished: true}},
 			},
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
@@ -435,8 +427,6 @@ func TestMigrationController(t *testing.T) {
 			},
 			expectedError: errors.New("configmap migration failed"),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 			},
@@ -531,8 +521,6 @@ func TestMigrationController(t *testing.T) {
 			},
 			expectedError: errors.New("failed to start configmap migration"),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 			},
@@ -632,7 +620,7 @@ func TestMigrationController(t *testing.T) {
 				}
 			}
 
-			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
+			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -654,9 +642,21 @@ func TestMigrationController(t *testing.T) {
 				scenario.encryptionSecretSelector,
 				eventRecorder,
 			)
+
+			// start informers
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			kubeInformers.Start(stopCh)
+			if synced := kubeInformers.WaitForCacheSync(stopCh); !synced {
+				t.Fatal("failed to sync informers")
+			}
+			informerActions := len(fakeKubeClient.Actions())
+
+			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 
 			// validate
+			nonInformerActions := fakeKubeClient.Actions()[informerActions:]
 			if err == nil && scenario.expectedError != nil {
 				t.Fatal("expected to get an error from sync() method")
 			}
@@ -666,18 +666,18 @@ func TestMigrationController(t *testing.T) {
 			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
 				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
-			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(nonInformerActions, scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 
-			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(nonInformerActions, scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if !reflect.DeepEqual(scenario.expectedMigratorCalls, migrator.calls) {
 				t.Fatalf("incorrect migrator calls:\n  expected: %v\n       got: %v", scenario.expectedMigratorCalls, migrator.calls)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.initialSecrets, scenario.targetGRs, unstructuredObjs)
+				scenario.validateFunc(t, nonInformerActions, scenario.initialSecrets, scenario.targetGRs, unstructuredObjs)
 			}
 			if scenario.validateOperatorClientFunc != nil {
 				scenario.validateOperatorClientFunc(t, fakeOperatorClient)

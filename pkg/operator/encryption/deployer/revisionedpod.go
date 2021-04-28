@@ -1,23 +1,32 @@
 package deployer
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
+
+var apiserverPodSelector labels.Selector
+
+func init() {
+	var err error
+	apiserverPodSelector, err = labels.Parse("apiserver=true")
+	if err != nil {
+		klog.Fatal(err)
+	}
+}
 
 // MasterNodeProvider provides master nodes.
 type MasterNodeProvider interface {
@@ -33,16 +42,11 @@ type MasterNodeProvider interface {
 // a label storing the deployed encryption config revision, like the pods created
 // by the staticpod controllers.
 type RevisionLabelPodDeployer struct {
-	podClient    corev1client.PodInterface
-	secretClient corev1client.SecretInterface
-
+	targetNamespace          string
 	targetNamespaceInformers informers.SharedInformerFactory
-
-	nodeProvider MasterNodeProvider
-
-	revisionLabel string
-
-	cacheSynced []cache.InformerSynced
+	nodeProvider             MasterNodeProvider
+	revisionLabel            string
+	cacheSynced              []cache.InformerSynced
 }
 
 var (
@@ -64,8 +68,6 @@ func NewRevisionLabelPodDeployer(
 	targetNamespace string,
 	namespaceInformers operatorv1helpers.KubeInformersForNamespaces,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
-	podClient corev1client.PodsGetter,
-	secretClient corev1client.SecretsGetter,
 	nodeProvider MasterNodeProvider,
 ) (*RevisionLabelPodDeployer, error) {
 	if resourceSyncer != nil {
@@ -78,8 +80,7 @@ func NewRevisionLabelPodDeployer(
 	}
 
 	return &RevisionLabelPodDeployer{
-		podClient:                podClient.Pods(targetNamespace),
-		secretClient:             secretClient.Secrets(targetNamespace),
+		targetNamespace:          targetNamespace,
 		nodeProvider:             nodeProvider,
 		targetNamespaceInformers: namespaceInformers.InformersFor(targetNamespace),
 		revisionLabel:            revisionLabel,
@@ -89,6 +90,10 @@ func NewRevisionLabelPodDeployer(
 // DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 // instances of the operand have acknowledged it.
 func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+	if !d.HasSynced() {
+		return nil, false, nil
+	}
+
 	nodes, err := d.nodeProvider.MasterNodeNames()
 	if err != nil {
 		return nil, false, err
@@ -97,13 +102,13 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 		return nil, false, nil
 	}
 
-	// do a live list so we never get confused about what revision we are on
-	apiServerPods, err := d.podClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "apiserver=true"})
+	// do a lister list. This can lag, but a workload controller like deployment can lag too.
+	apiServerPods, err := d.targetNamespaceInformers.Core().V1().Pods().Lister().Pods(d.targetNamespace).List(apiserverPodSelector)
 	if err != nil {
 		return nil, false, err
 	}
 
-	revision, err := getAPIServerRevisionOfAllInstances(d.revisionLabel, nodes, apiServerPods.Items)
+	revision, err := getAPIServerRevisionOfAllInstances(d.revisionLabel, nodes, apiServerPods)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get converged static pod revision: %v", err)
 	}
@@ -111,7 +116,8 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 		return nil, false, nil
 	}
 
-	s, err := d.secretClient.Get(context.TODO(), encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
+	// a revisioned encryption secret never changes. Hence, we can use a lister here instead of a life-lookup
+	s, err := d.targetNamespaceInformers.Core().V1().Secrets().Lister().Secrets(d.targetNamespace).Get(encryptionconfig.EncryptionConfSecretName + "-" + revision)
 	if err != nil {
 		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {
@@ -159,7 +165,7 @@ func (d *RevisionLabelPodDeployer) HasSynced() bool {
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.
-func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, apiServerPods []corev1.Pod) (string, error) {
+func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, apiServerPods []*corev1.Pod) (string, error) {
 	good, bad, progressing, err := categorizePods(apiServerPods)
 	if err != nil {
 		return "", err
@@ -236,7 +242,7 @@ func nodeNames(pods []*corev1.Pod) sets.String {
 	return ret
 }
 
-func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, progressing bool, err error) {
+func categorizePods(pods []*corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, progressing bool, err error) {
 	if len(pods) == 0 {
 		return nil, nil, true, err
 	}
@@ -247,7 +253,7 @@ func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, p
 				return nil, nil, true, nil // pods are not fully ready
 			}
 			goodPod := apiServerPod // shallow copy because apiServerPod is bound loop var
-			good = append(good, &goodPod)
+			good = append(good, goodPod)
 		case corev1.PodPending:
 			return nil, nil, true, nil // pods are not fully ready
 		case corev1.PodUnknown:
@@ -256,7 +262,7 @@ func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, p
 			// handle failed pods carefully to make sure things are healthy
 			// since the API server should never exit, a succeeded pod is considered as failed
 			badPod := apiServerPod // shallow copy because apiServerPod is bound loop var
-			bad = append(bad, &badPod)
+			bad = append(bad, badPod)
 		default:
 			// error in case new unexpected phases get added
 			return nil, nil, false, fmt.Errorf("api server pod %s has unexpected phase %v", apiServerPod.Name, phase)
@@ -265,7 +271,7 @@ func categorizePods(pods []corev1.Pod) (good []*corev1.Pod, bad []*corev1.Pod, p
 	return good, bad, false, nil
 }
 
-func podReady(pod corev1.Pod) bool {
+func podReady(pod *corev1.Pod) bool {
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
 			return true
