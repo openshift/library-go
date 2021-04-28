@@ -15,6 +15,7 @@ import (
 // KubeInformersForNamespaces is a simple way to combine several shared informers into a single struct with unified listing power
 type KubeInformersForNamespaces interface {
 	Start(stopCh <-chan struct{})
+	WaitForCacheSync(stopCh <-chan struct{}) bool
 	InformersFor(namespace string) informers.SharedInformerFactory
 	Namespaces() sets.String
 
@@ -46,6 +47,17 @@ func (i kubeInformersForNamespaces) Start(stopCh <-chan struct{}) {
 	for _, informer := range i {
 		informer.Start(stopCh)
 	}
+}
+
+func (i kubeInformersForNamespaces) WaitForCacheSync(stopCh <-chan struct{}) bool {
+	for _, informer := range i {
+		for _, synced := range informer.WaitForCacheSync(stopCh) {
+			if !synced {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (i kubeInformersForNamespaces) Namespaces() sets.String {
