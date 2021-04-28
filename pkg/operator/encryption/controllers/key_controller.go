@@ -21,8 +21,8 @@ import (
 	"k8s.io/utils/pointer"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	apiserverv1listers "github.com/openshift/client-go/config/listers/config/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
@@ -59,7 +59,7 @@ const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 //       start when a migration has been finished, not when it begins.
 type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
-	apiServerClient configv1client.APIServerInterface
+	apiServerLister apiserverv1listers.APIServerLister
 
 	component                string
 	name                     string
@@ -78,7 +78,6 @@ func NewKeyController(
 	provider Provider,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
-	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
@@ -87,7 +86,7 @@ func NewKeyController(
 ) factory.Controller {
 	c := &keyController{
 		operatorClient:  operatorClient,
-		apiServerClient: apiServerClient,
+		apiServerLister: apiServerInformer.Lister(),
 
 		component:               component,
 		unsupportedConfigPrefix: unsupportedConfigPrefix,
@@ -246,7 +245,7 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 }
 
 func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, error) {
-	apiServer, err := c.apiServerClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
+	apiServer, err := c.apiServerLister.Get("cluster")
 	if err != nil {
 		return "", "", err
 	}

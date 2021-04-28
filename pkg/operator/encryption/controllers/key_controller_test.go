@@ -62,7 +62,7 @@ func TestKeyController(t *testing.T) {
 			initialObjects:  []runtime.Object{},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
-			expectedError:   fmt.Errorf(`apiservers.config.openshift.io "cluster" not found`),
+			expectedError:   fmt.Errorf(`apiserver.config.openshift.io "cluster" not found`),
 			expectedActions: []string{},
 		},
 
@@ -331,8 +331,8 @@ func TestKeyController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
-			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
-			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
+			configInformers := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute)
+			fakeApiServerInformer := configInformers.Config().V1().APIServers()
 
 			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
@@ -340,7 +340,7 @@ func TestKeyController(t *testing.T) {
 			}
 			provider := newTestProvider(scenario.targetGRs)
 
-			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
+			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, fakeOperatorClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
 
 			// start informers
 			stopCh := make(chan struct{})
@@ -348,6 +348,12 @@ func TestKeyController(t *testing.T) {
 			kubeInformers.Start(stopCh)
 			if synced := kubeInformers.WaitForCacheSync(stopCh); !synced {
 				t.Fatal("failed to sync informers")
+			}
+			configInformers.Start(stopCh)
+			for _, synced := range configInformers.WaitForCacheSync(stopCh) {
+				if !synced {
+					t.Fatal("failed to sync informers")
+				}
 			}
 			informerActions := len(fakeKubeClient.Actions())
 
@@ -468,10 +474,26 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 				}, &operatorv1.StaticPodOperatorStatus{}, nil, nil,
 			)
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
-			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
+			configInformers := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute)
+			fakeApiServerInformer := configInformers.Config().V1().APIServers()
+
+			target := keyController{
+				unsupportedConfigPrefix: scenario.prefix,
+				operatorClient:          fakeOperatorClient,
+				apiServerLister:         fakeApiServerInformer.Lister(),
+			}
+
+			// start informers
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			configInformers.Start(stopCh)
+			for _, synced := range configInformers.WaitForCacheSync(stopCh) {
+				if !synced {
+					t.Fatalf("failed to sync informers")
+				}
+			}
 
 			// act
-			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
 			_, externalReason, err := target.getCurrentModeAndExternalReason()
 
 			// validate

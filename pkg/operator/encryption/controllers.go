@@ -50,7 +50,6 @@ func NewControllers(
 				provider,
 				deployer,
 				operatorClient,
-				apiServerClient,
 				apiServerInformer,
 				kubeInformersForNamespaces,
 				secretsClient,
