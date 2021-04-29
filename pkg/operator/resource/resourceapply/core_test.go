@@ -790,6 +790,27 @@ func TestSyncSecret(t *testing.T) {
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{},
 			expectedSecret:  nil,
+			expectedChanged: false,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing missing source secret removes pre-existing target",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "targetNamespace",
+						Name:      "targetName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{"foo": []byte("bar1")},
+				},
+			},
+			expectedSecret:  nil,
 			expectedChanged: true,
 			expectedErr:     nil,
 		},
