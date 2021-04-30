@@ -328,10 +328,13 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 	return actual, true, err
 }
 
+// SyncConfigMap applies a ConfigMap from a location `sourceNamespace/sourceName` to `targetNamespace/targetName`
 func SyncConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, ownerRefs []metav1.OwnerReference) (*corev1.ConfigMap, bool, error) {
 	return SyncPartialConfigMap(client, recorder, sourceNamespace, sourceName, targetNamespace, targetName, nil, ownerRefs)
 }
 
+// SyncPartialConfigMap does what SyncConfigMap does but it only synchronizes a subset of keys given by `syncedKeys`.
+// SyncPartialConfigMap will delete the target if `syncedKeys` are set but the source does not contain any of these keys.
 func SyncPartialConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.String, ownerRefs []metav1.OwnerReference) (*corev1.ConfigMap, bool, error) {
 	source, err := client.ConfigMaps(sourceNamespace).Get(context.TODO(), sourceName, metav1.GetOptions{})
 	switch {
@@ -380,10 +383,13 @@ func deleteConfigMapSyncTarget(client coreclientv1.ConfigMapsGetter, recorder ev
 	return false, err
 }
 
+// SyncSecret applies a Secret from a location `sourceNamespace/sourceName` to `targetNamespace/targetName`
 func SyncSecret(client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, ownerRefs []metav1.OwnerReference) (*corev1.Secret, bool, error) {
 	return SyncPartialSecret(client, recorder, sourceNamespace, sourceName, targetNamespace, targetName, nil, ownerRefs)
 }
 
+// SyncPartialSecret does what SyncSecret does but it only synchronizes a subset of keys given by `syncedKeys`.
+// SyncPartialSecret will delete the target if `syncedKeys` are set but the source does not contain any of these keys.
 func SyncPartialSecret(client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.String, ownerRefs []metav1.OwnerReference) (*corev1.Secret, bool, error) {
 	source, err := client.Secrets(sourceNamespace).Get(context.TODO(), sourceName, metav1.GetOptions{})
 	switch {
