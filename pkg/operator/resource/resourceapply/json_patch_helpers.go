@@ -11,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// defaultDiffLogLevel specify a klog level where we print diffs for resources that changed.
+const defaultDiffLogLevel = 2
+
 // JSONPatchNoError generates a JSON patch between original and modified objects and return the JSON as a string.
 // Note:
 //

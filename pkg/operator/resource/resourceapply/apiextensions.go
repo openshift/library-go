@@ -33,7 +33,7 @@ func ApplyCustomResourceDefinitionV1Beta1(client apiextclientv1beta1.CustomResou
 		return existing, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("CustomResourceDefinition %q changes: %s", existing.Name, JSONPatchNoError(existing, existingCopy))
 	}
 
@@ -62,7 +62,7 @@ func ApplyCustomResourceDefinitionV1(client apiextclientv1.CustomResourceDefinit
 		return existing, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("CustomResourceDefinition %q changes: %s", existing.Name, JSONPatchNoError(existing, existingCopy))
 	}
 

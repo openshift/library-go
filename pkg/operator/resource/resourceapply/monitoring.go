@@ -73,7 +73,7 @@ func ApplyServiceMonitor(client dynamic.Interface, recorder events.Recorder, req
 		return nil, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("ServiceMonitor %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, existingCopy))
 	}
 
@@ -118,7 +118,7 @@ func ApplyPrometheusRule(client dynamic.Interface, recorder events.Recorder, req
 		return nil, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("PrometheusRule %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, existingCopy))
 	}
 
