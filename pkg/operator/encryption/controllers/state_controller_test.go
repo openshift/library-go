@@ -753,6 +753,7 @@ func TestStateController(t *testing.T) {
 				scenario.targetNamespace,
 				provider,
 				deployer,
+				alwaysFulfilledPreconditions,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,

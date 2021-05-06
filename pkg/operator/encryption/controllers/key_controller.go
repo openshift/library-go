@@ -65,9 +65,10 @@ type keyController struct {
 	name                     string
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer     statemachine.Deployer
-	secretClient corev1client.SecretsGetter
-	provider     Provider
+	deployer                 statemachine.Deployer
+	secretClient             corev1client.SecretsGetter
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
 
 	unsupportedConfigPrefix []string
 }
@@ -77,6 +78,7 @@ func NewKeyController(
 	unsupportedConfigPrefix []string,
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
@@ -96,6 +98,7 @@ func NewKeyController(
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
 	}
 
@@ -111,7 +114,7 @@ func NewKeyController(
 }
 
 func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 

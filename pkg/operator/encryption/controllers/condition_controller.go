@@ -27,14 +27,16 @@ type conditionController struct {
 
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer     statemachine.Deployer
-	provider     Provider
-	secretClient corev1client.SecretsGetter
+	deployer                 statemachine.Deployer
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
+	secretClient             corev1client.SecretsGetter
 }
 
 func NewConditionController(
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
@@ -47,6 +49,7 @@ func NewConditionController(
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
 	}
 
@@ -58,7 +61,7 @@ func NewConditionController(
 }
 
 func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 

@@ -182,6 +182,7 @@ func TestPruneController(t *testing.T) {
 			target := NewPruneController(
 				provider,
 				deployer,
+				alwaysFulfilledPreconditions,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,

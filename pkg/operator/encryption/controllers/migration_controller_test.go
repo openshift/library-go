@@ -647,6 +647,7 @@ func TestMigrationController(t *testing.T) {
 				"kms",
 				provider,
 				deployer,
+				alwaysFulfilledPreconditions,
 				migrator,
 				fakeOperatorClient,
 				kubeInformers,

@@ -343,7 +343,7 @@ func TestKeyController(t *testing.T) {
 			}
 			provider := newTestProvider(scenario.targetGRs)
 
-			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
+			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
 
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))

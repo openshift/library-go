@@ -7,6 +7,9 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+// preconditionsFulfilled a function that indicates whether all prerequisites are met and we can Sync.
+type preconditionsFulfilled func() (bool, error)
+
 // Provider abstracts external dependencies and preconditions that need to be dynamic during a downgrade/upgrade
 type Provider interface {
 	// EncryptedGRs returns resources that need to be encrypted
@@ -16,8 +19,7 @@ type Provider interface {
 	ShouldRunEncryptionControllers() (bool, error)
 }
 
-func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClient, shouldRunFn func() (bool, error)) (bool, error) {
-
+func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClient, preconditionsFulfilledFn preconditionsFulfilled, shouldRunFn func() (bool, error)) (bool, error) {
 	if shouldRun, err := shouldRunFn(); !shouldRun || err != nil {
 		return false, err
 	}
@@ -27,5 +29,9 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClie
 		return false, err
 	}
 
-	return management.IsOperatorManaged(operatorSpec.ManagementState), nil
+	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
+		return false, nil
+	}
+
+	return preconditionsFulfilledFn()
 }

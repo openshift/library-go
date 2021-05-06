@@ -21,6 +21,8 @@ func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, e
 	return s
 }
 
+var alwaysFulfilledPreconditions = func() (bool, error) { return true, nil }
+
 type testProvider struct {
 	encryptedGRs []schema.GroupResource
 }
