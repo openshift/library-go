@@ -43,6 +43,8 @@ type preparedAPIServerControllerSet struct {
 
 type controllerWrapper struct {
 	emptyAllowed bool
+	// creationError allows for reporting errors that occurred during object creation
+	creationError error
 	controller
 }
 
@@ -53,6 +55,9 @@ type controller interface {
 func (cw *controllerWrapper) prepare() (controller, error) {
 	if !cw.emptyAllowed && cw.controller == nil {
 		return nil, fmt.Errorf("missing controller")
+	}
+	if cw.creationError != nil {
+		return nil, cw.creationError
 	}
 
 	return cw.controller, nil
@@ -401,7 +406,7 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 	if e.emptyAllowed {
 		return e.controllerWrapper
 	}
-	e.controllerWrapper.controller = encryption.NewControllers(
+	e.controllerWrapper.controller, e.controllerWrapper.creationError = encryption.NewControllers(
 		e.component,
 		e.unsupportedConfigPrefix,
 		e.provider,
