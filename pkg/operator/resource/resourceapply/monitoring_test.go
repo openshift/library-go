@@ -1,7 +1,6 @@
 package resourceapply
 
 import (
-	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -11,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,6 +45,7 @@ spec:
       - openshift-kube-apiserver
   selector:
     matchLabels:
+      custom: custom-label
       app: openshift-kube-apiserver
 `
 	fakeIncompleteServiceMonitor = `apiVersion: monitoring.coreos.com/v1
@@ -71,7 +70,6 @@ spec:
       - wrong-name
   selector:
     matchLabels:
-      custom: custom-label
       app: openshift-kube-apiserver
 `
 )
@@ -96,9 +94,9 @@ func TestApplyServiceMonitor(t *testing.T) {
 	dynamicScheme := runtime.NewScheme()
 	dynamicScheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "ServiceMonitor"}, &unstructured.Unstructured{})
 
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, readServiceMonitorFromBytes([]byte(fakeServiceMonitor)))
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, readServiceMonitorFromBytes([]byte(fakeIncompleteServiceMonitor)))
 
-	required := resourceread.ReadUnstructuredOrDie([]byte(fakeIncompleteServiceMonitor))
+	required := resourceread.ReadUnstructuredOrDie([]byte(fakeServiceMonitor))
 
 	_, modified, err := ApplyServiceMonitor(dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
 	if err != nil {
@@ -112,19 +110,11 @@ func TestApplyServiceMonitor(t *testing.T) {
 		t.Fatalf("expected 2 actions, got %d", len(dynamicClient.Actions()))
 	}
 
-	_, isUpdate := dynamicClient.Actions()[1].(clienttesting.UpdateAction)
+	updateAction, isUpdate := dynamicClient.Actions()[1].(clienttesting.UpdateAction)
 	if !isUpdate {
 		t.Fatalf("expected second action to be update, got %+v", dynamicClient.Actions()[1])
 	}
-
-	updatedMonitorObj, err := dynamicClient.Resource(schema.GroupVersionResource{
-		Group:    "monitoring.coreos.com",
-		Version:  "v1",
-		Resource: "servicemonitors",
-	}).Namespace("openshift-kube-apiserver").Get(context.TODO(), "cluster-kube-apiserver", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("expected to get update monitor, got: %v", err)
-	}
+	updatedMonitorObj := updateAction.GetObject().(*unstructured.Unstructured)
 
 	labels, _, err := unstructured.NestedStringMap(updatedMonitorObj.UnstructuredContent(), "spec", "selector", "matchLabels")
 	if err != nil {
