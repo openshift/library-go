@@ -62,15 +62,17 @@ type migrationController struct {
 	preRunCachesSynced       []cache.InformerSynced
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer statemachine.Deployer
-	migrator migrators.Migrator
-	provider Provider
+	deployer                 statemachine.Deployer
+	migrator                 migrators.Migrator
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
 }
 
 func NewMigrationController(
 	component string,
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	migrator migrators.Migrator,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -88,6 +90,7 @@ func NewMigrationController(
 		deployer:                 deployer,
 		migrator:                 migrator,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
 
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
@@ -99,7 +102,7 @@ func NewMigrationController(
 }
 
 func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 

@@ -39,15 +39,17 @@ type pruneController struct {
 
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer     statemachine.Deployer
-	provider     Provider
-	secretClient corev1client.SecretsGetter
-	name         string
+	deployer                 statemachine.Deployer
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
+	secretClient             corev1client.SecretsGetter
+	name                     string
 }
 
 func NewPruneController(
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
@@ -60,6 +62,7 @@ func NewPruneController(
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
 	}
 
@@ -71,7 +74,7 @@ func NewPruneController(
 }
 
 func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
