@@ -47,7 +47,7 @@ func ApplyStorageClass(client storageclientv1.StorageClassesGetter, recorder eve
 		return existing, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("StorageClass %q changes: %v", required.Name, JSONPatchNoError(existingCopy, requiredCopy))
 	}
 
@@ -77,7 +77,7 @@ func ApplyCSIDriverV1Beta1(client storageclientv1beta1.CSIDriversGetter, recorde
 		return existingCopy, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("CSIDriver %q changes: %v", required.Name, JSONPatchNoError(existing, existingCopy))
 	}
 
@@ -106,7 +106,7 @@ func ApplyCSIDriver(client storageclientv1.CSIDriversGetter, recorder events.Rec
 		return existingCopy, false, nil
 	}
 
-	if klog.V(4).Enabled() {
+	if klog.V(defaultDiffLogLevel).Enabled() {
 		klog.Infof("CSIDriver %q changes: %v", required.Name, JSONPatchNoError(existing, existingCopy))
 	}
 

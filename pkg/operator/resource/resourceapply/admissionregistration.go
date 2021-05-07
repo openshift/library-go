@@ -52,7 +52,7 @@ func ApplyMutatingWebhookConfiguration(client admissionregistrationclientv1.Muta
 	copyMutatingWebhookCABundle(existing, required)
 	toWrite.Webhooks = required.Webhooks
 
-	klog.V(4).Infof("MutatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
+	klog.V(defaultDiffLogLevel).Infof("MutatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
 
 	actual, err := client.MutatingWebhookConfigurations().Update(context.TODO(), toWrite, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
@@ -114,7 +114,7 @@ func ApplyValidatingWebhookConfiguration(client admissionregistrationclientv1.Va
 	copyValidatingWebhookCABundle(existing, required)
 	toWrite.Webhooks = required.Webhooks
 
-	klog.V(4).Infof("ValidatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
+	klog.V(defaultDiffLogLevel).Infof("ValidatingWebhookConfiguration %q changes: %v", required.GetNamespace()+"/"+required.GetName(), JSONPatchNoError(existing, toWrite))
 
 	actual, err := client.ValidatingWebhookConfigurations().Update(context.TODO(), toWrite, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
