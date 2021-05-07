@@ -47,7 +47,7 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 
 		// scenario 3
 		{
-			name:                           "encryption on, currentMode set to identity",
+			name:                           "encryption on, currentMode set to aescbc",
 			encryptionType:                 configv1.EncryptionTypeAESCBC,
 			expectedPreconditionsToBeReady: true,
 		},

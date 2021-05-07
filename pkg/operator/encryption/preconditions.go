@@ -53,11 +53,11 @@ func (pc *preconditionChecker) PreconditionFulfilled() (bool, error) {
 		return true, nil
 	}
 
-	encryptionNeverEnabled, err := pc.encryptionNeverEnabled()
+	encryptionWasEnabled, err := pc.encryptionWasEnabled()
 	if err != nil {
 		return false, err // got an error, report it and run the sync loops
 	}
-	if encryptionNeverEnabled {
+	if !encryptionWasEnabled {
 		return false, nil // encryption hasn't been enabled - no work to do
 	}
 
@@ -70,33 +70,39 @@ func (pc *preconditionChecker) PreconditionFulfilled() (bool, error) {
 	return true, nil // we might have work to do
 }
 
-// encryptionNeverEnabled checks whether encryption hasn't been enabled on a cluster
-// it hasn't been enabled when:
-//   the current mode is set to identity
-//   AND the encryption configuration in the managed namespace doesn't exists AND we don't have encryption secrets
-func (pc *preconditionChecker) encryptionNeverEnabled() (bool, error) {
+// encryptionWasEnabled checks whether encryption was enabled on a cluster. It wasn't enabled when:
+//   a server configuration doesn't exist
+//   the current encryption mode is empty or set to identity mode and
+//   a secret with encryption configuration doesn't exist in the managed namespace and
+//   secrets with encryption keys don't exist in the managed namespace
+func (pc *preconditionChecker) encryptionWasEnabled() (bool, error) {
 	apiServerConfig, err := pc.apiServerConfigLister.Get("cluster")
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return false, err // unknown error
-		}
-		return true, nil
-	}
-	if currentMode := state.Mode(apiServerConfig.Spec.Encryption.Type); len(currentMode) != 0 && currentMode != state.Identity {
+	if errors.IsNotFound(err) {
 		return false, nil
+	} else if err != nil {
+		return false, err // unknown error
+	}
+
+	if currentMode := state.Mode(apiServerConfig.Spec.Encryption.Type); len(currentMode) > 0 && currentMode != state.Identity {
+		return true, nil // encryption might be actually in progress
 	}
 
 	encryptionConfiguration, err := pc.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, pc.component))
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err // unknown error
 	}
+	if encryptionConfiguration != nil {
+		return true, nil
+	}
+
+	// very unlikely - encryption config doesn't exists but we have some encryption keys
+	// but since this is coming from a cache just double check
 
 	encryptionSecrets, err := pc.secretLister.List(pc.encryptionSecretSelector)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err // unknown error
 	}
-
-	return encryptionConfiguration == nil && len(encryptionSecrets) == 0, nil
+	return len(encryptionSecrets) > 0, nil
 }
 
 func (pc *preconditionChecker) hasCachesSynced() bool {
