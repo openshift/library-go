@@ -54,7 +54,7 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed"},
 		},
 
 		// scenario 2: validates if "encryption-config-kms" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
@@ -70,7 +70,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			expectedActions:       []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions:       []string{"list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 			expectedEncryptionCfg: encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
@@ -122,8 +122,6 @@ func TestStateController(t *testing.T) {
 				return ec
 			}(),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
 				"create:secrets:openshift-config-managed",
@@ -190,7 +188,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
 		},
 
 		// scenario 5
@@ -260,8 +258,6 @@ func TestStateController(t *testing.T) {
 				return ec
 			}(),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
 				"update:secrets:openshift-config-managed",
@@ -372,7 +368,7 @@ func TestStateController(t *testing.T) {
 				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -462,8 +458,6 @@ func TestStateController(t *testing.T) {
 				return ec
 			}(),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
 				"update:secrets:openshift-config-managed",
@@ -553,7 +547,7 @@ func TestStateController(t *testing.T) {
 					}
 				*/
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 		},
 
 		// scenario 9
@@ -651,7 +645,7 @@ func TestStateController(t *testing.T) {
 					ts.Errorf("the secret wasn't created and validated")
 				}
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 		},
 
 		// scenario 10
@@ -664,7 +658,7 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPodInUnknownPhase("kube-apiserver-1", "kms", "node-1"),
 			},
-			expectedActions: []string{"list:pods:kms"},
+			expectedActions: []string{},
 			expectedError:   errors.New("failed to get converged static pod revision: api server pod kube-apiserver-1 in unknown phase"),
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
@@ -692,7 +686,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms"},
+			expectedActions: []string{},
 			expectedError:   fmt.Errorf("invalid encryption config kms/encryption-config-1: yaml: control characters are not allowed"),
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
@@ -741,9 +735,8 @@ func TestStateController(t *testing.T) {
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
-			fakePodClient := fakeKubeClient.CoreV1()
 
-			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
+			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -760,10 +753,20 @@ func TestStateController(t *testing.T) {
 				eventRecorder,
 			)
 
+			// start informers
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			kubeInformers.Start(stopCh)
+			if synced := kubeInformers.WaitForCacheSync(stopCh); !synced {
+				t.Fatal("failed to sync informers")
+			}
+			informerActions := len(fakeKubeClient.Actions())
+
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 
 			// validate
+			nonInformerActions := fakeKubeClient.Actions()[informerActions:]
 			if err == nil && scenario.expectedError != nil {
 				t.Fatal("expected to get an error from sync() method")
 			}
@@ -773,11 +776,11 @@ func TestStateController(t *testing.T) {
 			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
 				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
-			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(nonInformerActions, scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, scenario.targetNamespace), scenario.expectedEncryptionCfg)
+				scenario.validateFunc(t, nonInformerActions, fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, scenario.targetNamespace), scenario.expectedEncryptionCfg)
 			}
 			if scenario.validateOperatorClientFunc != nil {
 				scenario.validateOperatorClientFunc(t, fakeOperatorClient)

@@ -52,7 +52,7 @@ func TestPruneController(t *testing.T) {
 				all = append(all, encryptiontesting.CreateEncryptionKeySecretWithRawKey(ns, nil, 11, []byte("cfbbae883984944e48d25590abdfd300")))
 				return all
 			}(),
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:secrets:openshift-config-managed"},
 		},
 
 		{
@@ -63,8 +63,6 @@ func TestPruneController(t *testing.T) {
 			},
 			initialSecrets: createMigratedEncryptionKeySecretsWithRndKey(t, 15, "kms", "secrets"),
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 				"update:secrets:openshift-config-managed",
@@ -91,8 +89,6 @@ func TestPruneController(t *testing.T) {
 			}(),
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", "encryption.apiserver.operator.openshift.io/component", "kms")},
 			expectedActions: []string{
-				"list:pods:kms",
-				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
 			},
@@ -173,7 +169,7 @@ func TestPruneController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 
-			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
+			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -189,18 +185,28 @@ func TestPruneController(t *testing.T) {
 				eventRecorder,
 			)
 
+			// start informers
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			kubeInformers.Start(stopCh)
+			if synced := kubeInformers.WaitForCacheSync(stopCh); !synced {
+				t.Fatal("failed to sync informers")
+			}
+			informerActions := len(fakeKubeClient.Actions())
+
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 
 			// validate
+			nonInformerActions := fakeKubeClient.Actions()[informerActions:]
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(nonInformerActions, scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.initialSecrets)
+				scenario.validateFunc(t, nonInformerActions, scenario.initialSecrets)
 			}
 		})
 	}

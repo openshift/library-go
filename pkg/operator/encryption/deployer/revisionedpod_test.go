@@ -11,7 +11,7 @@ import (
 func TestCategorizePods(t *testing.T) {
 	tests := []struct {
 		name                      string
-		pods                      []corev1.Pod
+		pods                      []*corev1.Pod
 		nodes                     []string
 		wantGood                  []*corev1.Pod
 		wantBad                   []*corev1.Pod
@@ -23,39 +23,39 @@ func TestCategorizePods(t *testing.T) {
 	}{
 		{"no pod", nil, nil, nil, nil, true, false, "", false},
 		{
-			"good pods, same revision", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node2"),
+			"good pods, same revision", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node2"),
 			}, nil, false, false, "3", false,
 		},
 		{
-			"good pods, different revision", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "5", "node2"),
+			"good pods, different revision", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "5", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "5", "node2"),
 			}, nil, false, false, "", false,
 		},
 		{
-			"ready and unready pods", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "node2"),
+			"ready and unready pods", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "node2"),
 			}, []string{"node1", "node2"}, nil, nil, true, false, "3", false,
 		},
 		{
-			"good pods and pending pods", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodPending, corev1.ConditionFalse, "3", "node2"),
+			"good pods and pending pods", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodPending, corev1.ConditionFalse, "3", "node2"),
 			}, []string{"node1", "node2"}, nil, nil, true, false, "3", false,
 		},
 		{
-			"good pods and failed pods", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodFailed, corev1.ConditionFalse, "3", "node2"),
+			"good pods and failed pods", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodFailed, corev1.ConditionFalse, "3", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 			}, []*corev1.Pod{
@@ -63,9 +63,9 @@ func TestCategorizePods(t *testing.T) {
 			}, false, false, "3", false,
 		},
 		{
-			"good pods and succeeded pods", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodSucceeded, corev1.ConditionFalse, "3", "node2"),
+			"good pods and succeeded pods", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodSucceeded, corev1.ConditionFalse, "3", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 			}, []*corev1.Pod{
@@ -73,42 +73,42 @@ func TestCategorizePods(t *testing.T) {
 			}, false, false, "3", false,
 		},
 		{
-			"good pods and unknown phase pods", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
-				*newPod(corev1.PodUnknown, corev1.ConditionFalse, "3", "node2"),
+			"good pods and unknown phase pods", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
+				newPod(corev1.PodUnknown, corev1.ConditionFalse, "3", "node2"),
 			}, []string{"node1", "node2"}, nil, nil, false, true, "", false,
 		},
 		{
-			"all empty revision", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node2"),
+			"all empty revision", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node2"),
 			}, nil, false, false, "0", false,
 		},
 		{
-			"one empty revision", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
+			"one empty revision", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
 			}, nil, false, false, "1", false,
 		},
 		{
-			"one empty revision, one zero", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
+			"one empty revision, one zero", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
 			}, nil, false, false, "0", false,
 		},
 		{
-			"one invalid revision", []corev1.Pod{
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
-				*newPod(corev1.PodRunning, corev1.ConditionTrue, "abc", "node2"),
+			"one invalid revision", []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "abc", "node2"),
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "abc", "node2"),
