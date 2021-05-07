@@ -17,7 +17,7 @@ var (
 	// the following parameters specify max timeout after which
 	// apis are considered to not converged
 	waitForAPIRevisionPollInterval = 30 * time.Second
-	waitForAPIRevisionTimeout      = 15 * time.Minute
+	waitForAPIRevisionTimeout      = 22 * time.Minute
 )
 
 // WaitForAPIServerToStabilizeOnTheSameRevision waits until all API Servers are running at the same revision.
