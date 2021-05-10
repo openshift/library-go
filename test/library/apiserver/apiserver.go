@@ -11,7 +11,7 @@ import (
 var (
 	// the following parameters specify for how long apis must
 	// stay on the same revision to be considered stable
-	waitForAPIRevisionSuccessThreshold = 3
+	waitForAPIRevisionSuccessThreshold = 6
 	waitForAPIRevisionSuccessInterval  = 1 * time.Minute
 
 	// the following parameters specify max timeout after which
