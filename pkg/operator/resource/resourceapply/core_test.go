@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 
@@ -790,6 +791,27 @@ func TestSyncSecret(t *testing.T) {
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{},
 			expectedSecret:  nil,
+			expectedChanged: false,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing missing source secret removes pre-existing target",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "targetNamespace",
+						Name:      "targetName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{"foo": []byte("bar1")},
+				},
+			},
+			expectedSecret:  nil,
 			expectedChanged: true,
 			expectedErr:     nil,
 		},
@@ -852,6 +874,267 @@ func TestSyncSecret(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
 			secret, changed, err := SyncSecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs)
+
+			if !reflect.DeepEqual(err, tc.expectedErr) {
+				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
+				return
+			}
+
+			if !equality.Semantic.DeepEqual(secret, tc.expectedSecret) {
+				t.Errorf("secrets differ: %s", cmp.Diff(tc.expectedSecret, secret))
+			}
+
+			if changed != tc.expectedChanged {
+				t.Errorf("expected changed %t, got %t", tc.expectedChanged, changed)
+			}
+		})
+	}
+}
+
+func TestSyncPartialSync(t *testing.T) {
+	tt := []struct {
+		name                        string
+		sourceNamespace, sourceName string
+		targetNamespace, targetName string
+		syncedKeys                  sets.String
+		ownerRefs                   []metav1.OwnerReference
+		existingObjects             []runtime.Object
+		expectedSecret              *corev1.Secret
+		expectedChanged             bool
+		expectedErr                 error
+	}{
+		{
+			name:            "syncing existing secret succeeds when the target is missing when the synced keys are present",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("foo", "qux"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar"),
+						"baz": []byte("bax"),
+						"qux": []byte("mux"),
+					},
+				},
+			},
+			expectedSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "targetNamespace",
+					Name:      "targetName",
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"foo": []byte("bar"),
+					"qux": []byte("mux"),
+				},
+			},
+			expectedChanged: true,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing existing secret when the target is missing does nothing when the synced keys are missing",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("lol", "troll", "semaphore"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar"),
+						"baz": []byte("bax"),
+						"qux": []byte("mux"),
+					},
+				},
+			},
+		},
+		{
+			name:            "syncing existing secret succeeds when the target is present and up to date",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("foo", "baz"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar"),
+						"baz": []byte("bax"),
+						"qux": []byte("mux"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "targetNamespace",
+						Name:      "targetName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar"),
+						"baz": []byte("bax"),
+					},
+				},
+			},
+			expectedSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "targetNamespace",
+					Name:      "targetName",
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"baz": []byte("bax"),
+					"foo": []byte("bar"),
+				},
+			},
+			expectedChanged: false,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing existing secret succeeds when the target is present and needs update",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("foo", "qux", "troll", "semaphore"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar2"),
+						"baz": []byte("bax"),
+						"qux": []byte("mux"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "targetNamespace",
+						Name:      "targetName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo":   []byte("bar1"),
+						"qux":   []byte("mux"),
+						"troll": []byte("moll"),
+						"lol":   []byte("poll"),
+					},
+				},
+			},
+			expectedSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "targetNamespace",
+					Name:      "targetName",
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"foo": []byte("bar2"),
+					"qux": []byte("mux"),
+				},
+			},
+			expectedChanged: true,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing missing source secret doesn't fail",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("foo", "baz"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{},
+			expectedSecret:  nil,
+			expectedChanged: false,
+			expectedErr:     nil,
+		},
+		{
+			name:            "syncing service account token doesn't sync without the token being present",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("foo"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeServiceAccountToken,
+					Data: map[string][]byte{"foo": []byte("bar")},
+				},
+			},
+			expectedSecret:  nil,
+			expectedChanged: false,
+			expectedErr:     fmt.Errorf("secret sourceNamespace/sourceName doesn't have a token yet"),
+		},
+		{
+			name:            "syncing existing secret deletes the target when the source secret does not contain any synced keys",
+			sourceNamespace: "sourceNamespace",
+			sourceName:      "sourceName",
+			targetNamespace: "targetNamespace",
+			targetName:      "targetName",
+			syncedKeys:      sets.NewString("troll", "semaphore"),
+			ownerRefs:       nil,
+			existingObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sourceNamespace",
+						Name:      "sourceName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"foo": []byte("bar2"),
+						"baz": []byte("bax"),
+						"qux": []byte("mux"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "targetNamespace",
+						Name:      "targetName",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"troll": []byte("moll"),
+					},
+				},
+			},
+			expectedSecret:  nil,
+			expectedChanged: true,
+			expectedErr:     nil,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(tc.existingObjects...)
+			secret, changed, err := SyncPartialSecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.syncedKeys, tc.ownerRefs)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)

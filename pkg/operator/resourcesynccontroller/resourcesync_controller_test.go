@@ -39,8 +39,6 @@ func TestSyncSecret(t *testing.T) {
 	)
 
 	destinationSecretCreated := make(chan struct{})
-	destinationSecretBarChecked := false
-	destinationSecretBarCheckedMutex := sync.Mutex{}
 	destinationSecretEmptySourceChecked := false
 	destinationSecretEmptySourceCheckedMutex := sync.Mutex{}
 
@@ -76,10 +74,6 @@ func TestSyncSecret(t *testing.T) {
 		}
 		if actual.GetNamespace() == "operator" {
 			switch actual.GetName() {
-			case "bar":
-				destinationSecretBarCheckedMutex.Lock()
-				destinationSecretBarChecked = true
-				destinationSecretBarCheckedMutex.Unlock()
 			case "empty-source":
 				destinationSecretEmptySourceCheckedMutex.Lock()
 				destinationSecretEmptySourceChecked = true
@@ -130,12 +124,6 @@ func TestSyncSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The source secret does not exists nor the destination secret. This should close the "destinationSecretBarChecked" and should not increase
-	// the deleteSecretCounter (we don't issue Delete() call when Get() returns 404)
-	if err := c.SyncSecret(ResourceLocation{Namespace: "operator", Name: "bar"}, ResourceLocation{Namespace: "config", Name: "bar"}); err != nil {
-		t.Fatal(err)
-	}
-
 	// The source resource location is not set and the destination does not exists. This should close the "destinationSecretEmptySourceChecked" and
 	// should not increase the deleteSecretCounter (this is special case in resource sync controller.
 	if err := c.SyncSecret(ResourceLocation{Namespace: "operator", Name: "empty-source"}, ResourceLocation{}); err != nil {
@@ -149,14 +137,6 @@ func TestSyncSecret(t *testing.T) {
 	}
 
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-		destinationSecretBarCheckedMutex.Lock()
-		defer destinationSecretBarCheckedMutex.Unlock()
-		return destinationSecretBarChecked, nil
-	}); err != nil {
-		t.Fatal("timeout while waiting for destination secret 'bar' to be checked for existence")
-	}
-
-	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 		destinationSecretEmptySourceCheckedMutex.Lock()
 		defer destinationSecretEmptySourceCheckedMutex.Unlock()
 		return destinationSecretEmptySourceChecked, nil
@@ -167,9 +147,9 @@ func TestSyncSecret(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 		deleteSecretCounterMutex.Lock()
 		defer deleteSecretCounterMutex.Unlock()
-		return deleteSecretCounter == 1, nil
+		return deleteSecretCounter == 2, nil
 	}); err != nil {
-		t.Fatalf("expected exactly 1 delete call for this test, got %d", deleteSecretCounter)
+		t.Fatalf("expected exactly 2 delete calls for this test, got %d", deleteSecretCounter)
 	}
 }
 
@@ -271,26 +251,27 @@ func TestSyncConfigMap(t *testing.T) {
 
 func TestServeHTTP(t *testing.T) {
 	c := &ResourceSyncController{
-		secretSyncRules: map[ResourceLocation]ResourceLocation{
-			{Namespace: "foo", Name: "cat"}:  {Namespace: "bar", Name: "cat"},
-			{Namespace: "test", Name: "dog"}: {Namespace: "othertest", Name: "dog"},
-			{Namespace: "foo", Name: "dog"}:  {Namespace: "bar", Name: "dog"},
+		secretSyncRules: syncRules{
+			{Namespace: "foo", Name: "cat"}:  {ResourceLocation: ResourceLocation{Namespace: "bar", Name: "cat"}},
+			{Namespace: "test", Name: "dog"}: {ResourceLocation: ResourceLocation{Namespace: "othertest", Name: "dog"}},
+			{Namespace: "foo", Name: "dog"}:  {ResourceLocation: ResourceLocation{Namespace: "bar", Name: "dog"}},
 		},
-		configMapSyncRules: map[ResourceLocation]ResourceLocation{
-			{Namespace: "a", Name: "b"}:   {Namespace: "foo", Name: "bar"},
-			{Namespace: "a", Name: "c"}:   {Namespace: "foo", Name: "barc"},
-			{Namespace: "bar", Name: "b"}: {Namespace: "foo", Name: "baz"},
+		configMapSyncRules: syncRules{
+			{Namespace: "a", Name: "b"}:   {ResourceLocation: ResourceLocation{Namespace: "foo", Name: "bar"}},
+			{Namespace: "a", Name: "c"}:   {ResourceLocation: ResourceLocation{Namespace: "foo", Name: "barc"}},
+			{Namespace: "bar", Name: "b"}: {ResourceLocation: ResourceLocation{Namespace: "foo", Name: "baz"}},
 		},
 	}
 
 	expected := `{"secrets":[` +
-		`{"source":{"namespace":"foo","name":"cat"},"destination":{"namespace":"bar","name":"cat"}},` +
-		`{"source":{"namespace":"foo","name":"dog"},"destination":{"namespace":"bar","name":"dog"}},` +
-		`{"source":{"namespace":"test","name":"dog"},"destination":{"namespace":"othertest","name":"dog"}}],` +
-		`"configs":[` +
-		`{"source":{"namespace":"a","name":"b"},"destination":{"namespace":"foo","name":"bar"}},` +
-		`{"source":{"namespace":"a","name":"c"},"destination":{"namespace":"foo","name":"barc"}},` +
-		`{"source":{"namespace":"bar","name":"b"},"destination":{"namespace":"foo","name":"baz"}}]}`
+		`{"destination":{"namespace":"foo","name":"cat"},"source":{"namespace":"bar","name":"cat"}},` +
+		`{"destination":{"namespace":"foo","name":"dog"},"source":{"namespace":"bar","name":"dog"}},` +
+		`{"destination":{"namespace":"test","name":"dog"},"source":{"namespace":"othertest","name":"dog"}}` +
+		`],"configs":[` +
+		`{"destination":{"namespace":"a","name":"b"},"source":{"namespace":"foo","name":"bar"}},` +
+		`{"destination":{"namespace":"a","name":"c"},"source":{"namespace":"foo","name":"barc"}},` +
+		`{"destination":{"namespace":"bar","name":"b"},"source":{"namespace":"foo","name":"baz"}}` +
+		`]}`
 
 	handler := NewDebugHandler(c)
 	writer := httptest.NewRecorder()
