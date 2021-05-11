@@ -95,15 +95,15 @@ func podReady(pod corev1.Pod) bool {
 	return false
 }
 
-// mustSucceedMultipleTimes calls f multiple times sleeping in between the invocations, it only returns true if all invocations are successful.
+// mustSucceedMultipleTimes calls f multiple times sleeping before each invocation, it only returns true if all invocations are successful.
 func mustSucceedMultipleTimes(n int, sleep time.Duration, f func() (bool, error)) func() (bool, error) {
 	return func() (bool, error) {
 		for i := 0; i < n; i++ {
+			time.Sleep(sleep)
 			ok, err := f()
 			if err != nil || !ok {
 				return ok, err
 			}
-			time.Sleep(sleep)
 		}
 		return true, nil
 	}
