@@ -96,6 +96,7 @@ func (c *CSIControllerSet) WithManagementStateController(operandName string, sup
 func (c *CSIControllerSet) WithStaticResourcesController(
 	name string,
 	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface,
 	kubeInformersForNamespace v1helpers.KubeInformersForNamespaces,
 	manifests resourceapply.AssetFunc,
 	files []string,
@@ -104,7 +105,7 @@ func (c *CSIControllerSet) WithStaticResourcesController(
 		name,
 		manifests,
 		files,
-		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
+		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithDynamicClient(dynamicClient),
 		c.operatorClient,
 		c.eventRecorder,
 	).AddKubeInformers(kubeInformersForNamespace)
