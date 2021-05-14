@@ -20,7 +20,8 @@ const (
 func IsCloudProviderExternal(platformType configv1.PlatformType, featureGate *configv1.FeatureGate) (bool, error) {
 	switch platformType {
 	case configv1.AWSPlatformType,
-		configv1.OpenStackPlatformType:
+		configv1.OpenStackPlatformType,
+		configv1.AzurePlatformType:
 		// Platforms that are external based on feature gate presence
 		return isExternalFeatureGateEnabled(featureGate)
 	default:

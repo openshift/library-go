@@ -149,7 +149,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name:     "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: BareMetal",
 		platform: configv1.BareMetalPlatformType,
