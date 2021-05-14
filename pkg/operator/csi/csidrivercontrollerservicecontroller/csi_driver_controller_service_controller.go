@@ -198,7 +198,8 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 		Status: opv1.ConditionFalse,
 	}
 
-	if ok, msg := isProgressing(opStatus, deployment); ok {
+	ok, msg := v1helpers.IsDeploymentProgressing(c.name+opv1.OperatorStatusTypeProgressing, deployment, opStatus)
+	if ok {
 		progressingCondition.Status = opv1.ConditionTrue
 		progressingCondition.Message = msg
 		progressingCondition.Reason = "Deploying"
@@ -212,31 +213,12 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 
 	_, _, err = v1helpers.UpdateStatus(
 		c.operatorClient,
-		updateStatusFn,
 		v1helpers.UpdateConditionFn(availableCondition),
 		v1helpers.UpdateConditionFn(progressingCondition),
+		updateStatusFn,
 	)
 
 	return err
-}
-
-func isProgressing(status *opv1.OperatorStatus, deployment *appsv1.Deployment) (bool, string) {
-	var deploymentExpectedReplicas int32
-	if deployment.Spec.Replicas != nil {
-		deploymentExpectedReplicas = *deployment.Spec.Replicas
-	}
-
-	switch {
-	case deployment.Generation != deployment.Status.ObservedGeneration:
-		return true, "Waiting for Deployment to act on changes"
-	case deployment.Status.UnavailableReplicas > 0:
-		return true, "Waiting for Deployment to deploy pods"
-	case deployment.Status.UpdatedReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to update pods"
-	case deployment.Status.AvailableReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to deploy pods"
-	}
-	return false, ""
 }
 
 func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID string) []byte {

@@ -314,9 +314,8 @@ func makeDeployment(clusterID string, logLevel int, images images, modifiers ...
 	return dep
 }
 
-func withDeploymentStatus(readyReplicas, availableReplicas, updatedReplicas int32) deploymentModifier {
+func withDeploymentStatus(availableReplicas, updatedReplicas int32) deploymentModifier {
 	return func(instance *appsv1.Deployment) *appsv1.Deployment {
-		instance.Status.ReadyReplicas = readyReplicas
 		instance.Status.AvailableReplicas = availableReplicas
 		instance.Status.UpdatedReplicas = updatedReplicas
 		return instance
@@ -420,11 +419,6 @@ func TestDeploymentHook(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	const (
-		replica0 = 0
-		replica1 = 1
-		replica2 = 2
-	)
 	var (
 		argsLevel2 = 2
 		argsLevel6 = 6
@@ -433,7 +427,7 @@ func TestSync(t *testing.T) {
 	testCases := []testCase{
 		{
 			// Only CR exists, everything else is created
-			name:   "initial sync",
+			name:   "only CR exists, everything  else is created",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				driver: makeFakeDriverInstance(),
@@ -443,25 +437,23 @@ func TestSync(t *testing.T) {
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 0)),
+					withDeploymentGeneration(1 /* Generation */, 0 /* ObservedGeneration*/)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
 					withGenerations(1),
-					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable)), // Degraded is set later on
+					withTrueConditions(conditionProgressing), // Progressing because ObservedGeneration != Generation
+					withFalseConditions(conditionAvailable)), // Degraded is not set during Sync(), it's set based on the return of this method
 			},
 		},
 		{
-			// Deployment is fully deployed and its status is synced to CR
-			name:   "deployment fully deployed",
+			name:   "deployment is fully deployed and its status is synced to CR",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(withGenerations(1)),
 			},
 			expectedObjects: testObjects{
@@ -469,57 +461,53 @@ func TestSync(t *testing.T) {
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
 		},
 		{
-			// Deployment has wrong nr. of replicas, modified by user, and gets replaced by the operator.
-			name:   "deployment modified by user",
+			name:   "user changes nr. of replicas and gets replaced by the controller",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentReplicas(2),      // User changed replicas
-					withDeploymentGeneration(2, 1), // ... which changed Generation
-					withDeploymentStatus(replica1, replica1, replica1)),
-				driver: makeFakeDriverInstance(withGenerations(1)), // the operator knows the old generation of the Deployment
+					withDeploymentReplicas(2),                                               // User changed replicas
+					withDeploymentGeneration(2 /* Generation */, 1 /* ObservedGeneration*/), // ... which changed Generation
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)),
+
+				driver: makeFakeDriverInstance(withGenerations(1)), // The operator knows the old generation of the Deployment
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentReplicas(1),      // The operator fixed replica count
-					withDeploymentGeneration(3, 1), // ... which bumps generation again
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentReplicas(1),                                               // The operator fixed replica count
+					withDeploymentGeneration(3 /* Generation */, 1 /* ObservedGeneration*/), // ... which bumps generation again
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
-					withGenerations(3), // now the operator knows generation 1
+					withGenerations(3), // Now the operator knows generation 3
 					withTrueConditions(conditionAvailable, conditionProgressing), // Progressing due to Generation change
 				),
 			},
 		},
 		{
-			// Deployment gets degraded for some reason
-			name:   "deployment degraded",
+			name:   "deployment gets degraded",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(0, 0, 0)), // the Deployment has no pods
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // the Deployment has no pods
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(1),
 					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
@@ -530,59 +518,25 @@ func TestSync(t *testing.T) {
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(0, 0, 0)), // no change to the Deployment
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // no change to the Deployment
 				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
 					withGenerations(1),
 					withGeneration(1, 1),
-					withTrueConditions(conditionProgressing), // The operator is Progressing
-					withFalseConditions(conditionAvailable)), // The operator is not Available (controller not running...)
+					withFalseConditions(conditionAvailable),    // The operator is not Available because there are no available pods
+					withFalseConditions(conditionProgressing)), // The operator is not Progressing because the config being rolled out is not new
 			},
 		},
 		{
-			// Deployment is updating pods
-			name:   "update",
+			name:   "user changes log level in CR and it's projected into the deployment",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(1 /*ready*/, 1 /*available*/, 0 /*updated*/)), // the Deployment is updating 1 pod
-				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
-					withGenerations(1),
-					withGeneration(1, 1),
-					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
-			},
-			expectedObjects: testObjects{
-				deployment: makeDeployment(
-					defaultClusterID,
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(1, 1, 0)), // no change to the Deployment
-				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
-					withGenerations(1),
-					withGeneration(1, 1),
-					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
-			},
-		},
-		{
-			// User changes log level and it's projected into the Deployment
-			name:   "log level change",
-			images: defaultImages(),
-			initialObjects: testObjects{
-				deployment: makeDeployment(
-					defaultClusterID,
-					argsLevel2,
-					defaultImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(1 /* AvailableReplicas*/, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
 					withLogLevel(opv1.Trace), // User changed the log level...
@@ -593,10 +547,9 @@ func TestSync(t *testing.T) {
 					defaultClusterID,
 					argsLevel6, // The operator changed cmdline arguments with a new log level
 					defaultImages(),
-					withDeploymentGeneration(2, 1), // ... which caused the Generation to increase
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(2 /* Generation */, 1 /* ObservedGeneration*/), // Generation bump to to log level change
+					withDeploymentStatus(1 /* AvailableReplicas*/, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withLogLevel(opv1.Trace),
 					withGenerations(2),
 					withGeneration(2, 1), // TODO: should I increase the observed generation?
@@ -604,18 +557,16 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			// Deployment updates images
-			name:   "image change",
+			name:   "deployment updates images",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					defaultClusterID,
 					argsLevel2,
 					oldImages(),
-					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(1 /* AvailableReplicas*/, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),k
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
@@ -625,12 +576,133 @@ func TestSync(t *testing.T) {
 					defaultClusterID,
 					argsLevel2,
 					defaultImages(),
-					withDeploymentGeneration(2, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentGeneration(2 /* Generation */, 1 /* ObservedGeneration*/),
+					withDeploymentStatus(1 /* AvailableReplicas*/, 1 /* UpdatedReplicas */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(2),
 					withTrueConditions(conditionAvailable, conditionProgressing)),
+			},
+		},
+		{
+			name:   "deployment is rolling out pods with a known config, falls back to non-progressing condition",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // Not all pods have been deployed yet
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)), // It's known that we are NOT Progressing
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // No change to the Deployment
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withFalseConditions(conditionAvailable),    // Not Available because AvailableReplicas == 0
+					withFalseConditions(conditionProgressing)), // Not Progressing based on previous condition
+			},
+		},
+		{
+			name:   "deployment is rolling out pods with a known config, falls back to progressing condition",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // Not all pods have been deployed yet
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable, conditionProgressing)), // It's known that we are Progressing
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(1 /* Generation */, 1 /* ObservedGeneration */), // No change to deployment
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)),
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withFalseConditions(conditionAvailable),   // Not Available because AvailableReplicas == 0
+					withTrueConditions(conditionProgressing)), // Progressing based on previous condition
+			},
+		},
+		{
+			name:   "deployment is rolling out pods with new config (working towards correct generation)",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(2 /* Generation */, 1 /* ObservedGeneration */),  // Deployment controller hasn't synced yet
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)), // Deployment is not done rolling out
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(3 /* Generation */, 1 /* ObservedGeneration */),  // Generation was bumped because deployment was updated due to the CR having an outdated generation
+					withDeploymentStatus(1 /* AvailableReplicas */, 1 /* UpdatedReplicas */)), // No change to the deployment
+				driver: makeFakeDriverInstance(
+					withGenerations(3), // Now CR knows about the newer generation
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withTrueConditions(conditionProgressing)), // Progressing because the config is new (deploy.spec.generation != deploy.status.observedGeneration)
+			},
+		},
+		{
+			name:   "CR has outdated deployment generation",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					// Trick: bumped ObservedGeneration so that an early check
+					// (e.g., if deploy.Generation != deploy.Status.ObservedGeneration {progressing=true}})
+					//  doesn't prevent us from reaching the code we want to test
+					withDeploymentGeneration(1 /* Generation */, 2 /* ObservedGeneration */),
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)),
+				driver: makeFakeDriverInstance(
+					withGenerations(0), // CR only knows about an outdated DaemonSet generation
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					defaultClusterID,
+					argsLevel2,
+					defaultImages(),
+					withDeploymentGeneration(2 /* Generation */, 2 /* ObservedGeneration */),  // Generation was bumped because Deployment was updated due to the CR having an outdated Deployment generation
+					withDeploymentStatus(0 /* AvailableReplicas */, 0 /* UpdatedReplicas */)), // No change to the Deployment
+				driver: makeFakeDriverInstance(
+					withGenerations(2), // Now the CR has been updated with the updated Deployment generation
+					withGeneration(1, 1),
+					withFalseConditions(conditionAvailable),   // Not Available because there are no available replicas
+					withTrueConditions(conditionProgressing)), // Progressing because Deployment controller is not done rolling out pods AND it has a different generation than the one that CR knows about
 			},
 		},
 	}

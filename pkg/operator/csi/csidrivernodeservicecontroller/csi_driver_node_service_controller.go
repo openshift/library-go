@@ -163,7 +163,8 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 		Status: opv1.ConditionFalse,
 	}
 
-	if ok, msg := isProgressing(opStatus, daemonSet); ok {
+	ok, msg := v1helpers.IsDaemonSetProgressing(c.name+opv1.OperatorStatusTypeProgressing, daemonSet, opStatus)
+	if ok {
 		progressingCondition.Status = opv1.ConditionTrue
 		progressingCondition.Message = msg
 		progressingCondition.Reason = "Deploying"
@@ -177,22 +178,12 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 
 	_, _, err = v1helpers.UpdateStatus(
 		c.operatorClient,
-		updateStatusFn,
 		v1helpers.UpdateConditionFn(availableCondition),
 		v1helpers.UpdateConditionFn(progressingCondition),
+		updateStatusFn,
 	)
 
 	return err
-}
-
-func isProgressing(status *opv1.OperatorStatus, daemonSet *appsv1.DaemonSet) (bool, string) {
-	switch {
-	case daemonSet.Generation != daemonSet.Status.ObservedGeneration:
-		return true, "Waiting for DaemonSet to act on changes"
-	case daemonSet.Status.NumberUnavailable > 0:
-		return true, "Waiting for DaemonSet to deploy node pods"
-	}
-	return false, ""
 }
 
 func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec) []byte {

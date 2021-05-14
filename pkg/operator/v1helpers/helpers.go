@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 )
 
 // SetOperandVersion sets the new version and returns the previous value.
@@ -346,4 +348,66 @@ func InjectObservedProxyIntoContainers(podSpec *corev1.PodSpec, containerNames [
 	}
 
 	return nil
+}
+
+func IsDeploymentProgressing(conditionName string, deployment *appsv1.Deployment, status *operatorv1.OperatorStatus) (bool, string) {
+	if deployment.Generation != deployment.Status.ObservedGeneration {
+		return true, "Waiting for Deployment to act on changes"
+	}
+
+	var expectedReplicas int32
+	if deployment.Spec.Replicas != nil {
+		expectedReplicas = *deployment.Spec.Replicas
+	}
+
+	if expectedReplicas > deployment.Status.UpdatedReplicas {
+		// Verify if the current deployment generation is the same as the one that this controller
+		// dealt with in the previous sync. If they are not the same, we're definitely rolling
+		// out new config, so we are progressing.
+		lastGeneration := resourcemerge.ExpectedDeploymentGeneration(deployment, status.Generations)
+		if deployment.Generation != lastGeneration {
+			return true, "Waiting for Deployment to deploy node pods"
+		}
+
+		// At this point we know two things: we already synced the current generation of the deployment,
+		// but the Deployment Controller is still rolling out pods. However, we don't know whether those
+		// pods have new config or not, in that case we can't determine whether we are progressing or not.
+		// As a result, we fall-back to the previous condition value and hope that in the next sync
+		// the Deployment Controller will be already done rolling out pods.
+		lastCondition := FindOperatorCondition(status.Conditions, conditionName)
+		if lastCondition == nil || lastCondition != nil && lastCondition.Status == operatorv1.ConditionTrue {
+			return true, "Waiting for Deployment to deploy node pods"
+		}
+	}
+
+	return false, ""
+}
+
+func IsDaemonSetProgressing(conditionName string, daemonSet *appsv1.DaemonSet, status *operatorv1.OperatorStatus) (bool, string) {
+	if daemonSet.Generation != daemonSet.Status.ObservedGeneration {
+		return true, "Waiting for DaemonSet to act on changes"
+	}
+
+	// Verify if we there's any node that doesn't contain the daemon pod yet
+	if daemonSet.Status.NumberUnavailable > 0 {
+		// Verify if the current daemonSet generation is the same as the one that this controller
+		// dealt with in the previous sync. If they are not the same, we're definitely rolling
+		// out new config, so we are progressing.
+		lastGeneration := resourcemerge.ExpectedDaemonSetGeneration(daemonSet, status.Generations)
+		if daemonSet.Generation != lastGeneration {
+			return true, fmt.Sprintf("Waiting for %d node pods", daemonSet.Status.NumberUnavailable)
+		}
+
+		// At this point we know two things: we already synced the current generation of the DaemonSet,
+		// but the DaemonSet controller is still rolling out pods. However, we don't know whether those
+		// pods have new config or not, in that case we can't determine whether we are progressing or not.
+		// As a result, we fall-back to the previous condition value and hope that in the next sync
+		// the DaemonSet controller will be already done rolling out daemon pods.
+		lastCondition := FindOperatorCondition(status.Conditions, conditionName)
+		if lastCondition == nil || lastCondition != nil && lastCondition.Status == operatorv1.ConditionTrue {
+			return true, fmt.Sprintf("Waiting for %d node pods", daemonSet.Status.NumberUnavailable)
+		}
+	}
+
+	return false, ""
 }

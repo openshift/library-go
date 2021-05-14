@@ -258,11 +258,9 @@ func getDaemonSet(logLevel int, images images, modifiers ...daemonSetModifier) *
 	return ds
 }
 
-func withDaemonSetStatus(numberReady, updatedNumber, numberAvailable, numberUnavailable int32) daemonSetModifier {
+func withDaemonSetStatus(numberAvailable, numberUnavailable int32) daemonSetModifier {
 	return func(instance *appsv1.DaemonSet) *appsv1.DaemonSet {
-		instance.Status.NumberReady = numberReady
 		instance.Status.NumberAvailable = numberAvailable
-		instance.Status.UpdatedNumberScheduled = updatedNumber
 		instance.Status.NumberUnavailable = numberUnavailable
 		return instance
 	}
@@ -340,11 +338,6 @@ func TestDaemonSetHook(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	const (
-		replica0 = 0
-		replica1 = 1
-		replica2 = 2
-	)
 	var (
 		argsLevel2 = 2
 		argsLevel6 = 6
@@ -352,8 +345,7 @@ func TestSync(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			// Only CR exists, everything else is created
-			name:   "initial sync",
+			name:   "only CR exists, everything else is created",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				driver: makeFakeDriverInstance(),
@@ -362,109 +354,75 @@ func TestSync(t *testing.T) {
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 0)),
+					withDaemonSetGeneration(1 /* Generation */, 0 /* ObservedGeneration */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
 					withGenerations(1),
-					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable)), // Degraded is set later on
+					withTrueConditions(conditionProgressing), // Progressing because (DS) ObservedGeneration != Generation
+					withFalseConditions(conditionAvailable),
+					// Degraded is not set during Sync(), it's set based on the return of this method
+				),
 			},
 		},
 		{
-			// DaemonSet is fully deployed and its status is synced to CR
+			name:   "daemonSet is fully deployed and its status is synced to CR",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(withGenerations(1)),
 			},
 			expectedObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
 		},
 		{
-			// DaemonSet gets degraded for some reason
-			name:   "daemonSet degraded",
+			name:   "daemonSet gets degraded",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica0, replica1)), // the DaemonSet has no pods, 1 unavailable
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(0 /* NumberAvailable */, 1 /* NumberUnavailable */)), // Something is wrong with DaemonSet
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(1),
 					withGeneration(1, 1),
-					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
+					withFalseConditions(conditionProgressing),
+					withTrueConditions(conditionAvailable)),
 			},
 			expectedObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica0, replica1)), // no change to the DaemonSet
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(0 /* NumberAvailable */, 1 /* NumberUnavailable */)), // No change to the DaemonSet
 				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
 					withGenerations(1),
 					withGeneration(1, 1),
-					withTrueConditions(conditionProgressing), // The operator is Progressing
-					withFalseConditions(conditionAvailable)), // The operator is not Available (node not running...)
+					withFalseConditions(conditionAvailable),    // The operator is not Available because there are no available pods
+					withFalseConditions(conditionProgressing)), // The operator is not Progressing because the config being rolled out is not new
 			},
 		},
 		{
-			// DaemonSet is updating pods
-			name:   "update",
+			name:   "user changes log level change and it's projected into the daemonSet",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica1, replica1)), // the DaemonSet is updating 1 pod
-				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
-					withGenerations(1),
-					withGeneration(1, 1),
-					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
-			},
-			expectedObjects: testObjects{
-				daemonSet: getDaemonSet(
-					argsLevel2,
-					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica1, replica1)), // no change to the DaemonSet
-				driver: makeFakeDriverInstance(
-					// withStatus(replica0),
-					withGenerations(1),
-					withGeneration(1, 1),
-					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
-			},
-		},
-		{
-			// User changes log level and it's projected into the DaemonSet
-			name:   "log level change",
-			images: defaultImages(),
-			initialObjects: testObjects{
-				daemonSet: getDaemonSet(
-					argsLevel2,
-					defaultImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
 					withLogLevel(opv1.Trace), // User changed the log level...
@@ -474,8 +432,8 @@ func TestSync(t *testing.T) {
 				daemonSet: getDaemonSet(
 					argsLevel6,      // New log level
 					defaultImages(), // And the same goes for the DaemonSet
-					withDaemonSetGeneration(2, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(2 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withLogLevel(opv1.Trace),
@@ -485,17 +443,15 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			// DaemonSet updates images
-			name:   "image change",
+			name:   "daemonSet updates images",
 			images: defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					oldImages(),
-					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),k
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
@@ -504,12 +460,124 @@ func TestSync(t *testing.T) {
 				daemonSet: getDaemonSet(
 					argsLevel2,
 					defaultImages(),
-					withDaemonSetGeneration(2, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetGeneration(2 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 0 /* NumberUnavailable */)),
 				driver: makeFakeDriverInstance(
-					// withStatus(replica1),
 					withGenerations(2),
 					withTrueConditions(conditionAvailable, conditionProgressing)),
+			},
+		},
+		{
+			name:   "daemonset is rolling out pods with a known config, falls back to non-progressing condition",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)),
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)), // It's known that we are NOT Progressing
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)), // No change to the DaemonSet
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)), // Not Progressing based on previous condition
+			},
+		},
+		{
+			name:   "daemonset is rolling out pods with a known config, falls back to progressing condition",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)),
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable, conditionProgressing)), // It's known that we are Progressing
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1 /* Generation */, 1 /* ObservedGeneration */),  // No change to DS
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)), // No change to the DaemonSet
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable, conditionProgressing)), // Progressing based on previous condition
+			},
+		},
+		{
+			name:   "daemonSet is rolling out pods with new config (working towards correct generation)",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(2 /* Generation */, 1 /* ObservedGeneration */),  // DaemonSet controller hasn't synced yet
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)), // DaemonSet is not done rolling out
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(3 /* Generation */, 1 /* ObservedGeneration */),  // Generation was bumped because DaemonSet was updated due to the CR having a DS outdated generation
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)), // No change to the DaemonSet
+				driver: makeFakeDriverInstance(
+					withGenerations(3), // Now CR knows about the newer generation
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withTrueConditions(conditionProgressing)), // Progressing because the config is new (ds.generation != ds.status.observedGeneration)
+			},
+		},
+		{
+			name:   "CR has outdated daemonSet generation",
+			images: defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					// Trick: bumped ObservedGeneration so that an early check
+					// (e.g., if ds.Generation != ds.Status.ObservedGeneration {progressing=true}})
+					//  doesn't prevent us from reaching the code we want to test
+					withDaemonSetGeneration(1 /* Generation */, 2 /* ObservedGeneration */),
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)),
+				driver: makeFakeDriverInstance(
+					withGenerations(0), // CR only knows about an outdated DaemonSet generation
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(2 /* Generation */, 2 /* ObservedGeneration */),  // Generation was bumped because DaemonSet was updated due to the CR having a DS outdated generation
+					withDaemonSetStatus(1 /* NumberAvailable */, 1 /* NumberUnavailable */)), // No change to the DaemonSet
+				driver: makeFakeDriverInstance(
+					withGenerations(2), // Now the CR has been updated with the updated DaemonSet generation
+					withGeneration(1, 1),
+					withTrueConditions(conditionAvailable),
+					withTrueConditions(conditionProgressing)), // Progressing because DaemonSet controller is not done rolling out pods AND it has a different generation than the one that CR knows about
 			},
 		},
 	}
