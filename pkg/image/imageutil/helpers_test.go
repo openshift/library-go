@@ -3,6 +3,10 @@ package imageutil
 import (
 	"reflect"
 	"testing"
+
+	imagev1 "github.com/openshift/api/image/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestJoinImageStreamTag(t *testing.T) {
@@ -151,5 +155,380 @@ func TestPrioritizeTags(t *testing.T) {
 		if !reflect.DeepEqual(tc.tags, tc.expected) {
 			t.Errorf("got %v, want %v", tc.tags, tc.expected)
 		}
+	}
+}
+
+func TestResolvePullSpecForTag(t *testing.T) {
+	int64p := func(i int64) *int64 {
+		return &i
+	}
+
+	tests := []struct {
+		name string
+
+		stream          *imagev1.ImageStream
+		tag             string
+		defaultExternal bool
+		requireLatest   bool
+
+		wantPullSpec   string
+		wantHasNewer   bool
+		wantHasStatus  bool
+		wantIsTagEmpty bool
+		wantErr        func(t *testing.T, err error)
+	}{
+		{
+			tag: "empty",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+			},
+			wantErr: func(t *testing.T, err error) {
+				if err != ErrNoStreamRepository {
+					t.Errorf("unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			tag: "empty",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantIsTagEmpty: true,
+			wantPullSpec:   "registry.test.svc/test/stream1:empty",
+		},
+		{
+			tag: "empty",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			defaultExternal: true,
+			wantIsTagEmpty:  true,
+			wantPullSpec:    "registry.test.svc/test/stream1:empty",
+		},
+		{
+			tag: "empty",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository:       "registry.test.svc/test/stream1",
+					PublicDockerImageRepository: "registry.test.public/test/stream1",
+				},
+			},
+			defaultExternal: true,
+			wantIsTagEmpty:  true,
+			wantPullSpec:    "registry.test.public/test/stream1:empty",
+		},
+		{
+			tag: "empty",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository:       "registry.test.svc/test/stream1",
+					PublicDockerImageRepository: "registry.test.public/test/stream1",
+				},
+			},
+			defaultExternal: true,
+			wantIsTagEmpty:  true,
+			wantPullSpec:    "registry.test.public/test/stream1:empty",
+		},
+		{
+			tag: "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            nil,
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantIsTagEmpty: true,
+			wantPullSpec:   "registry.test.svc/test/stream1:1",
+		},
+		{
+			tag: "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "ImageStreamTag", Name: "other"},
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantIsTagEmpty: true,
+			wantPullSpec:   "registry.test.svc/test/stream1:1",
+		},
+		{
+			name: "image hasn't been imported yet and isn't source policy, must wait for status",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.LocalTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "ImageStreamTag", Name: "test"},
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantIsTagEmpty: true,
+			wantPullSpec:   "registry.test.svc/test/stream1:1",
+		},
+		{
+			name: "image hasn't been imported yet and isn't source policy, must wait for status",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.LocalTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantIsTagEmpty: true,
+			wantPullSpec:   "registry.test.svc/test/stream1:1",
+		},
+		{
+			tag: "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+				},
+			},
+			wantPullSpec: "quay.io/test/first:tag",
+		},
+		{
+			name: "newer spec tag returning older",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+							Generation:      int64p(5),
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "1",
+							Items: []imagev1.TagEvent{
+								{
+									DockerImageReference: "quay.io/test/first:older",
+									Generation:           4,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantHasStatus: true,
+			wantHasNewer:  true,
+			wantPullSpec:  "quay.io/test/first:older",
+		},
+		{
+			name: "newer spec tag requiring latest",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+							Generation:      int64p(5),
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "1",
+							Items: []imagev1.TagEvent{
+								{
+									DockerImageReference: "quay.io/test/first:older",
+									Generation:           4,
+								},
+							},
+						},
+					},
+				},
+			},
+			requireLatest: true,
+			wantHasStatus: false,
+			wantPullSpec:  "quay.io/test/first:tag",
+		},
+		{
+			name: "spec tag is same generation",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+							Generation:      int64p(4),
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "1",
+							Items: []imagev1.TagEvent{
+								{
+									DockerImageReference: "quay.io/test/first:older",
+									Generation:           4,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantHasStatus: true,
+			wantHasNewer:  false,
+			wantPullSpec:  "quay.io/test/first:older",
+		},
+		{
+			name: "spec tag is older generation (pushed image)",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+							Generation:      int64p(4),
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "1",
+							Items: []imagev1.TagEvent{
+								{
+									DockerImageReference: "quay.io/test/first:newer",
+									Generation:           5,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantHasStatus: true,
+			wantPullSpec:  "quay.io/test/first:newer",
+		},
+		{
+			name: "local lookup to sha",
+			tag:  "1",
+			stream: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{Name: "stream1", Namespace: "test"},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{
+							Name:            "1",
+							ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.LocalTagReferencePolicy},
+							From:            &corev1.ObjectReference{Kind: "DockerImage", Name: "quay.io/test/first:tag"},
+							Generation:      int64p(4),
+						},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					DockerImageRepository: "registry.test.svc/test/stream1",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "1",
+							Items: []imagev1.TagEvent{
+								{
+									DockerImageReference: "quay.io/test/first:newer",
+									Image:                "sha256:13897c84ca5715a68feafcce9acf779f35806f42d1fcd37e8a2a5706c075252d",
+									Generation:           5,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantHasStatus: true,
+			wantPullSpec:  "registry.test.svc/test/stream1@sha256:13897c84ca5715a68feafcce9acf779f35806f42d1fcd37e8a2a5706c075252d",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pullSpec, hasNewer, hasStatus, isTagEmpty, err := resolvePullSpecForTag(tt.stream, tt.tag, tt.defaultExternal, tt.requireLatest)
+			if (err != nil) != (tt.wantErr != nil) {
+				t.Fatalf("error = %v, wantErr %v", err, tt.wantErr != nil)
+			}
+			if tt.wantErr != nil {
+				tt.wantErr(t, err)
+			}
+			if pullSpec != tt.wantPullSpec {
+				t.Errorf("pullSpec = %v, want %v", pullSpec, tt.wantPullSpec)
+			}
+			if hasNewer != tt.wantHasNewer {
+				t.Errorf("hasNewer = %v, want %v", hasNewer, tt.wantHasNewer)
+			}
+			if hasStatus != tt.wantHasStatus {
+				t.Errorf("hasStatus = %v, want %v", hasStatus, tt.wantHasStatus)
+			}
+			if isTagEmpty != tt.wantIsTagEmpty {
+				t.Errorf("isTagEmpty = %v, want %v", isTagEmpty, tt.wantIsTagEmpty)
+			}
+		})
 	}
 }
