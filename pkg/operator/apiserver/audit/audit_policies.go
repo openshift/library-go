@@ -132,3 +132,7 @@ func readPolicyNamesFromAsset() (map[string]struct{}, error) {
 
 	return policies, nil
 }
+
+func generate_dyanimc_policy(groupstring string) (byte[], error){
+
+}
