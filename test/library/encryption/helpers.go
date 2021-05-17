@@ -27,8 +27,12 @@ import (
 )
 
 var (
-	waitPollInterval      = 15 * time.Second
-	waitPollTimeout       = 60 * time.Minute // a happy path scenario needs to roll out 3 revisions each taking ~10 min
+	waitPollInterval = 15 * time.Second
+	// rolling out a single instance on AWS: 3m 30s (max delay aws) + 60s (in-flight req) + 3m 10s (starting new instance - observation) = 7m 40s
+	// rolling out all instances: 7m 40s * 3 = 23m
+	// a happy path scenario needs to roll out 3 revisions each taking 23m
+	// plus 10 additional minutes for actual migration
+	waitPollTimeout       = 69*time.Minute + 10*time.Minute
 	defaultEncryptionMode = string(configv1.EncryptionTypeIdentity)
 )
 
