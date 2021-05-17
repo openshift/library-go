@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 )
 
 // E is like testing.T except it overloads some methods to print to stdout
@@ -26,7 +27,7 @@ func NewE(t *testing.T, options ...func(*E)) *E {
 	// that means we don't have any visibility when running the tests from a local machine
 	//
 	// thus std logger will be used when the test are run from a local machine to give instant feedback
-	if len(os.Getenv("OPENSHIFT_BUILD_COMMIT")) == 0 {
+	if _, found := os.LookupEnv("CI"); !found {
 		e.local = true
 	}
 
@@ -38,16 +39,14 @@ func NewE(t *testing.T, options ...func(*E)) *E {
 }
 
 func (e *E) Log(args ...interface{}) {
-	if e.local {
-		fmt.Println(args...)
-		return
-	}
-	e.T.Log(args...)
+	e.Logf("%v", args...)
 }
 
 func (e *E) Logf(format string, args ...interface{}) {
+	format, args = withTimeStamp(format, args...)
+
 	if e.local {
-		fmt.Printf(fmt.Sprintf("%s\n", format), args...)
+		fmt.Println(fmt.Sprintf(format, args...))
 		return
 	}
 	e.T.Logf(format, args...)
@@ -59,14 +58,13 @@ func (e *E) Errorf(format string, args ...interface{}) {
 		e.handleTearDown(true)
 		os.Exit(-1)
 	}
+
+	format, args = withTimeStamp(format, args...)
 	e.T.Errorf(format, args...)
 	e.handleTearDown(e.Failed())
 }
 
 func (e *E) Error(args ...interface{}) {
-	if e.local {
-		e.Errorf("%v", args...)
-	}
 	e.Errorf("%v", args...)
 }
 
@@ -86,4 +84,11 @@ func (e *E) handleTearDown(failed bool) {
 	if e.tearDownFunc != nil {
 		e.tearDownFunc(e, failed)
 	}
+}
+
+func withTimeStamp(format string, args ...interface{}) (string, []interface{}) {
+	format = "%s: " + format
+	argsWithTS := []interface{}{time.Now().Format(time.StampMilli)}
+	argsWithTS = append(argsWithTS, args...)
+	return format, argsWithTS
 }
