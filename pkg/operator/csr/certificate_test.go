@@ -10,6 +10,7 @@ import (
 	certificates "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/klog/v2"
 )
 
 func TestIsCSRApproved(t *testing.T) {
@@ -206,4 +207,44 @@ func TestGetCertValidityPeriod(t *testing.T) {
 			}
 		})
 	}
+}
+
+// KubeconfigFile is the name of the kubeconfig file in kubeconfigSecret
+var KubeconfigFile = "kubeconfig"
+
+// HasValidClientCertificate checks if there exists a valid client certificate in the given secret
+// Returns true if all the conditions below are met:
+//   1. KubeconfigFile exists when hasKubeconfig is true
+//   2. TLSKeyFile exists
+//   3. TLSCertFile exists and the certificate is not expired
+//   4. If subject is specified, it matches the subject in the certificate stored in TLSCertFile
+func HasValidHubKubeconfig(secret *corev1.Secret, subject *pkix.Name) bool {
+	if len(secret.Data) == 0 {
+		klog.V(4).Infof("No data found in secret %q", secret.Namespace+"/"+secret.Name)
+		return false
+	}
+
+	if _, ok := secret.Data[KubeconfigFile]; !ok {
+		klog.V(4).Infof("No %q found in secret %q", KubeconfigFile, secret.Namespace+"/"+secret.Name)
+		return false
+	}
+
+	if _, ok := secret.Data[TLSKeyFile]; !ok {
+		klog.V(4).Infof("No %q found in secret %q", TLSKeyFile, secret.Namespace+"/"+secret.Name)
+		return false
+	}
+
+	certData, ok := secret.Data[TLSCertFile]
+	if !ok {
+		klog.V(4).Infof("No %q found in secret %q", TLSCertFile, secret.Namespace+"/"+secret.Name)
+		return false
+	}
+
+	valid, err := IsCertificateValid(certData, subject)
+	if err != nil {
+		klog.V(4).Infof("Unable to validate certificate in secret %s: %v", secret.Namespace+"/"+secret.Name, err)
+		return false
+	}
+
+	return valid
 }

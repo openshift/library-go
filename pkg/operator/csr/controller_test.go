@@ -23,6 +23,9 @@ const (
 	testAgentName  = "testagent"
 	testSecretName = "testsecret"
 	testCSRName    = "testcsr"
+
+	ClusterNameFile = "cluster-name"
+	AgentNameFile   = "agent-name"
 )
 
 var commonName = fmt.Sprintf("system:serviceaccount:%s:%s", csrtestinghelpers.TestManagedClusterName, testAgentName)

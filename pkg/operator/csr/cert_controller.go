@@ -29,19 +29,10 @@ import (
 )
 
 const (
-	// KubeconfigFile is the name of the kubeconfig file in kubeconfigSecret
-	KubeconfigFile = "kubeconfig"
 	// TLSKeyFile is the name of tls key file in kubeconfigSecret
 	TLSKeyFile = "tls.key"
 	// TLSCertFile is the name of the tls cert file in kubeconfigSecret
 	TLSCertFile = "tls.crt"
-
-	clusterNameAnnotation = "open-cluster-management.io/cluster-name"
-	ClusterNameFile       = "cluster-name"
-	AgentNameFile         = "agent-name"
-
-	ClusterNameLabel = "open-cluster-management.io/cluster-name"
-	AddonNameLabel   = "open-cluster-management.io/addon-name"
 )
 
 // ControllerResyncInterval is exposed so that integration tests can crank up the constroller sync speed.
