@@ -1,9 +1,22 @@
 package buildutil
 
 import (
+	"path/filepath"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 
 	buildv1 "github.com/openshift/api/build/v1"
+
+	"github.com/openshift/library-go/pkg/build/naming"
+)
+
+var (
+	// buildVolumeMountPath is where user defined BuildVolumes get mounted
+	buildVolumeMountPath = "/var/run/openshift.io/volumes"
+	// buildVolumeSuffix is a suffix for BuildVolume names
+	buildVolumeSuffix = "user-build-volume"
 )
 
 // GetInputReference returns the From ObjectReference associated with the
@@ -82,4 +95,16 @@ func ConfigNameForBuild(build *buildv1.Build) string {
 		return build.Labels[buildv1.BuildConfigLabel]
 	}
 	return build.Labels[buildv1.BuildConfigLabelDeprecated]
+}
+
+// NameForBuildVolume returns a valid pod volume name for the provided build volume name.
+func NameForBuildVolume(objName string) string {
+	// Volume names must be a valid DNS Label - see https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+	return naming.GetName(strings.ToLower(objName), buildVolumeSuffix, kvalidation.DNS1123LabelMaxLength)
+}
+
+// PathForBuildVolume returns the path in the builder container where the build volume is mounted.
+// This should not be confused with the destination path for the volume inside buildah's runtime environment.
+func PathForBuildVolume(objName string) string {
+	return filepath.Join(buildVolumeMountPath, NameForBuildVolume(objName))
 }
