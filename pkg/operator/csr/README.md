@@ -1,3 +1,5 @@
+You usually want to start with NewSimpleClientCertificateController.
+
 This package provides a control loop which takes as input
 1. target secret name
 2. cert common name
