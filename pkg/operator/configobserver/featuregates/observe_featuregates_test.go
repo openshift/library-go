@@ -69,6 +69,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"DownwardAPIHugePages=true",
 				"CSIDriverAzureDisk=true",
 				"CSIDriverVSphere=true",
+				"CSIMigrationAWS=true",
+				"CSIMigrationOpenStack=true",
 				"LegacyNodeRoleBehavior=false",
 			},
 		},
