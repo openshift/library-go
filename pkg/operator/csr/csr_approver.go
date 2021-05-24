@@ -10,11 +10,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	certv1informers "k8s.io/client-go/informers/certificates/v1"
 	certv1client "k8s.io/client-go/kubernetes/typed/certificates/v1"
 	certv1listers "k8s.io/client-go/listers/certificates/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -37,7 +39,7 @@ type csrApproverController struct {
 	csrClient certv1client.CertificateSigningRequestInterface
 	csrLister certv1listers.CertificateSigningRequestLister
 
-	csrName     string
+	csrFilter   CSRFilter
 	csrApprover CSRApprover
 }
 
@@ -49,21 +51,21 @@ func NewCSRApproverController(
 	operatorClient v1helpers.OperatorClient,
 	csrClient certv1client.CertificateSigningRequestInterface,
 	csrInformers certv1informers.CertificateSigningRequestInformer,
-	csrName string,
+	csrFilter CSRFilter,
 	csrApprover CSRApprover,
 	eventsRecorder events.Recorder,
 ) factory.Controller {
 	c := &csrApproverController{
 		csrClient:   csrClient,
 		csrLister:   csrInformers.Lister(),
-		csrName:     csrName,
+		csrFilter:   csrFilter,
 		csrApprover: csrApprover,
 	}
 
 	return factory.New().
 		WithSync(c.sync).
 		WithSyncDegradedOnError(operatorClient).
-		WithFilteredEventsInformers(factory.NamesFilter(c.csrName), csrInformers.Informer()).
+		WithInformers(csrInformers.Informer()).
 		ToController(
 			"WebhookAuthenticatorCertApprover_"+controllerName,
 			eventsRecorder.WithComponentSuffix("webhook-authenticator-cert-approver-"+controllerName),
@@ -71,7 +73,7 @@ func NewCSRApproverController(
 }
 
 func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	csr, err := c.csrLister.Get(c.csrName)
+	csrList, err := c.csrLister.List(labels.Everything())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -79,41 +81,50 @@ func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncCo
 		return err
 	}
 
-	if approved, denied := getCertApprovalCondition(&csr.Status); approved || denied {
-		return nil
+	for _, csr := range csrList {
+		if !c.csrFilter.Matches(csr) {
+			continue
+		}
+
+		if approved, denied := getCertApprovalCondition(&csr.Status); approved || denied {
+			return nil
+		}
+
+		csrCopy := csr.DeepCopy()
+
+		csrPEM, _ := pem.Decode(csr.Spec.Request)
+		if csrPEM == nil {
+			return fmt.Errorf("failed to PEM-parse the CSR block in .spec.request: no CSRs were found")
+		}
+
+		x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse the CSR bytes: %v", err)
+		}
+
+		if x509CSR.Subject.CommonName == csr.Spec.Username {
+			c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
+		}
+
+		csrDecision, denyReason, err := c.csrApprover.Approve(csr, x509CSR)
+		if err != nil {
+			return c.denyCSR(ctx, csrCopy, "CSRApprovingFailed", fmt.Sprintf("there was an error during CSR approval: %v", err), syncCtx.Recorder())
+		}
+
+		switch csrDecision {
+		case CSRDenied:
+			return c.denyCSR(ctx, csrCopy, "CSRDenied", denyReason, syncCtx.Recorder())
+		case CSRApproved:
+			return c.approveCSR(ctx, csrCopy, syncCtx.Recorder())
+		case CSRNoOpinion:
+			fallthrough
+		default:
+			return nil
+		}
 	}
 
-	csrCopy := csr.DeepCopy()
-
-	csrPEM, _ := pem.Decode(csr.Spec.Request)
-	if csrPEM == nil {
-		return fmt.Errorf("failed to PEM-parse the CSR block in .spec.request: no CSRs were found")
-	}
-
-	x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
-	if err != nil {
-		return fmt.Errorf("failed to parse the CSR bytes: %v", err)
-	}
-
-	if x509CSR.Subject.CommonName == csr.Spec.Username {
-		c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
-	}
-
-	csrDecision, denyReason, err := c.csrApprover.Approve(csr, x509CSR)
-	if err != nil {
-		return c.denyCSR(ctx, csrCopy, "CSRApprovingFailed", fmt.Sprintf("there was an error during CSR approval: %v", err), syncCtx.Recorder())
-	}
-
-	switch csrDecision {
-	case CSRDenied:
-		return c.denyCSR(ctx, csrCopy, "CSRDenied", denyReason, syncCtx.Recorder())
-	case CSRApproved:
-		return c.approveCSR(ctx, csrCopy, syncCtx.Recorder())
-	case CSRNoOpinion:
-		fallthrough
-	default:
-		return nil
-	}
+	// no matching CSRs were found
+	return nil
 }
 
 func (c *csrApproverController) denyCSR(ctx context.Context, csrCopy *certapiv1.CertificateSigningRequest, reason, message string, eventsRecorder events.Recorder) error {
@@ -193,4 +204,74 @@ func (a *ServiceAccountApprover) Approve(csrObj *certapiv1.CertificateSigningReq
 
 	return CSRApproved, "", nil
 
+}
+
+type CSRFilter interface {
+	Matches(csr *certapiv1.CertificateSigningRequest) bool
+}
+
+type AndFilter struct {
+	a, b CSRFilter
+}
+
+func NewAndFilter(a, b CSRFilter) *AndFilter {
+	return &AndFilter{a, b}
+}
+
+func (f *AndFilter) Matches(csr *certapiv1.CertificateSigningRequest) bool {
+	return f.a.Matches(csr) && f.b.Matches(csr)
+}
+
+type OrFilter struct {
+	a, b CSRFilter
+}
+
+func NewOrFilter(a, b CSRFilter) *OrFilter {
+	return &OrFilter{a, b}
+}
+
+func (f *OrFilter) Matches(csr *certapiv1.CertificateSigningRequest) bool {
+	return f.a.Matches(csr) || f.b.Matches(csr)
+}
+
+type LabelFilter struct {
+	labelSelector labels.Selector
+}
+
+func NewLabelFilter(selector labels.Selector) *LabelFilter {
+	return &LabelFilter{selector}
+}
+
+func (f *LabelFilter) Matches(csr *certapiv1.CertificateSigningRequest) bool {
+	return f.labelSelector.Matches(labels.Set(csr.Labels))
+}
+
+type NamesFilter struct {
+	names sets.String
+}
+
+func NewNamesFilter(names ...string) *NamesFilter {
+	return &NamesFilter{sets.NewString(names...)}
+}
+
+func (f *NamesFilter) Matches(csr *certapiv1.CertificateSigningRequest) bool {
+	return f.names.Has(csr.Name)
+}
+
+type RequestCommonNameFilter struct {
+	commonNames sets.String
+}
+
+func NewRequestCommonNameFilter(commonNames ...string) *RequestCommonNameFilter {
+	return &RequestCommonNameFilter{sets.NewString(commonNames...)}
+}
+
+func (f *RequestCommonNameFilter) Match(csr *certapiv1.CertificateSigningRequest) bool {
+	x509CSR, err := x509.ParseCertificateRequest(csr.Spec.Request)
+	if err != nil {
+		klog.V(4).Infof("failed to parse the CSR .spec.request of %q: %v", csr.Name, err)
+		return false
+	}
+
+	return f.commonNames.Has(x509CSR.Subject.CommonName)
 }

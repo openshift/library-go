@@ -116,7 +116,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 			c := &csrApproverController{
 				csrClient:   fakeClient.CertificatesV1().CertificateSigningRequests(),
 				csrLister:   csrLister,
-				csrName:     tt.csrName,
+				csrFilter:   NewNamesFilter(tt.csrName),
 				csrApprover: tt.csrApprover,
 			}
 			if err := c.sync(
