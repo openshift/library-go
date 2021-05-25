@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -33,7 +34,8 @@ func init() {
 	utilruntime.Must(api.InstallKube(genericScheme))
 	utilruntime.Must(apiextensionsv1beta1.AddToScheme(genericScheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(genericScheme))
-
+	// TODO: remove once openshift/api/pull/929 is merged
+	utilruntime.Must(policyv1.AddToScheme(genericScheme))
 }
 
 type AssetFunc func(name string) ([]byte, error)
@@ -164,6 +166,12 @@ func ApplyDirectly(clients *ClientHolder, recorder events.Recorder, manifests As
 				result.Error = fmt.Errorf("missing kubeClient")
 			} else {
 				result.Result, result.Changed, result.Error = ApplyRoleBinding(clients.kubeClient.RbacV1(), recorder, t)
+			}
+		case *policyv1.PodDisruptionBudget:
+			if clients.kubeClient == nil {
+				result.Error = fmt.Errorf("missing kubeClient")
+			} else {
+				result.Result, result.Changed, result.Error = ApplyPodDisruptionBudget(clients.kubeClient.PolicyV1(), recorder, t)
 			}
 		case *apiextensionsv1beta1.CustomResourceDefinition:
 			if clients.apiExtensionsClient == nil {
