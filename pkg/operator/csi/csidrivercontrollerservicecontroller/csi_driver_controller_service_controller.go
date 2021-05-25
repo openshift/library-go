@@ -42,8 +42,9 @@ type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 
 // CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
 //
-// The CSI Controller Service is represented by a Deployment. This Deployment deploys a pod with the CSI driver
-// and sidecars containers (provisioner, attacher, resizer, snapshotter, liveness-probe).
+// The CSI Controller Service is represented by a Deployment. The reason it's a Deployment is because this object
+// can be evicted and it's shut down on node drain, which is important for master nodes. This Deployment deploys a
+// pod with the CSI driver and sidecars containers (provisioner, attacher, resizer, snapshotter, liveness-probe).
 //
 // On every sync, this controller reads the Deployment from a static file and overrides a few fields:
 //
@@ -69,7 +70,7 @@ type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 //
 // 3. Cluster ID
 //
-// The placeholder ${CLUSTER_ID} specified in the static file can also be replaced if optionalConfigInformer is not nil.
+// The placeholder ${CLUSTER_ID} specified in the static file is replaced with the cluster ID (sometimes referred as infra ID).
 // This is mostly used by CSI drivers to tag volumes and snapshots so that those resources can be cleaned up on cluster deletion.
 //
 // This controller produces the following conditions:
@@ -83,8 +84,7 @@ type CSIDriverControllerServiceController struct {
 	operatorClient v1helpers.OperatorClient
 	kubeClient     kubernetes.Interface
 	deployInformer appsinformersv1.DeploymentInformer
-	// Optional config informer used to get cluster information.
-	optionalConfigInformer configinformers.SharedInformerFactory
+	configInformer configinformers.SharedInformerFactory
 	// Optional hook functions to modify the Deployment.
 	// If one of these functions returns an error, the sync
 	// fails indicating the ordinal position of the failed function.
@@ -95,11 +95,12 @@ type CSIDriverControllerServiceController struct {
 func NewCSIDriverControllerServiceController(
 	name string,
 	manifest []byte,
+	recorder events.Recorder,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	deployInformer appsinformersv1.DeploymentInformer,
-	optionalConfigInformer configinformers.SharedInformerFactory,
-	recorder events.Recorder,
+	configInformer configinformers.SharedInformerFactory,
+	optionalInformers []factory.Informer,
 	optionalDeploymentHooks ...DeploymentHookFunc,
 ) factory.Controller {
 	c := &CSIDriverControllerServiceController{
@@ -108,17 +109,16 @@ func NewCSIDriverControllerServiceController(
 		operatorClient:          operatorClient,
 		kubeClient:              kubeClient,
 		deployInformer:          deployInformer,
-		optionalConfigInformer:  optionalConfigInformer,
+		configInformer:          configInformer,
 		optionalDeploymentHooks: optionalDeploymentHooks,
 	}
 
-	informers := []factory.Informer{
+	informers := append(
+		optionalInformers,
 		operatorClient.Informer(),
 		deployInformer.Informer(),
-	}
-	if c.optionalConfigInformer != nil {
-		informers = append(informers, optionalConfigInformer.Config().V1().Infrastructures().Informer())
-	}
+		configInformer.Config().V1().Infrastructures().Informer(),
+	)
 
 	return factory.New().WithInformers(
 		informers...,
@@ -151,14 +151,11 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 		return nil
 	}
 
-	var clusterID string
-	if c.optionalConfigInformer != nil {
-		infra, err := c.optionalConfigInformer.Config().V1().Infrastructures().Lister().Get(infraConfigName)
-		if err != nil {
-			return err
-		}
-		clusterID = infra.Status.InfrastructureName
+	infra, err := c.configInformer.Config().V1().Infrastructures().Lister().Get(infraConfigName)
+	if err != nil {
+		return err
 	}
+	clusterID := infra.Status.InfrastructureName
 
 	manifest := replacePlaceholders(c.manifest, opSpec, clusterID)
 	required := resourceread.ReadDeploymentV1OrDie(manifest)
