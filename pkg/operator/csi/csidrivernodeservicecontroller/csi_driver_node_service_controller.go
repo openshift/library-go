@@ -78,10 +78,11 @@ type CSIDriverNodeServiceController struct {
 func NewCSIDriverNodeServiceController(
 	name string,
 	manifest []byte,
+	recorder events.Recorder,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	dsInformer appsinformersv1.DaemonSetInformer,
-	recorder events.Recorder,
+	optionalInformers []factory.Informer,
 	optionalDaemonSetHooks ...DaemonSetHookFunc,
 ) factory.Controller {
 	c := &CSIDriverNodeServiceController{
@@ -92,10 +93,9 @@ func NewCSIDriverNodeServiceController(
 		dsInformer:             dsInformer,
 		optionalDaemonSetHooks: optionalDaemonSetHooks,
 	}
-
+	informers := append(optionalInformers, operatorClient.Informer(), dsInformer.Informer())
 	return factory.New().WithInformers(
-		operatorClient.Informer(),
-		dsInformer.Informer(),
+		informers...,
 	).WithSync(
 		c.sync,
 	).ResyncEvery(
