@@ -2,6 +2,7 @@ package resourceapply
 
 import (
 	"fmt"
+	policyv1 "k8s.io/api/policy/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -188,6 +189,12 @@ func ApplyDirectly(clients *ClientHolder, recorder events.Recorder, manifests As
 				result.Error = fmt.Errorf("missing kubeClient")
 			} else {
 				result.Result, result.Changed, result.Error = ApplyCSIDriver(clients.kubeClient.StorageV1(), recorder, t)
+			}
+		case *policyv1.PodDisruptionBudget:
+			if clients.kubeClient == nil {
+				result.Error = fmt.Errorf("missing kubeClient")
+			} else {
+				result.Result, result.Changed, result.Error = ApplyPDB(clients.kubeClient.PolicyV1(), recorder, t)
 			}
 		case *unstructured.Unstructured:
 			if clients.dynamicClient == nil {
