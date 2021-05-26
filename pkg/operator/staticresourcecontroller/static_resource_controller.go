@@ -7,6 +7,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -156,6 +157,8 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 			ret = ret.AddInformer(informer.Rbac().V1().Roles().Informer())
 		case *rbacv1.RoleBinding:
 			ret = ret.AddInformer(informer.Rbac().V1().RoleBindings().Informer())
+		case *policyv1.PodDisruptionBudget:
+			ret = ret.AddInformer(informer.Policy().V1().PodDisruptionBudgets().Informer())
 		case *storagev1.StorageClass:
 			ret = ret.AddInformer(informer.Storage().V1().StorageClasses().Informer())
 		case *storagev1.CSIDriver:

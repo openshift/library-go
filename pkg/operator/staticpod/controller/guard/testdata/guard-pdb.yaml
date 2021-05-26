@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: "etc-quorum-guard"
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: etcd-quorum-guard

@@ -2,15 +2,18 @@ package staticpod
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/manager"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/guard"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
@@ -20,6 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +58,12 @@ type staticPodOperatorControllerBuilder struct {
 
 	// pruning information
 	pruneCommand []string
+	// deploymentManifest is the guard deployment to ensure static pods cannot be evicted
+	deploymentManifest []byte
+	// pdbManifest is the guard deployment to ensure static pods cannot be evicted
+	pdbManifest []byte
+	// infraLister is used in guard controller to identify the cluster topology
+	infraLister configv1listers.InfrastructureLister
 	// TODO de-dupe this.  I think it's actually a directory name
 	staticPodPrefix string
 }
@@ -83,6 +93,9 @@ type Builder interface {
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
 	ToControllers() (manager.ControllerManager, error)
+	WithGuardDeployment(assetFunc func(string) []byte, file string) Builder
+	WithGuardPDB(assetFunc func(string) []byte, file string) Builder
+	WithInfrastructureLister(infraLister configv1listers.InfrastructureLister) Builder
 }
 
 func (b *staticPodOperatorControllerBuilder) WithEvents(eventRecorder events.Recorder) Builder {
@@ -135,6 +148,21 @@ func (b *staticPodOperatorControllerBuilder) WithCustomInstaller(command []strin
 func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, staticPodPrefix string) Builder {
 	b.pruneCommand = command
 	b.staticPodPrefix = staticPodPrefix
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithGuardDeployment(assetFunc func(string) []byte, file string) Builder {
+	b.deploymentManifest = assetFunc(file)
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithGuardPDB(assetFunc func(string) []byte, file string) Builder {
+	b.pdbManifest = assetFunc(file)
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithInfrastructureLister(infraLister configv1listers.InfrastructureLister) Builder {
+	b.infraLister = infraLister
 	return b
 }
 
@@ -262,6 +290,19 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	manager.WithController(unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.staticPodOperatorClient, eventRecorder), 1)
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)
+	// Add guard controller
+	//TODO: Don't even run this controller when the cluster runs in non-HA mode
+	if len(b.deploymentManifest) > 0 && len(b.pdbManifest) > 0 {
+		manager.WithController(guard.NewController(b.staticPodOperatorClient,
+			b.kubeClient,
+			b.kubeInformers,
+			b.eventRecorder,
+			b.infraLister,
+			b.deploymentManifest,
+			b.pdbManifest,
+			b.operandNamespace,
+			os.Getenv("CLI_IMAGE")), 1)
+	}
 
 	return manager, errors.NewAggregate(errs)
 }
