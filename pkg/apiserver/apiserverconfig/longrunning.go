@@ -11,7 +11,7 @@ import (
 
 // request paths that match this regular expression will be treated as long running
 // and not subjected to the default server timeout.
-const originLongRunningEndpointsRE = "(/|^)(buildconfigs/.*/instantiatebinary|imagestreamimports)$"
+const originLongRunningEndpointsRE = "(/|^)(buildconfigs/.*/instantiatebinary|imagestreamimports|imagestreamimports)$"
 
 var (
 	originLongRunningRequestRE = regexp.MustCompile(originLongRunningEndpointsRE)
