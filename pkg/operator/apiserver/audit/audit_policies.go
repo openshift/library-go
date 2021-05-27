@@ -49,14 +49,18 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 }
 
 // GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
-func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
-	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
-	if err != nil {
-		return nil, err
-	}
+//func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
+//	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
+//
+//}
 
-	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
-}
+//GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
+func GetAuditPolicies()
 
 // getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces and name
 func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
@@ -132,7 +136,7 @@ func readPolicyNamesFromAsset() (map[string]struct{}, error) {
 
 	return policies, nil
 }
-
-func generate_dyanimc_policy(groupstring string) (byte[], error){
-
-}
+//
+//func generate_dynamic_policy(groupstring string *auditTemplate) (byte[], error){
+//
+//}
