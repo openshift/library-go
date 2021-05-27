@@ -1728,7 +1728,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 				eventRecorder:       tt.fields.eventRecorder,
 				installerPodImageFn: tt.fields.installerPodImageFn,
 			}
-			got, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus, tt.args.resourceVersion)
+			got, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1994,8 +1994,8 @@ func TestSetConditions(t *testing.T) {
 func TestEnsureRequiredResources(t *testing.T) {
 	tests := []struct {
 		name           string
-		certConfigMaps []revision.RevisionResource
-		certSecrets    []revision.RevisionResource
+		certConfigMaps []UnrevisionedResource
+		certSecrets    []UnrevisionedResource
 
 		revisionNumber int32
 		configMaps     []revision.RevisionResource
@@ -2009,10 +2009,10 @@ func TestEnsureRequiredResources(t *testing.T) {
 		},
 		{
 			name: "skip-optional",
-			certConfigMaps: []revision.RevisionResource{
+			certConfigMaps: []UnrevisionedResource{
 				{Name: "foo-cm", Optional: true},
 			},
-			certSecrets: []revision.RevisionResource{
+			certSecrets: []UnrevisionedResource{
 				{Name: "foo-s", Optional: true},
 			},
 		},
@@ -2041,20 +2041,20 @@ func TestEnsureRequiredResources(t *testing.T) {
 		},
 		{
 			name: "wait-required-certs",
-			certConfigMaps: []revision.RevisionResource{
+			certConfigMaps: []UnrevisionedResource{
 				{Name: "foo-cm"},
 			},
-			certSecrets: []revision.RevisionResource{
+			certSecrets: []UnrevisionedResource{
 				{Name: "foo-s"},
 			},
 			expectedErr: "missing required resources: [configmaps: foo-cm, secrets: foo-s]",
 		},
 		{
 			name: "found-required-certs",
-			certConfigMaps: []revision.RevisionResource{
+			certConfigMaps: []UnrevisionedResource{
 				{Name: "foo-cm"},
 			},
-			certSecrets: []revision.RevisionResource{
+			certSecrets: []UnrevisionedResource{
 				{Name: "foo-s"},
 			},
 			startingResources: []runtime.Object{
