@@ -18,14 +18,14 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 )
 
 type CertSyncController struct {
 	destinationDir string
 	namespace      string
-	configMaps     []revision.RevisionResource
-	secrets        []revision.RevisionResource
+	configMaps     []installer.UnrevisionedResource
+	secrets        []installer.UnrevisionedResource
 
 	configmapGetter corev1interface.ConfigMapInterface
 	configMapLister v1.ConfigMapLister
@@ -34,7 +34,7 @@ type CertSyncController struct {
 	eventRecorder   events.Recorder
 }
 
-func NewCertSyncController(targetDir, targetNamespace string, configmaps, secrets []revision.RevisionResource, kubeClient kubernetes.Interface, informers informers.SharedInformerFactory, eventRecorder events.Recorder) factory.Controller {
+func NewCertSyncController(targetDir, targetNamespace string, configmaps, secrets []installer.UnrevisionedResource, kubeClient kubernetes.Interface, informers informers.SharedInformerFactory, eventRecorder events.Recorder) factory.Controller {
 	c := &CertSyncController{
 		destinationDir: targetDir,
 		namespace:      targetNamespace,
