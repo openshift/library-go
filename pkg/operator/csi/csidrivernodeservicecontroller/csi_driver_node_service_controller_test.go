@@ -103,10 +103,11 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		makeFakeManifest(),
+		events.NewInMemoryRecorder(operandName),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
-		events.NewInMemoryRecorder(operandName),
+		nil, /* optional informers */
 	)
 
 	// Pretend env vars are set
@@ -314,10 +315,11 @@ func TestDaemonSetHook(t *testing.T) {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		makeFakeManifest(),
+		events.NewInMemoryRecorder(operandName),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
-		events.NewInMemoryRecorder(operandName),
+		nil, /* optional informers */
 		daemonSetAnnotationHook,
 	)
 

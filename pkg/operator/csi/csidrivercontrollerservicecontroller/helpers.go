@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	opv1 "github.com/openshift/api/operator/v1"
 
@@ -29,7 +31,7 @@ func WithObservedProxyDeploymentHook() DeploymentHookFunc {
 	}
 }
 
-// With SecretHashAnnotationHook creates a deployment hook that annotates a Deployment with a secret's hash.
+// WithSecretHashAnnotationHook creates a deployment hook that annotates a Deployment with a secret's hash.
 func WithSecretHashAnnotationHook(
 	namespace string,
 	secretName string,
@@ -60,6 +62,29 @@ func WithSecretHashAnnotationHook(
 			deployment.Annotations[annotationKey] = v
 			deployment.Spec.Template.Annotations[annotationKey] = v
 		}
+		return nil
+	}
+}
+
+// WithReplicasHook sets the deployment.Spec.Replicas field according to the number
+// of available nodes. If the number of available nodes is bigger than one, then the
+// number of replicas will be two. The number of nodes is determined by the node
+// selector specified in the field deployment.Spec.Templates.NodeSelector.
+// When node ports or hostNetwork are used, maxSurge=0 should be set in the
+// Deployment RollingUpdate strategy to prevent the new pod from getting stuck
+// waiting for a node with free ports.
+func WithReplicasHook(nodeLister corev1listers.NodeLister) DeploymentHookFunc {
+	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		nodeSelector := deployment.Spec.Template.Spec.NodeSelector
+		nodes, err := nodeLister.List(labels.SelectorFromSet(nodeSelector))
+		if err != nil {
+			return err
+		}
+		replicas := int32(1)
+		if len(nodes) > 1 {
+			replicas = int32(2)
+		}
+		deployment.Spec.Replicas = &replicas
 		return nil
 	}
 }

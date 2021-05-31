@@ -122,11 +122,12 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewCSIDriverControllerServiceController(
 		controllerName,
 		makeFakeManifest(),
+		events.NewInMemoryRecorder(operandName),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
 		configInformerFactory,
-		events.NewInMemoryRecorder(operandName),
+		nil, /* optional informers */
 	)
 
 	// Pretend env vars are set
@@ -340,6 +341,13 @@ func withDeploymentGeneration(generations ...int64) deploymentModifier {
 	}
 }
 
+func withDeploymentNodeSelector(selector map[string]string) deploymentModifier {
+	return func(instance *appsv1.Deployment) *appsv1.Deployment {
+		instance.Spec.Template.Spec.NodeSelector = selector
+		return instance
+	}
+}
+
 // Infrastructure
 func makeInfra() *configv1.Infrastructure {
 	return &configv1.Infrastructure{
@@ -388,16 +396,21 @@ func TestDeploymentHook(t *testing.T) {
 	// Initialize
 	coreClient := fakecore.NewSimpleClientset()
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(coreClient, 0 /*no resync */)
+	initialInfras := []runtime.Object{makeInfra()}
+	configClient := fakeconfig.NewSimpleClientset(initialInfras...)
+	configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+	configInformerFactory.Config().V1().Infrastructures().Informer().GetIndexer().Add(initialInfras[0])
 	driverInstance := makeFakeDriverInstance()
 	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
 	controller := NewCSIDriverControllerServiceController(
 		controllerName,
 		makeFakeManifest(),
+		events.NewInMemoryRecorder(operandName),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
-		nil, /* config informer*/
-		events.NewInMemoryRecorder(operandName),
+		configInformerFactory,
+		nil, /* optional informers */
 		deploymentAnnotationHook,
 	)
 
@@ -756,6 +769,8 @@ spec:
       labels:
         app: test-csi-driver-controller
     spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
       containers:
         - name: csi-driver
           image: ${DRIVER_IMAGE}
