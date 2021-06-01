@@ -22,6 +22,7 @@ import (
 
 	"github.com/openshift/api"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -42,6 +43,7 @@ var (
 
 func init() {
 	utilruntime.Must(api.InstallKube(genericScheme))
+	utilruntime.Must(migrationv1alpha1.AddToScheme(genericScheme))
 }
 
 type StaticResourceController struct {
