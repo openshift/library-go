@@ -287,7 +287,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 
 	// Copy the current state of the certs as we see them.  This primes us once and allows a kube-apiserver to start once
 	if len(o.CertDir) > 0 {
-		if err := o.copySecretsAndConfigMaps(ctx, o.CertDir,
+		if err := o.copySecretsAndConfigMaps(ctx, path.Join(resourceDir, o.CertDir),
 			sets.NewString(o.CertSecretNames...),
 			sets.NewString(o.OptionalCertSecretNamePrefixes...),
 			sets.NewString(o.CertConfigMapNamePrefixes...),
