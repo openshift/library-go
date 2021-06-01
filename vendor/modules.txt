@@ -1077,12 +1077,14 @@ k8s.io/utils/trace
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.15
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/kube-storage-version-migrator v0.0.3
+# sigs.k8s.io/kube-storage-version-migrator v0.0.4
 ## explicit
 sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/fake
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/scheme
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1/fake
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
 sigs.k8s.io/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
