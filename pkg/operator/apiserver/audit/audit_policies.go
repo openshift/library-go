@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
+	auditconfig "k8s.io/apiserver/pkg/apis/audit/v1"
 
 	assets "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -48,6 +49,12 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 	}
 }
 
+//GetAuditPolicies  takes as input the Audit configuration of the API and returns a file that holds the audit policies, that will be compared against
+//the controller func configmap
+func GetAuditPolicies(auditconfig){
+
+}
+
 // GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
 //func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
 //	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
@@ -58,9 +65,6 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 //	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
 //
 //}
-
-//GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
-func GetAuditPolicies()
 
 // getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces and name
 func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
