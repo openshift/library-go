@@ -39,7 +39,6 @@ type csrApproverController struct {
 	csrClient certv1client.CertificateSigningRequestInterface
 	csrLister certv1listers.CertificateSigningRequestLister
 
-	csrFilter   CSRFilter
 	csrApprover CSRApprover
 }
 
@@ -58,14 +57,21 @@ func NewCSRApproverController(
 	c := &csrApproverController{
 		csrClient:   csrClient,
 		csrLister:   csrInformers.Lister(),
-		csrFilter:   csrFilter,
 		csrApprover: csrApprover,
+	}
+
+	csrFilterConverted := func(csr interface{}) bool {
+		csrObj, ok := csr.(*certapiv1.CertificateSigningRequest)
+		if !ok {
+			return false
+		}
+		return csrFilter.Matches(csrObj)
 	}
 
 	return factory.New().
 		WithSync(c.sync).
 		WithSyncDegradedOnError(operatorClient).
-		WithInformers(csrInformers.Informer()).
+		WithFilteredEventsInformersQueueKeyFunc(factory.ObjectNameToKey, csrFilterConverted, csrInformers.Informer()).
 		ToController(
 			"WebhookAuthenticatorCertApprover_"+controllerName,
 			eventsRecorder.WithComponentSuffix("webhook-authenticator-cert-approver-"+controllerName),
@@ -73,7 +79,7 @@ func NewCSRApproverController(
 }
 
 func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	csrList, err := c.csrLister.List(labels.Everything())
+	csr, err := c.csrLister.Get(syncCtx.QueueKey())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -81,50 +87,41 @@ func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncCo
 		return err
 	}
 
-	for _, csr := range csrList {
-		if !c.csrFilter.Matches(csr) {
-			continue
-		}
-
-		if approved, denied := getCertApprovalCondition(&csr.Status); approved || denied {
-			return nil
-		}
-
-		csrCopy := csr.DeepCopy()
-
-		csrPEM, _ := pem.Decode(csr.Spec.Request)
-		if csrPEM == nil {
-			return fmt.Errorf("failed to PEM-parse the CSR block in .spec.request: no CSRs were found")
-		}
-
-		x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse the CSR bytes: %v", err)
-		}
-
-		if x509CSR.Subject.CommonName == csr.Spec.Username {
-			c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
-		}
-
-		csrDecision, denyReason, err := c.csrApprover.Approve(csr, x509CSR)
-		if err != nil {
-			return c.denyCSR(ctx, csrCopy, "CSRApprovingFailed", fmt.Sprintf("there was an error during CSR approval: %v", err), syncCtx.Recorder())
-		}
-
-		switch csrDecision {
-		case CSRDenied:
-			return c.denyCSR(ctx, csrCopy, "CSRDenied", denyReason, syncCtx.Recorder())
-		case CSRApproved:
-			return c.approveCSR(ctx, csrCopy, syncCtx.Recorder())
-		case CSRNoOpinion:
-			fallthrough
-		default:
-			return nil
-		}
+	if approved, denied := getCertApprovalCondition(&csr.Status); approved || denied {
+		return nil
 	}
 
-	// no matching CSRs were found
-	return nil
+	csrCopy := csr.DeepCopy()
+
+	csrPEM, _ := pem.Decode(csr.Spec.Request)
+	if csrPEM == nil {
+		return fmt.Errorf("failed to PEM-parse the CSR block in .spec.request: no CSRs were found")
+	}
+
+	x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse the CSR bytes: %v", err)
+	}
+
+	if x509CSR.Subject.CommonName == csr.Spec.Username {
+		c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
+	}
+
+	csrDecision, denyReason, err := c.csrApprover.Approve(csr, x509CSR)
+	if err != nil {
+		return c.denyCSR(ctx, csrCopy, "CSRApprovingFailed", fmt.Sprintf("there was an error during CSR approval: %v", err), syncCtx.Recorder())
+	}
+
+	switch csrDecision {
+	case CSRDenied:
+		return c.denyCSR(ctx, csrCopy, "CSRDenied", denyReason, syncCtx.Recorder())
+	case CSRApproved:
+		return c.approveCSR(ctx, csrCopy, syncCtx.Recorder())
+	case CSRNoOpinion:
+		fallthrough
+	default:
+		return nil
+	}
 }
 
 func (c *csrApproverController) denyCSR(ctx context.Context, csrCopy *certapiv1.CertificateSigningRequest, reason, message string, eventsRecorder events.Recorder) error {
