@@ -8,7 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-	auditconfig "k8s.io/apiserver/pkg/apis/audit/v1"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
 	assets "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -51,7 +51,7 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 
 //GetAuditPolicies  takes as input the Audit configuration of the API and returns a file that holds the audit policies, that will be compared against
 //the controller func configmap
-func GetAuditPolicies(auditconfig){
+func GetAuditPolicies() (*auditv1.Policy, error){
 
 }
 
