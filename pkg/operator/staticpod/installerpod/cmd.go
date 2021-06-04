@@ -54,8 +54,16 @@ type InstallOptions struct {
 
 	Timeout time.Duration
 
+	CopyContentFn  CopyContentFunc
+	InitializeFn   InitializeFunc
 	PodMutationFns []PodMutationFunc
 }
+
+// CopyContentFunc enables custom content copying
+type CopyContentFunc func(resourceDir, podManifestDir string) error
+
+// InitializeFunc supports configuring the options after flags have been parsed
+type InitializeFunc func(ctx context.Context, o *InstallOptions) error
 
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
 type PodMutationFunc func(pod *corev1.Pod) error
@@ -64,14 +72,26 @@ func NewInstallOptions() *InstallOptions {
 	return &InstallOptions{}
 }
 
+func (o *InstallOptions) WithCopyContentFn(copyContentFn CopyContentFunc) *InstallOptions {
+	o.CopyContentFn = copyContentFn
+	return o
+}
+
+func (o *InstallOptions) WithInitializeFn(initializeFn InitializeFunc) *InstallOptions {
+	o.InitializeFn = initializeFn
+	return o
+}
+
 func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *InstallOptions {
 	o.PodMutationFns = append(o.PodMutationFns, podMutationFn)
 	return o
 }
 
 func NewInstaller() *cobra.Command {
-	o := NewInstallOptions()
+	return NewInstallerWithOptions(NewInstallOptions())
+}
 
+func NewInstallerWithOptions(o *InstallOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "installer",
 		Short: "Install static pod and related resources",
@@ -249,6 +269,13 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 }
 
 func (o *InstallOptions) copyContent(ctx context.Context) error {
+	if o.InitializeFn != nil {
+		klog.V(2).Infof("Executing custom initialization ...")
+		if err := o.InitializeFn(ctx, o); err != nil {
+			return err
+		}
+	}
+
 	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
 	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
@@ -347,6 +374,13 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, podFileName), finalPodBytes)
 	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
 		return err
+	}
+
+	if o.CopyContentFn != nil {
+		klog.V(2).Infof("Executing custom content copy ...")
+		if err := o.CopyContentFn(resourceDir, o.PodManifestDir); err != nil {
+			return err
+		}
 	}
 
 	return nil
