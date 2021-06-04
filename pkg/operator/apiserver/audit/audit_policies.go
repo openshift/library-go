@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	openshiftapi "github.com/openshift/api"
 	corev1 "k8s.io/api/core/v1"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
@@ -51,7 +52,7 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 
 //GetAuditPolicies  takes as input the Audit configuration of the API and returns a file that holds the audit policies, that will be compared against
 //the controller func configmap
-func GetAuditPolicies() (*auditv1.Policy, error){
+func GetAuditPolicies(profile string, auditPolicyAsset string, []openshiftapi.CustomRule) (*auditv1.Policy, error){
 
 }
 
