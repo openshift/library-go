@@ -31,8 +31,6 @@ data:
       - "/version"
       - "/healthz"
       - "/readyz"
-    - level:
-        userGroups:
     # Log the full Identity API resource object so that the audit trail
     # allows us to match the username with the IDP identity.
     - level: RequestResponse
