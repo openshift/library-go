@@ -2,7 +2,9 @@ package staticresourcecontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	configv1 "github.com/openshift/api/config/v1"
 	"strings"
 	"time"
 
@@ -57,7 +59,8 @@ type StaticResourceController struct {
 
 	eventRecorder events.Recorder
 
-	factory *factory.Factory
+	factory    *factory.Factory
+	restMapper meta.RESTMapper
 }
 
 // NewStaticResourceController returns a controller that maintains certain static manifests. Most "normal" types are supported,
@@ -180,6 +183,11 @@ func (c *StaticResourceController) AddInformer(informer cache.SharedIndexInforme
 	return c
 }
 
+func (c *StaticResourceController) AddRESTMapper(mapper meta.RESTMapper) *StaticResourceController {
+	c.restMapper = mapper
+	return c
+}
+
 func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedIndexInformer, namespaces ...string) *StaticResourceController {
 	c.factory.WithNamespaceInformer(informer, namespaces...)
 	return c
@@ -238,6 +246,53 @@ func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.
 
 func (c *StaticResourceController) Name() string {
 	return "StaticResourceController"
+}
+
+func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference, error) {
+	if c.restMapper == nil {
+		return nil, errors.New("StaticResourceController.restMapper is nil")
+	}
+
+	acc := make([]configv1.ObjectReference, 0)
+	errors := []error{}
+
+	for _, file := range c.files {
+		// parse static asset
+		objBytes, err := c.manifests(file)
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		requiredObj, _, err := genericCodec.Decode(objBytes, nil, nil)
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		metadata, err := meta.Accessor(requiredObj)
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		// map gvk from static asset to gvr
+		gvk := requiredObj.GetObjectKind().GroupVersionKind()
+		mapping, err := c.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			errors = append(errors, err)
+			continue
+		}
+		gvr := mapping.Resource
+		acc = append(acc, configv1.ObjectReference{
+			Group:     gvk.Group,
+			Resource:  gvr.Resource,
+			Namespace: metadata.GetNamespace(),
+			Name:      metadata.GetName(),
+		})
+	}
+
+	if len(errors) > 0 {
+		return nil, utilerrors.NewAggregate(errors)
+	}
+	return acc, nil
 }
 
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
