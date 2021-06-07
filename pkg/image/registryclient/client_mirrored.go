@@ -216,6 +216,9 @@ func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r Repos
 		if err != nil {
 			return err
 		}
+		if len(alternates) == 0 {
+			return attemptErr
+		}
 		if alternateErr := r.attemptRepos(ctx, alternates, fn); alternateErr != nil {
 			return attemptErr
 		}
