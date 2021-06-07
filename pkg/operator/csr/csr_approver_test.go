@@ -11,9 +11,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/stretchr/testify/require"
+
 	certapiv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +20,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	certv1listers "k8s.io/client-go/listers/certificates/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
+
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 func Test_csrApproverController_sync(t *testing.T) {
@@ -116,12 +118,11 @@ func Test_csrApproverController_sync(t *testing.T) {
 			c := &csrApproverController{
 				csrClient:   fakeClient.CertificatesV1().CertificateSigningRequests(),
 				csrLister:   csrLister,
-				csrFilter:   NewNamesFilter(tt.csrName),
 				csrApprover: tt.csrApprover,
 			}
 			if err := c.sync(
 				context.Background(),
-				factory.NewSyncContext("csr-approver-test", events.NewInMemoryRecorder("csr-approver-test")),
+				fakeSyncContext{queueKey: tt.csrName, eventRecorder: events.NewInMemoryRecorder("csr-approver-test")},
 			); (err != nil) != tt.wantErr {
 				t.Errorf("csrApproverController.sync() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -322,4 +323,21 @@ func pemEncodeCSR(csrDER []byte) ([]byte, error) {
 	}
 
 	return buffer.Bytes(), nil
+}
+
+type fakeSyncContext struct {
+	eventRecorder events.Recorder
+	queueKey      string
+}
+
+func (c fakeSyncContext) Queue() workqueue.RateLimitingInterface {
+	return nil
+}
+
+func (c fakeSyncContext) QueueKey() string {
+	return c.queueKey
+}
+
+func (c fakeSyncContext) Recorder() events.Recorder {
+	return c.eventRecorder
 }
