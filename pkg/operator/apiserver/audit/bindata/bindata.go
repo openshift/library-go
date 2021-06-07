@@ -74,139 +74,6 @@ data:
       resources:
       - group: ""
         resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # Log the full Identity API resource object so that the audit trail
-    # allows us to match the username with the IDP identity.
-    - level: RequestResponse
-      verbs: ["create", "update", "patch"]
-      resources:
-        - group: "user.openshift.io"
-          resources: ["identities"]
-    # A catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - "RequestReceived"
-
-  writerequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: WriteRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # log request and response payloads for all write requests
-    - level: RequestResponse
-      verbs:
-      - update
-      - patch
-      - create
-      - delete
-      - deletecollection
-    # catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - RequestReceived
-
-  allrequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: AllRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # catch-all rule to log all other requests with request and response payloads
-    - level: RequestResponse
-
-  secure-oauth-storage-default.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: Default
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
     # Don't log authenticated requests to certain non-resource URL paths.
     - level: None
       userGroups: ["system:authenticated", "system:unauthenticated"]
@@ -230,8 +97,7 @@ data:
       # generate an audit event in RequestReceived.
       omitStages:
       - "RequestReceived"
-
-  secure-oauth-storage-writerequestbodies.yaml: |
+  writerequestbodies.yaml: |
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
     metadata:
@@ -277,8 +143,7 @@ data:
       # generate an audit event in RequestReceived.
       omitStages:
       - RequestReceived
-
-  secure-oauth-storage-allrequestbodies.yaml: |
+  allrequestbodies.yaml: |
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
     metadata:
@@ -311,7 +176,8 @@ data:
       - group: "oauth.openshift.io"
         resources: ["oauthclients"]
     # catch-all rule to log all other requests with request and response payloads
-    - level: RequestResponse`)
+    - level: RequestResponse
+`)
 
 func pkgOperatorApiserverAuditManifestsAuditPoliciesCmYamlBytes() ([]byte, error) {
 	return _pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml, nil
