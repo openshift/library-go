@@ -236,6 +236,7 @@ func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName st
 	}
 	return &blobMirroredRepository{
 		locator:   locator,
+		insecure:  insecure,
 		strategy:  c.Alternates,
 		retriever: c,
 	}, nil
