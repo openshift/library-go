@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"k8s.io/client-go/rest"
-	klog "k8s.io/klog/v2"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/manifestlist"
@@ -921,9 +919,6 @@ func TestMirroredRegistry_ManifestGet(t *testing.T) {
 		schema2.MediaTypeManifest,
 	})
 
-	klog.InitFlags(flag.CommandLine)
-	//cliflag.InitFlags()
-	flag.CommandLine.Lookup("v").Value.Set("10")
 	rt, err := rest.TransportFor(&rest.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -933,6 +928,8 @@ func TestMirroredRegistry_ManifestGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := NewContext(rt, insecureRT)
+
+	t.Logf("original request")
 
 	r, err := c.Repository(context.Background(), &url.URL{Host: "registry-1.docker.io"}, "library/postgres", false)
 	if err != nil {
@@ -950,14 +947,13 @@ func TestMirroredRegistry_ManifestGet(t *testing.T) {
 		t.Fatal("Expected data to be present")
 	}
 
-	t.Logf("next request")
+	t.Logf("alternate FirstRequest")
 
 	c.Alternates = &fakeAlternateBlobStrategy{
 		FirstAlternates: []imagereference.DockerImageReference{
 			{Registry: "quay.io", Namespace: "library", Name: "postgres"},
 			{Registry: "docker.io", Namespace: "library", Name: "postgres"},
 		},
-		FirstErr: nil,
 	}
 	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
 	if err != nil {
@@ -996,5 +992,125 @@ func TestMirroredRegistry_ManifestGet(t *testing.T) {
 	}
 	if !reflect.DeepEqual(ref, imagereference.DockerImageReference{Registry: "docker.io", Namespace: "library", Name: "postgres"}) {
 		t.Fatalf("Unexpected reference: %#v", ref)
+	}
+
+	t.Logf("alternate OnFailure")
+
+	c.Alternates = &fakeAlternateBlobStrategy{
+		FailureAlternates: []imagereference.DockerImageReference{
+			{Registry: "quay.io", Namespace: "library", Name: "postgres"},
+			{Registry: "docker.io", Namespace: "library", Name: "postgres"},
+		},
+	}
+	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mwl, ok = m.(ManifestWithLocationService)
+	if !ok {
+		t.Fatalf("Expected service to implement location retrieval")
+	}
+	secondManifest, secondRef, err := mwl.GetWithLocation(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if secondManifest == nil {
+		t.Fatal("Expected data to be present")
+	}
+	if !reflect.DeepEqual(manifest, secondManifest) {
+		t.Fatalf("Mirror and non mirror request did not match")
+	}
+	if !reflect.DeepEqual(secondRef, imagereference.DockerImageReference{Registry: "docker.io", Namespace: "library", Name: "postgres"}) {
+		t.Fatalf("Unexpected reference: %#v", ref)
+	}
+}
+
+func TestMirroredRegistry_InvalidManifest(t *testing.T) {
+	opt := distribution.WithManifestMediaTypes([]string{
+		manifestlist.MediaTypeManifestList,
+		schema2.MediaTypeManifest,
+	})
+
+	rt, err := rest.TransportFor(&rest.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	insecureRT, err := rest.TransportFor(&rest.Config{TLSClientConfig: rest.TLSClientConfig{Insecure: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewContext(rt, insecureRT)
+
+	r, err := c.Repository(context.Background(), &url.URL{Host: "registry-1.docker.io"}, "library/postgres", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = m.Get(context.Background(), digest.Digest("@sha256:deadbeef00000000000000000000000000000000000000000000000000000000"), opt)
+	if err == nil {
+		t.Fatal("Expected manifest reading error")
+	}
+}
+
+func TestMirroredRegistry_AlternateErrors(t *testing.T) {
+	opt := distribution.WithManifestMediaTypes([]string{
+		manifestlist.MediaTypeManifestList,
+		schema2.MediaTypeManifest,
+	})
+
+	rt, err := rest.TransportFor(&rest.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	insecureRT, err := rest.TransportFor(&rest.Config{TLSClientConfig: rest.TLSClientConfig{Insecure: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewContext(rt, insecureRT)
+	c.Alternates = &fakeAlternateBlobStrategy{
+		FirstErr: fmt.Errorf("icsp error"),
+	}
+
+	t.Logf("alternate FirstRequest error")
+
+	r, err := c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = m.Get(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err == nil || !strings.Contains(err.Error(), "icsp error") {
+		t.Fatalf("Expected 'icsp error', got %v", err)
+	}
+
+	t.Logf("alternate OnFailure error")
+
+	c.Alternates = &fakeAlternateBlobStrategy{
+		FailureErr: fmt.Errorf("icsp failure error"),
+	}
+
+	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = r.Manifests(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = m.Get(context.Background(), digest.Digest("sha256:b94ab3a31950e7d25654d024044ac217c2b3a94eff426e3415424c1c16ca3fe6"), opt)
+	if err == nil || !strings.Contains(err.Error(), "icsp failure error") {
+		t.Fatalf("Expected 'icsp failure error' got %v", err)
 	}
 }
