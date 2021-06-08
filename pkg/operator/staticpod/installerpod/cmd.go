@@ -3,6 +3,7 @@ package installerpod
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"io/ioutil"
 	"os"
 	"path"
@@ -176,7 +177,7 @@ func (o *InstallOptions) prefixFor(name string) string {
 }
 
 func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
-	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed bool) error {
+	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed, atomic bool) error {
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
 	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
 		return err
@@ -222,12 +223,7 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range secret.Data {
-			klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
-			filePerms := os.FileMode(0600)
-			if strings.HasSuffix(filename, ".sh") {
-				filePerms = 0700
-			}
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms); err != nil {
+			if err := writeSecret(content, atomic, contentDir, filename); err != nil {
 				return err
 			}
 		}
@@ -243,15 +239,9 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range configmap.Data {
-			klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
-			filePerms := os.FileMode(0644)
-			if strings.HasSuffix(filename, ".sh") {
-				filePerms = 0755
-			}
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), []byte(content), filePerms); err != nil {
+			if err := writeConfig([]byte(content), atomic, contentDir, filename); err != nil {
 				return err
 			}
-
 		}
 	}
 
@@ -281,7 +271,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	for _, prefix := range o.OptionalConfigMapNamePrefixes {
 		optionalConfigPrefixes.Insert(o.nameFor(prefix))
 	}
-	if err := o.copySecretsAndConfigMaps(ctx, resourceDir, secretPrefixes, optionalSecretPrefixes, configPrefixes, optionalConfigPrefixes, true); err != nil {
+	if err := o.copySecretsAndConfigMaps(ctx, resourceDir, secretPrefixes, optionalSecretPrefixes, configPrefixes, optionalConfigPrefixes, true, false); err != nil {
 		return err
 	}
 
@@ -292,7 +282,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 			sets.NewString(o.OptionalCertSecretNamePrefixes...),
 			sets.NewString(o.CertConfigMapNamePrefixes...),
 			sets.NewString(o.OptionalCertConfigMapNamePrefixes...),
-			false,
+			false, true,
 		); err != nil {
 			return err
 		}
@@ -407,4 +397,28 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 
 	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
 	return nil
+}
+
+func writeConfig(content []byte, atomic bool, contentDir, filename string) error {
+	filePerms := os.FileMode(0644)
+	if strings.HasSuffix(filename, ".sh") {
+		filePerms = 0755
+	}
+	if !atomic {
+		klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
+		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
+	}
+	return staticpod.WriteFileAtomic(content, filePerms, "config", contentDir, filename)
+}
+
+func writeSecret(content []byte, atomic bool, contentDir, filename string) error {
+	filePerms := os.FileMode(0600)
+	if strings.HasSuffix(filename, ".sh") {
+		filePerms = 0700
+	}
+	if !atomic {
+		klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
+		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
+	}
+	return staticpod.WriteFileAtomic(content, filePerms, "secret", contentDir, filename)
 }
