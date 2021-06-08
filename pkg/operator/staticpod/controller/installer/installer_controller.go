@@ -811,7 +811,7 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 		}
 	}
 	if len(c.certDir) > 0 {
-		args = append(args, fmt.Sprintf("--cert-dir=%s", filepath.Join(hostResourceDirDir, c.certDir)))
+		args = append(args, fmt.Sprintf("--cert-dir=%s", c.certDir))
 		for _, cm := range c.certConfigMaps {
 			if cm.Optional {
 				args = append(args, fmt.Sprintf("--optional-cert-configmaps=%s", cm.Name))
