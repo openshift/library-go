@@ -1,6 +1,7 @@
 package registryclient
 
 import (
+	"context"
 	"fmt"
 	"hash"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 
 	"k8s.io/klog/v2"

@@ -1,6 +1,7 @@
 package registryclient
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,7 +10,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/openshift/library-go/pkg/image/reference"
-	"golang.org/x/net/context"
 	"k8s.io/klog/v2"
 
 	distributionreference "github.com/docker/distribution/reference"

@@ -2,6 +2,7 @@ package registryclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -27,7 +28,6 @@ import (
 	registryclient "github.com/docker/distribution/registry/client"
 	"github.com/opencontainers/go-digest"
 	imagereference "github.com/openshift/library-go/pkg/image/reference"
-	"golang.org/x/net/context"
 )
 
 type mockRetriever struct {
