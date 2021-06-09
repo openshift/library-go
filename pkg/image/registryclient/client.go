@@ -1,6 +1,7 @@
 package registryclient
 
 import (
+	"context"
 	"fmt"
 	"hash"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 
 	"k8s.io/klog/v2"
@@ -236,6 +236,7 @@ func (c *Context) Repository(ctx context.Context, registry *url.URL, repoName st
 	}
 	return &blobMirroredRepository{
 		locator:   locator,
+		insecure:  insecure,
 		strategy:  c.Alternates,
 		retriever: c,
 	}, nil

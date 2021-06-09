@@ -1,6 +1,7 @@
 package registryclient
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,7 +10,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/openshift/library-go/pkg/image/reference"
-	"golang.org/x/net/context"
 	"k8s.io/klog/v2"
 
 	distributionreference "github.com/docker/distribution/reference"
@@ -215,6 +215,9 @@ func (r *blobMirroredRepository) alternates(ctx context.Context, fn func(r Repos
 		alternates, err := r.errorRepos(ctx)
 		if err != nil {
 			return err
+		}
+		if len(alternates) == 0 {
+			return attemptErr
 		}
 		if alternateErr := r.attemptRepos(ctx, alternates, fn); alternateErr != nil {
 			return attemptErr
