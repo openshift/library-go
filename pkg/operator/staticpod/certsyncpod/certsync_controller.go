@@ -157,7 +157,8 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 				continue
 			}
 
-			if err := staticpod.WriteFileAtomic([]byte(content), 0644, "configmap", contentDir, filename); err != nil {
+			klog.Infof("Writing configmap manifest %q ...", fullFilename)
+			if err := staticpod.WriteFileAtomic([]byte(content), 0644, contentDir, filename); err != nil {
 				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
 				errors = append(errors, err)
 				continue
@@ -262,7 +263,8 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 				continue
 			}
 
-			if err := staticpod.WriteFileAtomic(content, 0644, "secret", contentDir, filename); err != nil {
+			klog.Infof("Writing secret manifest %q ...", fullFilename)
+			if err := staticpod.WriteFileAtomic(content, 0644, contentDir, filename); err != nil {
 				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
 				errors = append(errors, err)
 				continue
