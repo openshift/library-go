@@ -1,6 +1,7 @@
 package staticpod
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -20,7 +21,7 @@ func WriteFileAtomic(content []byte, filePerms os.FileMode, resource, contentDir
 
 func writeTemporaryFile(content []byte, filePerms os.FileMode, contentDir, filename string) (string, error) {
 	klog.Infof("Creating a temporary file for %q ...", path.Join(contentDir, filename))
-	tmpfile, err := ioutil.TempFile(contentDir, filename)
+	tmpfile, err := ioutil.TempFile(contentDir, fmt.Sprintf("%s.tmp", filename))
 	if err != nil {
 		return "", err
 	}
@@ -28,7 +29,7 @@ func writeTemporaryFile(content []byte, filePerms os.FileMode, contentDir, filen
 	if err := tmpfile.Chmod(filePerms); err != nil {
 		return "", err
 	}
-	klog.Infof("Writing to the temporary file %q ...", tmpfile)
+	klog.Infof("Writing to the temporary file %q ...", tmpfile.Name())
 	if _, err := tmpfile.Write(content); err != nil {
 		return "", err
 	}
