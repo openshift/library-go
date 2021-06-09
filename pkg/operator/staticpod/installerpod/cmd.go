@@ -400,25 +400,27 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 }
 
 func writeConfig(content []byte, atomic bool, contentDir, filename string) error {
+	klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
+
 	filePerms := os.FileMode(0644)
 	if strings.HasSuffix(filename, ".sh") {
 		filePerms = 0755
 	}
 	if !atomic {
-		klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
 		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
 	}
-	return staticpod.WriteFileAtomic(content, filePerms, "config", contentDir, filename)
+	return staticpod.WriteFileAtomic(content, filePerms, contentDir, filename)
 }
 
 func writeSecret(content []byte, atomic bool, contentDir, filename string) error {
+	klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
+
 	filePerms := os.FileMode(0600)
 	if strings.HasSuffix(filename, ".sh") {
 		filePerms = 0700
 	}
 	if !atomic {
-		klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
 		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
 	}
-	return staticpod.WriteFileAtomic(content, filePerms, "secret", contentDir, filename)
+	return staticpod.WriteFileAtomic(content, filePerms, contentDir, filename)
 }
