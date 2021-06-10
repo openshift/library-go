@@ -3,21 +3,23 @@ package staticpod
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 
 	"io/ioutil"
 )
 
-func WriteFileAtomic(content []byte, filePerms os.FileMode, contentDir, filename string) error {
-	tmpFile, err := writeTemporaryFile(content, filePerms, contentDir, filename)
+func WriteFileAtomic(content []byte, filePerms os.FileMode, fullFilename string) error {
+	tmpFile, err := writeTemporaryFile(content, filePerms, fullFilename)
 	if err != nil {
 		return err
 	}
 
-	return os.Rename(tmpFile, path.Join(contentDir, filename))
+	return os.Rename(tmpFile, fullFilename)
 }
 
-func writeTemporaryFile(content []byte, filePerms os.FileMode, contentDir, filename string) (string, error) {
+func writeTemporaryFile(content []byte, filePerms os.FileMode, fullFilename string) (string, error) {
+	contentDir := filepath.Dir(fullFilename)
+	filename := filepath.Base(fullFilename)
 	tmpfile, err := ioutil.TempFile(contentDir, fmt.Sprintf("%s.tmp", filename))
 	if err != nil {
 		return "", err

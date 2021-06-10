@@ -177,7 +177,7 @@ func (o *InstallOptions) prefixFor(name string) string {
 }
 
 func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
-	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed, atomic bool) error {
+	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.String, prefixed bool) error {
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
 	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
 		return err
@@ -223,7 +223,7 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range secret.Data {
-			if err := writeSecret(content, atomic, contentDir, filename); err != nil {
+			if err := writeSecret(content, path.Join(contentDir, filename)); err != nil {
 				return err
 			}
 		}
@@ -239,7 +239,7 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range configmap.Data {
-			if err := writeConfig([]byte(content), atomic, contentDir, filename); err != nil {
+			if err := writeConfig([]byte(content), path.Join(contentDir, filename)); err != nil {
 				return err
 			}
 		}
@@ -271,7 +271,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	for _, prefix := range o.OptionalConfigMapNamePrefixes {
 		optionalConfigPrefixes.Insert(o.nameFor(prefix))
 	}
-	if err := o.copySecretsAndConfigMaps(ctx, resourceDir, secretPrefixes, optionalSecretPrefixes, configPrefixes, optionalConfigPrefixes, true, false); err != nil {
+	if err := o.copySecretsAndConfigMaps(ctx, resourceDir, secretPrefixes, optionalSecretPrefixes, configPrefixes, optionalConfigPrefixes, true); err != nil {
 		return err
 	}
 
@@ -282,7 +282,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 			sets.NewString(o.OptionalCertSecretNamePrefixes...),
 			sets.NewString(o.CertConfigMapNamePrefixes...),
 			sets.NewString(o.OptionalCertConfigMapNamePrefixes...),
-			false, true,
+			false,
 		); err != nil {
 			return err
 		}
@@ -399,28 +399,22 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func writeConfig(content []byte, atomic bool, contentDir, filename string) error {
-	klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
+func writeConfig(content []byte, fullFilename string) error {
+	klog.Infof("Writing config file %q ...", fullFilename)
 
 	filePerms := os.FileMode(0644)
-	if strings.HasSuffix(filename, ".sh") {
+	if strings.HasSuffix(fullFilename, ".sh") {
 		filePerms = 0755
 	}
-	if !atomic {
-		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
-	}
-	return staticpod.WriteFileAtomic(content, filePerms, contentDir, filename)
+	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
 }
 
-func writeSecret(content []byte, atomic bool, contentDir, filename string) error {
-	klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
+func writeSecret(content []byte, fullFilename string) error {
+	klog.Infof("Writing secret manifest %q ...", fullFilename)
 
 	filePerms := os.FileMode(0600)
-	if strings.HasSuffix(filename, ".sh") {
+	if strings.HasSuffix(fullFilename, ".sh") {
 		filePerms = 0700
 	}
-	if !atomic {
-		return ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms)
-	}
-	return staticpod.WriteFileAtomic(content, filePerms, contentDir, filename)
+	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
 }
