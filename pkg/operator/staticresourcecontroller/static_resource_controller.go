@@ -314,10 +314,7 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 		})
 	}
 
-	if len(errors) > 0 {
-		return nil, utilerrors.NewAggregate(errors)
-	}
-	return acc, nil
+	return acc, utilerrors.NewAggregate(errors)
 }
 
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
