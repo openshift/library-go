@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
@@ -41,6 +42,7 @@ func TestBaseController_ExitOneIfCachesWontSync(t *testing.T) {
 	c := &baseController{
 		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
 		cacheSyncTimeout: 1 * time.Second,
+		exitOnError:      klog.Exit,
 		cachesToSync: []cache.InformerSynced{
 			func() bool {
 				return false
@@ -137,6 +139,7 @@ func TestBaseController_Run(t *testing.T) {
 	syncCount := 0
 	postStartHookSyncCount := 0
 	postStartHookDone := false
+	preconditionDone := false
 
 	c := &baseController{
 		name:         "test",
@@ -150,8 +153,14 @@ func TestBaseController_Run(t *testing.T) {
 			}
 			return nil
 		},
-		syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-		resyncEvery: 200 * time.Millisecond,
+		preconditions: []PreconditionFn{func(context.Context) (bool, error) {
+			time.Sleep(200 * time.Millisecond)
+			preconditionDone = true
+			return true, nil
+		}},
+		cacheSyncTimeout: 5 * time.Second,
+		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		resyncEvery:      200 * time.Millisecond,
 		postStartHooks: []PostStartHook{func(ctx context.Context, syncContext SyncContext) error {
 			defer func() {
 				postStartHookDone = true
@@ -163,7 +172,7 @@ func TestBaseController_Run(t *testing.T) {
 		}},
 	}
 
-	time.AfterFunc(1*time.Second, func() {
+	time.AfterFunc(2*time.Second, func() {
 		cancel()
 	})
 	c.Run(controllerCtx, 1)
@@ -179,7 +188,58 @@ func TestBaseController_Run(t *testing.T) {
 	if postStartHookSyncCount == 0 {
 		t.Errorf("expected the post start hook queue key, got none")
 	}
+	if !preconditionDone {
+		t.Errorf("expected the precondition to be executed")
+	}
 	if !postStartHookDone {
 		t.Errorf("expected the post start hook to be terminated when context is cancelled")
 	}
+}
+
+func TestBaseController_RunWithPrecondition(t *testing.T) {
+	informer := &fakeInformer{hasSyncedDelay: 1 * time.Second}
+	controllerCtx, shutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	retries := 0
+	c := &baseController{
+		name:         "test",
+		cachesToSync: []cache.InformerSynced{informer.HasSynced},
+		preconditions: []PreconditionFn{
+			func(ctx context.Context) (bool, error) {
+				d, _ := ctx.Deadline()
+				t.Logf("precondition #1 not met, %s left ...", d.Sub(time.Now()))
+				time.Sleep(500 * time.Millisecond)
+				return false, nil
+			},
+			func(ctx context.Context) (bool, error) {
+				return false, fmt.Errorf("precondition #2 error")
+			},
+			func(ctx context.Context) (bool, error) {
+				time.Sleep(200 * time.Millisecond)
+				t.Logf("precondition #3 succeess")
+				return true, nil
+			},
+			func(ctx context.Context) (bool, error) {
+				time.Sleep(100 * time.Millisecond)
+				retries++
+				return retries > 3, nil
+			},
+		},
+		cacheSyncTimeout: 3 * time.Second,
+		syncContext:      NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+		resyncEvery:      10 * time.Second,
+		sync: func(ctx context.Context, controllerContext SyncContext) error {
+			return nil
+		},
+		exitOnError: func(args ...interface{}) {
+			expectedError := `[precondition #2 error, timed out waiting for the condition]`
+			if err := (args[0].(error)).Error(); err != expectedError {
+				t.Errorf("expected error %q, got: %q", expectedError, err)
+			}
+			shutdown()
+		},
+	}
+
+	c.Run(controllerCtx, 1)
+
+	<-controllerCtx.Done()
 }

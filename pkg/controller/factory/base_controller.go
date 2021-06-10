@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/robfig/cron"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -37,6 +38,8 @@ type baseController struct {
 	resyncSchedules    []cron.Schedule
 	postStartHooks     []PostStartHook
 	cacheSyncTimeout   time.Duration
+	preconditions      []PreconditionFn
+	exitOnError        func(args ...interface{})
 }
 
 var _ Controller = &baseController{}
@@ -62,6 +65,39 @@ func (s *scheduledJob) Run() {
 	s.queue.Add(DefaultQueueKey)
 }
 
+func waitForPreconditions(ctx context.Context, controllerName string, preconditions ...PreconditionFn) error {
+	if len(preconditions) == 0 {
+		return nil
+	}
+
+	var (
+		wg       sync.WaitGroup
+		errs     []error
+		errsLock sync.Mutex
+	)
+
+	wg.Add(len(preconditions))
+	for _, preconditionFunc := range preconditions {
+		go func(preconditionCtx context.Context, fn PreconditionFn) {
+			defer wg.Done()
+			err := wait.PollImmediateUntil(100*time.Millisecond, func() (bool, error) {
+				return fn(preconditionCtx)
+			}, preconditionCtx.Done())
+			if err != nil {
+				errsLock.Lock()
+				errs = append(errs, err)
+				errsLock.Unlock()
+				return
+			}
+		}(ctx, preconditionFunc)
+	}
+
+	klog.V(2).Infof("Controller %q waiting for %d precondition ...", controllerName, len(preconditions))
+	wg.Wait()
+
+	return kerrors.NewAggregate(errs)
+}
+
 func waitForNamedCacheSync(controllerName string, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) error {
 	klog.Infof("Waiting for caches to sync for %s", controllerName)
 
@@ -81,6 +117,7 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 	// give caches 10 minutes to sync
 	cacheSyncCtx, cacheSyncCancel := context.WithTimeout(ctx, c.cacheSyncTimeout)
 	defer cacheSyncCancel()
+	cacheSyncStartTime := time.Now()
 	err := waitForNamedCacheSync(c.name, cacheSyncCtx.Done(), c.cachesToSync...)
 	if err != nil {
 		select {
@@ -91,8 +128,25 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 			// If caches did not sync after 10 minutes, it has taken oddly long and
 			// we should provide feedback. Since the control loops will never start,
 			// it is safer to exit with a good message than to continue with a dead loop.
-			// TODO: Consider making this behavior configurable.
-			klog.Exit(err)
+			c.exitOnError(err)
+		}
+	}
+
+	// for preconditions, use the cache sync timeout minus the time we were waiting for caches for sync.
+	preconditionTimeout := c.cacheSyncTimeout - time.Now().Sub(cacheSyncStartTime)
+
+	preconditionCtx, preconditionCtxCancel := context.WithTimeout(ctx, preconditionTimeout)
+	defer preconditionCtxCancel()
+	if err := waitForPreconditions(preconditionCtx, c.name, c.preconditions...); err != nil {
+		select {
+		case <-ctx.Done():
+			// Exit gracefully because the controller was requested to stop.
+			return
+		default:
+			// If preconditions did not sync after 10 minutes, it has taken oddly long and
+			// we should provide feedback. Since the control loops will never start,
+			// it is safer to exit with a good message than to continue with a dead loop.
+			c.exitOnError(err)
 		}
 	}
 
