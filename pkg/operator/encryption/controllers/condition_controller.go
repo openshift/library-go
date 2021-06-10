@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -38,6 +39,7 @@ func NewConditionController(
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
+	apiServerConfigInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -56,6 +58,7 @@ func NewConditionController(
 	return factory.New().WithInformers(
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		operatorClient.Informer(),
+		apiServerConfigInformer.Informer(),
 		deployer,
 	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
 }

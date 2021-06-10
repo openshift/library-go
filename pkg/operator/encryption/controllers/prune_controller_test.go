@@ -18,6 +18,8 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
@@ -173,6 +175,9 @@ func TestPruneController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 
+			fakeConfigClient := configv1clientfake.NewSimpleClientset()
+			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
+
 			deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient, encryptiondeployer.StaticPodNodeProvider{OperatorClient: fakeOperatorClient})
 			if err != nil {
 				t.Fatal(err)
@@ -184,6 +189,7 @@ func TestPruneController(t *testing.T) {
 				deployer,
 				alwaysFulfilledPreconditions,
 				fakeOperatorClient,
+				fakeApiServerInformer,
 				kubeInformers,
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
