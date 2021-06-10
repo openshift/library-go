@@ -9,36 +9,50 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type preconditionChecker struct {
-	component                string
-	encryptionSecretSelector labels.Selector
+	component                    string
+	componentClusterOperatorName string
+	encryptionSecretSelector     labels.Selector
 
 	secretLister          corev1listers.SecretNamespaceLister
 	apiServerConfigLister configv1listers.APIServerLister
+	clusterOperatorLister configv1listers.ClusterOperatorLister
 
 	cacheSynced []cache.InformerSynced
 }
 
 // newEncryptionEnabledPrecondition determines if encryption controllers should synchronise.
 // It uses the cache for gathering data to avoid sending requests to the API servers.
-func newEncryptionEnabledPrecondition(apiServerConfigInformer configv1informers.APIServerInformer, kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces, encryptionSecretSelectorString string) (*preconditionChecker, error) {
+func newEncryptionEnabledPrecondition(
+	apiServerConfigInformer configv1informers.APIServerInformer,
+	clusterOperatorInformer configv1informers.ClusterOperatorInformer,
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
+	encryptionSecretSelectorString,
+	component string,
+	componentClusterOperatorName string) (*preconditionChecker, error) {
 	encryptionSecretSelector, err := labels.Parse(encryptionSecretSelectorString)
 	if err != nil {
 		return nil, err
 	}
 	return &preconditionChecker{
-		encryptionSecretSelector: encryptionSecretSelector,
-		secretLister:             kubeInformersForNamespaces.SecretLister().Secrets("openshift-config-managed"),
-		apiServerConfigLister:    apiServerConfigInformer.Lister(),
+		component:                    component,
+		componentClusterOperatorName: componentClusterOperatorName,
+		encryptionSecretSelector:     encryptionSecretSelector,
+		secretLister:                 kubeInformersForNamespaces.SecretLister().Secrets("openshift-config-managed"),
+		apiServerConfigLister:        apiServerConfigInformer.Lister(),
+		clusterOperatorLister:        clusterOperatorInformer.Lister(),
 		cacheSynced: []cache.InformerSynced{
 			apiServerConfigInformer.Informer().HasSynced,
+			clusterOperatorInformer.Informer().HasSynced,
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer().HasSynced,
 		},
 	}, nil
@@ -51,6 +65,14 @@ func (pc *preconditionChecker) PreconditionFulfilled() (bool, error) {
 		// report there is work to do so that controllers run their sync loops
 		klog.V(4).Info("unable to check preconditions. The caches haven't been synchronized. Forcing the encryption controllers to run their sync loops.")
 		return true, nil
+	}
+
+	operatorDegraded, err := pc.isOperatorDegraded()
+	if err != nil {
+		return false, err // got an error, report it and run the sync loops
+	}
+	if operatorDegraded {
+		return true, nil // indicate work to do so that the controllers can clean up any degraded status
 	}
 
 	encryptionWasEnabled, err := pc.encryptionWasEnabled()
@@ -103,6 +125,14 @@ func (pc *preconditionChecker) encryptionWasEnabled() (bool, error) {
 		return false, err // unknown error
 	}
 	return len(encryptionSecrets) > 0, nil
+}
+
+func (pc *preconditionChecker) isOperatorDegraded() (bool, error) {
+	co, err := pc.clusterOperatorLister.Get(pc.componentClusterOperatorName)
+	if err != nil {
+		return false, err
+	}
+	return v1helpers.IsStatusConditionTrue(co.Status.Conditions, configv1.OperatorDegraded), nil
 }
 
 func (pc *preconditionChecker) hasCachesSynced() bool {

@@ -32,6 +32,8 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 		existingSecret                 runtime.Object
 		expectedPreconditionsToBeReady bool
 		expectError                    bool
+
+		clusterOperatorDegradedConditionStatus configv1.ConditionStatus
 	}{
 
 		// scenario 1
@@ -72,6 +74,13 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			},
 			expectedPreconditionsToBeReady: true,
 		},
+
+		// scenario 6
+		{
+			name:                                   "encryption off, empty currentMode, operator degraded",
+			clusterOperatorDegradedConditionStatus: configv1.ConditionTrue,
+			expectedPreconditionsToBeReady:         true,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -81,6 +90,14 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			apiServerConfigIndexer.Add(&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: scenario.encryptionType}}})
 			apiServerConfigLister := configlistersv1.NewAPIServerLister(apiServerConfigIndexer)
 
+			clusterOperatorIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			clusterOperatorIndexer.Add(&configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: ""}, Status: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Type: configv1.OperatorDegraded, Status: scenario.clusterOperatorDegradedConditionStatus},
+				},
+			}})
+			clusterOperatorLister := configlistersv1.NewClusterOperatorLister(clusterOperatorIndexer)
+
 			secretsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			if scenario.existingSecret != nil {
 				secretsIndexer.Add(scenario.existingSecret)
@@ -88,7 +105,7 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			namespacedSecretLister := corev1listers.NewSecretLister(secretsIndexer).Secrets("openshift-config-managed")
 
 			// act
-			target := &preconditionChecker{component: component, encryptionSecretSelector: encryptionSecretSelector, secretLister: namespacedSecretLister, apiServerConfigLister: apiServerConfigLister}
+			target := &preconditionChecker{component: component, encryptionSecretSelector: encryptionSecretSelector, secretLister: namespacedSecretLister, apiServerConfigLister: apiServerConfigLister, clusterOperatorLister: clusterOperatorLister}
 			preconditionsReady, err := target.PreconditionFulfilled()
 
 			// validate

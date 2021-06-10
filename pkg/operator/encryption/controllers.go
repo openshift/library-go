@@ -25,6 +25,7 @@ type runner interface {
 
 func NewControllers(
 	component string,
+	componentClusterOperatorName string,
 	unsupportedConfigPrefix []string,
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
@@ -32,6 +33,7 @@ func NewControllers(
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
+	clusterOperatorInformer configv1informers.ClusterOperatorInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretsClient corev1.SecretsGetter,
 	eventRecorder events.Recorder,
@@ -42,7 +44,7 @@ func NewControllers(
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
 
-	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer, kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector)
+	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer, clusterOperatorInformer, kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector, component, componentClusterOperatorName)
 	if err != nil {
 		return nil, err
 	}

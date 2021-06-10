@@ -312,12 +312,14 @@ func (cs *APIServerControllerSet) WithoutPruneController() *APIServerControllerS
 
 func (cs *APIServerControllerSet) WithEncryptionControllers(
 	component string,
+	componentClusterOperatorName string,
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
 	secretsClient corev1.SecretsGetter,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
+	clusterOperatorInformer configv1informers.ClusterOperatorInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 ) *APIServerControllerSet {
 
@@ -325,14 +327,16 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		operatorClient: cs.operatorClient,
 		eventRecorder:  cs.eventRecorder,
 
-		component:                  component,
-		provider:                   provider,
-		deployer:                   deployer,
-		migrator:                   migrator,
-		apiServerClient:            apiServerClient,
-		apiServerInformer:          apiServerInformer,
-		kubeInformersForNamespaces: kubeInformersForNamespaces,
-		secretsClient:              secretsClient,
+		component:                    component,
+		componentClusterOperatorName: componentClusterOperatorName,
+		provider:                     provider,
+		deployer:                     deployer,
+		migrator:                     migrator,
+		apiServerClient:              apiServerClient,
+		apiServerInformer:            apiServerInformer,
+		clusterOperatorInformer:      clusterOperatorInformer,
+		kubeInformersForNamespaces:   kubeInformersForNamespaces,
+		secretsClient:                secretsClient,
 	}
 
 	return cs
@@ -390,14 +394,16 @@ type encryptionControllerBuilder struct {
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 
-	component                  string
-	provider                   controllers.Provider
-	deployer                   statemachine.Deployer
-	migrator                   migrators.Migrator
-	secretsClient              corev1.SecretsGetter
-	apiServerClient            configv1client.APIServerInterface
-	apiServerInformer          configv1informers.APIServerInformer
-	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
+	component                    string
+	componentClusterOperatorName string
+	provider                     controllers.Provider
+	deployer                     statemachine.Deployer
+	migrator                     migrators.Migrator
+	secretsClient                corev1.SecretsGetter
+	apiServerClient              configv1client.APIServerInterface
+	apiServerInformer            configv1informers.APIServerInformer
+	clusterOperatorInformer      configv1informers.ClusterOperatorInformer
+	kubeInformersForNamespaces   v1helpers.KubeInformersForNamespaces
 
 	unsupportedConfigPrefix []string
 }
@@ -408,6 +414,7 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 	}
 	e.controllerWrapper.controller, e.controllerWrapper.creationError = encryption.NewControllers(
 		e.component,
+		e.componentClusterOperatorName,
 		e.unsupportedConfigPrefix,
 		e.provider,
 		e.deployer,
@@ -415,6 +422,7 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 		e.operatorClient,
 		e.apiServerClient,
 		e.apiServerInformer,
+		e.clusterOperatorInformer,
 		e.kubeInformersForNamespaces,
 		e.secretsClient,
 		e.eventRecorder,
