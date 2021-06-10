@@ -42,7 +42,7 @@ func NewControllers(
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
 
-	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer, kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector)
+	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer.Lister(), kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector)
 	if err != nil {
 		return nil, err
 	}

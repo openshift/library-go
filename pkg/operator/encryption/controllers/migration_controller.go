@@ -99,7 +99,7 @@ func NewMigrationController(
 		migrator,
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
-		apiServerConfigInformer.Informer(),
+		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-migration-controller"))
 }
