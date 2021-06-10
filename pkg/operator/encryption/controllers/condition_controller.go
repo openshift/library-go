@@ -58,7 +58,7 @@ func NewConditionController(
 	return factory.New().WithInformers(
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		operatorClient.Informer(),
-		apiServerConfigInformer.Informer(),
+		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
 }
