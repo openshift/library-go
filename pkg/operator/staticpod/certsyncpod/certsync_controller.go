@@ -18,6 +18,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 )
 
@@ -157,7 +158,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			}
 
 			klog.Infof("Writing configmap manifest %q ...", fullFilename)
-			if err := ioutil.WriteFile(fullFilename, []byte(content), 0644); err != nil {
+			if err := staticpod.WriteFileAtomic([]byte(content), 0644, fullFilename); err != nil {
 				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
 				errors = append(errors, err)
 				continue
@@ -263,7 +264,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			}
 
 			klog.Infof("Writing secret manifest %q ...", fullFilename)
-			if err := ioutil.WriteFile(fullFilename, content, 0644); err != nil {
+			if err := staticpod.WriteFileAtomic(content, 0644, fullFilename); err != nil {
 				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
 				errors = append(errors, err)
 				continue

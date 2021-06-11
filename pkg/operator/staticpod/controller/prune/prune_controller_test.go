@@ -495,6 +495,7 @@ func TestPruneDiskResources(t *testing.T) {
 				fmt.Sprintf("--max-eligible-revision=%d", test.maxEligibleRevision),
 				fmt.Sprintf("--protected-revisions=%s", test.protectedRevisions),
 				fmt.Sprintf("--resource-dir=%s", "/etc/kubernetes/static-pod-resources"),
+				fmt.Sprintf("--cert-dir=%s", ""),
 				fmt.Sprintf("--static-pod-name=%s", "test-pod"),
 			}
 

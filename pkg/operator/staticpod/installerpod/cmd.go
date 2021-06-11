@@ -3,6 +3,7 @@ package installerpod
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"io/ioutil"
 	"os"
 	"path"
@@ -222,12 +223,7 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range secret.Data {
-			klog.Infof("Writing secret manifest %q ...", path.Join(contentDir, filename))
-			filePerms := os.FileMode(0600)
-			if strings.HasSuffix(filename, ".sh") {
-				filePerms = 0700
-			}
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), content, filePerms); err != nil {
+			if err := writeSecret(content, path.Join(contentDir, filename)); err != nil {
 				return err
 			}
 		}
@@ -243,15 +239,9 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			return err
 		}
 		for filename, content := range configmap.Data {
-			klog.Infof("Writing config file %q ...", path.Join(contentDir, filename))
-			filePerms := os.FileMode(0644)
-			if strings.HasSuffix(filename, ".sh") {
-				filePerms = 0755
-			}
-			if err := ioutil.WriteFile(path.Join(contentDir, filename), []byte(content), filePerms); err != nil {
+			if err := writeConfig([]byte(content), path.Join(contentDir, filename)); err != nil {
 				return err
 			}
-
 		}
 	}
 
@@ -407,4 +397,24 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 
 	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
 	return nil
+}
+
+func writeConfig(content []byte, fullFilename string) error {
+	klog.Infof("Writing config file %q ...", fullFilename)
+
+	filePerms := os.FileMode(0644)
+	if strings.HasSuffix(fullFilename, ".sh") {
+		filePerms = 0755
+	}
+	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
+}
+
+func writeSecret(content []byte, fullFilename string) error {
+	klog.Infof("Writing secret manifest %q ...", fullFilename)
+
+	filePerms := os.FileMode(0600)
+	if strings.HasSuffix(fullFilename, ".sh") {
+		filePerms = 0700
+	}
+	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
 }

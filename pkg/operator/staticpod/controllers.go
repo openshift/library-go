@@ -230,6 +230,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		manager.WithController(prune.NewPruneController(
 			b.operandNamespace,
 			b.staticPodPrefix,
+			b.certDir,
 			b.pruneCommand,
 			configMapClient,
 			secretClient,
