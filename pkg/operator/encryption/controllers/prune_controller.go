@@ -16,6 +16,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -51,6 +52,7 @@ func NewPruneController(
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
+	apiServerConfigInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -69,6 +71,7 @@ func NewPruneController(
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-prune-controller"))
 }
