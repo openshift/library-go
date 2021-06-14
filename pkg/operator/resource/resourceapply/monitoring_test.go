@@ -98,7 +98,7 @@ func TestApplyServiceMonitor(t *testing.T) {
 
 	required := resourceread.ReadUnstructuredOrDie([]byte(fakeServiceMonitor))
 
-	_, modified, err := ApplyServiceMonitor(dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
+	_, modified, err := ApplyServiceMonitor(dynamicClient, false, events.NewInMemoryRecorder("monitor-test"), required)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

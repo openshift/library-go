@@ -205,13 +205,17 @@ func ensureConnectivityCheckCRDExists(ctx context.Context, syncContext factory.S
 		return err
 	}
 	if errors.IsNotFound(err) {
+		resourceConditionalMaps := []resourceapply.ResourceConditionalMap{{
+			File:                  "pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
+			DeleteConditionalFunc: nil,
+			CreateConditionalFunc: nil,
+		}}
 		// create the podnetworkconnectivitycheck crd that should exist
 		applyResults := resourceapply.ApplyDirectly(
 			resourceapply.NewClientHolder().WithAPIExtensionsClient(client),
 			syncContext.Recorder(),
 			func(name string) ([]byte, error) { return bindata.Asset(name) },
-			"pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
-		)
+			resourceConditionalMaps)
 		if applyResults[0].Error != nil {
 			return applyResults[0].Error
 		}

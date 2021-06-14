@@ -297,7 +297,7 @@ func TestApplyConfigMap(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyConfigMap(client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyConfigMap(client.CoreV1(), false, events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -510,7 +510,7 @@ func TestApplySecret(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existing...)
-			got, changed, err := ApplySecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.required)
+			got, changed, err := ApplySecret(client.CoreV1(), false, events.NewInMemoryRecorder("test"), tc.required)
 			if !reflect.DeepEqual(tc.err, err) {
 				t.Errorf("expected error %v, got %v", tc.err, err)
 				return
@@ -659,7 +659,7 @@ func TestApplyNamespace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyNamespace(client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyNamespace(client.CoreV1(), false, events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}

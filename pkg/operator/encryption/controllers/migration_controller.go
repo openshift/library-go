@@ -259,7 +259,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(syncContext f
 				return nil
 			}
 
-			_, _, updateErr := resourceapply.ApplySecret(c.secretClient, syncContext.Recorder(), s)
+			_, _, updateErr := resourceapply.ApplySecret(c.secretClient, false, syncContext.Recorder(), s)
 			return updateErr
 		}); err != nil {
 			errs = append(errs, err)

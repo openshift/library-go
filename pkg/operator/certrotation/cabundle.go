@@ -52,7 +52,7 @@ func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA)
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
-		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(c.Client, c.EventRecorder, caBundleConfigMap)
+		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(c.Client, false, c.EventRecorder, caBundleConfigMap)
 		if err != nil {
 			return nil, err
 		}

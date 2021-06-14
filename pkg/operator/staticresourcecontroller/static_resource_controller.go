@@ -51,10 +51,11 @@ func init() {
 }
 
 type StaticResourceController struct {
-	name                   string
-	manifests              resourceapply.AssetFunc
-	files                  []string
-	ignoreNotFoundOnCreate bool
+	name      string
+	manifests resourceapply.AssetFunc
+	//files                  []string
+	resourceConditionalMaps []resourceapply.ResourceConditionalMap
+	ignoreNotFoundOnCreate  bool
 
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
@@ -79,10 +80,21 @@ func NewStaticResourceController(
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) *StaticResourceController {
+	var resourceConditionalMaps []resourceapply.ResourceConditionalMap
+	// All the files that passed to static resource controller directly have no conditional functions associated.
+	// If a resource wants to have conditional it should use the decorator.
+	for _, file := range files {
+		rcm := resourceapply.ResourceConditionalMap{
+			File:                  file,
+			DeleteConditionalFunc: nil,
+			CreateConditionalFunc: nil,
+		}
+		resourceConditionalMaps = append(resourceConditionalMaps, rcm)
+	}
 	c := &StaticResourceController{
-		name:      name,
-		manifests: manifests,
-		files:     files,
+		name:                    name,
+		manifests:               manifests,
+		resourceConditionalMaps: resourceConditionalMaps,
 
 		operatorClient: operatorClient,
 		clients:        clients,
@@ -105,25 +117,40 @@ func (c *StaticResourceController) WithIgnoreNotFoundOnCreate() *StaticResourceC
 	return c
 }
 
+// WithConditionalResource makes the controller react to changes in dependent object
+// If the deleteConditionFunc returns true, delete the resource, if the conditionFunc returns true create the resource.
+// Deletion trumps creation. By default, deletionConditionFunc is !conditionFunc.
+// TODO: This can be made multi-resource aware as well.
+func (c *StaticResourceController) WithConditionalResource(createConditionFunc resourceapply.ConditionalFunction,
+	file string, deleteConditionFunc resourceapply.ConditionalFunction) *StaticResourceController {
+	rcm := resourceapply.ResourceConditionalMap{
+		File:                  file,
+		DeleteConditionalFunc: deleteConditionFunc,
+		CreateConditionalFunc: createConditionFunc,
+	}
+	c.resourceConditionalMaps = append(c.resourceConditionalMaps, rcm)
+	return c
+}
+
 func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1helpers.KubeInformersForNamespaces) *StaticResourceController {
 	// set the informers so we can have caching clients
 	c.clients = c.clients.WithKubernetesInformers(kubeInformersByNamespace)
 
 	ret := c
-	for _, file := range c.files {
-		objBytes, err := c.manifests(file)
+	for _, resourceConditionalMap := range c.resourceConditionalMaps {
+		objBytes, err := c.manifests(resourceConditionalMap.File)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("missing %q: %v", file, err))
+			utilruntime.HandleError(fmt.Errorf("missing %q: %v", resourceConditionalMap.File, err))
 			continue
 		}
 		requiredObj, _, err := genericCodec.Decode(objBytes, nil, nil)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("cannot decode %q: %v", file, err))
+			utilruntime.HandleError(fmt.Errorf("cannot decode %q: %v", resourceConditionalMap.File, err))
 			continue
 		}
 		metadata, err := meta.Accessor(requiredObj)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("cannot get metadata %q: %v", file, err))
+			utilruntime.HandleError(fmt.Errorf("cannot get metadata %q: %v", resourceConditionalMap.File, err))
 			continue
 		}
 
@@ -212,7 +239,9 @@ func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.
 
 	errors := []error{}
 	var notFoundErrorsCount int
-	directResourceResults := resourceapply.ApplyDirectly(c.clients, syncContext.Recorder(), c.manifests, c.files...)
+
+	directResourceResults := resourceapply.ApplyDirectly(c.clients, syncContext.Recorder(), c.manifests, c.resourceConditionalMaps)
+
 	for _, currResult := range directResourceResults {
 		if apierrors.IsNotFound(currResult.Error) {
 			notFoundErrorsCount++
@@ -275,9 +304,9 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 	acc := make([]configv1.ObjectReference, 0)
 	errors := []error{}
 
-	for _, file := range c.files {
+	for _, resourceConditionalMap := range c.resourceConditionalMaps {
 		// parse static asset
-		objBytes, err := c.manifests(file)
+		objBytes, err := c.manifests(resourceConditionalMap.File)
 		if err != nil {
 			errors = append(errors, err)
 			continue

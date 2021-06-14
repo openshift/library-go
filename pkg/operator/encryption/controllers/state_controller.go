@@ -151,7 +151,7 @@ func (c *stateController) applyEncryptionConfigSecret(encryptionConfig *apiserve
 		return false, err
 	}
 
-	_, changed, applyErr := resourceapply.ApplySecret(c.secretClient, recorder, s)
+	_, changed, applyErr := resourceapply.ApplySecret(c.secretClient, false, recorder, s)
 	return changed, applyErr
 }
 
