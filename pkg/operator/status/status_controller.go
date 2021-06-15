@@ -73,7 +73,7 @@ func NewClusterOperatorStatusController(
 		clusterOperatorLister: clusterOperatorInformer.Lister(),
 		operatorClient:        operatorClient,
 		degradedInertia:       MustNewInertia(2 * time.Minute).Inertia,
-		controllerFactory: factory.New().ResyncEvery(time.Second).WithInformers(
+		controllerFactory: factory.New().ResyncEvery(time.Minute).WithInformers(
 			operatorClient.Informer(),
 			clusterOperatorInformer.Informer(),
 		),
