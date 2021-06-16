@@ -168,7 +168,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/openshift/api v0.0.0-20210521075222-e273a339932a
+# github.com/openshift/api v0.0.0-20210616173328-fb4df74c2da9
 ## explicit
 github.com/openshift/api
 github.com/openshift/api/apiserver
