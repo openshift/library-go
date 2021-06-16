@@ -1148,10 +1148,8 @@ type fakeCredentialStoreFactory struct {
 // CredentialStoreFor filters the list of credentials. Looks for a suitable authentication for
 // provided image. Panics if no authentication was found.
 func (f *fakeCredentialStoreFactory) CredentialStoreFor(image string) auth.CredentialStore {
-	// image uses format quay.io/repo/name.
-	slices := strings.SplitN(image, "/", 2)
 	for _, auth := range f.auths {
-		if auth.registry == slices[0] {
+		if auth.registry == image {
 			return auth
 		}
 	}
@@ -1184,12 +1182,24 @@ func (m *registryAuthMock) auth(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		panic("auth endpoint called without basic auth")
 	}
+
+	scopes := r.URL.Query()["scope"]
+	if len(scopes) == 0 {
+		panic("auth scope not set")
+	}
+
+	slices := strings.SplitN(scopes[0], ":", 3)
+	if len(slices) != 3 {
+		panic("invalid scope found")
+	}
+	repo := slices[1]
+
 	m.attemptedAuths = append(
 		m.attemptedAuths,
 		staticCreds{
 			user:     user,
 			pass:     pass,
-			registry: r.Host,
+			registry: fmt.Sprintf("%s/%s", r.Host, repo),
 		},
 	)
 	w.WriteHeader(http.StatusOK)
@@ -1246,7 +1256,7 @@ func TestCredentialStoreFactory(t *testing.T) {
 			name: "no alternate",
 			auths: []staticCreds{
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
@@ -1259,12 +1269,12 @@ func TestCredentialStoreFactory(t *testing.T) {
 			name: "one alternate",
 			auths: []staticCreds{
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
 				{
-					registry: mirror2srv.Listener.Addr().String(),
+					registry: mirror2srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror2user",
 					pass:     "mirror2pass",
 				},
@@ -1278,17 +1288,17 @@ func TestCredentialStoreFactory(t *testing.T) {
 			name: "multiple alternates",
 			auths: []staticCreds{
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
 				{
-					registry: mirror2srv.Listener.Addr().String(),
+					registry: mirror2srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror2user",
 					pass:     "mirror2pass",
 				},
 				{
-					registry: mirror3srv.Listener.Addr().String(),
+					registry: mirror3srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror3user",
 					pass:     "mirror3pass",
 				},
@@ -1303,17 +1313,17 @@ func TestCredentialStoreFactory(t *testing.T) {
 			name: "unused authentication",
 			auths: []staticCreds{
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
 				{
-					registry: mirror2srv.Listener.Addr().String(),
+					registry: mirror2srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror2user",
 					pass:     "mirror2pass",
 				},
 				{
-					registry: mirror3srv.Listener.Addr().String(),
+					registry: mirror3srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror3user",
 					pass:     "mirror3pass",
 				},
@@ -1325,22 +1335,22 @@ func TestCredentialStoreFactory(t *testing.T) {
 			},
 			expauths: []staticCreds{
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
 				{
-					registry: mirror2srv.Listener.Addr().String(),
+					registry: mirror2srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror2user",
 					pass:     "mirror2pass",
 				},
 				{
-					registry: mirror3srv.Listener.Addr().String(),
+					registry: mirror3srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror3user",
 					pass:     "mirror3pass",
 				},
 				{
-					registry: mirror1srv.Listener.Addr().String(),
+					registry: mirror1srv.Listener.Addr().String() + "/namespace/name",
 					user:     "mirror1user",
 					pass:     "mirror1pass",
 				},
@@ -1415,5 +1425,93 @@ func TestCredentialStoreFactory(t *testing.T) {
 				t.Errorf("expected auths attempts %+v, found %+v", tt.auths, authMock.attemptedAuths)
 			}
 		})
+	}
+}
+
+// TestCachedTransport assures that we are not reusing the same cached Transport even when
+// mirroring from one repository into another inside the same registry. In a nutshell: we set
+// a mirror for registry.io/original/img pointing to registry.io/mirror/img, both the original
+// and the mirror repositories use different authentication data.
+func TestCachedTransport(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	insecureTransport, err := rest.TransportFor(
+		&rest.Config{
+			TLSClientConfig: rest.TLSClientConfig{
+				Insecure: true,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// creates a mocked registry that records authentication atttempts.
+	authMock := &registryAuthMock{}
+	srcsrv := httptest.NewTLSServer(authMock)
+	defer srcsrv.Close()
+
+	// this is the original image reference we are trying to pull.
+	imgpath := fmt.Sprintf("%s/original/image:latest", srcsrv.Listener.Addr().String())
+	originalRef, err := imagereference.Parse(imgpath)
+	if err != nil {
+		t.Fatal("unexpected error parsing reference: ", err)
+	}
+
+	// this is the mirror image reference.
+	imgpath = fmt.Sprintf("%s/mirror/image:latest", srcsrv.Listener.Addr().String())
+	mirrorRef, err := imagereference.Parse(imgpath)
+	if err != nil {
+		t.Fatal("unexpected error parsing reference: ", err)
+	}
+
+	// this is the order in which we expect the authentication attempts to happen,
+	// first an attempt in the mirror and then an attempt in the original repo, both
+	// using different user/pass pairs.
+	expectedAuthAttempts := []staticCreds{
+		{
+			registry: srcsrv.Listener.Addr().String() + "/mirror/image",
+			user:     "mirroruser",
+			pass:     "mirrorpass",
+		},
+		{
+			registry: srcsrv.Listener.Addr().String() + "/original/image",
+			user:     "originaluser",
+			pass:     "originalpass",
+		},
+	}
+
+	impctx := NewContext(
+		http.DefaultTransport, insecureTransport,
+	).WithAlternateBlobSourceStrategy(
+		&fakeAlternateBlobStrategy{
+			FirstAlternates: []imagereference.DockerImageReference{
+				mirrorRef, originalRef,
+			},
+		},
+	).WithCredentialsFactory(
+		&fakeCredentialStoreFactory{
+			auths: expectedAuthAttempts,
+		},
+	)
+
+	repo, err := impctx.Repository(
+		ctx, originalRef.RegistryURL(), originalRef.RepositoryName(), true,
+	)
+	if err != nil {
+		t.Fatal("unexpected error creating repository: ", err)
+	}
+
+	mansvc, err := repo.Manifests(ctx)
+	if err != nil {
+		t.Fatal("unexpected error creating manifest service: ", err)
+	}
+
+	// this fails because the mock does not know any about manifests, we only care for
+	// the authentication attempts anyways.
+	mansvc.Get(ctx, "sha256:0000000000000000000000000000000000000000000000000000000000000000")
+	if !reflect.DeepEqual(expectedAuthAttempts, authMock.attemptedAuths) {
+		t.Errorf("expected auths attempts %+v, found %+v", expectedAuthAttempts, authMock.attemptedAuths)
 	}
 }
