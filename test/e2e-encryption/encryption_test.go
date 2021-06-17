@@ -121,8 +121,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 		{Group: "operator.openshift.io", Resource: "kubeschedulers"},
 	})
 
-	controllers := encryption.NewControllers(
+	controllers, err := encryption.NewControllers(
 		component,
+		[]string{},
 		provider,
 		deployer,
 		migrator,
@@ -133,6 +134,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		eventRecorder,
 	)
+	require.NoError(t, err)
 
 	// launch controllers
 	fakeConfigInformer.Start(stopCh)
@@ -177,6 +179,18 @@ func TestEncryptionIntegration(tt *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+	waitForOperatorResource := func() {
+		t.Helper()
+		err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+			_, _, _, err := operatorClient.GetOperatorState()
+			if err != nil {
+				return true, nil
+			}
+			return false, nil
+		})
+		require.NoError(t, err)
+
+	}
 	conditionStatus := func(condType string) operatorv1.ConditionStatus {
 		_, status, _, err := operatorClient.GetOperatorState()
 		require.NoError(t, err)
@@ -215,8 +229,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Logf("Wait for initial Encrypted condition")
-	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
+	t.Logf("Wait for operator resource")
+	waitForOperatorResource()
 
 	t.Logf("Enable encryption, mode aescbc")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc"}}}`), metav1.PatchOptions{})
@@ -360,7 +374,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	deployer.DeleteOperandConfig()
 	waitForConfigs(
 		// 7 is migrated and hence only one needed, but we rotate through identity
-		"kubeapiservers.operator.openshift.io=identity,aescbc:7;kubeschedulers.operator.openshift.io=identity,aescbc:7",
+		"kubeapiservers.operator.openshift.io=identity,aescbc:7,aescbc:5;kubeschedulers.operator.openshift.io=identity,aescbc:7,aescbc:5",
 		// 7 is migrated, plus one backed key (5). 6 is deleted, and therefore is not preserved (would be if the operand config was not deleted)
 		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:5,identity",
 	)
