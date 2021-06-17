@@ -1,44 +1,17 @@
 package csidrivercontrollerservicecontroller
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
-	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
-	opv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/loglevel"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
-
-const (
-	driverImageEnvName        = "DRIVER_IMAGE"
-	provisionerImageEnvName   = "PROVISIONER_IMAGE"
-	attacherImageEnvName      = "ATTACHER_IMAGE"
-	resizerImageEnvName       = "RESIZER_IMAGE"
-	snapshotterImageEnvName   = "SNAPSHOTTER_IMAGE"
-	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
-	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
-
-	infraConfigName = "cluster"
-)
-
-// DeploymentHookFunc is a hook function to modify the Deployment.
-type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 
 // CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
 //
@@ -78,19 +51,6 @@ type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 // <name>Available: indicates that the CSI Controller Service was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the CSI Controller Service is being deployed.
 // <name>Degraded: produced when the sync() method returns an error.
-type CSIDriverControllerServiceController struct {
-	name           string
-	manifest       []byte
-	operatorClient v1helpers.OperatorClient
-	kubeClient     kubernetes.Interface
-	deployInformer appsinformersv1.DeploymentInformer
-	configInformer configinformers.SharedInformerFactory
-	// Optional hook functions to modify the Deployment.
-	// If one of these functions returns an error, the sync
-	// fails indicating the ordinal position of the failed function.
-	// Also, in that scenario the Degraded status is set to True.
-	optionalDeploymentHooks []DeploymentHookFunc
-}
 
 func NewCSIDriverControllerServiceController(
 	name string,
@@ -101,187 +61,11 @@ func NewCSIDriverControllerServiceController(
 	deployInformer appsinformersv1.DeploymentInformer,
 	configInformer configinformers.SharedInformerFactory,
 	optionalInformers []factory.Informer,
-	optionalDeploymentHooks ...DeploymentHookFunc,
+	optionalDeploymentHooks ...dc.DeploymentHookFunc,
 ) factory.Controller {
-	c := &CSIDriverControllerServiceController{
-		name:                    name,
-		manifest:                manifest,
-		operatorClient:          operatorClient,
-		kubeClient:              kubeClient,
-		deployInformer:          deployInformer,
-		configInformer:          configInformer,
-		optionalDeploymentHooks: optionalDeploymentHooks,
-	}
+	optionalInformers = append(optionalInformers, configInformer.Config().V1().Infrastructures().Informer())
+	var optionalManifestHooks []dc.ManifestHookFunc
+	optionalManifestHooks = append(optionalManifestHooks, WithPlaceholdersHook(configInformer))
+	return dc.NewDeploymentController(name, manifest, recorder, operatorClient, kubeClient, deployInformer, optionalInformers, optionalManifestHooks, optionalDeploymentHooks...)
 
-	informers := append(
-		optionalInformers,
-		operatorClient.Informer(),
-		deployInformer.Informer(),
-		configInformer.Config().V1().Infrastructures().Informer(),
-	)
-
-	return factory.New().WithInformers(
-		informers...,
-	).WithSync(
-		c.sync,
-	).ResyncEvery(
-		time.Minute,
-	).WithSyncDegradedOnError(
-		operatorClient,
-	).ToController(
-		c.name,
-		recorder.WithComponentSuffix("csi-driver-controller-service_"+strings.ToLower(name)),
-	)
-}
-
-func (c *CSIDriverControllerServiceController) Name() string {
-	return c.name
-}
-
-func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	opSpec, opStatus, _, err := c.operatorClient.GetOperatorState()
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	if opSpec.ManagementState != opv1.Managed {
-		return nil
-	}
-
-	infra, err := c.configInformer.Config().V1().Infrastructures().Lister().Get(infraConfigName)
-	if err != nil {
-		return err
-	}
-	clusterID := infra.Status.InfrastructureName
-
-	manifest := replacePlaceholders(c.manifest, opSpec, clusterID)
-	required := resourceread.ReadDeploymentV1OrDie(manifest)
-
-	for i := range c.optionalDeploymentHooks {
-		err := c.optionalDeploymentHooks[i](opSpec, required)
-		if err != nil {
-			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
-		}
-	}
-
-	deployment, _, err := resourceapply.ApplyDeployment(
-		c.kubeClient.AppsV1(),
-		syncContext.Recorder(),
-		required,
-		resourcemerge.ExpectedDeploymentGeneration(required, opStatus.Generations),
-	)
-	if err != nil {
-		return err
-	}
-
-	availableCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeAvailable,
-		Status: opv1.ConditionTrue,
-	}
-
-	if deployment.Status.AvailableReplicas > 0 {
-		availableCondition.Status = opv1.ConditionTrue
-	} else {
-		availableCondition.Status = opv1.ConditionFalse
-		availableCondition.Message = "Waiting for Deployment to deploy the CSI Controller Service"
-		availableCondition.Reason = "Deploying"
-	}
-
-	progressingCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeProgressing,
-		Status: opv1.ConditionFalse,
-	}
-
-	if ok, msg := isProgressing(opStatus, deployment); ok {
-		progressingCondition.Status = opv1.ConditionTrue
-		progressingCondition.Message = msg
-		progressingCondition.Reason = "Deploying"
-	}
-
-	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {
-		// TODO: set ObservedGeneration (the last stable generation change we dealt with)
-		resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
-		return nil
-	}
-
-	_, _, err = v1helpers.UpdateStatus(
-		c.operatorClient,
-		updateStatusFn,
-		v1helpers.UpdateConditionFn(availableCondition),
-		v1helpers.UpdateConditionFn(progressingCondition),
-	)
-
-	return err
-}
-
-func isProgressing(status *opv1.OperatorStatus, deployment *appsv1.Deployment) (bool, string) {
-	var deploymentExpectedReplicas int32
-	if deployment.Spec.Replicas != nil {
-		deploymentExpectedReplicas = *deployment.Spec.Replicas
-	}
-
-	switch {
-	case deployment.Generation != deployment.Status.ObservedGeneration:
-		return true, "Waiting for Deployment to act on changes"
-	case deployment.Status.UnavailableReplicas > 0:
-		return true, "Waiting for Deployment to deploy pods"
-	case deployment.Status.UpdatedReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to update pods"
-	case deployment.Status.AvailableReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to deploy pods"
-	}
-	return false, ""
-}
-
-func replacePlaceholders(manifest []byte, spec *opv1.OperatorSpec, clusterID string) []byte {
-	pairs := []string{}
-
-	// Replace container images by env vars if they are set
-	csiDriver := os.Getenv(driverImageEnvName)
-	if csiDriver != "" {
-		pairs = append(pairs, []string{"${DRIVER_IMAGE}", csiDriver}...)
-	}
-
-	provisioner := os.Getenv(provisionerImageEnvName)
-	if provisioner != "" {
-		pairs = append(pairs, []string{"${PROVISIONER_IMAGE}", provisioner}...)
-	}
-
-	attacher := os.Getenv(attacherImageEnvName)
-	if attacher != "" {
-		pairs = append(pairs, []string{"${ATTACHER_IMAGE}", attacher}...)
-	}
-
-	resizer := os.Getenv(resizerImageEnvName)
-	if resizer != "" {
-		pairs = append(pairs, []string{"${RESIZER_IMAGE}", resizer}...)
-	}
-
-	snapshotter := os.Getenv(snapshotterImageEnvName)
-	if snapshotter != "" {
-		pairs = append(pairs, []string{"${SNAPSHOTTER_IMAGE}", snapshotter}...)
-	}
-
-	livenessProbe := os.Getenv(livenessProbeImageEnvName)
-	if livenessProbe != "" {
-		pairs = append(pairs, []string{"${LIVENESS_PROBE_IMAGE}", livenessProbe}...)
-	}
-
-	kubeRBACProxy := os.Getenv(kubeRBACProxyImageEnvName)
-	if kubeRBACProxy != "" {
-		pairs = append(pairs, []string{"${KUBE_RBAC_PROXY_IMAGE}", kubeRBACProxy}...)
-	}
-
-	// Cluster ID
-	pairs = append(pairs, []string{"${CLUSTER_ID}", clusterID}...)
-
-	// Log level
-	logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)
-	pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
-
-	replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
-	return []byte(replaced)
 }

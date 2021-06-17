@@ -2,6 +2,7 @@ package csidrivercontrollerservicecontroller
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,7 +16,11 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
+
+	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 const (
@@ -281,6 +286,93 @@ func TestWithReplicasHook(t *testing.T) {
 			}
 			if !equality.Semantic.DeepEqual(tc.initialDeployment, tc.expectedDeployment) {
 				t.Errorf("Unexpected Deployment content:\n%s", cmp.Diff(tc.initialDeployment, tc.expectedDeployment))
+			}
+		})
+	}
+}
+
+func setEnvVars(image images) {
+	os.Setenv(driverImageEnvName, image.csiDriver)
+	os.Setenv(provisionerImageEnvName, image.provisioner)
+	os.Setenv(attacherImageEnvName, image.attacher)
+	os.Setenv(snapshotterImageEnvName, image.snapshotter)
+	os.Setenv(resizerImageEnvName, image.resizer)
+	os.Setenv(livenessProbeImageEnvName, image.livenessProbe)
+	os.Setenv(kubeRBACProxyImageEnvName, image.kubeRBACProxy)
+}
+
+func TestManifestHooks(t *testing.T) {
+	argsLevel2 := 2
+	testCases := []struct {
+		name               string
+		initialOperator    *fakeDriverInstance
+		initialManifest    []byte
+		image              images
+		infraObjectName    string
+		expectedDeployment *appsv1.Deployment
+		expectError        bool
+	}{
+		{
+			name:            "replace all images",
+			initialOperator: makeFakeDriverInstance(),
+			initialManifest: makeFakeManifest(),
+			image:           defaultImages(),
+			infraObjectName: infraConfigName,
+			expectedDeployment: makeDeployment(
+				defaultClusterID,
+				argsLevel2,
+				defaultImages(),
+				withDeploymentReplicas(1),
+				withDeploymentGeneration(0, 0)),
+			expectError: false,
+		},
+		{
+			name:            "replace no images, except for CSI Driver image",
+			initialOperator: makeFakeDriverInstance(),
+			initialManifest: makeFakeManifest(),
+			image:           images{csiDriver: "quay.io/openshift/origin-test-csi-driver:latest"},
+			infraObjectName: infraConfigName,
+			expectedDeployment: makeDeployment(
+				defaultClusterID,
+				argsLevel2,
+				images{csiDriver: "quay.io/openshift/origin-test-csi-driver:latest"},
+				withDeploymentReplicas(1),
+				withDeploymentGeneration(0, 0)),
+			expectError: false,
+		},
+		{
+			name:            "incorrect infra object, so expect an error",
+			initialOperator: makeFakeDriverInstance(),
+			initialManifest: makeFakeManifest(),
+			image:           defaultImages(),
+			infraObjectName: "dummy",
+			expectedDeployment: makeDeployment(
+				defaultClusterID,
+				argsLevel2,
+				defaultImages(),
+				withDeploymentReplicas(1),
+				withDeploymentGeneration(0, 0)),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setEnvVars(tc.image)
+			infraObj := makeInfra()
+			infraObj.ObjectMeta.Name = tc.infraObjectName
+			initialInfras := []runtime.Object{infraObj}
+			configClient := fakeconfig.NewSimpleClientset(initialInfras...)
+			configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+			configInformerFactory.Config().V1().Infrastructures().Informer().GetIndexer().Add(initialInfras[0])
+
+			fn := WithPlaceholdersHook(configInformerFactory)
+			manifest, err := fn(&tc.initialOperator.Spec, tc.initialManifest)
+			if err != nil && !tc.expectError {
+				t.Errorf("Expected no error running hook function, got: %v", err)
+			}
+			if len(manifest) > 0 && !equality.Semantic.DeepEqual(resourceread.ReadDeploymentV1OrDie(manifest), tc.expectedDeployment) {
+				t.Errorf("Unexpected Deployment content:\n%s", cmp.Diff(resourceread.ReadDeploymentV1OrDie(manifest), tc.expectedDeployment))
 			}
 		})
 	}

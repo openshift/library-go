@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -142,7 +143,7 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 	namespacedInformerFactory informers.SharedInformerFactory,
 	configInformer configinformers.SharedInformerFactory,
 	optionalInformers []factory.Informer,
-	optionalDeploymentHooks ...csidrivercontrollerservicecontroller.DeploymentHookFunc,
+	optionalDeploymentHooks ...deploymentcontroller.DeploymentHookFunc,
 ) *CSIControllerSet {
 	manifestFile, err := assetFunc(file)
 	if err != nil {
