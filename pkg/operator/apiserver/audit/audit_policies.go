@@ -59,8 +59,10 @@ func GetAuditPolicies(profile string, auditPolicyAsset string, []openshiftapi.Cu
 	if err! = nil {
 		return nil, err
 	}
-	// psuedo code to construct audit struct profile and customRules group
+	// pseudo code to construct audit struct profile and customRules group
 	configmapPregroupAdd.add(openshiftapi.Audit.AuditProfileType, openshiftapi.Audit.AuditCustomRule.group(""))
+
+	//
 
 
 }
