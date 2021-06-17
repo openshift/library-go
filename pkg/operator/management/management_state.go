@@ -9,21 +9,17 @@ var (
 	allowOperatorRemovedState   = true
 )
 
-// These are for unit testing
-var (
-	getAllowedOperatorUnmanaged = func() bool {
-		return allowOperatorUnmanagedState
-	}
-	getAllowedOperatorRemovedState = func() bool {
-		return allowOperatorRemovedState
-	}
-)
-
 // SetOperatorAlwaysManaged is one time choice when an operator want to opt-out from supporting the "unmanaged" state.
 // This is a case of control plane operators or operators that are required to always run otherwise the cluster will
 // get into unstable state or critical components will stop working.
 func SetOperatorAlwaysManaged() {
 	allowOperatorUnmanagedState = false
+}
+
+// SetOperatorUnmanageable is one time choice when an operator wants to support the "unmanaged" state.
+// This is the default setting, provided here mostly for unit tests.
+func SetOperatorUnmanageable() {
+	allowOperatorUnmanagedState = true
 }
 
 // SetOperatorNotRemovable is one time choice the operator author can make to indicate the operator does not support
@@ -35,17 +31,17 @@ func SetOperatorNotRemovable() {
 
 // IsOperatorAlwaysManaged means the operator can't be set to unmanaged state.
 func IsOperatorAlwaysManaged() bool {
-	return !getAllowedOperatorUnmanaged()
+	return !allowOperatorUnmanagedState
 }
 
 // IsOperatorNotRemovable means the operator can't be set to removed state.
 func IsOperatorNotRemovable() bool {
-	return !getAllowedOperatorRemovedState()
+	return !allowOperatorRemovedState
 }
 
 // IsOperatorRemovable means the operator can be set to removed state.
 func IsOperatorRemovable() bool {
-	return getAllowedOperatorRemovedState()
+	return allowOperatorRemovedState
 }
 
 func IsOperatorUnknownState(state v1.ManagementState) bool {
