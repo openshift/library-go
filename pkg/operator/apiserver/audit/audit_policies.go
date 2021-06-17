@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"strings"
 
 	openshiftapi "github.com/openshift/api"
@@ -53,6 +54,14 @@ func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateF
 //GetAuditPolicies  takes as input the Audit configuration of the API and returns a file that holds the audit policies, that will be compared against
 //the controller func configmap
 func GetAuditPolicies(profile string, auditPolicyAsset string, []openshiftapi.CustomRule) (*auditv1.Policy, error){
+// operators get cm from libgo by operator ns
+	configmapPregroupAdd, err := getRawAuditPolicies(targetName string, targetNamespace string)
+	if err! = nil {
+		return nil, err
+	}
+	// psuedo code to construct audit struct profile and customRules group
+	configmapPregroupAdd.add(openshiftapi.Audit.AuditProfileType, openshiftapi.Audit.AuditCustomRule.group(""))
+
 
 }
 
