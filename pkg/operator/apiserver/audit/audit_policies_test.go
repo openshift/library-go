@@ -6,10 +6,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
-
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestWithAuditPolicies(t *testing.T) {
@@ -53,8 +54,32 @@ func TestWithAuditPolicies(t *testing.T) {
 				actualAuditPolicies := resourceread.ReadConfigMapV1OrDie(actualAuditPoliciesData)
 				goldenAuditPoliciesData := readBytesFromFile(t, scenario.goldenFile)
 				goldenAuditPolicies := resourceread.ReadConfigMapV1OrDie(goldenAuditPoliciesData)
-				if !equality.Semantic.DeepEqual(actualAuditPolicies, goldenAuditPolicies) {
-					t.Errorf("created config map is different from the expected one (file) : %s", diff.ObjectDiff(actualAuditPolicies, goldenAuditPolicies))
+
+				if got, expected := len(actualAuditPolicies.Data), len(goldenAuditPolicies.Data); got != expected {
+					t.Errorf("unexpected number of policies %d, expected %d", got, expected)
+				}
+
+				for name, bs := range actualAuditPolicies.Data {
+					var got auditv1.Policy
+					if err := yaml.Unmarshal([]byte(bs), &got); err != nil {
+						t.Errorf("failed to unmarshal policy %q: %v", name, err)
+						continue
+					}
+
+					bs, ok := goldenAuditPolicies.Data[name]
+					if !ok {
+						t.Errorf("unexpected policy %q", name)
+						continue
+					}
+					var expected auditv1.Policy
+					if err := yaml.Unmarshal([]byte(bs), &expected); err != nil {
+						t.Errorf("failed to unmarshal golden policy %q: %v", name, err)
+						continue
+					}
+
+					if !equality.Semantic.DeepEqual(got, expected) {
+						t.Errorf("policy %q differs: %s", name, diff.ObjectDiff(expected, got))
+					}
 				}
 			}
 			if err := scenario.delegate.Validate(); err != nil {
@@ -81,18 +106,41 @@ func TestGetAuditPolicies(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// act
-			actualAuditPoliciesData, err := getRawAuditPolicies(scenario.targetName, scenario.targetNamespace)
+			actualAuditPolicies, err := GetAuditPolicies(scenario.targetName, scenario.targetNamespace)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// validate
 			if len(scenario.goldenFile) > 0 {
-				actualAuditPolicies := resourceread.ReadConfigMapV1OrDie(actualAuditPoliciesData)
 				goldenAuditPoliciesData := readBytesFromFile(t, scenario.goldenFile)
 				goldenAuditPolicies := resourceread.ReadConfigMapV1OrDie(goldenAuditPoliciesData)
-				if !equality.Semantic.DeepEqual(actualAuditPolicies, goldenAuditPolicies) {
-					t.Errorf("created config map is different from the expected one (file) : %s", diff.ObjectDiff(actualAuditPolicies, goldenAuditPolicies))
+
+				if got, expected := len(actualAuditPolicies.Data), len(goldenAuditPolicies.Data); got != expected {
+					t.Errorf("unexpected number of policies %d, expected %d", got, expected)
+				}
+
+				for name, bs := range actualAuditPolicies.Data {
+					var got auditv1.Policy
+					if err := yaml.Unmarshal([]byte(bs), &got); err != nil {
+						t.Errorf("failed to unmarshal policy %q: %v", name, err)
+						continue
+					}
+
+					bs, ok := goldenAuditPolicies.Data[name]
+					if !ok {
+						t.Errorf("unexpected policy %q", name)
+						continue
+					}
+					var expected auditv1.Policy
+					if err := yaml.Unmarshal([]byte(bs), &expected); err != nil {
+						t.Errorf("failed to unmarshal golden policy %q: %v", name, err)
+						continue
+					}
+
+					if !equality.Semantic.DeepEqual(got, expected) {
+						t.Errorf("policy %q differs: %s", name, diff.ObjectDiff(expected, got))
+					}
 				}
 			}
 		})

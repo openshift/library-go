@@ -1,6 +1,9 @@
 // Code generated for package bindata by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml
+// pkg/operator/apiserver/audit/manifests/allrequestbodies-rules.yaml
+// pkg/operator/apiserver/audit/manifests/base-policy.yaml
+// pkg/operator/apiserver/audit/manifests/default-rules.yaml
+// pkg/operator/apiserver/audit/manifests/writerequestbodies-rules.yaml
 package bindata
 
 import (
@@ -54,142 +57,137 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ${TARGET_NAME}
-  namespace: ${TARGET_NAMESPACE}
-data:
-  default.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: Default
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # Log the full Identity API resource object so that the audit trail
-    # allows us to match the username with the IDP identity.
-    - level: RequestResponse
-      verbs: ["create", "update", "patch", "delete"]
-      resources:
-        - group: "user.openshift.io"
-          resources: ["identities"]
-        - group: "oauth.openshift.io"
-          resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # A catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - "RequestReceived"
-  writerequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: WriteRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # log request and response payloads for all write requests
-    - level: RequestResponse
-      verbs:
-      - update
-      - patch
-      - create
-      - delete
-      - deletecollection
-    # catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - RequestReceived
-  allrequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: AllRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # catch-all rule to log all other requests with request and response payloads
-    - level: RequestResponse
-`)
+var _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml = []byte(`# exclude resources where the body is security-sensitive
+- level: Metadata
+  resources:
+  - group: "route.openshift.io"
+    resources: ["routes"]
+  - resources: ["secrets"]
+- level: Metadata
+  resources:
+  - group: "oauth.openshift.io"
+    resources: ["oauthclients"]
+# catch-all rule to log all other requests with request and response payloads
+- level: RequestResponse`)
 
-func pkgOperatorApiserverAuditManifestsAuditPoliciesCmYamlBytes() ([]byte, error) {
-	return _pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml, nil
+func pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYamlBytes() ([]byte, error) {
+	return _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml, nil
 }
 
-func pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml() (*asset, error) {
-	bytes, err := pkgOperatorApiserverAuditManifestsAuditPoliciesCmYamlBytes()
+func pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml() (*asset, error) {
+	bytes, err := pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/allrequestbodies-rules.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _pkgOperatorApiserverAuditManifestsBasePolicyYaml = []byte(`    apiVersion: audit.k8s.io/v1
+    kind: Policy
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Don't log requests for events
+    - level: None
+      resources:
+      - group: ""
+        resources: ["events"]
+    # Don't log authenticated requests to certain non-resource URL paths.
+    - level: None
+      userGroups: ["system:authenticated", "system:unauthenticated"]
+      nonResourceURLs:
+      - "/api*" # Wildcard matching.
+      - "/version"
+      - "/healthz"
+      - "/readyz"
+`)
+
+func pkgOperatorApiserverAuditManifestsBasePolicyYamlBytes() ([]byte, error) {
+	return _pkgOperatorApiserverAuditManifestsBasePolicyYaml, nil
+}
+
+func pkgOperatorApiserverAuditManifestsBasePolicyYaml() (*asset, error) {
+	bytes, err := pkgOperatorApiserverAuditManifestsBasePolicyYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/base-policy.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _pkgOperatorApiserverAuditManifestsDefaultRulesYaml = []byte(`# Log the full Identity API resource object so that the audit trail
+# allows us to match the username with the IDP identity.
+- level: RequestResponse
+  verbs: ["create", "update", "patch", "delete"]
+  resources:
+  - group: "user.openshift.io"
+    resources: ["identities"]
+  - group: "oauth.openshift.io"
+    resources: ["oauthaccesstokens", "oauthauthorizetokens"]
+# A catch-all rule to log all other requests at the Metadata level.
+- level: Metadata
+  # Long-running requests like watches that fall under this rule will not
+  # generate an audit event in RequestReceived.
+  omitStages:
+  - "RequestReceived"`)
+
+func pkgOperatorApiserverAuditManifestsDefaultRulesYamlBytes() ([]byte, error) {
+	return _pkgOperatorApiserverAuditManifestsDefaultRulesYaml, nil
+}
+
+func pkgOperatorApiserverAuditManifestsDefaultRulesYaml() (*asset, error) {
+	bytes, err := pkgOperatorApiserverAuditManifestsDefaultRulesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/default-rules.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# exclude resources where the body is security-sensitive
+- level: Metadata
+  resources:
+  - group: "route.openshift.io"
+    resources: ["routes"]
+  - resources: ["secrets"]
+- level: Metadata
+  resources:
+  - group: "oauth.openshift.io"
+    resources: ["oauthclients"]
+# log request and response payloads for all write requests
+- level: RequestResponse
+  verbs:
+  - update
+  - patch
+  - create
+  - delete
+  - deletecollection
+# catch-all rule to log all other requests at the Metadata level.
+- level: Metadata
+  # Long-running requests like watches that fall under this rule will not
+  # generate an audit event in RequestReceived.
+  omitStages:
+  - RequestReceived`)
+
+func pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYamlBytes() ([]byte, error) {
+	return _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml, nil
+}
+
+func pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml() (*asset, error) {
+	bytes, err := pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/writerequestbodies-rules.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -246,7 +244,10 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml": pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml,
+	"pkg/operator/apiserver/audit/manifests/allrequestbodies-rules.yaml":   pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml,
+	"pkg/operator/apiserver/audit/manifests/base-policy.yaml":              pkgOperatorApiserverAuditManifestsBasePolicyYaml,
+	"pkg/operator/apiserver/audit/manifests/default-rules.yaml":            pkgOperatorApiserverAuditManifestsDefaultRulesYaml,
+	"pkg/operator/apiserver/audit/manifests/writerequestbodies-rules.yaml": pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -295,7 +296,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"apiserver": {nil, map[string]*bintree{
 				"audit": {nil, map[string]*bintree{
 					"manifests": {nil, map[string]*bintree{
-						"audit-policies-cm.yaml": {pkgOperatorApiserverAuditManifestsAuditPoliciesCmYaml, map[string]*bintree{}},
+						"allrequestbodies-rules.yaml":   {pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml, map[string]*bintree{}},
+						"base-policy.yaml":              {pkgOperatorApiserverAuditManifestsBasePolicyYaml, map[string]*bintree{}},
+						"default-rules.yaml":            {pkgOperatorApiserverAuditManifestsDefaultRulesYaml, map[string]*bintree{}},
+						"writerequestbodies-rules.yaml": {pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml, map[string]*bintree{}},
 					}},
 				}},
 			}},
