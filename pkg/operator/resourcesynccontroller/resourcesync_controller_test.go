@@ -147,9 +147,9 @@ func TestSyncSecret(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 		deleteSecretCounterMutex.Lock()
 		defer deleteSecretCounterMutex.Unlock()
-		return deleteSecretCounter == 2, nil
+		return deleteSecretCounter > 0, nil
 	}); err != nil {
-		t.Fatalf("expected exactly 2 delete calls for this test, got %d", deleteSecretCounter)
+		t.Fatalf("expected a delete calls for this test, got %d", deleteSecretCounter)
 	}
 }
 
