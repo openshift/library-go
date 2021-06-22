@@ -51,7 +51,7 @@ func (c SigningRotation) ensureSigningCertKeyPair() (*crypto.CA, error) {
 
 		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
 
-		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(c.Client, c.EventRecorder, signingCertKeyPairSecret)
+		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(c.Client, false, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
 			return nil, err
 		}

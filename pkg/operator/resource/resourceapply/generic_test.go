@@ -37,7 +37,8 @@ metadata:
 `), nil
 	}
 	recorder := events.NewInMemoryRecorder("")
-	ret := ApplyDirectly((&ClientHolder{}).WithKubernetes(fakeClient), recorder, content, "pvc")
+	resourceConditionalMaps := []ResourceConditionalMap{{"pvc", nil, nil}}
+	ret := ApplyDirectly((&ClientHolder{}).WithKubernetes(fakeClient), recorder, content, resourceConditionalMaps)
 	if ret[0].Error == nil {
 		t.Fatal("missing expected error")
 	} else if ret[0].Error.Error() != "unhandled type *v1.PersistentVolumeClaim" {
