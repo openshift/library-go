@@ -323,9 +323,11 @@ func (c *Controller) updateOperatorStatus(previousStatus *operatorv1.OperatorSta
 	return nil
 }
 
+// isUpdatingTooLong determines if updating operands takes too long.
+// it returns true if the progressing condition has been set to True for at least 15 minutes
 func isUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
 	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
-	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(5*time.Minute)), nil
+	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(15*time.Minute)), nil
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
