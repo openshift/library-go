@@ -5,7 +5,7 @@ metadata:
   namespace: ScenarioOne
 data:
   default.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
+    apiVersion: audit.k8s.io/v1
     kind: Policy
     metadata:
       name: Default
@@ -43,7 +43,7 @@ data:
       - "RequestReceived"
 
   writerequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
+    apiVersion: audit.k8s.io/v1
     kind: Policy
     metadata:
       name: WriteRequestBodies
@@ -90,7 +90,7 @@ data:
       - RequestReceived
 
   allrequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
+    apiVersion: audit.k8s.io/v1
     kind: Policy
     metadata:
       name: AllRequestBodies

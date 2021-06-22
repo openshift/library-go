@@ -1,134 +1,93 @@
 package audit
 
 import (
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
+	"path"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-
+	configv1 "github.com/openshift/api/config/v1"
 	assets "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
-	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	"sigs.k8s.io/yaml"
 )
 
-const (
-	// AuditPoliciesConfigMapFileName hold the name of the file that you need to pass to WithAuditPolicies to get the audit policy config map
-	AuditPoliciesConfigMapFileName = "audit-policies-cm.yaml"
+var (
+	basePolicy   auditv1.Policy
+	profileRules = map[configv1.AuditProfileType][]auditv1.PolicyRule{}
 
-	auditPolicyAsset = "pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml"
+	auditScheme         = runtime.NewScheme()
+	auditCodecs         = serializer.NewCodecFactory(auditScheme)
+	auditYamlSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, auditScheme, auditScheme)
+
+	coreScheme         = runtime.NewScheme()
+	coreCodecs         = serializer.NewCodecFactory(coreScheme)
+	coreYamlSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, coreScheme, coreScheme)
 )
+
+func init() {
+	if err := auditv1.AddToScheme(auditScheme); err != nil {
+		panic(err)
+	}
+	if err := corev1.AddToScheme(coreScheme); err != nil {
+		panic(err)
+	}
+
+	bs, err := assets.Asset("pkg/operator/apiserver/audit/manifests/base-policy.yaml")
+	if err != nil {
+		panic(err)
+	}
+	if err := runtime.DecodeInto(coreCodecs.UniversalDecoder(auditv1.SchemeGroupVersion), bs, &basePolicy); err != nil {
+		panic(err)
+	}
+
+	for _, profile := range []configv1.AuditProfileType{configv1.AuditProfileDefaultType, configv1.WriteRequestBodiesAuditProfileType, configv1.AllRequestBodiesAuditProfileType} {
+		manifestName := fmt.Sprintf("%s-rules.yaml", strings.ToLower(string(profile)))
+		bs, err := assets.Asset(path.Join("pkg/operator/apiserver/audit/manifests", manifestName))
+		if err != nil {
+			panic(err)
+		}
+		var rules []auditv1.PolicyRule
+		if err := yaml.Unmarshal(bs, &rules); err != nil {
+			panic(err)
+		}
+		profileRules[profile] = rules
+	}
+}
 
 // DefaultPolicy brings back the default.yaml audit policy to init the api
 func DefaultPolicy() ([]byte, error) {
-	// none is used on target name and namespace as it's not a key in the default.yaml
-	cm, err := GetAuditPolicies("none", "none")
+	policy, err := GetAuditPolicy(configv1.Audit{Profile: configv1.AuditProfileDefaultType})
 	if err != nil {
-		return nil, fmt.Errorf("failed to retreive audit policies - %w", err)
+		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
 	}
 
-	cmData := []byte(cm.Data["default.yaml"])
-	if len(cmData) == 0 {
-		return nil, errors.New("failed to locate the default policy from configmap")
-	}
-	return cmData, nil
-}
+	policy.Kind = "Policy"
+	policy.APIVersion = auditv1.SchemeGroupVersion.String()
 
-// WithAuditPolicies is meant to wrap a standard Asset function usually provided by an operator.
-// It delegates to GetAuditPolicies when the filename matches the predicate for retrieving a audit policy config map for target namespace and name.
-func WithAuditPolicies(targetName string, targetNamespace string, assetDelegateFunc resourceapply.AssetFunc) resourceapply.AssetFunc {
-	return func(file string) ([]byte, error) {
-		if file == AuditPoliciesConfigMapFileName {
-			return getRawAuditPolicies(targetName, targetNamespace)
-		}
-		return assetDelegateFunc(file)
-	}
-}
-
-// GetAuditPolicies returns a config map that holds the audit policies for the target namespaces and name
-func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, error) {
-	rawAuditPolicies, err := getRawAuditPolicies(targetName, targetNamespace)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := auditYamlSerializer.Encode(policy, &buf); err != nil {
 		return nil, err
 	}
-
-	return resourceread.ReadConfigMapV1OrDie(rawAuditPolicies), nil
+	return buf.Bytes(), nil
 }
 
-// getRawAuditPolicies returns a raw config map that holds the audit policies for the target namespaces and name
-func getRawAuditPolicies(targetName, targetNamespace string) ([]byte, error) {
-	if len(targetNamespace) == 0 {
-		return nil, errors.New("please specify the target namespace")
+// GetAuditPolicy computes the audit policy for the given audit config.
+// Note: the returned Policy has Kind and APIVersion not set. This is responsibility of the caller
+//       when serializing it.
+func GetAuditPolicy(audit configv1.Audit) (*auditv1.Policy, error) {
+	p := basePolicy.DeepCopy()
+	p.Name = string(audit.Profile)
+
+	extraRules, ok := profileRules[audit.Profile]
+	if !ok {
+		return nil, fmt.Errorf("unknown audit profile %q", audit.Profile)
 	}
-	if len(targetName) == 0 {
-		return nil, errors.New("please specify the target name")
-	}
-	auditPoliciesTemplate, err := assets.Asset(auditPolicyAsset)
-	if err != nil {
-		return nil, err
-	}
+	p.Rules = append(p.Rules, extraRules...)
 
-	r := strings.NewReplacer(
-		"${TARGET_NAME}", targetName,
-		"${TARGET_NAMESPACE}", targetNamespace,
-	)
-	auditPoliciesForTargetNs := []byte(r.Replace(string(auditPoliciesTemplate)))
-
-	// we don't care about the output, just make sure that after replacing the ns it will serialize
-	resourceread.ReadConfigMapV1OrDie(auditPoliciesForTargetNs)
-	return auditPoliciesForTargetNs, nil
-}
-
-// NewAuditPolicyPathGetter returns a path getter for audit policy file mounted into the given path of a Pod as a directory.
-//
-// openshift-apiserver and oauth-apiserver mounts the audit policy ConfigMap into
-// the above path inside the Pod.
-func NewAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {
-	return newAuditPolicyPathGetter(path)
-}
-
-func newAuditPolicyPathGetter(path string) (libgoapiserver.AuditPolicyPathGetterFunc, error) {
-	policies, err := readPolicyNamesFromAsset()
-	if err != nil {
-		return nil, err
-	}
-
-	return func(profile string) (string, error) {
-		// we expect the keys for audit profile in bindata to be in lower case and
-		// have a '.yaml' suffix.
-		key := fmt.Sprintf("%s.yaml", strings.ToLower(profile))
-		_, exists := policies[key]
-		if !exists {
-			return "", fmt.Errorf("invalid audit profile - key=%s", key)
-		}
-
-		return fmt.Sprintf("%s/%s", path, key), nil
-	}, nil
-}
-
-func readPolicyNamesFromAsset() (map[string]struct{}, error) {
-	bytes, err := assets.Asset(auditPolicyAsset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load asset asset=%s - %s", auditPolicyAsset, err)
-	}
-
-	rawJSON, err := kyaml.ToJSON(bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert asset yaml to JSON asset=%s - %s", auditPolicyAsset, err)
-	}
-
-	cm := corev1.ConfigMap{}
-	if err := json.Unmarshal(rawJSON, &cm); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal audit policy asset=%s - %s", auditPolicyAsset, err)
-	}
-
-	policies := map[string]struct{}{}
-	for key := range cm.Data {
-		policies[key] = struct{}{}
-	}
-
-	return policies, nil
+	return p, nil
 }
