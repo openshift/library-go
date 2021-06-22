@@ -140,7 +140,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Type:               fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
 					Status:             operatorv1.ConditionTrue,
 					Reason:             "PodsUpdating",
-					LastTransitionTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)),
+					LastTransitionTime: metav1.NewTime(time.Now().Add(-16 * time.Minute)),
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
