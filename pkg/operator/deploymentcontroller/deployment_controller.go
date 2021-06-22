@@ -24,6 +24,7 @@ import (
 type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 
 // ManifestHookFunc is a hook function to modify the manifest in raw format.
+// The hook must not modify the original manifest!
 type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 
 // DeploymentController is a generic controller that manages a deployment
@@ -109,15 +110,15 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 		return nil
 	}
 
+	manifest := c.manifest
 	for i := range c.optionalManifestHooks {
-		manifest, err := c.optionalManifestHooks[i](opSpec, c.manifest)
+		manifest, err = c.optionalManifestHooks[i](opSpec, manifest)
 		if err != nil {
 			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
 		}
-		c.manifest = manifest
 	}
 
-	required := resourceread.ReadDeploymentV1OrDie(c.manifest)
+	required := resourceread.ReadDeploymentV1OrDie(manifest)
 
 	for i := range c.optionalDeploymentHooks {
 		err := c.optionalDeploymentHooks[i](opSpec, required)
