@@ -128,6 +128,7 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
+		context.TODO(),
 		c.kubeClient.AppsV1(),
 		syncContext.Recorder(),
 		required,

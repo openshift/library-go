@@ -136,6 +136,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 	}
 
 	daemonSet, _, err := resourceapply.ApplyDaemonSet(
+		ctx,
 		c.kubeClient.AppsV1(),
 		syncContext.Recorder(),
 		required,

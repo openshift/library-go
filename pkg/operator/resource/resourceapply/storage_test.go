@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -138,7 +139,7 @@ func TestApplyStorageClass(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyStorageClass(client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyStorageClass(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +248,7 @@ func TestApplyCSIDriver(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyCSIDriverV1Beta1(client.StorageV1beta1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyCSIDriverV1Beta1(context.TODO(), client.StorageV1beta1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -117,7 +118,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				EventRecorder: events.NewInMemoryRecorder("test"),
 			}
 
-			_, err := c.ensureSigningCertKeyPair()
+			_, err := c.ensureSigningCertKeyPair(context.TODO())
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)

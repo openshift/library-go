@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -179,7 +180,7 @@ func TestApplyStorageVersionMigration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyStorageVersionMigration(client, events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyStorageVersionMigration(context.TODO(), client, events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
