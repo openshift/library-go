@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -98,7 +99,7 @@ func TestApplyServiceMonitor(t *testing.T) {
 
 	required := resourceread.ReadUnstructuredOrDie([]byte(fakeServiceMonitor))
 
-	_, modified, err := ApplyServiceMonitor(dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
+	_, modified, err := ApplyServiceMonitor(context.TODO(), dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

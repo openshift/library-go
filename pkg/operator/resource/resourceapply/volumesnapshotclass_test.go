@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -111,7 +112,7 @@ func TestApplyVolumeSnapshotClassUpdate(t *testing.T) {
 
 			required := resourceread.ReadUnstructuredOrDie([]byte(tc.required))
 
-			_, modified, err := ApplyVolumeSnapshotClass(dynamicClient, events.NewInMemoryRecorder("volumesnapshotclass-test"), required)
+			_, modified, err := ApplyVolumeSnapshotClass(context.TODO(), dynamicClient, events.NewInMemoryRecorder("volumesnapshotclass-test"), required)
 			if tc.expectedErr {
 				if err != nil {
 					return

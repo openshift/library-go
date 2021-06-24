@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -297,7 +298,7 @@ func TestApplyConfigMap(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyConfigMap(client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyConfigMap(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -510,7 +511,7 @@ func TestApplySecret(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existing...)
-			got, changed, err := ApplySecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.required)
+			got, changed, err := ApplySecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.required)
 			if !reflect.DeepEqual(tc.err, err) {
 				t.Errorf("expected error %v, got %v", tc.err, err)
 				return
@@ -659,7 +660,7 @@ func TestApplyNamespace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyNamespace(client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyNamespace(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -873,7 +874,7 @@ func TestSyncSecret(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			secret, changed, err := SyncSecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs)
+			secret, changed, err := SyncSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
@@ -1134,7 +1135,7 @@ func TestSyncPartialSync(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			secret, changed, err := SyncPartialSecret(client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.syncedKeys, tc.ownerRefs)
+			secret, changed, err := SyncPartialSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.syncedKeys, tc.ownerRefs)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)

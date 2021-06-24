@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -207,6 +208,7 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 
 			testApply := func(expectedGeneration int64, expectModify bool) {
 				updatedHook, modified, err := ApplyMutatingWebhookConfiguration(
+					context.TODO(),
 					client.AdmissionregistrationV1(),
 					recorder, test.input(), expectedGeneration)
 				if err != nil {
@@ -435,6 +437,7 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 
 			testApply := func(expectedGeneration int64, expectModify bool) {
 				updatedHook, modified, err := ApplyValidatingWebhookConfiguration(
+					context.TODO(),
 					client.AdmissionregistrationV1(),
 					recorder, test.input(), expectedGeneration)
 				if err != nil {
