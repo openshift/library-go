@@ -118,7 +118,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return err
 	}
 
-	err = c.syncAPIServices(apiServices, syncCtx.Recorder())
+	err = c.syncAPIServices(ctx, apiServices, syncCtx.Recorder())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -139,13 +139,13 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 	return err
 }
 
-func (c *APIServiceController) syncAPIServices(apiServices []*apiregistrationv1.APIService, recorder events.Recorder) error {
+func (c *APIServiceController) syncAPIServices(ctx context.Context, apiServices []*apiregistrationv1.APIService, recorder events.Recorder) error {
 	errs := []error{}
 	var availableConditionMessages []string
 
 	for _, apiService := range apiServices {
 		apiregistrationv1.SetDefaults_ServiceReference(apiService.Spec.Service)
-		apiService, _, err := resourceapply.ApplyAPIService(c.apiregistrationv1Client, recorder, apiService)
+		apiService, _, err := resourceapply.ApplyAPIService(ctx, c.apiregistrationv1Client, recorder, apiService)
 		if err != nil {
 			errs = append(errs, err)
 			continue

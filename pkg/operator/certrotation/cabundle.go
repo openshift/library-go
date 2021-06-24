@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"reflect"
@@ -32,7 +33,7 @@ type CABundleRotation struct {
 	EventRecorder events.Recorder
 }
 
-func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+func (c CABundleRotation) ensureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
@@ -52,7 +53,7 @@ func (c CABundleRotation) ensureConfigMapCABundle(signingCertKeyPair *crypto.CA)
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
-		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(c.Client, c.EventRecorder, caBundleConfigMap)
+		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {
 			return nil, err
 		}

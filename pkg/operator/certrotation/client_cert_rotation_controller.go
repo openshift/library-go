@@ -103,17 +103,17 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 }
 
 func (c CertRotationController) syncWorker() error {
-	signingCertKeyPair, err := c.SigningRotation.ensureSigningCertKeyPair()
+	signingCertKeyPair, err := c.SigningRotation.ensureSigningCertKeyPair(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	cabundleCerts, err := c.CABundleRotation.ensureConfigMapCABundle(signingCertKeyPair)
+	cabundleCerts, err := c.CABundleRotation.ensureConfigMapCABundle(context.TODO(), signingCertKeyPair)
 	if err != nil {
 		return err
 	}
 
-	if err := c.TargetRotation.ensureTargetCertKeyPair(signingCertKeyPair, cabundleCerts); err != nil {
+	if err := c.TargetRotation.ensureTargetCertKeyPair(context.TODO(), signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 

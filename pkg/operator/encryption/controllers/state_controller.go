@@ -87,7 +87,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.generateAndApplyCurrentEncryptionConfigSecret(syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
+	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -111,7 +111,7 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
+func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
 	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(queue wo
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(desiredEncryptionConfig, recorder)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
 	if err != nil {
 		return err
 	}
@@ -145,13 +145,13 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(queue wo
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, recorder events.Recorder) (bool, error) {
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, recorder events.Recorder) (bool, error) {
 	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.component), encryptionConfig)
 	if err != nil {
 		return false, err
 	}
 
-	_, changed, applyErr := resourceapply.ApplySecret(c.secretClient, recorder, s)
+	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
 	return changed, applyErr
 }
 

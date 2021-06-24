@@ -474,7 +474,7 @@ func TestPruneDiskResources(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error %q", err)
 			}
-			if diskErr := c.pruneDiskResources(eventRecorder, operatorStatus, excludedRevisions, excludedRevisions[len(excludedRevisions)-1]); diskErr != nil {
+			if diskErr := c.pruneDiskResources(context.TODO(), eventRecorder, operatorStatus, excludedRevisions, excludedRevisions[len(excludedRevisions)-1]); diskErr != nil {
 				t.Fatalf("unexpected error %q", diskErr)
 			}
 

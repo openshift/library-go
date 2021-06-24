@@ -109,7 +109,7 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	migratingResources, migrationError := c.migrateKeysIfNeededAndRevisionStable(syncCtx, c.provider.EncryptedGRs())
+	migratingResources, migrationError := c.migrateKeysIfNeededAndRevisionStable(ctx, syncCtx, c.provider.EncryptedGRs())
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -157,7 +157,7 @@ func (c *migrationController) setProgressing(migrating bool, reason, message str
 }
 
 // TODO doc
-func (c *migrationController) migrateKeysIfNeededAndRevisionStable(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (migratingResources []schema.GroupResource, err error) {
+func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (migratingResources []schema.GroupResource, err error) {
 	// no storage migration during revision changes
 	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
@@ -259,7 +259,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(syncContext f
 				return nil
 			}
 
-			_, _, updateErr := resourceapply.ApplySecret(c.secretClient, syncContext.Recorder(), s)
+			_, _, updateErr := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), s)
 			return updateErr
 		}); err != nil {
 			errs = append(errs, err)

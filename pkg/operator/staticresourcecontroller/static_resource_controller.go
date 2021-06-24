@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
-	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -33,10 +34,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-)
-
-const (
-	workQueueKey = "key"
 )
 
 var (
@@ -212,7 +209,7 @@ func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.
 
 	errors := []error{}
 	var notFoundErrorsCount int
-	directResourceResults := resourceapply.ApplyDirectly(c.clients, syncContext.Recorder(), c.manifests, c.files...)
+	directResourceResults := resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.manifests, c.files...)
 	for _, currResult := range directResourceResults {
 		if apierrors.IsNotFound(currResult.Error) {
 			notFoundErrorsCount++

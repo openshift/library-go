@@ -73,7 +73,7 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 		return err
 	}
 
-	cr, err := c.syncCredentialsRequest(status, syncContext)
+	cr, err := c.syncCredentialsRequest(ctx, status, syncContext)
 	if err != nil {
 		return err
 	}
@@ -111,6 +111,7 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 }
 
 func (c CredentialsRequestController) syncCredentialsRequest(
+	ctx context.Context,
 	status *opv1.OperatorStatus,
 	syncContext factory.SyncContext,
 ) (*unstructured.Unstructured, error) {
@@ -133,7 +134,7 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 		expectedGeneration = generation.LastGeneration
 	}
 
-	cr, _, err = resourceapply.ApplyCredentialsRequest(c.dynamicClient, syncContext.Recorder(), cr, expectedGeneration)
+	cr, _, err = resourceapply.ApplyCredentialsRequest(ctx, c.dynamicClient, syncContext.Recorder(), cr, expectedGeneration)
 	return cr, err
 }
 
