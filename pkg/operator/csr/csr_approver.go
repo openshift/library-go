@@ -45,6 +45,9 @@ type csrApproverController struct {
 // NewCSRApproverController returns a controller that is observing the CSR API
 // for a CSR of a given name. If such a CSR exists, it runs the `csrApprover.Approve()`
 // against it and either denies, approves or leaves the CSR.
+//
+// If operatorClient is nil, the controller will log the errors instead of reporting
+// them in an operator status.
 func NewCSRApproverController(
 	controllerName string,
 	operatorClient v1helpers.OperatorClient,
@@ -68,14 +71,18 @@ func NewCSRApproverController(
 		return csrFilter.Matches(csrObj)
 	}
 
-	return factory.New().
+	f := factory.New().
 		WithSync(c.sync).
-		WithSyncDegradedOnError(operatorClient).
-		WithFilteredEventsInformersQueueKeyFunc(factory.ObjectNameToKey, csrFilterConverted, csrInformers.Informer()).
-		ToController(
-			"WebhookAuthenticatorCertApprover_"+controllerName,
-			eventsRecorder.WithComponentSuffix("webhook-authenticator-cert-approver-"+controllerName),
-		)
+		WithFilteredEventsInformersQueueKeyFunc(factory.ObjectNameToKey, csrFilterConverted, csrInformers.Informer())
+
+	if operatorClient != nil {
+		f.WithSyncDegradedOnError(operatorClient)
+	}
+
+	return f.ToController(
+		"WebhookAuthenticatorCertApprover_"+controllerName,
+		eventsRecorder.WithComponentSuffix("webhook-authenticator-cert-approver-"+controllerName),
+	)
 }
 
 func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
