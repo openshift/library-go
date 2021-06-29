@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	openshiftapi "github.com/openshift/api"
 	configv1 "github.com/openshift/api/config/v1"
 	assets "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
 	corev1 "k8s.io/api/core/v1"
@@ -79,15 +80,16 @@ func DefaultPolicy() ([]byte, error) {
 // GetAuditPolicy computes the audit policy for the given audit config.
 // Note: the returned Policy has Kind and APIVersion not set. This is responsibility of the caller
 //       when serializing it.
-func GetAuditPolicy(audit configv1.Audit) (*auditv1.Policy, error) {
+func GetAuditPolicy(audit configv1.Audit, group []openshiftapi.CustomRule) (*auditv1.Policy, error) {
 	p := basePolicy.DeepCopy()
 	p.Name = string(audit.Profile)
 
 	extraRules, ok := profileRules[audit.Profile]
+	groupRule :=  openshiftapi.Audit.AuditCustomRule.group(""))
 	if !ok {
 		return nil, fmt.Errorf("unknown audit profile %q", audit.Profile)
 	}
-	p.Rules = append(p.Rules, extraRules...)
+	p.Rules = append(p.Rules, groups)
 
 	return p, nil
 }
