@@ -30,6 +30,19 @@ func TestDefaultPolicy(t *testing.T) {
 	}
 }
 
+func TestNoUserGroups(t *testing.T) {
+	for file, rules := range profileRules {
+		for i, r := range rules {
+			if len(r.UserGroups) > 0 {
+				// we cannot have userGroups to be set as upstream audit.PolicyRule has no userGroup conjunction. Hence,
+				// this rule cannot be applied via customRules.
+				// Note: we still can have those profiles, but we have to exclude them from customRules.
+				t.Errorf("in %q rule number %d userGroups is set", file, i)
+			}
+		}
+	}
+}
+
 func readBytesFromFile(t *testing.T, filename string) []byte {
 	file, err := os.Open(filename)
 	if err != nil {

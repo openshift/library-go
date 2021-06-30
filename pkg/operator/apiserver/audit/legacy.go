@@ -26,7 +26,7 @@ func GetAuditPolicies(targetName, targetNamespace string) (*corev1.ConfigMap, er
 		Data: map[string]string{},
 	}
 
-	for _, profile := range []configv1.AuditProfileType{configv1.AuditProfileDefaultType, configv1.WriteRequestBodiesAuditProfileType, configv1.AllRequestBodiesAuditProfileType} {
+	for _, profile := range []configv1.AuditProfileType{configv1.DefaultAuditProfileType, configv1.WriteRequestBodiesAuditProfileType, configv1.AllRequestBodiesAuditProfileType} {
 		policy, err := GetAuditPolicy(configv1.Audit{Profile: profile})
 		if err != nil {
 			return nil, err
