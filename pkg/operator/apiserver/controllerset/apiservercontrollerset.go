@@ -7,9 +7,12 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
+	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/nsfinalizer"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	"github.com/openshift/library-go/pkg/operator/encryption"
@@ -69,6 +72,7 @@ type APIServerControllerSet struct {
 	eventRecorder  events.Recorder
 
 	apiServiceController            controllerWrapper
+	auditPolicyController           controllerWrapper
 	clusterOperatorStatusController controllerWrapper
 	configUpgradableController      controllerWrapper
 	encryptionControllers           encryptionControllerBuilder
@@ -349,12 +353,40 @@ func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerContr
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithAuditPolicyController(
+	targetNamespace string,
+	targetConfigMapName string,
+	apiserverConfigLister configv1listers.APIServerLister,
+	configInformers configinformers.SharedInformerFactory,
+	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
+) *APIServerControllerSet {
+	cs.auditPolicyController.controller = auditpolicy.NewAuditPolicyController(
+		targetNamespace,
+		targetConfigMapName,
+		apiserverConfigLister,
+		cs.operatorClient,
+		kubeClient,
+		configInformers,
+		kubeInformersForTargetNamesace,
+		cs.eventRecorder,
+	)
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutAuditPolicyController() *APIServerControllerSet {
+	cs.auditPolicyController.controller = nil
+	cs.auditPolicyController.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
 	prepared := []controller{}
 	errs := []error{}
 
 	for name, cw := range map[string]controllerWrapper{
 		"apiServiceController":            cs.apiServiceController,
+		"auditPolicyController":           cs.auditPolicyController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
 		"encryptionControllers":           cs.encryptionControllers.build(),
