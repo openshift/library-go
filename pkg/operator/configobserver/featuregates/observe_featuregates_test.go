@@ -71,6 +71,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"CSIDriverVSphere=true",
 				"CSIMigrationAWS=true",
 				"CSIMigrationOpenStack=true",
+				"CSIMigrationGCE=true",
+				"CSIMigrationAzureDisk=true",
 				"LegacyNodeRoleBehavior=false",
 			},
 		},
