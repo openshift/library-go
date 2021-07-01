@@ -234,6 +234,24 @@ func UpdateStaticPodConditionFn(cond operatorv1.OperatorCondition) UpdateStaticP
 	}
 }
 
+// EnsureFinalizer adds a new finalizer to the operator CR, if it does not exists. No-op otherwise.
+// It re-tries on conflicts.
+func EnsureFinalizer(client OperatorClientWithFinalizers, finalizer string) error {
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return client.EnsureFinalizer(finalizer)
+	})
+	return err
+}
+
+// RemoveFinalizer removes a finalizer from the operator CR, if it is there. No-op otherwise.
+// It re-tries on conflicts.
+func RemoveFinalizer(client OperatorClientWithFinalizers, finalizer string) error {
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return client.RemoveFinalizer(finalizer)
+	})
+	return err
+}
+
 type aggregate []error
 
 var _ utilerrors.Aggregate = aggregate{}
