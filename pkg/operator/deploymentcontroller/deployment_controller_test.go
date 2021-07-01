@@ -2,6 +2,7 @@ package deploymentcontroller
 
 import (
 	"context"
+	"os"
 	"sort"
 	"time"
 
@@ -39,7 +40,7 @@ const (
 	operandNamespace = "openshift-dummy-test-deployment"
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
-	finalizerName      = controllerName
+	finalizerName      = "test.operator.openshift.io/" + controllerName
 )
 
 var (
@@ -610,6 +611,7 @@ func TestSync(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			// Initialize
+			os.Setenv("OPERATOR_NAME", "test")
 			if test.removable {
 				management.SetOperatorRemovable()
 			} else {

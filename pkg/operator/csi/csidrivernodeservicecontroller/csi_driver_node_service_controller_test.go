@@ -46,7 +46,7 @@ const (
 	hookDaemonSetAnnKey = "operator.openshift.io/foo"
 	hookDaemonSetAnnVal = "bar"
 
-	finalizerName = controllerName
+	finalizerName = "test.operator.openshift.io/" + controllerName
 )
 
 var (
@@ -118,11 +118,11 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	)
 
 	// Pretend env vars are set
+	os.Setenv("OPERATOR_NAME", "test")
 	// TODO: inject these in New() instead
 	os.Setenv(driverImageEnvName, test.images.csiDriver)
 	os.Setenv(nodeDriverRegistrarImageEnvName, test.images.nodeDriverRegistrar)
 	os.Setenv(livenessProbeImageEnvName, test.images.livenessProbe)
-
 	return &testContext{
 		controller:     controller,
 		operatorClient: fakeOperatorClient,
