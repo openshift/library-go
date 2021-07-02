@@ -58,6 +58,7 @@ var _pkgOperatorConnectivitycheckcontrollerManifestsControlplaneOperatorOpenshif
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    api-approved.openshift.io: https://github.com/openshift/api/pull/639
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
   name: podnetworkconnectivitychecks.controlplane.operator.openshift.io
@@ -71,10 +72,6 @@ spec:
   scope: Namespaced
   versions:
   - name: v1alpha1
-    served: true
-    storage: true
-    subresources:
-      status: {}
     schema:
       openAPIV3Schema:
         description: PodNetworkConnectivityCheck
@@ -313,6 +310,10 @@ spec:
                       type: string
                       format: date-time
                       nullable: true
+    served: true
+    storage: true
+    subresources:
+      status: {}
 `)
 
 func pkgOperatorConnectivitycheckcontrollerManifestsControlplaneOperatorOpenshiftIo_podnetworkconnectivitychecksYamlBytes() ([]byte, error) {

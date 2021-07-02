@@ -68,7 +68,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		return existingConfig, append(errs, err)
 	}
 
-	external, err := c.isCloudProviderExternal(listers, infrastructure.Status.Platform)
+	external, err := c.isCloudProviderExternal(listers, infrastructure.Status.PlatformStatus)
 	if err != nil {
 		recorder.Warningf("ObserveCloudProviderNames", "Could not determine external cloud provider state: %v", err)
 		return existingConfig, append(errs, err)
@@ -151,7 +151,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 // isCloudProviderExternal is used to determine if the cluster should use external cloud providers.
 // Currently, this is opt in via a feature gate. If no feature gate is present, the cluster should remain
 // using the in-tree implementation.
-func (c *cloudProviderObserver) isCloudProviderExternal(listers InfrastructureLister, platform configv1.PlatformType) (bool, error) {
+func (c *cloudProviderObserver) isCloudProviderExternal(listers InfrastructureLister, platform *configv1.PlatformStatus) (bool, error) {
 	featureGate, err := listers.FeatureGateLister().Get("cluster")
 	if errors.IsNotFound(err) {
 		// No feature gate is set, therefore cannot be external.
