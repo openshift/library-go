@@ -74,12 +74,20 @@ func (l FakeInfrastructureLister) FeatureGateLister() configlistersv1.FeatureGat
 
 func TestObserveCloudProviderNames(t *testing.T) {
 	cases := []struct {
-		platform           configv1.PlatformType
-		fgSelection        configv1.FeatureGateSelection
-		expected           string
-		cloudProviderCount int
+		name                 string
+		infrastructureStatus configv1.InfrastructureStatus
+		fgSelection          configv1.FeatureGateSelection
+		expected             string
+		cloudProviderCount   int
+		expectErrors         bool
 	}{{
-		platform:           configv1.AWSPlatformType,
+		name: "AWS platform set for external configuration",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AWSPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AWSPlatformType,
+			},
+		},
 		expected:           "external",
 		cloudProviderCount: 1,
 		fgSelection: configv1.FeatureGateSelection{
@@ -89,35 +97,33 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 	}, {
-		platform:           configv1.AWSPlatformType,
+		name: "AWS platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AWSPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AWSPlatformType,
+			},
+		},
 		expected:           "aws",
 		cloudProviderCount: 1,
 	}, {
-		platform:           configv1.AzurePlatformType,
-		expected:           "azure",
-		cloudProviderCount: 1,
-	}, {
-		platform:           configv1.AzurePlatformType,
-		expected:           "azure",
-		cloudProviderCount: 1,
-		fgSelection: configv1.FeatureGateSelection{
-			FeatureSet: configv1.CustomNoUpgrade,
-			CustomNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled: []string{cloudprovider.ExternalCloudProviderFeature},
+		name: "Azure platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AzurePlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AzurePlatformType,
 			},
 		},
-	}, {
-		platform:           configv1.BareMetalPlatformType,
-		cloudProviderCount: 0,
-	}, {
-		platform:           configv1.LibvirtPlatformType,
-		cloudProviderCount: 0,
-	}, {
-		platform:           configv1.OpenStackPlatformType,
-		expected:           "openstack",
+		expected:           "azure",
 		cloudProviderCount: 1,
 	}, {
-		platform:           configv1.OpenStackPlatformType,
+		name: "Azure platform set for external configuration",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AzurePlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AzurePlatformType,
+			},
+		},
 		expected:           "external",
 		cloudProviderCount: 1,
 		fgSelection: configv1.FeatureGateSelection{
@@ -127,19 +133,96 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 	}, {
-		platform:           configv1.GCPPlatformType,
+		name: "Azure Stack Hub defaulting to external configuration",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AzurePlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AzurePlatformType,
+				Azure: &configv1.AzurePlatformStatus{
+					CloudName: configv1.AzureStackCloud,
+				},
+			},
+		},
+		expected:           "external",
+		cloudProviderCount: 1,
+	}, {
+		name: "BareMetal platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.BareMetalPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.BareMetalPlatformType,
+			},
+		},
+		cloudProviderCount: 0,
+	}, {
+		name: "LibVirt platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.LibvirtPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.LibvirtPlatformType,
+			},
+		},
+		cloudProviderCount: 0,
+	}, {
+		name: "OpenStack platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.OpenStackPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.OpenStackPlatformType,
+			},
+		},
+		expected:           "openstack",
+		cloudProviderCount: 1,
+	}, {
+		name: "OpenStack platform set for external configuration",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.OpenStackPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.OpenStackPlatformType,
+			},
+		},
+		expected:           "external",
+		cloudProviderCount: 1,
+		fgSelection: configv1.FeatureGateSelection{
+			FeatureSet: configv1.CustomNoUpgrade,
+			CustomNoUpgrade: &configv1.CustomFeatureGates{
+				Enabled: []string{cloudprovider.ExternalCloudProviderFeature},
+			},
+		},
+	}, {
+		name: "GCP platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.GCPPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.GCPPlatformType,
+			},
+		},
 		expected:           "gce",
 		cloudProviderCount: 1,
 	}, {
-		platform:           configv1.NonePlatformType,
+		name: "None platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.NonePlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.NonePlatformType,
+			},
+		},
 		cloudProviderCount: 0,
 	}, {
-		platform:           "",
+		name: "empty or unknown platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: "",
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: "",
+			},
+		},
 		cloudProviderCount: 0,
 	}, {
-		platform:           "",
-		expected:           "",
-		cloudProviderCount: 0,
+		name:                 "Not populated platform status",
+		infrastructureStatus: configv1.InfrastructureStatus{},
+		expected:             "",
+		cloudProviderCount:   0,
+		expectErrors:         true,
 		fgSelection: configv1.FeatureGateSelection{
 			FeatureSet: configv1.CustomNoUpgrade,
 			CustomNoUpgrade: &configv1.CustomFeatureGates{
@@ -148,10 +231,16 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		},
 	}}
 	for _, c := range cases {
-		t.Run(string(c.platform), func(t *testing.T) {
+		t.Run(string(c.name), func(t *testing.T) {
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			fgIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			if err := indexer.Add(&configv1.Infrastructure{ObjectMeta: v1.ObjectMeta{Name: "cluster"}, Status: configv1.InfrastructureStatus{Platform: c.platform}}); err != nil {
+			infra := &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: c.infrastructureStatus,
+			}
+			if err := indexer.Add(infra); err != nil {
 				t.Fatal(err.Error())
 			}
 			if err := fgIndexer.Add(&configv1.FeatureGate{
@@ -171,8 +260,8 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
 			observerFunc := NewCloudProviderObserver("kube-controller-manager", cloudProvidersPath, cloudProviderConfPath)
 			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
-			if len(errs) > 0 {
-				t.Fatal(errs)
+			if errorsOccured := len(errs) > 0; c.expectErrors != errorsOccured {
+				t.Fatalf("expected errors: %v, got: %v", c.expectErrors, errs)
 			}
 			cloudProvider, _, err := unstructured.NestedSlice(result, "extendedArguments", "cloud-provider")
 			if err != nil {
