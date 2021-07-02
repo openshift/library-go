@@ -178,7 +178,7 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 	// create a csr to request new client certificate if
 	// a. there is no valid client certificate issued for the current cluster/agent
 	// b. client certificate exists and has less than a random percentage range from 20% to 25% of its life remaining
-	if c.hasValidClientCertificate(secret) {
+	if err := IsCertificateValid(secret.Data[TLSCertFile], c.Subject); err == nil {
 		notBefore, notAfter, err := getCertValidityPeriod(secret)
 		if err != nil {
 			return err
@@ -195,7 +195,7 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 		}
 		syncCtx.Recorder().Eventf("CertificateRotationStarted", "The current client certificate for %s expires in %v. Start certificate rotation", c.controllerName, remaining.Round(time.Second))
 	} else {
-		syncCtx.Recorder().Eventf("NoValidCertificateFound", "No valid client certificate for %s is found. Bootstrap is required", c.controllerName)
+		syncCtx.Recorder().Eventf("NoValidCertificateFound", "No valid client certificate for %s is found: %v", c.controllerName, err)
 	}
 
 	// create a new private key
@@ -304,13 +304,6 @@ func (c *clientCertificateController) saveSecret(secret *corev1.Secret) error {
 func (c *clientCertificateController) reset() {
 	c.csrName = ""
 	c.keyData = nil
-}
-
-func (c *clientCertificateController) hasValidClientCertificate(secret *corev1.Secret) bool {
-	if valid, err := IsCertificateValid(secret.Data[TLSCertFile], c.Subject); err == nil {
-		return valid
-	}
-	return false
 }
 
 func jitter(percentage float64, maxFactor float64) float64 {
