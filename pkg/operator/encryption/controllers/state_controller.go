@@ -82,27 +82,30 @@ func NewStateController(
 
 }
 
-func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionStateControllerDegraded", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if degradedCondition == nil {
+			return
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+			err = updateError
+		}
+	}()
+
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			degradedCondition = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
-
-	// update failing condition
-	cond := operatorv1.OperatorCondition{
-		Type:   "EncryptionStateControllerDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
 	if configError != nil {
-		cond.Status = operatorv1.ConditionTrue
-		cond.Reason = "Error"
-		cond.Message = configError.Error()
+		degradedCondition.Status = operatorv1.ConditionTrue
+		degradedCondition.Reason = "Error"
+		degradedCondition.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
-		return updateError
-	}
-
 	return configError
 }
 
