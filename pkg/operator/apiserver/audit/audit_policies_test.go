@@ -1,7 +1,16 @@
 package audit
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"testing"
+
+	configv1 "github.com/openshift/api/config/v1"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/diff"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestDefaultPolicy(t *testing.T) {
@@ -22,6 +31,82 @@ func TestDefaultPolicy(t *testing.T) {
 			}
 			if len(data) == 0 {
 				t.Error("expected a non empty default policy")
+			}
+		})
+	}
+}
+
+func TestGetAuditPolicy(t *testing.T) {
+	scenarios := []struct {
+		name       string
+		goldenFile string
+		config     configv1.Audit
+	}{
+		{
+			name: "Default",
+			config: configv1.Audit{
+				Profile: "Default",
+			},
+			goldenFile: "default.yaml",
+		},
+		{
+			name: "WriteRequestBodies",
+			config: configv1.Audit{
+				Profile: "WriteRequestBodies",
+			},
+			goldenFile: "writerequestbodies.yaml",
+		},
+		{
+			name: "AllRequestBodies",
+			config: configv1.Audit{
+				Profile: "AllRequestBodies",
+			},
+			goldenFile: "allrequestbodies.yaml",
+		},
+		{
+			name: "None",
+			config: configv1.Audit{
+				Profile: "None",
+			},
+			goldenFile: "none.yaml",
+		},
+		{
+			name: "AuthenticatedOauth only",
+			config: configv1.Audit{
+				Profile: "None",
+				CustomRules: []configv1.AuditCustomRule{
+					{
+						Group:   "system:authenticated:oauth",
+						Profile: "WriteRequestBodies",
+					},
+				},
+			},
+			goldenFile: "oauth.yaml",
+		},
+		// TODO: add test with multiple customRules
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			// act
+			policy, err := GetAuditPolicy(scenario.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// validate
+			if len(scenario.goldenFile) > 0 {
+				bs, err := ioutil.ReadFile(filepath.Join("./testdata", scenario.goldenFile))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var expected *auditv1.Policy
+				if err := yaml.Unmarshal(bs, &expected); err != nil {
+					t.Fatal(err)
+				}
+
+				if !equality.Semantic.DeepEqual(policy, expected) {
+					t.Errorf("policy differs: %s", diff.ObjectDiff(expected, policy))
+				}
 			}
 		})
 	}
