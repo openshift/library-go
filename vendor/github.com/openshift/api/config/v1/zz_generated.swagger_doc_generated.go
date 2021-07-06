@@ -293,11 +293,22 @@ func (APIServerSpec) SwaggerDoc() map[string]string {
 }
 
 var map_Audit = map[string]string{
-	"profile": "profile specifies the name of the desired audit policy configuration to be deployed to all OpenShift-provided API servers in the cluster.\n\nThe following profiles are provided: - Default: the existing default policy. - WriteRequestBodies: like 'Default', but logs request and response HTTP payloads for write requests (create, update, patch). - AllRequestBodies: like 'WriteRequestBodies', but also logs request and response HTTP payloads for read requests (get, list).\n\nIf unset, the 'Default' profile is used as the default.",
+	"profile":     "profile specifies the name of the desired top-level audit profile to be applied to all requests sent to any of the OpenShift-provided API servers in the cluster (kube-apiserver, openshift-apiserver and oauth-apiserver), with the exception of those requests that match one or more of the customRules.\n\nThe following profiles are provided: - Default: default policy which means MetaData level logging with the exception of events\n  (not logged at all), oauthaccesstokens and oauthauthorizetokens (both logged at RequestBody\n  level).\n- WriteRequestBodies: like 'Default', but logs request and response HTTP payloads for write requests (create, update, patch). - AllRequestBodies: like 'WriteRequestBodies', but also logs request and response HTTP payloads for read requests (get, list). - None: no requests are logged at all, not even oauthaccesstokens and oauthauthorizetokens.\n\nWarning: to raise a Red Hat support request, it is required to set this to Default, WriteRequestBodies, or AllRequestBodies to generate audit log events that can be analyzed by support.\n\nIf unset, the 'Default' profile is used as the default.",
+	"customRules": "customRules specify profiles per group. These profile take precedence over the top-level profile field if they apply. They are evaluation from top to bottom and the first one that matches, applies.",
 }
 
 func (Audit) SwaggerDoc() map[string]string {
 	return map_Audit
+}
+
+var map_AuditCustomRule = map[string]string{
+	"":        "AuditCustomRule describes a custom rule for an audit profile that takes precedence over the top-level profile.",
+	"group":   "group is a name of group a request user must be member of in order to this profile to apply.",
+	"profile": "profile specifies the name of the desired audit policy configuration to be deployed to all OpenShift-provided API servers in the cluster.\n\nThe following profiles are provided: - Default: the existing default policy. - WriteRequestBodies: like 'Default', but logs request and response HTTP payloads for write requests (create, update, patch). - AllRequestBodies: like 'WriteRequestBodies', but also logs request and response HTTP payloads for read requests (get, list). - None: no requests are logged at all, not even oauthaccesstokens and oauthauthorizetokens.\n\nIf unset, the 'Default' profile is used as the default.",
+}
+
+func (AuditCustomRule) SwaggerDoc() map[string]string {
+	return map_AuditCustomRule
 }
 
 var map_Authentication = map[string]string{
@@ -840,6 +851,7 @@ var map_IBMCloudPlatformStatus = map[string]string{
 	"location":          "Location is where the cluster has been deployed",
 	"resourceGroupName": "ResourceGroupName is the Resource Group for new IBMCloud resources created for the cluster.",
 	"providerType":      "ProviderType indicates the type of cluster that was created",
+	"cisInstanceCRN":    "CISInstanceCRN is the CRN of the Cloud Internet Services instance managing the DNS zone for the cluster's base domain",
 }
 
 func (IBMCloudPlatformStatus) SwaggerDoc() map[string]string {
@@ -882,8 +894,8 @@ var map_InfrastructureStatus = map[string]string{
 	"etcdDiscoveryDomain":    "etcdDiscoveryDomain is the domain used to fetch the SRV records for discovering etcd servers and clients. For more info: https://github.com/etcd-io/etcd/blob/329be66e8b3f9e2e6af83c123ff89297e49ebd15/Documentation/op-guide/clustering.md#dns-discovery deprecated: as of 4.7, this field is no longer set or honored.  It will be removed in a future release.",
 	"apiServerURL":           "apiServerURL is a valid URI with scheme 'https', address and optionally a port (defaulting to 443).  apiServerURL can be used by components like the web console to tell users where to find the Kubernetes API.",
 	"apiServerInternalURI":   "apiServerInternalURL is a valid URI with scheme 'https', address and optionally a port (defaulting to 443).  apiServerInternalURL can be used by components like kubelets, to contact the Kubernetes API server using the infrastructure provider rather than Kubernetes networking.",
-	"controlPlaneTopology":   "controlPlaneTopology expresses the expectations for operands that normally run on control nodes. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation",
-	"infrastructureTopology": "infrastructureTopology expresses the expectations for infrastructure services that do not run on control plane nodes, usually indicated by a node selector for a `role` value other than `master`. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation",
+	"controlPlaneTopology":   "controlPlaneTopology expresses the expectations for operands that normally run on control nodes. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation The 'External' mode indicates that the control plane is hosted externally to the cluster and that its components are not visible within the cluster.",
+	"infrastructureTopology": "infrastructureTopology expresses the expectations for infrastructure services that do not run on control plane nodes, usually indicated by a node selector for a `role` value other than `master`. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation NOTE: External topology mode is not applicable for this field.",
 }
 
 func (InfrastructureStatus) SwaggerDoc() map[string]string {

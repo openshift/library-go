@@ -95,7 +95,6 @@ type NetworkSpec struct {
 	// by using protocols NetFlow, SFlow or IPFIX. Currently only supported on OVN-Kubernetes plugin.
 	// If unset, flows will not be exported to any collector.
 	// +optional
-	// +kubebuilder:validation:MinProperties=1
 	ExportNetworkFlows *ExportNetworkFlows `json:"exportNetworkFlows,omitempty"`
 
 	// migration enables and configures the cluster network migration.
@@ -264,8 +263,10 @@ type OpenShiftSDNConfig struct {
 	// +optional
 	MTU *uint32 `json:"mtu,omitempty"`
 
-	// useExternalOpenvswitch tells the operator not to install openvswitch, because
-	// it will be provided separately. If set, you must provide it yourself.
+	// useExternalOpenvswitch used to control whether the operator would deploy an OVS
+	// DaemonSet itself or expect someone else to start OVS. As of 4.6, OVS is always
+	// run as a system service, and this flag is ignored.
+	// DEPRECATED: non-functional as of 4.6
 	// +optional
 	UseExternalOpenvswitch *bool `json:"useExternalOpenvswitch,omitempty"`
 

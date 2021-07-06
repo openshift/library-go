@@ -45,7 +45,12 @@ func init() {
 		panic(err)
 	}
 
-	for _, profile := range []configv1.AuditProfileType{configv1.AuditProfileDefaultType, configv1.WriteRequestBodiesAuditProfileType, configv1.AllRequestBodiesAuditProfileType} {
+	for _, profile := range []configv1.AuditProfileType{
+		configv1.NoneAuditProfileType,
+		configv1.DefaultAuditProfileType,
+		configv1.WriteRequestBodiesAuditProfileType,
+		configv1.AllRequestBodiesAuditProfileType,
+	} {
 		manifestName := fmt.Sprintf("%s-rules.yaml", strings.ToLower(string(profile)))
 		bs, err := assets.Asset(path.Join("pkg/operator/apiserver/audit/manifests", manifestName))
 		if err != nil {
@@ -61,7 +66,7 @@ func init() {
 
 // DefaultPolicy brings back the default.yaml audit policy to init the api
 func DefaultPolicy() ([]byte, error) {
-	policy, err := GetAuditPolicy(configv1.Audit{Profile: configv1.AuditProfileDefaultType})
+	policy, err := GetAuditPolicy(configv1.Audit{Profile: configv1.DefaultAuditProfileType})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
 	}
@@ -77,17 +82,33 @@ func DefaultPolicy() ([]byte, error) {
 }
 
 // GetAuditPolicy computes the audit policy for the given audit config.
-// Note: the returned Policy has Kind and APIVersion not set. This is responsibility of the caller
+// Note: the returned policy has Kind and APIVersion not set. This is responsibility of the caller
 //       when serializing it.
+// Note: the returned policy must not be modifed by the caller prior to a deepcopy.
 func GetAuditPolicy(audit configv1.Audit) (*auditv1.Policy, error) {
 	p := basePolicy.DeepCopy()
-	p.Name = string(audit.Profile)
+	p.Name = "policy"
 
-	extraRules, ok := profileRules[audit.Profile]
+	for _, cr := range audit.CustomRules {
+		rules, ok := profileRules[cr.Profile]
+		if !ok {
+			return nil, fmt.Errorf("unknown audit profile %q in customRules for group %q", cr.Profile, cr.Group)
+		}
+
+		groupRules := make([]auditv1.PolicyRule, len(rules))
+		for i, r := range rules {
+			r.DeepCopyInto(&groupRules[i])
+			groupRules[i].UserGroups = []string{cr.Group}
+		}
+
+		p.Rules = append(p.Rules, groupRules...)
+	}
+
+	globalRules, ok := profileRules[audit.Profile]
 	if !ok {
 		return nil, fmt.Errorf("unknown audit profile %q", audit.Profile)
 	}
-	p.Rules = append(p.Rules, extraRules...)
+	p.Rules = append(p.Rules, globalRules...)
 
 	return p, nil
 }

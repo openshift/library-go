@@ -3,6 +3,7 @@
 // pkg/operator/apiserver/audit/manifests/allrequestbodies-rules.yaml
 // pkg/operator/apiserver/audit/manifests/base-policy.yaml
 // pkg/operator/apiserver/audit/manifests/default-rules.yaml
+// pkg/operator/apiserver/audit/manifests/none-rules.yaml
 // pkg/operator/apiserver/audit/manifests/writerequestbodies-rules.yaml
 package bindata
 
@@ -152,6 +153,24 @@ func pkgOperatorApiserverAuditManifestsDefaultRulesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _pkgOperatorApiserverAuditManifestsNoneRulesYaml = []byte(`- level: None
+`)
+
+func pkgOperatorApiserverAuditManifestsNoneRulesYamlBytes() ([]byte, error) {
+	return _pkgOperatorApiserverAuditManifestsNoneRulesYaml, nil
+}
+
+func pkgOperatorApiserverAuditManifestsNoneRulesYaml() (*asset, error) {
+	bytes, err := pkgOperatorApiserverAuditManifestsNoneRulesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "pkg/operator/apiserver/audit/manifests/none-rules.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# exclude resources where the body is security-sensitive
 - level: Metadata
   resources:
@@ -247,6 +266,7 @@ var _bindata = map[string]func() (*asset, error){
 	"pkg/operator/apiserver/audit/manifests/allrequestbodies-rules.yaml":   pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml,
 	"pkg/operator/apiserver/audit/manifests/base-policy.yaml":              pkgOperatorApiserverAuditManifestsBasePolicyYaml,
 	"pkg/operator/apiserver/audit/manifests/default-rules.yaml":            pkgOperatorApiserverAuditManifestsDefaultRulesYaml,
+	"pkg/operator/apiserver/audit/manifests/none-rules.yaml":               pkgOperatorApiserverAuditManifestsNoneRulesYaml,
 	"pkg/operator/apiserver/audit/manifests/writerequestbodies-rules.yaml": pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml,
 }
 
@@ -299,6 +319,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 						"allrequestbodies-rules.yaml":   {pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml, map[string]*bintree{}},
 						"base-policy.yaml":              {pkgOperatorApiserverAuditManifestsBasePolicyYaml, map[string]*bintree{}},
 						"default-rules.yaml":            {pkgOperatorApiserverAuditManifestsDefaultRulesYaml, map[string]*bintree{}},
+						"none-rules.yaml":               {pkgOperatorApiserverAuditManifestsNoneRulesYaml, map[string]*bintree{}},
 						"writerequestbodies-rules.yaml": {pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml, map[string]*bintree{}},
 					}},
 				}},
