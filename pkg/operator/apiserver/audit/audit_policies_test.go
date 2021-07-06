@@ -1,9 +1,6 @@
 package audit
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 )
 
@@ -41,37 +38,4 @@ func TestNoUserGroups(t *testing.T) {
 			}
 		}
 	}
-}
-
-func readBytesFromFile(t *testing.T, filename string) []byte {
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return data
-}
-
-type fakeAsset struct {
-	name         string
-	expectedName string
-}
-
-func (f *fakeAsset) AssetFunc(name string) ([]byte, error) {
-	f.name = name
-	return nil, nil
-}
-
-func (f *fakeAsset) Validate() error {
-	if f.name != f.expectedName {
-		return fmt.Errorf("expected %v, got %v", f.expectedName, f.name)
-	}
-
-	return nil
 }
