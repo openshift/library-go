@@ -63,8 +63,21 @@ func NewConditionController(
 	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
 }
 
-func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+func (c *conditionController) sync(_ context.Context, _ factory.SyncContext) (err error) {
+	cond := &operatorv1.OperatorCondition{Type: "Encrypted", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if cond == nil {
+			return
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*cond)); updateError != nil {
+			err = updateError
+		}
+	}()
+
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			cond = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
@@ -73,15 +86,11 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 	if err != nil || len(transitioningReason) > 0 {
 		return err
 	}
-
-	cond := operatorv1.OperatorCondition{
-		Type:    "Encrypted",
-		Status:  operatorv1.ConditionTrue,
-		Reason:  "EncryptionCompleted",
-		Message: fmt.Sprintf("All resources encrypted: %s", grString(encryptedGRs)),
-	}
 	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
 
+	cond.Status = operatorv1.ConditionTrue
+	cond.Reason = "EncryptionCompleted"
+	cond.Message = fmt.Sprintf("All resources encrypted: %s", grString(encryptedGRs))
 	if len(foundSecrets) == 0 {
 		cond.Status = operatorv1.ConditionFalse
 		cond.Reason = "EncryptionDisabled"
@@ -151,10 +160,7 @@ func (c *conditionController) sync(ctx context.Context, syncContext factory.Sync
 			break
 		}
 	}
-
-	// update Encrypted condition
-	_, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond))
-	return updateError
+	return nil
 }
 
 func allMigrated(toBeEncrypted, migrated []schema.GroupResource) bool {

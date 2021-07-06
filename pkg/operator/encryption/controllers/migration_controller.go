@@ -28,6 +28,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -104,56 +105,42 @@ func NewMigrationController(
 	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-migration-controller"))
 }
 
-func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerDegraded", Status: operatorv1.ConditionFalse}
+	progressingCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerProgressing", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if degradedCondition == nil && progressingCondition == nil {
+			return
+		}
+		conditions := []v1helpers.UpdateStatusFunc{
+			v1helpers.UpdateConditionFn(*degradedCondition),
+			v1helpers.UpdateConditionFn(*progressingCondition),
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, conditions...); updateError != nil {
+			err = updateError
+		}
+	}()
+
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			degradedCondition = nil
+			progressingCondition = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	migratingResources, migrationError := c.migrateKeysIfNeededAndRevisionStable(syncCtx, c.provider.EncryptedGRs())
-
-	// update failing condition
-	degraded := operatorv1.OperatorCondition{
-		Type:   "EncryptionMigrationControllerDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
 	if migrationError != nil {
-		degraded.Status = operatorv1.ConditionTrue
-		degraded.Reason = "Error"
-		degraded.Message = migrationError.Error()
-	}
-
-	// update progressing condition
-	progressing := operatorv1.OperatorCondition{
-		Type:   "EncryptionMigrationControllerProgressing",
-		Status: operatorv1.ConditionFalse,
+		degradedCondition.Status = operatorv1.ConditionTrue
+		degradedCondition.Reason = "Error"
+		degradedCondition.Message = migrationError.Error()
 	}
 	if len(migratingResources) > 0 {
-		progressing.Status = operatorv1.ConditionTrue
-		progressing.Reason = "Migrating"
-		progressing.Message = fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources))
+		progressingCondition.Status = operatorv1.ConditionTrue
+		progressingCondition.Reason = "Migrating"
+		progressingCondition.Message = fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources))
 	}
-
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(degraded), operatorv1helpers.UpdateConditionFn(progressing)); updateError != nil {
-		return updateError
-	}
-
 	return migrationError
-}
-
-func (c *migrationController) setProgressing(migrating bool, reason, message string, args ...interface{}) error {
-	// update progressing condition
-	progressing := operatorv1.OperatorCondition{
-		Type:    "EncryptionMigrationControllerProgressing",
-		Status:  operatorv1.ConditionTrue,
-		Reason:  reason,
-		Message: fmt.Sprintf(message, args...),
-	}
-	if !migrating {
-		progressing.Status = operatorv1.ConditionFalse
-	}
-
-	_, _, err := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(progressing))
-	return err
 }
 
 // TODO doc

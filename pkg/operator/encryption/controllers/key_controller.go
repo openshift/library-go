@@ -113,28 +113,31 @@ func NewKeyController(
 		).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-key-controller"))
 }
 
-func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+func (c *keyController) sync(_ context.Context, syncCtx factory.SyncContext) (err error) {
+	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionKeyControllerDegraded", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if degradedCondition == nil {
+			return
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+			err = updateError
+		}
+	}()
+
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			degradedCondition = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.checkAndCreateKeys(syncCtx, c.provider.EncryptedGRs())
-
-	// update failing condition
-	cond := operatorv1.OperatorCondition{
-		Type:   "EncryptionKeyControllerDegraded",
-		Status: operatorv1.ConditionFalse,
+	err = c.checkAndCreateKeys(syncCtx, c.provider.EncryptedGRs())
+	if err != nil {
+		degradedCondition.Status = operatorv1.ConditionTrue
+		degradedCondition.Reason = "Error"
+		degradedCondition.Message = err.Error()
 	}
-	if configError != nil {
-		cond.Status = operatorv1.ConditionTrue
-		cond.Reason = "Error"
-		cond.Message = configError.Error()
-	}
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
-		return updateError
-	}
-
-	return configError
+	return err
 }
 
 func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
