@@ -39,6 +39,8 @@ type ControllerCommandConfig struct {
 
 	basicFlags *ControllerFlags
 
+	controllerBuilderModifier ControllerBuilderModifier
+
 	// DisableServing disables serving metrics, debug and health checks and so on.
 	DisableServing bool
 
@@ -46,15 +48,32 @@ type ControllerCommandConfig struct {
 	DisableLeaderElection bool
 }
 
+// ControllerBuilderOptions contain data needed for ControllerBuilder modification
+type ControllerBuilderOptions struct {
+	ComponentName string
+	Version       version.Info
+
+	BasicFlags *ControllerFlags
+
+	UnstructuredConfig *unstructured.Unstructured
+	Config             *operatorv1alpha1.GenericOperatorConfig
+	ConfigContent      []byte
+}
+
+// ControllerBuilderModifier can be used to ControllerBuilder
+type ControllerBuilderModifier func(builder *ControllerBuilder, options ControllerBuilderOptions) (*ControllerBuilder, error)
+
 // NewControllerConfig returns a new ControllerCommandConfig which can be used to wire up all the boiler plate of a controller
 // TODO add more methods around wiring health checks and the like
-func NewControllerCommandConfig(componentName string, version version.Info, startFunc StartFunc) *ControllerCommandConfig {
+func NewControllerCommandConfig(componentName string, version version.Info, startFunc StartFunc, controllerBuilderModifier ControllerBuilderModifier) *ControllerCommandConfig {
 	return &ControllerCommandConfig{
 		startFunc:     startFunc,
 		componentName: componentName,
 		version:       version,
 
 		basicFlags: NewControllerFlags(),
+
+		controllerBuilderModifier: controllerBuilderModifier,
 
 		DisableServing:        false,
 		DisableLeaderElection: false,
@@ -279,6 +298,21 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 
 	if !c.DisableServing {
 		builder = builder.WithServer(config.ServingInfo, config.Authentication, config.Authorization)
+	}
+
+	if c.controllerBuilderModifier != nil {
+		builder, err = c.controllerBuilderModifier(builder, ControllerBuilderOptions{
+			ComponentName: c.componentName,
+			Version:       c.version,
+			BasicFlags:    c.basicFlags,
+
+			UnstructuredConfig: unstructuredConfig,
+			Config:             config,
+			ConfigContent:      configContent,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return builder.Run(controllerCtx, unstructuredConfig)
