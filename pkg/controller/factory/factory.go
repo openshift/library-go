@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/robfig/cron"
 	"k8s.io/apimachinery/pkg/runtime"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
@@ -33,6 +35,7 @@ type Factory struct {
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
+	preconditions         []PreconditionFn
 }
 
 // Informer represents any structure that allow to register event handlers and informs if caches are synced.
@@ -63,6 +66,10 @@ type filteredInformers struct {
 // The syncContext allow access to controller queue and event recorder.
 type PostStartHook func(ctx context.Context, syncContext SyncContext) error
 
+// PreconditionFn runs after caches are synced. It will block the controller acting on updated and preventing sync until the precondition
+// function return true. The context passed to function has timeout set to duration left after informer caches has been synced.
+type PreconditionFn func(ctx context.Context) (bool, error)
+
 // ObjectQueueKeyFunc is used to make a string work queue key out of the runtime object that is passed to it.
 // This can extract the "namespace/name" if you need to or just return "key" if you building controller that only use string
 // triggers.
@@ -80,6 +87,16 @@ func New() *Factory {
 // usually hold the main controller logic.
 func (f *Factory) WithSync(syncFn SyncFunc) *Factory {
 	f.sync = syncFn
+	return f
+}
+
+// WithPreconditions will take a list of precondition functions that have to all succeed in order to start the controller
+// successfully.
+// Preconditions run AFTER informer caches are synced use the cache sync timeout (minus time it took to sync caches).
+// Preconditions are executed in parallel, if any precondition fail, the controller will fail to run.
+// The controller won't run any sync() until preconditions are met.
+func (f *Factory) WithPreconditions(preconditions ...PreconditionFn) *Factory {
+	f.preconditions = append(f.preconditions, preconditions...)
 	return f
 }
 
@@ -231,9 +248,11 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		resyncEvery:        f.resyncInterval,
 		resyncSchedules:    cronSchedules,
 		cachesToSync:       append([]cache.InformerSynced{}, f.cachesToSync...),
+		preconditions:      f.preconditions,
 		syncContext:        ctx,
 		postStartHooks:     f.postStartHooks,
 		cacheSyncTimeout:   defaultCacheSyncTimeout,
+		exitOnError:        klog.Exit,
 	}
 
 	// Warn about too fast resyncs as they might drain the operators QPS.
