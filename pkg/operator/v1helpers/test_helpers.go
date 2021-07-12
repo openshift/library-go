@@ -163,6 +163,14 @@ func (c *fakeStaticPodOperatorClient) UpdateOperatorStatus(resourceVersion strin
 	return &c.fakeStaticPodOperatorStatus.OperatorStatus, nil
 }
 
+func (c *fakeStaticPodOperatorClient) EnsureFinalizer(finalizer string) error {
+	panic("implement me")
+}
+
+func (c *fakeStaticPodOperatorClient) RemoveFinalizer(finalizer string) error {
+	panic("implement me")
+}
+
 // NewFakeNodeLister returns a fake node lister suitable to use in node controller unit test
 func NewFakeNodeLister(client kubernetes.Interface) corev1listers.NodeLister {
 	return &fakeNodeLister{client: client}
