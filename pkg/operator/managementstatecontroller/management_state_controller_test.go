@@ -1,10 +1,11 @@
-package management
+package managementstatecontroller
 
 import (
 	"context"
 	"testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/management"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -17,8 +18,8 @@ func TestOperatorManagementStateController(t *testing.T) {
 		name              string
 		initialConditions []operatorv1.OperatorCondition
 		managementState   string
-		allowUnmanaged    func() bool
-		allowRemove       func() bool
+		allowUnmanaged    bool
+		allowRemove       bool
 
 		expectedFailingStatus bool
 		expectedMessage       string
@@ -26,44 +27,53 @@ func TestOperatorManagementStateController(t *testing.T) {
 		{
 			name:            "operator in managed state with no restrictions",
 			managementState: string(operatorv1.Managed),
-			allowRemove:     func() bool { return true },
-			allowUnmanaged:  func() bool { return true },
+			allowRemove:     true,
+			allowUnmanaged:  true,
 		},
 		{
 			name:            "operator in unmanaged state with no restrictions",
 			managementState: string(operatorv1.Unmanaged),
-			allowRemove:     func() bool { return true },
-			allowUnmanaged:  func() bool { return true },
+			allowRemove:     true,
+			allowUnmanaged:  true,
 		},
 		{
 			name:                  "operator in unknown state with no restrictions",
 			managementState:       string("UnknownState"),
 			expectedFailingStatus: true,
 			expectedMessage:       `Unsupported management state "UnknownState" for OPERATOR_NAME operator`,
-			allowRemove:           func() bool { return true },
-			allowUnmanaged:        func() bool { return true },
+			allowRemove:           true,
+			allowUnmanaged:        true,
 		},
 		{
 			name:                  "operator in unmanaged state with unmanaged not allowed",
 			managementState:       string(operatorv1.Unmanaged),
 			expectedFailingStatus: true,
 			expectedMessage:       `Unmanaged is not supported for OPERATOR_NAME operator`,
-			allowRemove:           func() bool { return true },
-			allowUnmanaged:        func() bool { return false },
+			allowRemove:           true,
+			allowUnmanaged:        false,
 		},
 		{
 			name:                  "operator in removed state with removed  not allowed",
 			managementState:       string(operatorv1.Removed),
 			expectedFailingStatus: true,
 			expectedMessage:       `Removed is not supported for OPERATOR_NAME operator`,
-			allowRemove:           func() bool { return false },
-			allowUnmanaged:        func() bool { return false },
+			allowRemove:           false,
+			allowUnmanaged:        false,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			getAllowedOperatorRemovedState = tc.allowRemove
-			getAllowedOperatorUnmanaged = tc.allowUnmanaged
+			// These test MUST NOT run in parallel due to global vars in management pkg.
+			if tc.allowRemove {
+				management.SetOperatorRemovable()
+			} else {
+				management.SetOperatorNotRemovable()
+			}
+			if tc.allowUnmanaged {
+				management.SetOperatorUnmanageable()
+			} else {
+				management.SetOperatorAlwaysManaged()
+			}
 
 			statusClient := &statusClient{
 				t: t,

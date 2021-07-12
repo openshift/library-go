@@ -2,13 +2,18 @@ package deploymentcontroller
 
 import (
 	"context"
+	"os"
+	"sort"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	opv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	core "k8s.io/client-go/testing"
-	"sort"
 
 	"testing"
 
@@ -35,6 +40,7 @@ const (
 	operandNamespace = "openshift-dummy-test-deployment"
 	// From github.com/openshift/library-go/pkg/operator/resource/resourceapply/apps.go
 	specHashAnnotation = "operator.openshift.io/spec-hash"
+	finalizerName      = "test.operator.openshift.io/" + controllerName
 )
 
 var (
@@ -44,6 +50,7 @@ var (
 
 type testCase struct {
 	name            string
+	removable       bool
 	initialObjects  testObjects
 	expectedObjects testObjects
 	expectErr       bool
@@ -229,7 +236,7 @@ func TestDeploymentCreation(t *testing.T) {
 	configInformer := configInformerFactory.Config().V1().Infrastructures().Informer()
 	configInformer.GetIndexer().Add(initialInfras[0])
 	driverInstance := makeFakeOperatorInstance()
-	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
+	fakeOperatorClient := v1helpers.NewFakeOperatorClientWithObjectMeta(&driverInstance.ObjectMeta, &driverInstance.Spec, &driverInstance.Status, nil /*triggerErr func*/)
 	var optionalInformers []factory.Informer
 	var optionalManifestHookFuncs []ManifestHookFunc
 	optionalInformers = append(optionalInformers, configInformer)
@@ -327,6 +334,21 @@ func withFalseConditions(conditions ...string) operatorModifier {
 	}
 }
 
+func withFinalizers(finalizers ...string) operatorModifier {
+	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
+		i.Finalizers = finalizers
+		return i
+	}
+}
+
+func withDeletionTimestamp() operatorModifier {
+	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
+		// Use a constant time to get ObjectMeta comparison right.
+		i.DeletionTimestamp = &metav1.Time{Time: time.Unix(0, 0)}
+		return i
+	}
+}
+
 // This reactor is always enabled and bumps Deployment generation when it gets updated.
 func addGenerationReactor(client *fakecore.Clientset) {
 	client.PrependReactor("*", "deployments", func(action core.Action) (handled bool, ret runtime.Object, err error) {
@@ -374,7 +396,8 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	configInformer.GetIndexer().Add(initialInfras[0])
 
 	// fakeDriverInstance also fulfils the OperatorClient interface
-	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+	fakeOperatorClient := v1helpers.NewFakeOperatorClientWithObjectMeta(
+		&test.initialObjects.operator.ObjectMeta,
 		&test.initialObjects.operator.Spec,
 		&test.initialObjects.operator.Status,
 		nil, /*triggerErr func*/
@@ -425,9 +448,55 @@ func sanitizeInstanceStatus(status *opv1.OperatorStatus) {
 	})
 }
 
+func sanitizeObjectMeta(meta *metav1.ObjectMeta) {
+	// Treat empty array as nil for easier comparison.
+	if len(meta.Finalizers) == 0 {
+		meta.Finalizers = nil
+	}
+}
+
 func TestSync(t *testing.T) {
 	const replica1 = 1
 	testCases := []testCase{
+		{
+			// Finalizer is added to removable CR
+			// (and deployment is created)
+			name:      "add finalizer",
+			removable: true,
+			initialObjects: testObjects{
+				operator: makeFakeOperatorInstance(),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 0)),
+				operator: makeFakeOperatorInstance(
+					withGenerations(1),
+					withTrueConditions(conditionProgressing),
+					withFalseConditions(conditionAvailable),
+					withFinalizers(finalizerName),
+				),
+			},
+		},
+		{
+			// Deployment and finalizer are deleted on DeletionTimestamp
+			name:      "CR removed",
+			removable: true,
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica1, replica1, replica1)),
+				operator: makeFakeOperatorInstance(
+					withGenerations(1),
+					withFinalizers(finalizerName),
+					withDeletionTimestamp()),
+			},
+			expectedObjects: testObjects{
+				operator: makeFakeOperatorInstance(
+					withGenerations(1),
+					// finalizer is removed,
+					withDeletionTimestamp()),
+			},
+		},
 		{
 			// Only CR exists, everything else is created
 			name: "initial sync",
@@ -542,6 +611,12 @@ func TestSync(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			// Initialize
+			os.Setenv("OPERATOR_NAME", "test")
+			if test.removable {
+				management.SetOperatorRemovable()
+			} else {
+				management.SetOperatorNotRemovable()
+			}
 			ctx := newTestContext(test, t)
 
 			// Act
@@ -569,18 +644,41 @@ func TestSync(t *testing.T) {
 					t.Errorf("Unexpected Deployment %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.deployment, actualDeployment))
 				}
 			}
+			if test.expectedObjects.deployment == nil && test.initialObjects.deployment != nil {
+				deployName := test.initialObjects.deployment.Name
+				actualDeployment, err := ctx.coreClient.AppsV1().Deployments(operandNamespace).Get(context.TODO(), deployName, metav1.GetOptions{})
+				if err == nil {
+					t.Errorf("Expected Deployment to be deleted, found generation %d", actualDeployment.Generation)
+				}
+				if !errors.IsNotFound(err) {
+					t.Errorf("Expecetd error to be NotFound, got %s", err)
+				}
+			}
 
-			// Check expectedObjects.driver.Status
+			// Check expectedObjects.operator.Status
 			if test.expectedObjects.operator != nil {
 				_, actualStatus, _, err := ctx.operatorClient.GetOperatorState()
 				if err != nil {
-					t.Errorf("Failed to get Driver: %v", err)
+					t.Errorf("Failed to get operator: %v", err)
 				}
 				sanitizeInstanceStatus(actualStatus)
 				sanitizeInstanceStatus(&test.expectedObjects.operator.Status)
 				if !equality.Semantic.DeepEqual(test.expectedObjects.operator.Status, *actualStatus) {
-					t.Errorf("Unexpected Driver %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.operator.Status, *actualStatus))
+					t.Errorf("Unexpected operator %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.operator.Status, *actualStatus))
 				}
+			}
+
+			// Check expected ObjectMeta
+			actualMeta, err := ctx.operatorClient.GetObjectMeta()
+			if err != nil {
+				t.Errorf("Failed to get operator: %v", err)
+			}
+			t.Logf("JSAF: actual meta: %+v", actualMeta.Finalizers)
+			sanitizeObjectMeta(actualMeta)
+			expectedMeta := &test.expectedObjects.operator.ObjectMeta
+			sanitizeObjectMeta(expectedMeta)
+			if !equality.Semantic.DeepEqual(actualMeta, expectedMeta) {
+				t.Errorf("Unexpected operator %+v ObjectMeta content:\n%s", operandName, cmp.Diff(expectedMeta, actualMeta))
 			}
 		})
 	}

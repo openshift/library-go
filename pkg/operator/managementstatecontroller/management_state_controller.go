@@ -1,4 +1,4 @@
-package management
+package managementstatecontroller
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -39,6 +40,9 @@ func NewOperatorManagementStateController(
 func (c ManagementStateController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	detailedSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
+		if management.IsOperatorRemovable() {
+			return nil
+		}
 		syncContext.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.operatorName)
 		return nil
 	}
@@ -48,19 +52,19 @@ func (c ManagementStateController) sync(ctx context.Context, syncContext factory
 		Status: operatorv1.ConditionFalse,
 	}
 
-	if IsOperatorAlwaysManaged() && detailedSpec.ManagementState == operatorv1.Unmanaged {
+	if management.IsOperatorAlwaysManaged() && detailedSpec.ManagementState == operatorv1.Unmanaged {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Unmanaged"
 		cond.Message = fmt.Sprintf("Unmanaged is not supported for %s operator", c.operatorName)
 	}
 
-	if IsOperatorNotRemovable() && detailedSpec.ManagementState == operatorv1.Removed {
+	if management.IsOperatorNotRemovable() && detailedSpec.ManagementState == operatorv1.Removed {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Removed"
 		cond.Message = fmt.Sprintf("Removed is not supported for %s operator", c.operatorName)
 	}
 
-	if IsOperatorUnknownState(detailedSpec.ManagementState) {
+	if management.IsOperatorUnknownState(detailedSpec.ManagementState) {
 		cond.Status = operatorv1.ConditionTrue
 		cond.Reason = "Unknown"
 		cond.Message = fmt.Sprintf("Unsupported management state %q for %s operator", detailedSpec.ManagementState, c.operatorName)

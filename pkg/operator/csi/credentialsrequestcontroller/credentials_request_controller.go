@@ -28,7 +28,7 @@ import (
 // <name>Degraded: produced when the sync() method returns an error.
 type CredentialsRequestController struct {
 	name            string
-	operatorClient  v1helpers.OperatorClient
+	operatorClient  v1helpers.OperatorClientWithFinalizers
 	targetNamespace string
 	manifest        []byte
 	dynamicClient   dynamic.Interface
@@ -40,7 +40,7 @@ func NewCredentialsRequestController(
 	targetNamespace string,
 	manifest []byte,
 	dynamicClient dynamic.Interface,
-	operatorClient v1helpers.OperatorClient,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &CredentialsRequestController{

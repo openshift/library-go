@@ -6,10 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/management"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -27,14 +30,18 @@ type DeploymentHookFunc func(*opv1.OperatorSpec, *appsv1.Deployment) error
 // The hook must not modify the original manifest!
 type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 
-// DeploymentController is a generic controller that manages a deployment
+// DeploymentController is a generic controller that manages a deployment.
+//
+// This controller supports removable operands, as configured in pkg/operator/management.
+//
+// This controller produces the following conditions:
 // <name>Available: indicates that the deployment controller  was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the Deployment is in progress.
 // <name>Degraded: produced when the sync() method returns an error.
 type DeploymentController struct {
 	name           string
 	manifest       []byte
-	operatorClient v1helpers.OperatorClient
+	operatorClient v1helpers.OperatorClientWithFinalizers
 	kubeClient     kubernetes.Interface
 	deployInformer appsinformersv1.DeploymentInformer
 	// Optional hook functions to modify the deployment manifest.
@@ -56,7 +63,7 @@ func NewDeploymentController(
 	name string,
 	manifest []byte,
 	recorder events.Recorder,
-	operatorClient v1helpers.OperatorClient,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
 	kubeClient kubernetes.Interface,
 	deployInformer appsinformersv1.DeploymentInformer,
 	optionalInformers []factory.Informer,
@@ -99,7 +106,7 @@ func (c *DeploymentController) Name() string {
 
 func (c *DeploymentController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	opSpec, opStatus, _, err := c.operatorClient.GetOperatorState()
-	if apierrors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) && management.IsOperatorRemovable() {
 		return nil
 	}
 	if err != nil {
@@ -110,21 +117,27 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 		return nil
 	}
 
-	manifest := c.manifest
-	for i := range c.optionalManifestHooks {
-		manifest, err = c.optionalManifestHooks[i](opSpec, manifest)
-		if err != nil {
-			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
+	meta, err := c.operatorClient.GetObjectMeta()
+	if err != nil {
+		return err
+	}
+	if management.IsOperatorRemovable() && meta.DeletionTimestamp != nil {
+		return c.syncDeleting(ctx, opSpec, opStatus, syncContext)
+	}
+	return c.syncManaged(ctx, opSpec, opStatus, syncContext)
+}
+
+func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
+	klog.V(4).Infof("syncManaged")
+
+	if management.IsOperatorRemovable() {
+		if err := v1helpers.EnsureFinalizer(c.operatorClient, c.name); err != nil {
+			return err
 		}
 	}
-
-	required := resourceread.ReadDeploymentV1OrDie(manifest)
-
-	for i := range c.optionalDeploymentHooks {
-		err := c.optionalDeploymentHooks[i](opSpec, required)
-		if err != nil {
-			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
-		}
+	required, err := c.getDeployment(opSpec)
+	if err != nil {
+		return err
 	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
@@ -176,6 +189,45 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 	)
 
 	return err
+}
+
+func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
+	klog.V(4).Infof("syncDeleting")
+	required, err := c.getDeployment(opSpec)
+	if err != nil {
+		return err
+	}
+
+	err = c.kubeClient.AppsV1().Deployments(required.Namespace).Delete(ctx, required.Name, metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	} else {
+		klog.V(2).Infof("Deleted Deployment %s/%s", required.Namespace, required.Name)
+	}
+
+	// All removed, remove the finalizer as the last step
+	return v1helpers.RemoveFinalizer(c.operatorClient, c.name)
+}
+
+func (c *DeploymentController) getDeployment(opSpec *opv1.OperatorSpec) (*appsv1.Deployment, error) {
+	manifest := c.manifest
+	for i := range c.optionalManifestHooks {
+		var err error
+		manifest, err = c.optionalManifestHooks[i](opSpec, manifest)
+		if err != nil {
+			return nil, fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
+
+	required := resourceread.ReadDeploymentV1OrDie(manifest)
+
+	for i := range c.optionalDeploymentHooks {
+		err := c.optionalDeploymentHooks[i](opSpec, required)
+		if err != nil {
+			return nil, fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
+	return required, nil
 }
 
 func isProgressing(deployment *appsv1.Deployment) (bool, string) {
