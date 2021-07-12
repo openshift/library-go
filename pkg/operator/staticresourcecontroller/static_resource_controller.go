@@ -8,6 +8,7 @@ import (
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
@@ -47,6 +48,7 @@ func init() {
 	utilruntime.Must(api.InstallKube(genericScheme))
 	utilruntime.Must(migrationv1alpha1.AddToScheme(genericScheme))
 	utilruntime.Must(apiextensions.AddToScheme(genericScheme))
+	utilruntime.Must(admissionregistrationv1.AddToScheme(genericScheme))
 }
 
 type StaticResourceController struct {
