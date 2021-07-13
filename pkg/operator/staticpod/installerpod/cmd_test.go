@@ -11,8 +11,11 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 const podYaml = `
@@ -21,6 +24,15 @@ kind: Pod
 metadata:
   namespace: some-ns
   name: kube-apiserver-pod
+spec:
+`
+
+const secondPodYaml = `
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: some-ns
+  name: kube-apiserver-startup-monitor
 spec:
 `
 
@@ -90,8 +102,8 @@ func TestCopyContent(t *testing.T) {
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana")
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana")
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
-				checkFileContent(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
 			},
 		},
 		{
@@ -170,8 +182,34 @@ func TestCopyContent(t *testing.T) {
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano")
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "apple-C.crt"), "apple")
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "banana-C.crt"), "banana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
-				checkFileContent(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
+			},
+		},
+
+		{
+			name: "optional pod in pod cm",
+			o: InstallOptions{
+				Revision:               "006",
+				Namespace:              "some-ns",
+				PodConfigMapNamePrefix: "kube-apiserver-pod",
+			},
+			client: func() *fake.Clientset {
+				return fake.NewSimpleClientset(
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "some-ns", Name: "kube-apiserver-pod-006"},
+						Data: map[string]string{
+							"pod.yaml": podYaml,
+							"kube-apiserver-startup-monitor-pod.yaml": secondPodYaml,
+						},
+					},
+				)
+			},
+			expected: func(t *testing.T, resourceDir, podDir string) {
+				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-startup-monitor-pod.yaml"), secondPodYaml)
+				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
+				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-startup-monitor-pod.yaml"), secondPodYaml)
 			},
 		},
 	}
@@ -215,7 +253,31 @@ func checkFileContent(t *testing.T, file, expected string) {
 		return
 	}
 
-	if reflect.DeepEqual(expected, actual) {
+	if !reflect.DeepEqual(expected, string(actual)) {
 		t.Errorf("%q: expected %q, got %q", file, expected, string(actual))
+	}
+}
+
+func checkFileContentMatchesPod(t *testing.T, file, expected string) {
+	actual, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	actualPod, err := resourceread.ReadPodV1(actual)
+	if err != nil {
+		t.Error(err)
+	}
+	expectedPod, err := resourceread.ReadPodV1([]byte(expected))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// UID is auto generated so just rewrite it
+	expectedPod.UID = actualPod.UID
+
+	if !equality.Semantic.DeepEqual(actualPod, expectedPod) {
+		t.Errorf("unexpected pod was written %v", actualPod)
 	}
 }

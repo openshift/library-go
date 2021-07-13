@@ -3,7 +3,6 @@ package installerpod
 import (
 	"context"
 	"fmt"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"io/ioutil"
 	"os"
 	"path"
@@ -26,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
 )
 
 type InstallOptions struct {
@@ -288,8 +288,8 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		}
 	}
 
-	// Gather pod yaml from config map
-	var rawPodBytes string
+	// Gather the config map that holds pods to be installed
+	var podsConfigMap *corev1.ConfigMap
 
 	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
 		klog.Infof("Getting pod configmaps/%s -n %s", o.nameFor(o.PodConfigMapNamePrefix), o.Namespace)
@@ -300,55 +300,36 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		if _, exists := podConfigMap.Data["pod.yaml"]; !exists {
 			return true, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
 		}
-		podConfigMap = o.substituteConfigMap(podConfigMap)
-		rawPodBytes = podConfigMap.Data["pod.yaml"]
+		podsConfigMap = o.substituteConfigMap(podConfigMap)
 		return true, nil
 	})
 	if err != nil {
 		return err
 	}
-	// the kubelet has a bug that prevents graceful termination from working on static pods with the same name, filename
-	// and uuid.  By setting the pod UID we can work around the kubelet bug and get our graceful termination honored.
-	// Per the node team, this is hard to fix in the kubelet, though it will affect all static pods.
-	pod, err := resourceread.ReadPodV1([]byte(rawPodBytes))
-	if err != nil {
-		return err
-	}
-	pod.UID = uuid.NewUUID()
-	for _, fn := range o.PodMutationFns {
-		klog.V(2).Infof("Customizing static pod ...")
-		pod = pod.DeepCopy()
-		if err := fn(pod); err != nil {
-			return err
-		}
-	}
-	finalPodBytes := resourceread.WritePodV1OrDie(pod)
 
-	// Write secrets, config maps and pod to disk
-	// This does not need timeout, instead we should fail hard when we are not able to write.
-	podFileName := o.PodConfigMapNamePrefix + ".yaml"
-	klog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, podFileName))
-	if err := ioutil.WriteFile(path.Join(resourceDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
-		return err
-	}
-
-	// copy static pod
+	// at this point we know that the required key is present in the config map, just make sure the manifest dir actually exists
 	klog.Infof("Creating directory for static pod manifest %q ...", o.PodManifestDir)
 	if err := os.MkdirAll(o.PodManifestDir, 0755); err != nil {
 		return err
 	}
 
-	// remove the existing file to ensure kubelet gets "create" event from inotify watchers
-	if err := os.Remove(path.Join(o.PodManifestDir, podFileName)); err == nil {
-		klog.Infof("Removed existing static pod manifest %q ...", path.Join(o.PodManifestDir, podFileName))
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, podFileName), finalPodBytes)
-	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, podFileName), []byte(finalPodBytes), 0644); err != nil {
-		return err
-	}
+	// then write the required pod and all optional
+	// the key must be pod.yaml or has a -pod.yaml suffix to be considered
+	for rawPodKey, rawPod := range podsConfigMap.Data {
+		var manifestFileName = rawPodKey
+		if manifestFileName == "pod.yaml" {
+			// TODO: update kas-o to update the key to a fully qualified name
+			manifestFileName = o.PodConfigMapNamePrefix + ".yaml"
+		} else if !strings.HasSuffix(manifestFileName, "-pod.yaml") {
+			continue
+		}
 
+		klog.Infof("Writing a pod under %q key \n%s", manifestFileName, rawPod)
+		err := o.writePod([]byte(rawPod), manifestFileName, resourceDir)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -396,6 +377,44 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	}
 
 	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
+	return nil
+}
+
+func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resourceDir string) error {
+	// the kubelet has a bug that prevents graceful termination from working on static pods with the same name, filename
+	// and uuid.  By setting the pod UID we can work around the kubelet bug and get our graceful termination honored.
+	// Per the node team, this is hard to fix in the kubelet, though it will affect all static pods.
+	pod, err := resourceread.ReadPodV1(rawPodBytes)
+	if err != nil {
+		return err
+	}
+	pod.UID = uuid.NewUUID()
+	for _, fn := range o.PodMutationFns {
+		klog.V(2).Infof("Customizing static pod ...")
+		pod = pod.DeepCopy()
+		if err := fn(pod); err != nil {
+			return err
+		}
+	}
+	finalPodBytes := resourceread.WritePodV1OrDie(pod)
+
+	// Write secrets, config maps and pod to disk
+	// This does not need timeout, instead we should fail hard when we are not able to write.
+	klog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, manifestFileName))
+	if err := ioutil.WriteFile(path.Join(resourceDir, manifestFileName), []byte(finalPodBytes), 0644); err != nil {
+		return err
+	}
+
+	// remove the existing file to ensure kubelet gets "create" event from inotify watchers
+	if err := os.Remove(path.Join(o.PodManifestDir, manifestFileName)); err == nil {
+		klog.Infof("Removed existing static pod manifest %q ...", path.Join(o.PodManifestDir, manifestFileName))
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, manifestFileName), finalPodBytes)
+	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, manifestFileName), []byte(finalPodBytes), 0644); err != nil {
+		return err
+	}
 	return nil
 }
 
