@@ -40,6 +40,7 @@ func init() {
 	utilruntime.Must(apiextensionsv1beta1.AddToScheme(genericScheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(genericScheme))
 	utilruntime.Must(migrationv1alpha1.AddToScheme(genericScheme))
+	utilruntime.Must(admissionregistrationv1.AddToScheme(genericScheme))
 	// TODO: remove once openshift/api/pull/929 is merged
 	utilruntime.Must(policyv1.AddToScheme(genericScheme))
 }
