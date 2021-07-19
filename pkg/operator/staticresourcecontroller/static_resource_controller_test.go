@@ -282,7 +282,7 @@ func TestStaticResourceController_WithConditionalResource_Sync(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cr := &conditionalResource{conditionalFiles: tc.conditionalFiles, createConditional: tc.createConditionalFunc, deleteConditional: tc.deleteConditionalFunc}
+			cr := conditionalResource{conditionalFiles: tc.conditionalFiles, createConditional: tc.createConditionalFunc, deleteConditional: tc.deleteConditionalFunc}
 			coreClient := fakecore.NewSimpleClientset(tc.existing...)
 			opInstance := makeFakeOperatorInstance()
 			fakeOperatorClient := v1helpers.NewFakeOperatorClient(&opInstance.Spec, &opInstance.Status, nil)
@@ -290,7 +290,7 @@ func TestStaticResourceController_WithConditionalResource_Sync(t *testing.T) {
 				name:                   "static-resource-controller",
 				manifests:              func(name string) ([]byte, error) { return makePDBManifest(), nil },
 				files:                  tc.files,
-				conditionalResource:    cr,
+				conditionalResources:   []conditionalResource{cr},
 				ignoreNotFoundOnCreate: false,
 				operatorClient:         fakeOperatorClient,
 				clients:                (&resourceapply.ClientHolder{}).WithKubernetes(coreClient),
