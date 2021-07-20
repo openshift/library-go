@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -87,6 +88,35 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 		}
 	}
+	fallbackOperand := func(name string, lastKnownGoodRevision string, phase corev1.PodPhase, ready bool, creationTimestamp time.Time, failedRevision, fallbackReason, fallbackMessage string) *corev1.Pod {
+		pod := operand(name, lastKnownGoodRevision, phase, ready)
+		pod.CreationTimestamp = metav1.NewTime(creationTimestamp)
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+		pod.Annotations[annotations.FallbackForRevision] = failedRevision
+		if len(fallbackReason) > 0 {
+			pod.Annotations[annotations.FallbackReason] = fallbackReason
+		}
+		if len(fallbackMessage) > 0 {
+			pod.Annotations[annotations.FallbackMessage] = fallbackMessage
+		}
+		return pod
+	}
+	timestamp := func(s string) time.Time {
+		t, err := time.Parse(time.RFC3339, fmt.Sprintf("2021-01-02T%sZ", s))
+		if err != nil {
+			panic(err)
+		}
+		return t
+	}
+	metav1Timestamp := func(s string) metav1.Time {
+		return metav1.NewTime(timestamp(s))
+	}
+	metav1TimestampPtr := func(s string) *metav1.Time {
+		t := metav1Timestamp(s)
+		return &t
+	}
 
 	type Expected struct {
 		nodeStatus         *operatorv1.NodeStatus
@@ -95,11 +125,12 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		err                bool
 	}
 	type Test struct {
-		name                    string
-		pods                    []*corev1.Pod
-		latestAvailableRevision int32
-		current                 operatorv1.NodeStatus
-		expected                Expected
+		name                       string
+		pods                       []*corev1.Pod
+		latestAvailableRevision    int32
+		current                    operatorv1.NodeStatus
+		unsupportedConfigOverrides string
+		expected                   Expected
 	}
 	for _, test := range []Test{
 		{"installer-pending", []*corev1.Pod{
@@ -108,7 +139,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -125,7 +156,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -142,7 +173,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -157,7 +188,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -174,7 +205,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -195,7 +226,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -220,7 +251,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
 			LastFailedTime:           &before,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -241,7 +272,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -259,7 +290,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -277,7 +308,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -295,7 +326,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 1,
@@ -313,7 +344,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -330,7 +361,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -351,7 +382,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedCount:          2,
 			LastFailedTime:           &before,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -368,7 +399,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, "", Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -376,6 +407,76 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 			false,
 			"new revision pending",
+			false,
+		}},
+
+		// the fallback cases
+		{"installer-succeeded-and-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 2,
+			TargetRevision:  4,
+		}, `{"startupMonitor":true}`, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          1,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
+			false,
+		}},
+		{"installer-succeeded-and-operand-fails-and-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          2,
+			TargetRevision:           4,
+			LastFailedRevisionErrors: []string{"pod is crash-looping", "will fall back to last-known-good revision"},
+		}, `{"startupMonitor":true}`, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          1,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
+			false,
+		}},
+		{"after-retries-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-retry-3-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          2,
+			TargetRevision:           4,
+			LastFailedCount:          3,
+			LastFailedRevision:       4,
+			LastFailedTime:           metav1TimestampPtr("14:56:17"),
+			LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+		}, `{"startupMonitor":true}`, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          4,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
 			false,
 		}},
 	} {
@@ -388,7 +489,8 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState: operatorv1.Managed,
+						ManagementState:            operatorv1.Managed,
+						UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(test.unsupportedConfigOverrides)},
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
@@ -1885,13 +1987,13 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fakeGetStaticPodState := func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errs []string, err error) {
+			fakeGetStaticPodState := func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errs []string, ts time.Time, err error) {
 				for _, p := range test.pods {
 					if p.name == nodeName {
-						return p.state, strconv.Itoa(int(p.revision)), "", nil, nil
+						return p.state, strconv.Itoa(int(p.revision)), "", nil, time.Now(), nil
 					}
 				}
-				return staticPodStatePending, "", "", nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
+				return staticPodStatePending, "", "", nil, time.Now(), errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
 			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodes)
 			if err == nil && test.expectedErr {
