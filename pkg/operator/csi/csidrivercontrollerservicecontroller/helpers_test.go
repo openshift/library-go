@@ -17,6 +17,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 
+	configv1 "github.com/openshift/api/config/v1"
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
@@ -376,6 +377,60 @@ func TestManifestHooks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithControlPlaneTopologyHook(t *testing.T) {
+	argsLevel2 := 2
+	tests := []struct {
+		name               string
+		infra              *configv1.Infrastructure
+		initialDeployment  *appsv1.Deployment
+		expectedDeployment *appsv1.Deployment
+	}{
+		{
+			name:               "highly available topology",
+			infra:              makeInfraWithCPTopology(configv1.HighlyAvailableTopologyMode),
+			initialDeployment:  makeDeployment(defaultClusterID, argsLevel2, defaultImages()),
+			expectedDeployment: makeDeployment(defaultClusterID, argsLevel2, defaultImages()),
+		},
+		{
+			name:               "external topology",
+			infra:              makeInfraWithCPTopology(configv1.ExternalTopologyMode),
+			initialDeployment:  makeDeployment(defaultClusterID, argsLevel2, defaultImages()),
+			expectedDeployment: makeDeployment(defaultClusterID, argsLevel2, defaultImages(), withNodeSelector(map[string]string{})),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			initialInfras := []runtime.Object{test.infra}
+			configClient := fakeconfig.NewSimpleClientset(initialInfras...)
+			configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+			configInformerFactory.Config().V1().Infrastructures().Informer().GetIndexer().Add(initialInfras[0])
+
+			fn := WithControlPlaneTopologyHook(configInformerFactory)
+			err := fn(nil, test.initialDeployment)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !equality.Semantic.DeepEqual(test.initialDeployment, test.expectedDeployment) {
+				t.Errorf("Unexpected Deployment content:\n%s", cmp.Diff(test.initialDeployment, test.expectedDeployment))
+			}
+		})
+	}
+}
+
+func withNodeSelector(nodeSelector map[string]string) deploymentModifier {
+	return func(deployment *appsv1.Deployment) *appsv1.Deployment {
+		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
+		return deployment
+	}
+}
+
+func makeInfraWithCPTopology(mode configv1.TopologyMode) *configv1.Infrastructure {
+	infra := makeInfra()
+	infra.Status.ControlPlaneTopology = mode
+	return infra
 }
 
 func withObservedHTTPProxy(proxy string, path []string) driverModifier {
