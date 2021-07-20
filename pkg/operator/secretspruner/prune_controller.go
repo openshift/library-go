@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +60,7 @@ func NewSecretRevisionPruneController(
 	return factory.New().WithInformers(
 		c.podInformer.Informer(),
 		c.secretInformer.Informer(),
-	).WithSync(c.sync).ToController("SecretRevisionPruneController", eventRecorder.WithComponentSuffix("secret-revision-prune-controller"))
+	).WithSync(c.sync).ResyncEvery(1*time.Minute).ToController("SecretRevisionPruneController", eventRecorder.WithComponentSuffix("secret-revision-prune-controller"))
 }
 
 func (c *SecretRevisionPruneController) sync(ctx context.Context, syncContext factory.SyncContext) error {
