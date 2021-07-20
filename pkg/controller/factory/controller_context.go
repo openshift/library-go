@@ -45,7 +45,7 @@ func (c syncContext) Recorder() events.Recorder {
 }
 
 // eventHandler provides default event handler that is added to an informers passed to controller factory.
-func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, filter EventFilterFunc) cache.ResourceEventHandler {
+func (c syncContext) eventHandler(queueKeysFunc ObjectQueueKeysFunc, filter EventFilterFunc) cache.ResourceEventHandler {
 	resourceEventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			runtimeObj, ok := obj.(runtime.Object)
@@ -53,7 +53,9 @@ func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, filter EventF
 				utilruntime.HandleError(fmt.Errorf("added object %+v is not runtime Object", obj))
 				return
 			}
-			c.Queue().Add(queueKeyFunc(runtimeObj))
+			for _, key := range queueKeysFunc(runtimeObj) {
+				c.Queue().Add(key)
+			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 			runtimeObj, ok := new.(runtime.Object)
@@ -61,19 +63,25 @@ func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, filter EventF
 				utilruntime.HandleError(fmt.Errorf("updated object %+v is not runtime Object", runtimeObj))
 				return
 			}
-			c.Queue().Add(queueKeyFunc(runtimeObj))
+			for _, key := range queueKeysFunc(runtimeObj) {
+				c.Queue().Add(key)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			runtimeObj, ok := obj.(runtime.Object)
 			if !ok {
 				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					c.Queue().Add(queueKeyFunc(tombstone.Obj.(runtime.Object)))
+					for _, key := range queueKeysFunc(tombstone.Obj.(runtime.Object)) {
+						c.Queue().Add(key)
+					}
 					return
 				}
 				utilruntime.HandleError(fmt.Errorf("updated object %+v is not runtime Object", runtimeObj))
 				return
 			}
-			c.Queue().Add(queueKeyFunc(runtimeObj))
+			for _, key := range queueKeysFunc(runtimeObj) {
+				c.Queue().Add(key)
+			}
 		},
 	}
 	if filter == nil {
