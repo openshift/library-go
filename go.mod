@@ -8,6 +8,7 @@ require (
 	github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
+	github.com/elastic/gosigar v0.13.0
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
