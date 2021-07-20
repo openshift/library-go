@@ -62,9 +62,19 @@ type StaticResourceController struct {
 
 	eventRecorder events.Recorder
 
-	factory          *factory.Factory
-	restMapper       meta.RESTMapper
-	categoryExpander restmapper.CategoryExpander
+	factory *factory.Factory
+
+	conditionalResources []conditionalResource
+	restMapper          meta.RESTMapper
+	categoryExpander    restmapper.CategoryExpander
+}
+
+// conditionalResource is a resource that will be deleted or created based on given conditions.
+type conditionalResource struct {
+	// conditionalFiles contains the list of files that can be conditionally created or deleted
+	conditionalFiles  []string
+	createConditional resourceapply.ConditionalFunction
+	deleteConditional resourceapply.ConditionalFunction
 }
 
 // NewStaticResourceController returns a controller that maintains certain static manifests. Most "normal" types are supported,
@@ -103,6 +113,19 @@ func NewStaticResourceController(
 // NotFound errors are reported in <name>Degraded condition, but with Degraded=false.
 func (c *StaticResourceController) WithIgnoreNotFoundOnCreate() *StaticResourceController {
 	c.ignoreNotFoundOnCreate = true
+	return c
+}
+
+// WithConditionalResources makes the controller react to changes in dependent object
+// If both createConditional and deleteConditional are true, it will be considered an
+// error during sync.
+func (c *StaticResourceController) WithConditionalResources(createConditionalFunc resourceapply.ConditionalFunction,
+	deleteConditionFunc resourceapply.ConditionalFunction, conditionalFiles ...string) *StaticResourceController {
+	cr := conditionalResource{createConditional: createConditionalFunc, deleteConditional: deleteConditionFunc}
+	for _, conditionalFile := range conditionalFiles {
+		cr.conditionalFiles = append(cr.conditionalFiles, conditionalFile)
+	}
+	c.conditionalResources = append(c.conditionalResources, cr)
 	return c
 }
 
@@ -222,6 +245,40 @@ func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.
 			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
 			continue
 		}
+	}
+	for _, cr := range c.conditionalResources {
+	// Handle conditional resources that need to be created or deleted.
+	if len(cr.conditionalFiles) > 0 {
+		var conditionalResourceResults []resourceapply.ApplyResult
+
+		shouldDelete := false
+		if cr.deleteConditional != nil && cr.deleteConditional() {
+			shouldDelete = true
+		}
+
+		shouldCreate := false
+		if cr.createConditional != nil && cr.createConditional() {
+			shouldCreate = true
+		}
+
+		switch {
+		case shouldCreate && shouldDelete:
+			errors = append(errors, fmt.Errorf("cannot have create and deletion conditionals set"))
+		case shouldDelete:
+			conditionalResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), c.manifests, cr.conditionalFiles...)
+		case shouldCreate:
+			conditionalResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.manifests, cr.conditionalFiles...)
+		}
+		for _, currResult := range conditionalResourceResults {
+			if apierrors.IsNotFound(currResult.Error) && shouldCreate {
+				notFoundErrorsCount++
+			}
+			if currResult.Error != nil {
+				errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
+				continue
+			}
+		}
+	}
 	}
 
 	cnd := operatorv1.OperatorCondition{

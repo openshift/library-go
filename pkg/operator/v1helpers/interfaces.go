@@ -19,7 +19,7 @@ type OperatorClient interface {
 }
 
 type StaticPodOperatorClient interface {
-	OperatorClient
+	OperatorClientWithFinalizers
 	// GetStaticPodOperatorState returns the static pod operator spec, status and the resource version,
 	// potentially from a lister.
 	GetStaticPodOperatorState() (spec *operatorv1.StaticPodOperatorSpec, status *operatorv1.StaticPodOperatorStatus, resourceVersion string, err error)

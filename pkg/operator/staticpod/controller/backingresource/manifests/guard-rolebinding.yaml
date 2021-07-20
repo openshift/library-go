@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: guard-rolebinding
+  namespace: {{ .TargetNamespace }}
+subjects:
+- kind: ServiceAccount
+  name: guard-sa
+roleRef:
+  kind: Role
+  name: guard-role
+  apiGroup: rbac.authorization.k8s.io
