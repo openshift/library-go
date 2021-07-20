@@ -1,6 +1,10 @@
 package startupmonitor
 
-import "time"
+import (
+	"time"
+
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+)
 
 // withProbeInterval probeInterval specifies a time interval at which health of the target will be assessed.
 // Be mindful of not setting it too low, on each iteration, an i/o is involved
@@ -56,6 +60,11 @@ func (f *staticPodFallback) withStaticPodResourcesPath(staticPodResourcesPath st
 // withRevision specifies the current revision number
 func (f *staticPodFallback) withRevision(revision int) *staticPodFallback {
 	f.revision = revision
+	return f
+}
+
+func (f *staticPodFallback) withOperatorClient(operatorClient v1helpers.StaticPodOperatorClient) *staticPodFallback {
+	f.operatorClient = operatorClient
 	return f
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal/flock"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // ReadinessChecker is a contract between the startup monitor and operators.
@@ -57,7 +58,7 @@ type Options struct {
 	Check ReadinessChecker
 }
 
-func NewCommand(check ReadinessChecker) *cobra.Command {
+func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Config) (v1helpers.StaticPodOperatorClient, error)) *cobra.Command {
 	o := Options{
 		Check: check,
 	}
@@ -89,17 +90,19 @@ func NewCommand(check ReadinessChecker) *cobra.Command {
 				withTargetName(o.TargetName).
 				withNodeName(o.NodeName)
 
-			if len(o.KubeConfig) > 0 {
-				clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
-				if err != nil {
-					klog.Fatal(err)
-				}
-
-				restConfig := rest.CopyConfig(clientConfig)
-				if c, ok := o.Check.(WantsRestConfig); ok {
-					c.SetRestConfig(restConfig)
-				}
+			clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
+			if err != nil {
+				klog.Fatal("either use --kubeconfig or run in-cluster: %v", err)
 			}
+			restConfig := rest.CopyConfig(clientConfig)
+			if c, ok := o.Check.(WantsRestConfig); ok {
+				c.SetRestConfig(restConfig)
+			}
+			operatorClient, err := newOperatorClient(restConfig)
+			if err != nil {
+				klog.Fatal(err)
+			}
+			fb = fb.withOperatorClient(operatorClient)
 
 			// use flock based locking with installer. We will try to release the lock cleanly, but the
 			// Linux kernel will release the lock in case we hit the unavoidable race. In worst case,
@@ -122,7 +125,7 @@ func NewCommand(check ReadinessChecker) *cobra.Command {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.KubeConfig, "kubeconfig", o.KubeConfig, "kubeconfig file or empty")
+	fs.StringVar(&o.KubeConfig, "kubeconfig", o.KubeConfig, "kubeconfig file or empty to look for in-cluster kubeconfig")
 	fs.IntVar(&o.Revision, "revision", o.Revision, "identifier for this particular installation instance")
 	fs.DurationVar(&o.FallbackTimeout, "fallback-timeout-duration", 33*time.Second, "maximum time in seconds to wait for the operand to become healthy (default 33s)")
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory that holds all files supporting the static pod manifests")
