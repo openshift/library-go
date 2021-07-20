@@ -33,6 +33,7 @@ type Factory struct {
 	namespaceInformers    []*namespaceInformer
 	cachesToSync          []cache.InformerSynced
 	interestingNamespaces sets.String
+	description           string
 }
 
 // Informer represents any structure that allow to register event handlers and informs if caches are synced.
@@ -122,6 +123,13 @@ func (f *Factory) WithInformersQueueKeyFunc(queueKeyFn ObjectQueueKeyFunc, infor
 		informers:  informers,
 		queueKeyFn: queueKeyFn,
 	})
+	return f
+}
+
+// WithDescription allow to describe intent of the controller the factory is producing.
+// This in general can help understand bugs and errors better if used properly.
+func (f *Factory) WithDescription(description string) *Factory {
+	f.description = description
 	return f
 }
 
@@ -226,6 +234,7 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 
 	c := &baseController{
 		name:               name,
+		description:        f.description,
 		syncDegradedClient: f.syncDegradedClient,
 		sync:               f.sync,
 		resyncEvery:        f.resyncInterval,
