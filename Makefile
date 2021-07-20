@@ -33,4 +33,5 @@ verify-bindata-podnetworkconnectivitychecks-manifests:
 verify-bindata-podnetworkconnectivitychecks: verify-bindata-podnetworkconnectivitychecks-manifests
 
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
+test-e2e-encryption: test-unit
 .PHONY: test-e2e-encryption
