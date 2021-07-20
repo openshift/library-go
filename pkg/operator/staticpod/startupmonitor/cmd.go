@@ -15,6 +15,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal/flock"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // ReadinessChecker is a contract between the startup monitor and operators.
@@ -57,7 +58,7 @@ type Options struct {
 	Check ReadinessChecker
 }
 
-func NewCommand(check ReadinessChecker) *cobra.Command {
+func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Config) v1helpers.StaticPodOperatorClient) *cobra.Command {
 	o := Options{
 		Check: check,
 	}
@@ -99,6 +100,8 @@ func NewCommand(check ReadinessChecker) *cobra.Command {
 				if c, ok := o.Check.(WantsRestConfig); ok {
 					c.SetRestConfig(restConfig)
 				}
+
+				fb = fb.withOperatorClient(newOperatorClient(restConfig))
 			}
 
 			// use flock based locking with installer. We will try to release the lock cleanly, but the
