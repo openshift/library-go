@@ -9,18 +9,11 @@ import (
 	"sync"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
-	"github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer"
-	"github.com/openshift/library-go/pkg/config/client"
-	"github.com/openshift/library-go/pkg/config/configdefaults"
-	leaderelectionconverter "github.com/openshift/library-go/pkg/config/leaderelection"
-	"github.com/openshift/library-go/pkg/config/serving"
-	"github.com/openshift/library-go/pkg/controller/fileobserver"
-	"github.com/openshift/library-go/pkg/operator/events"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -31,6 +24,16 @@ import (
 	"k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
+
+	configv1 "github.com/openshift/api/config/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer"
+	"github.com/openshift/library-go/pkg/config/client"
+	"github.com/openshift/library-go/pkg/config/configdefaults"
+	leaderelectionconverter "github.com/openshift/library-go/pkg/config/leaderelection"
+	"github.com/openshift/library-go/pkg/config/serving"
+	"github.com/openshift/library-go/pkg/controller/fileobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 // StartFunc is the function to call on leader election start
@@ -69,6 +72,7 @@ type ControllerBuilder struct {
 	fileObserver            fileobserver.Observer
 	fileObserverReactorFn   func(file string, action fileobserver.ActionType) error
 	eventRecorderOptions    record.CorrelatorOptions
+	eventRecorder           events.Recorder
 
 	startFunc          StartFunc
 	componentName      string
@@ -87,6 +91,9 @@ type ControllerBuilder struct {
 	// This stub exists for unit test where we can check if the graceful termination work properly.
 	// Default function will klog.Warning(args) and os.Exit(1).
 	nonZeroExitFn func(args ...interface{})
+
+	//  allow to specify additional authorizers
+	authorizer authorizer.Authorizer
 }
 
 // NewController returns a builder struct for constructing the command you want to run
@@ -157,6 +164,10 @@ func (b *ControllerBuilder) WithServer(servingInfo configv1.HTTPServingInfo, aut
 	configdefaults.SetRecommendedHTTPServingInfoDefaults(b.servingInfo)
 	b.authenticationConfig = &authenticationConfig
 	b.authorizationConfig = &authorizationConfig
+	b.authorizer = union.New(
+		// this authorizer make sure we don't do SAR for every single metrics request
+		hardcodedauthorizer.NewHardCodedMetricsAuthorizer(),
+	)
 	return b
 }
 
@@ -190,35 +201,51 @@ func (b *ControllerBuilder) WithEventRecorderOptions(options record.CorrelatorOp
 
 // Run starts your controller for you.  It uses leader election if you asked, otherwise it directly calls you
 func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstructured) error {
-	clientConfig, err := b.getClientConfig()
-	if err != nil {
-		return err
+	var clientConfig *rest.Config
+
+	if b.kubeAPIServerConfigFile != nil {
+		var err error
+		clientConfig, err = b.getClientConfig()
+		if err != nil {
+			return err
+		}
 	}
 
 	if b.fileObserver != nil {
 		go b.fileObserver.Run(ctx.Done())
 	}
 
-	kubeClient := kubernetes.NewForConfigOrDie(clientConfig)
 	namespace, err := b.getComponentNamespace()
 	if err != nil {
 		klog.Warningf("unable to identify the current namespace for events: %v", err)
 	}
-	controllerRef, err := events.GetControllerReferenceForCurrentPod(kubeClient, namespace, nil)
-	if err != nil {
-		klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
+
+	var (
+		kubeClient    kubernetes.Interface
+		controllerRef *corev1.ObjectReference
+	)
+	if clientConfig != nil {
+		kubeClient = kubernetes.NewForConfigOrDie(clientConfig)
+		if controllerRef, err = events.GetControllerReferenceForCurrentPod(kubeClient, namespace, nil); err != nil {
+			klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
+		}
 	}
-	eventRecorder := events.NewKubeRecorderWithOptions(kubeClient.CoreV1().Events(namespace), b.eventRecorderOptions, b.componentName, controllerRef)
+
+	if b.eventRecorder == nil && clientConfig != nil {
+		b.eventRecorder = events.NewKubeRecorderWithOptions(kubeClient.CoreV1().Events(namespace), b.eventRecorderOptions, b.componentName, controllerRef)
+	} else if b.eventRecorder == nil && clientConfig == nil {
+		panic("unable to make event recorder") // this is programmer error, should not never happen in real operator
+	}
 
 	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
-		eventRecorder.Warningf(fmt.Sprintf("%sPanic", strings.Title(b.componentName)), "Panic observed: %v", r)
+		b.eventRecorder.Warningf(fmt.Sprintf("%sPanic", strings.Title(b.componentName)), "Panic observed: %v", r)
 	})
 
 	// if there is file observer defined for this command, add event into default reaction function.
 	if b.fileObserverReactorFn != nil {
 		originalFileObserverReactorFn := b.fileObserverReactorFn
 		b.fileObserverReactorFn = func(file string, action fileobserver.ActionType) error {
-			eventRecorder.Warningf("OperatorRestart", "Restarted because of %s", action.String(file))
+			b.eventRecorder.Warningf("OperatorRestart", "Restarted because of %s", action.String(file))
 			return originalFileObserverReactorFn(file, action)
 		}
 	}
@@ -251,12 +278,13 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		if err != nil {
 			return err
 		}
-		serverConfig.Authorization.Authorizer = union.New(
-			// prefix the authorizer with the permissions for metrics scraping which are well known.
-			// openshift RBAC policy will always allow this user to read metrics.
-			hardcodedauthorizer.NewHardCodedMetricsAuthorizer(),
-			serverConfig.Authorization.Authorizer,
-		)
+
+		if b.authorizer != nil {
+			serverConfig.Authorization.Authorizer = union.New(
+				b.authorizer,
+				serverConfig.Authorization.Authorizer,
+			)
+		}
 		serverConfig.HealthzChecks = append(serverConfig.HealthzChecks, b.healthChecks...)
 
 		server, err = serverConfig.Complete(nil).New(b.componentName, genericapiserver.NewEmptyDelegate())
@@ -272,15 +300,18 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		}()
 	}
 
-	protoConfig := rest.CopyConfig(clientConfig)
-	protoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
-	protoConfig.ContentType = "application/vnd.kubernetes.protobuf"
+	var protoConfig *rest.Config
 
+	if clientConfig != nil {
+		protoConfig = rest.CopyConfig(clientConfig)
+		protoConfig.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
+		protoConfig.ContentType = "application/vnd.kubernetes.protobuf"
+	}
 	controllerContext := &ControllerContext{
 		ComponentConfig:   config,
 		KubeConfig:        clientConfig,
 		ProtoKubeConfig:   protoConfig,
-		EventRecorder:     eventRecorder,
+		EventRecorder:     b.eventRecorder,
 		Server:            server,
 		OperatorNamespace: namespace,
 	}
