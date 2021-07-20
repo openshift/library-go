@@ -532,6 +532,17 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
+	installerBackOffDuration := 0 * time.Second
+	c.installerBackOff = func(count int) time.Duration {
+		return installerBackOffDuration
+	}
+	withCustomInstallerBackOff := func(d time.Duration, fn func()) {
+		old := installerBackOffDuration
+		installerBackOffDuration = d
+		defer func() { installerBackOffDuration = old }()
+		fn()
+	}
+
 	t.Log("setting target revision")
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
@@ -624,10 +635,24 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 			t.Fatalf("expected %s condition to be true", condition.NodeInstallerDegradedConditionType)
 		}
 
-		t.Log("launch 2nd installer")
-		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
-			t.Fatal(err)
+		t.Log("try to launch 2nd installer with backoff, too early")
+
+		withCustomInstallerBackOff(10*time.Second, func() {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil && err != factory.SyntheticRequeueError {
+				t.Fatal(err)
+			}
+		})
+		if len(installerPods) != 1 {
+			t.Fatal("didn't expect new installer pod yet due to backoff")
 		}
+
+		t.Log("launch 2nd installer when backoff has passed")
+
+		withCustomInstallerBackOff(0*time.Second, func() {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+		})
 		if len(installerPods) != 2 {
 			t.Fatal("expected second installer pod after failure")
 		}
@@ -1645,8 +1670,12 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				c.ownerRefsFn = test.ownerRefsFn
 			}
 			c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+			c.installerBackOff = func(count int) time.Duration {
+				return 0 // switch off for this test
+			}
 
 			// Each node needs at least 2 syncs to first create the pod and then acknowledge its existence.
+			// We switch off backoff which would lead to more sync.
 			for i := 1; i <= len(test.nodeStatuses)*2+1; i++ {
 				err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder))
 				expectedErr := false
