@@ -31,6 +31,9 @@ type Options struct {
 	// Revision identifier for this particular installation instance
 	Revision int
 
+	// NodeName as used to update the right nodeStatus struct in the static pod operator resource
+	NodeName string
+
 	// FallbackTimeout specifies a timeout after which the monitor starts the fall back procedure
 	FallbackTimeout time.Duration
 
@@ -83,7 +86,8 @@ func NewCommand(check ReadinessChecker) *cobra.Command {
 				withRevision(o.Revision).
 				withManifestPath(o.ManifestDir).
 				withStaticPodResourcesPath(o.ResourceDir).
-				withTargetName(o.TargetName)
+				withTargetName(o.TargetName).
+				withNodeName(o.NodeName)
 
 			if len(o.KubeConfig) > 0 {
 				clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
@@ -125,6 +129,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ManifestDir, "manifests-dir", o.ManifestDir, "directory for the static pod manifest")
 	fs.StringVar(&o.TargetName, "target-name", o.TargetName, "identifies operand used to construct the final file name when reading the current and previous manifests")
 	fs.StringVar(&o.ResourceDir, "installer-lock-file", o.InstallerLockFile, "file path for the installer flock based lock file")
+	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of the node as used in the static pod operator resource")
 }
 
 func (o *Options) Validate() error {
@@ -139,6 +144,9 @@ func (o *Options) Validate() error {
 	}
 	if len(o.TargetName) == 0 {
 		return fmt.Errorf("--target-name is required")
+	}
+	if len(o.NodeName) == 0 {
+		return fmt.Errorf("--node-name is required")
 	}
 	return nil
 }

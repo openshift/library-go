@@ -58,3 +58,8 @@ func (f *staticPodFallback) withRevision(revision int) *staticPodFallback {
 	f.revision = revision
 	return f
 }
+
+func (f *staticPodFallback) withNodeName(nodeName string) *staticPodFallback {
+	f.nodeName = nodeName
+	return f
+}
