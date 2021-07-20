@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -88,8 +89,11 @@ type InstallerController struct {
 
 	installerPodMutationFns []InstallerPodMutationFunc
 
-	factory *factory.Factory
-	clock   clock.Clock
+	startupMonitorDeployed func() (bool, error)
+
+	factory         *factory.Factory
+	clock           clock.Clock
+	backOffDuration func(count int) time.Duration
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -112,6 +116,14 @@ func (c *InstallerController) WithCerts(certDir string, certConfigMaps, certSecr
 	return c
 }
 
+// WithStartupMonitorSupport sets the predicate startupMonitorDeployed called on every sync
+// to know whether startup monitor is deployed, and the state machine can expect that the
+// startup-monitor acknowledged ready operands.
+func (c *InstallerController) WithStartupMonitorSupport(startupMonitorDeployed func() (bool, error)) *InstallerController {
+	c.startupMonitorDeployed = startupMonitorDeployed
+	return c
+}
+
 // staticPodState is the status of a static pod that has been installed to a node.
 type staticPodState int
 
@@ -122,6 +134,11 @@ const (
 	staticPodStateReady
 	// staticPodStateFailed means that the static pod installation of a node has failed.
 	staticPodStateFailed
+	// staticPodStateFallback means the the static pod installation of a node has failed
+	// and the startup-monitor switched back to a previous last-good-known revision.
+	//
+	// Note: we don't distinguish between ready or not for the fallback.
+	staticPodStateFallback
 )
 
 var _ factory.Controller = &InstallerController{}
@@ -157,9 +174,13 @@ func NewInstallerController(
 		podsGetter:       podsGetter,
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 		now:              time.Now,
+		startupMonitorDeployed: func() (bool, error) {
+			return false, nil
+		},
 
 		installerPodImageFn: getInstallerPodImageFromEnv,
 		clock:               clock.RealClock{},
+		backOffDuration:     backOffDuration,
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -176,27 +197,75 @@ func (c InstallerController) Name() string {
 	return "InstallerController"
 }
 
-func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error) {
+// getStaticPodState returns
+// - the state of the static pod,
+// - its revision (in case of the fallback static pod the revision of the non-fallback one),
+// - a human readible reason for the static pod state
+// - a list of error strings to be stored in the nodeStatus.lastFailedReviionsErrors
+// - a timestamp of the pod state event
+func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName string) (staticPodState, string, string, []string, time.Time, error) {
 	pod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, mirrorPodNameForNode(c.staticPodName, nodeName), metav1.GetOptions{})
 	if err != nil {
-		return staticPodStatePending, "", "", nil, err
+		return staticPodStatePending, "", "", nil, time.Time{}, err
 	}
+
+	revision := pod.Labels[revisionLabel]
+
+	// one state for the fallback case. We don't distinguish between fallback failing, running or ready.
+	if fallbackFor, ok := pod.Annotations[annotations.FallbackForRevision]; ok {
+		reason := "Unknown"
+		message := "unknown"
+		if s, ok := pod.Annotations[annotations.FallbackReason]; ok {
+			reason = s
+		}
+		if s, ok := pod.Annotations[annotations.FallbackMessage]; ok {
+			message = s
+		}
+
+		// return fallback-for-revision revision intentionally.
+		// return creationTimestamp intentionally. This timestamp must be constant. It is written to the static operator nodeStatus and
+		// every time it changes, the fail counter will increase.
+		return staticPodStateFallback,
+			fallbackFor,
+			fmt.Sprintf("static pod for %s did not launch and last-known-good revision %s has been started", fallbackFor, revision),
+			[]string{fmt.Sprintf("fallback to last-known-good revision %s took place after: %s (%s)", revision, message, reason)},
+			pod.CreationTimestamp.Time,
+			nil
+	}
+
 	switch pod.Status.Phase {
 	case corev1.PodRunning, corev1.PodSucceeded:
 		for _, c := range pod.Status.Conditions {
 			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-				return staticPodStateReady, pod.Labels[revisionLabel], "static pod is ready", nil, nil
+				return staticPodStateReady, revision, "static pod is ready", nil, c.LastTransitionTime.Time, nil
 			}
 		}
-		return staticPodStatePending, pod.Labels[revisionLabel], "static pod is not ready", nil, nil
+		return staticPodStatePending, revision, "static pod is not ready", nil, time.Now(), nil
 	case corev1.PodFailed:
-		return staticPodStateFailed, pod.Labels[revisionLabel], "static pod has failed", []string{pod.Status.Message}, nil
+		// we need a definitive timestamp here that does not change again. Because PodFail is a terminal state, we can assume
+		// the containers don't change anymore. So we use the latest container termination state.
+		ts := pod.CreationTimestamp.Time
+		for _, c := range pod.Status.InitContainerStatuses {
+			if c.LastTerminationState.Terminated != nil {
+				if finishedAt := c.LastTerminationState.Terminated.FinishedAt.Time; ts.Before(finishedAt) {
+					ts = finishedAt
+				}
+			}
+		}
+		for _, c := range pod.Status.ContainerStatuses {
+			if c.LastTerminationState.Terminated != nil {
+				if finishedAt := c.LastTerminationState.Terminated.FinishedAt.Time; ts.Before(finishedAt) {
+					ts = finishedAt
+				}
+			}
+		}
+		return staticPodStateFailed, revision, "static pod has failed", []string{pod.Status.Message}, ts, nil
 	}
 
-	return staticPodStatePending, pod.Labels[revisionLabel], fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, nil
+	return staticPodStatePending, revision, fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, time.Now(), nil
 }
 
-type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error)
+type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, ts time.Time, err error)
 
 // nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
 // - not updating
@@ -232,7 +301,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
+		state, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -259,7 +328,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		_, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
+		_, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -422,7 +491,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		}
 
 		if currNodeState.LastFailedRevision == revisionToStart && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
-			delay := backOffDuration(currNodeState.LastFailedCount)
+			delay := c.backOffDuration(currNodeState.LastFailedCount)
 			earliestRetry := currNodeState.LastFailedTime.Add(delay)
 			if !c.now().After(earliestRetry) {
 				klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
@@ -648,12 +717,11 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		return ret, false, "new revision pending", nil
 	}
 
-	errors := []string{}
 	reason = ""
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		state, currentRevision, staticPodReason, failedErrors, err := c.getStaticPodState(ctx, currNodeState.NodeName)
+		state, currentRevision, staticPodReason, staticPodErrors, ts, err := c.getStaticPodState(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			// pod not launched yet
 			// TODO: have a timeout here and retry the installer
@@ -674,40 +742,78 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			break
 		}
 
+		startupMonitor, err := c.startupMonitorDeployed()
+		if err != nil {
+			return nil, false, "", err
+		}
+
 		switch state {
 		case staticPodStateFailed:
 			reason = staticPodReason
-			errors = failedErrors
 
-			ret.TargetRevision = 0 // stop installer retries
-			ret.LastFailedRevision = currNodeState.TargetRevision
-			now := metav1.NewTime(c.now())
-			ret.LastFailedTime = &now
-			ret.LastFailedCount++
 			ns, name := c.targetNamespace, mirrorPodNameForNode(c.staticPodName, currNodeState.NodeName)
-			if len(errors) == 0 {
-				errors = append(errors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name))
+			if len(staticPodErrors) == 0 {
+				staticPodErrors = append(staticPodErrors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name))
 			}
-			ret.LastFailedRevisionErrors = errors
+			ret.LastFailedRevisionErrors = staticPodErrors
 
-			return ret, false, fmt.Sprintf("operand pod failed: %v", strings.Join(errors, "\n")), nil
+			if startupMonitor {
+				// this will be overridden again when the fallback pod is observed
+				ret.LastFailedRevisionErrors = append(ret.LastFailedRevisionErrors, "falling back to last-known-good revision")
+			} else {
+				ret.TargetRevision = 0 // stop installer retries, but keep running in startup-monitor case where we leave this to the startup-monitor to do
+				ret.LastFailedRevision = ret.TargetRevision
+
+				// increase failed count, but not in startup-monitor case where this is done when the fallback pod is observed below in staticPodStateFallback,
+				ret.LastFailedRevision = currNodeState.TargetRevision
+				if ret.LastFailedTime == nil || !ret.LastFailedTime.Time.Equal(ts) {
+					// avoid increasing the count continuously by comparing the fail time
+					failTime := metav1.NewTime(ts)
+					ret.LastFailedTime = &failTime
+					ret.LastFailedCount++
+				}
+			}
+
+			return ret, false, fmt.Sprintf("operand pod failed: %v", strings.Join(staticPodErrors, "\n")), nil
 
 		case staticPodStateReady:
 			if currNodeState.TargetRevision > ret.CurrentRevision {
 				ret.CurrentRevision = currNodeState.TargetRevision
 			}
-			ret.TargetRevision = 0
-			ret.LastFailedRevision = 0
-			ret.LastFailedTime = nil
-			ret.LastFailedCount = 0
-			ret.LastFailedRevisionErrors = nil
+
+			// in case of startup-monitor we leave marking a ready operand as current version to the startup-monitor.
+			//
+			// Two edge case:
+			// 1. startup-monitor is enabled. A new operand is rolled out with the startup-monitor. It will mark the new revision as current.
+			// 2. startup-monitor is disabled. A new operand is rolled out without the startup-monitor pod. The operator will now mark the revision as current.
+			// 3. startup-monitor is disabled, while a new operator WITH startup-monitor is rolled out. The upper revision override will mark the revision as current.
+			if !startupMonitor {
+				ret.TargetRevision = 0
+				ret.LastFailedRevision = 0
+				ret.LastFailedTime = nil
+				ret.LastFailedCount = 0
+				ret.LastFailedRevisionErrors = nil
+			}
 			return ret, false, staticPodReason, nil
+
+		case staticPodStateFallback:
+			reason = staticPodReason
+			if ret.LastFailedTime == nil || !ret.LastFailedTime.Time.Equal(ts) { // do this only once per fallback
+				failTime := metav1.NewTime(ts)
+				ret.LastFailedTime = &failTime
+				ret.LastFailedRevision = ret.TargetRevision
+				ret.LastFailedRevisionErrors = staticPodErrors
+				ret.LastFailedCount++
+			}
+
 		default:
 			reason = "static pod is pending"
 		}
 
 	case corev1.PodFailed:
 		reason = "installer pod failed"
+		errors := []string{}
+
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) > 0 {
 				errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
