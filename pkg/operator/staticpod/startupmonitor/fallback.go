@@ -39,6 +39,9 @@ type staticPodFallback struct {
 
 	// io collects file system level operations that need to be mocked out during tests
 	io ioInterface
+
+	// nodeName is the node hostname as used by the static pod operator resource.
+	nodeName string
 }
 
 var _ fallback = &staticPodFallback{}
