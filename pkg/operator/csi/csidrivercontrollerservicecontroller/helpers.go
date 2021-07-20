@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
@@ -159,5 +160,22 @@ func WithPlaceholdersHook(configInformer configinformers.SharedInformerFactory) 
 
 		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 		return []byte(replaced), nil
+	}
+}
+
+// WithControlPlaneTopologyHook modifies the nodeSelector of the deployment
+// based on the control plane topology reported in Infrastructure.Status.ControlPlaneTopology.
+// If running with an External control plane, the nodeSelector should not include
+// master nodes.
+func WithControlPlaneTopologyHook(configInformer configinformers.SharedInformerFactory) dc.DeploymentHookFunc {
+	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		infra, err := configInformer.Config().V1().Infrastructures().Lister().Get(infraConfigName)
+		if err != nil {
+			return err
+		}
+		if infra.Status.ControlPlaneTopology == configv1.ExternalTopologyMode {
+			deployment.Spec.Template.Spec.NodeSelector = map[string]string{}
+		}
+		return nil
 	}
 }
