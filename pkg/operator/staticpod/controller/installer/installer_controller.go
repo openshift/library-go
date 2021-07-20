@@ -1,9 +1,7 @@
 package installer
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -29,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/clock"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -92,6 +89,8 @@ type InstallerController struct {
 
 	installerPodMutationFns []InstallerPodMutationFunc
 
+	startupMonitorDeployed func() (bool, error)
+
 	factory         *factory.Factory
 	clock           clock.Clock
 	backOffDuration func(count int) time.Duration
@@ -114,6 +113,14 @@ func (c *InstallerController) WithCerts(certDir string, certConfigMaps, certSecr
 	c.certDir = certDir
 	c.certConfigMaps = certConfigMaps
 	c.certSecrets = certSecrets
+	return c
+}
+
+// WithStartupMonitorSupport sets the predicate startupMonitorDeployed called on every sync
+// to know whether startup monitor is deployed, and the state machine can expect that the
+// startup-monitor acknowledged ready operands.
+func (c *InstallerController) WithStartupMonitorSupport(startupMonitorDeployed func() (bool, error)) *InstallerController {
+	c.startupMonitorDeployed = startupMonitorDeployed
 	return c
 }
 
@@ -167,6 +174,9 @@ func NewInstallerController(
 		podsGetter:       podsGetter,
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 		now:              time.Now,
+		startupMonitorDeployed: func() (bool, error) {
+			return false, nil
+		},
 
 		installerPodImageFn: getInstallerPodImageFromEnv,
 		clock:               clock.RealClock{},
@@ -732,7 +742,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			break
 		}
 
-		startupMonitor, err := c.startupMonitorEnabled()
+		startupMonitor, err := c.startupMonitorDeployed()
 		if err != nil {
 			return nil, false, "", err
 		}
@@ -1137,32 +1147,4 @@ func max(x, y int) int {
 		return x
 	}
 	return y
-}
-
-func (c *InstallerController) startupMonitorEnabled() (bool, error) {
-	spec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
-	if err != nil {
-		return false, err
-	}
-
-	u, err := unstructuredUnsupportedConfigFrom(spec.UnsupportedConfigOverrides.Raw)
-	if err != nil {
-		return false, err
-	}
-	on, _, _ := unstructured.NestedBool(u, "startupMonitor")
-	return on, nil
-}
-
-func unstructuredUnsupportedConfigFrom(rawConfig []byte) (map[string]interface{}, error) {
-	if len(rawConfig) == 0 {
-		return nil, nil
-	}
-
-	u := map[string]interface{}{}
-	if err := json.NewDecoder(bytes.NewBuffer(rawConfig)).Decode(&u); err != nil {
-		klog.V(4).Infof("decode of existing config failed with error: %v", err)
-		return nil, err
-	}
-
-	return u, nil
 }

@@ -125,12 +125,12 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		err                bool
 	}
 	type Test struct {
-		name                       string
-		pods                       []*corev1.Pod
-		latestAvailableRevision    int32
-		current                    operatorv1.NodeStatus
-		unsupportedConfigOverrides string
-		expected                   Expected
+		name                    string
+		pods                    []*corev1.Pod
+		latestAvailableRevision int32
+		current                 operatorv1.NodeStatus
+		startupMonitorDeployed  bool
+		expected                Expected
 	}
 	for _, test := range []Test{
 		{"installer-pending", []*corev1.Pod{
@@ -139,7 +139,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -156,7 +156,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -173,7 +173,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -188,7 +188,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -205,7 +205,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -226,7 +226,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -251,7 +251,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
 			LastFailedTime:           &before,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -272,7 +272,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -290,7 +290,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -308,7 +308,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -326,7 +326,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 1,
@@ -344,7 +344,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -361,7 +361,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -382,7 +382,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedCount:          2,
 			LastFailedTime:           &before,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -399,7 +399,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, "", Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -418,7 +418,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 2,
 			TargetRevision:  4,
-		}, `{"startupMonitor":true}`, Expected{
+		}, true, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
@@ -440,7 +440,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			CurrentRevision:          2,
 			TargetRevision:           4,
 			LastFailedRevisionErrors: []string{"pod is crash-looping", "will fall back to last-known-good revision"},
-		}, `{"startupMonitor":true}`, Expected{
+		}, true, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
@@ -465,7 +465,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       4,
 			LastFailedTime:           metav1TimestampPtr("14:56:17"),
 			LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
-		}, `{"startupMonitor":true}`, Expected{
+		}, true, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
@@ -489,8 +489,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState:            operatorv1.Managed,
-						UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(test.unsupportedConfigOverrides)},
+						ManagementState: operatorv1.Managed,
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
@@ -514,6 +513,9 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				eventRecorder,
 			)
 			c.now = func() time.Time { return now.Time }
+			c.startupMonitorDeployed = func() (bool, error) {
+				return test.startupMonitorDeployed, nil
+			}
 
 			nodeStatus, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(context.TODO(), &test.current, test.latestAvailableRevision)
 			if err == nil && test.expected.err {
@@ -555,28 +557,28 @@ const (
 
 func TestSync(t *testing.T) {
 	type Test struct {
-		name                       string
-		installerBehaviour         testSyncInstallerBehaviour
-		operandBehaviour           testSyncOperandBehaviour
-		unsupportedConfigOverrides string
+		name                   string
+		installerBehaviour     testSyncInstallerBehaviour
+		operandBehaviour       testSyncOperandBehaviour
+		startupMonitorDeployed bool
 	}
 	for _, tst := range []Test{
-		{"happy case", testSyncInstallerSuccess, testSyncOperandReady, ""},
-		{"installer fails", testSyncInstallerFails, testSyncOperandReady, ""},
-		{"installer disappears", testSyncInstallerDisappears, testSyncOperandReady, ""},
+		{"happy case", testSyncInstallerSuccess, testSyncOperandReady, false},
+		{"installer fails", testSyncInstallerFails, testSyncOperandReady, false},
+		{"installer disappears", testSyncInstallerDisappears, testSyncOperandReady, false},
 
-		{"happy case with startup-monitor", testSyncInstallerSuccess, testSyncOperandReady, `{"startupmonitor":true}`},
-		{"installer fails with startup-monitor", testSyncInstallerFails, testSyncOperandReady, `{"startupmonitor":true}`},
-		{"installer disappears with startup-monitor", testSyncInstallerDisappears, testSyncOperandReady, `{"startupmonitor":true}`},
-		{"fallback happens with startup-monitor", testSyncInstallerSuccess, testSyncOperandFallback, `{"startupmonitor":true}`},
+		{"happy case with startup-monitor", testSyncInstallerSuccess, testSyncOperandReady, true},
+		{"installer fails with startup-monitor", testSyncInstallerFails, testSyncOperandReady, true},
+		{"installer disappears with startup-monitor", testSyncInstallerDisappears, testSyncOperandReady, true},
+		{"fallback happens with startup-monitor", testSyncInstallerSuccess, testSyncOperandFallback, true},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			testSync(t, tst.installerBehaviour, tst.operandBehaviour, tst.unsupportedConfigOverrides)
+			testSync(t, tst.installerBehaviour, tst.operandBehaviour, tst.startupMonitorDeployed)
 		})
 	}
 }
 
-func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, firstOperandBehaviour testSyncOperandBehaviour, unsupportedConfigOverrides string) {
+func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, firstOperandBehaviour testSyncOperandBehaviour, startupMonitorDeployed bool) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
@@ -614,8 +616,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 	fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 		&operatorv1.StaticPodOperatorSpec{
 			OperatorSpec: operatorv1.OperatorSpec{
-				ManagementState:            operatorv1.Managed,
-				UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(unsupportedConfigOverrides)},
+				ManagementState: operatorv1.Managed,
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
@@ -652,6 +653,9 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 	c.backOffDuration = func(count int) time.Duration {
 		return time.Second
+	}
+	c.startupMonitorDeployed = func() (bool, error) {
+		return startupMonitorDeployed, nil
 	}
 
 	t.Log("setting target revision")
