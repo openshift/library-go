@@ -546,23 +546,37 @@ const (
 	testSyncInstallerDisappears
 )
 
+type testSyncOperandBehaviour int
+
+const (
+	testSyncOperandReady testSyncOperandBehaviour = iota
+	testSyncOperandFallback
+)
+
 func TestSync(t *testing.T) {
 	type Test struct {
-		name               string
-		installerBehaviour testSyncInstallerBehaviour
+		name                       string
+		installerBehaviour         testSyncInstallerBehaviour
+		operandBehaviour           testSyncOperandBehaviour
+		unsupportedConfigOverrides string
 	}
 	for _, tst := range []Test{
-		{"happy case", testSyncInstallerSuccess},
-		{"installer fails", testSyncInstallerFails},
-		{"installer disappears", testSyncInstallerDisappears},
+		{"happy case", testSyncInstallerSuccess, testSyncOperandReady, ""},
+		{"installer fails", testSyncInstallerFails, testSyncOperandReady, ""},
+		{"installer disappears", testSyncInstallerDisappears, testSyncOperandReady, ""},
+
+		{"happy case with startup-monitor", testSyncInstallerSuccess, testSyncOperandReady, `{"startupmonitor":true}`},
+		{"installer fails with startup-monitor", testSyncInstallerFails, testSyncOperandReady, `{"startupmonitor":true}`},
+		{"installer disappears with startup-monitor", testSyncInstallerDisappears, testSyncOperandReady, `{"startupmonitor":true}`},
+		{"fallback happens with startup-monitor", testSyncInstallerSuccess, testSyncOperandFallback, `{"startupmonitor":true}`},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			testSync(t, tst.installerBehaviour)
+			testSync(t, tst.installerBehaviour, tst.operandBehaviour, tst.unsupportedConfigOverrides)
 		})
 	}
 }
 
-func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) {
+func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, firstOperandBehaviour testSyncOperandBehaviour, unsupportedConfigOverrides string) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
@@ -570,6 +584,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 2)}},
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 2)}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 3)}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 3)}},
 	)
 
 	var installerPods []*corev1.Pod
@@ -598,7 +614,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 		&operatorv1.StaticPodOperatorSpec{
 			OperatorSpec: operatorv1.OperatorSpec{
-				ManagementState: operatorv1.Managed,
+				ManagementState:            operatorv1.Managed,
+				UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(unsupportedConfigOverrides)},
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
@@ -633,6 +650,9 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		return []metav1.OwnerReference{}, nil
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+	c.backOffDuration = func(count int) time.Duration {
+		return time.Second
+	}
 
 	t.Log("setting target revision")
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
@@ -792,9 +812,10 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	t.Log("static pod launched, but is not ready")
 	staticPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod-test-node-1",
-			Namespace: "test",
-			Labels:    map[string]string{"revision": "1"},
+			Name:        "test-pod-test-node-1",
+			Namespace:   "test",
+			Labels:      map[string]string{"revision": "3"},
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{},
 		Status: corev1.PodStatus{
@@ -818,8 +839,78 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		t.Fatalf("expected current revision for node to be 1, got %d", revision)
 	}
 
-	t.Log("static pod is ready")
-	staticPod.Status.Conditions[0].Status = corev1.ConditionTrue
+	switch firstOperandBehaviour {
+	case testSyncOperandReady:
+		t.Log("static pod is ready")
+		staticPod.Status.Conditions[0].Status = corev1.ConditionTrue
+
+	case testSyncOperandFallback:
+		t.Log("static pod is replaced with fallback by startup-monitor")
+
+		staticFallbackPod := staticPod.DeepCopy()
+		staticFallbackPod.Labels["revision"] = "1"
+		staticFallbackPod.Annotations[annotations.FallbackForRevision] = "3"
+		staticFallbackPod.Annotations[annotations.FallbackReason] = "ChashLooping"
+		staticFallbackPod.Annotations[annotations.FallbackMessage] = "pod is crashlooping"
+		staticFallbackPod.Status.Conditions[0].Status = corev1.ConditionTrue
+
+		kubeClient.PrependReactor("get", "pods", getPodsReactor(staticFallbackPod))
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if currentRevision := currStatus.NodeStatuses[0].CurrentRevision; currentRevision != 1 {
+			t.Fatalf("expected current revision for node to be 1, got %d", currentRevision)
+		}
+		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 1 {
+			t.Fatalf("expected fail count for node to be 1, got %d", count)
+		}
+
+		time.Sleep(time.Second * 3 / 2)
+
+		t.Log("expecting second installer")
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+		if len(installerPods) != 2 {
+			t.Fatal("expected 2nd installer pod")
+		}
+
+		t.Log("2nd installer succeeded")
+		installerPods[1].Status.Phase = corev1.PodSucceeded
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+			t.Errorf("expected current revision for node to be 1, got %d", revision)
+		}
+
+		t.Log("new static pod launched")
+		newStaticPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-pod-test-node-1",
+				Namespace:   "test",
+				Labels:      map[string]string{"revision": "3"},
+				Annotations: map[string]string{},
+			},
+			Spec: corev1.PodSpec{},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Status: corev1.ConditionTrue,
+						Type:   corev1.PodReady,
+					},
+				},
+				Phase: corev1.PodRunning,
+			},
+		}
+		kubeClient.PrependReactor("get", "pods", getPodsReactor(newStaticPod))
+	}
 
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
@@ -827,7 +918,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
 	if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 3 {
-		t.Fatalf("expected current revision for node to be 1, got %d", revision)
+		t.Fatalf("expected current revision for node to be 3, got %d", revision)
 	}
 }
 
