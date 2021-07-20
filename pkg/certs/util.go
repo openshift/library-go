@@ -2,9 +2,12 @@ package certs
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/util/keyutil"
 )
 
 const defaultOutputTimeFormat = "Jan 2 15:04:05 2006"
@@ -67,4 +70,53 @@ func CertificateBundleToString(bundle []*x509.Certificate) string {
 		output = append(output, fmt.Sprintf("[#%d]: %s", i, CertificateToString(cert)))
 	}
 	return strings.Join(output, "\n")
+}
+
+// ValidatePrivateKeyFormat validates if a private key (in PEM format) is well formatted and its content is valid.
+func ValidatePrivateKeyFormat(pemKey []byte) []error {
+	if len(pemKey) == 0 {
+		return []error{fmt.Errorf("required private key is empty")}
+	}
+	if _, err := keyutil.ParsePrivateKeyPEM(pemKey); err != nil {
+		return []error{fmt.Errorf("failed to parse the private key, %w", err)}
+	}
+	return nil
+}
+
+// ValidateServerCertValidity validates if a specified certificate's date valid (e.g. if it's not expired).
+func ValidateServerCertValidity(pemCerts []byte) []error {
+	var certs []*x509.Certificate
+
+	if len(pemCerts) == 0 {
+		return []error{fmt.Errorf("required certificate is empty")}
+	}
+
+	var errs []error
+	now := time.Now()
+
+	cert, rest := pem.Decode(pemCerts)
+	for ; cert != nil; cert, rest = pem.Decode(rest) {
+		parsed, err := x509.ParseCertificate(cert.Bytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse a certificate in the chain: %w", err))
+			continue
+		}
+
+		if now.Before(parsed.NotBefore) {
+			errs = append(errs, fmt.Errorf("certificate not yet valid:\n\tsub=%s;\n\tiss=%s", parsed.Subject, parsed.Issuer))
+			continue
+		}
+
+		if now.After(parsed.NotAfter) {
+			errs = append(errs, fmt.Errorf("certificate expired:\n\tsub=%s;\n\tiss=%s", parsed.Subject, parsed.Issuer))
+			continue
+		}
+
+		certs = append(certs, parsed)
+	}
+
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
 }
