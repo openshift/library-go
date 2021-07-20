@@ -92,8 +92,9 @@ type InstallerController struct {
 
 	installerPodMutationFns []InstallerPodMutationFunc
 
-	factory *factory.Factory
-	clock   clock.Clock
+	factory         *factory.Factory
+	clock           clock.Clock
+	backOffDuration func(count int) time.Duration
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -169,6 +170,7 @@ func NewInstallerController(
 
 		installerPodImageFn: getInstallerPodImageFromEnv,
 		clock:               clock.RealClock{},
+		backOffDuration:     backOffDuration,
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -479,7 +481,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		}
 
 		if currNodeState.LastFailedRevision == revisionToStart && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
-			delay := backOffDuration(currNodeState.LastFailedCount)
+			delay := c.backOffDuration(currNodeState.LastFailedCount)
 			earliestRetry := currNodeState.LastFailedTime.Add(delay)
 			if !c.now().After(earliestRetry) {
 				klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
