@@ -43,7 +43,7 @@ type staticPodFallback struct {
 
 var _ fallback = &staticPodFallback{}
 
-func newFallback() *staticPodFallback {
+func newStaticPodFallback() *staticPodFallback {
 	return &staticPodFallback{io: realFS{}}
 }
 

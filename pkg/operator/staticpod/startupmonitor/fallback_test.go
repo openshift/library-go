@@ -487,7 +487,7 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 }
 
 func createTestFallback(fakeIO *fakeIO) *staticPodFallback {
-	target := newFallback()
+	target := newStaticPodFallback()
 	target.io = fakeIO
 	target.revision = 8
 	target.targetName = "kube-apiserver"

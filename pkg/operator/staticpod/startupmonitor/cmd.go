@@ -79,7 +79,7 @@ func NewCommand(check ReadinessChecker) *cobra.Command {
 				withProbeInterval(time.Second).
 				withTimeout(o.FallbackTimeout)
 
-			fb := newFallback().
+			fb := newStaticPodFallback().
 				withRevision(o.Revision).
 				withManifestPath(o.ManifestDir).
 				withStaticPodResourcesPath(o.ResourceDir).
