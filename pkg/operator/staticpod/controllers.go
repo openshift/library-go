@@ -51,6 +51,7 @@ type staticPodOperatorControllerBuilder struct {
 	installCommand           []string
 	installerPodMutationFunc installer.InstallerPodMutationFunc
 	minReadyDuration         time.Duration
+	enableStartMonitor       func() (bool, error)
 
 	// pruning information
 	pruneCommand []string
@@ -78,6 +79,8 @@ type Builder interface {
 	WithUnrevisionedCerts(certDir string, certConfigMaps, certSecrets []installer.UnrevisionedResource) Builder
 	WithInstaller(command []string) Builder
 	WithMinReadyDuration(minReadyDuration time.Duration) Builder
+	WithStartupMonitorPredicate(enabledStartupMonitor func() (bool, error)) Builder
+
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
@@ -121,6 +124,11 @@ func (b *staticPodOperatorControllerBuilder) WithInstaller(command []string) Bui
 
 func (b *staticPodOperatorControllerBuilder) WithMinReadyDuration(minReadyDuration time.Duration) Builder {
 	b.minReadyDuration = minReadyDuration
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithStartupMonitorPredicate(enabledStartupMonitor func() (bool, error)) Builder {
+	b.enableStartMonitor = enabledStartupMonitor
 	return b
 }
 
