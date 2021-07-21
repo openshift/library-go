@@ -18,7 +18,8 @@ import (
 // the sync to be triggered.
 type syncContext struct {
 	eventRecorder events.Recorder
-	queue         workqueue.RateLimitingInterface
+	rl            workqueue.RateLimiter
+	queue         addRateLimitedAfterWorkqueue
 	queueKey      string
 }
 
@@ -26,13 +27,15 @@ var _ SyncContext = syncContext{}
 
 // NewSyncContext gives new sync context.
 func NewSyncContext(name string, recorder events.Recorder) SyncContext {
+	rl := workqueue.DefaultControllerRateLimiter()
 	return syncContext{
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		rl:            rl,
+		queue:         addRateLimitedAfterWorkqueue{workqueue.NewNamedRateLimitingQueue(rl, name), rl},
 		eventRecorder: recorder.WithComponentSuffix(strings.ToLower(name)),
 	}
 }
 
-func (c syncContext) Queue() workqueue.RateLimitingInterface {
+func (c syncContext) Queue() RateLimitedAddAfterWorkqueue {
 	return c.queue
 }
 

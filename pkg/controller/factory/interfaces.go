@@ -3,8 +3,6 @@ package factory
 import (
 	"context"
 
-	"k8s.io/client-go/util/workqueue"
-
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -32,7 +30,7 @@ type Controller interface {
 type SyncContext interface {
 	// Queue gives access to controller queue. This can be used for manual requeue, although if a Sync() function return
 	// an error, the object is automatically re-queued. Use with caution.
-	Queue() workqueue.RateLimitingInterface
+	Queue() RateLimitedAddAfterWorkqueue
 
 	// QueueKey represents the queue key passed to the Sync function.
 	QueueKey() string

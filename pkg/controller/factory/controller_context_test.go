@@ -243,3 +243,73 @@ func TestSyncContext_isInterestingNamespace(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncContextAddAfter(t *testing.T) {
+	syncCtx := NewSyncContext("test context", eventstesting.NewTestingEventRecorder(t)).(syncContext)
+
+	t.Log("Adding item when rate limiter is fresh")
+	syncCtx.Queue().AddRateLimited(syncCtx.QueueKey())
+
+	t.Log("Trying to saturate rate limiter until it takes more than 500ms")
+	primeRL := func(target time.Duration) time.Duration {
+		for {
+			if d := syncCtx.rl.When(syncCtx.QueueKey()); d > target {
+				return d
+			}
+		}
+	}
+	d := primeRL(500 * time.Millisecond)
+
+	t.Log("Adding item in the far future")
+	syncCtx.Queue().AddAfter(syncCtx.QueueKey(), time.Second*10)
+
+	t.Log("Check that we get the item right away")
+	before := time.Now()
+	item, _ := syncCtx.Queue().Get()
+	if passed := time.Now().Sub(before); passed > 500*time.Millisecond {
+		t.Fatalf("item was in queue before rate-limiting, we should get it immediately, not after %v", passed)
+	}
+	syncCtx.Queue().Done(item)
+	syncCtx.Queue().Forget(item)
+
+	t.Log("Adding item after rate limiter is primed, check that we get it after the given time we primed the RL for")
+	d = primeRL(500 * time.Millisecond)
+	before = time.Now()
+	syncCtx.Queue().AddRateLimited(syncCtx.QueueKey())
+	item, _ = syncCtx.Queue().Get()
+	if passed := time.Now().Sub(before); passed > 3*d {
+		t.Fatalf("queue was primed for %v, we shouldn't wait longer than 3*%v, but had to wait %v", d, d, passed)
+	} else if passed < d {
+		t.Fatalf("queue was primed for %v and shouldn't get the item earlier, but it only took %v", d, passed)
+	}
+	syncCtx.Queue().Done(item)
+	syncCtx.Queue().Forget(item)
+
+	t.Log("Adding item in the far future and one in the near future after the rate limiter is primed")
+	d = primeRL(250 * time.Millisecond)
+	before = time.Now()
+	syncCtx.Queue().AddAfter(syncCtx.QueueKey(), time.Second*1)
+	syncCtx.Queue().AddAfter(syncCtx.QueueKey(), time.Second*10)
+	item, _ = syncCtx.Queue().Get()
+	if passed := time.Now().Sub(before); passed > time.Second*2 {
+		t.Fatalf("item was added after 1s, queue was primed for only %v, we shouldn't wait longer than 2*1s, but had to wait %v", d, passed)
+	} else if passed < time.Second {
+		t.Fatalf("item added after 1s, we shouldn't get it early, but it only took %v", passed)
+	}
+	syncCtx.Queue().Done(item)
+	syncCtx.Queue().Forget(item)
+
+	t.Log("Adding item in the near future and one in the far future after the rate limiter is primed")
+	d = primeRL(100 * time.Millisecond)
+	before = time.Now()
+	syncCtx.Queue().AddAfter(syncCtx.QueueKey(), time.Second*10) // doubling RL delay to at lest 200ms
+	syncCtx.Queue().AddAfter(syncCtx.QueueKey(), time.Second*1)  // doubling RL delay to at lest 400ms
+	item, _ = syncCtx.Queue().Get()
+	if passed := time.Now().Sub(before); passed > time.Second*2 {
+		t.Fatalf("item was added after 1s, queue was primed for only %v, we shouldn't wait longer than 2*1s, but had to wait %v", d, passed)
+	} else if passed < time.Second {
+		t.Fatalf("item added after 1s, we shouldn't get it early, but it only took %v", passed)
+	}
+	syncCtx.Queue().Done(item)
+	syncCtx.Queue().Forget(item)
+}
