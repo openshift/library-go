@@ -223,7 +223,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				client = kubefake.NewSimpleClientset(startingObj)
 			}
 
-			c := &CABundleRotation{
+			c := &CABundleConfigMap{
 				Namespace: "ns",
 				Name:      "trust-bundle",
 
