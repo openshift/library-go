@@ -1728,7 +1728,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 				eventRecorder:       tt.fields.eventRecorder,
 				installerPodImageFn: tt.fields.installerPodImageFn,
 			}
-			got, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
+			got, _, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
 				return

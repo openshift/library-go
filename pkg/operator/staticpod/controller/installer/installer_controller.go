@@ -339,26 +339,23 @@ func (c *InstallerController) timeToWaitBeforeInstallingNextPod(ctx context.Cont
 
 // manageInstallationPods takes care of creating content for the static pods to install.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c *InstallerController) manageInstallationPods(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus) (bool, error) {
+func (c *InstallerController) manageInstallationPods(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus) (bool, time.Duration, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	if len(operatorStatus.NodeStatuses) == 0 {
-		return false, nil
+		return false, 0, nil
 	}
 
 	// start with node which is in worst state (instead of terminating healthy pods first)
 	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses)
 	if err != nil {
-		return true, err
+		return true, 0, err
 	}
 
 	// determine the amount of time to delay before creating the next installer pod.  We delay to avoid an LB outage (see godoc on minReadySeconds)
 	sleepTime := c.timeToWaitBeforeInstallingNextPod(ctx, operatorStatus.NodeStatuses)
 	if sleepTime > 0 {
-		select {
-		case <-ctx.Done():
-		case <-time.After(sleepTime):
-		}
+		return true, sleepTime, nil
 	}
 
 	for l := 0; l < len(operatorStatus.NodeStatuses); l++ {
@@ -380,13 +377,13 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 					currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
 				// if a newer revision is pending, continue, so we retry later with the latest available revision
 				if !(operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision) {
-					return true, err
+					return true, 0, err
 				}
 			}
 
 			newCurrNodeState, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(ctx, currNodeState, operatorStatus.LatestAvailableRevision)
 			if err != nil {
-				return true, err
+				return true, 0, err
 			}
 
 			// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
@@ -395,7 +392,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				klog.Infof("%q moving to %v because %s", currNodeState.NodeName, spew.Sdump(*newCurrNodeState), reason)
 				newOperatorStatus, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
 				if updateError != nil {
-					return false, updateError
+					return false, 0, updateError
 				} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
 					c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d because %s", currNodeState.NodeName,
 						currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision, reason)
@@ -403,7 +400,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				if err := c.updateRevisionStatus(ctx, newOperatorStatus); err != nil {
 					klog.Errorf("error updating revision status configmap: %v", err)
 				}
-				return false, nil
+				return false, 0, nil
 			} else {
 				klog.V(2).Infof("%q is in transition to %d, but has not made progress because %s", currNodeState.NodeName, currNodeState.TargetRevision, reasonWithBlame(reason))
 			}
@@ -426,7 +423,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			earliestRetry := currNodeState.LastFailedTime.Add(delay)
 			if !c.now().After(earliestRetry) {
 				klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
-				return true, nil
+				return true, 0, nil
 			}
 		}
 
@@ -447,18 +444,18 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 			klog.Infof("%q moving to %v", currNodeState.NodeName, spew.Sdump(*newCurrNodeState))
 			if _, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions); updateError != nil {
-				return false, updateError
+				return false, 0, updateError
 			} else if updated && currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
 				c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d because %s", currNodeState.NodeName,
 					currNodeState.CurrentRevision, newCurrNodeState.TargetRevision, nodeChoiceReason)
 			}
 
-			return false, nil
+			return false, 0, nil
 		}
 		break
 	}
 
-	return false, nil
+	return false, 0, nil
 }
 
 func (c *InstallerController) updateRevisionStatus(ctx context.Context, operatorStatus *operatorv1.StaticPodOperatorStatus) error {
@@ -979,9 +976,10 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 
 	// Only manage installation pods when all required certs are present.
 	if err == nil {
-		requeue, syncErr := c.manageInstallationPods(ctx, operatorSpec, operatorStatus)
+		requeue, after, syncErr := c.manageInstallationPods(ctx, operatorSpec, operatorStatus)
 		if requeue && syncErr == nil {
-			return factory.SyntheticRequeueError
+			syncCtx.Queue().AddRateLimitedAfter(syncCtx.QueueKey(), after)
+			return nil
 		}
 		err = syncErr
 	}
