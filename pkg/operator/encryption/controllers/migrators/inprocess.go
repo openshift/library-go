@@ -147,7 +147,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 			}
 		}
 	})
-	result = listProcessor.run(gvr)
+	result = listProcessor.run(ctx, gvr)
 }
 
 func (m *InProcessMigrator) PruneMigration(gr schema.GroupResource) error {

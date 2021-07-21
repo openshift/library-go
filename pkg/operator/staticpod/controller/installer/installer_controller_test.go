@@ -691,7 +691,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		kubeClient.CoreV1(),
 		eventRecorder,
 	)
-	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
@@ -1098,7 +1098,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient.CoreV1(),
 		eventRecorder,
 	)
-	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
@@ -1265,7 +1265,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				kubeClient.CoreV1(),
 				eventRecorder,
 			)
-			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
 			err := c.ensureInstallerPod(context.TODO(), &operatorv1.StaticPodOperatorSpec{}, &operatorv1.NodeStatus{
@@ -1311,7 +1311,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 		expectedSyncError       []bool
 		updateStatusErrors      []error
 		numOfInstallersOOM      int
-		ownerRefsFn             func(revision int32) ([]metav1.OwnerReference, error)
+		ownerRefsFn             func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error)
 	}{
 		{
 			name:                    "three fresh nodes",
@@ -1857,7 +1857,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
-			ownerRefsFn: func(revision int32) (references []metav1.OwnerReference, err error) {
+			ownerRefsFn: func(ctx context.Context, revision int32) (references []metav1.OwnerReference, err error) {
 				if revision == 3 {
 					return []metav1.OwnerReference{}, nil
 				}
@@ -2006,7 +2006,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				kubeClient.CoreV1(),
 				eventRecorder,
 			)
-			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
 			if test.ownerRefsFn != nil {

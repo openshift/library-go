@@ -317,7 +317,7 @@ func TestSync(t *testing.T) {
 				podGetter:         kubeClient.CoreV1(),
 				operatorClient:    fakeStaticPodOperatorClient,
 			}
-			c.retrieveStatusConfigMapOwnerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+			c.retrieveStatusConfigMapOwnerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
 			c.prunerPodImageFn = func() string { return "docker.io/foo/bar" }

@@ -121,8 +121,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 		{Group: "operator.openshift.io", Resource: "kubeschedulers"},
 	})
 
-	controllers := encryption.NewControllers(
+	controllers, err := encryption.NewControllers(
 		component,
+		[]string{},
 		provider,
 		deployer,
 		migrator,
@@ -133,6 +134,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		eventRecorder,
 	)
+	if err != nil {
+		t.Fatalf("failed to initialize controllers: %v", err)
+	}
 
 	// launch controllers
 	fakeConfigInformer.Start(stopCh)
@@ -284,7 +288,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 				return err
 			}
 			spec.UnsupportedConfigOverrides.Raw = []byte(fmt.Sprintf(`{"encryption":{"reason":%q}}`, reason))
-			_, _, err = operatorClient.UpdateOperatorSpec(rv, spec)
+			_, _, err = operatorClient.UpdateOperatorSpec(context.TODO(), rv, spec)
 			return err
 		})
 		require.NoError(t, err)
@@ -563,7 +567,7 @@ func (d *lockStepDeployer) HasSynced() bool {
 	return true
 }
 
-func (d *lockStepDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *lockStepDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 

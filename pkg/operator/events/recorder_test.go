@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,7 +17,7 @@ func fakeControllerRef(t *testing.T) *corev1.ObjectReference {
 	}
 	client := fake.NewSimpleClientset(fakePod("test-namespace", "test"), fakeReplicaSet("test-namespace", "test"))
 
-	ref, err := GetControllerReferenceForCurrentPod(client, "test-namespace", nil)
+	ref, err := GetControllerReferenceForCurrentPod(context.TODO(), client, "test-namespace", nil)
 	if err != nil {
 		t.Fatalf("unable to get object reference: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestGetControllerReferenceForCurrentPodIsPod(t *testing.T) {
 		return "test"
 	}
 
-	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	objectReference, err := GetControllerReferenceForCurrentPod(context.TODO(), client, "test", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +130,7 @@ func TestGetControllerReferenceForCurrentPodIsReplicaSet(t *testing.T) {
 		return "test"
 	}
 
-	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	objectReference, err := GetControllerReferenceForCurrentPod(context.TODO(), client, "test", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestGetControllerReferenceForCurrentPod(t *testing.T) {
 		return "test"
 	}
 
-	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	objectReference, err := GetControllerReferenceForCurrentPod(context.TODO(), client, "test", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -171,7 +172,7 @@ func TestGetControllerReferenceForCurrentPodFallbackNamespace(t *testing.T) {
 		return "test"
 	}
 
-	objectReference, err := GetControllerReferenceForCurrentPod(client, "test", nil)
+	objectReference, err := GetControllerReferenceForCurrentPod(context.TODO(), client, "test", nil)
 	if err == nil {
 		t.Fatalf("expected error: %v", err)
 	}

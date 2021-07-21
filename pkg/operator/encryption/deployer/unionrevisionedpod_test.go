@@ -1,6 +1,7 @@
 package deployer_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -82,7 +83,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			target := deployer.NewUnionRevisionLabelPodDeployer(scenario.deployers...)
 
-			actualSecret, actualConverged, actualErr := target.DeployedEncryptionConfigSecret()
+			actualSecret, actualConverged, actualErr := target.DeployedEncryptionConfigSecret(context.TODO())
 
 			if actualErr != nil && !scenario.expectedErr {
 				t.Errorf("got unexpected error %v", actualErr)
@@ -146,7 +147,7 @@ func newFakeDeployer(secret *corev1.Secret, converged bool, err error) *fakeDepl
 	return &fakeDeployer{secret: secret, converged: converged, err: err}
 }
 
-func (d *fakeDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *fakeDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	return d.secret, d.converged, d.err
 }
 

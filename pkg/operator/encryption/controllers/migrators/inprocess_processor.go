@@ -47,10 +47,10 @@ func newListProcessor(ctx context.Context, dynamicClient dynamic.Interface, work
 
 // run starts processing all the instance of the given GVR in batches.
 // Note that this operation block until all resources have been process, we can't get the next page or the context has been cancelled
-func (p *listProcessor) run(gvr schema.GroupVersionResource) error {
+func (p *listProcessor) run(ctx context.Context, gvr schema.GroupVersionResource) error {
 	listPager := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
 		for {
-			allResource, err := p.dynamicClient.Resource(gvr).List(context.TODO(), opts)
+			allResource, err := p.dynamicClient.Resource(gvr).List(ctx, opts)
 			if err != nil {
 				klog.Warningf("List of %v failed: %v", gvr, err)
 				if errors.IsResourceExpired(err) {

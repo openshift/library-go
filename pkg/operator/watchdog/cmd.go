@@ -155,7 +155,7 @@ func (o *FileWatcherOptions) Complete() error {
 	var eventTarget *v1.ObjectReference
 	err = retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
 		var clientErr error
-		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(kubeClient, o.Namespace, nil)
+		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(ctx, kubeClient, o.Namespace, nil)
 		if clientErr != nil {
 			return false, clientErr
 		}

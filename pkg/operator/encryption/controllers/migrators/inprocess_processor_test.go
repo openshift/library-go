@@ -216,7 +216,7 @@ func TestInprocessProcessor(t *testing.T) {
 				}
 			}()
 
-			err := listProcessor.run(scenario.gvr)
+			err := listProcessor.run(context.TODO(), scenario.gvr)
 			close(totalCountCh)
 			wg.Wait()
 			scenario.validateFunc(t, dynamicClient.Actions(), totalCount, err)
@@ -271,7 +271,7 @@ func TestInprocessProcessorContextCancellation(t *testing.T) {
 	testCompletedCh := make(chan bool)
 	defer close(testCompletedCh)
 	go func() {
-		err := listProcessor.run(gvr)
+		err := listProcessor.run(context.TODO(), gvr)
 		if err == nil {
 			t.Error("expected to receive an error")
 		}

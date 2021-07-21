@@ -88,7 +88,7 @@ func NewRevisionLabelPodDeployer(
 
 // DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 // instances of the operand have acknowledged it.
-func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	nodes, err := d.nodeProvider.MasterNodeNames()
 	if err != nil {
 		return nil, false, err
@@ -98,7 +98,7 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 	}
 
 	// do a live list so we never get confused about what revision we are on
-	apiServerPods, err := d.podClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "apiserver=true"})
+	apiServerPods, err := d.podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
 		return nil, false, err
 	}
@@ -111,7 +111,7 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 		return nil, false, nil
 	}
 
-	s, err := d.secretClient.Get(context.TODO(), encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
+	s, err := d.secretClient.Get(ctx, encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
 	if err != nil {
 		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {

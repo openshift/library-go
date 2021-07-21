@@ -141,7 +141,7 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
-		context.TODO(),
+		ctx,
 		c.kubeClient.AppsV1(),
 		syncContext.Recorder(),
 		required,

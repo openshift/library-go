@@ -131,7 +131,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	err = c.checkAndCreateKeys(syncCtx, c.provider.EncryptedGRs())
+	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
 	if err != nil {
 		degradedCondition.Status = operatorv1.ConditionTrue
 		degradedCondition.Reason = "Error"
@@ -140,13 +140,13 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, err := c.getCurrentModeAndExternalReason()
+func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+	currentMode, externalReason, err := c.getCurrentModeAndExternalReason(ctx)
 	if err != nil {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -204,9 +204,9 @@ func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext, encr
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
-	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(context.TODO(), keySecret, metav1.CreateOptions{})
+	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(keySecret, newKeyID)
+		return c.validateExistingSecret(ctx, keySecret, newKeyID)
 	}
 	if createErr != nil {
 		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
@@ -218,8 +218,8 @@ func (c *keyController) checkAndCreateKeys(syncContext factory.SyncContext, encr
 	return nil
 }
 
-func (c *keyController) validateExistingSecret(keySecret *corev1.Secret, keyID uint64) error {
-	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(context.TODO(), keySecret.Name, metav1.GetOptions{})
+func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
+	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, keySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -251,8 +251,8 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 	return secrets.FromKeyState(c.component, ks)
 }
 
-func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, error) {
-	apiServer, err := c.apiServerClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
+func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, error) {
+	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}

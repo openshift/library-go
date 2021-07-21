@@ -1,6 +1,7 @@
 package statemachine
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +21,7 @@ import (
 type Deployer interface {
 	// DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 	// instances of the operand have acknowledged it.
-	DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error)
+	DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error)
 
 	// AddEventHandler registers a event handler whenever the backing resource change
 	// that might influence the result of DeployedEncryptionConfigSecret.
@@ -29,13 +30,14 @@ type Deployer interface {
 }
 
 func GetEncryptionConfigAndState(
+	ctx context.Context,
 	deployer Deployer,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
 ) (current *apiserverconfigv1.EncryptionConfiguration, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
 	// get current config
-	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret()
+	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret(ctx)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -51,7 +53,7 @@ func GetEncryptionConfigAndState(
 	}
 
 	// compute desired config
-	encryptionSecrets, err = secrets.ListKeySecrets(secretClient, encryptionSecretSelector)
+	encryptionSecrets, err = secrets.ListKeySecrets(ctx, secretClient, encryptionSecretSelector)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

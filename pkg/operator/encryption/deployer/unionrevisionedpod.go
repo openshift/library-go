@@ -1,6 +1,7 @@
 package deployer
 
 import (
+	"context"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +29,11 @@ func NewUnionRevisionLabelPodDeployer(delegates ...statemachine.Deployer) *Union
 }
 
 // DeployedEncryptionConfigSecret returns the actual encryption configuration across multiple deployers
-func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	seenSecrets := []*corev1.Secret{}
 
 	for _, delegate := range d.delegates {
-		secret, converged, err := delegate.DeployedEncryptionConfigSecret()
+		secret, converged, err := delegate.DeployedEncryptionConfigSecret(ctx)
 		if !converged || err != nil {
 			return nil, converged, err
 		}

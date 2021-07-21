@@ -184,7 +184,7 @@ func (c *APIServiceController) syncAPIServices(ctx context.Context, apiServices 
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
 	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
 	if c.kubeClient.Discovery().RESTClient() != nil {
-		missingAPIMessages := checkDiscoveryForByAPIServices(recorder, c.kubeClient.Discovery().RESTClient(), apiServices)
+		missingAPIMessages := checkDiscoveryForByAPIServices(ctx, recorder, c.kubeClient.Discovery().RESTClient(), apiServices)
 		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
 	}
 

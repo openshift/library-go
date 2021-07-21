@@ -127,8 +127,8 @@ func (m *MigratedGroupResources) HasResource(resource schema.GroupResource) bool
 }
 
 // ListKeySecrets returns the current key secrets from openshift-config-managed.
-func ListKeySecrets(secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
-	encryptionSecretList, err := secretClient.Secrets("openshift-config-managed").List(context.TODO(), encryptionSecretSelector)
+func ListKeySecrets(ctx context.Context, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
+	encryptionSecretList, err := secretClient.Secrets("openshift-config-managed").List(ctx, encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
