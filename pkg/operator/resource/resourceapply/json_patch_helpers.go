@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	patch "github.com/evanphx/json-patch"
+	routev1 "github.com/openshift/api/route/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -64,6 +65,29 @@ func JSONPatchSecretNoError(original, modified *corev1.Secret) string {
 		} else {
 			safeModified.Data[s] = []byte("OLD")
 		}
+	}
+
+	return JSONPatchNoError(safeOriginal, safeModified)
+}
+
+// JSONPatchRouteNoError work similarly to JSONPatchNoError but removes TLS Key
+func JSONPatchRouteNoError(original, modified *routev1.Route) string {
+	if original == nil {
+		return "original object is nil"
+	}
+	if modified == nil {
+		return "modified object is nil"
+	}
+
+	safeModified := modified.DeepCopy()
+	safeOriginal := original.DeepCopy()
+
+	if safeOriginal.Spec.TLS.Key != "" {
+		safeOriginal.Spec.TLS.Key = "MASKED"
+	}
+
+	if safeModified.Spec.TLS.Key != "" {
+		safeModified.Spec.TLS.Key = "MASKED"
 	}
 
 	return JSONPatchNoError(safeOriginal, safeModified)

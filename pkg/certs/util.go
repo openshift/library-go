@@ -2,9 +2,12 @@ package certs
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/util/keyutil"
 )
 
 const defaultOutputTimeFormat = "Jan 2 15:04:05 2006"
@@ -67,4 +70,59 @@ func CertificateBundleToString(bundle []*x509.Certificate) string {
 		output = append(output, fmt.Sprintf("[#%d]: %s", i, CertificateToString(cert)))
 	}
 	return strings.Join(output, "\n")
+}
+
+func ValidatePrivateKey(pemKey []byte) []error {
+	if len(pemKey) == 0 {
+		return []error{fmt.Errorf("required private key is empty")}
+	}
+	if _, err := keyutil.ParsePrivateKeyPEM(pemKey); err != nil {
+		return []error{fmt.Errorf("failed to parse the private key, %w", err)}
+	}
+	return []error{}
+}
+
+func ValidateServerCert(pem []byte) []error {
+	certs, errs := parseCerts(pem)
+	if len(errs) != 0 {
+		return errs
+	}
+	if len(certs) == 0 {
+		return []error{fmt.Errorf("expected at least one server certificate")}
+	}
+	return nil
+}
+
+func parseCerts(pemCerts []byte) ([]*x509.Certificate, []error) {
+	certs := []*x509.Certificate{}
+
+	if len(pemCerts) == 0 {
+		return certs, []error{fmt.Errorf("required certificate is empty")}
+	}
+
+	errs := []error{}
+	now := time.Now()
+
+	cert, rest := pem.Decode(pemCerts)
+	for ; cert != nil; cert, rest = pem.Decode(rest) {
+		parsed, err := x509.ParseCertificate(cert.Bytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse a certificate in the chain: %w", err))
+			continue
+		}
+
+		if now.Before(parsed.NotBefore) {
+			errs = append(errs, fmt.Errorf("certificate not yet valid:\n\tsub=%s;\n\tiss=%s", parsed.Subject, parsed.Issuer))
+			continue
+		}
+
+		if now.After(parsed.NotAfter) {
+			errs = append(errs, fmt.Errorf("certificate expired:\n\tsub=%s;\n\tiss=%s", parsed.Subject, parsed.Issuer))
+			continue
+		}
+
+		certs = append(certs, parsed)
+	}
+
+	return certs, errs
 }
