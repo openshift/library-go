@@ -108,7 +108,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				client = kubefake.NewSimpleClientset(test.initialSecret)
 			}
 
-			c := &SigningRotation{
+			c := &RotatedSigningCASecret{
 				Namespace:     "ns",
 				Name:          "signer",
 				Validity:      24 * time.Hour,

@@ -211,7 +211,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				client = kubefake.NewSimpleClientset(startingObj)
 			}
 
-			c := &TargetRotation{
+			c := &RotatedSelfSignedCertKeySecret{
 				Namespace: "ns",
 				Validity:  24 * time.Hour,
 				Refresh:   12 * time.Hour,
@@ -405,7 +405,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				client = kubefake.NewSimpleClientset(startingObj)
 			}
 
-			c := &TargetRotation{
+			c := &RotatedSelfSignedCertKeySecret{
 				Namespace: "ns",
 				Validity:  24 * time.Hour,
 				Refresh:   12 * time.Hour,
