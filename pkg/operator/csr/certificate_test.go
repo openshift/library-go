@@ -151,9 +151,10 @@ func TestIsCertificateValid(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			isValid, _ := IsCertificateValid(c.testCert.Cert, c.subject)
+			err := IsCertificateValid(c.testCert.Cert, c.subject)
+			isValid := err == nil
 			if isValid != c.isValid {
-				t.Errorf("expected %t, but got %t", c.isValid, isValid)
+				t.Errorf("expected %t, but got %t: %v", c.isValid, isValid, err)
 			}
 		})
 	}
@@ -240,11 +241,11 @@ func HasValidHubKubeconfig(secret *corev1.Secret, subject *pkix.Name) bool {
 		return false
 	}
 
-	valid, err := IsCertificateValid(certData, subject)
+	err := IsCertificateValid(certData, subject)
 	if err != nil {
 		klog.V(4).Infof("Unable to validate certificate in secret %s: %v", secret.Namespace+"/"+secret.Name, err)
 		return false
 	}
 
-	return valid
+	return (err == nil)
 }
