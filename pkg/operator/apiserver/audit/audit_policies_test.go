@@ -3,6 +3,7 @@ package audit
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -38,9 +39,10 @@ func TestDefaultPolicy(t *testing.T) {
 
 func TestGetAuditPolicy(t *testing.T) {
 	scenarios := []struct {
-		name       string
-		goldenFile string
-		config     configv1.Audit
+		name        string
+		goldenFile  string
+		config      configv1.Audit
+		errContains string
 	}{
 		{
 			name: "Default",
@@ -83,14 +85,58 @@ func TestGetAuditPolicy(t *testing.T) {
 			},
 			goldenFile: "oauth.yaml",
 		},
-		// TODO: add test with multiple customRules
+		{
+			name: "multipleCustomRules",
+			config: configv1.Audit{
+				Profile: "None",
+				CustomRules: []configv1.AuditCustomRule{
+					{
+						Group:   "system:authenticated:oauth",
+						Profile: "WriteRequestBodies",
+					},
+					{
+						Group:   "system:authenticated",
+						Profile: "AllRequestBodies",
+					},
+				},
+			},
+			goldenFile: "multipleCr.yaml",
+		},
+		{
+			name: "unknownProfile",
+			config: configv1.Audit{
+				Profile: "InvalidString",
+			},
+			errContains: "unknown audit profile \"InvalidString\"",
+		},
+		{
+			name: "unknownCustomRulesProfile",
+			config: configv1.Audit{
+				Profile: "None",
+				CustomRules: []configv1.AuditCustomRule{
+					{
+						Group:   "InvalidGroup",
+						Profile: "InvalidProfile",
+					},
+				},
+			},
+			errContains: "unknown audit profile \"InvalidProfile\" in customRules for group \"InvalidGroup\"",
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// act
 			policy, err := GetAuditPolicy(scenario.config)
-			if err != nil {
-				t.Fatal(err)
+			if len(scenario.errContains) == 0 && err != nil {
+				t.Fatalf("Expected no error yet received error: %v", err)
+			}
+			if len(scenario.errContains) > 0 {
+				if err == nil {
+					t.Fatalf("Expected error message: %v", err)
+				}
+				if strings.Contains(err.Error(), scenario.errContains) == false {
+					t.Errorf("Expected error message: %q, but got: %q", scenario.errContains, err.Error())
+				}
 			}
 
 			// validate
