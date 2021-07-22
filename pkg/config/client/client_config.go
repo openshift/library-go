@@ -1,13 +1,18 @@
 package client
 
 import (
+	"context"
 	"io/ioutil"
+	"net"
+	"net/http"
+
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"net/http"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/network"
+	"github.com/openshift/library-go/pkg/network/multidialer"
 )
 
 // GetKubeConfigOrInClusterConfig loads in-cluster config if kubeConfigFile is empty or the file if not,
@@ -49,7 +54,20 @@ func GetClientConfig(kubeConfigFile string, overrides *ClientConnectionOverrides
 	}
 	applyClientConnectionOverrides(overrides, clientConfig)
 
-	t := ClientTransportOverrides{WrapTransport: clientConfig.WrapTransport}
+	// start multidialer
+	d := multidialer.NewDialer(clientConfig.Dial)
+	cs, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	d.Start(context.TODO(), cs)
+
+	t := ClientTransportOverrides{
+		WrapTransport: clientConfig.WrapTransport,
+		Dialer:        d.DialContext,
+	}
+
 	if overrides != nil {
 		t.MaxIdleConnsPerHost = overrides.MaxIdleConnsPerHost
 	}
@@ -90,6 +108,7 @@ func applyClientConnectionOverrides(overrides *ClientConnectionOverrides, kubeCo
 type ClientTransportOverrides struct {
 	WrapTransport       func(rt http.RoundTripper) http.RoundTripper
 	MaxIdleConnsPerHost int
+	Dialer              func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 // defaultClientTransport sets defaults for a client Transport that are suitable for use by infrastructure components.
@@ -99,7 +118,11 @@ func (c ClientTransportOverrides) DefaultClientTransport(rt http.RoundTripper) h
 		return rt
 	}
 
-	transport.DialContext = network.DefaultClientDialContext()
+	if c.Dialer == nil {
+		transport.DialContext = network.DefaultClientDialContext()
+	} else {
+		transport.DialContext = c.Dialer
+	}
 
 	// Hold open more internal idle connections
 	transport.MaxIdleConnsPerHost = 100
