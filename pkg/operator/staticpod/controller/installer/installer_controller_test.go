@@ -317,7 +317,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -334,7 +334,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -355,7 +355,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -372,7 +372,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
