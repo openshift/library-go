@@ -670,9 +670,12 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
-	installerBackOffDuration := 0 * time.Second
+	installerBackOffDuration, fallbackBackOffDuration := 0*time.Second, 0*time.Second
 	c.installerBackOff = func(count int) time.Duration {
 		return installerBackOffDuration
+	}
+	c.fallbackBackOff = func(count int) time.Duration {
+		return fallbackBackOffDuration
 	}
 	withCustomInstallerBackOff := func(d time.Duration, fn func()) {
 		old := installerBackOffDuration
@@ -682,6 +685,12 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 	}
 	c.startupMonitorEnabled = func() (bool, error) {
 		return startupMonitorEnabled, nil
+	}
+	withCustomFallbackBackOff := func(d time.Duration, fn func()) {
+		old := fallbackBackOffDuration
+		fallbackBackOffDuration = d
+		defer func() { fallbackBackOffDuration = old }()
+		fn()
 	}
 
 	t.Log("setting target revision")
@@ -744,6 +753,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		installerPods[0].Status.Phase = corev1.PodSucceeded
 	case testSyncInstallerFails:
 		t.Log("installer failed")
+
 		installerPods[0].Status.Phase = corev1.PodFailed
 		installerPods[0].Status.ContainerStatuses = []corev1.ContainerStatus{
 			{
@@ -856,10 +866,11 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 	t.Log("static pod launched, but is not ready")
 	staticPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod-test-node-1",
-			Namespace: "test",
-			Labels:    map[string]string{"revision": "3"},
-			Annotations: map[string]string{},
+			Name:              "test-pod-test-node-1",
+			Namespace:         "test",
+			Labels:            map[string]string{"revision": "3"},
+			Annotations:       map[string]string{},
+			CreationTimestamp: metav1.NewTime(time.Now()),
 		},
 		Spec: corev1.PodSpec{},
 		Status: corev1.PodStatus{
@@ -926,10 +937,17 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 			t.Fatalf("expected fail count for node to be 1, got %d", count)
 		}
 
-		time.Sleep(time.Second * 3 / 2)
+		t.Log("not yet expecting second installer due to 1 min fallback backoff")
+		withCustomFallbackBackOff(10*time.Minute, func() {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+			if len(installerPods) == 2 {
+				t.Fatal("not yet expected 2nd installer pod immediately, only after 1s")
+			}
+		})
 
-		t.Log("expecting second installer")
-
+		t.Log("expecting second installer after waiting enough")
 		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 			t.Fatal(err)
 		}

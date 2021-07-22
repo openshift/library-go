@@ -97,6 +97,7 @@ type InstallerController struct {
 	factory          *factory.Factory
 	clock            clock.Clock
 	installerBackOff func(count int) time.Duration
+	fallbackBackOff  func(count int) time.Duration
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -184,6 +185,7 @@ func NewInstallerController(
 		installerPodImageFn: getInstallerPodImageFromEnv,
 		clock:               clock.RealClock{},
 		installerBackOff:    backOffDuration(10*time.Second, 1.5, 10*time.Minute),
+		fallbackBackOff:     backOffDuration(10*time.Minute, 2, 2*time.Hour), // 10min, 20min, 40min, 1h20, 2h
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -455,7 +457,12 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
 			if currNodeState.LastFailedRevision == currNodeState.TargetRevision && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
-				delay := c.installerBackOff(currNodeState.LastFailedCount)
+				var delay time.Duration
+				if currNodeState.LastFailedReason == nodeStatusOperandFailedFallbackReason {
+					delay = c.fallbackBackOff(currNodeState.LastFailedCount)
+				} else {
+					delay = c.installerBackOff(currNodeState.LastFailedCount)
+				}
 				earliestRetry := currNodeState.LastFailedTime.Add(delay)
 				if !c.now().After(earliestRetry) {
 					klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
