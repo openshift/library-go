@@ -401,16 +401,12 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			// it's an extra write/read, but it makes the state debuggable from outside this process
 			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
 				klog.Infof("%q moving to %v because %s", currNodeState.NodeName, spew.Sdump(*newCurrNodeState), reason)
-				newOperatorStatus, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
+				_, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
 				if updateError != nil {
 					return false, 0, updateError
 				} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
 					c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d because %s", currNodeState.NodeName,
 						currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision, reason)
-				}
-
-				if err := c.updateRevisionStatus(ctx, newOperatorStatus); err != nil {
-					klog.Errorf("error updating revision status configmap: %v", err)
 				}
 
 				return false, 0, nil // no requeue because UpdateStaticPodStatus triggers an external event anyway
@@ -460,44 +456,6 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 	}
 
 	return false, 0, nil
-}
-
-func (c *InstallerController) updateRevisionStatus(ctx context.Context, operatorStatus *operatorv1.StaticPodOperatorStatus) error {
-	failedRevisions := make(map[int32]struct{})
-	currentRevisions := make(map[int32]struct{})
-	for _, nodeState := range operatorStatus.NodeStatuses {
-		failedRevisions[nodeState.LastFailedRevision] = struct{}{}
-		currentRevisions[nodeState.CurrentRevision] = struct{}{}
-	}
-	delete(failedRevisions, 0)
-
-	// If all current revisions point to the same revision, then mark it successful
-	if len(currentRevisions) == 1 {
-		err := c.updateConfigMapForRevision(ctx, currentRevisions, string(corev1.PodSucceeded))
-		if err != nil {
-			return err
-		}
-	}
-	return c.updateConfigMapForRevision(ctx, failedRevisions, string(corev1.PodFailed))
-}
-
-func (c *InstallerController) updateConfigMapForRevision(ctx context.Context, currentRevisions map[int32]struct{}, status string) error {
-	for currentRevision := range currentRevisions {
-		statusConfigMap, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(ctx, statusConfigMapNameForRevision(currentRevision), metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			klog.Infof("%s configmap not found, skipping update revision status", statusConfigMapNameForRevision(currentRevision))
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		statusConfigMap.Data["status"] = status
-		_, _, err = resourceapply.ApplyConfigMap(ctx, c.configMapsGetter, c.eventRecorder, statusConfigMap)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func setNodeStatusFn(status *operatorv1.NodeStatus) v1helpers.UpdateStaticPodStatusFunc {
@@ -1002,10 +960,6 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 
 func mirrorPodNameForNode(staticPodName, nodeName string) string {
 	return staticPodName + "-" + nodeName
-}
-
-func statusConfigMapNameForRevision(revision int32) string {
-	return fmt.Sprintf("%s-%d", statusConfigMapName, revision)
 }
 
 func backOffDuration(base time.Duration, factor float64, max time.Duration) func(count int) time.Duration {
