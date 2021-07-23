@@ -20,6 +20,7 @@ spec:
         - --resource-dir=/etc/kubernetes/static-pod-resources
         - --installer-lock-file=/var/lock/{{.TargetName}}-installer.lock
         - --revision=REVISION
+        - --node-name=NODE_NAME
         - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig #TODO: use a different config
       volumeMounts:
         - mountPath: /etc/kubernetes/manifests
