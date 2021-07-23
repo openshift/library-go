@@ -145,7 +145,7 @@ func (f *staticPodFallback) markRevisionGood() error {
 	// the startup-monitor falls back, leading to an awkward situation.
 	// Note that this will retry forever, with a backoff.
 	return retry.OnError(retry.DefaultRetry, func(error) bool { return true }, func() error {
-		_, status, rv, err := f.operatorClient.GetStaticPodOperatorState()
+		_, status, rv, err := f.operatorClient.GetStaticPodOperatorStateWithQuorum()
 		if err != nil {
 			klog.Errorf("Failed to get static pod operator status.nodeStatus: %v", err)
 			return err
