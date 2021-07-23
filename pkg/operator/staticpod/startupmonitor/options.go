@@ -3,7 +3,7 @@ package startupmonitor
 import (
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 )
 
 // withProbeInterval probeInterval specifies a time interval at which health of the target will be assessed.
@@ -63,7 +63,7 @@ func (f *staticPodFallback) withRevision(revision int) *staticPodFallback {
 	return f
 }
 
-func (f *staticPodFallback) withOperatorClient(operatorClient v1helpers.StaticPodOperatorClient) *staticPodFallback {
+func (f *staticPodFallback) withOperatorClient(operatorClient operatorclientv1.KubeAPIServerInterface) *staticPodFallback {
 	f.operatorClient = operatorClient
 	return f
 }
