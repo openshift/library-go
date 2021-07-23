@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog/v2"
-
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -278,8 +278,13 @@ func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	if err != nil {
 		return err
 	}
-	failedLimit, succeededLimit := getRevisionLimits(operatorSpec)
 
+	// update the config map
+	if err := c.updateRevisionStatusConfigMap(ctx, operatorStatus, syncCtx.Recorder()); err != nil {
+		return err
+	}
+
+	failedLimit, succeededLimit := getRevisionLimits(operatorSpec)
 	excludedRevisions, err := c.excludedRevisionHistory(ctx, syncCtx.Recorder(), failedLimit, succeededLimit, defaultRevisionLimit)
 	if err != nil {
 		return err
@@ -298,6 +303,48 @@ func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		errs = append(errs, apiErr)
 	}
 	return v1helpers.NewMultiLineAggregate(errs)
+}
+
+func (c *PruneController) updateRevisionStatusConfigMap(ctx context.Context, operatorStatus *operatorv1.StaticPodOperatorStatus, eventRecorder events.Recorder) error {
+	failedRevisions := make(map[int32]struct{})
+	currentRevisions := make(map[int32]struct{})
+	for _, nodeState := range operatorStatus.NodeStatuses {
+		failedRevisions[nodeState.LastFailedRevision] = struct{}{}
+		currentRevisions[nodeState.CurrentRevision] = struct{}{}
+	}
+	delete(failedRevisions, 0)
+
+	// If all current revisions point to the same revision, then mark it successful
+	if len(currentRevisions) == 1 {
+		err := c.updateConfigMapForRevision(ctx, currentRevisions, string(corev1.PodSucceeded), eventRecorder)
+		if err != nil {
+			return err
+		}
+	}
+	return c.updateConfigMapForRevision(ctx, failedRevisions, string(corev1.PodFailed), eventRecorder)
+}
+
+func (c *PruneController) updateConfigMapForRevision(ctx context.Context, currentRevisions map[int32]struct{}, status string, eventRecorder events.Recorder) error {
+	for currentRevision := range currentRevisions {
+		statusConfigMap, err := c.configMapGetter.ConfigMaps(c.targetNamespace).Get(ctx, statusConfigMapNameForRevision(currentRevision), metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			klog.Infof("%s configmap not found, skipping update revision status", statusConfigMapNameForRevision(currentRevision))
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		statusConfigMap.Data["status"] = status
+		_, _, err = resourceapply.ApplyConfigMap(ctx, c.configMapGetter, eventRecorder, statusConfigMap)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func statusConfigMapNameForRevision(revision int32) string {
+	return fmt.Sprintf("%s-%d", statusConfigMapName, revision)
 }
 
 func max(a, b int32) int32 {
