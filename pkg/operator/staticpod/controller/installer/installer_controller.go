@@ -180,27 +180,41 @@ func (c InstallerController) Name() string {
 	return "InstallerController"
 }
 
-func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error) {
+// getStaticPodState returns
+// - the state of the static pod,
+// - its revision (in case of the fallback static pod the revision of the non-fallback one),
+// - a human readible reason for the static pod state
+// - a list of error strings to be stored in the nodeStatus.lastFailedRevisionsErrors
+// - a timestamp of the pod state event
+func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName string) (staticPodState, string, string, []string, time.Time, error) {
 	pod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, mirrorPodNameForNode(c.staticPodName, nodeName), metav1.GetOptions{})
 	if err != nil {
-		return staticPodStatePending, "", "", nil, err
+		return staticPodStatePending, "", "", nil, time.Time{}, err
 	}
+	revision := pod.Labels[revisionLabel]
 	switch pod.Status.Phase {
 	case corev1.PodRunning, corev1.PodSucceeded:
 		for _, c := range pod.Status.Conditions {
-			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-				return staticPodStateReady, pod.Labels[revisionLabel], "static pod is ready", nil, nil
+			if c.Type == corev1.PodReady {
+				if c.Status == corev1.ConditionTrue {
+					return staticPodStateReady, revision, "static pod is ready", nil, c.LastTransitionTime.Time, nil
+				}
+				return staticPodStatePending, revision, "static pod is not ready", nil, c.LastTransitionTime.Time, nil
 			}
 		}
-		return staticPodStatePending, pod.Labels[revisionLabel], "static pod is not ready", nil, nil
+		ts := pod.CreationTimestamp.Time
+		if pod.Status.StartTime != nil {
+			ts = pod.Status.StartTime.Time
+		}
+		return staticPodStatePending, revision, "static pod is not ready", nil, ts, nil
 	case corev1.PodFailed:
-		return staticPodStateFailed, pod.Labels[revisionLabel], "static pod has failed", []string{pod.Status.Message}, nil
+		return staticPodStateFailed, pod.Labels[revisionLabel], "static pod has failed", []string{pod.Status.Message}, time.Now(), nil
 	}
 
-	return staticPodStatePending, pod.Labels[revisionLabel], fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, nil
+	return staticPodStatePending, revision, fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, time.Now(), nil
 }
 
-type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, err error)
+type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, ts time.Time, err error)
 
 // nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
 // - not updating
@@ -236,7 +250,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		state, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
+		state, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -263,7 +277,7 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
-		_, runningRevision, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
+		_, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
 		}
@@ -605,7 +619,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		state, currentRevision, staticPodReason, staticPodErrors, err := c.getStaticPodState(ctx, currNodeState.NodeName)
+		state, currentRevision, staticPodReason, staticPodErrors, ts, err := c.getStaticPodState(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			// pod not launched yet
 			// TODO: have a timeout here and retry the installer
@@ -629,8 +643,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			ret.LastFailedRevisionErrors = staticPodErrors
 			ret.TargetRevision = 0 // stop installer retries
 			ret.LastFailedRevision = currNodeState.TargetRevision
-			now := metav1.NewTime(c.now())
-			ret.LastFailedTime = &now
+			ret.LastFailedTime = &metav1.Time{Time: ts}
 			ret.LastFailedCount++
 			ret.LastFailedReason = NodeStatusOperandFailedReason
 
