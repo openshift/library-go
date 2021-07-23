@@ -231,7 +231,7 @@ func (f *fakeFallback) fallbackToPreviousRevision(reason, message string) error 
 	return f.result.fallbackToPreviousRevision
 }
 
-func (f *fakeFallback) markRevisionGood() error {
+func (f *fakeFallback) markRevisionGood(ctx context.Context) error {
 	f.got.markRevisionGood = &struct{}{}
 	return f.result.markRevisionGood
 }

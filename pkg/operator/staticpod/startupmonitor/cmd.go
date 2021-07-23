@@ -13,9 +13,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal/flock"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // ReadinessChecker is a contract between the startup monitor and operators.
@@ -58,7 +58,10 @@ type Options struct {
 	Check ReadinessChecker
 }
 
-func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Config) (v1helpers.StaticPodOperatorClient, error)) *cobra.Command {
+// NewCommand creates the startup-monitor cobra command.
+// TODO: make generic for other operators.
+// Note: normal operator client has informers that must be started and setup. We rather do not want that here.
+func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Config) (operatorclientv1.KubeAPIServerInterface, error)) *cobra.Command {
 	o := Options{
 		Check: check,
 	}
@@ -184,7 +187,7 @@ func run(ctx context.Context, installerLock Locker, m Monitor, fb fallback, s su
 	// fallback or leave ready target running
 
 	if ready {
-		if err := fb.markRevisionGood(); err != nil {
+		if err := fb.markRevisionGood(ctx); err != nil {
 			return err
 		}
 	} else {
