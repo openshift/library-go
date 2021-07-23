@@ -131,7 +131,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory that holds all files supporting the static pod manifests")
 	fs.StringVar(&o.ManifestDir, "manifests-dir", o.ManifestDir, "directory for the static pod manifest")
 	fs.StringVar(&o.TargetName, "target-name", o.TargetName, "identifies operand used to construct the final file name when reading the current and previous manifests")
-	fs.StringVar(&o.ResourceDir, "installer-lock-file", o.InstallerLockFile, "file path for the installer flock based lock file")
+	fs.StringVar(&o.InstallerLockFile, "installer-lock-file", o.InstallerLockFile, "file path for the installer flock based lock file")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of the node as used in the static pod operator resource")
 }
 
