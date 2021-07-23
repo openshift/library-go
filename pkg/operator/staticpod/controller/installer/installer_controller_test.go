@@ -466,9 +466,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
-		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 2)}},
-		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 2)}},
-	)
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 3)}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 3)}})
 
 	var installerPods []*corev1.Pod
 
@@ -500,11 +499,11 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 1,
+			LatestAvailableRevision: 3,
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
-					CurrentRevision: 0,
+					CurrentRevision: 1,
 					TargetRevision:  0,
 				},
 			},
@@ -542,8 +541,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 
 	_, currStatus, _, _ := fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if currStatus.NodeStatuses[0].TargetRevision != 1 {
-		t.Fatalf("expected target revision generation 1, got: %d", currStatus.NodeStatuses[0].TargetRevision)
+	if currStatus.NodeStatuses[0].TargetRevision != 3 {
+		t.Fatalf("expected target revision 3, got: %d", currStatus.NodeStatuses[0].TargetRevision)
 	}
 
 	t.Log("starting installer pod")
@@ -566,7 +565,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 	foundRevision := false
 	for _, arg := range args {
-		if arg == "--revision=1" {
+		if arg == "--revision=3" {
 			foundRevision = true
 		}
 	}
@@ -579,11 +578,11 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		t.Fatal(err)
 	}
 
-	if currStatus.NodeStatuses[0].TargetRevision != 1 {
-		t.Fatalf("expected target revision generation 1, got: %d", currStatus.NodeStatuses[0].TargetRevision)
+	if currStatus.NodeStatuses[0].TargetRevision != 3 {
+		t.Fatalf("expected target revision 3, got: %d", currStatus.NodeStatuses[0].TargetRevision)
 	}
-	if currStatus.NodeStatuses[0].CurrentRevision != 0 {
-		t.Fatalf("expected current revision generation 0, got: %d", currStatus.NodeStatuses[0].CurrentRevision)
+	if currStatus.NodeStatuses[0].CurrentRevision != 1 {
+		t.Fatalf("expected current revision 1, got: %d", currStatus.NodeStatuses[0].CurrentRevision)
 	}
 
 	switch firstInstallerBehaviour {
@@ -607,8 +606,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		}
 
 		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-		if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
-			t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
+		if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+			t.Fatalf("expected current revision for node to be 1, got %d", revision)
 		}
 		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 1 {
 			t.Fatalf("expected failed count to be 1, got %d", count)
@@ -657,8 +656,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		}
 
 		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-		if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
-			t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
+		if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+			t.Fatalf("expected current revision for node to be 1, got %d", revision)
 		}
 		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 0 {
 			t.Fatalf("expected failed count to be 0, got %d", count)
@@ -683,8 +682,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
-		t.Errorf("expected current revision generation for node to be 0, got %d", generation)
+	if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+		t.Errorf("expected current revision for node to be 1, got %d", revision)
 	}
 
 	t.Log("static pod launched, but is not ready")
@@ -692,7 +691,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod-test-node-1",
 			Namespace: "test",
-			Labels:    map[string]string{"revision": "1"},
+			Labels:    map[string]string{"revision": "3"},
 		},
 		Spec: corev1.PodSpec{},
 		Status: corev1.PodStatus{
@@ -712,8 +711,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 0 {
-		t.Fatalf("expected current revision generation for node to be 0, got %d", generation)
+	if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+		t.Fatalf("expected current revision for node to be 1, got %d", revision)
 	}
 
 	t.Log("static pod is ready")
@@ -724,8 +723,8 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 
 	_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
-	if generation := currStatus.NodeStatuses[0].CurrentRevision; generation != 1 {
-		t.Fatalf("expected current revision generation for node to be 1, got %d", generation)
+	if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 3 {
+		t.Fatalf("expected current revision for node to be 3, got %d", revision)
 	}
 }
 

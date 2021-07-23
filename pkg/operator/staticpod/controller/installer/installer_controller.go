@@ -645,17 +645,13 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		return ret, false, "new revision pending", nil
 	}
 
-	errors := []string{}
-	reason = ""
-
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
 		state, currentRevision, staticPodReason, failedErrors, err := c.getStaticPodState(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			// pod not launched yet
 			// TODO: have a timeout here and retry the installer
-			reason = "static pod is pending"
-			break
+			return ret, false, "static pod is pending", nil
 		}
 		if err != nil {
 			return nil, false, "", err
@@ -664,23 +660,21 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		if currentRevision != strconv.Itoa(int(currNodeState.TargetRevision)) {
 			// new updated pod to be launched
 			if len(currentRevision) == 0 {
-				reason = fmt.Sprintf("waiting for static pod of revision %d", currNodeState.TargetRevision)
-			} else {
-				reason = fmt.Sprintf("waiting for static pod of revision %d, found %s", currNodeState.TargetRevision, currentRevision)
+				return ret, false, fmt.Sprintf("waiting for static pod of revision %d", currNodeState.TargetRevision), nil
 			}
-			break
+			return ret, false, fmt.Sprintf("waiting for static pod of revision %d, found %s", currNodeState.TargetRevision, currentRevision), nil
 		}
 
 		switch state {
 		case staticPodStateFailed:
-			reason = staticPodReason
-			errors = failedErrors
+			errors := failedErrors
 
 			ret.TargetRevision = 0 // stop installer retries
 			ret.LastFailedRevision = currNodeState.TargetRevision
 			now := metav1.NewTime(c.now())
 			ret.LastFailedTime = &now
 			ret.LastFailedCount++
+
 			ns, name := c.targetNamespace, mirrorPodNameForNode(c.staticPodName, currNodeState.NodeName)
 			if len(errors) == 0 {
 				errors = append(errors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name))
@@ -699,12 +693,13 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			ret.LastFailedCount = 0
 			ret.LastFailedRevisionErrors = nil
 			return ret, false, staticPodReason, nil
+
 		default:
-			reason = "static pod is pending"
+			return ret, false, "static pod is pending", nil
 		}
 
 	case corev1.PodFailed:
-		reason = "installer pod failed"
+		errors := []string{}
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) > 0 {
 				errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
@@ -724,13 +719,10 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 
 	default:
 		if len(installerPod.Status.Message) > 0 {
-			reason = fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message)
-		} else {
-			reason = fmt.Sprintf("installer is not finished, but in %s phase", installerPod.Status.Phase)
+			return ret, false, fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message), nil
 		}
+		return ret, false, fmt.Sprintf("installer is not finished, but in %s phase", installerPod.Status.Phase), nil
 	}
-
-	return ret, false, reason, nil
 }
 
 // getRevisionToStart returns the revision we need to start or zero if none
