@@ -17,7 +17,7 @@ type startupMonitorTemplate struct {
 	Verbosity       string
 }
 
-func ManagePodTemplate(operatorSpec *operatorv1.StaticPodOperatorSpec, command []string, targetNamespace, targetName, targetImagePullSpec string) (string, error) {
+func GeneratePodTemplate(operatorSpec *operatorv1.StaticPodOperatorSpec, command []string, targetNamespace, targetName, targetImagePullSpec string) (string, error) {
 	rawStartupMonitorManifest := mustAsset("assets/startup-monitor-pod.yaml")
 
 	var verbosity string
