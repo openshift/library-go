@@ -317,7 +317,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -334,7 +334,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -355,7 +355,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -372,7 +372,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
-				TargetRevision:  0,
+				TargetRevision:  2,
 			},
 			false,
 			"new revision pending",
@@ -1127,6 +1127,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeName:           "test-node-1",
 					CurrentRevision:    1,
 					LastFailedRevision: 2,
+					LastFailedCount:    1,
+					TargetRevision:     2,
 				},
 				{
 					NodeName:        "test-node-2",
@@ -1140,6 +1142,32 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{1},
+		},
+		{
+			name:                    "three nodes, 2 not updated, one with failure in last revision, with target and count missing",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					LastFailedRevision: 2,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 2, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{},
 		},
 		{
 			name:                    "three nodes, 2 not updated, one with failure in old revision",
@@ -1230,6 +1258,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					NodeName:           "test-node-1",
 					CurrentRevision:    1,
 					LastFailedRevision: 2,
+					TargetRevision:     2,
+					LastFailedCount:    1,
 				},
 				{
 					NodeName:        "test-node-2",
@@ -1243,6 +1273,32 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			},
 			expectedUpgradeOrder: []int{1, 0, 2},
 			expectedRetryCounts:  []int{1, 0, 0},
+		},
+		{
+			name:                    "three nodes with outdated current revision, installer failed, no target revision set, with target and count missing",
+			latestAvailableRevision: 2,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:           "test-node-1",
+					CurrentRevision:    1,
+					LastFailedRevision: 2,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{1, 0, 2},
+			expectedRetryCounts:  []int{0, 0, 0},
 		},
 		{
 			name:                    "three nodes with outdated current revision, installer failed, no target revision set, but new operand launched and is ready",

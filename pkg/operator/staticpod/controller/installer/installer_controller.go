@@ -396,6 +396,9 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			if err != nil {
 				return true, 0, err
 			}
+			if installerPodFailed {
+				klog.Infof("Will retry %q for revision %d for the %s time because %s", currNodeState.NodeName, currNodeState.TargetRevision, nthTimeOr1st(newCurrNodeState.LastFailedCount), reason)
+			}
 
 			// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 			// it's an extra write/read, but it makes the state debuggable from outside this process
@@ -410,16 +413,13 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				}
 
 				return false, 0, nil // no requeue because UpdateStaticPodStatus triggers an external event anyway
-			} else {
-				klog.V(2).Infof("%q is in transition to %d, but has not made progress because %s", currNodeState.NodeName, currNodeState.TargetRevision, reasonWithBlame(reason))
 			}
 
-			// We want to retry the installer pod by deleting and then rekicking. Also we don't set LastFailedRevision.
-			if !installerPodFailed {
-				break
-			}
-			klog.Infof("Will retry %q for revision %d for the %s time because %s", currNodeState.NodeName, currNodeState.TargetRevision, nthTimeOr1st(newCurrNodeState.LastFailedCount), reason)
+			klog.V(2).Infof("%q is in transition to %d, but has not made progress because %s", currNodeState.NodeName, currNodeState.TargetRevision, reasonWithBlame(reason))
+			return false, 0, nil
 		}
+
+		// here we are not in transition, i.e. there is no install pod running
 
 		revisionToStart := c.getRevisionToStart(currNodeState, prevNodeState, operatorStatus)
 		if revisionToStart == 0 {
@@ -429,14 +429,10 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 
 		klog.Infof("%s and needs new revision %d", nodeChoiceReason, revisionToStart)
 
-		newCurrNodeState := currNodeState.DeepCopy()
-		newCurrNodeState.TargetRevision = revisionToStart
-		if newCurrNodeState.LastFailedRevision != revisionToStart {
-			newCurrNodeState.LastFailedRevisionErrors = nil
-			newCurrNodeState.LastFailedCount = 0
-			newCurrNodeState.LastFailedTime = nil
-		} else if newCurrNodeState.LastFailedCount == 0 {
-			newCurrNodeState.LastFailedCount = 1
+		newCurrNodeState := &operatorv1.NodeStatus{
+			NodeName:        currNodeState.NodeName,
+			CurrentRevision: currNodeState.CurrentRevision,
+			TargetRevision:  revisionToStart,
 		}
 
 		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
@@ -450,7 +446,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 					currNodeState.CurrentRevision, newCurrNodeState.TargetRevision, nodeChoiceReason)
 			}
 
-			return false, 0, nil
+			return false, 0, nil // no requeue because UpdateStaticPodStatus triggers an external event anyway
 		}
 		break
 	}
@@ -566,54 +562,52 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 
 // newNodeStateForInstallInProgress returns the new NodeState
 func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Context, currNodeState *operatorv1.NodeStatus, latestRevisionAvailable int32) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
-	ret := currNodeState.DeepCopy()
-
 	// how many previously failed of latest available revision
 	previouslyFailedLatestRevisionPods := 0
 	if currNodeState.LastFailedRevision != 0 && currNodeState.LastFailedRevision == currNodeState.TargetRevision {
 		previouslyFailedLatestRevisionPods = max(1, currNodeState.LastFailedCount)
 	}
 
+	pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision
+
 	installerPodName := getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName, previouslyFailedLatestRevisionPods)
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, installerPodName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		// installer pod has disappeared before we saw it's termination state. Retry like if it had never existed.
-		c.eventRecorder.Warning("InstallerPodDisappeared", err.Error())
-		return currNodeState, true, fmt.Sprintf("pod %s disappeared", installerPodName), nil
-	}
-	if err != nil {
+		if !pendingNewRevision {
+			// installer pod has disappeared before we saw it's termination state. Retry like if it had never existed.
+			c.eventRecorder.Warning("InstallerPodDisappeared", err.Error())
+			return currNodeState, true, fmt.Sprintf("pod %s disappeared", installerPodName), nil
+		}
+	} else if err != nil {
 		return nil, false, "", err
 	}
 
 	// quickly move to new revision even when an old installer has been seen, if necessary with force by
 	// deleting the old installer (it might be frozen).
-	if pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision; pendingNewRevision {
-		switch installerPod.Status.Phase {
-		case corev1.PodSucceeded, corev1.PodFailed:
-			// stop early, don't wait for ready static operand pod because a new revision is waiting
-		default:
+	if pendingNewRevision {
+		// stop early, don't wait for ready static operand pod because a new revision is waiting
+
+		if installerPod != nil && installerPod.Status.Phase != corev1.PodSucceeded && installerPod.Status.Phase != corev1.PodFailed {
 			// delete non-terminated pod. It may be in some state where it would never terminate, e.g. ContainerCreating
 			if err := c.podsGetter.Pods(c.targetNamespace).Delete(ctx, installerPodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				return ret, false, "", err
+				return nil, false, "", err
 			}
 		}
 
-		ret.LastFailedRevision = 0
-		ret.LastFailedTime = nil
-		ret.LastFailedCount = 0
-		ret.TargetRevision = 0
-		ret.LastFailedRevisionErrors = nil
-
-		return ret, false, "new revision pending", nil
+		return &operatorv1.NodeStatus{
+			NodeName:        currNodeState.NodeName,
+			CurrentRevision: currNodeState.CurrentRevision,
+			TargetRevision:  latestRevisionAvailable,
+		}, false, "new revision pending", nil
 	}
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		state, currentRevision, staticPodReason, failedErrors, err := c.getStaticPodState(ctx, currNodeState.NodeName)
+		state, currentRevision, staticPodReason, staticPodErrors, err := c.getStaticPodState(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			// pod not launched yet
 			// TODO: have a timeout here and retry the installer
-			return ret, false, "static pod is pending", nil
+			return currNodeState, false, "static pod is pending", nil
 		}
 		if err != nil {
 			return nil, false, "", err
@@ -622,15 +616,15 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		if currentRevision != strconv.Itoa(int(currNodeState.TargetRevision)) {
 			// new updated pod to be launched
 			if len(currentRevision) == 0 {
-				return ret, false, fmt.Sprintf("waiting for static pod of revision %d", currNodeState.TargetRevision), nil
+				return currNodeState, false, fmt.Sprintf("waiting for static pod of revision %d", currNodeState.TargetRevision), nil
 			}
-			return ret, false, fmt.Sprintf("waiting for static pod of revision %d, found %s", currNodeState.TargetRevision, currentRevision), nil
+			return currNodeState, false, fmt.Sprintf("waiting for static pod of revision %d, found %s", currNodeState.TargetRevision, currentRevision), nil
 		}
 
 		switch state {
 		case staticPodStateFailed:
-			errors := failedErrors
-
+			ret := currNodeState.DeepCopy()
+			ret.LastFailedRevisionErrors = staticPodErrors
 			ret.TargetRevision = 0 // stop installer retries
 			ret.LastFailedRevision = currNodeState.TargetRevision
 			now := metav1.NewTime(c.now())
@@ -638,26 +632,24 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			ret.LastFailedCount++
 
 			ns, name := c.targetNamespace, mirrorPodNameForNode(c.staticPodName, currNodeState.NodeName)
-			if len(errors) == 0 {
-				errors = append(errors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name))
+			if len(ret.LastFailedRevisionErrors) == 0 {
+				ret.LastFailedRevisionErrors = []string{fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name)}
 			}
-			ret.LastFailedRevisionErrors = errors
 
-			return ret, false, fmt.Sprintf("operand pod failed: %v", strings.Join(errors, "\n")), nil
+			return ret, false, fmt.Sprintf("operand pod failed: %v", strings.Join(ret.LastFailedRevisionErrors, "\n")), nil
 
 		case staticPodStateReady:
-			if currNodeState.TargetRevision > ret.CurrentRevision {
-				ret.CurrentRevision = currNodeState.TargetRevision
+			rev := currNodeState.CurrentRevision
+			if currNodeState.TargetRevision > currNodeState.CurrentRevision {
+				rev = currNodeState.TargetRevision
 			}
-			ret.TargetRevision = 0
-			ret.LastFailedRevision = 0
-			ret.LastFailedTime = nil
-			ret.LastFailedCount = 0
-			ret.LastFailedRevisionErrors = nil
-			return ret, false, staticPodReason, nil
+			return &operatorv1.NodeStatus{
+				NodeName:        currNodeState.NodeName,
+				CurrentRevision: rev,
+			}, false, staticPodReason, nil
 
 		default:
-			return ret, false, "static pod is pending", nil
+			return currNodeState, false, "static pod is pending", nil
 		}
 
 	case corev1.PodFailed:
@@ -669,6 +661,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			}
 		}
 
+		ret := currNodeState.DeepCopy()
 		ret.LastFailedRevision = currNodeState.TargetRevision
 		now := metav1.NewTime(c.now())
 		ret.LastFailedTime = &now
@@ -681,9 +674,9 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 
 	default:
 		if len(installerPod.Status.Message) > 0 {
-			return ret, false, fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message), nil
+			return currNodeState, false, fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message), nil
 		}
-		return ret, false, fmt.Sprintf("installer is not finished, but in %s phase", installerPod.Status.Phase), nil
+		return currNodeState, false, fmt.Sprintf("installer is not finished, but in %s phase", installerPod.Status.Phase), nil
 	}
 }
 
