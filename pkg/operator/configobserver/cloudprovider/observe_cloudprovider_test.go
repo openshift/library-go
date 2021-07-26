@@ -200,6 +200,16 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:           "gce",
 		cloudProviderCount: 1,
 	}, {
+		name: "IBM Cloud platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.IBMCloudPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.IBMCloudPlatformType,
+			},
+		},
+		expected:           "external",
+		cloudProviderCount: 1,
+	}, {
 		name: "None platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.NonePlatformType,
