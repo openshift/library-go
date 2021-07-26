@@ -324,7 +324,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				LastFailedRevision:       1,
 				LastFailedCount:          1,
 				LastFailedReason:         "OperandFailed",
-				LastFailedTime:           &now,
+				LastFailedTime:           metav1TimestampPtr("15:07:03"),
 				LastFailedRevisionErrors: []string{"segfault"},
 			},
 			false,

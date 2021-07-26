@@ -208,7 +208,24 @@ func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName st
 		}
 		return staticPodStatePending, revision, "static pod is not ready", nil, ts, nil
 	case corev1.PodFailed:
-		return staticPodStateFailed, pod.Labels[revisionLabel], "static pod has failed", []string{pod.Status.Message}, time.Now(), nil
+		// we need a definitive timestamp here that does not change again. Because PodFail is a terminal state, we can assume
+		// the containers don't change anymore. So we use the latest container termination state.
+		ts := pod.CreationTimestamp.Time
+		for _, c := range pod.Status.InitContainerStatuses {
+			if c.LastTerminationState.Terminated != nil {
+				if finishedAt := c.LastTerminationState.Terminated.FinishedAt.Time; ts.Before(finishedAt) {
+					ts = finishedAt
+				}
+			}
+		}
+		for _, c := range pod.Status.ContainerStatuses {
+			if c.LastTerminationState.Terminated != nil {
+				if finishedAt := c.LastTerminationState.Terminated.FinishedAt.Time; ts.Before(finishedAt) {
+					ts = finishedAt
+				}
+			}
+		}
+		return staticPodStateFailed, revision, "static pod has failed", []string{pod.Status.Message}, ts, nil
 	}
 
 	return staticPodStatePending, revision, fmt.Sprintf("static pod has unknown phase: %v", pod.Status.Phase), nil, time.Now(), nil
