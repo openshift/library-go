@@ -43,8 +43,8 @@ const (
 
 	revisionLabel = "revision"
 
-	NodeStatusOperandFailedReason   = "OperandFailed"
-	NodeStatusInstalledFailedReason = "InstallerFailed"
+	nodeStatusOperandFailedReason   = "OperandFailed"
+	nodeStatusInstalledFailedReason = "InstallerFailed"
 )
 
 // InstallerController is a controller that watches the currentRevision and targetRevision fields for each node and spawn
@@ -662,7 +662,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			ret.LastFailedRevision = currNodeState.TargetRevision
 			ret.LastFailedTime = &metav1.Time{Time: ts}
 			ret.LastFailedCount++
-			ret.LastFailedReason = NodeStatusOperandFailedReason
+			ret.LastFailedReason = nodeStatusOperandFailedReason
 
 			ns, name := c.targetNamespace, mirrorPodNameForNode(c.staticPodName, currNodeState.NodeName)
 			if len(ret.LastFailedRevisionErrors) == 0 {
@@ -699,7 +699,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		now := metav1.NewTime(c.now())
 		ret.LastFailedTime = &now
 		ret.LastFailedCount++
-		ret.LastFailedReason = NodeStatusInstalledFailedReason
+		ret.LastFailedReason = nodeStatusInstalledFailedReason
 		if len(errors) == 0 {
 			errors = append(errors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", installerPod.Namespace, installerPod.Name))
 		}
