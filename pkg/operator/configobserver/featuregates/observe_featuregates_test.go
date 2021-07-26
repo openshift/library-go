@@ -73,6 +73,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"CSIMigrationOpenStack=true",
 				"CSIMigrationGCE=true",
 				"CSIMigrationAzureDisk=true",
+				"ExternalCloudProvider=true",
 				"LegacyNodeRoleBehavior=false",
 			},
 		},

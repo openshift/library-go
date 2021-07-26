@@ -48,7 +48,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: LatencySensitive, Platform: OpenStack",
 		status: &configv1.PlatformStatus{
