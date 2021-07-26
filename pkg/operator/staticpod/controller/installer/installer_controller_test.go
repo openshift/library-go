@@ -71,9 +71,10 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		}
 		return &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      mirrorPodNameForNode(name, "test-node-1"),
-				Namespace: "test",
-				Labels:    map[string]string{"revision": revision},
+				Name:              mirrorPodNameForNode(name, "test-node-1"),
+				Namespace:         "test",
+				Labels:            map[string]string{"revision": revision},
+				CreationTimestamp: metav1Timestamp("15:07:03"),
 			},
 			Spec: corev1.PodSpec{},
 			Status: corev1.PodStatus{
@@ -323,7 +324,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				LastFailedRevision:       1,
 				LastFailedCount:          1,
 				LastFailedReason:         "OperandFailed",
-				LastFailedTime:           &now,
+				LastFailedTime:           metav1TimestampPtr("15:07:03"),
 				LastFailedRevisionErrors: []string{"segfault"},
 			},
 			false,
@@ -1994,13 +1995,13 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fakeGetStaticPodState := func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errs []string, err error) {
+			fakeGetStaticPodState := func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errs []string, ts time.Time, err error) {
 				for _, p := range test.pods {
 					if p.name == nodeName {
-						return p.state, strconv.Itoa(int(p.revision)), "", nil, nil
+						return p.state, strconv.Itoa(int(p.revision)), "", nil, time.Now(), nil
 					}
 				}
-				return staticPodStatePending, "", "", nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
+				return staticPodStatePending, "", "", nil, time.Now(), errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
 			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodes)
 			if err == nil && test.expectedErr {
@@ -2333,5 +2334,21 @@ func TestTimeToWait(t *testing.T) {
 			}
 		})
 	}
+}
 
+func timestamp(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, fmt.Sprintf("2021-01-02T%sZ", s))
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
+func metav1Timestamp(s string) metav1.Time {
+	return metav1.NewTime(timestamp(s))
+}
+
+func metav1TimestampPtr(s string) *metav1.Time {
+	t := metav1Timestamp(s)
+	return &t
 }
