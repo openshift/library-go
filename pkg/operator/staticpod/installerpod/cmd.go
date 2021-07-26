@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/internal/flock"
 )
 
 type InstallOptions struct {
@@ -53,6 +54,9 @@ type InstallOptions struct {
 	PodManifestDir string
 
 	Timeout time.Duration
+
+	// StaticPodManifestsLockFile used to coordinate work between multiple processes when writing static pod manifests
+	StaticPodManifestsLockFile string
 
 	PodMutationFns []PodMutationFunc
 }
@@ -111,6 +115,7 @@ func (o *InstallOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory for all files supporting the static pod manifest")
 	fs.StringVar(&o.PodManifestDir, "pod-manifest-dir", o.PodManifestDir, "directory for the static pod manifest")
 	fs.DurationVar(&o.Timeout, "timeout-duration", 120*time.Second, "maximum time in seconds to wait for the copying to complete (default: 2m)")
+	fs.StringVar(&o.StaticPodManifestsLockFile, "pod-manifests-lock-file", o.StaticPodManifestsLockFile, "path to a file that will be used to coordinate writing static pod manifests between multiple processes")
 
 	fs.StringSliceVar(&o.CertSecretNames, "cert-secrets", o.CertSecretNames, "list of secret names to be included")
 	fs.StringSliceVar(&o.CertConfigMapNamePrefixes, "cert-configmaps", o.CertConfigMapNamePrefixes, "list of configmaps to be included")
@@ -311,6 +316,18 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	klog.Infof("Creating directory for static pod manifest %q ...", o.PodManifestDir)
 	if err := os.MkdirAll(o.PodManifestDir, 0755); err != nil {
 		return err
+	}
+
+	// check to see if we need to acquire a file based lock to coordinate work.
+	// since writing to disk is fast and we need to write at most 2 files it is okay to hold a lock here
+	// note that in case of unplanned disaster the Linux kernel is going to release the lock when the process exits
+	if len(o.StaticPodManifestsLockFile) > 0 {
+		installerLock := flock.New(o.StaticPodManifestsLockFile)
+		klog.Infof("acquiring an exclusive lock on a %s", o.StaticPodManifestsLockFile)
+		if err := installerLock.Lock(ctx); err != nil {
+			return fmt.Errorf("failed to acquire an exclusive lock on %s, due to %v", o.StaticPodManifestsLockFile, err)
+		}
+		defer installerLock.Unlock()
 	}
 
 	// then write the required pod and all optional
