@@ -459,7 +459,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			if currNodeState.LastFailedRevision == currNodeState.TargetRevision && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
 				var delay time.Duration
 				if currNodeState.LastFailedReason == nodeStatusOperandFailedFallbackReason {
-					delay = c.fallbackBackOff(currNodeState.LastFailedCount)
+					delay = c.fallbackBackOff(currNodeState.LastFallbackCount)
 				} else {
 					delay = c.installerBackOff(currNodeState.LastFailedCount)
 				}
@@ -470,7 +470,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				}
 			}
 
-			if err := c.ensureInstallerPod(ctx, currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, currNodeState.LastFailedCount); err != nil {
+			if err := c.ensureInstallerPod(ctx, currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, currNodeState.LastFailedCount+currNodeState.LastFallbackCount); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
 				// if a newer revision is pending, continue, so we retry later with the latest available revision
@@ -652,15 +652,9 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 
 // newNodeStateForInstallInProgress returns the new NodeState
 func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Context, currNodeState *operatorv1.NodeStatus, latestRevisionAvailable int32) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
-	// how many previously failed of latest available revision
-	previouslyFailedLatestRevisionPods := 0
-	if currNodeState.LastFailedRevision != 0 && currNodeState.LastFailedRevision == currNodeState.TargetRevision {
-		previouslyFailedLatestRevisionPods = max(1, currNodeState.LastFailedCount)
-	}
-
 	pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision
 
-	installerPodName := getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName, previouslyFailedLatestRevisionPods)
+	installerPodName := getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount+currNodeState.LastFallbackCount)
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, installerPodName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		if !pendingNewRevision {
@@ -773,7 +767,6 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 				ret.LastFailedTime = &failTime
 				ret.LastFailedRevision = ret.TargetRevision
 				ret.LastFailedRevisionErrors = staticPodErrors
-				ret.LastFailedCount++
 				ret.LastFallbackCount++
 				ret.LastFailedReason = nodeStatusOperandFailedFallbackReason
 			}
@@ -849,11 +842,11 @@ func getInstallerPodName(revision int32, nodeName string, previouslyFailedRevisi
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32, previouslyFailedRevisionPods int) error {
+func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32, installNum int) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
-	pod.Name = getInstallerPodName(revision, nodeName, previouslyFailedRevisionPods)
+	pod.Name = getInstallerPodName(revision, nodeName, installNum)
 	pod.Spec.NodeName = nodeName
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command

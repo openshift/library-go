@@ -435,7 +435,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
 				TargetRevision:           4,
-				LastFailedCount:          1,
+				LastFailedCount:          0,
 				LastFailedRevision:       4,
 				LastFailedTime:           metav1TimestampPtr("15:04:01"),
 				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
@@ -459,7 +459,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
 				TargetRevision:           4,
-				LastFailedCount:          1,
+				LastFailedCount:          0,
 				LastFailedRevision:       4,
 				LastFailedTime:           metav1TimestampPtr("15:04:01"),
 				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
@@ -477,7 +477,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:                 "test-node-1",
 			CurrentRevision:          2,
 			TargetRevision:           4,
-			LastFailedCount:          3,
+			LastFailedCount:          2,
 			LastFailedRevision:       4,
 			LastFailedTime:           metav1TimestampPtr("14:56:17"),
 			LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
@@ -488,7 +488,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				NodeName:                 "test-node-1",
 				CurrentRevision:          2,
 				TargetRevision:           4,
-				LastFailedCount:          4,
+				LastFailedCount:          2,
 				LastFailedRevision:       4,
 				LastFailedTime:           metav1TimestampPtr("15:04:01"),
 				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
@@ -933,7 +933,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		if currentRevision := currStatus.NodeStatuses[0].CurrentRevision; currentRevision != 1 {
 			t.Fatalf("expected current revision for node to be 1, got %d", currentRevision)
 		}
-		if count := currStatus.NodeStatuses[0].LastFailedCount; count != 1 {
+		if count := currStatus.NodeStatuses[0].LastFallbackCount; count != 1 {
 			t.Fatalf("expected fail count for node to be 1, got %d", count)
 		}
 
