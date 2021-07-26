@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func TestStaticPodStateFallback(t *testing.T) {
+func TestStaticPodFallbackConditionController(t *testing.T) {
 	scenarios := []struct {
 		name               string
 		initialObjects     []runtime.Object
