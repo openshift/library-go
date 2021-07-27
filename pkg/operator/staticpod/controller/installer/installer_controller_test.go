@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -88,6 +89,21 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 		}
 	}
+	fallbackOperand := func(name string, lastKnownGoodRevision string, phase corev1.PodPhase, ready bool, creationTimestamp time.Time, failedRevision, fallbackReason, fallbackMessage string) *corev1.Pod {
+		pod := operand(name, lastKnownGoodRevision, phase, ready)
+		pod.CreationTimestamp = metav1.NewTime(creationTimestamp)
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+		pod.Annotations[annotations.FallbackForRevision] = failedRevision
+		if len(fallbackReason) > 0 {
+			pod.Annotations[annotations.FallbackReason] = fallbackReason
+		}
+		if len(fallbackMessage) > 0 {
+			pod.Annotations[annotations.FallbackMessage] = fallbackMessage
+		}
+		return pod
+	}
 
 	type Expected struct {
 		nodeStatus         *operatorv1.NodeStatus
@@ -100,6 +116,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		pods                    []*corev1.Pod
 		latestAvailableRevision int32
 		current                 operatorv1.NodeStatus
+		startupMonitorEnabled   bool
 		expected                Expected
 	}
 	for _, test := range []Test{
@@ -109,7 +126,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -126,7 +143,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -143,7 +160,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -158,7 +175,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -175,7 +192,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -197,7 +214,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -223,7 +240,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
 			LastFailedTime:           &before,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -245,7 +262,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -263,7 +280,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -281,7 +298,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -299,7 +316,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 1,
@@ -316,7 +333,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:                 "test-node-1",
 				CurrentRevision:          0,
@@ -339,7 +356,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -356,7 +373,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -377,7 +394,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedRevision:       1,
 			LastFailedCount:          2,
 			LastFailedTime:           &before,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -394,7 +411,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			NodeName:        "test-node-1",
 			CurrentRevision: 0,
 			TargetRevision:  1,
-		}, Expected{
+		}, false, Expected{
 			&operatorv1.NodeStatus{
 				NodeName:        "test-node-1",
 				CurrentRevision: 0,
@@ -402,6 +419,84 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 			false,
 			"new revision pending",
+			false,
+		}},
+
+		// the fallback cases
+		{"installer-succeeded-and-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 2,
+			TargetRevision:  4,
+		}, true, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          0,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+				LastFailedReason:         "OperandFailedFallback",
+				LastFallbackCount:        1,
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
+			false,
+		}},
+		{"installer-succeeded-and-operand-fails-and-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          2,
+			TargetRevision:           4,
+			LastFailedRevisionErrors: []string{"pod is crash-looping", "will fall back to last-known-good revision"},
+		}, true, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          0,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+				LastFailedReason:         "OperandFailedFallback",
+				LastFallbackCount:        1,
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
+			false,
+		}},
+		{"after-retries-fallback-comes-up", []*corev1.Pod{
+			installer("installer-4-retry-3-test-node-1", corev1.PodSucceeded),
+			fallbackOperand("test-pod", "2", corev1.PodRunning, true, timestamp("15:04:01"), "4", "CrashLooping", "pod is crash-looping"),
+		}, 4, operatorv1.NodeStatus{
+			NodeName:                 "test-node-1",
+			CurrentRevision:          2,
+			TargetRevision:           4,
+			LastFailedCount:          2,
+			LastFailedRevision:       4,
+			LastFailedTime:           metav1TimestampPtr("14:56:17"),
+			LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+			LastFailedReason:         "OperandFailedFallback",
+			LastFallbackCount:        1,
+		}, true, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          2,
+				TargetRevision:           4,
+				LastFailedCount:          2,
+				LastFailedRevision:       4,
+				LastFailedTime:           metav1TimestampPtr("15:04:01"),
+				LastFailedRevisionErrors: []string{"fallback to last-known-good revision 2 took place after: pod is crash-looping (CrashLooping)"},
+				LastFailedReason:         "OperandFailedFallback",
+				LastFallbackCount:        2,
+			},
+			false,
+			"static pod for 4 did not launch and last-known-good revision 2 has been started",
 			false,
 		}},
 	} {
@@ -438,6 +533,9 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				eventRecorder,
 			)
 			c.now = func() time.Time { return now.Time }
+			c.startupMonitorEnabled = func() (bool, error) {
+				return test.startupMonitorEnabled, nil
+			}
 
 			nodeStatus, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(context.TODO(), &test.current, test.latestAvailableRevision)
 			if err == nil && test.expected.err {
@@ -470,30 +568,45 @@ const (
 	testSyncInstallerDisappears
 )
 
+type testSyncOperandBehaviour int
+
+const (
+	testSyncOperandReady testSyncOperandBehaviour = iota
+	testSyncOperandFallback
+)
+
 func TestSync(t *testing.T) {
 	type Test struct {
-		name               string
-		installerBehaviour testSyncInstallerBehaviour
+		name                  string
+		installerBehaviour    testSyncInstallerBehaviour
+		operandBehaviour      testSyncOperandBehaviour
+		startupMonitorEnabled bool
 	}
 	for _, tst := range []Test{
-		{"happy case", testSyncInstallerSuccess},
-		{"installer fails", testSyncInstallerFails},
-		{"installer disappears", testSyncInstallerDisappears},
+		{"happy case", testSyncInstallerSuccess, testSyncOperandReady, false},
+		{"installer fails", testSyncInstallerFails, testSyncOperandReady, false},
+		{"installer disappears", testSyncInstallerDisappears, testSyncOperandReady, false},
+
+		{"happy case with startup-monitor", testSyncInstallerSuccess, testSyncOperandReady, true},
+		{"installer fails with startup-monitor", testSyncInstallerFails, testSyncOperandReady, true},
+		{"installer disappears with startup-monitor", testSyncInstallerDisappears, testSyncOperandReady, true},
+		{"fallback happens with startup-monitor", testSyncInstallerSuccess, testSyncOperandFallback, true},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			testSync(t, tst.installerBehaviour)
+			testSync(t, tst.installerBehaviour, tst.operandBehaviour, tst.startupMonitorEnabled)
 		})
 	}
 }
 
-func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) {
+func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, firstOperandBehaviour testSyncOperandBehaviour, startupMonitorEnabled bool) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 3)}},
-		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 3)}})
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 3)}},
+	)
 
 	var installerPods []*corev1.Pod
 
@@ -557,14 +670,26 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
-	installerBackOffDuration := 0 * time.Second
+	installerBackOffDuration, fallbackBackOffDuration := 0*time.Second, 0*time.Second
 	c.installerBackOff = func(count int) time.Duration {
 		return installerBackOffDuration
+	}
+	c.fallbackBackOff = func(count int) time.Duration {
+		return fallbackBackOffDuration
 	}
 	withCustomInstallerBackOff := func(d time.Duration, fn func()) {
 		old := installerBackOffDuration
 		installerBackOffDuration = d
 		defer func() { installerBackOffDuration = old }()
+		fn()
+	}
+	c.startupMonitorEnabled = func() (bool, error) {
+		return startupMonitorEnabled, nil
+	}
+	withCustomFallbackBackOff := func(d time.Duration, fn func()) {
+		old := fallbackBackOffDuration
+		fallbackBackOffDuration = d
+		defer func() { fallbackBackOffDuration = old }()
 		fn()
 	}
 
@@ -628,6 +753,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		installerPods[0].Status.Phase = corev1.PodSucceeded
 	case testSyncInstallerFails:
 		t.Log("installer failed")
+
 		installerPods[0].Status.Phase = corev1.PodFailed
 		installerPods[0].Status.ContainerStatuses = []corev1.ContainerStatus{
 			{
@@ -740,9 +866,11 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 	t.Log("static pod launched, but is not ready")
 	staticPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod-test-node-1",
-			Namespace: "test",
-			Labels:    map[string]string{"revision": "3"},
+			Name:              "test-pod-test-node-1",
+			Namespace:         "test",
+			Labels:            map[string]string{"revision": "3"},
+			Annotations:       map[string]string{},
+			CreationTimestamp: metav1.NewTime(time.Now()),
 		},
 		Spec: corev1.PodSpec{},
 		Status: corev1.PodStatus{
@@ -766,8 +894,113 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour) 
 		t.Fatalf("expected current revision for node to be 1, got %d", revision)
 	}
 
-	t.Log("static pod is ready")
-	staticPod.Status.Conditions[0].Status = corev1.ConditionTrue
+	switch firstOperandBehaviour {
+	case testSyncOperandReady:
+		t.Log("static pod is ready")
+		staticPod.Status.Conditions[0].Status = corev1.ConditionTrue
+
+		if startupMonitorEnabled {
+			t.Log("startup-monitor notices static pod and update nodeStatus")
+			_, status, rv, err := fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+			if err != nil {
+				t.Fatal(err)
+			}
+			status.NodeStatuses[0] = operatorv1.NodeStatus{
+				NodeName:        "test-node-1",
+				CurrentRevision: 3,
+			}
+			if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(rv, status); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+	case testSyncOperandFallback:
+		t.Log("static pod is replaced with fallback by startup-monitor")
+
+		staticFallbackPod := staticPod.DeepCopy()
+		staticFallbackPod.Labels["revision"] = "1"
+		staticFallbackPod.Annotations[annotations.FallbackForRevision] = "3"
+		staticFallbackPod.Annotations[annotations.FallbackReason] = "ChashLooping"
+		staticFallbackPod.Annotations[annotations.FallbackMessage] = "pod is crashlooping"
+		staticFallbackPod.Status.Conditions[0].Status = corev1.ConditionTrue
+
+		kubeClient.PrependReactor("get", "pods", getPodsReactor(staticFallbackPod))
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if currentRevision := currStatus.NodeStatuses[0].CurrentRevision; currentRevision != 1 {
+			t.Fatalf("expected current revision for node to be 1, got %d", currentRevision)
+		}
+		if count := currStatus.NodeStatuses[0].LastFallbackCount; count != 1 {
+			t.Fatalf("expected fail count for node to be 1, got %d", count)
+		}
+
+		t.Log("not yet expecting second installer due to 1 min fallback backoff")
+		withCustomFallbackBackOff(10*time.Minute, func() {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+			if len(installerPods) == 2 {
+				t.Fatal("not yet expected 2nd installer pod immediately, only after 1s")
+			}
+		})
+
+		t.Log("expecting second installer after waiting enough")
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+		if len(installerPods) != 2 {
+			t.Fatal("expected 2nd installer pod")
+		}
+
+		t.Log("2nd installer succeeded")
+		installerPods[1].Status.Phase = corev1.PodSucceeded
+
+		if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+			t.Fatal(err)
+		}
+
+		_, currStatus, _, _ = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if revision := currStatus.NodeStatuses[0].CurrentRevision; revision != 1 {
+			t.Errorf("expected current revision for node to be 1, got %d", revision)
+		}
+
+		t.Log("new static pod launched")
+		newStaticPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-pod-test-node-1",
+				Namespace:   "test",
+				Labels:      map[string]string{"revision": "3"},
+				Annotations: map[string]string{},
+			},
+			Spec: corev1.PodSpec{},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{
+					{
+						Status: corev1.ConditionTrue,
+						Type:   corev1.PodReady,
+					},
+				},
+				Phase: corev1.PodRunning,
+			},
+		}
+		kubeClient.PrependReactor("get", "pods", getPodsReactor(newStaticPod))
+
+		t.Log("startup-monitor notices 2nd static pod and update nodeStatus")
+		_, status, rv, err := fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+		if err != nil {
+			t.Fatal(err)
+		}
+		status.NodeStatuses[0] = operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 3,
+		}
+		if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(rv, status); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
 		t.Fatal(err)
