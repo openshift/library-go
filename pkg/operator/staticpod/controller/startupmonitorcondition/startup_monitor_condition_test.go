@@ -143,8 +143,8 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 				podLister:      corev1listers.NewPodLister(indexer).Pods("openshift-kube-apiserver"),
 				operatorClient: fakeOperatorClient,
 				targetName:     "kube-apiserver",
-				startupMonitorEnabledFn: func() bool {
-					return true
+				startupMonitorEnabledFn: func() (bool, error) {
+					return true, nil
 				},
 			}
 

@@ -22,7 +22,7 @@ type staticPodFallbackConditionController struct {
 	podLabelSelector labels.Selector
 	podLister        corev1listers.PodNamespaceLister
 
-	startupMonitorEnabledFn func() bool
+	startupMonitorEnabledFn func() (bool, error)
 }
 
 // New creates a controller that detects and report roll back of a static pod
@@ -30,7 +30,7 @@ func New(targetNamespace string,
 	podLabelSelector labels.Selector,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	startupMonitorEnabledFn func() bool,
+	startupMonitorEnabledFn func() (bool, error),
 	eventRecorder events.Recorder) factory.Controller {
 	fd := &staticPodFallbackConditionController{
 		operatorClient:          operatorClient,
@@ -54,7 +54,9 @@ func (fd *staticPodFallbackConditionController) sync(_ context.Context, _ factor
 
 	// we rely on operators to provide
 	// a condition for checking we are running on a single node cluster
-	if !fd.startupMonitorEnabledFn() {
+	if enabled, err := fd.startupMonitorEnabledFn(); err != nil {
+		return err
+	} else if !enabled {
 		return nil
 	}
 
