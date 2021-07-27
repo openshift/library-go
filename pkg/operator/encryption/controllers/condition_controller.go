@@ -84,6 +84,8 @@ func (c *conditionController) sync(_ context.Context, _ factory.SyncContext) (er
 	encryptedGRs := c.provider.EncryptedGRs()
 	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil || len(transitioningReason) > 0 {
+		// do not update the encryption condition (cond). Note: progressing is set elsewhere.
+		cond = nil
 		return err
 	}
 	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
