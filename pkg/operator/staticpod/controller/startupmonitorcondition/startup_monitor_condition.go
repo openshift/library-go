@@ -22,7 +22,7 @@ type startupMonitorPodConditionController struct {
 	targetName string
 	podLister  corev1listers.PodNamespaceLister
 
-	startupMonitorEnabledFn func() bool
+	startupMonitorEnabledFn func() (bool, error)
 }
 
 // New returns a controller for monitoring the lifecycle of the startup monitor pod
@@ -30,7 +30,7 @@ func New(targetNamespace string,
 	targetName string,
 	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	startupMonitorEnabledFn func() bool,
+	startupMonitorEnabledFn func() (bool, error),
 	eventRecorder events.Recorder) factory.Controller {
 	fd := &startupMonitorPodConditionController{
 		operatorClient:          operatorClient,
@@ -57,7 +57,9 @@ func (fd *startupMonitorPodConditionController) sync(_ context.Context, _ factor
 
 	// in practice we rely on operators to provide
 	// a condition for checking we are running on a single node cluster
-	if !fd.startupMonitorEnabledFn() {
+	if enabled, err := fd.startupMonitorEnabledFn(); err != nil {
+		return err
+	} else if !enabled {
 		return nil
 	}
 

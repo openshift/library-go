@@ -80,8 +80,8 @@ func TestStaticPodFallbackConditionController(t *testing.T) {
 				podLister:        corev1listers.NewPodLister(indexer).Pods("openshift-kube-apiserver"),
 				operatorClient:   fakeOperatorClient,
 				podLabelSelector: labels.Set{"apiserver": "true"}.AsSelector(),
-				startupMonitorEnabledFn: func() bool {
-					return true
+				startupMonitorEnabledFn: func() (bool, error) {
+					return true, nil
 				},
 			}
 
