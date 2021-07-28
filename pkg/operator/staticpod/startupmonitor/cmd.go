@@ -165,7 +165,7 @@ type suicider interface {
 }
 
 func (o *Options) suicide(installerLock Locker) {
-	if err := os.Remove(filepath.Join(o.ManifestDir, fmt.Sprintf("%s-startup-monitor.yaml", o.TargetName))); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(filepath.Join(o.ManifestDir, fmt.Sprintf("%s-startup-monitor-pod.yaml", o.TargetName))); err != nil && !os.IsNotExist(err) {
 		installerLock.Unlock()
 		klog.Exit("Failed to suicide: %v", err)
 	}
