@@ -102,7 +102,11 @@ func NewClientCertificateController(
 	spokeCoreClient corev1client.CoreV1Interface,
 	recorder events.Recorder,
 	controllerName string,
-) factory.Controller {
+) (factory.Controller, error) {
+	if len(csrOption.ObjectMeta.Name) > 0 {
+		return nil, fmt.Errorf("the CSR controller does not allow specifying static names for the CSRs")
+	}
+
 	c := clientCertificateController{
 		ClientCertOption: clientCertOption,
 		CSROption:        csrOption,
@@ -133,7 +137,7 @@ func NewClientCertificateController(
 		}, c.EventFilterFunc, hubCSRInformer.Informer()).
 		WithSync(c.sync).
 		ResyncEvery(ControllerResyncInterval).
-		ToController(controllerName, recorder)
+		ToController(controllerName, recorder), nil
 }
 
 func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
