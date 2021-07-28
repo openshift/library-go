@@ -877,7 +877,7 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName s
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
 	}
 	if withStartupMonitorSupport {
-		args = append(args, fmt.Sprintf("pod-manifests-lock-file=%s", fmt.Sprintf("/var/lock/%s-installer.lock", c.staticPodName)))
+		args = append(args, fmt.Sprintf("--pod-manifests-lock-file=%s", fmt.Sprintf("/var/lock/%s-installer.lock", c.staticPodName)))
 	}
 
 	for _, cm := range c.configMaps {
