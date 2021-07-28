@@ -77,12 +77,9 @@ func TestSync(t *testing.T) {
 				csrtestinghelpers.AssertActions(t, agentActions, "get", "update")
 				actual := agentActions[1].(clienttesting.UpdateActionImpl).Object
 				secret := actual.(*corev1.Secret)
-				valid, err := IsCertificateValid(secret.Data[TLSCertFile], testSubject)
+				err := IsCertificateValid(secret.Data[TLSCertFile], testSubject)
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
-				}
-				if !valid {
-					t.Error("client certificate is invalid")
 				}
 			},
 		},
