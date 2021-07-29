@@ -78,6 +78,7 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	klog.Infof("Waiting for readiness (interval %v, timeout %v)...", m.probeInterval, m.timeout)
 
 	lastReady := false
+	var lastError error
 	var lastReason, lastMessage string
 	iteration := func(ctx context.Context) {
 		// acquire an exclusive lock to coordinate work with the installer pod, e.g.:
@@ -87,15 +88,14 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 		// the installer writes the new file and we immediately overwrite it
 		//
 		// additional benefit is that we read consistent operand's manifest
-		if err := installerLock.Lock(ctx); err != nil {
-			klog.Error(err)
+		if lastError = installerLock.Lock(ctx); lastError != nil {
+			klog.Error(lastError)
 			return
 		}
 
-		var err error
-		lastReady, lastReason, lastMessage, err = m.isReady(ctx)
-		if err != nil {
-			klog.Error(err)
+		lastReady, lastReason, lastMessage, lastError = m.isReady(ctx)
+		if lastError != nil {
+			klog.Error(lastError)
 			return
 		}
 		if len(lastReason) > 0 {
@@ -107,7 +107,7 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	withTimeoutCtx, cancel := context.WithTimeout(ctx, m.timeout-m.probeInterval) // last iteration is done manually to have control over the Unlock
 	wait.UntilWithContext(withTimeoutCtx, func(ctx context.Context) {
 		defer func() {
-			if lastReady {
+			if !lastReady {
 				installerLock.Unlock()
 			}
 		}()
@@ -116,12 +116,19 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 			cancel()
 		}
 	}, m.probeInterval)
-	if !lastReady {
-		iteration(ctx) // do last iteration without Unlock
-	}
 
+	// keep the lock (for suicide) and return
 	if lastReady {
 		return true, "", "", nil
+	}
+
+	// at this point we are either not ready or we got an error
+	// do last iteration without calling Unlock()
+	iteration(ctx)
+	if lastError != nil {
+		// release the lock since we are exiting anyway
+		installerLock.Unlock()
+		return false, lastReason, lastMessage, lastError
 	}
 
 	// outer context done is different, as this will likely be from a signal.
@@ -143,7 +150,8 @@ func (m *monitor) isReady(ctx context.Context) (ready bool, reason string, messa
 		return false, "", "", err
 	}
 	if m.revision != currentTargetRevision {
-		return false, "UnexpectedRevision", fmt.Sprintf("expected revision %d, found %d", m.revision, currentTargetRevision), nil
+		// return an error so that we won't fallback when we fail to monitor unexpected target
+		return false, "", "", fmt.Errorf("expected revision %d, found %d", m.revision, currentTargetRevision)
 	}
 
 	// first check if the target is ready.
