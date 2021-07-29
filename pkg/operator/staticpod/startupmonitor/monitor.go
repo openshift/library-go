@@ -106,23 +106,29 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	// we use wait.Until because it uses sliding interval, wait.Poll does not.
 	withTimeoutCtx, cancel := context.WithTimeout(ctx, m.timeout-m.probeInterval) // last iteration is done manually to have control over the Unlock
 	wait.UntilWithContext(withTimeoutCtx, func(ctx context.Context) {
-		defer installerLock.Unlock()
+		defer func() {
+			if !lastReady {
+				installerLock.Unlock()
+			}
+		}()
 		iteration(ctx)
 		if lastReady {
 			cancel()
 		}
 	}, m.probeInterval)
 
+	// keep the lock (for suicide) and return
+	if lastReady {
+		return true, "", "", nil
+	}
+
+	// at this point we are either not ready or we got an error
 	// do last iteration without calling Unlock()
 	iteration(ctx)
 	if lastError != nil {
 		// release the lock since we are exiting anyway
 		installerLock.Unlock()
 		return false, lastReason, lastMessage, lastError
-	}
-
-	if lastReady {
-		return true, "", "", nil
 	}
 
 	// outer context done is different, as this will likely be from a signal.
