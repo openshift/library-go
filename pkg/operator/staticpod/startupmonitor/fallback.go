@@ -62,7 +62,8 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 	// step 0: if the last known good revision doesn't exist
 	//         find latest previous revision to work with
 	//         return in case no revision has been found
-	// TODO: or commit suicide as this seems to be fatal
+	//
+	//         note that fileExists method checks the target file not the symlink
 	lastKnownExists, err := f.fileExists(f.lastKnownGoodManifestDstPath())
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 			return err
 		}
 		if !found {
-			klog.Info("Unable to roll back because no previous revision hasn't been found for %s", f.targetName)
+			klog.Infof("Unable to roll back because no previous revision hasn't been found for %s", f.targetName)
 			// here we didn't find a previous revision. Not much we can do other than timing out and suicide, leaving the failing pod alone
 			return nil
 		}
@@ -83,13 +84,13 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 			return err // retry, a transient err
 		}
 		if !targetManifestForPrevRevExists {
-			klog.Info("Unable to roll back because a manifest %q hasn't been found for the previous revision %d", f.targetManifestPathFor(prevRev), prevRev)
+			klog.Infof("Unable to roll back because a manifest %q hasn't been found for the previous revision %d", f.targetManifestPathFor(prevRev), prevRev)
 			// here we didn't find a previous revision. Not much we can do other than timing out and suicide, leaving the failing pod alone
 			return nil
 		}
 
 		// step 1: create the last known good revision file
-		if err := f.createLastKnowGoodRevisionFor(prevRev, false); err != nil {
+		if err := f.createLastKnowGoodRevisionFor(prevRev); err != nil {
 			return err
 		}
 	}
@@ -138,7 +139,7 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 }
 
 func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
-	if err := f.createLastKnowGoodRevisionFor(f.revision, true); err != nil {
+	if err := f.createLastKnowGoodRevisionFor(f.revision); err != nil {
 		return err
 	}
 
@@ -182,24 +183,20 @@ func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
 	})
 }
 
-func (f *staticPodFallback) createLastKnowGoodRevisionFor(revision int, strict bool) error {
+func (f *staticPodFallback) createLastKnowGoodRevisionFor(revision int) error {
 	var revisionedTargetManifestPath = f.targetManifestPathFor(revision)
 
-	// step 0: in strict mode remove the previous last good known revision if exists
-	if strict {
-		if exists, err := f.fileExists(f.lastKnownGoodManifestDstPath()); err != nil {
-			return err
-		} else if exists {
-			if err := f.io.Remove(f.lastKnownGoodManifestDstPath()); err != nil {
-				return err
-			}
-			klog.Info("Removed existing last known good revision manifest %s", f.lastKnownGoodManifestDstPath())
-		}
+	// step 0: always try to delete the symlink otherwise creation will fail
+	//         note that deleting the symlink won't delete the target file
+	if err := f.io.Remove(f.lastKnownGoodManifestDstPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	} else if !os.IsNotExist(err) {
+		klog.Infof("Removed existing last known good revision manifest %s", f.lastKnownGoodManifestDstPath())
 	}
 
 	// step 1: create last known good revision
 	if err := f.io.Symlink(revisionedTargetManifestPath, f.lastKnownGoodManifestDstPath()); err != nil {
-		return fmt.Errorf("failed to create a symbolic link %q for %q due to %v", f.lastKnownGoodManifestDstPath(), revisionedTargetManifestPath, err)
+		return fmt.Errorf("failed to create a symbolic link %q for %q: %v", f.lastKnownGoodManifestDstPath(), revisionedTargetManifestPath, err)
 	}
 	klog.Infof("Created a symlink %s for %s", f.lastKnownGoodManifestDstPath(), revisionedTargetManifestPath)
 	return nil

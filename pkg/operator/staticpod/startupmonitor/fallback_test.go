@@ -226,32 +226,33 @@ func TestCreateLastKnowGoodRevisionFor(t *testing.T) {
 	}{
 		// scenario 1
 		{
-			name: "step 0: is a dir",
+			name: "step 0: previous file removed",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter: 1,
-				StatFn: func(path string) (os.FileInfo, error) {
+				ExpectedRemoveFnCounter:  1,
+				ExpectedSymlinkFnCounter: 1,
+				RemoveFn: func(path string) error {
 					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
-						return nil, fmt.Errorf("unexpected path %s", path)
+						return fmt.Errorf("unexpected path %s", path)
 					}
-					return fakeDir("fake-directory"), nil
+					return nil
+				},
+				SymlinkFn: func(oldname, newname string) error {
+					if oldname != "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-8/kube-apiserver-pod.yaml" {
+						return fmt.Errorf("unexpected oldname %s", oldname)
+					}
+					if newname != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
+						return fmt.Errorf("unexpected newname %s", newname)
+					}
+					return nil
 				},
 			},
-			expectErr: "the provided path /etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good is incorrect and points to a directory",
 		},
 
 		// scenario 2
 		{
 			name: "step 0: rm fails",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter:   1,
 				ExpectedRemoveFnCounter: 1,
-
-				StatFn: func(path string) (os.FileInfo, error) {
-					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
-						return nil, fmt.Errorf("unexpected path %s", path)
-					}
-					return fakeFile("fake-file"), nil
-				},
 				RemoveFn: func(path string) error {
 					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
 						return fmt.Errorf("unexpected path %s", path)
@@ -264,30 +265,15 @@ func TestCreateLastKnowGoodRevisionFor(t *testing.T) {
 
 		// scenario 3
 		{
-			name: "step 0: !IsNotExists",
-			fakeIO: &fakeIO{
-				ExpectedStatFnCounter: 1,
-				StatFn: func(path string) (os.FileInfo, error) {
-					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
-						return nil, fmt.Errorf("unexpected path %s", path)
-					}
-					return fakeFile("fake-file"), fmt.Errorf("fake error")
-				},
-			},
-			expectErr: "fake error",
-		},
-
-		// scenario 4
-		{
 			name: "step 1: SymLink err",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter:    1,
 				ExpectedSymlinkFnCounter: 1,
-				StatFn: func(path string) (os.FileInfo, error) {
+				ExpectedRemoveFnCounter:  1,
+				RemoveFn: func(path string) error {
 					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
-						return nil, fmt.Errorf("unexpected path %s", path)
+						return fmt.Errorf("unexpected path %s", path)
 					}
-					return fakeFile("fake-file"), os.ErrNotExist
+					return os.ErrNotExist
 				},
 				SymlinkFn: func(oldname, newname string) error {
 					if oldname != "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-8/kube-apiserver-pod.yaml" {
@@ -299,21 +285,20 @@ func TestCreateLastKnowGoodRevisionFor(t *testing.T) {
 					return fmt.Errorf("fake err")
 				},
 			},
-			expectErr: `failed to create a symbolic link "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" for "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-8/kube-apiserver-pod.yaml" due to fake err`,
+			expectErr: `failed to create a symbolic link "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" for "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-8/kube-apiserver-pod.yaml": fake err`,
 		},
 
-		// scenario 5
+		// scenario 4
 		{
 			name: "happy path",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter:    1,
 				ExpectedSymlinkFnCounter: 1,
-				ExpectedRemoveFnCounter:  0,
-				StatFn: func(path string) (os.FileInfo, error) {
+				ExpectedRemoveFnCounter:  1,
+				RemoveFn: func(path string) error {
 					if path != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
-						return nil, fmt.Errorf("unexpected path %s", path)
+						return fmt.Errorf("unexpected path %s", path)
 					}
-					return fakeFile("fake-file"), os.ErrNotExist
+					return os.ErrNotExist
 				},
 				SymlinkFn: func(oldname, newname string) error {
 					if oldname != "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-8/kube-apiserver-pod.yaml" {
@@ -334,7 +319,7 @@ func TestCreateLastKnowGoodRevisionFor(t *testing.T) {
 			target := createTestFallback(scenario.fakeIO)
 
 			// act
-			err := target.createLastKnowGoodRevisionFor(target.revision, true)
+			err := target.createLastKnowGoodRevisionFor(target.revision)
 
 			// validate
 			validateError(t, err, scenario.expectErr)
@@ -379,6 +364,12 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 					}
 					return []byte(samplePod), nil
 				},
+				RemoveFn: func(filename string) error {
+					if filename != "/etc/kubernetes/manifests/kube-apiserver-pod.yaml" {
+						return fmt.Errorf("unexpected path %s", filename)
+					}
+					return nil
+				},
 				WriteFileFn: func(filename string, data []byte, perm fs.FileMode) error {
 					if filename != "/etc/kubernetes/manifests/kube-apiserver-pod.yaml" {
 						return fmt.Errorf("unexpected path %s", filename)
@@ -409,7 +400,7 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 		{
 			name: "last known doesn't exist",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter: 2, ExpectedReadDirFnCounter: 1, ExpectedWriteFileFnCounter: 1, ExpectedRemoveFnCounter: 1, ExpectedReadFileFnCounter: 1, ExpectedSymlinkFnCounter: 1,
+				ExpectedStatFnCounter: 2, ExpectedReadDirFnCounter: 1, ExpectedWriteFileFnCounter: 1, ExpectedRemoveFnCounter: 2, ExpectedReadFileFnCounter: 1, ExpectedSymlinkFnCounter: 1,
 				StatFn: func(path string) (os.FileInfo, error) {
 					switch path {
 					case "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good":
@@ -423,6 +414,12 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 					default:
 						return nil, fmt.Errorf("unexpected StatFn path %s", path)
 					}
+				},
+				RemoveFn: func(filename string) error {
+					if filename != "/etc/kubernetes/manifests/kube-apiserver-pod.yaml" /*first call*/ && filename != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" /*second call*/ {
+						return fmt.Errorf("unexpected path %s", filename)
+					}
+					return nil
 				},
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
