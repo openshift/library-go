@@ -59,6 +59,7 @@ func newStaticPodFallback() *staticPodFallback {
 
 // TODO: pruner|installer: protect the linked revision
 func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) error {
+	klog.Infof("Falling back to a previous revision, the target %v hasn't become ready in the allotted time", f.targetName)
 	// step 0: if the last known good revision doesn't exist
 	//         find latest previous revision to work with
 	//         return in case no revision has been found
@@ -69,6 +70,7 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 		return err
 	}
 	if !lastKnownExists {
+		klog.Info("Have not found the last-known-good manifest, searching for a previous revision's manifest")
 		prevRev, found, err := f.findPreviousRevision()
 		if err != nil {
 			return err
@@ -120,6 +122,11 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 	// and uuid.  By setting the pod UID we can work around the kubelet bug and get our graceful termination honored.
 	// Per the node team, this is hard to fix in the kubelet, though it will affect all static pods.
 	lastKnownGoodPod.UID = uuid.NewUUID()
+
+	if lastKnownGoodPod.Labels != nil {
+		lastKnownGoodPodRevision := lastKnownGoodPod.Labels["revision"]
+		klog.Infof("About to fallback to the last-known-good revision %v", lastKnownGoodPodRevision)
+	}
 
 	// remove the existing file to ensure kubelet gets "create" event from inotify watchers
 	rootTargetManifestPath := filepath.Join(f.manifestsPath, fmt.Sprintf("%s-pod.yaml", f.targetName))
@@ -177,6 +184,7 @@ func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
 				klog.Errorf("Failed to update static pod operator status.nodeStatus: %v", err)
 				return err
 			}
+			klog.Infof("Successfully updated node %v to revision %v", s.NodeName, s.CurrentRevision)
 		}
 
 		return nil
@@ -230,7 +238,17 @@ func (f *staticPodFallback) findPreviousRevision() (int, bool, error) {
 			continue
 		}
 
-		if revision == f.revision {
+		if revision >= f.revision {
+			continue
+		}
+
+		targetManifestForRevExists, err := f.fileExists(f.targetManifestPathFor(revision))
+		if err != nil {
+			klog.Warningf("Skipping %v dir: %v", f.targetManifestPathFor(revision), err)
+			continue
+		}
+		if !targetManifestForRevExists {
+			klog.Warningf("Skipping %v because it doesn't contain a manifest file", f.targetManifestPathFor(revision))
 			continue
 		}
 

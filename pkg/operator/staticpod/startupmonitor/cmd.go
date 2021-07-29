@@ -191,7 +191,6 @@ func run(ctx context.Context, installerLock Locker, m Monitor, fb fallback, s su
 			return err
 		}
 	} else {
-		klog.Info("Falling back to a previous revision, the target %v hasn't become ready in the allotted time")
 		if err := fb.fallbackToPreviousRevision(reason, message); err != nil {
 			return err
 		}
