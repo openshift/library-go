@@ -96,15 +96,21 @@ func TestFindPreviousRevision(t *testing.T) {
 		{
 			name: "ReadDir returns a single directory",
 			fakeIO: &fakeIO{
-				ExpectedReadDirFnCounter: 1,
+				ExpectedReadDirFnCounter: 1, ExpectedStatFnCounter: 1,
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected path %s", path)
 					}
-					return []os.FileInfo{fakeDir("kube-apiserver-pod-11")}, nil
+					return []os.FileInfo{fakeDir("kube-apiserver-pod-7")}, nil
+				},
+				StatFn: func(filepath string) (os.FileInfo, error) {
+					if filepath == "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-7/kube-apiserver-pod.yaml" {
+						return fakeFile("kube-apiserver-pod.yaml"), nil
+					}
+					return nil, os.ErrNotExist
 				},
 			},
-			expectedPrevRev: 11,
+			expectedPrevRev: 7,
 			expectedFound:   true,
 		},
 
@@ -124,12 +130,15 @@ func TestFindPreviousRevision(t *testing.T) {
 		{
 			name: "prev rev found",
 			fakeIO: &fakeIO{
-				ExpectedReadDirFnCounter: 1,
+				ExpectedReadDirFnCounter: 1, ExpectedStatFnCounter: 2,
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected path %s", path)
 					}
 					return []os.FileInfo{fakeDir("kube-apiserver-pod-4"), fakeDir("kube-apiserver-pod-8"), fakeDir("kube-apiserver-pod-5")}, nil
+				},
+				StatFn: func(filepath string) (os.FileInfo, error) {
+					return fakeFile("name is not important actually"), nil
 				},
 			},
 			expectedPrevRev: 5,
@@ -139,12 +148,15 @@ func TestFindPreviousRevision(t *testing.T) {
 		{
 			name: "prev rev found with sort",
 			fakeIO: &fakeIO{
-				ExpectedReadDirFnCounter: 1,
+				ExpectedReadDirFnCounter: 1, ExpectedStatFnCounter: 2,
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected path %s", path)
 					}
 					return []os.FileInfo{fakeDir("kube-apiserver-pod-5"), fakeDir("kube-apiserver-pod-8"), fakeDir("kube-apiserver-pod-4")}, nil
+				},
+				StatFn: func(filepath string) (os.FileInfo, error) {
+					return fakeFile("name is not important actually"), nil
 				},
 			},
 			expectedPrevRev: 5,
@@ -154,15 +166,18 @@ func TestFindPreviousRevision(t *testing.T) {
 		{
 			name: "prev rev found with files that match the prefix",
 			fakeIO: &fakeIO{
-				ExpectedReadDirFnCounter: 1,
+				ExpectedReadDirFnCounter: 1, ExpectedStatFnCounter: 2,
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected path %s", path)
 					}
-					return []os.FileInfo{fakeDir("kube-apiserver-pod-12"), fakeDir("kube-apiserver-pod-11"), fakeFile("kube-apiserver-pod-13"), fakeFile("kube-apiserver-pod-14")}, nil
+					return []os.FileInfo{fakeDir("kube-apiserver-pod-4"), fakeDir("kube-apiserver-pod-5"), fakeFile("kube-apiserver-pod-6"), fakeFile("kube-apiserver-pod-7")}, nil
+				},
+				StatFn: func(filepath string) (os.FileInfo, error) {
+					return fakeFile("the name doesn't matter"), nil
 				},
 			},
-			expectedPrevRev: 12,
+			expectedPrevRev: 5,
 			expectedFound:   true,
 		},
 
@@ -182,12 +197,15 @@ func TestFindPreviousRevision(t *testing.T) {
 		{
 			name: "only directories with kube-apiserver-pod prefix are considered",
 			fakeIO: &fakeIO{
-				ExpectedReadDirFnCounter: 1,
+				ExpectedReadDirFnCounter: 1, ExpectedStatFnCounter: 2,
 				ReadDirFn: func(path string) ([]os.FileInfo, error) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected path %s", path)
 					}
 					return []os.FileInfo{fakeDir("kube-apiserver-certs"), fakeDir("kube-apiserver-7"), fakeDir("kube-apiserver-11"), fakeDir("kube-apiserver-pod-0"), fakeDir("kube-apiserver-pod-1")}, nil
+				},
+				StatFn: func(filepath string) (os.FileInfo, error) {
+					return fakeFile("the name of the file is not important"), nil
 				},
 			},
 			expectedPrevRev: 1,
@@ -400,17 +418,17 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 		{
 			name: "last known doesn't exist",
 			fakeIO: &fakeIO{
-				ExpectedStatFnCounter: 2, ExpectedReadDirFnCounter: 1, ExpectedWriteFileFnCounter: 1, ExpectedRemoveFnCounter: 2, ExpectedReadFileFnCounter: 1, ExpectedSymlinkFnCounter: 1,
+				ExpectedStatFnCounter: 5, ExpectedReadDirFnCounter: 1, ExpectedWriteFileFnCounter: 1, ExpectedRemoveFnCounter: 2, ExpectedReadFileFnCounter: 1, ExpectedSymlinkFnCounter: 1,
 				StatFn: func(path string) (os.FileInfo, error) {
 					switch path {
 					case "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good":
 						return nil, os.ErrNotExist
 					case "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-7/kube-apiserver-pod.yaml":
 						return fakeFile("/etc/kubernetes/static-pod-resources/kube-apiserver-pod-7/kube-apiserver-pod.yaml"), nil
-					case "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-9/kube-apiserver-pod.yaml":
-						return fakeFile("/etc/kubernetes/static-pod-resources/kube-apiserver-pod-9/kube-apiserver-pod.yaml"), nil
-					case "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-12/kube-apiserver-pod.yaml":
-						return fakeFile("/etc/kubernetes/static-pod-resources/kube-apiserver-pod-12/kube-apiserver-pod.yaml"), nil
+					case "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-6/kube-apiserver-pod.yaml":
+						return fakeFile("/etc/kubernetes/static-pod-resources/kube-apiserver-pod-6/kube-apiserver-pod.yaml"), nil
+					case "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-5/kube-apiserver-pod.yaml":
+						return fakeFile("/etc/kubernetes/static-pod-resources/kube-apiserver-pod-5/kube-apiserver-pod.yaml"), nil
 					default:
 						return nil, fmt.Errorf("unexpected StatFn path %s", path)
 					}
@@ -425,11 +443,11 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 					if path != "/etc/kubernetes/static-pod-resources" {
 						return nil, fmt.Errorf("unexpected ReadDirFn path %s", path)
 					}
-					return []os.FileInfo{fakeDir("kube-apiserver-pod-7"), fakeDir("kube-apiserver-pod-12"), fakeDir("kube-apiserver-pod-9")}, nil
+					return []os.FileInfo{fakeDir("kube-apiserver-pod-7"), fakeDir("kube-apiserver-pod-6"), fakeDir("kube-apiserver-pod-5")}, nil
 				},
 				SymlinkFn: func(oldname, newname string) error {
-					if oldname != "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-12/kube-apiserver-pod.yaml" {
-						return fmt.Errorf("unexpected SymlinkFnoldname %s", oldname)
+					if oldname != "/etc/kubernetes/static-pod-resources/kube-apiserver-pod-7/kube-apiserver-pod.yaml" {
+						return fmt.Errorf("unexpected SymlinkFn oldname %s", oldname)
 					}
 					if newname != "/etc/kubernetes/static-pod-resources/kube-apiserver-last-known-good" {
 						return fmt.Errorf("unexpected SymlinkFn newname %s", newname)
@@ -475,6 +493,8 @@ func TestFallbackToPreviousRevision(t *testing.T) {
 
 			// act
 			err := target.fallbackToPreviousRevision("SomeReason", "Some message for the user")
+
+			// validate
 			validateError(t, err, scenario.expectedErr)
 			if err := scenario.fakeIO.Validate(); err != nil {
 				t.Error(err)
