@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	v1 "k8s.io/api/core/v1"
@@ -97,32 +96,18 @@ func TestRevisionController(t *testing.T) {
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
 				&v1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
-					Data:       map[string]string{"revision": "1", "status": prune.StatusInProgress},
+					Data:       map[string]string{"revision": "1"},
 				},
 			},
 			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
 				updatedObjects := filterUpdateActions(actions)
-				if len(updatedObjects) != 4 {
+				if len(updatedObjects) != 3 {
 					t.Errorf("expected 4 updated objects, but got %v", len(updatedObjects))
 				}
-				newRevision, err := kclient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-2", metav1.GetOptions{})
+				_, err := kclient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-2", metav1.GetOptions{})
 				if err != nil {
 					t.Errorf("error getting revision-status-2 map")
 					return
-				}
-				if status, ok := newRevision.Data["status"]; !ok || status != prune.StatusInProgress {
-					t.Errorf("expected new revision to be InProgress, got %v", status)
-				}
-				revisionStatus, hasStatus := updatedObjects[1].(*v1.ConfigMap)
-				if !hasStatus {
-					t.Errorf("expected config to be updated")
-					return
-				}
-				if revisionStatus.Name != "revision-status-1" {
-					t.Errorf("expected config to have name 'revision-status-1', got %q", revisionStatus.Name)
-				}
-				if revisionStatus.Data["status"] != prune.StatusAbandoned {
-					t.Errorf("expected config to have status 'Abandoned', got %s", revisionStatus.Data["status"])
 				}
 			},
 		},
