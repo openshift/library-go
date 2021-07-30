@@ -28,6 +28,11 @@ type WantsRestConfig interface {
 	SetRestConfig(config *rest.Config)
 }
 
+// WantsNodeName an optional interface used for setting the current node name
+type WantsNodeName interface {
+	SetNodeName(string)
+}
+
 type Options struct {
 	// Revision identifier for this particular installation instance
 	Revision int
@@ -93,6 +98,9 @@ func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Conf
 				withTargetName(o.TargetName).
 				withNodeName(o.NodeName)
 
+			if c, ok := o.Check.(WantsNodeName); ok {
+				c.SetNodeName(o.NodeName)
+			}
 			clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
 			if err != nil {
 				klog.Fatal("either use --kubeconfig or run in-cluster: %v", err)
