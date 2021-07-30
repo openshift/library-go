@@ -174,10 +174,6 @@ func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
 
 			s.CurrentRevision = s.TargetRevision
 			s.TargetRevision = 0
-			s.LastFailedRevision = 0
-			s.LastFailedTime = nil
-			s.LastFailedCount = 0
-			s.LastFailedRevisionErrors = nil
 
 			_, err := f.operatorClient.UpdateStatus(ctx, o, metav1.UpdateOptions{})
 			if err != nil {

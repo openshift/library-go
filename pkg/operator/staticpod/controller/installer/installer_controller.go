@@ -470,7 +470,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				}
 			}
 
-			if err := c.ensureInstallerPod(ctx, currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, currNodeState.LastFailedCount+currNodeState.LastFallbackCount); err != nil {
+			if err := c.ensureInstallerPod(ctx, operatorSpec, currNodeState); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
 				// if a newer revision is pending, continue, so we retry later with the latest available revision
@@ -519,11 +519,8 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 
 		klog.Infof("%s and needs new revision %d", nodeChoiceReason, revisionToStart)
 
-		newCurrNodeState := &operatorv1.NodeStatus{
-			NodeName:        currNodeState.NodeName,
-			CurrentRevision: currNodeState.CurrentRevision,
-			TargetRevision:  revisionToStart,
-		}
+		newCurrNodeState := currNodeState.DeepCopy()
+		newCurrNodeState.TargetRevision = revisionToStart
 
 		// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 		// it's an extra write/read, but it makes the state debuggable from outside this process
@@ -653,8 +650,7 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 // newNodeStateForInstallInProgress returns the new NodeState
 func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Context, currNodeState *operatorv1.NodeStatus, latestRevisionAvailable int32) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
 	pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision
-
-	installerPodName := getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount+currNodeState.LastFallbackCount)
+	installerPodName := getInstallerPodName(currNodeState)
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, installerPodName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		if !pendingNewRevision {
@@ -678,11 +674,9 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			}
 		}
 
-		return &operatorv1.NodeStatus{
-			NodeName:        currNodeState.NodeName,
-			CurrentRevision: currNodeState.CurrentRevision,
-			TargetRevision:  latestRevisionAvailable,
-		}, false, "new revision pending", nil
+		ret := currNodeState.DeepCopy()
+		ret.TargetRevision = latestRevisionAvailable
+		return ret, false, "new revision pending", nil
 	}
 
 	switch installerPod.Status.Phase {
@@ -717,18 +711,15 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 				staticPodErrors = append(staticPodErrors, fmt.Sprintf("no detailed termination message, see `oc get -oyaml -n %q pods %q`", ns, name))
 			}
 
-			ret := currNodeState.DeepCopy()
+			ret := deepCopyNodeStatusWithoutOldFailedState(currNodeState)
+			ret.LastFailedRevision = currNodeState.TargetRevision
+			ret.LastFailedReason = nodeStatusOperandFailedReason
 			ret.LastFailedRevisionErrors = staticPodErrors
 
 			if startupMonitor {
-				// this will be overridden again when the fallback pod is observed
-				ret.LastFailedRevisionErrors = append(ret.LastFailedRevisionErrors, "falling back to last-known-good revision")
+				ret.LastFailedRevisionErrors = append(ret.LastFailedRevisionErrors, "falling back to last-known-good revision, might take up to 5 min")
 			} else {
-				ret.TargetRevision = 0 // stop installer retries, but keep running in startup-monitor case where we leave this to the startup-monitor to do
-
-				// increase failed count, but not in startup-monitor case where this is done when the fallback pod is observed below in staticPodStateFallback,
-				ret.LastFailedRevision = currNodeState.TargetRevision
-				ret.LastFailedReason = nodeStatusOperandFailedReason
+				ret.TargetRevision = 0 // stop installer retries in non-startup-monitor case
 				if ret.LastFailedTime == nil || !ret.LastFailedTime.Time.Equal(ts) {
 					// avoid increasing the count continuously by comparing the fail time
 					failTime := metav1.NewTime(ts)
@@ -745,10 +736,10 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 				if currNodeState.TargetRevision > currNodeState.CurrentRevision {
 					rev = currNodeState.TargetRevision
 				}
-				return &operatorv1.NodeStatus{
-					NodeName:        currNodeState.NodeName,
-					CurrentRevision: rev,
-				}, false, staticPodReason, nil
+				ret := currNodeState.DeepCopy()
+				ret.CurrentRevision = rev
+				ret.TargetRevision = 0
+				return ret, false, staticPodReason, nil
 			}
 
 			// in case of startup-monitor we leave marking a ready operand as current version to the startup-monitor.
@@ -761,7 +752,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			return currNodeState, false, staticPodReason, nil
 
 		case staticPodStateFallback:
-			ret := currNodeState.DeepCopy()
+			ret := deepCopyNodeStatusWithoutOldFailedState(currNodeState)
 			if ret.LastFailedTime == nil || !ret.LastFailedTime.Time.Equal(ts) { // do this only once per fallback
 				failTime := metav1.NewTime(ts)
 				ret.LastFailedTime = &failTime
@@ -788,7 +779,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 			}
 		}
 
-		ret := currNodeState.DeepCopy()
+		ret := deepCopyNodeStatusWithoutOldFailedState(currNodeState)
 		ret.LastFailedRevision = currNodeState.TargetRevision
 		now := metav1.NewTime(c.now())
 		ret.LastFailedTime = &now
@@ -834,24 +825,29 @@ func (c *InstallerController) getRevisionToStart(currNodeState, prevNodeState *o
 	return 0
 }
 
-func getInstallerPodName(revision int32, nodeName string, previouslyFailedRevisionPods int) string {
-	if previouslyFailedRevisionPods == 0 {
-		return fmt.Sprintf("installer-%d-%s", revision, nodeName)
+func getInstallerPodName(ns *operatorv1.NodeStatus) string {
+	installedRetryCount := 0 // including fallbacks
+	if ns.TargetRevision == ns.LastFailedRevision {
+		installedRetryCount = ns.LastFailedCount + ns.LastFallbackCount
 	}
-	return fmt.Sprintf("installer-%d-retry-%d-%s", revision, previouslyFailedRevisionPods, nodeName)
+
+	if installedRetryCount == 0 {
+		return fmt.Sprintf("installer-%d-%s", ns.TargetRevision, ns.NodeName)
+	}
+	return fmt.Sprintf("installer-%d-retry-%d-%s", ns.TargetRevision, installedRetryCount, ns.NodeName)
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32, installNum int) error {
+func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, ns *operatorv1.NodeStatus) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace
-	pod.Name = getInstallerPodName(revision, nodeName, installNum)
-	pod.Spec.NodeName = nodeName
+	pod.Name = getInstallerPodName(ns)
+	pod.Spec.NodeName = ns.NodeName
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 
-	ownerRefs, err := c.ownerRefsFn(revision)
+	ownerRefs, err := c.ownerRefsFn(ns.TargetRevision)
 	if err != nil {
 		return fmt.Errorf("unable to set installer pod ownerrefs: %+v", err)
 	}
@@ -870,7 +866,7 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName s
 
 	args := []string{
 		fmt.Sprintf("-v=%d", loglevel.LogLevelToVerbosity(operatorSpec.LogLevel)),
-		fmt.Sprintf("--revision=%d", revision),
+		fmt.Sprintf("--revision=%d", ns.TargetRevision),
 		fmt.Sprintf("--namespace=%s", pod.Namespace),
 		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),
 		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
@@ -916,7 +912,7 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, nodeName s
 
 	// Some owners need to change aspects of the pod.  Things like arguments for instance
 	for _, fn := range c.installerPodMutationFns {
-		if err := fn(pod, nodeName, operatorSpec, revision); err != nil {
+		if err := fn(pod, ns.NodeName, operatorSpec, ns.TargetRevision); err != nil {
 			return err
 		}
 	}
@@ -1089,6 +1085,17 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 	}
 
 	return err
+}
+
+func deepCopyNodeStatusWithoutOldFailedState(ns *operatorv1.NodeStatus) *operatorv1.NodeStatus {
+	if ns.TargetRevision == 0 || ns.TargetRevision != ns.LastFailedRevision {
+		return &operatorv1.NodeStatus{
+			NodeName:        ns.NodeName,
+			CurrentRevision: ns.CurrentRevision,
+			TargetRevision:  ns.TargetRevision,
+		}
+	}
+	return ns.DeepCopy()
 }
 
 func mirrorPodNameForNode(staticPodName, nodeName string) string {
