@@ -396,9 +396,13 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			LastFailedTime:           &before,
 		}, false, Expected{
 			&operatorv1.NodeStatus{
-				NodeName:        "test-node-1",
-				CurrentRevision: 0,
-				TargetRevision:  2,
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           2,
+				LastFailedRevisionErrors: []string{"container: bla bla OOM bla bla"},
+				LastFailedRevision:       1,
+				LastFailedCount:          2,
+				LastFailedTime:           &before,
 			},
 			false,
 			"new revision pending",
@@ -444,6 +448,28 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 			},
 			false,
 			"static pod for 4 did not launch and last-known-good revision 2 has been started",
+			false,
+		}},
+		{"installer-succeeded-and-operand-failed-but-no-fallback-yet", []*corev1.Pod{
+			installer("installer-1-test-node-1", corev1.PodSucceeded),
+			withMessage(operand("test-pod", "1", corev1.PodFailed, false), "segfault"),
+		}, 1, operatorv1.NodeStatus{
+			NodeName:        "test-node-1",
+			CurrentRevision: 0,
+			TargetRevision:  1,
+		}, true, Expected{
+			&operatorv1.NodeStatus{
+				NodeName:                 "test-node-1",
+				CurrentRevision:          0,
+				TargetRevision:           1,
+				LastFailedRevision:       1,
+				LastFailedCount:          0, // we don't increase count in startup-monitor mode before fallback
+				LastFailedReason:         "OperandFailed",
+				LastFailedTime:           nil, // we don't set the timestamp yet here, only the error. Otherwise, we would run into backoff
+				LastFailedRevisionErrors: []string{"segfault", "falling back to last-known-good revision, might take up to 5 min"},
+			},
+			false,
+			"operand pod failed: segfault",
 			false,
 		}},
 		{"installer-succeeded-and-operand-fails-and-fallback-comes-up", []*corev1.Pod{
@@ -1242,7 +1268,10 @@ func TestEnsureInstallerPod(t *testing.T) {
 			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
-			err := c.ensureInstallerPod(context.TODO(), "test-node-1", &operatorv1.StaticPodOperatorSpec{}, 1, 0)
+			err := c.ensureInstallerPod(context.TODO(), &operatorv1.StaticPodOperatorSpec{}, &operatorv1.NodeStatus{
+				NodeName:       "test-node-1",
+				TargetRevision: 1,
+			})
 			if err != nil {
 				if tt.expectedErr == "" {
 					t.Errorf("InstallerController.ensureInstallerPod() expected no error, got = %v", err)
