@@ -128,7 +128,7 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	if lastError != nil {
 		// release the lock since we are exiting anyway
 		installerLock.Unlock()
-		return false, lastReason, lastMessage, lastError
+		return false, "", "", lastError
 	}
 
 	// outer context done is different, as this will likely be from a signal.
@@ -139,7 +139,7 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	default:
 	}
 
-	return false, lastReason, lastMessage, nil
+	return lastReady, lastReason, lastMessage, nil
 }
 
 func (m *monitor) isReady(ctx context.Context) (ready bool, reason string, message string, err error) {

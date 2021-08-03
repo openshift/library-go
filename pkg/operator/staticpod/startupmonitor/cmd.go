@@ -198,10 +198,8 @@ func run(ctx context.Context, installerLock Locker, m Monitor, fb fallback, s su
 		if err := fb.markRevisionGood(ctx); err != nil {
 			return err
 		}
-	} else {
-		if err := fb.fallbackToPreviousRevision(reason, message); err != nil {
-			return err
-		}
+	} else if err := fb.fallbackToPreviousRevision(reason, message); err != nil {
+		return err
 	}
 
 	// NOTE: here installLock is taken
