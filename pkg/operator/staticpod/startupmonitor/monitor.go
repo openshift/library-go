@@ -139,7 +139,7 @@ func (m *monitor) Run(ctx context.Context, installerLock Locker) (ready bool, re
 	default:
 	}
 
-	return false, lastReason, lastMessage, nil
+	return lastReady, lastReason, lastMessage, nil
 }
 
 func (m *monitor) isReady(ctx context.Context) (ready bool, reason string, message string, err error) {
