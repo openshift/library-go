@@ -377,21 +377,26 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
-			if currNodeState.LastFailedRevision == currNodeState.TargetRevision && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
-				delay := c.installerBackOff(currNodeState.LastFailedCount)
-				earliestRetry := currNodeState.LastFailedTime.Add(delay)
-				if !c.now().After(earliestRetry) {
-					klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
-					return true, nil
+			if operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision {
+				// if new revision is penindg, don't do backoff, don't create a pod we will delete in newNodeStateForInstallInProgress again
+				// TODO: move out pod deletion from newNodeStateForInstallInProgress and put it here, and rework the flow of this func
+			} else {
+				if currNodeState.LastFailedRevision == currNodeState.TargetRevision && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
+					delay := c.installerBackOff(currNodeState.LastFailedCount)
+					earliestRetry := currNodeState.LastFailedTime.Add(delay)
+					if !c.now().After(earliestRetry) {
+						klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
+						return true, nil
+					}
 				}
-			}
 
-			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, currNodeState.LastFailedCount); err != nil {
-				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
-					currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
-				// if a newer revision is pending, continue, so we retry later with the latest available revision
-				if !(operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision) {
-					return true, err
+				if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision, currNodeState.LastFailedCount); err != nil {
+					c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
+						currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
+					// if a newer revision is pending, continue, so we retry later with the latest available revision
+					if !(operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision) {
+						return true, err
+					}
 				}
 			}
 
