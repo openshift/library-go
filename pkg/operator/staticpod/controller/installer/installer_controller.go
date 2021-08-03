@@ -454,10 +454,17 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			nodeChoiceReason = fmt.Sprintf("node %s is the next node in the line", currNodeState.NodeName)
 		}
 
-		// if we are in a transition, check to see whether our installer pod completed
-		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
+		if currNodeState.TargetRevision > 0 && operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision {
+
+		} else if currNodeState.TargetRevision > currNodeState.CurrentRevision {
+			// if we are in a transition, check to see whether our installer pod completed
 			if operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision {
-				// no backoff if new revision is pending
+				// no backoff if new revision is pending quickly move to new revision even when an old installer
+				// has been seen, if necessary with deleting the old installer (it might be frozen).
+				installerPodName := getInstallerPodName(currNodeState)
+				if err := c.podsGetter.Pods(c.targetNamespace).Delete(ctx, installerPodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+					return true, 0, err
+				}
 			} else {
 				if currNodeState.LastFailedRevision == currNodeState.TargetRevision && currNodeState.LastFailedTime != nil && !currNodeState.LastFailedTime.IsZero() {
 					var delay time.Duration
@@ -653,34 +660,14 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 
 // newNodeStateForInstallInProgress returns the new NodeState
 func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Context, currNodeState *operatorv1.NodeStatus, latestRevisionAvailable int32) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
-	pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision
 	installerPodName := getInstallerPodName(currNodeState)
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, installerPodName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		if !pendingNewRevision {
-			// installer pod has disappeared before we saw it's termination state. Retry like if it had never existed.
-			c.eventRecorder.Warning("InstallerPodDisappeared", err.Error())
-			return currNodeState, true, fmt.Sprintf("pod %s disappeared", installerPodName), nil
-		}
+		// installer pod has disappeared before we saw it's termination state. Retry like if it had never existed.
+		c.eventRecorder.Warning("InstallerPodDisappeared", err.Error())
+		return currNodeState, true, fmt.Sprintf("pod %s disappeared", installerPodName), nil
 	} else if err != nil {
 		return nil, false, "", err
-	}
-
-	// quickly move to new revision even when an old installer has been seen, if necessary with force by
-	// deleting the old installer (it might be frozen).
-	if pendingNewRevision {
-		// stop early, don't wait for ready static operand pod because a new revision is waiting
-
-		if installerPod != nil && installerPod.Status.Phase != corev1.PodSucceeded && installerPod.Status.Phase != corev1.PodFailed {
-			// delete non-terminated pod. It may be in some state where it would never terminate, e.g. ContainerCreating
-			if err := c.podsGetter.Pods(c.targetNamespace).Delete(ctx, installerPodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				return nil, false, "", err
-			}
-		}
-
-		ret := currNodeState.DeepCopy()
-		ret.TargetRevision = latestRevisionAvailable
-		return ret, false, "new revision pending", nil
 	}
 
 	switch installerPod.Status.Phase {
