@@ -22,23 +22,25 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 	scenarios := []struct {
 		name               string
 		initialObjects     []runtime.Object
+		initialNodeStatus  []operatorv1.NodeStatus
 		previousConditions []operatorv1.OperatorCondition
 		expectedConditions []operatorv1.OperatorCondition
 	}{
 		{
 			name:           "scenario 1: happy path",
-			initialObjects: []runtime.Object{newPod(corev1.PodPending, "kube-apiserver-startup-monitor")},
+			initialObjects: []runtime.Object{newPod(corev1.PodRunning, "kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal")},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionFalse},
 				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionFalse},
 			},
+			initialNodeStatus: []operatorv1.NodeStatus{{NodeName: "ip-10-0-129-56.ec2.internal", TargetRevision: 2}},
 		},
 
 		{
 			name: "scenario 2: degraded in pending phase",
 			initialObjects: []runtime.Object{
 				func() *corev1.Pod {
-					p := newPod(corev1.PodPending, "kube-apiserver-startup-monitor")
+					p := newPod(corev1.PodPending, "kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal")
 					startTime := metav1.NewTime(time.Now().Add(-3 * time.Minute))
 					p.Status.StartTime = &startTime
 					p.Status.Reason = "PendingReason"
@@ -46,8 +48,9 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 					return p
 				}(),
 			},
+			initialNodeStatus: []operatorv1.NodeStatus{{NodeName: "ip-10-0-129-56.ec2.internal", TargetRevision: 2}},
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "PendingReason", Message: "the pod kube-apiserver-startup-monitor has been in Pending phase for more than max tolerated time \\(2m0s\\) due to PendingMessage"},
+				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "PendingReason", Message: "the pod kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal has been in Pending phase for more than max tolerated time \\(2m0s\\) due to PendingMessage"},
 				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionFalse},
 			},
 		},
@@ -56,7 +59,7 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 			name: "scenario 3: degraded container in pending phase",
 			initialObjects: []runtime.Object{
 				func() *corev1.Pod {
-					p := newPod(corev1.PodPending, "kube-apiserver-startup-monitor")
+					p := newPod(corev1.PodPending, "kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal")
 					startTime := metav1.NewTime(time.Now().Add(-3 * time.Minute))
 					p.Status.StartTime = &startTime
 					p.Status.Reason = "PendingReason"
@@ -70,8 +73,9 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 					return p
 				}(),
 			},
+			initialNodeStatus: []operatorv1.NodeStatus{{NodeName: "ip-10-0-129-56.ec2.internal", TargetRevision: 2}},
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "ContainerWaitingReason", Message: "the pod kube-apiserver-startup-monitor has been in Pending phase for more than max tolerated time \\(2m0s\\) due to PendingMessage\nat least one container WaitingContainerName is waiting since .* due to ContainerWaitingMessage"},
+				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "ContainerWaitingReason", Message: "the pod kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal has been in Pending phase for more than max tolerated time \\(2m0s\\) due to PendingMessage\nat least one container WaitingContainerName is waiting since .* due to ContainerWaitingMessage"},
 				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionFalse},
 			},
 		},
@@ -80,7 +84,7 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 			name: "scenario 4: degraded failed container",
 			initialObjects: []runtime.Object{
 				func() *corev1.Pod {
-					p := newPod(corev1.PodFailed, "kube-apiserver-startup-monitor")
+					p := newPod(corev1.PodFailed, "kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal")
 					p.Status.Reason = "FailedReason"
 					p.Status.Message = "FailedMessage"
 					p.Status.ContainerStatuses = []corev1.ContainerStatus{
@@ -92,8 +96,9 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 					return p
 				}(),
 			},
+			initialNodeStatus: []operatorv1.NodeStatus{{NodeName: "ip-10-0-129-56.ec2.internal", TargetRevision: 2}},
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "TerminatedContainerReason", Message: "at least one container TerminatedContainerName in kube-apiserver-startup-monitor pod exited with 255 \\(expected nonzero exit code\\), due to TerminatedContainerMessage"},
+				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionTrue, Reason: "TerminatedContainerReason", Message: "at least one container TerminatedContainerName in kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal pod exited with 255 \\(expected nonzero exit code\\), due to TerminatedContainerMessage"},
 				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionFalse},
 			},
 		},
@@ -102,7 +107,7 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 			name: "scenario 5: degraded excessive restarts",
 			initialObjects: []runtime.Object{
 				func() *corev1.Pod {
-					p := newPod(corev1.PodRunning, "kube-apiserver-startup-monitor")
+					p := newPod(corev1.PodRunning, "kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal")
 					p.Status.Reason = "FailedReason"
 					p.Status.Message = "FailedMessage"
 					p.Status.ContainerStatuses = []corev1.ContainerStatus{
@@ -116,19 +121,23 @@ func TestStartupMonitorPodConditionController(t *testing.T) {
 			},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "StartupMonitorPodDegraded", Status: operatorv1.ConditionFalse},
-				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionTrue, Reason: "ExcessiveRestarts", Message: "at least one container RestartingContainerName in kube-apiserver-startup-monitor pod has restarted 4 times, max allowed is 2"},
+				{Type: "StartupMonitorPodContainerExcessiveRestartsDegraded", Status: operatorv1.ConditionTrue, Reason: "ExcessiveRestarts", Message: "at least one container RestartingContainerName in kube-apiserver-startup-monitor-ip-10-0-129-56.ec2.internal pod has restarted 4 times, max allowed is 2"},
 			},
+			initialNodeStatus: []operatorv1.NodeStatus{{NodeName: "ip-10-0-129-56.ec2.internal", TargetRevision: 2}},
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// test data
-			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{},
+				&operatorv1.StaticPodOperatorStatus{
+					NodeStatuses: scenario.initialNodeStatus,
+					OperatorStatus: operatorv1.OperatorStatus{
+						Conditions: scenario.previousConditions,
+					}},
 				nil,
-				&operatorv1.OperatorStatus{
-					Conditions: scenario.previousConditions,
-				},
 				nil,
 			)
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
