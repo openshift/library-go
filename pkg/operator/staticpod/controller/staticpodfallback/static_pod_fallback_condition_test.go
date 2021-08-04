@@ -56,6 +56,34 @@ func TestStaticPodFallbackConditionController(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			name: "scenario 3: fallback detected, degraded condition set, multiple pods",
+			initialObjects: []runtime.Object{
+				func() *corev1.Pod {
+					pod := newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas")
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-for-revision"] = "3"
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-reason"] = "SomeReason"
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-message"] = "SomeMsg"
+					return pod
+				}(),
+				func() *corev1.Pod {
+					pod := newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-1")
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-for-revision"] = "3"
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-reason"] = "DifferentReason"
+					pod.Annotations["startup-monitor.static-pods.openshift.io/fallback-message"] = "DifferentMsg"
+					return pod
+				}(),
+			},
+			expectedConditions: []operatorv1.OperatorCondition{
+				{
+					Type:    "StaticPodFallbackRevisionDegraded",
+					Status:  operatorv1.ConditionTrue,
+					Reason:  "SomeReason",
+					Message: fmt.Sprintf("%s\n%s", "a static pod kas was rolled back to revision 3 due to SomeMsg", "a static pod kas-1 was rolled back to revision 3 due to DifferentMsg"),
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

@@ -60,28 +60,39 @@ func (fd *staticPodFallbackConditionController) sync(_ context.Context, _ factor
 		return nil
 	}
 
-	pods, err := fd.podLister.List(fd.podLabelSelector)
+	kasPods, err := fd.podLister.List(fd.podLabelSelector)
 	if err != nil {
 		return err
 	}
 
-	// we expect to get exactly one pod
-	// the error below will only show up in the operator's log not as a condition
-	if len(pods) != 1 {
-		return fmt.Errorf("unexpected number of Kube API server pods %d, expected only one pod, used %v as a pod selector", len(pods), fd.podLabelSelector)
+	var conditionReason string
+	var conditionMessage string
+	for _, kasPod := range kasPods {
+		if fallbackFor, ok := kasPod.Annotations[annotations.FallbackForRevision]; ok {
+			reason := "Unknown"
+			message := "unknown"
+			if s, ok := kasPod.Annotations[annotations.FallbackReason]; ok {
+				reason = s
+			}
+			if s, ok := kasPod.Annotations[annotations.FallbackMessage]; ok {
+				message = s
+			}
+
+			message = fmt.Sprintf("a static pod %v was rolled back to revision %v due to %v", kasPod.Name, fallbackFor, message)
+			if len(conditionMessage) > 0 {
+				conditionMessage = fmt.Sprintf("%s\n%s", conditionMessage, message)
+			} else {
+				conditionMessage = message
+			}
+			if len(conditionReason) == 0 {
+				conditionReason = reason
+			}
+		}
 	}
 
-	if fallbackFor, ok := pods[0].Annotations[annotations.FallbackForRevision]; ok {
-		reason := "Unknown"
-		message := "unknown"
-		if s, ok := pods[0].Annotations[annotations.FallbackReason]; ok {
-			reason = s
-		}
-		if s, ok := pods[0].Annotations[annotations.FallbackMessage]; ok {
-			message = s
-		}
-		degradedCondition.Message = fmt.Sprintf("a static pod %v was rolled back to revision %v due to %v", pods[0].Name, fallbackFor, message)
-		degradedCondition.Reason = reason
+	if len(conditionReason) > 0 || len(conditionMessage) > 0 {
+		degradedCondition.Message = conditionMessage
+		degradedCondition.Reason = conditionReason
 		degradedCondition.Status = operatorv1.ConditionTrue
 	}
 
