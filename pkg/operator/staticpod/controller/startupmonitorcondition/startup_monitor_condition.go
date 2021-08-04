@@ -17,7 +17,7 @@ import (
 
 // startupMonitorPodConditionController monitors the startup monitor pod and reports unwanted state/condition/phase as a degraded condition
 type startupMonitorPodConditionController struct {
-	operatorClient operatorv1helpers.OperatorClient
+	operatorClient operatorv1helpers.StaticPodOperatorClient
 
 	targetName string
 	podLister  corev1listers.PodNamespaceLister
@@ -28,7 +28,7 @@ type startupMonitorPodConditionController struct {
 // New returns a controller for monitoring the lifecycle of the startup monitor pod
 func New(targetNamespace string,
 	targetName string,
-	operatorClient operatorv1helpers.OperatorClient,
+	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	startupMonitorEnabledFn func() (bool, error),
 	eventRecorder events.Recorder) factory.Controller {
@@ -38,7 +38,7 @@ func New(targetNamespace string,
 		podLister:               kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Lister().Pods(targetNamespace),
 		startupMonitorEnabledFn: startupMonitorEnabledFn,
 	}
-	return factory.New().WithSync(fd.sync).ResyncEvery(6*time.Minute).WithInformers(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer()).ToController("StartupMonitorPodCondition", eventRecorder)
+	return factory.New().WithSync(fd.sync).ResyncEvery(6*time.Minute).WithInformers(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer(), operatorClient.Informer()).ToController("StartupMonitorPodCondition", eventRecorder)
 }
 
 func (fd *startupMonitorPodConditionController) sync(_ context.Context, _ factory.SyncContext) (err error) {
@@ -63,7 +63,26 @@ func (fd *startupMonitorPodConditionController) sync(_ context.Context, _ factor
 		return nil
 	}
 
-	monitorPod, err := fd.podLister.Get(fmt.Sprintf("%s-startup-monitor", fd.targetName))
+	_, operatorStatus, _, err := fd.operatorClient.GetStaticPodOperatorState()
+	if err != nil {
+		return err
+	}
+
+	var currentNodeName string
+	for _, ns := range operatorStatus.NodeStatuses {
+		// only one node is allowed to be progressing at a time
+		if ns.TargetRevision > 0 {
+			currentNodeName = ns.NodeName
+			break
+		}
+	}
+
+	if len(currentNodeName) == 0 {
+		// nothing to do, no node is progressing
+		return nil
+	}
+
+	monitorPod, err := fd.podLister.Get(fmt.Sprintf("%s-startup-monitor-%s", fd.targetName, currentNodeName))
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
