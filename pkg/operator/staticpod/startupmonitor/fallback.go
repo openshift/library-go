@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
@@ -118,11 +117,6 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 	lastKnownGoodPod.Annotations[annotations.FallbackReason] = reason
 	lastKnownGoodPod.Annotations[annotations.FallbackMessage] = message
 
-	// the kubelet has a bug that prevents graceful termination from working on static pods with the same name, filename
-	// and uuid.  By setting the pod UID we can work around the kubelet bug and get our graceful termination honored.
-	// Per the node team, this is hard to fix in the kubelet, though it will affect all static pods.
-	lastKnownGoodPod.UID = uuid.NewUUID()
-
 	if lastKnownGoodPod.Labels != nil {
 		lastKnownGoodPodRevision := lastKnownGoodPod.Labels["revision"]
 		klog.Infof("About to fallback to the last-known-good revision %v", lastKnownGoodPodRevision)
@@ -150,7 +144,7 @@ func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
 		return err
 	}
 
-	// the startup-monitor is authorative to signal readiness of a revision. The operator
+	// the startup-monitor is authoritative to signal readiness of a revision. The operator
 	// is waiting for this to happen. Otherwise, the operator could assume readiness while
 	// the startup-monitor falls back, leading to an awkward situation.
 	// Note that this will retry forever, with a backoff.
