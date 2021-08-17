@@ -2,6 +2,7 @@ package staticpodfallback
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -9,6 +10,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -105,7 +107,7 @@ func TestStaticPodFallbackConditionController(t *testing.T) {
 
 			// act
 			target := &staticPodFallbackConditionController{
-				podLister:        corev1listers.NewPodLister(indexer).Pods("openshift-kube-apiserver"),
+				podLister:        orderedPodNamespaceLister{corev1listers.NewPodLister(indexer).Pods("openshift-kube-apiserver")},
 				operatorClient:   fakeOperatorClient,
 				podLabelSelector: labels.Set{"apiserver": "true"}.AsSelector(),
 				startupMonitorEnabledFn: func() (bool, error) {
@@ -172,4 +174,39 @@ func newPod(phase corev1.PodPhase, ready corev1.ConditionStatus, revision, name 
 	}
 
 	return &pod
+}
+
+// we need a deterministic pod lister for tests
+// otherwise the order of the pods will yield different results
+type orderedPodNamespaceLister struct {
+	podLister corev1listers.PodNamespaceLister
+}
+
+func (s orderedPodNamespaceLister) List(selector labels.Selector) (ret []*v1.Pod, err error) {
+	pods, err := s.podLister.List(selector)
+	if err != nil {
+		return nil, err
+	}
+	// sort pods by name
+	sort.Sort(ascendingName(pods))
+	return pods, nil
+}
+
+func (s orderedPodNamespaceLister) Get(name string) (*v1.Pod, error) {
+	return s.podLister.Get(name)
+}
+
+//  is a sort.Interface that Sorts a list of Pods based on the names of the Pod
+type ascendingName []*v1.Pod
+
+func (as ascendingName) Len() int {
+	return len(as)
+}
+
+func (as ascendingName) Swap(i, j int) {
+	as[i], as[j] = as[j], as[i]
+}
+
+func (as ascendingName) Less(i, j int) bool {
+	return as[i].Name < as[j].Name
 }
