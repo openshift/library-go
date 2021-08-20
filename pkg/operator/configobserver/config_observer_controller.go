@@ -162,6 +162,13 @@ func (c ConfigObserver) sync(ctx context.Context, syncCtx factory.SyncContext) e
 	if err := c.updateObservedConfig(syncCtx, existingConfig, mergedObservedConfig); err != nil {
 		errs = []error{err}
 	}
+
+	// check if external cloud provider has been applied
+	externalCloudProviderApplied, err := isExternalCloudProviderApplied(mergedObservedConfig)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	configError := v1helpers.NewMultiLineAggregate(errs)
 
 	// update failing condition
@@ -178,7 +185,31 @@ func (c ConfigObserver) sync(ctx context.Context, syncCtx factory.SyncContext) e
 		return updateError
 	}
 
+	// update external cloud provider condition
+	if externalCloudProviderApplied {
+		cond := operatorv1.OperatorCondition{
+			Type:   "CloudControllerOwner",
+			Status: operatorv1.ConditionFalse,
+		}
+		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+			return updateError
+		}
+	}
+
 	return configError
+}
+
+func isExternalCloudProviderApplied(observedConfigs map[string]interface{}) (bool, error) {
+	cloudProvider, found, err := unstructured.NestedSlice(observedConfigs, "extendedArguments", "cloud-provider")
+	if !found || err != nil {
+		return false, err
+	}
+
+	if len(cloudProvider) == 1 && (cloudProvider[0] == "external" || cloudProvider[0] == "") {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (c ConfigObserver) updateObservedConfig(syncCtx factory.SyncContext, existingConfig map[string]interface{}, mergedObservedConfig map[string]interface{}) error {
