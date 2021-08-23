@@ -162,6 +162,13 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
 		currentKeyMeta, err := GetLastKeyMeta(kubeClient, namespace, labelSelector)
 		if err != nil {
+			// TODO: GetLastKeyMeta has a wait.ExponentialBackoff inside which is not
+			//  required when we are already trying under wait.Poll. We need to refactor
+			//  the retry logic.
+			if transientAPIError(err) || err == wait.ErrWaitTimeout {
+				return false, nil
+			}
+
 			return false, err
 		}
 
