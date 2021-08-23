@@ -59,6 +59,8 @@ func TestServingCert(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// strip the intermediate signers which are included
+	servingCertConfig.Certs = servingCertConfig.Certs[:1]
 	servingPEMCertByte, servingPEMKeyBytes, err := servingCertConfig.GetPEMBytes()
 	if err != nil {
 		t.Fatal(err)
@@ -126,12 +128,15 @@ func TestServingCert(t *testing.T) {
 			// the client would not detect that failure and would improperly trust the server.
 			name: "trust-bravo-second-intermediate-signer",
 			caBundle: [][]byte{
+				signerDeltaPEMCertByte,
 				signerBravoPEMCertByte,
 			},
 		},
 		{
 			name: "trust-alfa-root-signer",
 			caBundle: [][]byte{
+				signerDeltaPEMCertByte,
+				signerBravoPEMCertByte,
 				rootAlfaPEMBytes,
 			},
 		},
