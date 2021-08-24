@@ -1,7 +1,6 @@
 package proc
 
 import (
-	"bufio"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,43 +9,66 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
 // parseProcForZombies parses the current procfs mounted at /proc
 // to find processes in the zombie state.
-func parseProcForZombies() ([]int, error) {
-	files, err := ioutil.ReadDir("/proc")
+func parseProcForZombies(path string) (zombies []int, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	directories, err := file.Readdirnames(-1)
 	if err != nil {
 		return nil, err
 	}
 
-	var zombies []int
-	for _, file := range files {
-		processID, err := strconv.Atoi(file.Name())
+	for _, name := range directories {
+		// Processes have numeric names. If the pid cannot
+		// be parsed to an int, it is not a process pid.
+		pid, err := strconv.ParseInt(name, 10, 0)
 		if err != nil {
-			break
-		}
-		stateFilePath := filepath.Join("/proc", file.Name(), "status")
-		fd, err := os.Open(stateFilePath)
-		if err != nil {
-			klog.Errorf("Failed to open %v for getting process status: %v", stateFilePath, err)
 			continue
 		}
-		defer fd.Close()
-		fs := bufio.NewScanner(fd)
-		for fs.Scan() {
-			line := fs.Text()
-			if strings.HasPrefix(line, "State:") {
-				if strings.Contains(line, "zombie") {
-					zombies = append(zombies, processID)
-				}
-				break
-			}
+
+		zombie, err := isZombie(path, name)
+		if err != nil {
+			klog.Errorf(
+				"Failed to get the status of process with PID %s: %v",
+				pid, err,
+			)
+			continue
+		}
+		if zombie {
+			zombies = append(zombies, int(pid))
 		}
 	}
 
 	return zombies, nil
+}
+
+// isZombie returns if a process is a zombie from /proc/[pid]/stat.
+func isZombie(fsPath, pid string) (bool, error) {
+	bytes, err := ioutil.ReadFile(filepath.Join(fsPath, pid, "stat"))
+	if err != nil {
+		return false, err
+	}
+	data := string(bytes)
+
+	// /proc/[PID]/stat format is described in proc(5). The second field is
+	// process name, enclosed in parentheses, and it can contain parentheses
+	// inside. No other fields can have parentheses, so look for the last ')'.
+	i := strings.LastIndexByte(data, ')')
+	if i <= 2 || i >= len(data)-1 {
+		return false, errors.Errorf("invalid stat data (no comm): %q", data)
+	}
+
+	// The state is field 3, which is the first two fields and a space after.
+	return string(data[i+2]) == "Z", nil
 }
 
 // StartReaper starts a goroutine to reap processes periodically if called
@@ -64,7 +86,7 @@ func StartReaper(period time.Duration) {
 			var zs []int
 			var err error
 			for {
-				zs, err = parseProcForZombies()
+				zs, err = parseProcForZombies("/proc")
 				if err != nil {
 					klog.Errorf("Failed to parse proc filesystem to find processes to reap: %v", err)
 					continue
