@@ -82,7 +82,7 @@ func AssertLastMigratedKey(t testing.TB, kubeClient kubernetes.Interface, target
 	t.Helper()
 	expectedGRs := targetGRs
 	t.Logf("Checking if the last migrated key was used to encrypt %v", expectedGRs)
-	lastMigratedKeyMeta, err := GetLastKeyMeta(kubeClient, namespace, labelSelector)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 	require.NoError(t, err)
 	if len(lastMigratedKeyMeta.Name) == 0 {
 		t.Log("Nothing to check no new key was created")

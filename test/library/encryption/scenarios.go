@@ -117,7 +117,7 @@ func TestEncryptionRotation(t *testing.T, scenario RotationScenario) {
 	rawEncryptedResourceWithKey1 := scenario.GetRawResourceFunc(e, clientSet, ns)
 
 	// step 4: force key rotation and wait for migration to complete
-	lastMigratedKeyMeta, err := GetLastKeyMeta(clientSet.Kube, ns, labelSelector)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, ns, labelSelector)
 	require.NoError(e, err)
 	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
 	WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyMeta, scenario.TargetGRs, ns, labelSelector)
