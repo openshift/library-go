@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -484,5 +485,31 @@ func makeNode(suffix string, labels map[string]string) *v1.Node {
 			Name:   fmt.Sprintf("node-%s", suffix),
 			Labels: labels,
 		},
+	}
+}
+
+func TestWithLeaderElectionReplacerHook(t *testing.T) {
+	in := `
+            - --leader-election-lease-duration=${LEADER_ELECTION_LEASE_DURATION}
+            - --leader-election-renew-deadline=${LEADER_ELECTION_RENEW_DEADLINE}
+            - --leader-election-retry-period=${LEADER_ELECTION_RETRY_PERIOD}
+`
+	expected := `
+            - --leader-election-lease-duration=1s
+            - --leader-election-renew-deadline=2s
+            - --leader-election-retry-period=3s
+`
+	le := configv1.LeaderElection{
+		LeaseDuration: metav1.Duration{Duration: time.Second},
+		RenewDeadline: metav1.Duration{Duration: 2 * time.Second},
+		RetryPeriod:   metav1.Duration{Duration: 3 * time.Second},
+	}
+	hook := WithLeaderElectionReplacerHook(le)
+	out, err := hook(nil, []byte(in))
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+	if string(out) != expected {
+		t.Errorf("expected %q, got %q", expected, string(out))
 	}
 }
