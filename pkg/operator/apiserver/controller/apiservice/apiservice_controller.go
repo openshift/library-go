@@ -120,6 +120,19 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 
 	err = c.syncAPIServices(ctx, apiServices, syncCtx.Recorder())
 
+	if err != nil {
+		// a closed context indicates that the process has been requested to shutdown
+		// in that case we might have failed to check availability of the downstream servers due to the context being closed
+		// in that case don't report the failure to avoid false positives and changing the condition of the operator
+		// the next process will perform the checks immediately after the startup
+		select {
+		case <-ctx.Done():
+			nerr := fmt.Errorf("the operator is shutting down, skipping updating availability of the aggreaged APIs, err = %v", err)
+			return nerr
+		default:
+		}
+	}
+
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
 		Type:   "APIServicesAvailable",
