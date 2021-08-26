@@ -55,7 +55,7 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	t.Logf("Starting encryption e2e test for %q mode", encryptionType)
 
 	clientSet := GetClients(t)
-	lastMigratedKeyMeta, err := GetLastKeyMeta(clientSet.Kube, namespace, labelSelector)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
 	require.NoError(t, err)
 
 	apiServer, err := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
@@ -119,7 +119,7 @@ func waitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, pr
 
 	observedTimestamp := time.Now()
 	if err := wait.Poll(waitNoKeyPollInterval, waitNoKeyPollTimeout, func() (bool, error) {
-		currentKeyMeta, err := GetLastKeyMeta(kubeClient, namespace, labelSelector)
+		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 		if err != nil {
 			return false, err
 		}
@@ -160,7 +160,7 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 	}(prevKeyMeta.Name))
 	observedKeyName := prevKeyMeta.Name
 	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
-		currentKeyMeta, err := GetLastKeyMeta(kubeClient, namespace, labelSelector)
+		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 		if err != nil {
 			return false, err
 		}
@@ -191,11 +191,33 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 	}
 }
 
-func GetLastKeyMeta(kubeClient kubernetes.Interface, namespace, labelSelector string) (EncryptionKeyMeta, error) {
+func GetLastKeyMeta(t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector string) (EncryptionKeyMeta, error) {
 	secretsClient := kubeClient.CoreV1().Secrets(namespace)
 	var selectedSecrets *corev1.SecretList
-	err := onErrorWithTimeout(wait.ForeverTestTimeout, retry.DefaultBackoff, transientAPIError, func() (err error) {
+
+	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
+	// so we set the timeout to 5 min just in case
+	pollTimeout := time.Minute * 5
+
+	// set the number of step to high value
+	// we should stop on timeout otherwise the backoff returns after 5 steps
+	// and we never wait the timeout value
+	backOff := retry.DefaultBackoff
+	backOff.Steps = 9999
+
+	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
+	// so we set the timeout to 5 min just in case
+	err := onErrorWithTimeout(pollTimeout, backOff, func(err error) bool {
+		if !transientAPIError(err) {
+			t.Logf("error = %v is not retriable, failed to get the metadata from the last encryption key", err)
+			return false
+		}
+		return true // retry
+	}, func() (err error) {
 		selectedSecrets, err = secretsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			t.Logf("failed to list secrets, err = %v", err.Error())
+		}
 		return
 	})
 	if err != nil {
