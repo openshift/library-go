@@ -101,7 +101,7 @@ func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder
 			Reason:  "ContentCreationError",
 			Message: err.Error(),
 		}
-		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+		if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 			recorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
 			return true, updateError
 		}
@@ -305,7 +305,7 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		if err == nil {
 			return updateError
 		}

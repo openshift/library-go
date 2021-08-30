@@ -96,7 +96,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 	}
 	ready, err := c.precondition(apiServices)
 	if err != nil {
-		if _, _, updateErr := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+		if _, _, updateErr := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:    "APIServicesAvailable",
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "ErrorCheckingPrecondition",
@@ -107,7 +107,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 		return err
 	}
 	if !ready {
-		if _, _, updateErr := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+		if _, _, updateErr := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:    "APIServicesAvailable",
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "PreconditionNotReady",
@@ -143,7 +143,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		if err == nil {
 			return updateError
 		}

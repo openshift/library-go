@@ -43,14 +43,14 @@ func (c *fakeOperatorClient) GetOperatorState() (spec *operatorv1.OperatorSpec, 
 	return c.startingSpec, &operatorv1.OperatorStatus{}, "", nil
 }
 
-func (c *fakeOperatorClient) UpdateOperatorSpec(rv string, in *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
+func (c *fakeOperatorClient) UpdateOperatorSpec(_ context.Context, rv string, in *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	if c.specUpdateFailure != nil {
 		return &operatorv1.OperatorSpec{}, rv, c.specUpdateFailure
 	}
 	c.spec = in
 	return in, rv, c.specUpdateFailure
 }
-func (c *fakeOperatorClient) UpdateOperatorStatus(rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
+func (c *fakeOperatorClient) UpdateOperatorStatus(_ context.Context, rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = in
 	return in, nil
 }

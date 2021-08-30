@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"context"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -538,6 +539,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			// act
 			target := &Controller{operatorClient: fakeOperatorClient, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
 			err := target.updateOperatorStatus(
+				context.TODO(),
 				&operatorv1.OperatorStatus{Conditions: scenario.previousConditions},
 				scenario.workload,
 				scenario.operatorConfigAtHighestRevision,

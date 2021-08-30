@@ -88,7 +88,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if degradedCondition == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
 			err = updateError
 		}
 	}()

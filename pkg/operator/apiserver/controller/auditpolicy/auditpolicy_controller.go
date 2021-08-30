@@ -90,7 +90,7 @@ func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncCo
 		cond.Reason = "Error"
 		cond.Message = err.Error()
 	}
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		if err == nil {
 			return updateError
 		}

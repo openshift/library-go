@@ -124,12 +124,12 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 	}
 
 	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
-		return c.updateOperatorStatus(operatorStatus, nil, false, false, []error{err})
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
 
-	return c.updateOperatorStatus(operatorStatus, workload, operatorConfigAtHighestGeneration, true, errs)
+	return c.updateOperatorStatus(ctx, operatorStatus, workload, operatorConfigAtHighestGeneration, true, errs)
 }
 
 // shouldSync checks ManagementState to determine if we can run this operator, probably set by a cluster administrator.
@@ -151,7 +151,7 @@ func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.Op
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
+func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
 	if errs == nil {
 		errs = []error{}
 	}
@@ -188,7 +188,7 @@ func (c *Controller) updateOperatorStatus(previousStatus *operatorv1.OperatorSta
 		if updateGenerationFn != nil {
 			updates = append(updates, updateGenerationFn)
 		}
-		if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, updates...); updateError != nil {
+		if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, updates...); updateError != nil {
 			err = updateError
 		}
 	}()

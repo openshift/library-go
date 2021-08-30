@@ -131,7 +131,7 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	klog.V(4).Infof("syncManaged")
 
 	if management.IsOperatorRemovable() {
-		if err := v1helpers.EnsureFinalizer(c.operatorClient, c.name); err != nil {
+		if err := v1helpers.EnsureFinalizer(ctx, c.operatorClient, c.name); err != nil {
 			return err
 		}
 	}
@@ -182,6 +182,7 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	}
 
 	_, _, err = v1helpers.UpdateStatus(
+		ctx,
 		c.operatorClient,
 		updateStatusFn,
 		v1helpers.UpdateConditionFn(availableCondition),
@@ -206,7 +207,7 @@ func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.Op
 	}
 
 	// All removed, remove the finalizer as the last step
-	return v1helpers.RemoveFinalizer(c.operatorClient, c.name)
+	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.name)
 }
 
 func (c *DeploymentController) getDeployment(opSpec *opv1.OperatorSpec) (*appsv1.Deployment, error) {
