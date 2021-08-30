@@ -1,6 +1,8 @@
 package csidrivercontrollerservicecontroller
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/config/leaderelection"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -44,6 +46,10 @@ import (
 // The placeholder ${CLUSTER_ID} specified in the static file is replaced with the cluster ID (sometimes referred as infra ID).
 // This is mostly used by CSI drivers to tag volumes and snapshots so that those resources can be cleaned up on cluster deletion.
 //
+// 4. Leader election parameters
+// The placeholders ${LEADER_ELECTION_LEASE_DURATION}, ${LEADER_ELECTION_RENEW_DEADLINE} and ${LEADER_ELECTION_RETRY_PERIOD}
+// are replaced with OpenShift's recommended parameters for leader election.
+//
 // This controller supports removable operands, as configured in pkg/operator/management.
 //
 // This controller produces the following conditions:
@@ -66,6 +72,9 @@ func NewCSIDriverControllerServiceController(
 	optionalInformers = append(optionalInformers, configInformer.Config().V1().Infrastructures().Informer())
 	var optionalManifestHooks []dc.ManifestHookFunc
 	optionalManifestHooks = append(optionalManifestHooks, WithPlaceholdersHook(configInformer))
+	leConfig := leaderelection.LeaderElectionDefaulting(configv1.LeaderElection{}, "default", "default")
+	optionalManifestHooks = append(optionalManifestHooks, WithLeaderElectionReplacerHook(leConfig))
+
 	var deploymentHooks []dc.DeploymentHookFunc
 	deploymentHooks = append(deploymentHooks, optionalDeploymentHooks...)
 	deploymentHooks = append(deploymentHooks, WithControlPlaneTopologyHook(configInformer))

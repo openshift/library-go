@@ -179,3 +179,18 @@ func WithControlPlaneTopologyHook(configInformer configinformers.SharedInformerF
 		return nil
 	}
 }
+
+// WithLeaderElectionReplacerHook modifies ${LEADER_ELECTION_*} parameters in a yaml file with
+// OpenShift's recommended values.
+func WithLeaderElectionReplacerHook(defaults configv1.LeaderElection) dc.ManifestHookFunc {
+	return func(spec *opv1.OperatorSpec, manifest []byte) ([]byte, error) {
+		pairs := []string{
+			// truncate to int() to avoid long floats ("137.000000s")
+			"${LEADER_ELECTION_LEASE_DURATION}", fmt.Sprintf("%ds", int(defaults.LeaseDuration.Seconds())),
+			"${LEADER_ELECTION_RENEW_DEADLINE}", fmt.Sprintf("%ds", int(defaults.RenewDeadline.Seconds())),
+			"${LEADER_ELECTION_RETRY_PERIOD}", fmt.Sprintf("%ds", int(defaults.RetryPeriod.Seconds())),
+		}
+		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
+		return []byte(replaced), nil
+	}
+}
