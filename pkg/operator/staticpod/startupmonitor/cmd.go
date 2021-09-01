@@ -10,6 +10,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -59,6 +60,9 @@ type Options struct {
 	// every iteration of the probe interval with this lock taken.
 	InstallerLockFile string
 
+	// LogFile is the file the logs are written.
+	LogFile string
+
 	// Check is the readiness step.
 	Check ReadinessChecker
 }
@@ -75,6 +79,8 @@ func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Conf
 		Use:   "startup-monitor",
 		Short: "Monitors the provided static pod revision and if it proves unhealthy rolls back to the previous revision.",
 		Run: func(cmd *cobra.Command, args []string) {
+			setupLogger(o.LogFile)
+
 			klog.V(1).Info(cmd.Flags())
 			klog.V(1).Info(spew.Sdump(o))
 
@@ -144,6 +150,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.TargetName, "target-name", o.TargetName, "identifies operand used to construct the final file name when reading the current and previous manifests")
 	fs.StringVar(&o.InstallerLockFile, "installer-lock-file", o.InstallerLockFile, "file path for the installer flock based lock file")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of the node as used in the static pod operator resource")
+	// make sure it won't match klog's flags
+	fs.StringVar(&o.LogFile, "log-file-path", o.LogFile, "the full path to the log file (including the file name)")
 }
 
 func (o *Options) Validate() error {
@@ -163,6 +171,19 @@ func (o *Options) Validate() error {
 		return fmt.Errorf("--node-name is required")
 	}
 	return nil
+}
+
+func setupLogger(logFilePath string) {
+	if len(logFilePath) == 0 {
+		return
+	}
+	klog.SetOutput(&lumberjack.Logger{
+		Filename:   logFilePath,
+		MaxSize:    100, // large files break some editors
+		MaxBackups: 3,
+		MaxAge:     28, // if something goes wrong we will be called out early, retain logs for ~ a month, just in case
+		Compress:   false,
+	})
 }
 
 type suicider interface {
