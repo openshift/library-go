@@ -3,6 +3,7 @@ package startupmonitor
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -15,9 +16,11 @@ type startupMonitorTemplate struct {
 	TargetName      string
 	OperatorImage   string
 	Verbosity       string
+	LogFilePath     string
+	LogFileDir      string
 }
 
-func GeneratePodTemplate(operatorSpec *operatorv1.StaticPodOperatorSpec, command []string, targetNamespace, targetName, targetImagePullSpec string) (string, error) {
+func GeneratePodTemplate(operatorSpec *operatorv1.StaticPodOperatorSpec, command []string, targetNamespace, targetName, targetImagePullSpec, logFile string) (string, error) {
 	rawStartupMonitorManifest := mustAsset("assets/startup-monitor-pod.yaml")
 
 	var verbosity string
@@ -44,6 +47,13 @@ func GeneratePodTemplate(operatorSpec *operatorv1.StaticPodOperatorSpec, command
 		TargetName:      targetName,
 		OperatorImage:   targetImagePullSpec,
 		Verbosity:       verbosity,
+		LogFilePath:     logFile,
+		LogFileDir: func() string {
+			if len(logFile) == 0 {
+				return ""
+			}
+			return filepath.Dir(logFile)
+		}(),
 	}
 	tmpl, err := template.New("monitor").Parse(string(rawStartupMonitorManifest))
 	if err != nil {
