@@ -475,7 +475,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 
 				if err := c.ensureInstallerPod(ctx, operatorSpec, currNodeState); err != nil {
 					c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
-						currNodeState.TargetRevision, currNodeState.NodeName, currNodeState.LastFailedCount, err)
+						currNodeState.TargetRevision, currNodeState.LastFailedCount, currNodeState.NodeName, err)
 					// if a newer revision is pending, continue, so we retry later with the latest available revision
 					if !(operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision) {
 						return true, 0, err
