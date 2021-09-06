@@ -157,6 +157,13 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected: true,
 	}, {
+		name: "No FeatureGate, Platform: IBMCloud",
+		status: &configv1.PlatformStatus{
+			Type: configv1.IBMCloudPlatformType,
+		},
+		featureGate: nil,
+		expected:    true,
+	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: Azure",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AzurePlatformType,
