@@ -12,6 +12,11 @@ const (
 	// This is used to flag to operators that the cluster should be using the external cloud-controller-manager
 	// rather than the in-tree cloud controller loops.
 	ExternalCloudProviderFeature = "ExternalCloudProvider"
+
+	// DisableCloudProviders is an upstream feature gate that disables cloud initialization within
+	// KCM, KAS and Kubelet.
+	// https://github.com/kubernetes/kubernetes/blob/4615578137f42cb69c2e193723a2366ce7eb73c3/pkg/features/kube_features.go#L569-L570
+	DisableCloudProvidersFeature = "DisableCloudProviders"
 )
 
 // IsCloudProviderExternal is used to check whether external cloud provider settings should be used in a component.
@@ -63,5 +68,6 @@ func isExternalFeatureGateEnabled(featureGate *configv1.FeatureGate) (bool, erro
 		disabledFeatureGates = sets.NewString(featureGate.Spec.CustomNoUpgrade.Disabled...)
 	}
 
-	return !disabledFeatureGates.Has(ExternalCloudProviderFeature) && enabledFeatureGates.Has(ExternalCloudProviderFeature), nil
+	return !disabledFeatureGates.Has(ExternalCloudProviderFeature) && enabledFeatureGates.Has(ExternalCloudProviderFeature) ||
+		!disabledFeatureGates.Has(DisableCloudProvidersFeature) && enabledFeatureGates.Has(DisableCloudProvidersFeature), nil
 }

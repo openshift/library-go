@@ -267,6 +267,56 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected:    false,
 		expectedErr: fmt.Errorf("platformStatus is required"),
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With Disable Cloud Providers Feature Gate), Platform: AWS",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AWSPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled: []string{DisableCloudProvidersFeature},
+					},
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Enabled, DisableCloudProviders Disabled), Platform: AWS",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AWSPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled:  []string{ExternalCloudProviderFeature},
+						Disabled: []string{DisableCloudProvidersFeature},
+					},
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With DisableCloudProviders Enabled, External Disabled), Platform: AWS",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AWSPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled:  []string{DisableCloudProvidersFeature},
+						Disabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: true,
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
