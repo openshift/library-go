@@ -15,6 +15,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/util/cert"
 )
 
 // RotatedSigningCASecret rotates a self-signed signing CA stored in a secret. It creates a new one when
@@ -56,7 +57,7 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	}
 	signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
+	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret, c.Refresh, c.RefreshOnlyWhenExpired); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
 			return nil, err
@@ -79,8 +80,8 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	return signingCertKeyPair, nil
 }
 
-func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
-	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+	notBefore, notAfter, reason := getValidityFromCert(secret.Data["tls.crt"])
 	if len(reason) > 0 {
 		return true, reason
 	}
@@ -105,6 +106,22 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 	}
 
 	return false, ""
+}
+
+func getValidityFromCert(certBytes []byte) (notBefore time.Time, notAfter time.Time, reason string) {
+	if len(certBytes) == 0 {
+		return notBefore, notAfter, "certificate data missing"
+	}
+
+	certs, err := cert.ParseCertsPEM(certBytes)
+	if err != nil {
+		return notBefore, notAfter, fmt.Sprintf("error reading cert: %s", err)
+	}
+
+	if len(certs) == 0 {
+		return notBefore, notAfter, "certificate data missing"
+	}
+	return certs[0].NotBefore, certs[0].NotAfter, ""
 }
 
 func getValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
