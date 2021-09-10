@@ -395,6 +395,8 @@ func (c *Context) cachedTransport(rt http.RoundTripper, host string, scopes []au
 		// TODO: make multiple attempts if the first credential fails
 		auth.NewAuthorizer(
 			c.Challenges,
+			// authorizationServiceHandler has to be first to potentially prepare c.Credentials before NewTokenHandlerWithOptions kicks in
+			&authorizationServiceHandler{c.Credentials},
 			auth.NewTokenHandlerWithOptions(auth.TokenHandlerOptions{
 				Transport:   rt,
 				Credentials: creds,
