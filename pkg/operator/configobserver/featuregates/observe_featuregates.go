@@ -19,25 +19,25 @@ type FeatureGateLister interface {
 	FeatureGateLister() configlistersv1.FeatureGateLister
 }
 
-// NewObserveFeatureFlagsFunc produces a configobserver for feature gates.  If non-nil, the featureWhitelist filters
-// feature gates to a known subset (instead of everything).  The featureBlacklist will stop certain features from making
-// it through the list.  The featureBlacklist should be empty, but for a brief time, some featuregates may need to skipped.
+// NewObserveFeatureFlagsFunc produces a configobserver for feature gates.  If non-nil, the featureAllowList filters
+// feature gates to a known subset (instead of everything).  The featureDenyList will stop certain features from making
+// it through the list.  The featureDenyList should be empty, but for a brief time, some featuregates may need to skipped.
 // @smarterclayton will live forever in shame for being the first to require this for "IPv6DualStack".
-func NewObserveFeatureFlagsFunc(featureWhitelist sets.String, featureBlacklist sets.String, configPath []string) configobserver.ObserveConfigFunc {
+func NewObserveFeatureFlagsFunc(featureAllowList sets.String, featureDenyList sets.String, configPath []string) configobserver.ObserveConfigFunc {
 	return (&featureFlags{
-		allowAll:         len(featureWhitelist) == 0,
-		featureWhitelist: featureWhitelist,
-		featureBlacklist: featureBlacklist,
+		allowAll:         len(featureAllowList) == 0,
+		featureAllowList: featureAllowList,
+		featureDenyList:  featureDenyList,
 		configPath:       configPath,
 	}).ObserveFeatureFlags
 }
 
 type featureFlags struct {
 	allowAll         bool
-	featureWhitelist sets.String
+	featureAllowList sets.String
 	// we add a forceDisableFeature list because we've now had bad featuregates break individual operators.  Awesome.
-	featureBlacklist sets.String
-	configPath       []string
+	featureDenyList sets.String
+	configPath      []string
 }
 
 // ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
@@ -65,7 +65,7 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 		return existingConfig, append(errs, err)
 	}
 
-	newConfigValue, err := f.getWhitelistedFeatureNames(configResource)
+	newConfigValue, err := f.getAllowedFeatureNames(configResource)
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
@@ -86,7 +86,7 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 	return observedConfig, errs
 }
 
-func (f *featureFlags) getWhitelistedFeatureNames(fg *configv1.FeatureGate) ([]string, error) {
+func (f *featureFlags) getAllowedFeatureNames(fg *configv1.FeatureGate) ([]string, error) {
 	var err error
 	newConfigValue := []string{}
 	enabledFeatures := []string{}
@@ -104,21 +104,21 @@ func (f *featureFlags) getWhitelistedFeatureNames(fg *configv1.FeatureGate) ([]s
 	}
 
 	for _, enable := range enabledFeatures {
-		if f.featureBlacklist.Has(enable) {
+		if f.featureDenyList.Has(enable) {
 			continue
 		}
-		// only add whitelisted feature flags
-		if !f.allowAll && !f.featureWhitelist.Has(enable) {
+		// only add allowed feature flags
+		if !f.allowAll && !f.featureAllowList.Has(enable) {
 			continue
 		}
 		newConfigValue = append(newConfigValue, formatEnabledFunc(enable))
 	}
 	for _, disable := range disabledFeatures {
-		if f.featureBlacklist.Has(disable) {
+		if f.featureDenyList.Has(disable) {
 			continue
 		}
-		// only add whitelisted feature flags
-		if !f.allowAll && !f.featureWhitelist.Has(disable) {
+		// only add allowed feature flags
+		if !f.allowAll && !f.featureAllowList.Has(disable) {
 			continue
 		}
 		newConfigValue = append(newConfigValue, formatDisabledFunc(disable))
