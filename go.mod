@@ -33,9 +33,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e // indirect
-	github.com/openshift/api v0.0.0-20200827090112-c05698d102cf
+	github.com/openshift/api v0.0.0-20210928121311-b64fe3d0dc32
 	github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7
-	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
+	github.com/openshift/client-go v0.0.0-20210928145214-e2e89b5e9cd8
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.7.1
@@ -49,19 +49,19 @@ require (
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
-	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	k8s.io/api v0.19.0
-	k8s.io/apiextensions-apiserver v0.19.0
-	k8s.io/apimachinery v0.19.0
-	k8s.io/apiserver v0.19.0
-	k8s.io/client-go v0.19.0
-	k8s.io/component-base v0.19.0
+	k8s.io/api v0.19.14
+	k8s.io/apiextensions-apiserver v0.19.14
+	k8s.io/apimachinery v0.19.14
+	k8s.io/apiserver v0.19.14
+	k8s.io/client-go v0.19.14
+	k8s.io/component-base v0.19.14
 	k8s.io/klog/v2 v2.3.0
-	k8s.io/kube-aggregator v0.19.0
+	k8s.io/kube-aggregator v0.19.14
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 	sigs.k8s.io/kube-storage-version-migrator v0.0.3
 	sigs.k8s.io/yaml v1.2.0
