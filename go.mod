@@ -26,7 +26,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/openshift/api v0.0.0-20210915110300-3cd8091317c4
 	github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37
-	github.com/openshift/client-go v0.0.0-20210831095141-e19a065e79f7
+	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.11.0
