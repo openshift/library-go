@@ -157,6 +157,13 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected: true,
 	}, {
+		name: "No FeatureGate: Platform: AlibabaCloud",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AlibabaCloudPlatformType,
+		},
+		featureGate: nil,
+		expected:    true,
+	}, {
 		name: "No FeatureGate, Platform: IBMCloud",
 		status: &configv1.PlatformStatus{
 			Type: configv1.IBMCloudPlatformType,
