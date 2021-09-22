@@ -107,8 +107,15 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 		{
 			name:              "ValidIPv4",
 			currentConfigFor:  observedConfigFor(withStorageURLFor("https://previous.url:2379")),
+			endpoint:          endpoints(withAddress("10.0.0.1"), withAddress("192.0.3.1")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379"), withStorageURLFor("https://192.0.3.1:2379")),
+		},
+		{
+			name:              "ValidIPv4WithReservedIPv4",
+			currentConfigFor:  observedConfigFor(withStorageURLFor("https://previous.url:2379")),
 			endpoint:          endpoints(withAddress("10.0.0.1"), withAddress("192.0.2.1")),
-			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379"), withStorageURLFor("https://192.0.2.1:2379")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379")),
+			expectErrors:      true,
 		},
 		{
 			name:             "InvalidIPv4",
@@ -123,8 +130,15 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 		{
 			name:              "ValidIPv6",
 			currentConfigFor:  observedConfigFor(withStorageURLFor("https://previous.url:2379")),
+			endpoint:          endpoints(withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"), withAddress("684D:1111:222:3333:4444:5555:6:77")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://[684d:1111:222:3333:4444:5555:6:77]:2379"), withStorageURLFor("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379")),
+		},
+		{
+			name:              "ValidIPv6WithReservedIPv6",
+			currentConfigFor:  observedConfigFor(withStorageURLFor("https://previous.url:2379")),
 			endpoint:          endpoints(withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"), withAddress("2001:0DB8:0000:0CDE:1257:0000:211E:729C")),
-			expectedConfigFor: observedConfigFor(withStorageURLFor("https://[2001:db8:0:cde:1257:0:211e:729c]:2379"), withStorageURLFor("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379")),
+			expectErrors:      true,
 		},
 		{
 			name:             "InvalidIPv6",
@@ -143,13 +157,14 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379")),
 		},
 		{
-			name:             "IPv4AsIPv6Literal",
+			name:             "ReservedIPv4AsIPv6Literal",
 			currentConfigFor: observedConfigFor(withStorageURLFor("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"),
 				withAddress("::ffff:c000:201"),
 			),
-			expectedConfigFor: observedConfigFor(withStorageURLFor("https://192.0.2.1:2379"), withStorageURLFor("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379")),
+			expectErrors:      true,
 		},
 		{
 			name:              "NoAddressesFound",
