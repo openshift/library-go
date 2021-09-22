@@ -193,6 +193,7 @@ func GetPlatformName(platformType configv1.PlatformType, recorder events.Recorde
 	case configv1.OvirtPlatformType:
 	case configv1.KubevirtPlatformType:
 	case configv1.AlibabaCloudPlatformType:
+	case configv1.PowerVSPlatformType:
 	default:
 		// the new doc on the infrastructure fields requires that we treat an unrecognized thing the same bare metal.
 		// TODO find a way to indicate to the user that we didn't honor their choice
