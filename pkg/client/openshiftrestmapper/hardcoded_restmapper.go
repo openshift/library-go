@@ -70,6 +70,96 @@ var defaultRESTMappings = []meta.RESTMapping{
 		Scope:            meta.RESTScopeRoot,
 		Resource:         schema.GroupVersionResource{Group: "security.openshift.io", Version: "v1", Resource: "securitycontextconstraints"},
 	},
+	// This is created so that cluster-bootstrap can always map customresourcedefinitions, RBAC, machine resources so that CRDs and
+	// permissions are always created quickly.  We observed discovery not including these on AWS OVN installations and
+	// the lack of CRDs and permissions blocked additional aspects of cluster bootstrapping.
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "machine.openshift.io", Version: "v1beta1", Kind: "Machine"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "machine.openshift.io", Version: "v1beta1", Resource: "machines"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "machine.openshift.io", Version: "v1beta1", Kind: "MachineSet"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "machine.openshift.io", Version: "v1beta1", Resource: "machinesets"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "machineconfiguration.openshift.io", Version: "v1", Kind: "MachineConfig"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "machineconfiguration.openshift.io", Version: "v1", Resource: "machineconfigs"},
+	},
+	// This is here so cluster-bootstrap can always create the config instances that are used to drive our operators to avoid the
+	// excessive bootstrap wait that prevents installer from completing on AWS OVN
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "DNS"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "dnses"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "Infrastructure"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "infrastructures"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "Network"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "networks"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "Ingress"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "ingresses"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "Proxy"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "proxies"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "Scheduler"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "schedulers"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "config.openshift.io", Version: "v1", Kind: "ClusterVersion"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "config.openshift.io", Version: "v1", Resource: "clusterversions"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "CloudCredential"},
+		Scope:            meta.RESTScopeRoot,
+		Resource:         schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "cloudcredentials"},
+	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "ServiceMonitor"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"},
+	},
 }
 
 func NewOpenShiftHardcodedRESTMapper(delegate meta.RESTMapper) meta.RESTMapper {
