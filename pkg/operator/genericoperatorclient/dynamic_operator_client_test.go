@@ -33,7 +33,6 @@ func TestSetOperatorSpecFromUnstructured(t *testing.T) {
 					"non-standard-field":         "value",
 					"logLevel":                   "Trace",
 					"managementState":            "",
-					"operatorLogLevel":           "",
 					"unsupportedConfigOverrides": nil,
 					"observedConfig":             nil,
 				},
@@ -53,9 +52,7 @@ func TestSetOperatorSpecFromUnstructured(t *testing.T) {
 				"apiVersion": "bar/v1",
 				"status":     map[string]interface{}{"foo": "bar"},
 				"spec": map[string]interface{}{
-					"logLevel":                   "",
 					"managementState":            "",
-					"operatorLogLevel":           "",
 					"unsupportedConfigOverrides": nil,
 					"observedConfig":             nil,
 				},
@@ -75,7 +72,6 @@ func TestSetOperatorSpecFromUnstructured(t *testing.T) {
 				"spec": map[string]interface{}{
 					"logLevel":                   "Trace",
 					"managementState":            "",
-					"operatorLogLevel":           "",
 					"unsupportedConfigOverrides": nil,
 					"observedConfig":             nil,
 				},
@@ -93,9 +89,7 @@ func TestSetOperatorSpecFromUnstructured(t *testing.T) {
 			},
 			expected: map[string]interface{}{
 				"spec": map[string]interface{}{
-					"logLevel":                   "",
 					"managementState":            "",
-					"operatorLogLevel":           "",
 					"unsupportedConfigOverrides": nil,
 					"observedConfig":             map[string]interface{}{"a": int64(1)},
 				},
