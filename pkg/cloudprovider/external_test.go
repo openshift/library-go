@@ -228,6 +228,13 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected: false,
 	}, {
+		name: "No FeatureGate, Platform: GCP",
+		status: &configv1.PlatformStatus{
+			Type: configv1.GCPPlatformType,
+		},
+		featureGate: nil,
+		expected:    false,
+	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: GCP",
 		status: &configv1.PlatformStatus{
 			Type: configv1.GCPPlatformType,
@@ -242,7 +249,56 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
+	}, {
+		name: "FeatureSet: TechPreviewNoUpgrade, Platform: GCP",
+		status: &configv1.PlatformStatus{
+			Type: configv1.GCPPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.TechPreviewNoUpgrade,
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "No FeatureGate, Platform: vSphere",
+		status: &configv1.PlatformStatus{
+			Type: configv1.VSpherePlatformType,
+		},
+		featureGate: nil,
+		expected:    false,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: vSphere",
+		status: &configv1.PlatformStatus{
+			Type: configv1.VSpherePlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "FeatureSet: TechPreviewNoUpgrade, Platform: vSphere",
+		status: &configv1.PlatformStatus{
+			Type: configv1.VSpherePlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.TechPreviewNoUpgrade,
+				},
+			},
+		},
+		expected: true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: None",
 		status: &configv1.PlatformStatus{
