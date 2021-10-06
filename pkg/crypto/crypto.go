@@ -1010,9 +1010,10 @@ func IPAddressesDNSNames(hosts []string) ([]net.IP, []string) {
 func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	ok := false
 	certs := []*x509.Certificate{}
-	for len(pemCerts) > 0 {
-		var block *pem.Block
-		block, pemCerts = pem.Decode(pemCerts)
+	pemCertsCopy := make([]byte, len(pemCerts))
+	copy(pemCertsCopy, pemCerts)
+
+	for block, pemCertsCopy := pem.Decode(pemCertsCopy); len(pemCertsCopy) > 0; block, pemCertsCopy = pem.Decode(pemCertsCopy) {
 		if block == nil {
 			break
 		}
@@ -1030,7 +1031,7 @@ func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	}
 
 	if !ok {
-		return certs, errors.New("Could not read any certificates")
+		return certs, errors.New("could not read any certificates")
 	}
 	return certs, nil
 }
