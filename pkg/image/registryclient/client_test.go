@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -1513,5 +1514,119 @@ func TestCachedTransport(t *testing.T) {
 	mansvc.Get(ctx, "sha256:0000000000000000000000000000000000000000000000000000000000000000")
 	if !reflect.DeepEqual(expectedAuthAttempts, authMock.attemptedAuths) {
 		t.Errorf("expected auths attempts %+v, found %+v", expectedAuthAttempts, authMock.attemptedAuths)
+	}
+}
+
+// TestReadMirrorFallback checks that the client can use all mirrors and
+// doesn't send unnecessary requests.
+func TestReadMirrorFallback(t *testing.T) {
+	ctx := context.Background()
+
+	insecureTransport, err := rest.TransportFor(
+		&rest.Config{
+			TLSClientConfig: rest.TLSClientConfig{
+				Insecure: true,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sourceRegistry := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("source registry: unexpected request to %s", r.URL.String())
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer sourceRegistry.Close()
+
+	emptyRegistryRequests := 0
+	emptyRegistry := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if emptyRegistryRequests == 0 && r.Method == "GET" && r.URL.Path == "/v2/" {
+			w.WriteHeader(http.StatusOK)
+		} else if emptyRegistryRequests == 1 && r.Method == "GET" && r.URL.Path == "/v2/empty-mirror/image/blobs/sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			t.Errorf("empty registry: unexpected request %d to %s %s", emptyRegistryRequests, r.Method, r.URL.String())
+			http.Error(w, "unexpected request", http.StatusInternalServerError)
+		}
+		emptyRegistryRequests++
+	}))
+	defer emptyRegistry.Close()
+	defer func() {
+		if emptyRegistryRequests != 2 {
+			t.Errorf("empty registry: expected 2 requests, got %d", emptyRegistryRequests)
+		}
+	}()
+
+	mirrorRegistryRequests := 0
+	mirrorRegistry := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if mirrorRegistryRequests == 0 && r.Method == "GET" && r.URL.Path == "/v2/" {
+			w.WriteHeader(http.StatusOK)
+		} else if mirrorRegistryRequests == 1 && r.Method == "GET" && r.URL.Path == "/v2/second-mirror/image/blobs/sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" {
+			w.Write([]byte("hello"))
+		} else {
+			t.Errorf("mirror registry: unexpected request %d to %s %s", mirrorRegistryRequests, r.Method, r.URL.String())
+			http.Error(w, "unexpected request", http.StatusInternalServerError)
+		}
+		mirrorRegistryRequests++
+	}))
+	defer mirrorRegistry.Close()
+	defer func() {
+		if mirrorRegistryRequests != 2 {
+			t.Errorf("mirror registry: expected 2 requests, got %d", mirrorRegistryRequests)
+		}
+	}()
+
+	// this is the original image reference we are trying to pull.
+	imgpath := fmt.Sprintf("%s/original/image:latest", sourceRegistry.Listener.Addr().String())
+	originalRef, err := imagereference.Parse(imgpath)
+	if err != nil {
+		t.Fatal("unexpected error parsing reference:", err)
+	}
+
+	// this is the first mirror image reference.
+	imgpath = fmt.Sprintf("%s/empty-mirror/image:latest", emptyRegistry.Listener.Addr().String())
+	emptyMirrorRef, err := imagereference.Parse(imgpath)
+	if err != nil {
+		t.Fatal("unexpected error parsing reference:", err)
+	}
+
+	// this is the second mirror image reference.
+	imgpath = fmt.Sprintf("%s/second-mirror/image:latest", mirrorRegistry.Listener.Addr().String())
+	secondMirrorRef, err := imagereference.Parse(imgpath)
+	if err != nil {
+		t.Fatal("unexpected error parsing reference:", err)
+	}
+
+	impctx := NewContext(
+		http.DefaultTransport, insecureTransport,
+	).WithAlternateBlobSourceStrategy(
+		&fakeAlternateBlobStrategy{
+			FirstAlternates: []imagereference.DockerImageReference{
+				emptyMirrorRef, secondMirrorRef, originalRef,
+			},
+		},
+	)
+
+	repo, err := impctx.Repository(
+		ctx, originalRef.RegistryURL(), originalRef.RepositoryName(), true,
+	)
+	if err != nil {
+		t.Fatal("unexpected error creating repository:", err)
+	}
+
+	bs := repo.Blobs(ctx)
+
+	r, err := bs.Open(ctx, "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+	if err != nil {
+		t.Fatal("unexpected error opening blob:", err)
+	}
+
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal("unexpected error reading blob:", err)
+	}
+	if string(data) != "hello" {
+		t.Fatalf("unexpected data from blob: %q", string(data))
 	}
 }
