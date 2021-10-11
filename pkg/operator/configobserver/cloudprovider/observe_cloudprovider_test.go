@@ -220,6 +220,16 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
+		name: "Power VS platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.PowerVSPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.PowerVSPlatformType,
+			},
+		},
+		expected:           "external",
+		cloudProviderCount: 1,
+	}, {
 		name: "None platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.NonePlatformType,

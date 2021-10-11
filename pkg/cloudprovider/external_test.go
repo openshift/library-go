@@ -171,6 +171,13 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		featureGate: nil,
 		expected:    true,
 	}, {
+		name: "No FeatureGate, Platform: PowerVS",
+		status: &configv1.PlatformStatus{
+			Type: configv1.PowerVSPlatformType,
+		},
+		featureGate: nil,
+		expected:    true,
+	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: Azure",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AzurePlatformType,
