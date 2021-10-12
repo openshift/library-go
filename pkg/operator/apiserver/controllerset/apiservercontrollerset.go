@@ -3,6 +3,8 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -71,6 +73,8 @@ type APIServerControllerSet struct {
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 
+	workloadConditionsPrefix string
+
 	apiServiceController            controllerWrapper
 	auditPolicyController           controllerWrapper
 	clusterOperatorStatusController controllerWrapper
@@ -137,7 +141,37 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 		versionRecorder,
 		cs.eventRecorder,
 	)
+	cs.setCustomInertia()
 	return cs
+}
+
+// setCustomInertia uses controller names and status to set inertia appropriately.  It is called many times in order to
+// produce the same output regardless of the call order of adding control loops
+func (cs *APIServerControllerSet) setCustomInertia() {
+	if cs.clusterOperatorStatusController.controller == nil {
+		return
+	}
+
+	if len(cs.workloadConditionsPrefix) != 0 {
+		cs.clusterOperatorStatusController.controller = cs.clusterOperatorStatusController.controller.(*status.StatusSyncer).
+			WithDegradedInertia(status.MustNewInertia(
+				2*time.Minute,
+				// the workload deployment degraded condition happens when the number of available replicas does not
+				// match the desired state.  Assuming a PDB is present to ensure that we do not optionally dip below
+				// HA (not enforced here, but probably should be in the staticresourcecontroller check), we can safely
+				// allow being down a single replica for a considerable period of time.  Doing it here allows the
+				// detailed operator state to be fully correct (degraded instantly), while allowing graceful resolution
+				// in the majority of cases.
+				// The primary disadvantage is that we will no longer see signal in these operators when a single node
+				// does not quickly come back.  I actually caught this because there appears to be a significant scheduling
+				// backoff that means when an upgrade doesn't require a networking update (happens after the MCO rolls
+				// out), the lack of a delay caused this operator to stay degraded.
+				status.InertiaCondition{
+					ConditionTypeMatcher: regexp.MustCompile(cs.workloadConditionsPrefix + `DeploymentDegraded`),
+					Duration:             30 * time.Minute, // chosen to be longer than "normal" MCO rollout in CI.  I'm open to up to an hour.
+				}).
+				Inertia)
+	}
 }
 
 func (cs *APIServerControllerSet) WithoutClusterOperatorStatusController() *APIServerControllerSet {
@@ -252,6 +286,10 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		versionRecorder)
 
 	cs.workloadController.controller = workloadController
+
+	// set custom inertia
+	cs.workloadConditionsPrefix = conditionsPrefix
+	cs.setCustomInertia()
 
 	return cs
 }
