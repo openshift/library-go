@@ -3,6 +3,8 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -127,8 +129,9 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 	clusterOperatorClient configv1client.ClusterOperatorsGetter,
 	clusterOperatorInformer configv1informers.ClusterOperatorInformer,
 	versionRecorder status.VersionGetter,
+	options ...func(*status.StatusSyncer) *status.StatusSyncer,
 ) *APIServerControllerSet {
-	cs.clusterOperatorStatusController.controller = status.NewClusterOperatorStatusController(
+	s := status.NewClusterOperatorStatusController(
 		clusterOperatorName,
 		relatedObjects,
 		clusterOperatorClient,
@@ -137,7 +140,30 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 		versionRecorder,
 		cs.eventRecorder,
 	)
+	for _, opt := range options {
+		s = opt(s)
+	}
+	cs.clusterOperatorStatusController.controller = s
 	return cs
+}
+
+// WithStatusControllerPdbCompatibleHighInertia sets a custom inertia for setup where PDB slow down
+// deployment: the workload deployment degraded condition happens when the number of available replicas
+// does not match the desired state.  Assuming a PDB is present to ensure that we do not optionally dip below
+// HA (not enforced here, but probably should be in the staticresourcecontroller check), we can safely
+// allow being down a single replica for a considerable period of time.  Doing it here allows the
+// detailed operator state to be fully correct (degraded instantly), while allowing graceful resolution
+// in the majority of cases.
+func WithStatusControllerPdbCompatibleHighInertia(workloadConditionsPrefix string) func(s *status.StatusSyncer) *status.StatusSyncer {
+	return func(s *status.StatusSyncer) *status.StatusSyncer {
+		return s.WithDegradedInertia(status.MustNewInertia(
+			2*time.Minute,
+			status.InertiaCondition{
+				ConditionTypeMatcher: regexp.MustCompile(fmt.Sprintf("^%sDeploymentDegraded$", workloadConditionsPrefix)),
+				Duration:             30 * time.Minute, // chosen to be longer than "normal" MCO rollout in CI.  I'm open to up to an hour.
+			}).Inertia,
+		)
+	}
 }
 
 func (cs *APIServerControllerSet) WithoutClusterOperatorStatusController() *APIServerControllerSet {
@@ -252,7 +278,6 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		versionRecorder)
 
 	cs.workloadController.controller = workloadController
-
 	return cs
 }
 
