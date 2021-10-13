@@ -1,10 +1,10 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
-	"context"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
