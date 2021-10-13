@@ -179,8 +179,8 @@ func setupLogger(logFilePath string) {
 	}
 	klog.SetOutput(&lumberjack.Logger{
 		Filename:   logFilePath,
-		MaxSize:    100, // large files break some editors
-		MaxBackups: 3,
+		MaxSize:    5, // keep it small since we added the logs to the must-gather bundle
+		MaxBackups: 2,
 		MaxAge:     28, // if something goes wrong we will be called out early, retain logs for ~ a month, just in case
 		Compress:   false,
 	})
