@@ -94,7 +94,7 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 		newCondition.Reason = "RotationError"
 		newCondition.Message = syncErr.Error()
 	}
-	_, updated, updateErr := v1helpers.UpdateStaticPodStatus(c.OperatorClient, v1helpers.UpdateStaticPodConditionFn(newCondition))
+	_, updated, updateErr := v1helpers.UpdateStaticPodStatus(ctx, c.OperatorClient, v1helpers.UpdateStaticPodConditionFn(newCondition))
 	if updateErr != nil {
 		return updateErr
 	}

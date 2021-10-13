@@ -142,7 +142,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
 	klog.V(4).Infof("syncManaged")
 	if management.IsOperatorRemovable() {
-		if err := v1helpers.EnsureFinalizer(c.operatorClient, c.name); err != nil {
+		if err := v1helpers.EnsureFinalizer(ctx, c.operatorClient, c.name); err != nil {
 			return err
 		}
 	}
@@ -194,6 +194,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 	}
 
 	_, _, err = v1helpers.UpdateStatus(
+		ctx,
 		c.operatorClient,
 		updateStatusFn,
 		v1helpers.UpdateConditionFn(availableCondition),
@@ -274,5 +275,5 @@ func (c *CSIDriverNodeServiceController) syncDeleting(ctx context.Context, opSpe
 	}
 
 	// All removed, remove the finalizer as the last step
-	return v1helpers.RemoveFinalizer(c.operatorClient, c.name)
+	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.name)
 }

@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -538,6 +539,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			// act
 			target := &Controller{operatorClient: fakeOperatorClient, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
 			err := target.updateOperatorStatus(
+				context.TODO(),
 				&operatorv1.OperatorStatus{Conditions: scenario.previousConditions},
 				scenario.workload,
 				scenario.operatorConfigAtHighestRevision,

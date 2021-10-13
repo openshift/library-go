@@ -103,6 +103,7 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 	}
 
 	_, _, err = v1helpers.UpdateStatus(
+		ctx,
 		c.operatorClient,
 		v1helpers.UpdateConditionFn(availableCondition),
 		v1helpers.UpdateConditionFn(progressingCondition),

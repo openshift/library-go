@@ -935,7 +935,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 				NodeName:        "test-node-1",
 				CurrentRevision: 3,
 			}
-			if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(rv, status); err != nil {
+			if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(context.TODO(), rv, status); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -1023,7 +1023,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 			NodeName:        "test-node-1",
 			CurrentRevision: 3,
 		}
-		if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(rv, status); err != nil {
+		if _, err := fakeStaticPodOperatorClient.UpdateStaticPodOperatorStatus(context.TODO(), rv, status); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -116,7 +116,7 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 			v1helpers.UpdateConditionFn(*degradedCondition),
 			v1helpers.UpdateConditionFn(*progressingCondition),
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, conditions...); updateError != nil {
+		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, conditions...); updateError != nil {
 			err = updateError
 		}
 	}()

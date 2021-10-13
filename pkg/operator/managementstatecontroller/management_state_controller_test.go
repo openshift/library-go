@@ -135,11 +135,11 @@ func (c *statusClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1
 	return &c.spec, &c.status, "", nil
 }
 
-func (c *statusClient) UpdateOperatorSpec(string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
+func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	panic("missing")
 }
 
-func (c *statusClient) UpdateOperatorStatus(version string, s *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
+func (c *statusClient) UpdateOperatorStatus(ctx context.Context, version string, s *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = *s
 	return &c.status, nil
 }

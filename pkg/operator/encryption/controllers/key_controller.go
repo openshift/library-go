@@ -113,13 +113,13 @@ func NewKeyController(
 		).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-key-controller"))
 }
 
-func (c *keyController) sync(_ context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionKeyControllerDegraded", Status: operatorv1.ConditionFalse}
 	defer func() {
 		if degradedCondition == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
 			err = updateError
 		}
 	}()
