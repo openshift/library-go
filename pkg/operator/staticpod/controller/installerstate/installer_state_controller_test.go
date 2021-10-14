@@ -147,6 +147,35 @@ func TestInstallerStateController(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "should report false when pending startingObjects are not the latest ones",
+			startingObjects: []runtime.Object{
+				newInstallerPod("installer-1", func(status *corev1.PodStatus) {
+					status.Phase = corev1.PodPending
+					status.Reason = "PendingReason"
+					status.Message = "PendingMessage"
+					status.StartTime = &metav1.Time{Time: time.Now().Add(-(maxToleratedPodPendingDuration + 5*time.Minute))}
+					status.ContainerStatuses = append(status.ContainerStatuses, corev1.ContainerStatus{Name: "test", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{
+						Reason:  "PodInitializing",
+						Message: "initializing error",
+					}}})
+				}),
+				newInstallerPod("installer-2", func(status *corev1.PodStatus) {
+					status.Phase = corev1.PodRunning
+					status.StartTime = &metav1.Time{Time: time.Now().Add(-(maxToleratedPodPendingDuration + 5*time.Minute))}
+				}),
+			},
+			evalConditions: func(t *testing.T, conditions []operatorv1.OperatorCondition) {
+				podPendingCondition := v1helpers.FindOperatorCondition(conditions, "InstallerPodPendingDegraded")
+				if podPendingCondition.Status != operatorv1.ConditionFalse {
+					t.Errorf("expected InstallerPodPendingDegraded condition to be False")
+				}
+				podContainerWaitingCondition := v1helpers.FindOperatorCondition(conditions, "InstallerPodContainerWaitingDegraded")
+				if podContainerWaitingCondition.Status != operatorv1.ConditionFalse {
+					t.Errorf("expected InstallerPodContainerWaitingDegraded condition to be False")
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
