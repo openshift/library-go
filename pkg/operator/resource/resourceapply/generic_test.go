@@ -38,7 +38,7 @@ metadata:
 `), nil
 	}
 	recorder := events.NewInMemoryRecorder("")
-	ret := ApplyDirectly(context.TODO(), (&ClientHolder{}).WithKubernetes(fakeClient), recorder, content, "pvc")
+	ret := ApplyDirectly(context.TODO(), (&ClientHolder{}).WithKubernetes(fakeClient), recorder, nil, content, "pvc")
 	if ret[0].Error == nil {
 		t.Fatal("missing expected error")
 	} else if ret[0].Error.Error() != "unhandled type *v1.PersistentVolumeClaim" {
