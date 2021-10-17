@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/utils/diff"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -2596,6 +2598,65 @@ func TestTimeToWait(t *testing.T) {
 			actual := c.timeToWaitBeforeInstallingNextPod(context.TODO(), nodeStatuses)
 			if actual != test.expected {
 				t.Fatal(actual)
+			}
+		})
+	}
+}
+
+func TestNodeStatusesFilteredForRevision(t *testing.T) {
+	type Test struct {
+		name            string
+		nodes           []operatorv1.NodeStatus
+		nodeFilteredMap map[string]bool
+		expected        []operatorv1.NodeStatus
+		expectedErr     bool
+	}
+	newNode := func(name string) operatorv1.NodeStatus {
+		return operatorv1.NodeStatus{NodeName: name}
+	}
+	for _, test := range []Test{
+		{
+			name: "empty filter",
+			nodes: []operatorv1.NodeStatus{
+				newNode("a"),
+			},
+			expectedErr: true,
+		},
+		{
+			name: "nil filter",
+			nodes: []operatorv1.NodeStatus{
+				newNode("a"),
+				newNode("b"),
+			},
+			expectedErr:     true,
+			nodeFilteredMap: nil,
+		},
+		{
+			name: "empty nodes",
+			nodes: []operatorv1.NodeStatus{
+				newNode("a"),
+				newNode("c"),
+			},
+			nodeFilteredMap: map[string]bool{
+				"c": false,
+				"a": false,
+			},
+			expectedErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			nodeFilterFn := func(ctx context.Context) (map[string]bool, error) {
+				return test.nodeFilteredMap, nil
+			}
+			actual, err := nodeStatusesFilteredForRevision(context.TODO(), nodeFilterFn, test.nodes)
+			if err == nil && test.expectedErr {
+				t.Fatalf("expected error, got none")
+			}
+			if err != nil && !test.expectedErr {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !equality.Semantic.DeepEqual(actual, test.expected) {
+				t.Errorf(diff.ObjectDiff(test.expected, actual))
 			}
 		})
 	}
