@@ -41,7 +41,8 @@ type customRouteController struct {
 	secretLister   corev1listers.SecretLister
 	resourceSyncer resourcesynccontroller.ResourceSyncer
 	operatorClient v1helpers.OperatorClient
-	targetRoute    *routev1.Route
+	routeAssetFunc resourceapply.AssetFunc
+	routeAssetName string
 	consumingUsers []configv1.ConsumingUser
 }
 
@@ -51,8 +52,8 @@ func NewCustomRouteController(
 	componentRouteName string,
 	destSecretNamespace string,
 	destSecretName string,
-	targetRouteAssetFunc resourceapply.AssetFunc,
-	targetRouteAssetName string,
+	routeAssetFunc resourceapply.AssetFunc,
+	routeAssetName string,
 	consumingUsers []configv1.ConsumingUser,
 	ingressInformer configinformers.IngressInformer,
 	ingressClient configsetterv1.IngressInterface,
@@ -63,11 +64,6 @@ func NewCustomRouteController(
 	eventRecorder events.Recorder,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 ) factory.Controller {
-	routeBytes, err := targetRouteAssetFunc(targetRouteAssetName)
-	if err != nil {
-		panic(err)
-	}
-
 	controller := &customRouteController{
 		destSecret: types.NamespacedName{
 			Namespace: destSecretNamespace,
@@ -77,7 +73,8 @@ func NewCustomRouteController(
 			Namespace: componentRouteNamespace,
 			Name:      componentRouteName,
 		},
-		targetRoute:    resourceread.ReadRouteV1OrDie(routeBytes),
+		routeAssetFunc: routeAssetFunc,
+		routeAssetName: routeAssetName,
 		consumingUsers: consumingUsers,
 		ingressLister:  ingressInformer.Lister(),
 		ingressClient:  ingressClient,
@@ -109,29 +106,42 @@ func (c *customRouteController) sync(ctx context.Context, syncCtx factory.SyncCo
 
 	ingressConfigCopy := ingressConfig.DeepCopy()
 
-	errors := c.syncResources(ctx, syncCtx, ingressConfigCopy)
-	return c.updateIngressConfigStatus(ctx, ingressConfigCopy, errors)
+	route, errors := c.syncResources(ctx, syncCtx, ingressConfigCopy)
+	return c.updateIngressConfigStatus(ctx, ingressConfigCopy, errors, route)
 }
 
-func (c *customRouteController) syncResources(ctx context.Context, syncCtx factory.SyncContext, ingressConfig *configv1.Ingress) []error {
-	expectedRoute, secretName, errors := c.getTargetRouteAndSecretName(ingressConfig)
+// syncResources reads the configured route from assets, applies it to the cluster,
+// and synchronizes the secret of the underlying custom component route to the configured destination.
+// It will always return a route.
+func (c *customRouteController) syncResources(ctx context.Context, syncCtx factory.SyncContext, ingressConfig *configv1.Ingress) (*routev1.Route, []error) {
+	route, secretName, errors := c.getRouteAndSecretName(ingressConfig)
 	if errors != nil {
-		return errors
+		return route, errors
 	}
 
-	if _, _, err := resourceapply.ApplyRoute(ctx, c.routeClient, syncCtx.Recorder(), expectedRoute); err != nil {
-		return []error{err}
+	if _, _, err := resourceapply.ApplyRoute(ctx, c.routeClient, syncCtx.Recorder(), route); err != nil {
+		return route, []error{err}
 	}
 
 	if err := c.syncSecret(secretName); err != nil {
-		return []error{err}
+		return route, []error{err}
 	}
 
-	return []error{}
+	return route, []error{}
 }
 
-func (c *customRouteController) getTargetRouteAndSecretName(ingressConfig *configv1.Ingress) (*routev1.Route, string, []error) {
-	route := c.targetRoute
+func mustAsset(fn resourceapply.AssetFunc, name string) []byte {
+	a, err := fn(name)
+	if err != nil {
+		panic("asset: Asset(" + name + "): " + err.Error())
+	}
+	return a
+}
+
+// getRouteAndSecretName reads the route from the given asset function and executes basic validation on it.
+// Even if validation fails, the route will always be returned.
+func (c *customRouteController) getRouteAndSecretName(ingressConfig *configv1.Ingress) (*routev1.Route, string, []error) {
+	route := resourceread.ReadRouteV1OrDie(mustAsset(c.routeAssetFunc, c.routeAssetName))
 	// set defaults
 	route.Spec.Host = route.ObjectMeta.Name + "." + ingressConfig.Spec.Domain // mimic the behavior of subdomain
 	secretName := ""
@@ -152,7 +162,7 @@ func (c *customRouteController) getTargetRouteAndSecretName(ingressConfig *confi
 		}
 
 		if errs != nil {
-			return nil, "", errs
+			return route, "", errs
 		}
 
 		route.Spec.Host = hostname
@@ -190,24 +200,19 @@ func (c *customRouteController) validateCustomTLSSecret(secretName string) error
 	return nil
 }
 
-func (c *customRouteController) updateIngressConfigStatus(ctx context.Context, ingressConfig *configv1.Ingress, customRouteErrors []error) error {
-	route, err := c.routeLister.Routes(c.targetRoute.ObjectMeta.Namespace).Get(c.targetRoute.ObjectMeta.Name)
-	if err != nil {
-		return err
-	}
-
+func (c *customRouteController) updateIngressConfigStatus(ctx context.Context, ingressConfig *configv1.Ingress, customRouteErrors []error, route *routev1.Route) error {
 	componentRoute := &configv1.ComponentRouteStatus{
 		Namespace:        c.componentRoute.Namespace,
 		Name:             c.componentRoute.Name,
-		DefaultHostname:  configv1.Hostname(c.targetRoute.ObjectMeta.Name + "." + ingressConfig.Spec.Domain),
+		DefaultHostname:  configv1.Hostname(route.ObjectMeta.Name + "." + ingressConfig.Spec.Domain),
 		CurrentHostnames: []configv1.Hostname{configv1.Hostname(route.Spec.Host)},
 		ConsumingUsers:   c.consumingUsers,
 		RelatedObjects: []configv1.ObjectReference{
 			{
 				Group:     routev1.GroupName,
 				Resource:  "routes",
-				Name:      c.targetRoute.ObjectMeta.Name,
-				Namespace: c.targetRoute.ObjectMeta.Namespace,
+				Name:      route.ObjectMeta.Name,
+				Namespace: route.ObjectMeta.Namespace,
 			},
 		},
 	}
@@ -219,7 +224,7 @@ func (c *customRouteController) updateIngressConfigStatus(ctx context.Context, i
 		}
 	}
 	componentRoute.Conditions = ensureDefaultConditions(conditions)
-	_, err = c.updateComponentRouteStatus(ctx, componentRoute)
+	_, err := c.updateComponentRouteStatus(ctx, componentRoute)
 	return err
 }
 
