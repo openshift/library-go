@@ -251,7 +251,7 @@ func (c *customRouteController) updateComponentRouteStatus(ctx context.Context, 
 	// Override the timestamps
 	now := metav1.Now()
 
-	// Create a copy for comparison and remove transaction times
+	// Create a copy for comparison and set transaction times
 	componentRouteCopy := componentRoute.DeepCopy()
 	setLastTransactionTime(componentRouteCopy, now)
 
