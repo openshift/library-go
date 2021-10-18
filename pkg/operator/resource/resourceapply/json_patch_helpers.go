@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	TLS_KEY_MODIFIED_MESSAGE = "TLS_KEY_MODIFIED"
-	TLS_KEY_MASKED_MESSAGE   = "TLS_KEY_MASKED"
+	tlsKeyModifiedMessage = "TLS_KEY_MODIFIED"
+	tlsKeyMaskedMessage   = "TLS_KEY_MASKED"
 )
 
 // JSONPatchNoError generates a JSON patch between original and modified objects and return the JSON as a string.
@@ -90,12 +90,12 @@ func JSONPatchRouteNoError(original, modified *routev1.Route) string {
 	if safeOriginal.Spec.TLS != nil {
 		if safeModified.Spec.TLS != nil {
 			if safeOriginal.Spec.TLS.Key != safeModified.Spec.TLS.Key {
-				safeModified.Spec.TLS.Key = TLS_KEY_MODIFIED_MESSAGE
+				safeModified.Spec.TLS.Key = tlsKeyModifiedMessage
 			} else {
-				safeModified.Spec.TLS.Key = TLS_KEY_MASKED_MESSAGE
+				safeModified.Spec.TLS.Key = tlsKeyMaskedMessage
 			}
 		}
-		safeOriginal.Spec.TLS.Key = TLS_KEY_MASKED_MESSAGE
+		safeOriginal.Spec.TLS.Key = tlsKeyMaskedMessage
 	}
 
 	return JSONPatchNoError(safeOriginal, safeModified)
