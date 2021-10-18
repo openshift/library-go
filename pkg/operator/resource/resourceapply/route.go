@@ -26,12 +26,12 @@ func ApplyRoute(ctx context.Context, client routeclient.RouteInterface, recorder
 		return nil, false, err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 
 	// this guarantees that route.Spec.Host is set to the current canonical host
-	if *modified || !equality.Semantic.DeepEqual(existingCopy.Spec, required.Spec) {
+	if modified || !equality.Semantic.DeepEqual(existingCopy.Spec, required.Spec) {
 		if klog.V(4).Enabled() {
 			klog.Infof("Route %q changes: %s", existing.Name, JSONPatchRouteNoError(existing, existingCopy))
 		}
