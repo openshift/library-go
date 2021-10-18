@@ -114,7 +114,7 @@ func (c *customRouteController) sync(ctx context.Context, syncCtx factory.SyncCo
 }
 
 func (c *customRouteController) syncResources(ctx context.Context, syncCtx factory.SyncContext, ingressConfig *configv1.Ingress) []error {
-	expectedRoute, secretName, errors := c.getOAuthRouteAndSecretName(ingressConfig)
+	expectedRoute, secretName, errors := c.getTargetRouteAndSecretName(ingressConfig)
 	if errors != nil {
 		return errors
 	}
@@ -130,7 +130,7 @@ func (c *customRouteController) syncResources(ctx context.Context, syncCtx facto
 	return []error{}
 }
 
-func (c *customRouteController) getOAuthRouteAndSecretName(ingressConfig *configv1.Ingress) (*routev1.Route, string, []error) {
+func (c *customRouteController) getTargetRouteAndSecretName(ingressConfig *configv1.Ingress) (*routev1.Route, string, []error) {
 	route := c.targetRoute
 	// set defaults
 	route.Spec.Host = route.ObjectMeta.Name + "." + ingressConfig.Spec.Domain // mimic the behavior of subdomain
