@@ -18,8 +18,8 @@ const (
 )
 
 // JSONPatchNoError generates a JSON patch between original and modified objects and return the JSON as a string.
-// Note:
 //
+// Note:
 // In case of error, the returned string will contain the error messages.
 func JSONPatchNoError(original, modified runtime.Object) string {
 	if original == nil {
@@ -75,7 +75,11 @@ func JSONPatchSecretNoError(original, modified *corev1.Secret) string {
 	return JSONPatchNoError(safeOriginal, safeModified)
 }
 
-// JSONPatchRouteNoError work similarly to JSONPatchNoError but removes TLS Key
+// JSONPatchRouteNoError generates a JSON patch between original and modified route and returns the JSON as a string
+// masking sensitive information (i.e. tls keys).
+//
+// Note:
+// In case of error, the returned string will contain the error messages.
 func JSONPatchRouteNoError(original, modified *routev1.Route) string {
 	if original == nil {
 		return "original object is nil"

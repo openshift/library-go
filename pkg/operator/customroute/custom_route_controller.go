@@ -31,6 +31,9 @@ import (
 	"github.com/openshift/library-go/pkg/route/routecomponenthelpers"
 )
 
+// customRouteController applies the given route asset.
+// It reads its component route, if configured, from the cluster ingress configuration
+// and synchronizes the component route's custom CA serving cert secret to the given destination.
 type customRouteController struct {
 	destSecret     types.NamespacedName
 	componentRoute types.NamespacedName
