@@ -4,6 +4,7 @@ package routeapihelpers
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,6 +66,21 @@ func ValidateHost(host string, allowNonCompliant bool, hostPath *field.Path) fie
 		errs := kvalidation.IsFullyQualifiedDomainName(hostPath, host)
 		if len(errs) != 0 {
 			result = append(result, field.Invalid(hostPath, host, fmt.Sprintf("host must conform to DNS 1123 naming conventions: %v", errs)))
+		}
+	}
+	return result
+}
+
+// ValidateSubdomain checks that a route's subdomain is a valid DNS subdomain as
+// defined in RFC 1123.
+func ValidateSubdomain(subdomain string, subdomainPath *field.Path) field.ErrorList {
+	var result field.ErrorList
+	if len(subdomain) > kvalidation.DNS1123SubdomainMaxLength {
+		result = append(result, field.Invalid(subdomainPath, subdomain, kvalidation.MaxLenError(kvalidation.DNS1123SubdomainMaxLength)))
+	}
+	for _, label := range strings.Split(subdomain, ".") {
+		if errs := kvalidation.IsDNS1123Label(label); len(errs) > 0 {
+			result = append(result, field.Invalid(subdomainPath, label, strings.Join(errs, ", ")))
 		}
 	}
 	return result

@@ -380,3 +380,61 @@ func TestValidateHost(t *testing.T) {
 		}
 	}
 }
+
+// TestValidateSubdomain ensures not specifying a proper subdomain results in
+// error and that a correctly specified subdomain passes successfully.
+func TestValidateSubdomain(t *testing.T) {
+	tests := []struct {
+		name              string
+		subdomain         string
+		allowNonCompliant bool
+		expectedErrors    int
+	}{
+		{
+			name:           "label with >63 chars",
+			subdomain:      "1234567890-1234567890-1234567890-1234567890-1234567890-123456789",
+			expectedErrors: 1,
+		},
+		{
+			name: "subdomain >253 chars",
+			subdomain: "1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1234567890-1234567890." +
+				"1234567890-1234567890-1234567890-1",
+			expectedErrors: 1,
+		},
+		{
+			name:           "label with invalid char",
+			subdomain:      "foo/bar",
+			expectedErrors: 1,
+		},
+		{
+			name:           "label with wildcard",
+			subdomain:      "*.apps",
+			expectedErrors: 1,
+		},
+		{
+			name:           "empty label",
+			subdomain:      "",
+			expectedErrors: 1,
+		},
+		{
+			name:           "single label",
+			subdomain:      "foo",
+			expectedErrors: 0,
+		},
+		{
+			name:           "multiple labels",
+			subdomain:      "foo.bar.baz",
+			expectedErrors: 0,
+		},
+	}
+
+	for _, tc := range tests {
+		errs := ValidateSubdomain(tc.subdomain, field.NewPath("spec.subdomain"))
+		if len(errs) != tc.expectedErrors {
+			t.Errorf("Test case %q expected %d error(s), got %d: %v", tc.name, tc.expectedErrors, len(errs), errs)
+		}
+	}
+}
