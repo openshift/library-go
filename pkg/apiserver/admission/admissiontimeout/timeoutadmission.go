@@ -10,10 +10,11 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
+const defaultAdmissionTimeout = 13 * time.Second
+
 type pluginHandlerWithTimeout struct {
 	name            string
 	admissionPlugin admission.Interface
-	timeout         time.Duration
 }
 
 var _ admission.ValidationInterface = &pluginHandlerWithTimeout{}
@@ -24,6 +25,9 @@ func (p pluginHandlerWithTimeout) Handles(operation admission.Operation) bool {
 }
 
 func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	admissionCtx, cancelFn := context.WithTimeout(ctx, defaultAdmissionTimeout)
+	defer cancelFn()
+
 	mutatingHandler, ok := p.admissionPlugin.(admission.MutationInterface)
 	if !ok {
 		return nil
@@ -34,18 +38,21 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
-		admissionErr = mutatingHandler.Admit(ctx, a, o)
+		admissionErr = mutatingHandler.Admit(admissionCtx, a, o)
 	}()
 
 	select {
 	case <-admissionDone:
 		return admissionErr
-	case <-time.After(p.timeout):
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, p.timeout))
+	case <-admissionCtx.Done():
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, defaultAdmissionTimeout))
 	}
 }
 
 func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	admissionCtx, cancelFn := context.WithTimeout(ctx, defaultAdmissionTimeout)
+	defer cancelFn()
+
 	validatingHandler, ok := p.admissionPlugin.(admission.ValidationInterface)
 	if !ok {
 		return nil
@@ -56,13 +63,13 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
-		admissionErr = validatingHandler.Validate(ctx, a, o)
+		admissionErr = validatingHandler.Validate(admissionCtx, a, o)
 	}()
 
 	select {
 	case <-admissionDone:
 		return admissionErr
-	case <-time.After(p.timeout):
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, p.timeout))
+	case <-admissionCtx.Done():
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, defaultAdmissionTimeout))
 	}
 }

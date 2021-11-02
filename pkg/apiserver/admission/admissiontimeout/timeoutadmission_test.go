@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -35,13 +34,11 @@ func TestTimeoutAdmission(t *testing.T) {
 	tests := []struct {
 		name string
 
-		timeout         time.Duration
 		admissionPlugin func() (admit admitFunc, stopCh chan struct{})
 		expectedError   string
 	}{
 		{
-			name:    "stops on time",
-			timeout: 50 * time.Millisecond,
+			name: "stops on time",
 			admissionPlugin: func() (admitFunc, chan struct{}) {
 				stopCh := make(chan struct{})
 				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -52,8 +49,7 @@ func TestTimeoutAdmission(t *testing.T) {
 			expectedError: `fake-name" failed to complete`,
 		},
 		{
-			name:    "stops on success",
-			timeout: 500 * time.Millisecond,
+			name: "stops on success",
 			admissionPlugin: func() (admitFunc, chan struct{}) {
 				stopCh := make(chan struct{})
 				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -63,8 +59,7 @@ func TestTimeoutAdmission(t *testing.T) {
 			expectedError: "fake failure to finish",
 		},
 		{
-			name:    "no crash on panic",
-			timeout: 500 * time.Millisecond,
+			name: "no crash on panic",
 			admissionPlugin: func() (admitFunc, chan struct{}) {
 				stopCh := make(chan struct{})
 				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -81,13 +76,12 @@ func TestTimeoutAdmission(t *testing.T) {
 			defer close(stopCh)
 
 			fakePlugin := dummyAdmit{admitFn: admitFn}
-			decorator := AdmissionTimeout{Timeout: test.timeout}
-			decoratedPlugin := decorator.WithTimeout(fakePlugin, "fake-name")
+			decorator := WithTimeout(fakePlugin, "fake-name")
 
-			actualErr := decoratedPlugin.(admission.MutationInterface).Admit(context.TODO(), nil, nil)
+			actualErr := decorator.(admission.MutationInterface).Admit(context.TODO(), nil, nil)
 			validateErr(t, actualErr, test.expectedError)
 
-			actualErr = decoratedPlugin.(admission.ValidationInterface).Validate(context.TODO(), nil, nil)
+			actualErr = decorator.(admission.ValidationInterface).Validate(context.TODO(), nil, nil)
 			validateErr(t, actualErr, test.expectedError)
 		})
 	}
