@@ -302,24 +302,24 @@ func TestIngressURI(t *testing.T) {
 }
 
 // TestValidateHost ensures not specifying a proper host name results in error and
-// that a correctly specified host name passes successfully
-func TestValidateRoute(t *testing.T) {
+// that a correctly specified host name passes successfully.
+func TestValidateHost(t *testing.T) {
 	tests := []struct {
 		name              string
 		host              string
-		allowNonCompliant string
+		allowNonCompliant bool
 		expectedErrors    int
 	}{
 		{
 			name:              "Non-DNS-compliant host with non-compliance allowed",
 			host:              "host",
-			allowNonCompliant: "true",
+			allowNonCompliant: true,
 			expectedErrors:    0,
 		},
 		{
 			name:              "Non-DNS-compliant host with non-compliance not allowed",
 			host:              "host",
-			allowNonCompliant: "false",
+			allowNonCompliant: false,
 			expectedErrors:    1,
 		},
 		{
@@ -330,13 +330,13 @@ func TestValidateRoute(t *testing.T) {
 		{
 			name:              "Specified label too long",
 			host:              "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host.com",
-			allowNonCompliant: "",
+			allowNonCompliant: false,
 			expectedErrors:    1,
 		},
 		{
 			name:              "Specified label too long, is not an error with non-compliance allowed",
 			host:              "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host.com",
-			allowNonCompliant: "true",
+			allowNonCompliant: true,
 			expectedErrors:    0,
 		},
 		{
@@ -346,7 +346,7 @@ func TestValidateRoute(t *testing.T) {
 				"1234567890-1234567890-1234567890-1234567890-1234567890." +
 				"1234567890-1234567890-1234567890-1234567890-1234567890." +
 				"1234567890-1234567890-1234567890-1",
-			allowNonCompliant: "",
+			allowNonCompliant: false,
 			expectedErrors:    1,
 		},
 		{
@@ -356,19 +356,19 @@ func TestValidateRoute(t *testing.T) {
 				"1234567890-1234567890-1234567890-1234567890-1234567890." +
 				"1234567890-1234567890-1234567890-1234567890-1234567890." +
 				"1234567890-1234567890-1234567890-1",
-			allowNonCompliant: "true",
+			allowNonCompliant: true,
 			expectedErrors:    1,
 		},
 		{
 			name:              "No host",
 			host:              "",
-			allowNonCompliant: "",
+			allowNonCompliant: false,
 			expectedErrors:    1,
 		},
 		{
 			name:              "Invalid DNS 952 host",
 			host:              "**",
-			allowNonCompliant: "",
+			allowNonCompliant: false,
 			expectedErrors:    1,
 		},
 	}

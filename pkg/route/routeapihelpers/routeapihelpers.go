@@ -47,18 +47,16 @@ func IngressURI(route *routev1.Route, host string) (*url.URL, *routev1.RouteIngr
 
 // ValidateHost checks that a route's host name satisfies DNS requirements, with
 // the assumption that the caller has already checked for an empty host name.
-// Unless the allowNonCompliant annotation is set to true, host name must have
-// at least two labels, with each label no more than 63 characters from the set of
-// alphanumeric characters, '-' or '.', and must start and end with an alphanumeric
-// character. A trailing dot is allowed. The total host name length must be no more
-// than 253 characters.
-// If allowNonCompliant is set to true, it uses a smaller set of conditions from
-// IsDNS1123Subdomain, e.g. character set as described above, and total host name
-// length must be no more than 253 characters.
-func ValidateHost(host string, allowNonCompliant string, hostPath *field.Path) field.ErrorList {
-	result := field.ErrorList{}
-
-	if allowNonCompliant == "true" {
+// Unless allowNonCompliant is true, host name must have at least two labels,
+// with each label no more than 63 characters from the set of alphanumeric
+// characters, '-' or '.', and must start and end with an alphanumeric
+// character. A trailing dot is allowed.  The total host name length must be no
+// more than 253 characters.  If allowNonCompliant is true, it uses a smaller
+// set of conditions from IsDNS1123Subdomain, e.g. character set as described
+// above, and total host name length must be no more than 253 characters.
+func ValidateHost(host string, allowNonCompliant bool, hostPath *field.Path) field.ErrorList {
+	var result field.ErrorList
+	if allowNonCompliant {
 		errs := kvalidation.IsDNS1123Subdomain(host)
 		if len(errs) != 0 {
 			result = append(result, field.Invalid(hostPath, host, fmt.Sprintf("host must conform to DNS naming conventions: %v", errs)))
