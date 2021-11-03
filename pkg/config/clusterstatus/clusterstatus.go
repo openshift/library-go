@@ -2,6 +2,7 @@ package clusterstatus
 
 import (
 	"context"
+	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
 	openshiftcorev1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -21,13 +22,8 @@ func GetClusterInfraStatus(ctx context.Context, restClient *rest.Config) (*confi
 	if err != nil {
 		return nil, err
 	}
-	return &infra.Status, nil
-}
-
-func GetClusterInfraStatusOrDie(ctx context.Context, restClient *rest.Config) *configv1.InfrastructureStatus {
-	infra, err := GetClusterInfraStatus(ctx, restClient)
-	if err != nil {
-		panic(err)
+	if infra == nil {
+		return nil, fmt.Errorf("getting resource Infrastructure (name: %s) succeeded but object was nil", infraResourceName)
 	}
-	return infra
+	return &infra.Status, nil
 }
