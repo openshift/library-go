@@ -133,6 +133,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		eventRecorder,
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("failed to initialize controllers: %v", err)

@@ -15,7 +15,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -53,30 +52,17 @@ var (
 // a label storing the deployed encryption config revision, like the pods created
 // by the staticpod controllers.
 //
-// It syns the encryption-config-<targetNamespace> from openshift-config-managed
-// namespace to the target namespace as encryption-config. From there it is
-// revisioned and deployed to the static pods. The last deployed encryption
-// config is read from encryption-config-<revision>.
-//
-// For testing, resourceSyncer might be nil.
+// It revisiones and deployes the synchronized encryption-config from the
+// operator namespace to the static pods. The last deployed encryption config is
+// read from encryption-config-<revision>.
 func NewRevisionLabelPodDeployer(
 	revisionLabel string,
 	targetNamespace string,
 	namespaceInformers operatorv1helpers.KubeInformersForNamespaces,
-	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	nodeProvider MasterNodeProvider,
 ) (*RevisionLabelPodDeployer, error) {
-	if resourceSyncer != nil {
-		if err := resourceSyncer.SyncSecret(
-			resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionconfig.EncryptionConfSecretName},
-			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, targetNamespace)},
-		); err != nil {
-			return nil, err
-		}
-	}
-
 	return &RevisionLabelPodDeployer{
 		podClient:                podClient.Pods(targetNamespace),
 		secretClient:             secretClient.Secrets(targetNamespace),
