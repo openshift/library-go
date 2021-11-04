@@ -2,11 +2,14 @@ package encryption
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -35,6 +38,7 @@ func NewControllers(
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretsClient corev1.SecretsGetter,
 	eventRecorder events.Recorder,
+	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 ) (*Controllers, error) {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
@@ -45,6 +49,17 @@ func NewControllers(
 	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer.Lister(), kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector, component)
 	if err != nil {
 		return nil, err
+	}
+
+	// for testing resourceSyncer might be nil
+	if resourceSyncer != nil {
+		if err := resourceSyncer.SyncSecretConditionally(
+			resourcesynccontroller.ResourceLocation{Namespace: component, Name: encryptionconfig.EncryptionConfSecretName},
+			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, component)},
+			encryptionEnabledChecker.PreconditionFulfilled,
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	return &Controllers{
