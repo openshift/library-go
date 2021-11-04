@@ -132,6 +132,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		eventRecorder,
+		nil,
 	)
 
 	// launch controllers
