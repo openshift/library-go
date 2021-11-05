@@ -10,11 +10,10 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
-const defaultAdmissionTimeout = 13 * time.Second
-
 type pluginHandlerWithTimeout struct {
-	name            string
-	admissionPlugin admission.Interface
+	name             string
+	admissionPlugin  admission.Interface
+	admissionTimeout time.Duration
 }
 
 var _ admission.ValidationInterface = &pluginHandlerWithTimeout{}
@@ -25,7 +24,7 @@ func (p pluginHandlerWithTimeout) Handles(operation admission.Operation) bool {
 }
 
 func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	admissionCtx, cancelFn := context.WithTimeout(ctx, defaultAdmissionTimeout)
+	admissionCtx, cancelFn := context.WithTimeout(ctx, p.admissionTimeout)
 	defer cancelFn()
 
 	mutatingHandler, ok := p.admissionPlugin.(admission.MutationInterface)
@@ -45,12 +44,12 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 	case <-admissionDone:
 		return admissionErr
 	case <-admissionCtx.Done():
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, defaultAdmissionTimeout))
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, p.admissionTimeout))
 	}
 }
 
 func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	admissionCtx, cancelFn := context.WithTimeout(ctx, defaultAdmissionTimeout)
+	admissionCtx, cancelFn := context.WithTimeout(ctx, p.admissionTimeout)
 	defer cancelFn()
 
 	validatingHandler, ok := p.admissionPlugin.(admission.ValidationInterface)
@@ -70,6 +69,6 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 	case <-admissionDone:
 		return admissionErr
 	case <-admissionCtx.Done():
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, defaultAdmissionTimeout))
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, p.admissionTimeout))
 	}
 }
