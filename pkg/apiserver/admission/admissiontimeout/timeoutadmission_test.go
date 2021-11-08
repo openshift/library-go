@@ -40,6 +40,16 @@ func TestTimeoutAdmission(t *testing.T) {
 		expectedError   string
 	}{
 		{
+			name:    "succeed",
+			timeout: 50 * time.Millisecond,
+			admissionPlugin: func() (admitFunc, chan struct{}) {
+				stopCh := make(chan struct{})
+				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+					return nil
+				}, stopCh
+			},
+		},
+		{
 			name:    "stops on time",
 			timeout: 50 * time.Millisecond,
 			admissionPlugin: func() (admitFunc, chan struct{}) {
@@ -50,6 +60,22 @@ func TestTimeoutAdmission(t *testing.T) {
 				}, stopCh
 			},
 			expectedError: `fake-name" failed to complete`,
+		},
+		{
+			name:    "stops on timeout",
+			timeout: 100 * time.Millisecond,
+			admissionPlugin: func() (admitFunc, chan struct{}) {
+				stopCh := make(chan struct{})
+				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+					select {
+					case <-stopCh:
+						return nil
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}, stopCh
+			},
+			expectedError: `context deadline exceeded`,
 		},
 		{
 			name:    "stops on success",

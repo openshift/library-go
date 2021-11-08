@@ -28,9 +28,12 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 	if !ok {
 		return nil
 	}
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, p.timeout)
+	defer cancel()
 
 	admissionDone := make(chan struct{})
-	admissionErr := fmt.Errorf("default to mutation error")
+	admissionErr := fmt.Errorf("default to mutation error plugin %q", p.name)
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
@@ -39,10 +42,13 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 
 	select {
 	case <-admissionDone:
-		return admissionErr
-	case <-time.After(p.timeout):
+		if admissionErr != nil {
+			return fmt.Errorf("admission plugin %q failed to complete mutation with error: %w", p.name, admissionErr)
+		}
+	case <-time.After(p.timeout + 100*time.Millisecond): // let the propagated context to fail first
 		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, p.timeout))
 	}
+	return nil
 }
 
 func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -51,8 +57,12 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 		return nil
 	}
 
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, p.timeout)
+	defer cancel()
+
 	admissionDone := make(chan struct{})
-	admissionErr := fmt.Errorf("default to validation error")
+	admissionErr := fmt.Errorf("default to mutation error plugin %q", p.name)
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
@@ -61,8 +71,11 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 
 	select {
 	case <-admissionDone:
-		return admissionErr
-	case <-time.After(p.timeout):
+		if admissionErr != nil {
+			return fmt.Errorf("admission plugin %q failed to complete validation with error: %w", p.name, admissionErr)
+		}
+	case <-time.After(p.timeout + 100*time.Millisecond): // let the propagated context to fail first
 		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, p.timeout))
 	}
+	return nil
 }
