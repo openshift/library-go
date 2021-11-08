@@ -25,6 +25,7 @@ func (p pluginHandlerWithTimeout) Handles(operation admission.Operation) bool {
 
 func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
 	admissionCtx, cancelFn := context.WithTimeout(ctx, p.admissionTimeout)
+	deadline := getTimeoutFromContext(admissionCtx)
 	defer cancelFn()
 
 	mutatingHandler, ok := p.admissionPlugin.(admission.MutationInterface)
@@ -33,7 +34,7 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 	}
 
 	admissionDone := make(chan struct{})
-	admissionErr := fmt.Errorf("default to mutation error")
+	admissionErr := fmt.Errorf("default to mutation error plugin %q", p.name)
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
@@ -44,12 +45,13 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 	case <-admissionDone:
 		return admissionErr
 	case <-admissionCtx.Done():
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, p.admissionTimeout))
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, deadline))
 	}
 }
 
 func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
 	admissionCtx, cancelFn := context.WithTimeout(ctx, p.admissionTimeout)
+	deadline := getTimeoutFromContext(admissionCtx)
 	defer cancelFn()
 
 	validatingHandler, ok := p.admissionPlugin.(admission.ValidationInterface)
@@ -58,7 +60,7 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 	}
 
 	admissionDone := make(chan struct{})
-	admissionErr := fmt.Errorf("default to validation error")
+	admissionErr := fmt.Errorf("default to validation error plugin %q", p.name)
 	go func() {
 		defer utilruntime.HandleCrash()
 		defer close(admissionDone)
@@ -69,6 +71,14 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 	case <-admissionDone:
 		return admissionErr
 	case <-admissionCtx.Done():
-		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, p.admissionTimeout))
+		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete validation in %v", p.name, deadline))
 	}
+}
+
+func getTimeoutFromContext(ctx context.Context) time.Duration {
+	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
+		return time.Until(deadline).Truncate(time.Millisecond) + time.Millisecond
+	}
+
+	return defaultAdmissionTimeout
 }

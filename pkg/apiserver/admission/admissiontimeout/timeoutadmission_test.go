@@ -40,6 +40,16 @@ func TestTimeoutAdmission(t *testing.T) {
 		expectedError   string
 	}{
 		{
+			name:    "succeed",
+			timeout: 50 * time.Millisecond,
+			admissionPlugin: func() (admitFunc, chan struct{}) {
+				stopCh := make(chan struct{})
+				return func(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+					return nil
+				}, stopCh
+			},
+		},
+		{
 			name:    "stops on time",
 			timeout: 50 * time.Millisecond,
 			admissionPlugin: func() (admitFunc, chan struct{}) {
