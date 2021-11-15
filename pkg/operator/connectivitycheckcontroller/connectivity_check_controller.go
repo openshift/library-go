@@ -207,7 +207,7 @@ func ensureConnectivityCheckCRDExists(ctx context.Context, syncContext factory.S
 	if errors.IsNotFound(err) {
 		// create the podnetworkconnectivitycheck crd that should exist
 		applyResults := resourceapply.ApplyDirectly(
-			context.TODO(),
+			ctx,
 			resourceapply.NewClientHolder().WithAPIExtensionsClient(client),
 			syncContext.Recorder(),
 			func(name string) ([]byte, error) { return bindata.Asset(name) },

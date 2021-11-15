@@ -94,7 +94,7 @@ func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.deleteOldMigratedSecrets(syncCtx, c.provider.EncryptedGRs())
+	configError := c.deleteOldMigratedSecrets(ctx, syncCtx, c.provider.EncryptedGRs())
 	if configError != nil {
 		degradedCondition.Status = operatorv1.ConditionTrue
 		degradedCondition.Reason = "Error"
@@ -103,8 +103,8 @@ func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	return configError
 }
 
-func (c *pruneController) deleteOldMigratedSecrets(syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+func (c *pruneController) deleteOldMigratedSecrets(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (c *pruneController) deleteOldMigratedSecrets(syncContext factory.SyncConte
 		allUsedKeys = append(allUsedKeys, grKeys.ReadKeys...)
 	}
 
-	allSecrets, err := c.secretClient.Secrets("openshift-config-managed").List(context.TODO(), c.encryptionSecretSelector)
+	allSecrets, err := c.secretClient.Secrets("openshift-config-managed").List(ctx, c.encryptionSecretSelector)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ NextEncryptionSecret:
 			delete(finalizers, secrets.EncryptionSecretFinalizer)
 			secret.Finalizers = finalizers.List()
 			var updateErr error
-			secret, updateErr = c.secretClient.Secrets("openshift-config-managed").Update(context.TODO(), secret, metav1.UpdateOptions{})
+			secret, updateErr = c.secretClient.Secrets("openshift-config-managed").Update(ctx, secret, metav1.UpdateOptions{})
 			deleteErrs = append(deleteErrs, updateErr)
 			if updateErr != nil {
 				continue
@@ -172,7 +172,7 @@ NextEncryptionSecret:
 		}
 
 		// remove the actual secret
-		if err := c.secretClient.Secrets("openshift-config-managed").Delete(context.TODO(), secret.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.secretClient.Secrets("openshift-config-managed").Delete(ctx, secret.Name, metav1.DeleteOptions{}); err != nil {
 			deleteErrs = append(deleteErrs, err)
 		} else {
 			deletedKeys++

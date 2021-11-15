@@ -77,7 +77,7 @@ func NewCertRotationController(
 }
 
 func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	syncErr := c.syncWorker()
+	syncErr := c.syncWorker(ctx)
 
 	// running this function with RunOnceContextKey value context will make this "run-once" without updating status.
 	isRunOnce, ok := ctx.Value(RunOnceContextKey).(bool)
@@ -105,18 +105,18 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 	return syncErr
 }
 
-func (c CertRotationController) syncWorker() error {
-	signingCertKeyPair, err := c.rotatedSigningCASecret.ensureSigningCertKeyPair(context.TODO())
+func (c CertRotationController) syncWorker(ctx context.Context) error {
+	signingCertKeyPair, err := c.rotatedSigningCASecret.ensureSigningCertKeyPair(ctx)
 	if err != nil {
 		return err
 	}
 
-	cabundleCerts, err := c.CABundleConfigMap.ensureConfigMapCABundle(context.TODO(), signingCertKeyPair)
+	cabundleCerts, err := c.CABundleConfigMap.ensureConfigMapCABundle(ctx, signingCertKeyPair)
 	if err != nil {
 		return err
 	}
 
-	if err := c.RotatedSelfSignedCertKeySecret.ensureTargetCertKeyPair(context.TODO(), signingCertKeyPair, cabundleCerts); err != nil {
+	if err := c.RotatedSelfSignedCertKeySecret.ensureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 

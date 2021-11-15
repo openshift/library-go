@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -76,7 +77,7 @@ func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *Insta
 	return o
 }
 
-func NewInstaller() *cobra.Command {
+func NewInstaller(ctx context.Context) *cobra.Command {
 	o := NewInstallOptions()
 
 	cmd := &cobra.Command{
@@ -93,7 +94,8 @@ func NewInstaller() *cobra.Command {
 				klog.Exit(err)
 			}
 
-			ctx, cancel := context.WithTimeout(context.TODO(), o.Timeout)
+			signalHandlingCtx := setupSignalContext(ctx)
+			ctx, cancel := context.WithTimeout(signalHandlingCtx, o.Timeout)
 			defer cancel()
 			if err := o.Run(ctx); err != nil {
 				klog.Exit(err)
@@ -104,6 +106,19 @@ func NewInstaller() *cobra.Command {
 	o.AddFlags(cmd.Flags())
 
 	return cmd
+}
+
+// setupSignalContext registers for SIGTERM and SIGINT and returns a context
+// that will be cancelled once a signal is received.
+func setupSignalContext(baseCtx context.Context) context.Context {
+	shutdownCtx, cancel := context.WithCancel(baseCtx)
+	shutdownHandler := server.SetupSignalHandler()
+	go func() {
+		defer cancel()
+		<-shutdownHandler
+		klog.Infof("Received SIGTERM or SIGINT signal, shutting down the process.")
+	}()
+	return shutdownCtx
 }
 
 func (o *InstallOptions) AddFlags(fs *pflag.FlagSet) {
@@ -388,7 +403,7 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 
 	err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
 		var clientErr error
-		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
+		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(ctx, o.KubeClient, o.Namespace, nil)
 		if clientErr != nil {
 			return false, clientErr
 		}

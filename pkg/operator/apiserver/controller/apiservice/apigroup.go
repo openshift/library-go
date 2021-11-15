@@ -67,10 +67,10 @@ func newEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory) 
 	}
 }
 
-func checkDiscoveryForByAPIServices(recorder events.Recorder, restclient rest.Interface, apiServices []*apiregistrationv1.APIService) []string {
+func checkDiscoveryForByAPIServices(ctx context.Context, recorder events.Recorder, restclient rest.Interface, apiServices []*apiregistrationv1.APIService) []string {
 	missingMessages := []string{}
 	for _, apiService := range apiServices {
-		err := checkDiscoveryForAPIService(restclient, apiService)
+		err := checkDiscoveryForAPIService(ctx, restclient, apiService)
 		if err != nil {
 			groupVersionString := fmt.Sprintf("%s.%s", apiService.Spec.Group, apiService.Spec.Version)
 			recorder.Warningf("OpenShiftAPICheckFailed", fmt.Sprintf("%q failed with %v", groupVersionString, err))
@@ -81,7 +81,7 @@ func checkDiscoveryForByAPIServices(recorder events.Recorder, restclient rest.In
 	return missingMessages
 }
 
-func checkDiscoveryForAPIService(restclient rest.Interface, apiService *apiregistrationv1.APIService) error {
+func checkDiscoveryForAPIService(ctx context.Context, restclient rest.Interface, apiService *apiregistrationv1.APIService) error {
 	type statusErrTuple struct {
 		status int
 		err    error
@@ -95,16 +95,16 @@ func checkDiscoveryForAPIService(restclient rest.Interface, apiService *apiregis
 
 	for i := 0; i < attempts; i++ {
 		go func() {
-			var ctx context.Context
+			var discoveryCtx context.Context
 			var ctxCancelFn context.CancelFunc
 			var statusCode int
 			defer wg.Done()
 			defer utilruntime.HandleCrash()
 
-			ctx, ctxCancelFn = context.WithTimeout(context.TODO(), 25*time.Second)
+			discoveryCtx, ctxCancelFn = context.WithTimeout(discoveryCtx, 25*time.Second)
 			defer ctxCancelFn()
 
-			result := restclient.Get().AbsPath("/apis/" + apiService.Spec.Group + "/" + apiService.Spec.Version).Do(ctx).StatusCode(&statusCode)
+			result := restclient.Get().AbsPath("/apis/" + apiService.Spec.Group + "/" + apiService.Spec.Version).Do(discoveryCtx).StatusCode(&statusCode)
 			resultsCh <- statusErrTuple{status: statusCode, err: result.Error()}
 		}()
 	}

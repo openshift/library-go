@@ -146,7 +146,7 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (migratingResources []schema.GroupResource, err error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		return nil, nil
 	}
 
-	encryptionSecrets, err := secrets.ListKeySecrets(c.secretClient, c.encryptionSecretSelector)
+	encryptionSecrets, err := secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue
 		}
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			s, err := c.secretClient.Secrets(oldWriteKey.Namespace).Get(context.TODO(), oldWriteKey.Name, metav1.GetOptions{})
+			s, err := c.secretClient.Secrets(oldWriteKey.Namespace).Get(ctx, oldWriteKey.Name, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to get key secret %s/%s: %v", oldWriteKey.Namespace, oldWriteKey.Name, err)
 			}
