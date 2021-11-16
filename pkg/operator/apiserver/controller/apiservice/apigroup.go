@@ -101,7 +101,7 @@ func checkDiscoveryForAPIService(ctx context.Context, restclient rest.Interface,
 			defer wg.Done()
 			defer utilruntime.HandleCrash()
 
-			discoveryCtx, ctxCancelFn = context.WithTimeout(discoveryCtx, 25*time.Second)
+			discoveryCtx, ctxCancelFn = context.WithTimeout(ctx, 25*time.Second)
 			defer ctxCancelFn()
 
 			result := restclient.Get().AbsPath("/apis/" + apiService.Spec.Group + "/" + apiService.Spec.Version).Do(discoveryCtx).StatusCode(&statusCode)
