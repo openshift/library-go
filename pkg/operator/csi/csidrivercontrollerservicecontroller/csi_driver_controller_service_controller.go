@@ -168,6 +168,7 @@ func (c *CSIDriverControllerServiceController) sync(ctx context.Context, syncCon
 	}
 
 	deployment, _, err := resourceapply.ApplyDeployment(
+		ctx,
 		c.kubeClient.AppsV1(),
 		syncContext.Recorder(),
 		required,

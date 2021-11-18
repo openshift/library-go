@@ -62,8 +62,8 @@ func TestOperatorManagementStateController(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			getAllowedOperatorRemovedState = tc.allowRemove
-			getAllowedOperatorUnmanaged = tc.allowUnmanaged
+			allowOperatorRemovedState = tc.allowRemove()
+			allowOperatorUnmanagedState = tc.allowUnmanaged()
 
 			statusClient := &statusClient{
 				t: t,
