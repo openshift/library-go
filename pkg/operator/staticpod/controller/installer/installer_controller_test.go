@@ -551,7 +551,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				[]revision.RevisionResource{{Name: "test-config"}},
 				[]revision.RevisionResource{{Name: "test-secret"}},
 				[]string{"/bin/true", "--foo=test", "--bar"},
-				kubeInformers,
+				kubeInformers, kubeInformers,
 				fakeStaticPodOperatorClient,
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
@@ -684,7 +684,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		[]revision.RevisionResource{{Name: "test-config"}},
 		[]revision.RevisionResource{{Name: "test-secret"}},
 		podCommand,
-		kubeInformers,
+		kubeInformers, kubeInformers,
 		fakeStaticPodOperatorClient,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
@@ -1091,7 +1091,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		[]revision.RevisionResource{{Name: "test-config"}},
 		[]revision.RevisionResource{{Name: "test-secret"}},
 		[]string{"/bin/true"},
-		kubeInformers,
+		kubeInformers, kubeInformers,
 		fakeStaticPodOperatorClient,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
@@ -1258,7 +1258,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				tt.configs,
 				tt.secrets,
 				[]string{"/bin/true"},
-				kubeInformers,
+				kubeInformers, kubeInformers,
 				fakeStaticPodOperatorClient,
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
@@ -1999,7 +1999,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				[]revision.RevisionResource{{Name: "test-config"}},
 				[]revision.RevisionResource{{Name: "test-secret"}},
 				[]string{"/bin/true"},
-				kubeInformers,
+				kubeInformers, kubeInformers,
 				fakeStaticPodOperatorClient,
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
@@ -2121,6 +2121,7 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 	type Test struct {
 		name         string
 		nodeStatuses []operatorv1.NodeStatus
+		nodes        []*corev1.Node
 		pods         []StaticPod
 		expected     int
 		expectedErr  bool
@@ -2128,6 +2129,37 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 
 	newNodeStatus := func(name string, current, target int32) operatorv1.NodeStatus {
 		return operatorv1.NodeStatus{NodeName: name, CurrentRevision: current, TargetRevision: target}
+	}
+
+	const (
+		Ready = iota
+		NotReady
+		Unknown
+
+		WithHeartbeat = iota
+		WithoutHeartbeat
+	)
+	newNode := func(name string, ready, heartbeat int, howLongAgo time.Duration) *corev1.Node {
+		status := corev1.ConditionTrue
+		switch ready {
+		case NotReady:
+			status = corev1.ConditionFalse
+		case Unknown:
+			status = corev1.ConditionUnknown
+		}
+		heartbeatTime := metav1.NewTime(time.Now().Add(time.Minute))
+		if heartbeat == WithoutHeartbeat {
+			heartbeatTime = metav1.NewTime(time.Now().Add(-howLongAgo - time.Minute*5))
+		}
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{
+				Type:               corev1.NodeReady,
+				Status:             status,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-howLongAgo)),
+				LastHeartbeatTime:  heartbeatTime,
+			}}},
+		}
 	}
 
 	for _, test := range []Test{
@@ -2255,6 +2287,101 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 			},
 			expected: 1,
 		},
+		{
+			name: "behind, unready, but only recently",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 0},
+				{"c", staticPodStateReady, 1},
+			},
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 1, 0),
+			},
+			nodes: []*corev1.Node{
+				newNode("a", Ready, WithHeartbeat, time.Minute),
+				newNode("b", NotReady, WithHeartbeat, time.Minute*19),
+				newNode("c", Ready, WithHeartbeat, time.Minute),
+			},
+			expected: 1,
+		},
+		{
+			name: "behind, unready long time, but heartbeat",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 0},
+				{"c", staticPodStateReady, 1},
+			},
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 1, 0),
+			},
+			nodes: []*corev1.Node{
+				newNode("a", Ready, WithHeartbeat, time.Minute),
+				newNode("b", NotReady, WithHeartbeat, time.Hour*25),
+				newNode("c", Ready, WithHeartbeat, time.Minute),
+			},
+			expected: 1,
+		},
+		{
+			name: "behind, unready long time, no heartbeat",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 0},
+				{"c", staticPodStateReady, 1},
+			},
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 1, 0),
+			},
+			nodes: []*corev1.Node{
+				newNode("a", Ready, WithHeartbeat, time.Minute),
+				newNode("b", NotReady, WithoutHeartbeat, time.Hour*25),
+				newNode("c", Ready, WithHeartbeat, time.Minute),
+			},
+			expected: 2,
+		},
+		{
+			name: "behind, unknown long time, but heartbeat",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 0},
+				{"c", staticPodStateReady, 1},
+			},
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 1, 0),
+			},
+			nodes: []*corev1.Node{
+				newNode("a", Ready, WithHeartbeat, time.Minute),
+				newNode("b", Unknown, WithHeartbeat, time.Hour*25),
+				newNode("c", Ready, WithHeartbeat, time.Minute),
+			},
+			expected: 1,
+		},
+		{
+			name: "behind, unknown long time, no heartbeat",
+			pods: []StaticPod{
+				{"a", staticPodStateReady, 2},
+				{"b", staticPodStateReady, 0},
+				{"c", staticPodStateReady, 1},
+			},
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 1, 0),
+			},
+			nodes: []*corev1.Node{
+				newNode("a", Ready, WithHeartbeat, time.Minute),
+				newNode("b", Unknown, WithoutHeartbeat, time.Hour*25),
+				newNode("c", Ready, WithHeartbeat, time.Minute),
+			},
+			expected: 2,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fakeGetStaticPodState := func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errs []string, ts time.Time, err error) {
@@ -2265,7 +2392,7 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				}
 				return staticPodStatePending, "", "", nil, time.Now(), errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
-			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodeStatuses)
+			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodeStatuses, test.nodes)
 			if err == nil && test.expectedErr {
 				t.Fatalf("expected error, got none")
 			}

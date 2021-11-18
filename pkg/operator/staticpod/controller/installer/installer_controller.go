@@ -27,11 +27,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/clock"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -82,6 +85,7 @@ type InstallerController struct {
 	configMapsGetter corev1client.ConfigMapsGetter
 	secretsGetter    corev1client.SecretsGetter
 	podsGetter       corev1client.PodsGetter
+	nodesLister      corelistersv1.NodeLister
 	eventRecorder    events.Recorder
 	now              func() time.Time // for test plumbing
 
@@ -158,7 +162,7 @@ func NewInstallerController(
 	configMaps []revision.RevisionResource,
 	secrets []revision.RevisionResource,
 	command []string,
-	kubeInformersForTargetNamespace informers.SharedInformerFactory,
+	kubeInformersForTargetNamespace, clusterInformers informers.SharedInformerFactory,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configMapsGetter corev1client.ConfigMapsGetter,
 	secretsGetter corev1client.SecretsGetter,
@@ -176,6 +180,7 @@ func NewInstallerController(
 		configMapsGetter: configMapsGetter,
 		secretsGetter:    secretsGetter,
 		podsGetter:       podsGetter,
+		nodesLister:      clusterInformers.Core().V1().Nodes().Lister(),
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 		now:              time.Now,
 		startupMonitorEnabled: func() (bool, error) {
@@ -189,7 +194,9 @@ func NewInstallerController(
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
-	c.factory = factory.New().WithInformers(operatorClient.Informer(), kubeInformersForTargetNamespace.Core().V1().Pods().Informer())
+	c.factory = factory.New().
+		WithInformers(operatorClient.Informer(), kubeInformersForTargetNamespace.Core().V1().Pods().Informer()).
+		WithBareInformers(clusterInformers.Core().V1().Nodes().Informer())
 
 	return c
 }
@@ -286,13 +293,41 @@ type staticPodStateFunc func(ctx context.Context, nodeName string) (state static
 // - not updating
 // - ready
 // - at the revision claimed in CurrentRevision.
-func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodeStatuses []operatorv1.NodeStatus) (int, string, error) {
+// We exclude down nodes from this invariant after a day of downtime, in order to keep progressing
+// when nodes are unavailable for longer time, and maybe never come back.
+func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodeStatuses []operatorv1.NodeStatus, nodes []*corev1.Node) (int, string, error) {
 	if len(nodeStatuses) == 0 {
 		return 0, "", fmt.Errorf("nodeStatuses array cannot be empty")
 	}
 
+	// skip those nodes that are down for more than a day, to ensure progress even with two masters
+	nodesByName := make(map[string]*corev1.Node)
+	for i := range nodes {
+		nodesByName[nodes[i].Name] = nodes[i]
+	}
+	skip := map[string]bool{}
+	nodeDowntimeThreshold := 24 * time.Hour
+	for _, nodeStatus := range nodeStatuses {
+		node := nodesByName[nodeStatus.NodeName]
+		if node == nil {
+			skip[nodeStatus.NodeName] = true
+			continue
+		}
+		if isDown, duration := nodeDowntime(node); isDown && duration > nodeDowntimeThreshold {
+			skip[nodeStatus.NodeName] = true
+		}
+	}
+	if len(skip) == len(nodeStatuses) {
+		// no node is up, don't skip all of them
+		skip = nil
+	}
+
 	// find upgrading node as this will be the first to start new revision (to minimize number of down nodeStatuses)
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		if nodeStatuses[i].TargetRevision != 0 {
 			reason := fmt.Sprintf("node %s is progressing towards %d", nodeStatuses[i].NodeName, nodeStatuses[i].TargetRevision)
 			return i, reason, nil
@@ -300,11 +335,19 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	}
 	var mostCurrent int32
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		if nodeStatuses[i].CurrentRevision > mostCurrent {
 			mostCurrent = nodeStatuses[i].CurrentRevision
 		}
 	}
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		if nodeStatuses[i].LastFailedRevision > mostCurrent {
 			reason := fmt.Sprintf("node %s is progressing with failed revisions", nodeStatuses[i].NodeName)
 			return i, reason, nil
@@ -315,6 +358,10 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestNotReadyRevisionNode := -1
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		currNodeState := &nodeStatuses[i]
 		state, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
@@ -342,6 +389,10 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestPodRevisionNode := -1
 	oldestPodRevision := math.MaxInt32
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		currNodeState := &nodeStatuses[i]
 		_, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
@@ -369,6 +420,10 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestCurrentRevisionNode := -1
 	oldestCurrentRevision := int32(math.MaxInt32)
 	for i := range nodeStatuses {
+		if skip[nodeStatuses[i].NodeName] {
+			continue
+		}
+
 		currNodeState := &nodeStatuses[i]
 		if currNodeState.CurrentRevision < oldestCurrentRevision {
 			oldestCurrentRevisionNode = i
@@ -431,7 +486,15 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 	}
 
 	// start with node which is in worst state (instead of terminating healthy pods first)
-	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses)
+	selector, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Equals, []string{""})
+	if err != nil {
+		return true, 0, err
+	}
+	nodes, err := c.nodesLister.List(labels.NewSelector().Add(*selector))
+	if err != nil {
+		return true, 0, nil
+	}
+	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses, nodes)
 	if err != nil {
 		return true, 0, err
 	}
@@ -1129,9 +1192,21 @@ func nthTimeOr1st(n int) string {
 	return fmt.Sprintf("%dth", n)
 }
 
-func max(x, y int) int {
-	if x > y {
-		return x
+func nodeDowntime(node *corev1.Node) (bool, time.Duration) {
+	if node.Status.Conditions == nil {
+		return false, 0
 	}
-	return y
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady {
+			if cond.Status != corev1.ConditionTrue {
+				lastSignal := cond.LastTransitionTime.Time
+				if cond.LastHeartbeatTime.After(lastSignal) {
+					lastSignal = cond.LastHeartbeatTime.Time
+				}
+				return true, time.Since(lastSignal)
+			}
+			return false, 0
+		}
+	}
+	return false, 0
 }
