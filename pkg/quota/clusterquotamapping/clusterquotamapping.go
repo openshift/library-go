@@ -20,6 +20,7 @@ import (
 	quotav1 "github.com/openshift/api/quota/v1"
 	quotainformer "github.com/openshift/client-go/quota/informers/externalversions/quota/v1"
 	quotalister "github.com/openshift/client-go/quota/listers/quota/v1"
+	"github.com/openshift/library-go/pkg/ratelimiter"
 )
 
 // Look out, here there be dragons!
@@ -81,8 +82,8 @@ func (l v1NamespaceLister) Get(name string) (metav1.Object, error) {
 
 func newClusterQuotaMappingController(namespaceInformer cache.SharedIndexInformer, quotaInformer quotainformer.ClusterResourceQuotaInformer) *ClusterQuotaMappingController {
 	c := &ClusterQuotaMappingController{
-		namespaceQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "controller_clusterquotamappingcontroller_namespaces"),
-		quotaQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "controller_clusterquotamappingcontroller_clusterquotas"),
+		namespaceQueue:     workqueue.NewNamedRateLimitingQueue(ratelimiter.DefaultControllerRateLimiter(), "controller_clusterquotamappingcontroller_namespaces"),
+		quotaQueue:         workqueue.NewNamedRateLimitingQueue(ratelimiter.DefaultControllerRateLimiter(), "controller_clusterquotamappingcontroller_clusterquotas"),
 		clusterQuotaMapper: NewClusterQuotaMapper(),
 	}
 	namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

@@ -16,6 +16,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
+	"github.com/openshift/library-go/pkg/ratelimiter"
 
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +46,7 @@ func NewFakeSyncContext(t *testing.T, clusterName string) *FakeSyncContext {
 	return &FakeSyncContext{
 		spokeName: clusterName,
 		recorder:  eventstesting.NewTestingEventRecorder(t),
-		queue:     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:     workqueue.NewRateLimitingQueue(ratelimiter.DefaultControllerRateLimiter()),
 	}
 }
 

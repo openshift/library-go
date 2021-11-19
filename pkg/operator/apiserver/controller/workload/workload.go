@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/ratelimiter"
 )
 
 const (
@@ -100,7 +101,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		versionRecorder:              versionRecorder,
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		queue:                        workqueue.NewNamedRateLimitingQueue(ratelimiter.DefaultControllerRateLimiter(), name),
 	}
 
 	c := factory.New()

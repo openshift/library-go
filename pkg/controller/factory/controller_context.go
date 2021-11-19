@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/ratelimiter"
 )
 
 // syncContext implements SyncContext and provide user access to queue and object that caused
@@ -27,7 +28,7 @@ var _ SyncContext = syncContext{}
 // NewSyncContext gives new sync context.
 func NewSyncContext(name string, recorder events.Recorder) SyncContext {
 	return syncContext{
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		queue:         workqueue.NewNamedRateLimitingQueue(ratelimiter.DefaultControllerRateLimiter(), name),
 		eventRecorder: recorder.WithComponentSuffix(strings.ToLower(name)),
 	}
 }
