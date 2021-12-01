@@ -1,6 +1,7 @@
 package resourceapply_test
 
 import (
+	"context"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -113,7 +114,7 @@ func TestApplyDeployment(t *testing.T) {
 				fakeKubeClient = fake.NewSimpleClientset(tt.actualDeployment)
 			}
 
-			updatedDeployment, updated, err := resourceapply.ApplyDeployment(fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, tt.expectedGeneration)
+			updatedDeployment, updated, err := resourceapply.ApplyDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, tt.expectedGeneration)
 			if tt.expectError && err == nil {
 				t.Fatal("expected to get an error")
 			}
@@ -187,7 +188,7 @@ func TestApplyDeploymentWithForce(t *testing.T) {
 				fakeKubeClient = fake.NewSimpleClientset(tt.actualDeployment)
 			}
 
-			updatedDeployment, updated, err := resourceapply.ApplyDeploymentWithForce(fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, tt.expectedGeneration, tt.forceRollout)
+			updatedDeployment, updated, err := resourceapply.ApplyDeploymentWithForce(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, tt.expectedGeneration, tt.forceRollout)
 			if tt.expectError && err == nil {
 				t.Fatal("expected to get an error")
 			}
