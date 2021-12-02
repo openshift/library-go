@@ -32,19 +32,14 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 	tests := []struct {
 		name           string
 		expectModified bool
-		// Simulate server-side generation increase on update
-		disableGeneration  bool
-		observedGeneration int64
-		expectedGeneration int64
-		existing           func() *admissionregistrationv1.MutatingWebhookConfiguration
-		input              func() *admissionregistrationv1.MutatingWebhookConfiguration
-		checkUpdated       func(*admissionregistrationv1.MutatingWebhookConfiguration) error
-		expectedEvents     []string
+		existing       func() *admissionregistrationv1.MutatingWebhookConfiguration
+		input          func() *admissionregistrationv1.MutatingWebhookConfiguration
+		checkUpdated   func(*admissionregistrationv1.MutatingWebhookConfiguration) error
+		expectedEvents []string
 	}{
 		{
-			name:               "Should successfully create webhook",
-			expectModified:     true,
-			expectedGeneration: 1,
+			name:           "Should successfully create webhook",
+			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
 			},
@@ -55,17 +50,11 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
-					Name: "test",
-				})
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				return hook
 			},
 			expectedEvents: []string{updateEvent},
@@ -76,59 +65,23 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
 			},
-			observedGeneration: 1,
-			expectedGeneration: 1,
 			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
-				hook := defaultHook.DeepCopy()
-				// Webhook is unchanged generation-wise
-				hook.SetGeneration(1)
-				return hook
-			},
-		},
-		{
-			name:               "Should create webhook and attempt an update when generation check is disabled, but report changes only once",
-			expectModified:     true,
-			disableGeneration:  true,
-			expectedGeneration: 1,
-			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
 			},
-			expectedEvents: []string{createEvent, updateEvent},
-		},
-		{
-			name:           "Should attempt to update resource twice when generation check is disabled but report changes only once",
-			expectModified: true,
-			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
-				return defaultHook.DeepCopy()
-			},
-			// Generation check is disabled, or this is the first apply
-			disableGeneration:  true,
-			observedGeneration: 0,
-			expectedGeneration: 2,
-			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
-				hook := defaultHook.DeepCopy()
-				// Webhook is unchanged generation-wise
-				hook.SetGeneration(1)
-				return hook
-			},
-			expectedEvents: []string{updateEvent, updateEvent},
 		},
 		{
 			name:           "Should update webhook, but preserve caBundle field if it is not set",
 			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.MutatingWebhook{Name: "test"},
 					admissionregistrationv1.MutatingWebhook{Name: "second"})
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
 					Name: "test",
 					ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -156,6 +109,7 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.MutatingWebhook{
 						Name:         "test",
@@ -164,12 +118,8 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 					admissionregistrationv1.MutatingWebhook{Name: "second"})
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
 					Name:                    "test",
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -206,19 +156,16 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			}
 			recorder := events.NewInMemoryRecorder("test")
 
-			testApply := func(expectedGeneration int64, expectModify bool) {
+			testApply := func(expectModify bool) {
 				updatedHook, modified, err := ApplyMutatingWebhookConfiguration(
 					context.TODO(),
 					client.AdmissionregistrationV1(),
-					recorder, test.input(), expectedGeneration)
+					recorder, test.input())
 				if err != nil {
 					t.Fatal(err)
 				}
 				if expectModify != modified {
 					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedHook)
-				}
-				if expectedGeneration != 0 && expectedGeneration != updatedHook.GetGeneration() {
-					t.Errorf("expected generation to be %v, got %v, %#v", expectedGeneration, updatedHook.GetGeneration(), updatedHook)
 				}
 
 				if test.checkUpdated != nil {
@@ -228,16 +175,7 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 				}
 			}
 
-			testApply(test.expectedGeneration, test.expectModified)
-
-			// Second modification with generation tracking
-			testApply(test.expectedGeneration, false)
-
-			// Disabled generation tracking
-			if test.disableGeneration {
-				testApply(0, false)
-			}
-
+			testApply(test.expectModified)
 			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
 		})
 	}
@@ -261,19 +199,14 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 	tests := []struct {
 		name           string
 		expectModified bool
-		// Simulate server-side generation increase on update
-		disableGeneration  bool
-		observedGeneration int64
-		expectedGeneration int64
-		existing           func() *admissionregistrationv1.ValidatingWebhookConfiguration
-		input              func() *admissionregistrationv1.ValidatingWebhookConfiguration
-		checkUpdated       func(*admissionregistrationv1.ValidatingWebhookConfiguration) error
-		expectedEvents     []string
+		existing       func() *admissionregistrationv1.ValidatingWebhookConfiguration
+		input          func() *admissionregistrationv1.ValidatingWebhookConfiguration
+		checkUpdated   func(*admissionregistrationv1.ValidatingWebhookConfiguration) error
+		expectedEvents []string
 	}{
 		{
-			name:               "Should successfully create webhook",
-			expectModified:     true,
-			expectedGeneration: 1,
+			name:           "Should successfully create webhook",
+			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
 			},
@@ -284,17 +217,11 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
-					Name: "test",
-				})
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				return hook
 			},
 			expectedEvents: []string{updateEvent},
@@ -305,59 +232,24 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
 			},
-			observedGeneration: 1,
-			expectedGeneration: 1,
 			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
-				hook := defaultHook.DeepCopy()
-				// Webhook is unchanged generation-wise
-				hook.SetGeneration(1)
-				return hook
-			},
-		},
-		{
-			name:               "Should create webhook and attempt an update when generation check is disabled, but report changes only once",
-			expectModified:     true,
-			disableGeneration:  true,
-			expectedGeneration: 1,
-			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				return defaultHook.DeepCopy()
+
 			},
-			expectedEvents: []string{createEvent, updateEvent},
-		},
-		{
-			name:           "Should attempt to update resource twice when generation check is disabled but report changes only once",
-			expectModified: true,
-			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
-				return defaultHook.DeepCopy()
-			},
-			// Generation check is disabled, or this is the first apply
-			disableGeneration:  true,
-			observedGeneration: 0,
-			expectedGeneration: 2,
-			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
-				hook := defaultHook.DeepCopy()
-				// Webhook is unchanged generation-wise
-				hook.SetGeneration(1)
-				return hook
-			},
-			expectedEvents: []string{updateEvent, updateEvent},
 		},
 		{
 			name:           "Should update webhook, but preserve caBundle field if it is not set",
 			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.ValidatingWebhook{Name: "test"},
 					admissionregistrationv1.ValidatingWebhook{Name: "second"})
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
 					Name: "test",
 					ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -385,6 +277,7 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				hook.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
 				hook.Webhooks = append(hook.Webhooks,
 					admissionregistrationv1.ValidatingWebhook{
 						Name:         "test",
@@ -393,12 +286,8 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 					admissionregistrationv1.ValidatingWebhook{Name: "second"})
 				return hook
 			},
-			observedGeneration: 1,
-			expectedGeneration: 3,
 			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
-				// Webhook has changed externally since last observation
-				hook.SetGeneration(2)
 				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
 					Name:                    "test",
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -435,19 +324,16 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			}
 			recorder := events.NewInMemoryRecorder("test")
 
-			testApply := func(expectedGeneration int64, expectModify bool) {
+			testApply := func(expectModify bool) {
 				updatedHook, modified, err := ApplyValidatingWebhookConfiguration(
 					context.TODO(),
 					client.AdmissionregistrationV1(),
-					recorder, test.input(), expectedGeneration)
+					recorder, test.input())
 				if err != nil {
 					t.Fatal(err)
 				}
 				if expectModify != modified {
 					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedHook)
-				}
-				if expectedGeneration != 0 && expectedGeneration != updatedHook.GetGeneration() {
-					t.Errorf("expected generation to be %v, got %v, %#v", expectedGeneration, updatedHook.GetGeneration(), updatedHook)
 				}
 
 				if test.checkUpdated != nil {
@@ -457,16 +343,7 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 				}
 			}
 
-			testApply(test.expectedGeneration, test.expectModified)
-
-			// Second modification with generation tracking
-			testApply(test.expectedGeneration, false)
-
-			// Disabled generation tracking
-			if test.disableGeneration {
-				testApply(0, false)
-			}
-
+			testApply(test.expectModified)
 			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
 		})
 	}
