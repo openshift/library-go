@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -344,18 +346,6 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		return err
 	}
 
-	// check to see if we need to acquire a file based lock to coordinate work.
-	// since writing to disk is fast and we need to write at most 2 files it is okay to hold a lock here
-	// note that in case of unplanned disaster the Linux kernel is going to release the lock when the process exits
-	if len(o.StaticPodManifestsLockFile) > 0 {
-		installerLock := flock.New(o.StaticPodManifestsLockFile)
-		klog.Infof("acquiring an exclusive lock on a %s", o.StaticPodManifestsLockFile)
-		if err := installerLock.Lock(ctx); err != nil {
-			return fmt.Errorf("failed to acquire an exclusive lock on %s, due to %v", o.StaticPodManifestsLockFile, err)
-		}
-		defer installerLock.Unlock()
-	}
-
 	// then write the required pod and all optional
 	// the key must be pod.yaml or has a -pod.yaml suffix to be considered
 	for rawPodKey, rawPod := range podsConfigMap.Data {
@@ -398,6 +388,47 @@ func (o *InstallOptions) substituteSecret(obj *corev1.Secret) *corev1.Secret {
 	return ret
 }
 
+func (o *InstallOptions) checkForHigherRevision(ctx context.Context) (error, bool) {
+	higherRevisionFound := false
+	targetRevision, err := strconv.Atoi(o.Revision)
+	if err != nil {
+		return fmt.Errorf("unable to convert revision into an integer: %v", err), false
+	}
+
+	if err := filepath.Walk(o.ResourceDir, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		// Ignore all non target resource directories
+		if !strings.HasPrefix(info.Name(), o.PodConfigMapNamePrefix) {
+			return nil
+		}
+
+		if info.Name() == o.PodConfigMapNamePrefix {
+			return nil
+		}
+
+		// Find the highest revision
+		revision, err := strconv.Atoi(strings.TrimPrefix(info.Name(), o.PodConfigMapNamePrefix+"-"))
+		if err != nil {
+			return err
+		}
+
+		if revision > targetRevision {
+			klog.Infof("Found a %v target resource directory with higher revision than requested (%v). Skipping.", path.Join(o.ResourceDir, info.Name()), o.Revision)
+			higherRevisionFound = true
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("unable to process target resource directories: %v", err), false
+	}
+	return nil, higherRevisionFound
+}
+
 func (o *InstallOptions) Run(ctx context.Context) error {
 	var eventTarget *corev1.ObjectReference
 
@@ -426,6 +457,34 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 		klog.Warningf("unable to get kubelet version for node %q: %v", o.NodeName, err)
 	} else {
 		klog.Infof("Got kubelet version %s on target node %s", o.KubeletVersion, o.NodeName)
+	}
+
+	// Check to see if we need to acquire a file based lock to coordinate work.
+	// Since writing to disk is fast and we need to write at most 2 files it is okay to hold a lock here.
+	// Note that in case of unplanned disaster the Linux kernel is going to release the lock when the process exits.
+	if len(o.StaticPodManifestsLockFile) > 0 {
+		installerLock := flock.New(o.StaticPodManifestsLockFile)
+		klog.Infof("acquiring an exclusive lock on a %s", o.StaticPodManifestsLockFile)
+		if err := installerLock.Lock(ctx); err != nil {
+			return fmt.Errorf("failed to acquire an exclusive lock on %s, due to %v", o.StaticPodManifestsLockFile, err)
+		}
+		defer installerLock.Unlock()
+	}
+
+	// Check if there's a target resource directory with higher revision.
+	// In some cases an installer container with a lower revision can start
+	// to run after an installer with a higher revision finishes.
+	// In which case the higher revision resources gets rewritten by lower
+	// revision resources. See https://bugzilla.redhat.com/show_bug.cgi?id=2028595.
+	err, higherRevisionFound := o.checkForHigherRevision(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Found a target resource directory with higher revision. Do nothing to avoid overriding
+	// existing resources with higher revision.
+	if higherRevisionFound {
+		return nil
 	}
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)

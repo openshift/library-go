@@ -860,13 +860,6 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
 	}
 
-	// if the startup monitor is enabled we need to acquire an exclusive lock
-	// to coordinate the work between the installer and the monitor
-	withStartupMonitorSupport, err := c.startupMonitorEnabled()
-	if err != nil {
-		return fmt.Errorf("unable to determine if the startup monitor should be enabled: %v", err)
-	}
-
 	args := []string{
 		fmt.Sprintf("-v=%d", loglevel.LogLevelToVerbosity(operatorSpec.LogLevel)),
 		fmt.Sprintf("--revision=%d", ns.TargetRevision),
@@ -874,9 +867,9 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),
 		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
-	}
-	if withStartupMonitorSupport {
-		args = append(args, fmt.Sprintf("--pod-manifests-lock-file=%s", fmt.Sprintf("/var/lock/%s-installer.lock", c.staticPodName)))
+		// The installer has to work exclusively so a check for higher revision and copying
+		// resources to a node are an atomic operation. See https://bugzilla.redhat.com/show_bug.cgi?id=2028595.
+		fmt.Sprintf("--pod-manifests-lock-file=%s", fmt.Sprintf("/var/lock/%s-installer.lock", c.staticPodName)),
 	}
 
 	for _, cm := range c.configMaps {
