@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/secretspruner"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
@@ -323,6 +324,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 ) *APIServerControllerSet {
 
 	cs.encryptionControllers = encryptionControllerBuilder{
@@ -337,6 +339,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		apiServerInformer:          apiServerInformer,
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		secretsClient:              secretsClient,
+		resourceSyncer:             resourceSyncer,
 	}
 
 	return cs
@@ -430,6 +433,7 @@ type encryptionControllerBuilder struct {
 	apiServerClient            configv1client.APIServerInterface
 	apiServerInformer          configv1informers.APIServerInformer
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
+	resourceSyncer             *resourcesynccontroller.ResourceSyncController
 
 	unsupportedConfigPrefix []string
 }
@@ -450,6 +454,7 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 		e.kubeInformersForNamespaces,
 		e.secretsClient,
 		e.eventRecorder,
+		e.resourceSyncer,
 	)
 
 	return e.controllerWrapper

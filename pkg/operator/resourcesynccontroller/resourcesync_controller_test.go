@@ -249,6 +249,86 @@ func TestSyncConfigMap(t *testing.T) {
 	}
 }
 
+func TestSyncConditionally(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		fn         preconditionsFulfilled
+		expectSync bool
+	}{
+		{
+			name:       "should sync when condition is fulfilled",
+			fn:         conditionFulfilled,
+			expectSync: true,
+		},
+		{
+			name:       "should not sync when condition is not fulfilled",
+			fn:         conditionNotFulfilled,
+			expectSync: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "config", Name: "secret"},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "config", Name: "configmap"},
+				},
+			)
+
+			configInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("config"))
+			operatorInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("operator"))
+
+			fakeStaticPodOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
+				&operatorv1.OperatorStatus{},
+				nil,
+			)
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+
+			c := NewResourceSyncController(
+				fakeStaticPodOperatorClient,
+				v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
+					"config":   configInformers,
+					"operator": operatorInformers,
+				}),
+				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
+				eventRecorder,
+			)
+			c.configMapGetter = kubeClient.CoreV1()
+			c.secretGetter = kubeClient.CoreV1()
+
+			if err := c.SyncSecretConditionally(ResourceLocation{Namespace: "operator", Name: "secret"}, ResourceLocation{Namespace: "config", Name: "secret"}, tc.fn); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.SyncConfigMapConditionally(ResourceLocation{Namespace: "operator", Name: "configmap"}, ResourceLocation{Namespace: "config", Name: "configmap"}, tc.fn); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.Sync(context.TODO(), c.syncCtx); err != nil {
+				t.Fatal(err)
+			}
+
+			expectedGetErr := func(err error) bool { return err == nil }
+			if !tc.expectSync {
+				expectedGetErr = func(err error) bool { return apierrors.IsNotFound(err) }
+			}
+			if _, err := kubeClient.CoreV1().Secrets("operator").Get(context.TODO(), "secret", metav1.GetOptions{}); !expectedGetErr(err) {
+				t.Error(err)
+			}
+			if _, err := kubeClient.CoreV1().ConfigMaps("operator").Get(context.TODO(), "configmap", metav1.GetOptions{}); !expectedGetErr(err) {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func conditionFulfilled() (bool, error) { return true, nil }
+
+func conditionNotFulfilled() (bool, error) { return false, nil }
+
 func TestServeHTTP(t *testing.T) {
 	c := &ResourceSyncController{
 		secretSyncRules: syncRules{
