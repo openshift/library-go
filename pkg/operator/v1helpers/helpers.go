@@ -165,6 +165,7 @@ func UpdateStatus(ctx context.Context, client OperatorClient, updateFuncs ...Upd
 			return err
 		}
 
+		oldStatus = oldStatus.DeepCopy()
 		newStatus := oldStatus.DeepCopy()
 		for _, update := range updateFuncs {
 			if err := update(newStatus); err != nil {
