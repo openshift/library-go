@@ -3,11 +3,14 @@ package controllercmd
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestControllerBuilder_getOnStartedLeadingFunc(t *testing.T) {
@@ -182,5 +185,69 @@ func TestControllerBuilder_OnLeadingFunc_NonZeroExit(t *testing.T) {
 		return
 	case <-time.After(5 * time.Second):
 		t.Fatal("unexpected timeout while terminating")
+	}
+}
+
+func TestInfraStatusTopologyLeaderElection(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		infra    *configv1.InfrastructureStatus
+		original configv1.LeaderElection
+		expected configv1.LeaderElection
+	}{
+		{
+			desc:  "should not set SNO config when infra is nil",
+			infra: nil,
+			original: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 20 * time.Second},
+			},
+			expected: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 20 * time.Second},
+			},
+		},
+		{
+			desc: "should not set SNO config when infra is HighlyAvailableTopologyMode",
+			infra: &configv1.InfrastructureStatus{
+				ControlPlaneTopology: configv1.HighlyAvailableTopologyMode,
+			},
+			original: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 20 * time.Second},
+			},
+			expected: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 20 * time.Second},
+			},
+		},
+		{
+			desc: "should set SNO leader election config when SingleReplicaToplogy Controlplane",
+			infra: &configv1.InfrastructureStatus{
+				ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+			},
+			original: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 20 * time.Second},
+			},
+			expected: configv1.LeaderElection{
+				LeaseDuration: metav1.Duration{Duration: 270 * time.Second},
+				RenewDeadline: metav1.Duration{Duration: 240 * time.Second},
+				RetryPeriod:   metav1.Duration{Duration: 60 * time.Second},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			leConfig := infraStatusTopologyLeaderElection(tc.infra, tc.original)
+			if !reflect.DeepEqual(tc.expected, leConfig) {
+				t.Errorf("expected %#v, got %#v", tc.expected, leConfig)
+			}
+		})
 	}
 }
