@@ -15,7 +15,7 @@ require (
 	github.com/imdario/mergo v0.3.7
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0-rc1
-	github.com/openshift/api v0.0.0-20210924154557-a4f696157341
+	github.com/openshift/api v0.0.0-20211103080632-8981c8822dfa
 	github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37
 	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 	github.com/pkg/errors v0.9.1
@@ -127,3 +127,7 @@ require (
 )
 
 replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
+
+replace github.com/openshift/api => github.com/damemi/api v0.0.0-20211208152126-88f7870d41ba
+
+replace github.com/openshift/client-go => github.com/damemi/client-go v0.0.0-20211208154940-abf88261d56d

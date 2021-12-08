@@ -205,7 +205,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/openshift/api v0.0.0-20210924154557-a4f696157341
+# github.com/openshift/api v0.0.0-20211103080632-8981c8822dfa => github.com/damemi/api v0.0.0-20211208152126-88f7870d41ba
 ## explicit; go 1.16
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -261,6 +261,8 @@ github.com/openshift/api/security
 github.com/openshift/api/security/v1
 github.com/openshift/api/servicecertsigner
 github.com/openshift/api/servicecertsigner/v1alpha1
+github.com/openshift/api/sharedresource
+github.com/openshift/api/sharedresource/v1alpha1
 github.com/openshift/api/template
 github.com/openshift/api/template/v1
 github.com/openshift/api/unidling/v1alpha1
@@ -276,7 +278,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
+# github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83 => github.com/damemi/client-go v0.0.0-20211208154940-abf88261d56d
 ## explicit; go 1.16
 github.com/openshift/client-go/apps/clientset/versioned/scheme
 github.com/openshift/client-go/apps/clientset/versioned/typed/apps/v1
@@ -1292,3 +1294,5 @@ sigs.k8s.io/yaml
 ## explicit
 vbom.ml/util/sortorder
 # vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
+# github.com/openshift/api => github.com/damemi/api v0.0.0-20211208152126-88f7870d41ba
+# github.com/openshift/client-go => github.com/damemi/client-go v0.0.0-20211208154940-abf88261d56d
