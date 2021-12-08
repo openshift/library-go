@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/config/client"
@@ -67,6 +68,8 @@ type FileWatcherOptions struct {
 
 	// lastTerminatedPid is used track the value of a PID that we already terminated
 	lastTerminatedPid int
+
+	logs *logs.Options
 }
 
 func NewFileWatcherOptions() *FileWatcherOptions {
@@ -80,6 +83,7 @@ func NewFileWatcherOptions() *FileWatcherOptions {
 		handleKillFn: func(pid int) error {
 			return syscall.Kill(pid, syscall.SIGKILL)
 		},
+		logs: logs.NewOptions(),
 	}
 }
 
@@ -97,6 +101,14 @@ func NewFileWatcherWatchdog() *cobra.Command {
 		Use:   "file-watcher-watchdog",
 		Short: "Watch files on the disk and terminate the specified process on change",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Activate logging as soon as possible, after that
+			// show flags with the final logging configuration.
+			if err := o.logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			defer logs.FlushLogs()
+
 			klog.V(1).Info(cmd.Flags())
 			klog.V(1).Info(spew.Sdump(o))
 
@@ -122,6 +134,7 @@ func NewFileWatcherWatchdog() *cobra.Command {
 	}
 
 	o.AddFlags(cmd.Flags())
+	o.logs.AddFlags(cmd.Flags())
 
 	return cmd
 }

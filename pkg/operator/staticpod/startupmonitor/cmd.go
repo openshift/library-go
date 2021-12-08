@@ -11,7 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/natefinch/lumberjack.v2"
+
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 
 	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
@@ -65,6 +67,8 @@ type Options struct {
 
 	// Check is the readiness step.
 	Check ReadinessChecker
+
+	Logs *logs.Options
 }
 
 // NewCommand creates the startup-monitor cobra command.
@@ -73,13 +77,21 @@ type Options struct {
 func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Config) (operatorclientv1.KubeAPIServerInterface, error)) *cobra.Command {
 	o := Options{
 		Check: check,
+		Logs:  logs.NewOptions(),
 	}
 
 	cmd := &cobra.Command{
 		Use:   "startup-monitor",
 		Short: "Monitors the provided static pod revision and if it proves unhealthy rolls back to the previous revision.",
 		Run: func(cmd *cobra.Command, args []string) {
-			setupLogger(o.LogFile)
+			setupLoggerOutput(o.LogFile)
+			// Activate logging as soon as possible, after that
+			// show flags with the final logging configuration.
+			if err := o.Logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			defer logs.FlushLogs()
 
 			klog.V(1).Info(cmd.Flags())
 			klog.V(1).Info(spew.Sdump(o))
@@ -138,6 +150,7 @@ func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Conf
 	}
 
 	o.AddFlags(cmd.Flags())
+	o.Logs.AddFlags(cmd.Flags())
 	return cmd
 }
 
@@ -173,7 +186,7 @@ func (o *Options) Validate() error {
 	return nil
 }
 
-func setupLogger(logFilePath string) {
+func setupLoggerOutput(logFilePath string) {
 	if len(logFilePath) == 0 {
 		return
 	}

@@ -2,6 +2,7 @@ package certsyncpod
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/logs"
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/controller/fileobserver"
@@ -30,17 +32,27 @@ type CertSyncControllerOptions struct {
 
 	kubeClient            kubernetes.Interface
 	tlsServerNameOverride string
+
+	logs *logs.Options
 }
 
 func NewCertSyncControllerCommand(configmaps, secrets []installer.UnrevisionedResource) *cobra.Command {
 	o := &CertSyncControllerOptions{
 		configMaps: configmaps,
 		secrets:    secrets,
+		logs:       logs.NewOptions(),
 	}
 
 	cmd := &cobra.Command{
 		Use: "cert-syncer --kubeconfig=kubeconfigfile",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Activate logging as soon as possible.
+			if err := o.logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			defer logs.FlushLogs()
+
 			if err := o.Complete(); err != nil {
 				klog.Fatal(err)
 			}
@@ -54,6 +66,8 @@ func NewCertSyncControllerCommand(configmaps, secrets []installer.UnrevisionedRe
 	cmd.Flags().StringVarP(&o.Namespace, "namespace", "n", o.Namespace, "Namespace to read from (default to 'POD_NAMESPACE' environment variable)")
 	cmd.Flags().StringVar(&o.KubeConfigFile, "kubeconfig", o.KubeConfigFile, "Location of the master configuration file to run from.")
 	cmd.Flags().StringVar(&o.tlsServerNameOverride, "tls-server-name-override", o.tlsServerNameOverride, "Server name override used by TLS to negotiate the serving cert via SNI.")
+
+	o.logs.AddFlags(cmd.Flags())
 
 	return cmd
 }

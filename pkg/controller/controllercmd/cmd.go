@@ -39,6 +39,7 @@ type ControllerCommandConfig struct {
 	version       version.Info
 
 	basicFlags *ControllerFlags
+	logs       *logs.Options
 
 	// DisableServing disables serving metrics, debug and health checks and so on.
 	DisableServing bool
@@ -58,6 +59,7 @@ func NewControllerCommandConfig(componentName string, version version.Info, star
 		version:       version,
 
 		basicFlags: NewControllerFlags(),
+		logs:       logs.NewOptions(),
 
 		DisableServing:        false,
 		DisableLeaderElection: false,
@@ -86,7 +88,12 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 		Run: func(cmd *cobra.Command, args []string) {
 			// boiler plate for the "normal" command
 			rand.Seed(time.Now().UTC().UnixNano())
-			logs.InitLogs()
+
+			// Activate logging as soon as possible.
+			if err := c.logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 
 			// handle SIGTERM and SIGINT by cancelling the context.
 			shutdownCtx, cancel := context.WithCancel(ctx)
@@ -141,6 +148,7 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 	}
 
 	c.basicFlags.AddFlags(cmd)
+	c.logs.AddFlags(cmd.Flags())
 
 	return cmd
 }

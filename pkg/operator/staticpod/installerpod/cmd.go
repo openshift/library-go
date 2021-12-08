@@ -22,6 +22,7 @@ import (
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-base/logs"
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -63,13 +64,17 @@ type InstallOptions struct {
 	PodMutationFns []PodMutationFunc
 
 	KubeletVersion string
+
+	logs *logs.Options
 }
 
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
 type PodMutationFunc func(pod *corev1.Pod) error
 
 func NewInstallOptions() *InstallOptions {
-	return &InstallOptions{}
+	return &InstallOptions{
+		logs: logs.NewOptions(),
+	}
 }
 
 func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *InstallOptions {
@@ -84,6 +89,14 @@ func NewInstaller(ctx context.Context) *cobra.Command {
 		Use:   "installer",
 		Short: "Install static pod and related resources",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Activate logging as soon as possible, after that
+			// show flags with the final logging configuration.
+			if err := o.logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			defer logs.FlushLogs()
+
 			klog.V(1).Info(cmd.Flags())
 			klog.V(1).Info(spew.Sdump(o))
 
@@ -104,6 +117,7 @@ func NewInstaller(ctx context.Context) *cobra.Command {
 	}
 
 	o.AddFlags(cmd.Flags())
+	o.logs.AddFlags(cmd.Flags())
 
 	return cmd
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -25,10 +27,14 @@ type PruneOptions struct {
 	ResourceDir   string
 	CertDir       string
 	StaticPodName string
+
+	logs *logs.Options
 }
 
 func NewPruneOptions() *PruneOptions {
-	return &PruneOptions{}
+	return &PruneOptions{
+		logs: logs.NewOptions(),
+	}
 }
 
 func NewPrune() *cobra.Command {
@@ -38,6 +44,14 @@ func NewPrune() *cobra.Command {
 		Use:   "prune",
 		Short: "Prune static pod installer revisions",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Activate logging as soon as possible, after that
+			// show flags with the final logging configuration.
+			if err := o.logs.ValidateAndApply(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			defer logs.FlushLogs()
+
 			klog.V(1).Info(cmd.Flags())
 			klog.V(1).Info(spew.Sdump(o))
 
@@ -51,6 +65,7 @@ func NewPrune() *cobra.Command {
 	}
 
 	o.AddFlags(cmd.Flags())
+	o.logs.AddFlags(cmd.Flags())
 
 	return cmd
 }
