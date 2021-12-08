@@ -2,9 +2,10 @@ package client
 
 import (
 	"io/ioutil"
+	"net/http"
+
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"net/http"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/network"
@@ -27,6 +28,7 @@ func GetKubeConfigOrInClusterConfig(kubeConfigFile string, overrides *ClientConn
 	t := ClientTransportOverrides{WrapTransport: clientConfig.WrapTransport}
 	if overrides != nil {
 		t.MaxIdleConnsPerHost = overrides.MaxIdleConnsPerHost
+		t.DialContext = overrides.DialContext
 	}
 	clientConfig.WrapTransport = t.DefaultClientTransport
 
@@ -52,6 +54,7 @@ func GetClientConfig(kubeConfigFile string, overrides *ClientConnectionOverrides
 	t := ClientTransportOverrides{WrapTransport: clientConfig.WrapTransport}
 	if overrides != nil {
 		t.MaxIdleConnsPerHost = overrides.MaxIdleConnsPerHost
+		t.DialContext = overrides.DialContext
 	}
 	clientConfig.WrapTransport = t.DefaultClientTransport
 
@@ -90,16 +93,21 @@ func applyClientConnectionOverrides(overrides *ClientConnectionOverrides, kubeCo
 type ClientTransportOverrides struct {
 	WrapTransport       func(rt http.RoundTripper) http.RoundTripper
 	MaxIdleConnsPerHost int
+	DialContext         *network.DialContext
 }
 
-// defaultClientTransport sets defaults for a client Transport that are suitable for use by infrastructure components.
+// DefaultClientTransport sets defaults for a client Transport that are suitable for use by infrastructure components.
 func (c ClientTransportOverrides) DefaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 	transport, ok := rt.(*http.Transport)
 	if !ok {
 		return rt
 	}
 
-	transport.DialContext = network.DefaultClientDialContext()
+	if c.DialContext == nil {
+		transport.DialContext = network.DefaultClientDialContext()
+	} else {
+		transport.DialContext = *c.DialContext
+	}
 
 	// Hold open more internal idle connections
 	transport.MaxIdleConnsPerHost = 100
@@ -118,6 +126,10 @@ func (c ClientTransportOverrides) DefaultClientTransport(rt http.RoundTripper) h
 // for QPS.  Empty values are not used.
 type ClientConnectionOverrides struct {
 	configv1.ClientConnectionOverrides
+
+	// DialContext configures DialContext settings(timeout, keepalive),
+	// if it is nil, default settings will be used.
+	DialContext *network.DialContext
 
 	// MaxIdleConnsPerHost, if non-zero, controls the maximum idle (keep-alive) connections to keep per-host:port.
 	// If zero, DefaultMaxIdleConnsPerHost is used.
