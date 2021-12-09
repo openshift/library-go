@@ -2119,14 +2119,14 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 		revision int32
 	}
 	type Test struct {
-		name        string
-		nodes       []operatorv1.NodeStatus
-		pods        []StaticPod
-		expected    int
-		expectedErr bool
+		name         string
+		nodeStatuses []operatorv1.NodeStatus
+		pods         []StaticPod
+		expected     int
+		expectedErr  bool
 	}
 
-	newNode := func(name string, current, target int32) operatorv1.NodeStatus {
+	newNodeStatus := func(name string, current, target int32) operatorv1.NodeStatus {
 		return operatorv1.NodeStatus{NodeName: name, CurrentRevision: current, TargetRevision: target}
 	}
 
@@ -2138,10 +2138,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 		{
 			name: "no pods",
 			pods: nil,
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 0, 0),
-				newNode("b", 0, 0),
-				newNode("c", 0, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 0, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 0, 0),
 			},
 			expected: 0,
 		},
@@ -2152,10 +2152,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStateReady, 1},
 				{"c", staticPodStateReady, 1},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 1, 0),
-				newNode("c", 1, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 1, 0),
+				newNodeStatus("c", 1, 0),
 			},
 			expected: 0,
 		},
@@ -2166,10 +2166,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStateReady, 1},
 				{"c", staticPodStateFailed, 1},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 1, 0),
-				newNode("c", 1, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 1, 0),
+				newNodeStatus("c", 1, 0),
 			},
 			expected: 2,
 		},
@@ -2180,10 +2180,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStateReady, 1},
 				{"c", staticPodStatePending, 1},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 1, 0),
-				newNode("c", 0, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 1, 0),
+				newNodeStatus("c", 0, 0),
 			},
 			expected: 2,
 		},
@@ -2194,10 +2194,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStatePending, 1},
 				{"c", staticPodStatePending, 1},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 0, 0),
-				newNode("c", 0, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 0, 0),
 			},
 			expected: 1,
 		},
@@ -2208,10 +2208,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStatePending, 0},
 				{"c", staticPodStateReady, 0},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 0, 1),
-				newNode("c", 0, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 0, 1),
+				newNodeStatus("c", 0, 0),
 			},
 			expected: 1,
 		},
@@ -2220,10 +2220,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 			pods: []StaticPod{
 				{"a", staticPodStateReady, 1},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 1, 0),
-				newNode("b", 0, 0),
-				newNode("c", 0, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 1, 0),
+				newNodeStatus("b", 0, 0),
+				newNodeStatus("c", 0, 0),
 			},
 			expected: 1,
 		},
@@ -2234,10 +2234,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStateReady, 1},
 				{"c", staticPodStateReady, 2},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 2, 0),
-				newNode("b", 2, 0),
-				newNode("c", 2, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 2, 0),
+				newNodeStatus("c", 2, 0),
 			},
 			expected: 1,
 		},
@@ -2248,10 +2248,10 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				{"b", staticPodStateReady, 1},
 				{"c", staticPodStateReady, 2},
 			},
-			nodes: []operatorv1.NodeStatus{
-				newNode("a", 2, 0),
-				newNode("b", 1, 0),
-				newNode("c", 2, 0),
+			nodeStatuses: []operatorv1.NodeStatus{
+				newNodeStatus("a", 2, 0),
+				newNodeStatus("b", 1, 0),
+				newNodeStatus("c", 2, 0),
 			},
 			expected: 1,
 		},
@@ -2265,7 +2265,7 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				}
 				return staticPodStatePending, "", "", nil, time.Now(), errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
-			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodes)
+			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodeStatuses)
 			if err == nil && test.expectedErr {
 				t.Fatalf("expected error, got none")
 			}

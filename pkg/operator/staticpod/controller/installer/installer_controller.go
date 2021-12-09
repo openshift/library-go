@@ -286,27 +286,27 @@ type staticPodStateFunc func(ctx context.Context, nodeName string) (state static
 // - not updating
 // - ready
 // - at the revision claimed in CurrentRevision.
-func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodes []operatorv1.NodeStatus) (int, string, error) {
-	if len(nodes) == 0 {
-		return 0, "", fmt.Errorf("nodes array cannot be empty")
+func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodeStatuses []operatorv1.NodeStatus) (int, string, error) {
+	if len(nodeStatuses) == 0 {
+		return 0, "", fmt.Errorf("nodeStatuses array cannot be empty")
 	}
 
-	// find upgrading node as this will be the first to start new revision (to minimize number of down nodes)
-	for i := range nodes {
-		if nodes[i].TargetRevision != 0 {
-			reason := fmt.Sprintf("node %s is progressing towards %d", nodes[i].NodeName, nodes[i].TargetRevision)
+	// find upgrading node as this will be the first to start new revision (to minimize number of down nodeStatuses)
+	for i := range nodeStatuses {
+		if nodeStatuses[i].TargetRevision != 0 {
+			reason := fmt.Sprintf("node %s is progressing towards %d", nodeStatuses[i].NodeName, nodeStatuses[i].TargetRevision)
 			return i, reason, nil
 		}
 	}
 	var mostCurrent int32
-	for i := range nodes {
-		if nodes[i].CurrentRevision > mostCurrent {
-			mostCurrent = nodes[i].CurrentRevision
+	for i := range nodeStatuses {
+		if nodeStatuses[i].CurrentRevision > mostCurrent {
+			mostCurrent = nodeStatuses[i].CurrentRevision
 		}
 	}
-	for i := range nodes {
-		if nodes[i].LastFailedRevision > mostCurrent {
-			reason := fmt.Sprintf("node %s is progressing with failed revisions", nodes[i].NodeName)
+	for i := range nodeStatuses {
+		if nodeStatuses[i].LastFailedRevision > mostCurrent {
+			reason := fmt.Sprintf("node %s is progressing with failed revisions", nodeStatuses[i].NodeName)
 			return i, reason, nil
 		}
 	}
@@ -314,8 +314,8 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	// otherwise try to find a node that is not ready. Take the oldest one.
 	oldestNotReadyRevisionNode := -1
 	oldestNotReadyRevision := math.MaxInt32
-	for i := range nodes {
-		currNodeState := &nodes[i]
+	for i := range nodeStatuses {
+		currNodeState := &nodeStatuses[i]
 		state, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
@@ -334,15 +334,15 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 		}
 	}
 	if oldestNotReadyRevisionNode >= 0 {
-		reason := fmt.Sprintf("node %s with revision %d is the oldest not ready", nodes[oldestNotReadyRevisionNode].NodeName, oldestNotReadyRevision)
+		reason := fmt.Sprintf("node %s with revision %d is the oldest not ready", nodeStatuses[oldestNotReadyRevisionNode].NodeName, oldestNotReadyRevision)
 		return oldestNotReadyRevisionNode, reason, nil
 	}
 
 	// find a node that has the wrong revision. Take the oldest one.
 	oldestPodRevisionNode := -1
 	oldestPodRevision := math.MaxInt32
-	for i := range nodes {
-		currNodeState := &nodes[i]
+	for i := range nodeStatuses {
+		currNodeState := &nodeStatuses[i]
 		_, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
@@ -361,26 +361,26 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 		}
 	}
 	if oldestPodRevisionNode >= 0 {
-		reason := fmt.Sprintf("node %s with revision %d is the oldest not matching its expected revision %d", nodes[oldestPodRevisionNode].NodeName, oldestPodRevisionNode, nodes[oldestPodRevisionNode].CurrentRevision)
+		reason := fmt.Sprintf("node %s with revision %d is the oldest not matching its expected revision %d", nodeStatuses[oldestPodRevisionNode].NodeName, oldestPodRevisionNode, nodeStatuses[oldestPodRevisionNode].CurrentRevision)
 		return oldestPodRevisionNode, reason, nil
 	}
 
 	// last but not least, choose the one with the older current revision. This will imply that failed installer pods will be retried.
 	oldestCurrentRevisionNode := -1
 	oldestCurrentRevision := int32(math.MaxInt32)
-	for i := range nodes {
-		currNodeState := &nodes[i]
+	for i := range nodeStatuses {
+		currNodeState := &nodeStatuses[i]
 		if currNodeState.CurrentRevision < oldestCurrentRevision {
 			oldestCurrentRevisionNode = i
 			oldestCurrentRevision = currNodeState.CurrentRevision
 		}
 	}
 	if oldestCurrentRevisionNode >= 0 {
-		reason := fmt.Sprintf("node %s with revision %d is the oldest", nodes[oldestCurrentRevisionNode].NodeName, oldestCurrentRevision)
+		reason := fmt.Sprintf("node %s with revision %d is the oldest", nodeStatuses[oldestCurrentRevisionNode].NodeName, oldestCurrentRevision)
 		return oldestCurrentRevisionNode, reason, nil
 	}
 
-	reason := fmt.Sprintf("node %s of revision %d is no worse than any other node, but comes first", nodes[0].NodeName, oldestCurrentRevision)
+	reason := fmt.Sprintf("node %s of revision %d is no worse than any other node, but comes first", nodeStatuses[0].NodeName, oldestCurrentRevision)
 	return 0, reason, nil
 }
 
