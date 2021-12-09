@@ -234,7 +234,11 @@ func TestRequestToken(t *testing.T) {
 
 		// Prompting basic handler
 		"prompting basic handler, no challenge, success": {
-			Handler: &BasicChallengeHandler{Username: "myuser", Reader: bytes.NewBufferString("mypassword\n")},
+			Handler: &BasicChallengeHandler{
+				Username:         "myuser",
+				Reader:           bytes.NewBufferString("mypassword\n"),
+				passwordPrompter: &testPasswordPrompter{},
+			},
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, success},
@@ -242,7 +246,11 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic challenge, success": {
-			Handler: &BasicChallengeHandler{Username: "myuser", Reader: bytes.NewBufferString("mypassword\n")},
+			Handler: &BasicChallengeHandler{
+				Username:         "myuser",
+				Reader:           bytes.NewBufferString("mypassword\n"),
+				passwordPrompter: &testPasswordPrompter{},
+			},
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, basicChallenge1},
@@ -251,7 +259,11 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic+negotiate challenge, success": {
-			Handler: &BasicChallengeHandler{Username: "myuser", Reader: bytes.NewBufferString("mypassword\n")},
+			Handler: &BasicChallengeHandler{
+				Username:         "myuser",
+				Reader:           bytes.NewBufferString("mypassword\n"),
+				passwordPrompter: &testPasswordPrompter{},
+			},
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, doubleChallenge},
@@ -260,7 +272,10 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic challenge, failure": {
-			Handler: &BasicChallengeHandler{Username: "myuser"},
+			Handler: &BasicChallengeHandler{
+				Username:         "myuser",
+				passwordPrompter: &testPasswordPrompter{},
+			},
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, basicChallenge1},
@@ -269,7 +284,10 @@ func TestRequestToken(t *testing.T) {
 			ExpectedError: "challenger chose not to retry the request",
 		},
 		"prompting basic handler, negotiate challenge, failure": {
-			Handler: &BasicChallengeHandler{Reader: bytes.NewBufferString("myuser\nmypassword\n")},
+			Handler: &BasicChallengeHandler{
+				Reader:           bytes.NewBufferString("myuser\nmypassword\n"),
+				passwordPrompter: &testPasswordPrompter{},
+			},
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, negotiateChallenge1},
@@ -380,7 +398,10 @@ func TestRequestToken(t *testing.T) {
 		"failing negotiate+prompting basic handler, no challenge, success": {
 			Handler: NewMultiHandler(
 				&NegotiateChallengeHandler{negotiator: &failingNegotiator{}},
-				&BasicChallengeHandler{Reader: bytes.NewBufferString("myuser\nmypassword\n")},
+				&BasicChallengeHandler{
+					Reader:           bytes.NewBufferString("myuser\nmypassword\n"),
+					passwordPrompter: &testPasswordPrompter{},
+				},
 			),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
@@ -391,7 +412,11 @@ func TestRequestToken(t *testing.T) {
 		"failing negotiate+prompting basic handler, negotiate+basic challenge, success": {
 			Handler: NewMultiHandler(
 				&NegotiateChallengeHandler{negotiator: &failingNegotiator{}},
-				&BasicChallengeHandler{Username: "myuser", Reader: bytes.NewBufferString("mypassword\n")},
+				&BasicChallengeHandler{
+					Username:         "myuser",
+					Reader:           bytes.NewBufferString("mypassword\n"),
+					passwordPrompter: &testPasswordPrompter{},
+				},
 			),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
@@ -442,86 +467,88 @@ func TestRequestToken(t *testing.T) {
 	}
 
 	for k, tc := range testcases {
-		i := 0
-		s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			defer func() {
-				if err := recover(); err != nil {
-					t.Errorf("test %s panicked: %v", k, err)
+		t.Run(k, func(t *testing.T) {
+			i := 0
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				defer func() {
+					if err := recover(); err != nil {
+						t.Errorf("test %s panicked: %v", k, err)
+					}
+				}()
+
+				if i >= len(tc.Requests) {
+					t.Errorf("%s: %d: more requests received than expected: %#v", k, i, req)
+					return
 				}
-			}()
+				rr := tc.Requests[i]
+				i++
 
-			if i >= len(tc.Requests) {
-				t.Errorf("%s: %d: more requests received than expected: %#v", k, i, req)
-				return
-			}
-			rr := tc.Requests[i]
-			i++
+				method := rr.expectedRequest.method
+				if len(method) == 0 {
+					method = http.MethodGet
+				}
+				if req.Method != method {
+					t.Errorf("%s: %d: Expected %s, got %s", k, i, method, req.Method)
+					return
+				}
 
-			method := rr.expectedRequest.method
-			if len(method) == 0 {
-				method = http.MethodGet
-			}
-			if req.Method != method {
-				t.Errorf("%s: %d: Expected %s, got %s", k, i, method, req.Method)
-				return
-			}
+				path := rr.expectedRequest.path
+				if len(path) == 0 {
+					path = "/oauth/authorize"
+				}
+				if req.URL.Path != path {
+					t.Errorf("%s: %d: Expected %s, got %s", k, i, path, req.URL.Path)
+					return
+				}
 
-			path := rr.expectedRequest.path
-			if len(path) == 0 {
-				path = "/oauth/authorize"
-			}
-			if req.URL.Path != path {
-				t.Errorf("%s: %d: Expected %s, got %s", k, i, path, req.URL.Path)
-				return
-			}
+				if e, a := rr.expectedRequest.authorization, req.Header.Get("Authorization"); e != a {
+					t.Errorf("%s: %d: expected 'Authorization: %s', got 'Authorization: %s'", k, i, e, a)
+					return
+				}
 
-			if e, a := rr.expectedRequest.authorization, req.Header.Get("Authorization"); e != a {
-				t.Errorf("%s: %d: expected 'Authorization: %s', got 'Authorization: %s'", k, i, e, a)
-				return
-			}
+				if len(rr.serverResponse.location) > 0 {
+					w.Header().Add("Location", rr.serverResponse.location)
+				}
+				for _, v := range rr.serverResponse.wwwAuthenticate {
+					w.Header().Add("WWW-Authenticate", v)
+				}
+				w.WriteHeader(rr.serverResponse.status)
+			}))
+			defer s.Close()
 
-			if len(rr.serverResponse.location) > 0 {
-				w.Header().Add("Location", rr.serverResponse.location)
-			}
-			for _, v := range rr.serverResponse.wwwAuthenticate {
-				w.Header().Add("WWW-Authenticate", v)
-			}
-			w.WriteHeader(rr.serverResponse.status)
-		}))
-		defer s.Close()
-
-		opts := &RequestTokenOptions{
-			ClientConfig: &restclient.Config{
-				Host: s.URL,
-				TLSClientConfig: restclient.TLSClientConfig{
-					CAData: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.Certificate().Raw}),
+			opts := &RequestTokenOptions{
+				ClientConfig: &restclient.Config{
+					Host: s.URL,
+					TLSClientConfig: restclient.TLSClientConfig{
+						CAData: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.Certificate().Raw}),
+					},
 				},
-			},
-			Handler: tc.Handler,
-			OsinConfig: &osincli.ClientConfig{
-				ClientId:     openShiftCLIClientID,
-				AuthorizeUrl: oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
-				TokenUrl:     oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
-				RedirectUrl:  oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
-			},
-			Issuer:    s.URL,
-			TokenFlow: true,
-		}
-		token, err := opts.RequestToken()
-		if token != tc.ExpectedToken {
-			t.Errorf("%s: expected token '%s', got '%s'", k, tc.ExpectedToken, token)
-		}
-		errStr := ""
-		if err != nil {
-			errStr = err.Error()
-		}
-		if errStr != tc.ExpectedError {
-			t.Errorf("%s: expected error '%s', got '%s'", k, tc.ExpectedError, errStr)
-		}
-		if i != len(tc.Requests) {
-			t.Errorf("%s: expected %d requests, saw %d", k, len(tc.Requests), i)
-		}
-		verifyReleased(k, tc.Handler)
+				Handler: tc.Handler,
+				OsinConfig: &osincli.ClientConfig{
+					ClientId:     openShiftCLIClientID,
+					AuthorizeUrl: oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
+					TokenUrl:     oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
+					RedirectUrl:  oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
+				},
+				Issuer:    s.URL,
+				TokenFlow: true,
+			}
+			token, err := opts.RequestToken()
+			if token != tc.ExpectedToken {
+				t.Errorf("%s: expected token '%s', got '%s'", k, tc.ExpectedToken, token)
+			}
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+			if errStr != tc.ExpectedError {
+				t.Errorf("%s: expected error '%s', got '%s'", k, tc.ExpectedError, errStr)
+			}
+			if i != len(tc.Requests) {
+				t.Errorf("%s: expected %d requests, saw %d", k, len(tc.Requests), i)
+			}
+			verifyReleased(k, tc.Handler)
+		})
 	}
 }
 

@@ -66,6 +66,11 @@ type ChallengeHandler interface {
 	Release() error
 }
 
+// PasswordPrompter is an interface for requesting passwords in the form of a string
+type PasswordPrompter interface {
+	PromptForPassword(r io.Reader, w io.Writer, format string, a ...interface{}) string
+}
+
 type RequestTokenOptions struct {
 	ClientConfig *restclient.Config
 	Handler      ChallengeHandler
@@ -76,11 +81,19 @@ type RequestTokenOptions struct {
 
 // RequestToken uses the cmd arguments to locate an openshift oauth server and attempts to authenticate via an
 // OAuth code flow and challenge handling.  It returns the access token if it gets one or an error if it does not.
-func RequestToken(clientCfg *restclient.Config, reader io.Reader, defaultUsername string, defaultPassword string) (string, error) {
-	return NewRequestTokenOptions(clientCfg, reader, defaultUsername, defaultPassword, false).RequestToken()
+func RequestToken(clientCfg *restclient.Config, reader io.Reader, passwordPrompter PasswordPrompter, defaultUsername string, defaultPassword string) (string, error) {
+	return NewRequestTokenOptions(clientCfg, reader, passwordPrompter, defaultUsername, defaultPassword, false).RequestToken()
 }
 
-func NewRequestTokenOptions(clientCfg *restclient.Config, reader io.Reader, defaultUsername string, defaultPassword string, tokenFlow bool) *RequestTokenOptions {
+func NewRequestTokenOptions(
+	clientCfg *restclient.Config,
+	reader io.Reader,
+	passwordPrompter PasswordPrompter,
+	defaultUsername string,
+	defaultPassword string,
+	tokenFlow bool,
+) *RequestTokenOptions {
+
 	// priority ordered list of challenge handlers
 	// the SPNEGO ones must come before basic auth
 	var handlers []ChallengeHandler
@@ -92,10 +105,16 @@ func NewRequestTokenOptions(clientCfg *restclient.Config, reader io.Reader, defa
 
 	if SSPIEnabled() {
 		klog.V(6).Info("SSPI Enabled")
-		handlers = append(handlers, NewNegotiateChallengeHandler(NewSSPINegotiator(defaultUsername, defaultPassword, clientCfg.Host, reader)))
+		handlers = append(handlers,
+			NewNegotiateChallengeHandler(
+				NewSSPINegotiator(defaultUsername, defaultPassword, clientCfg.Host, reader, passwordPrompter),
+			),
+		)
 	}
 
-	handlers = append(handlers, &BasicChallengeHandler{Host: clientCfg.Host, Reader: reader, Username: defaultUsername, Password: defaultPassword})
+	handlers = append(handlers,
+		NewBasicChallengeHandler(clientCfg.Host, reader, nil, passwordPrompter, defaultUsername, defaultPassword),
+	)
 
 	var handler ChallengeHandler
 	if len(handlers) == 1 {

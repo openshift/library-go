@@ -3,6 +3,8 @@ package tokenrequest
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"testing"
@@ -21,6 +23,15 @@ type Challenge struct {
 	ExpectedHandled   bool
 	ExpectedErr       error
 	ExpectedPrompt    string
+}
+
+type testPasswordPrompter struct{}
+
+func (*testPasswordPrompter) PromptForPassword(r io.Reader, w io.Writer, format string, a ...interface{}) string {
+	fmt.Fprintf(w, format, a...)
+	var result string
+	fmt.Fscan(r, &result)
+	return result
 }
 
 func TestHandleChallenge(t *testing.T) {
@@ -79,10 +90,11 @@ func TestHandleChallenge(t *testing.T) {
 
 		"interactive challenge with default user": {
 			Handler: &BasicChallengeHandler{
-				Host:     "myhost",
-				Reader:   bytes.NewBufferString("mypassword\n"),
-				Username: "myuser",
-				Password: "",
+				Host:             "myhost",
+				Reader:           bytes.NewBufferString("mypassword\n"),
+				passwordPrompter: &testPasswordPrompter{},
+				Username:         "myuser",
+				Password:         "",
 			},
 			Challenges: []Challenge{
 				{
@@ -165,29 +177,31 @@ Password: `,
 
 	for k, tc := range testCases {
 		for i, challenge := range tc.Challenges {
-			out := &bytes.Buffer{}
-			tc.Handler.Writer = out
+			t.Run(fmt.Sprintf("%s[%d]", k, i), func(t *testing.T) {
+				out := &bytes.Buffer{}
+				tc.Handler.Writer = out
 
-			canHandle := tc.Handler.CanHandle(challenge.Headers)
-			if canHandle != challenge.ExpectedCanHandle {
-				t.Errorf("%s: %d: Expected CanHandle=%v, got %v", k, i, challenge.ExpectedCanHandle, canHandle)
-			}
+				canHandle := tc.Handler.CanHandle(challenge.Headers)
+				if canHandle != challenge.ExpectedCanHandle {
+					t.Errorf("%s: %d: Expected CanHandle=%v, got %v", k, i, challenge.ExpectedCanHandle, canHandle)
+				}
 
-			if canHandle {
-				headers, handled, err := tc.Handler.HandleChallenge("", challenge.Headers)
-				if !reflect.DeepEqual(headers, challenge.ExpectedHeaders) {
-					t.Errorf("%s: %d: Expected headers\n\t%#v\ngot\n\t%#v", k, i, challenge.ExpectedHeaders, headers)
+				if canHandle {
+					headers, handled, err := tc.Handler.HandleChallenge("", challenge.Headers)
+					if !reflect.DeepEqual(headers, challenge.ExpectedHeaders) {
+						t.Errorf("%s: %d: Expected headers\n\t%#v\ngot\n\t%#v", k, i, challenge.ExpectedHeaders, headers)
+					}
+					if handled != challenge.ExpectedHandled {
+						t.Errorf("%s: %d: Expected handled=%v, got %v", k, i, challenge.ExpectedHandled, handled)
+					}
+					if ((err == nil) != (challenge.ExpectedErr == nil)) || (err != nil && err.Error() != challenge.ExpectedErr.Error()) {
+						t.Errorf("%s: %d: Expected err=%v, got %v", k, i, challenge.ExpectedErr, err)
+					}
+					if out.String() != challenge.ExpectedPrompt {
+						t.Errorf("%s: %d: Expected prompt %q, got %q", k, i, challenge.ExpectedPrompt, out.String())
+					}
 				}
-				if handled != challenge.ExpectedHandled {
-					t.Errorf("%s: %d: Expected handled=%v, got %v", k, i, challenge.ExpectedHandled, handled)
-				}
-				if ((err == nil) != (challenge.ExpectedErr == nil)) || (err != nil && err.Error() != challenge.ExpectedErr.Error()) {
-					t.Errorf("%s: %d: Expected err=%v, got %v", k, i, challenge.ExpectedErr, err)
-				}
-				if out.String() != challenge.ExpectedPrompt {
-					t.Errorf("%s: %d: Expected prompt %q, got %q", k, i, challenge.ExpectedPrompt, out.String())
-				}
-			}
+			})
 		}
 	}
 }

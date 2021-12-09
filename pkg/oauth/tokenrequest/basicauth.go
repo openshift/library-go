@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"k8s.io/klog/v2"
-
-	"github.com/openshift/oc/pkg/helpers/term"
 )
 
 // BasicAuthNoUsernameError when basic authentication challenge handling was attempted
@@ -28,6 +26,23 @@ func NewBasicAuthNoUsernameError() error {
 	return &BasicAuthNoUsernameError{}
 }
 
+func NewBasicChallengeHandler(
+	host string,
+	reader io.Reader,
+	writer io.Writer,
+	passwordPrompter PasswordPrompter,
+	username, password string,
+) *BasicChallengeHandler {
+	return &BasicChallengeHandler{
+		Host:             host,
+		Reader:           reader,
+		Writer:           writer,
+		passwordPrompter: passwordPrompter,
+		Username:         username,
+		Password:         password,
+	}
+}
+
 type BasicChallengeHandler struct {
 	// Host is the server being authenticated to. Used only for displaying messages when prompting for username/password
 	Host string
@@ -36,6 +51,9 @@ type BasicChallengeHandler struct {
 	Reader io.Reader
 	// Writer is used to output prompts. If nil, stdout is used
 	Writer io.Writer
+
+	// passwordPrompter is used to retrieve the password as a string
+	passwordPrompter PasswordPrompter
 
 	// Username is the username to use when challenged. If empty, a prompt is issued to a non-nil Reader
 	Username string
@@ -89,7 +107,7 @@ func (c *BasicChallengeHandler) HandleChallenge(requestURL string, headers http.
 		}
 		fmt.Fprintf(w, "Username: %s\n", username)
 		if missingPassword {
-			password = term.PromptForPasswordString(c.Reader, w, "Password: ")
+			password = c.passwordPrompter.PromptForPassword(c.Reader, w, "Password: ")
 		}
 		// remember so we don't re-prompt
 		c.prompted = true

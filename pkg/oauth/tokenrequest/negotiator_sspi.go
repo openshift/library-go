@@ -13,8 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/openshift/oc/pkg/helpers/term"
-
 	"github.com/alexbrainman/sspi"
 	"github.com/alexbrainman/sspi/negotiate"
 	"k8s.io/klog/v2"
@@ -76,6 +74,8 @@ type sspiNegotiator struct {
 	reader io.Reader
 	// writer is used to output prompts when prompting for password.
 	writer io.Writer
+	// passwordPrompter is used to retrieve the password as a string
+	passwordPrompter PasswordPrompter
 	// host is the server being authenticated to.  Used only for displaying messages when prompting for password.
 	host string
 
@@ -97,15 +97,16 @@ type sspiNegotiator struct {
 	complete bool
 }
 
-func NewSSPINegotiator(principalName, password, host string, reader io.Reader) Negotiator {
+func NewSSPINegotiator(principalName, password, host string, reader io.Reader, passwordPrompter PasswordPrompter) Negotiator {
 	return &sspiNegotiator{
-		principalName: principalName,
-		password:      password,
-		reader:        reader,
-		writer:        os.Stdout,
-		host:          host,
-		desiredFlags:  desiredFlags,
-		requiredFlags: requiredFlags,
+		principalName:    principalName,
+		password:         password,
+		reader:           reader,
+		writer:           os.Stdout,
+		passwordPrompter: passwordPrompter,
+		host:             host,
+		desiredFlags:     desiredFlags,
+		requiredFlags:    requiredFlags,
 	}
 }
 
@@ -252,7 +253,7 @@ func (s *sspiNegotiator) getPassword(domain, username string) (string, error) {
 		// empty password from prompt is ok
 		// we do not need to worry about being stuck in a prompt loop because ClientContext.Update
 		// will fail if the password is incorrect and that will end the challenge flow
-		password = term.PromptForPasswordString(s.reader, s.writer, "Password: ")
+		password = s.passwordPrompter.PromptForPassword(s.reader, s.writer, "Password: ")
 	}
 
 	// try to provide useful error messages
