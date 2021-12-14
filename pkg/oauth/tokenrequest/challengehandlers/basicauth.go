@@ -43,6 +43,8 @@ func NewBasicChallengeHandler(
 	}
 }
 
+// BasicChallengeHandler handles the "WWW-Authenticate: Basic" challenges.
+// It implements the `ChallengeHandler` interface.
 type BasicChallengeHandler struct {
 	// Host is the server being authenticated to. Used only for displaying messages when prompting for username/password
 	Host string
@@ -55,7 +57,8 @@ type BasicChallengeHandler struct {
 	// passwordPrompter is used to retrieve the password as a string
 	passwordPrompter PasswordPrompter
 
-	// Username is the username to use when challenged. If empty, a prompt is issued to a non-nil Reader
+	// Username is the username to use when challenged. If empty, a `BasicAuthNoUsernameError` is returned
+	// when handling the challenge.
 	Username string
 	// Password is the password to use when challenged. If empty, a prompt is issued to a non-nil Reader
 	Password string
@@ -70,6 +73,11 @@ func (c *BasicChallengeHandler) CanHandle(headers http.Header) bool {
 	isBasic, _ := basicRealm(headers)
 	return isBasic
 }
+
+// HandleChallenge attempts to handle the "WWW-Authenticate: Basic" challenge.
+// It may prompt for a password matching the username that should already be a part
+// of the BasicChallengeHandler. The prompt is supposed to be called only once
+// but this assertion is thread unsafe.
 func (c *BasicChallengeHandler) HandleChallenge(requestURL string, headers http.Header) (http.Header, bool, error) {
 	if c.prompted {
 		klog.V(2).Info("already prompted for challenge, won't prompt again")
