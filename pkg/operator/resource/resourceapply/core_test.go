@@ -672,6 +672,137 @@ func TestApplyNamespace(t *testing.T) {
 	}
 }
 
+func TestDeepCopyAvoidance(t *testing.T) {
+	tests := []struct {
+		name             string
+		existing         []runtime.Object
+		input            *corev1.Namespace
+		expectedModified bool
+		verifyActions    func(actions []clienttesting.Action, t *testing.T)
+	}{
+		{
+			name: "create",
+			input: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}, ResourceVersion: "1"},
+			},
+
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "namespaces") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("create", "namespaces") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}, ResourceVersion: "1"},
+				}
+				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Namespace)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "nothing should happen if neither the input or the resource being updated has changed, since the last update",
+			existing: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}, ResourceVersion: "1"},
+				},
+			},
+			input: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}},
+			},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "namespaces") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "update, if existing has changed outside of our control since last update of resource",
+			existing: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "new"}, ResourceVersion: "2"},
+				},
+			},
+			input: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}},
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "namespaces") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "namespaces") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}, ResourceVersion: "2"},
+				}
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Namespace)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "update, if input has changed since last update of resource",
+			existing: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "bar"}, ResourceVersion: "2"},
+				},
+			},
+			input: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "new"}},
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "namespaces") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "namespaces") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"foo": "new"}, ResourceVersion: "2"},
+				}
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Namespace)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(test.existing...)
+			cache := NewResourceCache()
+			_, actualModified, err := ApplyNamespaceImproved(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input, cache)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.expectedModified != actualModified {
+				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
+			}
+			test.verifyActions(client.Actions(), t)
+		})
+	}
+}
+
 func TestSyncSecret(t *testing.T) {
 	tt := []struct {
 		name                        string

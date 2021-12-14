@@ -210,6 +210,7 @@ func ensureConnectivityCheckCRDExists(ctx context.Context, syncContext factory.S
 			ctx,
 			resourceapply.NewClientHolder().WithAPIExtensionsClient(client),
 			syncContext.Recorder(),
+			nil,
 			func(name string) ([]byte, error) { return bindata.Asset(name) },
 			"pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml",
 		)
