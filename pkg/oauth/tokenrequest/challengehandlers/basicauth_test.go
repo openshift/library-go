@@ -186,21 +186,24 @@ Password: `,
 					t.Errorf("%s: %d: Expected CanHandle=%v, got %v", k, i, challenge.ExpectedCanHandle, canHandle)
 				}
 
-				if canHandle {
-					headers, handled, err := tc.Handler.HandleChallenge("", challenge.Headers)
-					if !reflect.DeepEqual(headers, challenge.ExpectedHeaders) {
-						t.Errorf("%s: %d: Expected headers\n\t%#v\ngot\n\t%#v", k, i, challenge.ExpectedHeaders, headers)
-					}
-					if handled != challenge.ExpectedHandled {
-						t.Errorf("%s: %d: Expected handled=%v, got %v", k, i, challenge.ExpectedHandled, handled)
-					}
-					if ((err == nil) != (challenge.ExpectedErr == nil)) || (err != nil && err.Error() != challenge.ExpectedErr.Error()) {
-						t.Errorf("%s: %d: Expected err=%v, got %v", k, i, challenge.ExpectedErr, err)
-					}
-					if out.String() != challenge.ExpectedPrompt {
-						t.Errorf("%s: %d: Expected prompt %q, got %q", k, i, challenge.ExpectedPrompt, out.String())
-					}
+				if !canHandle {
+					return
 				}
+
+				headers, handled, err := tc.Handler.HandleChallenge("", challenge.Headers)
+				if !reflect.DeepEqual(headers, challenge.ExpectedHeaders) {
+					t.Errorf("%s: %d: Expected headers\n\t%#v\ngot\n\t%#v", k, i, challenge.ExpectedHeaders, headers)
+				}
+				if handled != challenge.ExpectedHandled {
+					t.Errorf("%s: %d: Expected handled=%v, got %v", k, i, challenge.ExpectedHandled, handled)
+				}
+				if ((err == nil) != (challenge.ExpectedErr == nil)) || (err != nil && err.Error() != challenge.ExpectedErr.Error()) {
+					t.Errorf("%s: %d: Expected err=%v, got %v", k, i, challenge.ExpectedErr, err)
+				}
+				if out.String() != challenge.ExpectedPrompt {
+					t.Errorf("%s: %d: Expected prompt %q, got %q", k, i, challenge.ExpectedPrompt, out.String())
+				}
+
 			})
 		}
 	}
