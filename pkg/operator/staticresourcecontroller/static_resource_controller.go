@@ -64,7 +64,7 @@ type StaticResourceController struct {
 	factory          *factory.Factory
 	restMapper       meta.RESTMapper
 	categoryExpander restmapper.CategoryExpander
-	performanceCache map[resourceapply.CachedVersionKey]resourceapply.CachedResource
+	performanceCache resourceapply.ResourceCache
 }
 
 type conditionalManifests struct {
@@ -102,7 +102,7 @@ func NewStaticResourceController(
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
 		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
-		performanceCache: make(map[resourceapply.CachedVersionKey]resourceapply.CachedResource),
+		performanceCache: resourceapply.NewResourceCache(),
 	}
 	c.WithConditionalResources(manifests, files, nil, nil)
 

@@ -790,7 +790,7 @@ func TestDeepCopyAvoidance(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			var cache map[CachedVersionKey]CachedResource = make(map[CachedVersionKey]CachedResource)
+			cache := NewResourceCache()
 			_, actualModified, err := ApplyNamespaceImproved(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input, cache)
 			if err != nil {
 				t.Fatal(err)

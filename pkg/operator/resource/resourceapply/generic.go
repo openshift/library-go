@@ -101,7 +101,7 @@ func (c *ClientHolder) WithMigrationClient(client migrationclient.Interface) *Cl
 }
 
 // ApplyDirectly applies the given manifest files to API server.
-func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache map[CachedVersionKey]CachedResource, manifests AssetFunc, files ...string) []ApplyResult {
+func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
