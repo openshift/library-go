@@ -220,21 +220,32 @@ func (cs *APIServerControllerSet) WithoutFinalizerController() *APIServerControl
 	return cs
 }
 
+type ConditionalFiles struct {
+	Files                          []string
+	ShouldCreateFn, ShouldDeleteFn resourceapply.ConditionalFunction
+}
+
 func (cs *APIServerControllerSet) WithStaticResourcesController(
 	controllerName string,
 	manifests resourceapply.AssetFunc,
-	files []string,
+	conditionalFiles []ConditionalFiles,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 ) *APIServerControllerSet {
-	cs.staticResourceController.controller = staticresourcecontroller.NewStaticResourceController(
+	ctrl := staticresourcecontroller.NewStaticResourceController(
 		controllerName,
 		manifests,
-		files,
+		nil,
 		resourceapply.NewKubeClientHolder(kubeClient),
 		cs.operatorClient,
 		cs.eventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
+
+	for _, conditionalFile := range conditionalFiles {
+		ctrl.WithConditionalResources(manifests, conditionalFile.Files, conditionalFile.ShouldCreateFn, conditionalFile.ShouldDeleteFn)
+	}
+
+	cs.staticResourceController.controller = ctrl
 
 	return cs
 }
