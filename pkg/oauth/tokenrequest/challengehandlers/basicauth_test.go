@@ -1,4 +1,4 @@
-package tokenrequest
+package challengehandlers
 
 import (
 	"bytes"
