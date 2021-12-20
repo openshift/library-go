@@ -1210,6 +1210,9 @@ k8s.io/component-base/logs/registry
 k8s.io/component-base/logs/sanitization
 k8s.io/component-base/metrics
 k8s.io/component-base/metrics/legacyregistry
+k8s.io/component-base/metrics/prometheus/clientgo
+k8s.io/component-base/metrics/prometheus/clientgo/leaderelection
+k8s.io/component-base/metrics/prometheus/restclient
 k8s.io/component-base/metrics/prometheus/workqueue
 k8s.io/component-base/metrics/testutil
 k8s.io/component-base/traces
