@@ -44,13 +44,13 @@ func TestCategorizePods(t *testing.T) {
 			"ready and unready pods", []corev1.Pod{
 				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 				*newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "node2"),
-			}, []string{"node1", "node2"}, nil, nil, true, false, "3", false,
+			}, []string{"node1", "node2"}, nil, nil, true, false, "", false,
 		},
 		{
 			"good pods and pending pods", []corev1.Pod{
 				*newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 				*newPod(corev1.PodPending, corev1.ConditionFalse, "3", "node2"),
-			}, []string{"node1", "node2"}, nil, nil, true, false, "3", false,
+			}, []string{"node1", "node2"}, nil, nil, true, false, "", false,
 		},
 		{
 			"good pods and failed pods", []corev1.Pod{
@@ -60,7 +60,7 @@ func TestCategorizePods(t *testing.T) {
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 			}, []*corev1.Pod{
 				newPod(corev1.PodFailed, corev1.ConditionFalse, "3", "node2"),
-			}, false, false, "3", false,
+			}, false, false, "", false,
 		},
 		{
 			"good pods and succeeded pods", []corev1.Pod{
@@ -70,7 +70,7 @@ func TestCategorizePods(t *testing.T) {
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1"),
 			}, []*corev1.Pod{
 				newPod(corev1.PodSucceeded, corev1.ConditionFalse, "3", "node2"),
-			}, false, false, "3", false,
+			}, false, false, "", false,
 		},
 		{
 			"good pods and unknown phase pods", []corev1.Pod{
@@ -94,7 +94,7 @@ func TestCategorizePods(t *testing.T) {
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
-			}, nil, false, false, "1", false,
+			}, nil, false, false, "", false,
 		},
 		{
 			"one empty revision, one zero", []corev1.Pod{
@@ -103,7 +103,7 @@ func TestCategorizePods(t *testing.T) {
 			}, []string{"node1", "node2"}, []*corev1.Pod{
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
-			}, nil, false, false, "0", false,
+			}, nil, false, false, "", false,
 		},
 		{
 			"one invalid revision", []corev1.Pod{
@@ -113,6 +113,34 @@ func TestCategorizePods(t *testing.T) {
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "", "node1"),
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "abc", "node2"),
 			}, nil, false, false, "", true,
+		},
+		{
+			"3 running, 1 failed", []corev1.Pod{
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node1"),
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node3"),
+				*newPod(corev1.PodFailed, corev1.ConditionFalse, "1", "node3"),
+			}, []string{"node1", "node2", "node3"}, []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node2"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node3"),
+			}, []*corev1.Pod{
+				newPod(corev1.PodFailed, corev1.ConditionFalse, "1", "node3"),
+			}, false, false, "1", true,
+		},
+		{
+			"3 running (1 old, 2 new), 1 failed", []corev1.Pod{
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node1"),
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
+				*newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node3"),
+				*newPod(corev1.PodFailed, corev1.ConditionFalse, "1", "node3"),
+			}, []string{"node1", "node2", "node3"}, []*corev1.Pod{
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "0", "node2"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "1", "node3"),
+			}, []*corev1.Pod{
+				newPod(corev1.PodFailed, corev1.ConditionFalse, "1", "node3"),
+			}, false, false, "", true,
 		},
 	}
 	for _, tt := range tests {
@@ -132,7 +160,7 @@ func TestCategorizePods(t *testing.T) {
 				t.Errorf("categorizePods() gotProgressing = %v, want %v", gotProgressing, tt.wantCategorizeProgressing)
 			}
 
-			if err != nil {
+			if err == nil {
 				rev, err := getAPIServerRevisionOfAllInstances("revision", tt.nodes, tt.pods)
 				if (err != nil) != tt.wantCategorizeErr {
 					t.Errorf("getAPIServerRevisionOfAllInstances() error = %v, wantErr %v", err, tt.wantGetAPIServerRevisionOfAllInstancesError)
