@@ -288,17 +288,18 @@ func TestRenderGuardPod(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
 
 			ctrl := &GuardController{
-				targetNamespace:       "test",
-				podResourcePrefix:     "operand",
-				operatorName:          "operator",
-				readyzPort:            "99999",
-				nodeLister:            kubeInformers.Core().V1().Nodes().Lister(),
-				podLister:             kubeInformers.Core().V1().Pods().Lister(),
-				podGetter:             kubeClient.CoreV1(),
-				pdbGetter:             kubeClient.PolicyV1(),
-				pdbLister:             kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
-				installerPodImageFn:   getInstallerPodImageFromEnv,
-				createConditionalFunc: IsSNOCheckFnc(lister),
+				targetNamespace:         "test",
+				podResourcePrefix:       "operand",
+				operatorName:            "operator",
+				operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+				readyzPort:              "99999",
+				nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
+				podLister:               kubeInformers.Core().V1().Pods().Lister(),
+				podGetter:               kubeClient.CoreV1(),
+				pdbGetter:               kubeClient.PolicyV1(),
+				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+				installerPodImageFn:     getInstallerPodImageFromEnv,
+				createConditionalFunc:   IsSNOCheckFnc(lister),
 			}
 
 			ctx, cancel := context.WithCancel(context.TODO())
@@ -404,17 +405,18 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
 
 	ctrl := &GuardController{
-		targetNamespace:       "test",
-		podResourcePrefix:     "operand",
-		operatorName:          "operator",
-		readyzPort:            "99999",
-		nodeLister:            kubeInformers.Core().V1().Nodes().Lister(),
-		podLister:             kubeInformers.Core().V1().Pods().Lister(),
-		podGetter:             kubeClient.CoreV1(),
-		pdbGetter:             kubeClient.PolicyV1(),
-		pdbLister:             kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
-		installerPodImageFn:   getInstallerPodImageFromEnv,
-		createConditionalFunc: IsSNOCheckFnc(lister),
+		targetNamespace:         "test",
+		podResourcePrefix:       "operand",
+		operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+		operatorName:            "operator",
+		readyzPort:              "99999",
+		nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
+		podLister:               kubeInformers.Core().V1().Pods().Lister(),
+		podGetter:               kubeClient.CoreV1(),
+		pdbGetter:               kubeClient.PolicyV1(),
+		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+		installerPodImageFn:     getInstallerPodImageFromEnv,
+		createConditionalFunc:   IsSNOCheckFnc(lister),
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())

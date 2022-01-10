@@ -88,11 +88,12 @@ func NewBuilder(
 type Builder interface {
 	WithEvents(eventRecorder events.Recorder) Builder
 	WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder
+	WithOperandPodLabelSelector(labelSelector labels.Selector) Builder
 	WithRevisionedResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder
 	WithUnrevisionedCerts(certDir string, certConfigMaps, certSecrets []installer.UnrevisionedResource) Builder
 	WithInstaller(command []string) Builder
 	WithMinReadyDuration(minReadyDuration time.Duration) Builder
-	WithStartupMonitor(enabledStartupMonitor func() (bool, error), operandPodLabelSelector labels.Selector) Builder
+	WithStartupMonitor(enabledStartupMonitor func() (bool, error)) Builder
 
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
@@ -110,6 +111,11 @@ func (b *staticPodOperatorControllerBuilder) WithEvents(eventRecorder events.Rec
 func (b *staticPodOperatorControllerBuilder) WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder {
 	b.operandName = operandName
 	b.versionRecorder = versionRecorder
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithOperandPodLabelSelector(labelSelector labels.Selector) Builder {
+	b.operandPodLabelSelector = labelSelector
 	return b
 }
 
@@ -141,9 +147,8 @@ func (b *staticPodOperatorControllerBuilder) WithMinReadyDuration(minReadyDurati
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithStartupMonitor(enabledStartupMonitor func() (bool, error), operandPodLabelSelector labels.Selector) Builder {
+func (b *staticPodOperatorControllerBuilder) WithStartupMonitor(enabledStartupMonitor func() (bool, error)) Builder {
 	b.enableStartMonitor = enabledStartupMonitor
-	b.operandPodLabelSelector = operandPodLabelSelector
 	return b
 }
 
@@ -285,14 +290,18 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		eventRecorder,
 	), 1)
 
-	manager.WithController(staticpodfallback.New(
-		b.operandNamespace,
-		b.operandPodLabelSelector,
-		b.staticPodOperatorClient,
-		b.kubeInformers,
-		b.enableStartMonitor,
-		b.eventRecorder,
-	), 1)
+	if b.operandPodLabelSelector.Empty() {
+		errs = append(errs, fmt.Errorf("missing OperandPodLabelSelector when running StaticPodFallbackConditionController; cannot proceed"))
+	} else {
+		manager.WithController(staticpodfallback.New(
+			b.operandNamespace,
+			b.operandPodLabelSelector,
+			b.staticPodOperatorClient,
+			b.kubeInformers,
+			b.enableStartMonitor,
+			b.eventRecorder,
+		), 1)
+	}
 
 	manager.WithController(node.NewNodeController(
 		b.staticPodOperatorClient,
@@ -317,19 +326,24 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)
 
 	if len(b.operatorNamespace) > 0 && len(b.operatorName) > 0 && len(b.readyzPort) > 0 {
-		manager.WithController(guard.NewGuardController(
-			b.operandNamespace,
-			b.staticPodName,
-			b.operatorName,
-			b.readyzPort,
-			operandInformers,
-			clusterInformers,
-			b.staticPodOperatorClient,
-			podClient,
-			pdbClient,
-			eventRecorder,
-			b.guardCreateConditionalFunc,
-		), 1)
+		if b.operandPodLabelSelector.Empty() {
+			errs = append(errs, fmt.Errorf("missing OperandPodLabelSelector when running GuardController; cannot proceed"))
+		} else {
+			manager.WithController(guard.NewGuardController(
+				b.operandNamespace,
+				b.operandPodLabelSelector,
+				b.staticPodName,
+				b.operatorName,
+				b.readyzPort,
+				operandInformers,
+				clusterInformers,
+				b.staticPodOperatorClient,
+				podClient,
+				pdbClient,
+				eventRecorder,
+				b.guardCreateConditionalFunc,
+			), 1)
+		}
 	}
 
 	return manager, errors.NewAggregate(errs)
