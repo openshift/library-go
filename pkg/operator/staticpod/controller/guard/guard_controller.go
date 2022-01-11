@@ -37,6 +37,7 @@ type GuardController struct {
 	targetNamespace, podResourcePrefix string
 	operatorName                       string
 	readyzPort                         string
+	operandPodLabelSelector            labels.Selector
 
 	nodeLister corelisterv1.NodeLister
 	podLister  corelisterv1.PodLister
@@ -50,7 +51,9 @@ type GuardController struct {
 }
 
 func NewGuardController(
-	targetNamespace, podResourcePrefix string,
+	targetNamespace string,
+	operandPodLabelSelector labels.Selector,
+	podResourcePrefix string,
 	operatorName string,
 	readyzPort string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
@@ -62,17 +65,18 @@ func NewGuardController(
 	createConditionalFunc func() (bool, error),
 ) factory.Controller {
 	c := &GuardController{
-		targetNamespace:       targetNamespace,
-		podResourcePrefix:     podResourcePrefix,
-		operatorName:          operatorName,
-		readyzPort:            readyzPort,
-		nodeLister:            kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
-		podLister:             kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
-		podGetter:             podGetter,
-		pdbGetter:             pdbGetter,
-		pdbLister:             kubeInformersForTargetNamespace.Policy().V1().PodDisruptionBudgets().Lister(),
-		installerPodImageFn:   getInstallerPodImageFromEnv,
-		createConditionalFunc: createConditionalFunc,
+		targetNamespace:         targetNamespace,
+		operandPodLabelSelector: operandPodLabelSelector,
+		podResourcePrefix:       podResourcePrefix,
+		operatorName:            operatorName,
+		readyzPort:              readyzPort,
+		nodeLister:              kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
+		podLister:               kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
+		podGetter:               podGetter,
+		pdbGetter:               pdbGetter,
+		pdbLister:               kubeInformersForTargetNamespace.Policy().V1().PodDisruptionBudgets().Lister(),
+		installerPodImageFn:     getInstallerPodImageFromEnv,
+		createConditionalFunc:   createConditionalFunc,
 	}
 
 	return factory.New().WithInformers(
@@ -162,7 +166,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			return err
 		}
 
-		pods, err := c.podLister.Pods(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": c.podResourcePrefix}))
+		pods, err := c.podLister.Pods(c.targetNamespace).List(c.operandPodLabelSelector)
 		if err != nil {
 			return err
 		}
