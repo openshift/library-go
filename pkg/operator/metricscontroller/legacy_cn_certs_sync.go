@@ -30,7 +30,11 @@ func NewLegacyCNCertsMetricsSyncFunc(query string, operatorClient v1helpers.Oper
 		var value model.SampleValue
 		switch result.Type() {
 		case model.ValVector:
-			value = result.(model.Vector)[0].Value
+			vec := result.(model.Vector)
+			if len(vec) == 0 {
+				return fmt.Errorf("empty vector result from query: %q", query)
+			}
+			value = vec[0].Value
 		case model.ValScalar:
 			value = result.(*model.Scalar).Value
 		default:

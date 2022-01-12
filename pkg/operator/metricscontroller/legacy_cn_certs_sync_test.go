@@ -42,6 +42,11 @@ func TestLegacyCNCertsController(t *testing.T) {
 		wantConditions []operatorv1.OperatorCondition
 	}{
 		{
+			name:          "vector - empty result",
+			queryResult:   prometheusmodel.Vector([]*prometheusmodel.Sample{}),
+			wantSyncError: `empty vector result from query: ""`,
+		},
+		{
 			name: "vector - valid certs",
 			queryResult: prometheusmodel.Vector([]*prometheusmodel.Sample{
 				{
