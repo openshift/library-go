@@ -23,7 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
-	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -48,7 +48,7 @@ type GuardController struct {
 
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn   func() string
-	createConditionalFunc func() (bool, error)
+	createConditionalFunc func() (bool, bool, error)
 }
 
 func NewGuardController(
@@ -63,7 +63,7 @@ func NewGuardController(
 	podGetter corev1client.PodsGetter,
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	eventRecorder events.Recorder,
-	createConditionalFunc func() (bool, error),
+	createConditionalFunc func() (bool, bool, error),
 ) factory.Controller {
 	c := &GuardController{
 		targetNamespace:         targetNamespace,
@@ -112,12 +112,17 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	klog.V(5).Info("Syncing guards")
 
 	if c.createConditionalFunc == nil {
-		return fmt.Errorf("create conditional not set")
+		return fmt.Errorf("createConditionalFunc not set")
 	}
 
-	shouldCreate, err := c.createConditionalFunc()
+	shouldCreate, precheckSucceeded, err := c.createConditionalFunc()
 	if err != nil {
-		return fmt.Errorf("create conditional returns an error: %v", err)
+		return fmt.Errorf("createConditionalFunc returns an error: %v", err)
+	}
+
+	if !precheckSucceeded {
+		klog.V(4).Infof("create conditional precheck did not succeed, skipping")
+		return nil
 	}
 
 	errs := []error{}
@@ -280,16 +285,24 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	return utilerrors.NewAggregate(errs)
 }
 
-func IsSNOCheckFnc(infraLister configv1listers.InfrastructureLister) func() (bool, error) {
-	return func() (bool, error) {
-		infraData, err := infraLister.Get("cluster")
+// IsSNOCheckFnc creates a function that checks if the topology is SNO
+// In case the err is nil, precheckSucceeded signifies whether the isSNO is valid.
+// If precheckSucceeded is false, the isSNO return value does not reflect the cluster topology
+// and defaults to the bool default value.
+func IsSNOCheckFnc(infraInformer configv1informers.InfrastructureInformer) func() (isSNO, precheckSucceeded bool, err error) {
+	return func() (isSNO, precheckSucceeded bool, err error) {
+		if !infraInformer.Informer().HasSynced() {
+			// Do not return transient error
+			return false, false, nil
+		}
+		infraData, err := infraInformer.Lister().Get("cluster")
 		if err != nil {
-			return false, fmt.Errorf("Unable to list infrastructures.config.openshift.io/cluster object, unable to determine topology mode")
+			return false, true, fmt.Errorf("Unable to list infrastructures.config.openshift.io/cluster object, unable to determine topology mode")
 		}
 		if infraData.Status.ControlPlaneTopology == "" {
-			return false, fmt.Errorf("ControlPlaneTopology was not set, unable to determine topology mode")
+			return false, true, fmt.Errorf("ControlPlaneTopology was not set, unable to determine topology mode")
 		}
 
-		return infraData.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode, nil
+		return infraData.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode, true, nil
 	}
 }

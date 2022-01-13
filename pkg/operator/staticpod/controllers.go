@@ -68,7 +68,7 @@ type staticPodOperatorControllerBuilder struct {
 	operatorName               string
 	operatorNamespace          string
 	readyzPort                 string
-	guardCreateConditionalFunc func() (bool, error)
+	guardCreateConditionalFunc func() (bool, bool, error)
 }
 
 func NewBuilder(
@@ -99,7 +99,7 @@ type Builder interface {
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
-	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort string, createConditionalFunc func() (bool, error)) Builder
+	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort string, createConditionalFunc func() (bool, bool, error)) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
 
@@ -166,7 +166,7 @@ func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, stati
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort string, createConditionalFunc func() (bool, error)) Builder {
+func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort string, createConditionalFunc func() (bool, bool, error)) Builder {
 	b.operatorNamespace = operatorNamespace
 	b.operatorName = operatorName
 	b.readyzPort = readyzPort
