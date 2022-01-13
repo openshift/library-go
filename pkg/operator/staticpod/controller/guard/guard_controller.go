@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -181,25 +182,24 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			pdb.Spec.MinAvailable = &minAvailable
 		}
 
-		// List the pdb from the cache in case it exists and there's nothing to update
-		// so no Get request is executed.
-		pdbs, err := c.pdbLister.PodDisruptionBudgets(c.targetNamespace).List(labels.Everything())
-		if err != nil {
-			klog.Errorf("Unable to list PodDisruptionBudgets: %v", err)
-			return err
-		}
-
-		for _, pdbItem := range pdbs {
-			if pdbItem.Name == pdb.Name {
-				if pdbItem.Spec.MinAvailable != pdb.Spec.MinAvailable {
-					_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
-					if err != nil {
-						klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
-						return err
-					}
+		pdbObj, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name)
+		if err == nil {
+			if pdbObj.Spec.MinAvailable != pdb.Spec.MinAvailable {
+				_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+				if err != nil {
+					klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
+					return fmt.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
 				}
-				break
 			}
+		} else if errors.IsNotFound(err) {
+			_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+			if err != nil {
+				klog.Errorf("Unable to create PodDisruptionBudget: %v", err)
+				return fmt.Errorf("Unable to create PodDisruptionBudget: %v", err)
+			}
+		} else {
+			klog.Errorf("Unable to get PodDisruptionBudget: %v", err)
+			return err
 		}
 
 		operands := map[string]*corev1.Pod{}
