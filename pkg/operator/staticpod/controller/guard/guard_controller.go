@@ -108,6 +108,15 @@ func nodeConditionFinder(status *corev1.NodeStatus, condType corev1.NodeConditio
 	return nil
 }
 
+func nodeHasUnschedulableTaint(node *corev1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect == corev1.TaintEffectNoSchedule && taint.Key == corev1.TaintNodeUnschedulable {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing guards")
 
@@ -213,6 +222,12 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 
 		for _, node := range nodes {
+			// Check whether the node is schedulable
+			if nodeHasUnschedulableTaint(node) {
+				klog.Infof("Node %v not schedulable, skipping reconciling the guard pod", node.Name)
+				continue
+			}
+
 			if _, exists := operands[node.Name]; !exists {
 				// If the operand does not exist and the node is not ready, wait until the node becomes ready
 				nodeReadyCondition := nodeConditionFinder(&node.Status, corev1.NodeReady)

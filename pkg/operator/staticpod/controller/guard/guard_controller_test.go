@@ -216,12 +216,20 @@ func (f FakeSyncContext) Recorder() events.Recorder {
 
 // render a guarding pod
 func TestRenderGuardPod(t *testing.T) {
+	unschedulableMasterNode := fakeMasterNode("master1")
+	unschedulableMasterNode.Spec.Taints = []corev1.Taint{
+		{
+			Key:    corev1.TaintNodeUnschedulable,
+			Effect: corev1.TaintEffectNoSchedule,
+		},
+	}
 	tests := []struct {
 		name                  string
 		infraObject           *configv1.Infrastructure
 		errString             string
 		err                   bool
 		operandPod            *corev1.Pod
+		node                  *corev1.Node
 		guardExists           bool
 		guardPod              *corev1.Pod
 		createConditionalFunc func() (bool, bool, error)
@@ -239,6 +247,7 @@ func TestRenderGuardPod(t *testing.T) {
 			errString:  "Missing operand on node master1",
 			err:        true,
 			operandPod: nil,
+			node:       fakeMasterNode("master1"),
 		},
 		{
 			name: "Operand pod missing .Status.PodIP",
@@ -263,6 +272,7 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 				Status: corev1.PodStatus{},
 			},
+			node: fakeMasterNode("master1"),
 		},
 		{
 			name: "Operand guard pod created",
@@ -287,7 +297,34 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			node:        fakeMasterNode("master1"),
 			guardExists: true,
+		},
+		{
+			name: "Master node not schedulable",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+				},
+			},
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "master1",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			node:        unschedulableMasterNode,
+			guardExists: false,
 		},
 		{
 			name: "Operand guard pod deleted",
@@ -325,6 +362,7 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			node: fakeMasterNode("master1"),
 		},
 		{
 			name: "Conditional return precheckSucceeded is false",
@@ -350,6 +388,7 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			node:        fakeMasterNode("master1"),
 			guardExists: false,
 		},
 	}
@@ -361,7 +400,7 @@ func TestRenderGuardPod(t *testing.T) {
 				t.Fatal(err.Error())
 			}
 
-			kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"))
+			kubeClient := fake.NewSimpleClientset(test.node)
 			if test.operandPod != nil {
 				kubeClient.Tracker().Add(test.operandPod)
 			}
