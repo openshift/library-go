@@ -88,6 +88,8 @@ func pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml() (*asset, erro
 
 var _pkgOperatorApiserverAuditManifestsBasePolicyYaml = []byte(`    apiVersion: audit.k8s.io/v1
     kind: Policy
+    # drop managed fields from audit, this is at global scope.
+    omitManagedFields: true
     # Don't generate audit events for all requests in RequestReceived stage.
     omitStages:
     - "RequestReceived"
