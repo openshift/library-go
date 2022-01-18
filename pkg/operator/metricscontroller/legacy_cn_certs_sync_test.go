@@ -52,15 +52,10 @@ func TestLegacyCNCertsController(t *testing.T) {
 				{
 					Value: 0.0,
 				},
-				{
-					// second vector value exposes invalid certs,
-					// however the first one is picked.
-					Value: 1.0,
-				},
 			}),
 			wantConditions: []operatorv1.OperatorCondition{
 				{
-					Type:   "InvalidCertsUpgradeable",
+					Type:   "PrefixInvalidCertsUpgradeable",
 					Status: "True",
 				},
 			},
@@ -70,31 +65,56 @@ func TestLegacyCNCertsController(t *testing.T) {
 			queryResult: prometheusmodel.Vector([]*prometheusmodel.Sample{
 				{
 					Value: 1.0,
+					Metric: map[prometheusmodel.LabelName]prometheusmodel.LabelValue{
+						"job": "foo",
+					},
 				},
 				{
 					// second vector value exposes no invalid certs,
 					// however the first one is picked.
 					Value: 0.0,
+					Metric: map[prometheusmodel.LabelName]prometheusmodel.LabelValue{
+						"job": "bar",
+					},
 				},
 			}),
 			wantConditions: []operatorv1.OperatorCondition{
 				{
-					Type:    "InvalidCertsUpgradeable",
+					Type:    "PrefixInvalidCertsUpgradeable",
 					Status:  "False",
-					Message: "1 server certificates without SAN detected",
+					Message: `Server certificates without SAN detected: {job="foo"}. These have to be replaced to include the respective hosts in their SAN extension and not rely on the Subject's CN for the purpose of hostname verification.`,
 					Reason:  "InvalidCertsDetected",
 				},
 			},
 		},
 		{
-			name: "scalar - valid certs",
-			queryResult: &prometheusmodel.Scalar{
-				Value: 0.0,
-			},
+			name: "vector - invalid certs - multiple jobs",
+			queryResult: prometheusmodel.Vector([]*prometheusmodel.Sample{
+				{
+					Value: 1.0,
+					Metric: map[prometheusmodel.LabelName]prometheusmodel.LabelValue{
+						"job": "foo",
+					},
+				},
+				{
+					Value: 0.0,
+					Metric: map[prometheusmodel.LabelName]prometheusmodel.LabelValue{
+						"job": "bar",
+					},
+				},
+				{
+					Value: 2.0,
+					Metric: map[prometheusmodel.LabelName]prometheusmodel.LabelValue{
+						"job": "baz",
+					},
+				},
+			}),
 			wantConditions: []operatorv1.OperatorCondition{
 				{
-					Type:   "InvalidCertsUpgradeable",
-					Status: "True",
+					Type:    "PrefixInvalidCertsUpgradeable",
+					Status:  "False",
+					Message: `Server certificates without SAN detected: {job="foo"}, {job="baz"}. These have to be replaced to include the respective hosts in their SAN extension and not rely on the Subject's CN for the purpose of hostname verification.`,
+					Reason:  "InvalidCertsDetected",
 				},
 			},
 		},
@@ -103,14 +123,7 @@ func TestLegacyCNCertsController(t *testing.T) {
 			queryResult: &prometheusmodel.Scalar{
 				Value: 10.0,
 			},
-			wantConditions: []operatorv1.OperatorCondition{
-				{
-					Type:    "InvalidCertsUpgradeable",
-					Status:  "False",
-					Message: "10 server certificates without SAN detected",
-					Reason:  "InvalidCertsDetected",
-				},
-			},
+			wantSyncError: "unexpected prometheus query return type: *model.Scalar",
 		},
 		{
 			name:          "scalar - invalid type",
@@ -136,7 +149,7 @@ func TestLegacyCNCertsController(t *testing.T) {
 				newPrometheusClientFunc: func() (prometheusv1.API, idleConnectionCloser, error) {
 					return m, &nopCloser{}, nil
 				},
-				metricsSyncFunc: NewLegacyCNCertsMetricsSyncFunc("", client),
+				metricsSyncFunc: NewLegacyCNCertsMetricsSyncFunc("Prefix", "", client),
 			}
 
 			gotSyncErr := ""
