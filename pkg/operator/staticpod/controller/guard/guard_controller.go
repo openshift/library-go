@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -22,7 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
-	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -47,7 +48,7 @@ type GuardController struct {
 
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn   func() string
-	createConditionalFunc func() (bool, error)
+	createConditionalFunc func() (bool, bool, error)
 }
 
 func NewGuardController(
@@ -62,7 +63,7 @@ func NewGuardController(
 	podGetter corev1client.PodsGetter,
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	eventRecorder events.Recorder,
-	createConditionalFunc func() (bool, error),
+	createConditionalFunc func() (bool, bool, error),
 ) factory.Controller {
 	c := &GuardController{
 		targetNamespace:         targetNamespace,
@@ -107,16 +108,30 @@ func nodeConditionFinder(status *corev1.NodeStatus, condType corev1.NodeConditio
 	return nil
 }
 
+func nodeHasUnschedulableTaint(node *corev1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect == corev1.TaintEffectNoSchedule && taint.Key == corev1.TaintNodeUnschedulable {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing guards")
 
 	if c.createConditionalFunc == nil {
-		return fmt.Errorf("create conditional not set")
+		return fmt.Errorf("createConditionalFunc not set")
 	}
 
-	shouldCreate, err := c.createConditionalFunc()
+	shouldCreate, precheckSucceeded, err := c.createConditionalFunc()
 	if err != nil {
-		return fmt.Errorf("create conditional returns an error: %v", err)
+		return fmt.Errorf("createConditionalFunc returns an error: %v", err)
+	}
+
+	if !precheckSucceeded {
+		klog.V(4).Infof("create conditional precheck did not succeed, skipping")
+		return nil
 	}
 
 	errs := []error{}
@@ -181,25 +196,24 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			pdb.Spec.MinAvailable = &minAvailable
 		}
 
-		// List the pdb from the cache in case it exists and there's nothing to update
-		// so no Get request is executed.
-		pdbs, err := c.pdbLister.PodDisruptionBudgets(c.targetNamespace).List(labels.Everything())
-		if err != nil {
-			klog.Errorf("Unable to list PodDisruptionBudgets: %v", err)
-			return err
-		}
-
-		for _, pdbItem := range pdbs {
-			if pdbItem.Name == pdb.Name {
-				if pdbItem.Spec.MinAvailable != pdb.Spec.MinAvailable {
-					_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
-					if err != nil {
-						klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
-						return err
-					}
+		pdbObj, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name)
+		if err == nil {
+			if pdbObj.Spec.MinAvailable != pdb.Spec.MinAvailable {
+				_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+				if err != nil {
+					klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
+					return fmt.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
 				}
-				break
 			}
+		} else if errors.IsNotFound(err) {
+			_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+			if err != nil {
+				klog.Errorf("Unable to create PodDisruptionBudget: %v", err)
+				return fmt.Errorf("Unable to create PodDisruptionBudget: %v", err)
+			}
+		} else {
+			klog.Errorf("Unable to get PodDisruptionBudget: %v", err)
+			return err
 		}
 
 		operands := map[string]*corev1.Pod{}
@@ -208,6 +222,12 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 
 		for _, node := range nodes {
+			// Check whether the node is schedulable
+			if nodeHasUnschedulableTaint(node) {
+				klog.Infof("Node %v not schedulable, skipping reconciling the guard pod", node.Name)
+				continue
+			}
+
 			if _, exists := operands[node.Name]; !exists {
 				// If the operand does not exist and the node is not ready, wait until the node becomes ready
 				nodeReadyCondition := nodeConditionFinder(&node.Status, corev1.NodeReady)
@@ -280,16 +300,24 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	return utilerrors.NewAggregate(errs)
 }
 
-func IsSNOCheckFnc(infraLister configv1listers.InfrastructureLister) func() (bool, error) {
-	return func() (bool, error) {
-		infraData, err := infraLister.Get("cluster")
+// IsSNOCheckFnc creates a function that checks if the topology is SNO
+// In case the err is nil, precheckSucceeded signifies whether the isSNO is valid.
+// If precheckSucceeded is false, the isSNO return value does not reflect the cluster topology
+// and defaults to the bool default value.
+func IsSNOCheckFnc(infraInformer configv1informers.InfrastructureInformer) func() (isSNO, precheckSucceeded bool, err error) {
+	return func() (isSNO, precheckSucceeded bool, err error) {
+		if !infraInformer.Informer().HasSynced() {
+			// Do not return transient error
+			return false, false, nil
+		}
+		infraData, err := infraInformer.Lister().Get("cluster")
 		if err != nil {
-			return false, fmt.Errorf("Unable to list infrastructures.config.openshift.io/cluster object, unable to determine topology mode")
+			return false, true, fmt.Errorf("Unable to list infrastructures.config.openshift.io/cluster object, unable to determine topology mode")
 		}
 		if infraData.Status.ControlPlaneTopology == "" {
-			return false, fmt.Errorf("ControlPlaneTopology was not set, unable to determine topology mode")
+			return false, true, fmt.Errorf("ControlPlaneTopology was not set, unable to determine topology mode")
 		}
 
-		return infraData.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode, nil
+		return infraData.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode, true, nil
 	}
 }

@@ -17,9 +17,25 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	configv1 "github.com/openshift/api/config/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
+
+type FakeInfrastructureInformer struct {
+	Informer_ cache.SharedIndexInformer
+	Lister_   configlistersv1.InfrastructureLister
+}
+
+func (f FakeInfrastructureInformer) Informer() cache.SharedIndexInformer {
+	return f.Informer_
+}
+
+func (f FakeInfrastructureInformer) Lister() configlistersv1.InfrastructureLister {
+	return f.Lister_
+}
+
+var _ configv1informers.InfrastructureInformer = &FakeInfrastructureInformer{}
 
 type FakeInfrastructureLister struct {
 	InfrastructureLister_ configlistersv1.InfrastructureLister
@@ -33,13 +49,45 @@ func (l FakeInfrastructureLister) List(selector labels.Selector) (ret []*configv
 	return l.InfrastructureLister_.List(selector)
 }
 
+type FakeInfrastructureSharedInformer struct {
+	HasSynced_ bool
+}
+
+func (i FakeInfrastructureSharedInformer) AddIndexers(indexers cache.Indexers) error          { return nil }
+func (i FakeInfrastructureSharedInformer) GetIndexer() cache.Indexer                          { return nil }
+func (i FakeInfrastructureSharedInformer) AddEventHandler(handler cache.ResourceEventHandler) {}
+func (i FakeInfrastructureSharedInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) {
+}
+func (i FakeInfrastructureSharedInformer) GetStore() cache.Store           { return nil }
+func (i FakeInfrastructureSharedInformer) GetController() cache.Controller { return nil }
+func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})      {}
+func (i FakeInfrastructureSharedInformer) HasSynced() bool                 { return i.HasSynced_ }
+func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { return "" }
+func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
+	return nil
+}
+
 func TestIsSNOCheckFnc(t *testing.T) {
 	tests := []struct {
-		name        string
-		infraObject *configv1.Infrastructure
-		result      bool
-		err         bool
+		name                      string
+		infraObject               *configv1.Infrastructure
+		hasSynced                 bool
+		result, precheckSucceeded bool
+		err                       bool
 	}{
+		{
+			name: "Infrastructure informer has not synced",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+				},
+			},
+			hasSynced:         false,
+			precheckSucceeded: false,
+		},
 		{
 			name: "Missing Infrastructure status",
 			infraObject: &configv1.Infrastructure{
@@ -48,8 +96,9 @@ func TestIsSNOCheckFnc(t *testing.T) {
 				},
 				Status: configv1.InfrastructureStatus{},
 			},
-			result: false,
-			err:    true,
+			hasSynced:         true,
+			err:               true,
+			precheckSucceeded: true,
 		},
 		{
 			name: "Missing ControlPlaneTopology",
@@ -61,8 +110,9 @@ func TestIsSNOCheckFnc(t *testing.T) {
 					ControlPlaneTopology: "",
 				},
 			},
-			result: false,
-			err:    true,
+			hasSynced:         true,
+			err:               true,
+			precheckSucceeded: true,
 		},
 		{
 			name: "ControlPlaneTopology not SingleReplicaTopologyMode",
@@ -74,7 +124,9 @@ func TestIsSNOCheckFnc(t *testing.T) {
 					ControlPlaneTopology: configv1.HighlyAvailableTopologyMode,
 				},
 			},
-			result: false,
+			hasSynced:         true,
+			result:            false,
+			precheckSucceeded: true,
 		},
 		{
 			name: "ControlPlaneTopology is SingleReplicaTopologyMode",
@@ -86,7 +138,9 @@ func TestIsSNOCheckFnc(t *testing.T) {
 					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
 				},
 			},
-			result: true,
+			hasSynced:         true,
+			result:            true,
+			precheckSucceeded: true,
 		},
 	}
 
@@ -96,12 +150,18 @@ func TestIsSNOCheckFnc(t *testing.T) {
 			if err := indexer.Add(test.infraObject); err != nil {
 				t.Fatal(err.Error())
 			}
-			lister := FakeInfrastructureLister{
-				InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
+
+			informer := FakeInfrastructureInformer{
+				Informer_: FakeInfrastructureSharedInformer{
+					HasSynced_: test.hasSynced,
+				},
+				Lister_: FakeInfrastructureLister{
+					InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
+				},
 			}
 
-			conditionalFunction := IsSNOCheckFnc(lister)
-			result, err := conditionalFunction()
+			conditionalFunction := IsSNOCheckFnc(informer)
+			result, precheckSucceeded, err := conditionalFunction()
 			if test.err {
 				if err == nil {
 					t.Errorf("%s: expected error, got none", test.name)
@@ -109,8 +169,8 @@ func TestIsSNOCheckFnc(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("%s: unexpected error: %v", test.name, err)
-				} else if result != test.result {
-					t.Errorf("%s: expected %v, got %v", test.name, test.result, result)
+				} else if result != test.result || precheckSucceeded != test.precheckSucceeded {
+					t.Errorf("%s: expected result %v, got %v, expected precheckSucceeded %v, got %v", test.name, test.result, result, test.precheckSucceeded, precheckSucceeded)
 				}
 			}
 		})
@@ -156,14 +216,23 @@ func (f FakeSyncContext) Recorder() events.Recorder {
 
 // render a guarding pod
 func TestRenderGuardPod(t *testing.T) {
+	unschedulableMasterNode := fakeMasterNode("master1")
+	unschedulableMasterNode.Spec.Taints = []corev1.Taint{
+		{
+			Key:    corev1.TaintNodeUnschedulable,
+			Effect: corev1.TaintEffectNoSchedule,
+		},
+	}
 	tests := []struct {
-		name        string
-		infraObject *configv1.Infrastructure
-		errString   string
-		err         bool
-		operandPod  *corev1.Pod
-		guardExists bool
-		guardPod    *corev1.Pod
+		name                  string
+		infraObject           *configv1.Infrastructure
+		errString             string
+		err                   bool
+		operandPod            *corev1.Pod
+		node                  *corev1.Node
+		guardExists           bool
+		guardPod              *corev1.Pod
+		createConditionalFunc func() (bool, bool, error)
 	}{
 		{
 			name: "Operand pod missing",
@@ -178,6 +247,7 @@ func TestRenderGuardPod(t *testing.T) {
 			errString:  "Missing operand on node master1",
 			err:        true,
 			operandPod: nil,
+			node:       fakeMasterNode("master1"),
 		},
 		{
 			name: "Operand pod missing .Status.PodIP",
@@ -202,6 +272,7 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 				Status: corev1.PodStatus{},
 			},
+			node: fakeMasterNode("master1"),
 		},
 		{
 			name: "Operand guard pod created",
@@ -226,7 +297,34 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			node:        fakeMasterNode("master1"),
 			guardExists: true,
+		},
+		{
+			name: "Master node not schedulable",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+				},
+			},
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "master1",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			node:        unschedulableMasterNode,
+			guardExists: false,
 		},
 		{
 			name: "Operand guard pod deleted",
@@ -264,6 +362,34 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			node: fakeMasterNode("master1"),
+		},
+		{
+			name: "Conditional return precheckSucceeded is false",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+				},
+			},
+			createConditionalFunc: func() (bool, bool, error) { return false, false, nil },
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "master1",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			node:        fakeMasterNode("master1"),
+			guardExists: false,
 		},
 	}
 
@@ -273,11 +399,8 @@ func TestRenderGuardPod(t *testing.T) {
 			if err := indexer.Add(test.infraObject); err != nil {
 				t.Fatal(err.Error())
 			}
-			lister := FakeInfrastructureLister{
-				InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
-			}
 
-			kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"))
+			kubeClient := fake.NewSimpleClientset(test.node)
 			if test.operandPod != nil {
 				kubeClient.Tracker().Add(test.operandPod)
 			}
@@ -286,6 +409,20 @@ func TestRenderGuardPod(t *testing.T) {
 			}
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+
+			informer := FakeInfrastructureInformer{
+				Informer_: FakeInfrastructureSharedInformer{
+					HasSynced_: true,
+				},
+				Lister_: FakeInfrastructureLister{
+					InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
+				},
+			}
+
+			createConditionalFunc := IsSNOCheckFnc(informer)
+			if test.createConditionalFunc != nil {
+				createConditionalFunc = test.createConditionalFunc
+			}
 
 			ctrl := &GuardController{
 				targetNamespace:         "test",
@@ -299,7 +436,7 @@ func TestRenderGuardPod(t *testing.T) {
 				pdbGetter:               kubeClient.PolicyV1(),
 				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 				installerPodImageFn:     getInstallerPodImageFromEnv,
-				createConditionalFunc:   IsSNOCheckFnc(lister),
+				createConditionalFunc:   createConditionalFunc,
 			}
 
 			ctx, cancel := context.WithCancel(context.TODO())
@@ -396,13 +533,19 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 	if err := indexer.Add(infraObject); err != nil {
 		t.Fatal(err.Error())
 	}
-	lister := FakeInfrastructureLister{
-		InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
-	}
 
 	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod)
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+
+	informer := FakeInfrastructureInformer{
+		Informer_: FakeInfrastructureSharedInformer{
+			HasSynced_: true,
+		},
+		Lister_: FakeInfrastructureLister{
+			InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
+		},
+	}
 
 	ctrl := &GuardController{
 		targetNamespace:         "test",
@@ -416,7 +559,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		pdbGetter:               kubeClient.PolicyV1(),
 		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 		installerPodImageFn:     getInstallerPodImageFromEnv,
-		createConditionalFunc:   IsSNOCheckFnc(lister),
+		createConditionalFunc:   IsSNOCheckFnc(informer),
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
