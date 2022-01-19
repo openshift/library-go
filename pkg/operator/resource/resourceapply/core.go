@@ -252,6 +252,21 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 
 // ApplyConfigMap merges objectmeta, requires data
 func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache) (*corev1.ConfigMap, bool, error) {
+	injectedKey := ""
+	// if a CA is injected into this ConfigMap, ensure ca-bundle.crt is marked as an injected key
+	if required.Labels["config.openshift.io/inject-trusted-cabundle"] == "true" {
+		injectedKey = "ca-bundle.crt"
+	}
+	return ApplyInjectableConfigMap(ctx, client, recorder, required, cache, injectedKey)
+}
+
+// ApplyInjectableConfigMap merges objectmeta, and data if an injection key is not provided.
+//
+// If an injection key is provided and the required ConfigMap does not contain a value for the
+// injected key, existing data in the injected key is retained during resource merge. If the
+// required ConfigMap does contain a value for the injected key, existing data will be overwritten.
+// Data not mapped to the injection key is otherwise pruned.
+func ApplyInjectableConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache, injectedKey string) (*corev1.ConfigMap, bool, error) {
 	existing, err := client.ConfigMaps(required.Namespace).Get(ctx, required.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		requiredCopy := required.DeepCopy()
@@ -274,15 +289,16 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 
-	caBundleInjected := required.Labels["config.openshift.io/inject-trusted-cabundle"] == "true"
-	_, newCABundleRequired := required.Data["ca-bundle.crt"]
+	dataInjected := injectedKey != ""
+	newInjectionNeeded := false
+	_, newInjectionNeeded = required.Data[injectedKey]
 
 	var modifiedKeys []string
 	for existingCopyKey, existingCopyValue := range existingCopy.Data {
-		// if we're injecting a ca-bundle and the required isn't forcing the value, then don't use the value of existing
+		// if we're injecting data and the required isn't forcing the value, then don't use the value of existing
 		// to drive a diff detection. If required has set the value then we need to force the value in order to have apply
 		// behave predictably.
-		if caBundleInjected && !newCABundleRequired && existingCopyKey == "ca-bundle.crt" {
+		if dataInjected && !newInjectionNeeded && existingCopyKey == injectedKey {
 			continue
 		}
 		if requiredValue, ok := required.Data[existingCopyKey]; !ok || (existingCopyValue != requiredValue) {
@@ -312,12 +328,12 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 	}
 	existingCopy.Data = required.Data
 	existingCopy.BinaryData = required.BinaryData
-	// if we're injecting a cabundle, and we had a previous value, and the required object isn't setting the value, then set back to the previous
-	if existingCABundle, existedBefore := existing.Data["ca-bundle.crt"]; caBundleInjected && existedBefore && !newCABundleRequired {
+	// if we're injecting data, and we had a previous value, and the required object isn't setting the value, then set back to the previous
+	if existingInjection, existedBefore := existing.Data[injectedKey]; dataInjected && existedBefore && !newInjectionNeeded {
 		if existingCopy.Data == nil {
 			existingCopy.Data = map[string]string{}
 		}
-		existingCopy.Data["ca-bundle.crt"] = existingCABundle
+		existingCopy.Data[injectedKey] = existingInjection
 	}
 
 	actual, err := client.ConfigMaps(required.Namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})

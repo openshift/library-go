@@ -310,6 +310,139 @@ func TestApplyConfigMap(t *testing.T) {
 	}
 }
 
+func TestApplyInjectableConfigMap(t *testing.T) {
+	// Note - most test cases for this function are covered in TestApplyConfigMap.
+	// These tests cover the applying of ConfigMaps with general injection keys.
+	tests := []struct {
+		name        string
+		existing    []runtime.Object
+		input       *corev1.ConfigMap
+		injectedKey string
+
+		expectedModified bool
+		verifyActions    func(actions []clienttesting.Action, t *testing.T)
+	}{
+		{
+			name:        "don't mutate data if injected",
+			injectedKey: "injected-key",
+			existing: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+					Data: map[string]string{
+						"injected-key": "value",
+					},
+				},
+			},
+			input: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+			},
+
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "configmaps") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name:        "keep data if injected, but prune other entries",
+			injectedKey: "injected-key",
+			existing: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+					Data: map[string]string{
+						"injected-key": "value",
+						"other":        "something",
+					},
+				},
+			},
+			input: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+			},
+
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "configmaps") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "configmaps") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+					Data: map[string]string{
+						"injected-key": "value",
+					},
+				}
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name:        "mutate data if injected, but injected key specified",
+			injectedKey: "injected-key",
+			existing: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+					Data: map[string]string{
+						"injected-key": "value",
+					},
+				},
+			},
+			input: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+				Data: map[string]string{
+					"injected-key": "different",
+				},
+			},
+
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "configmaps") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "configmaps") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+					Data: map[string]string{
+						"injected-key": "different",
+					},
+				}
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(test.existing...)
+			_, actualModified, err := ApplyInjectableConfigMap(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input, noCache, test.injectedKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.expectedModified != actualModified {
+				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
+			}
+			test.verifyActions(client.Actions(), t)
+		})
+	}
+}
+
 func TestApplySecret(t *testing.T) {
 	m := metav1.ObjectMeta{
 		Name:        "test",
