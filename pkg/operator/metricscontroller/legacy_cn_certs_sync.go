@@ -3,6 +3,7 @@ package metricscontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -20,42 +21,47 @@ import (
 // The supported prometheus query result types are:
 // - vector: only the first sample of the vector will be used for evaluation.
 // - scalar: the returned value will be used.
-func NewLegacyCNCertsMetricsSyncFunc(query string, operatorClient v1helpers.OperatorClient) MetricsSyncFunc {
+func NewLegacyCNCertsMetricsSyncFunc(conditionPrefix, query string, operatorClient v1helpers.OperatorClient) MetricsSyncFunc {
 	return func(ctx context.Context, controllerContext factory.SyncContext, client prometheusv1.API) error {
 		result, _, err := client.Query(ctx, query, time.Now())
 		if err != nil {
 			return fmt.Errorf("error executing prometheus query: %w", err)
 		}
 
-		var value model.SampleValue
+		var samples model.Vector
+
 		switch result.Type() {
 		case model.ValVector:
-			vec := result.(model.Vector)
-			if len(vec) == 0 {
+			samples = result.(model.Vector)
+			if len(samples) == 0 {
 				return fmt.Errorf("empty vector result from query: %q", query)
 			}
-			value = vec[0].Value
-		case model.ValScalar:
-			value = result.(*model.Scalar).Value
 		default:
 			return fmt.Errorf("unexpected prometheus query return type: %T", result)
 		}
 
-		_, _, err = v1helpers.UpdateStatus(operatorClient, v1helpers.UpdateConditionFn(newInvalidCertsCondition(float64(value))))
+		_, _, err = v1helpers.UpdateStatus(operatorClient, v1helpers.UpdateConditionFn(newInvalidCertsCondition(conditionPrefix, samples)))
 		return err
 	}
 }
 
-func newInvalidCertsCondition(invalidCertsCount float64) operatorv1.OperatorCondition {
+func newInvalidCertsCondition(conditionPrefix string, samples model.Vector) operatorv1.OperatorCondition {
 	condition := operatorv1.OperatorCondition{
-		Type:   "InvalidCertsUpgradeable",
+		Type:   conditionPrefix + "InvalidCertsUpgradeable",
 		Status: operatorv1.ConditionTrue,
 	}
 
-	if invalidCertsCount >= 1.0 {
+	var invalidSANs []string
+	for _, sample := range samples {
+		if sample.Value > 0 {
+			invalidSANs = append(invalidSANs, fmt.Sprintf("%s", sample.Metric))
+		}
+	}
+
+	if len(invalidSANs) > 0 {
 		condition.Status = operatorv1.ConditionFalse
 		condition.Reason = "InvalidCertsDetected"
-		condition.Message = fmt.Sprintf("%d server certificates without SAN detected", int(invalidCertsCount))
+		condition.Message = fmt.Sprintf("Server certificates without SAN detected: %s. These have to be replaced to include the respective hosts in their SAN extension and not rely on the Subject's CN for the purpose of hostname verification.", strings.Join(invalidSANs, ", "))
 	}
 
 	return condition
