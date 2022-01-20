@@ -46,7 +46,7 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			expectedEvents: []string{createEvent},
 		},
 		{
-			name:           "Should update webhook when changed",
+			name:           "Should update webhook when annotation changed",
 			expectModified: true,
 			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
@@ -55,6 +55,22 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			},
 			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should update webhook when changed",
+			expectModified: true,
+			input: func() *admissionregistrationv1.MutatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			existing: func() *admissionregistrationv1.MutatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.MutatingWebhook{
+					Name: "unexpected",
+				})
 				return hook
 			},
 			expectedEvents: []string{updateEvent},
@@ -213,7 +229,7 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			expectedEvents: []string{createEvent},
 		},
 		{
-			name:           "Should update webhook when changed",
+			name:           "Should update webhook when annotation changed",
 			expectModified: true,
 			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
@@ -222,6 +238,22 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			},
 			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
 				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should update webhook when changed",
+			expectModified: true,
+			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				hook.Webhooks = append(hook.Webhooks, admissionregistrationv1.ValidatingWebhook{
+					Name: "unexpected",
+				})
 				return hook
 			},
 			expectedEvents: []string{updateEvent},
