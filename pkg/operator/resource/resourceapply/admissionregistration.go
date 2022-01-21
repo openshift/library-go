@@ -14,12 +14,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ApplyMutatingWebhookConfiguration applies the resource
-func ApplyMutatingWebhookConfiguration(ctx context.Context, client admissionregistrationclientv1.MutatingWebhookConfigurationsGetter, recorder events.Recorder,
-	requiredOriginal *admissionregistrationv1.MutatingWebhookConfiguration) (*admissionregistrationv1.MutatingWebhookConfiguration, bool, error) {
-	return ApplyMutatingWebhookConfigurationImproved(ctx, client, recorder, requiredOriginal, noCache)
-}
-
 // ApplyMutatingWebhookConfigurationImproved ensures the form of the specified
 // mutatingwebhookconfiguration is present in the API. If it does not exist,
 // it will be created. If it does exist, the metadata of the required
@@ -42,7 +36,8 @@ func ApplyMutatingWebhookConfigurationImproved(ctx context.Context, client admis
 		if err != nil {
 			return nil, false, err
 		}
-		cache.UpdateCachedResourceMetadata(required, actual)
+		// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+		cache.UpdateCachedResourceMetadata(requiredOriginal, actual)
 		return actual, true, nil
 	} else if err != nil {
 		return nil, false, err
@@ -60,7 +55,8 @@ func ApplyMutatingWebhookConfigurationImproved(ctx context.Context, client admis
 	copyMutatingWebhookCABundle(existing, required)
 	webhooksEquivalent := equality.Semantic.DeepEqual(existingCopy.Webhooks, required.Webhooks)
 	if webhooksEquivalent && !*modified {
-		cache.UpdateCachedResourceMetadata(required, existingCopy)
+		// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+		cache.UpdateCachedResourceMetadata(requiredOriginal, existingCopy)
 		return existingCopy, false, nil
 	}
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
@@ -74,7 +70,8 @@ func ApplyMutatingWebhookConfigurationImproved(ctx context.Context, client admis
 	if err != nil {
 		return nil, false, err
 	}
-	cache.UpdateCachedResourceMetadata(required, actual)
+	// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+	cache.UpdateCachedResourceMetadata(requiredOriginal, actual)
 	return actual, true, nil
 }
 
@@ -91,12 +88,6 @@ func copyMutatingWebhookCABundle(from, to *admissionregistrationv1.MutatingWebho
 			to.Webhooks[i].ClientConfig.CABundle = existing.ClientConfig.CABundle
 		}
 	}
-}
-
-// ApplyValidatingWebhookConfiguration applies the resource
-func ApplyValidatingWebhookConfiguration(ctx context.Context, client admissionregistrationclientv1.ValidatingWebhookConfigurationsGetter, recorder events.Recorder,
-	requiredOriginal *admissionregistrationv1.ValidatingWebhookConfiguration) (*admissionregistrationv1.ValidatingWebhookConfiguration, bool, error) {
-	return ApplyValidatingWebhookConfigurationImproved(ctx, client, recorder, requiredOriginal, noCache)
 }
 
 // ApplyValidatingWebhookConfigurationImproved ensures the form of the specified
@@ -120,7 +111,8 @@ func ApplyValidatingWebhookConfigurationImproved(ctx context.Context, client adm
 		if err != nil {
 			return nil, false, err
 		}
-		cache.UpdateCachedResourceMetadata(required, actual)
+		// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+		cache.UpdateCachedResourceMetadata(requiredOriginal, actual)
 		return actual, true, nil
 	} else if err != nil {
 		return nil, false, err
@@ -138,7 +130,8 @@ func ApplyValidatingWebhookConfigurationImproved(ctx context.Context, client adm
 	copyValidatingWebhookCABundle(existing, required)
 	webhooksEquivalent := equality.Semantic.DeepEqual(existingCopy.Webhooks, required.Webhooks)
 	if webhooksEquivalent && !*modified {
-		cache.UpdateCachedResourceMetadata(required, existingCopy)
+		// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+		cache.UpdateCachedResourceMetadata(requiredOriginal, existingCopy)
 		return existingCopy, false, nil
 	}
 	// at this point we know that we're going to perform a write.  We're just trying to get the object correct
@@ -152,7 +145,8 @@ func ApplyValidatingWebhookConfigurationImproved(ctx context.Context, client adm
 	if err != nil {
 		return nil, false, err
 	}
-	cache.UpdateCachedResourceMetadata(required, actual)
+	// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
+	cache.UpdateCachedResourceMetadata(requiredOriginal, actual)
 	return actual, true, nil
 }
 

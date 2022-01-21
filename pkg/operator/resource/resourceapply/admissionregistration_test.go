@@ -173,10 +173,10 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
 
 			testApply := func(expectModify bool) {
-				updatedHook, modified, err := ApplyMutatingWebhookConfiguration(
+				updatedHook, modified, err := ApplyMutatingWebhookConfigurationImproved(
 					context.TODO(),
 					client.AdmissionregistrationV1(),
-					recorder, test.input())
+					recorder, test.input(), noCache)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -357,10 +357,10 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
 
 			testApply := func(expectModify bool) {
-				updatedHook, modified, err := ApplyValidatingWebhookConfiguration(
+				updatedHook, modified, err := ApplyValidatingWebhookConfigurationImproved(
 					context.TODO(),
 					client.AdmissionregistrationV1(),
-					recorder, test.input())
+					recorder, test.input(), noCache)
 				if err != nil {
 					t.Fatal(err)
 				}
