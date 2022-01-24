@@ -61,7 +61,7 @@ type StaticResourceController struct {
 	name                   string
 	manifests              []conditionalManifests
 	ignoreNotFoundOnCreate bool
-	preconfitions          []StaticResourcesPreconditionsFuncType
+	preconditions          []StaticResourcesPreconditionsFuncType
 
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
@@ -106,7 +106,7 @@ func NewStaticResourceController(
 		operatorClient: operatorClient,
 		clients:        clients,
 
-		preconfitions: []StaticResourcesPreconditionsFuncType{defaultStaticResourcesPreconditionsFunc},
+		preconditions: []StaticResourcesPreconditionsFuncType{defaultStaticResourcesPreconditionsFunc},
 
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
@@ -136,7 +136,7 @@ func (c *StaticResourceController) WithIgnoreNotFoundOnCreate() *StaticResourceC
 //
 // When the requirement is not met, the controller reports degraded status.
 func (c *StaticResourceController) WithPrecondition(precondition StaticResourcesPreconditionsFuncType) *StaticResourceController {
-	c.preconfitions = append(c.preconfitions, precondition)
+	c.preconditions = append(c.preconditions, precondition)
 	return c
 }
 
@@ -283,7 +283,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 		return nil
 	}
 
-	for _, precondition := range c.preconfitions {
+	for _, precondition := range c.preconditions {
 		ready, err := precondition(ctx)
 		// We don't care about the other preconditions, we just stop on the first one.
 		if !ready {
