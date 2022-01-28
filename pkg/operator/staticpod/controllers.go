@@ -80,7 +80,6 @@ func NewBuilder(
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
 		kubeInformers:           kubeInformers,
-		enableStartMonitor:      func() (bool, error) { return false, nil },
 	}
 }
 
@@ -232,8 +231,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.installerPodMutationFunc,
 		).WithMinReadyDuration(
 			b.minReadyDuration,
-		).WithStartupMonitorSupport(
-			b.enableStartMonitor,
 		), 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
@@ -281,26 +278,28 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		eventRecorder.Warning("PruningControllerMissing", "not enough information provided, not all functionality is present")
 	}
 
-	manager.WithController(startupmonitorcondition.New(
-		b.operandNamespace,
-		b.staticPodName,
-		b.staticPodOperatorClient,
-		b.kubeInformers,
-		b.enableStartMonitor,
-		eventRecorder,
-	), 1)
+	if b.enableStartMonitor != nil {
+		manager.WithController(startupmonitorcondition.New(
+			b.operandNamespace,
+			b.staticPodName,
+			b.staticPodOperatorClient,
+			b.kubeInformers,
+			b.enableStartMonitor,
+			eventRecorder,
+		), 1)
 
-	if b.operandPodLabelSelector.Empty() {
-		errs = append(errs, fmt.Errorf("missing OperandPodLabelSelector when running StaticPodFallbackConditionController; cannot proceed"))
-	} else {
-		manager.WithController(staticpodfallback.New(
+		if staticPodFallbackController, err := staticpodfallback.New(
 			b.operandNamespace,
 			b.operandPodLabelSelector,
 			b.staticPodOperatorClient,
 			b.kubeInformers,
 			b.enableStartMonitor,
 			b.eventRecorder,
-		), 1)
+		); err == nil {
+			manager.WithController(staticPodFallbackController, 1)
+		} else {
+			errs = append(errs, err)
+		}
 	}
 
 	manager.WithController(node.NewNodeController(
@@ -326,23 +325,23 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)
 
 	if len(b.operatorNamespace) > 0 && len(b.operatorName) > 0 && len(b.readyzPort) > 0 {
-		if b.operandPodLabelSelector.Empty() {
-			errs = append(errs, fmt.Errorf("missing OperandPodLabelSelector when running GuardController; cannot proceed"))
+		if guardController, err := guard.NewGuardController(
+			b.operandNamespace,
+			b.operandPodLabelSelector,
+			b.staticPodName,
+			b.operatorName,
+			b.readyzPort,
+			operandInformers,
+			clusterInformers,
+			b.staticPodOperatorClient,
+			podClient,
+			pdbClient,
+			eventRecorder,
+			b.guardCreateConditionalFunc,
+		); err == nil {
+			manager.WithController(guardController, 1)
 		} else {
-			manager.WithController(guard.NewGuardController(
-				b.operandNamespace,
-				b.operandPodLabelSelector,
-				b.staticPodName,
-				b.operatorName,
-				b.readyzPort,
-				operandInformers,
-				clusterInformers,
-				b.staticPodOperatorClient,
-				podClient,
-				pdbClient,
-				eventRecorder,
-				b.guardCreateConditionalFunc,
-			), 1)
+			errs = append(errs, err)
 		}
 	}
 
