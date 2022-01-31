@@ -468,6 +468,7 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 		if err != nil {
 			return false, err
 		}
+		// if there is an installer pod for a newer revision, this installer pod should quit.
 		if latestRevision > currRevision {
 			return false, fmt.Errorf("more recent revision present on node: thisRevision=%v, moreRecentRevision=%v", currRevision, latestRevision)
 		}
@@ -480,10 +481,17 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 			if err != nil {
 				return false, err
 			}
+
+			// skip our own installer pod.
 			if podRevision == currRevision {
 				continue
 			}
+			// wait until we have at least one container status to check
+			if len(pod.Status.ContainerStatuses) == 0 {
+				return false, nil
+			}
 			for _, container := range pod.Status.ContainerStatuses {
+				// if the container isn't terminated, we need this installer pod to wait until it is.
 				if container.State.Terminated == nil {
 					return false, nil
 				}
@@ -497,12 +505,15 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	}
 
 	// once there are no other running revisions, wait Xs.
+	// In an extreme case, this can be grace period seconds+1.  Trying 30s to start. Etcd has been the worst off since
+	// it requires 2 out 3 to be functioning.
 	time.Sleep(30 * time.Second)
 
 	installerPods, err := o.getInstallerPodsOnThisNode(ctx)
 	if err != nil {
 		return err
 	}
+	// if there are no installer pods, it means this pod was removed somehow.  no action should be taken.
 	if len(installerPods) == 0 {
 		return fmt.Errorf("no installer pods found")
 	}
@@ -510,6 +521,7 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	if err != nil {
 		return err
 	}
+	// if there is an installer pod for a newer revision, this installer pod should quit.
 	if latestRevision > currRevision {
 		return fmt.Errorf("more recent revision present on node: thisRevision=%v, moreRecentRevision=%v", currRevision, latestRevision)
 	}
