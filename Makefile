@@ -14,7 +14,6 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/bindata.mk \
 )
 
-$(call add-bindata,installer,./pkg/operator/staticpod/controller/installer/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/installer/bindata/bindata.go)
 $(call add-bindata,staticpod,./pkg/operator/staticpod/controller/prune/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/prune/bindata/bindata.go)
 $(call add-bindata,guard,./pkg/operator/staticpod/controller/guard/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/guard/bindata/bindata.go)
 $(call add-bindata,podnetworkconnectivitychecks,pkg/operator/connectivitycheckcontroller/manifests/...,bindata,bindata,pkg/operator/connectivitycheckcontroller/bindata/bindata.go)
