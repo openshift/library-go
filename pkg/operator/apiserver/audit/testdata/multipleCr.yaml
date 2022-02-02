@@ -21,6 +21,13 @@ rules:
   - "/version"
   - "/healthz"
   - "/readyz"
+# Don't log requests by "system:apiserver" on apirequestcounts
+- level: None
+  users: ["system:apiserver"]
+  resources:
+    - group: "apiserver.openshift.io"
+      resources: ["apirequestcounts", "apirequestcounts/*"]
+  namespaces: [""]
 # exclude resources where the body is security-sensitive
 - level: Metadata
   resources:
