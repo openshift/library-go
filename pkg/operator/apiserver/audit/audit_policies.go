@@ -2,12 +2,12 @@ package audit
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"path"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
-	assets "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -15,6 +15,9 @@ import (
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"sigs.k8s.io/yaml"
 )
+
+//go:embed manifests
+var assets embed.FS
 
 var (
 	basePolicy   auditv1.Policy
@@ -37,7 +40,7 @@ func init() {
 		panic(err)
 	}
 
-	bs, err := assets.Asset("pkg/operator/apiserver/audit/manifests/base-policy.yaml")
+	bs, err := assets.ReadFile("manifests/base-policy.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +55,7 @@ func init() {
 		configv1.AllRequestBodiesAuditProfileType,
 	} {
 		manifestName := fmt.Sprintf("%s-rules.yaml", strings.ToLower(string(profile)))
-		bs, err := assets.Asset(path.Join("pkg/operator/apiserver/audit/manifests", manifestName))
+		bs, err := assets.ReadFile(path.Join("manifests", manifestName))
 		if err != nil {
 			panic(err)
 		}
