@@ -14,19 +14,15 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/bindata.mk \
 )
 
-$(call add-bindata,podnetworkconnectivitychecks,pkg/operator/connectivitycheckcontroller/manifests/...,bindata,bindata,pkg/operator/connectivitycheckcontroller/bindata/bindata.go)
+.PHONY: update-podnetworkconnectivitychecks
+update: update-podnetworkconnectivitychecks
+update-podnetworkconnectivitychecks:
+	$(MAKE) -C pkg/operator/connectivitycheckcontroller update
 
-pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml: vendor/github.com/openshift/api/operatorcontrolplane/v1alpha1/0000_10-pod-network-connectivity-check.crd.yaml
-	mkdir -p $$(dirname $@)
-	cp $< $@
-
-update-bindata-podnetworkconnectivitychecks: pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml
-
-verify-bindata-podnetworkconnectivitychecks-manifests:
-	diff -Naup pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml vendor/github.com/openshift/api/operatorcontrolplane/v1alpha1/0000_10-pod-network-connectivity-check.crd.yaml
-.PHONY: verify-bindata-podnetworkconnectivitychecks-manifests
-
-verify-bindata-podnetworkconnectivitychecks: verify-bindata-podnetworkconnectivitychecks-manifests
+.PHONY: verify-podnetworkconnectivitychecks
+verify: verify-podnetworkconnectivitychecks
+verify-podnetworkconnectivitychecks:
+	$(MAKE) -C pkg/operator/connectivitycheckcontroller verify
 
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 .PHONY: test-e2e-encryption
