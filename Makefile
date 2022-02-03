@@ -11,7 +11,6 @@ GO_BUILD_PACKAGES_EXPANDED :=$(GO_BUILD_PACKAGES)
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
 	targets/openshift/deps.mk \
-	targets/openshift/bindata.mk \
 )
 
 .PHONY: update-podnetworkconnectivitychecks
