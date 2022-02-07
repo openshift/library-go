@@ -637,12 +637,22 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 func (o *InstallOptions) pruneDisk() error {
 	protectedIDs := sets.NewInt(o.ProtectedRevisionsFromPruning...)
 
-	files, err := ioutil.ReadDir(o.ResourceDir)
-	if err != nil {
-		return err
-	}
-
 	if o.MaxEligibleRevisionToPrune > 0 {
+		// protect last-known-good symlinked revision
+		// example: kube-apiserver-last-known-good -> /etc/kubernetes/static-pod-resources/kube-apiserver-pod-13/kube-apiserver-pod.yaml
+		targetNameWithoutPodSuffix := strings.Replace(o.PodConfigMapNamePrefix, "-pod", "", 1)
+		lastKnownGoodSymlink := filepath.Join(o.ResourceDir, fmt.Sprintf("%s-last-known-good", targetNameWithoutPodSuffix))
+		if lastKnownGoodManifestPath, err := filepath.EvalSymlinks(lastKnownGoodSymlink); err == nil {
+			revisionDirName := filepath.Base(filepath.Dir(lastKnownGoodManifestPath))
+			if revisionID, err := parseRevisionNumberFromName(revisionDirName, o.PodConfigMapNamePrefix); err == nil {
+				protectedIDs.Insert(revisionID)
+			}
+		}
+
+		files, err := ioutil.ReadDir(o.ResourceDir)
+		if err != nil {
+			return err
+		}
 		for _, file := range files {
 			// If the file is not a resource directory...
 			if !file.IsDir() {
@@ -653,9 +663,7 @@ func (o *InstallOptions) pruneDisk() error {
 				continue
 			}
 
-			// Split file name to get just the integer revision ID
-			fileSplit := strings.Split(file.Name(), o.PodConfigMapNamePrefix+"-")
-			revisionID, err := strconv.Atoi(fileSplit[len(fileSplit)-1])
+			revisionID, err := parseRevisionNumberFromName(file.Name(), o.PodConfigMapNamePrefix)
 			if err != nil {
 				return err
 			}
@@ -735,4 +743,10 @@ func writeSecret(content []byte, fullFilename string) error {
 		filePerms = 0700
 	}
 	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
+}
+
+func parseRevisionNumberFromName(name string, prefix string) (int, error) {
+	// Split file name to get just the integer revision ID
+	fileSplit := strings.Split(name, prefix+"-")
+	return strconv.Atoi(fileSplit[len(fileSplit)-1])
 }

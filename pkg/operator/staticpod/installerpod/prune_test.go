@@ -1,6 +1,7 @@
 package installerpod
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -13,10 +14,11 @@ import (
 
 func TestRun(t *testing.T) {
 	tests := []struct {
-		name     string
-		o        InstallOptions
-		files    []string
-		expected []string
+		name                  string
+		o                     InstallOptions
+		files                 []string
+		lastKnownGoodRevision string
+		expected              []string
 	}{
 		{
 			name: "only deletes non-protected revisions of the specified pod",
@@ -48,16 +50,39 @@ func TestRun(t *testing.T) {
 			files:    []string{"test-1", "test-2", "othertest-1", "othertest-2"},
 			expected: []string{"test-2", "othertest-1", "othertest-2"},
 		},
+		{
+			name: "prune with known lastKnownGoodRevision",
+			o: InstallOptions{
+				MaxEligibleRevisionToPrune:    2,
+				ProtectedRevisionsFromPruning: []int{2},
+				PodConfigMapNamePrefix:        "test",
+			},
+			files:                 []string{"test-1", "test-2", "othertest-1", "othertest-2"},
+			lastKnownGoodRevision: "test-2",
+			expected:              []string{"test-2", "othertest-1", "othertest-2", "test-last-known-good"},
+		},
+		{
+			name: "lastKnownGoodRevision is not pruned even when eligible for pruning",
+			o: InstallOptions{
+				MaxEligibleRevisionToPrune:    5,
+				ProtectedRevisionsFromPruning: []int{4, 5},
+				PodConfigMapNamePrefix:        "test",
+			},
+			files:                 []string{"test-1", "test-2", "test-3", "test-4", "test-5", "othertest-1", "othertest-2"},
+			lastKnownGoodRevision: "test-2",
+			expected:              []string{"test-2", "test-4", "test-5", "othertest-1", "othertest-2", "test-last-known-good"},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			podYamlName := fmt.Sprintf("%s-pod.yaml", test.o.PodConfigMapNamePrefix)
 			testDir, err := ioutil.TempDir("", "prune-revisions-test")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
-				os.Remove(testDir)
+				os.RemoveAll(testDir)
 			}()
 
 			resourceDir := path.Join(testDir, "resources")
@@ -67,6 +92,16 @@ func TestRun(t *testing.T) {
 			}
 			for _, file := range test.files {
 				err = os.Mkdir(path.Join(resourceDir, file), os.ModePerm)
+				if err != nil {
+					t.Error(err)
+				}
+				_, err = os.Create(path.Join(resourceDir, file, podYamlName))
+				if err != nil {
+					t.Error(err)
+				}
+			}
+			if len(test.lastKnownGoodRevision) != 0 {
+				err = os.Symlink(path.Join(resourceDir, test.lastKnownGoodRevision, podYamlName), path.Join(resourceDir, fmt.Sprintf("%s-last-known-good", test.o.PodConfigMapNamePrefix)))
 				if err != nil {
 					t.Error(err)
 				}

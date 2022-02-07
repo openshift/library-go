@@ -57,7 +57,6 @@ func newStaticPodFallback() *staticPodFallback {
 	return &staticPodFallback{io: realFS{}}
 }
 
-// TODO: pruner|installer: protect the linked revision
 func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) error {
 	klog.Infof("Falling back to a previous revision, the target %v hasn't become ready in the allotted time", f.targetName)
 	// step 0: if the last known good revision doesn't exist
