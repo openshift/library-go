@@ -44,6 +44,8 @@ const (
 	nodeStatusOperandFailedReason         = "OperandFailed"
 	nodeStatusInstalledFailedReason       = "InstallerFailed"
 	nodeStatusOperandFailedFallbackReason = "OperandFailedFallback"
+
+	revisionStatusConfigMapNamePrefix = "revision-status-"
 )
 
 //go:embed manifests/installer-pod.yaml
@@ -442,6 +444,20 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 		return true, requeueAfter, nil
 	}
 
+	// keep a number of revision before current, target, last failed and last available revisions
+	failedLimit, succeededLimit := defaultedLimits(operatorSpec)
+	keepAllRevisions, toKeepRevisionsFromPruning := revisionsToKeep(operatorStatus, failedLimit, succeededLimit)
+	maxEligibleRevisionToPrune := operatorStatus.LatestAvailableRevision
+	if keepAllRevisions {
+		maxEligibleRevisionToPrune = -1
+	}
+
+	if err := c.pruneRevisionStatusConfigMaps(ctx, maxEligibleRevisionToPrune, toKeepRevisionsFromPruning); err != nil {
+		// do not degrade the operator - just record an event that cleanup is failing
+		c.eventRecorder.Warningf("RevisionStatusConfigMapCleanupFailed", "Failed to cleanup %v config map: %v",
+			revisionStatusConfigMapNamePrefix, err)
+	}
+
 	for l := 0; l < len(operatorStatus.NodeStatuses); l++ {
 		i := (startNode + l) % len(operatorStatus.NodeStatuses)
 
@@ -473,7 +489,10 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 					}
 				}
 
-				if err := c.ensureInstallerPod(ctx, operatorSpec, currNodeState); err != nil {
+				// Unfortunately since we don't know if the new installed revision will be
+				// successful on all nodes, we cannot prune the oldest revision after a single installation.
+				// In that case there will be always one additional revision more than is the limit
+				if err := c.ensureInstallerPod(ctx, operatorSpec, currNodeState, maxEligibleRevisionToPrune, toKeepRevisionsFromPruning.List()); err != nil {
 					c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d count %d on node %q: %v",
 						currNodeState.TargetRevision, currNodeState.LastFailedCount, currNodeState.NodeName, err)
 					// if a newer revision is pending, continue, so we retry later with the latest available revision
@@ -841,7 +860,7 @@ func getInstallerPodName(ns *operatorv1.NodeStatus) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, ns *operatorv1.NodeStatus) error {
+func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSpec *operatorv1.StaticPodOperatorSpec, ns *operatorv1.NodeStatus, maxEligibleRevisionToPrune int32, revisionsToKeepFromPruning []int32) error {
 	pod := resourceread.ReadPodV1OrDie(podTemplate)
 
 	pod.Namespace = c.targetNamespace
@@ -874,6 +893,8 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),
 		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
+		fmt.Sprintf("--max-eligible-revision-to-prune=%d", maxEligibleRevisionToPrune),
+		fmt.Sprintf("--protected-revisions-from-pruning=%s", revisionsToString(revisionsToKeepFromPruning)),
 	}
 	if withStartupMonitorSupport {
 		args = append(args, fmt.Sprintf("--pod-manifests-lock-file=%s", fmt.Sprintf("/var/lock/%s-installer.lock", c.staticPodName)))
@@ -926,7 +947,7 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 
 func (c *InstallerController) setOwnerRefs(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 	ownerReferences := []metav1.OwnerReference{}
-	statusConfigMap, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(ctx, fmt.Sprintf("revision-status-%d", revision), metav1.GetOptions{})
+	statusConfigMap, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(ctx, fmt.Sprintf("%v%d", revisionStatusConfigMapNamePrefix, revision), metav1.GetOptions{})
 	if err == nil {
 		ownerReferences = append(ownerReferences, metav1.OwnerReference{
 			APIVersion: "v1",
@@ -1045,6 +1066,38 @@ func (c InstallerController) ensureRequiredResourcesExist(ctx context.Context, r
 	}
 	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
 	return fmt.Errorf("missing required resources: %v", aggregatedErr)
+}
+
+func (c InstallerController) pruneRevisionStatusConfigMaps(ctx context.Context, maxEligibleRevisionToPrune int32, toKeepRevisionsFromPruning sets.Int32) error {
+	if maxEligibleRevisionToPrune <= 0 {
+		return nil
+	}
+	statusConfigMaps, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, cm := range statusConfigMaps.Items {
+		if !strings.HasPrefix(cm.Name, revisionStatusConfigMapNamePrefix) {
+			continue
+		}
+
+		rev, err := strconv.Atoi(cm.Data["revision"])
+		if err != nil {
+			return fmt.Errorf("unexpected error converting revision to int: %+v", err)
+		}
+
+		if toKeepRevisionsFromPruning.Has(int32(rev)) {
+			continue
+		}
+		if rev > int(maxEligibleRevisionToPrune) {
+			continue
+		}
+
+		if err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Delete(ctx, cm.Name, metav1.DeleteOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {

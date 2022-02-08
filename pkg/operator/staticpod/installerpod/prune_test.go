@@ -1,4 +1,4 @@
-package prune
+package installerpod
 
 import (
 	"io/ioutil"
@@ -14,36 +14,36 @@ import (
 func TestRun(t *testing.T) {
 	tests := []struct {
 		name     string
-		o        PruneOptions
+		o        InstallOptions
 		files    []string
 		expected []string
 	}{
 		{
 			name: "only deletes non-protected revisions of the specified pod",
-			o: PruneOptions{
-				MaxEligibleRevision: 3,
-				ProtectedRevisions:  []int{3, 2},
-				StaticPodName:       "test",
+			o: InstallOptions{
+				MaxEligibleRevisionToPrune:    3,
+				ProtectedRevisionsFromPruning: []int{3, 2},
+				PodConfigMapNamePrefix:        "test",
 			},
 			files:    []string{"test-1", "test-2", "test-3", "othertest-4"},
 			expected: []string{"test-2", "test-3", "othertest-4"},
 		},
 		{
 			name: "doesn't delete anything higher than highest eligible revision",
-			o: PruneOptions{
-				MaxEligibleRevision: 2,
-				ProtectedRevisions:  []int{2},
-				StaticPodName:       "test",
+			o: InstallOptions{
+				MaxEligibleRevisionToPrune:    2,
+				ProtectedRevisionsFromPruning: []int{2},
+				PodConfigMapNamePrefix:        "test",
 			},
 			files:    []string{"test-1", "test-2", "test-3"},
 			expected: []string{"test-2", "test-3"},
 		},
 		{
 			name: "revision numbers do not conflict between pods when detecting protected IDs",
-			o: PruneOptions{
-				MaxEligibleRevision: 2,
-				ProtectedRevisions:  []int{2},
-				StaticPodName:       "test",
+			o: InstallOptions{
+				MaxEligibleRevisionToPrune:    2,
+				ProtectedRevisionsFromPruning: []int{2},
+				PodConfigMapNamePrefix:        "test",
 			},
 			files:    []string{"test-1", "test-2", "othertest-1", "othertest-2"},
 			expected: []string{"test-2", "othertest-1", "othertest-2"},
@@ -75,7 +75,7 @@ func TestRun(t *testing.T) {
 			o := test.o
 			o.ResourceDir = resourceDir
 
-			err = o.Run()
+			err = o.pruneDisk()
 			if err != nil {
 				t.Error(err)
 			}

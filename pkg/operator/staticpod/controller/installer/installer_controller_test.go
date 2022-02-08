@@ -1141,6 +1141,8 @@ func TestCreateInstallerPod(t *testing.T) {
 		"--pod=test-config",
 		"--resource-dir=/etc/kubernetes/static-pod-resources",
 		"--pod-manifest-dir=/etc/kubernetes/manifests",
+		"--max-eligible-revision-to-prune=-1",
+		"--protected-revisions-from-pruning=",
 		"--configmaps=test-config",
 		"--secrets=test-secret",
 	}
@@ -1158,11 +1160,13 @@ func TestCreateInstallerPod(t *testing.T) {
 
 func TestEnsureInstallerPod(t *testing.T) {
 	tests := []struct {
-		name         string
-		expectedArgs []string
-		configs      []revision.RevisionResource
-		secrets      []revision.RevisionResource
-		expectedErr  string
+		name                       string
+		expectedArgs               []string
+		configs                    []revision.RevisionResource
+		secrets                    []revision.RevisionResource
+		maxEligibleRevisionToPrune int32
+		revisionsToKeepFromPruning []int32
+		expectedErr                string
 	}{
 		{
 			name: "normal",
@@ -1173,11 +1177,15 @@ func TestEnsureInstallerPod(t *testing.T) {
 				"--pod=test-config",
 				"--resource-dir=/etc/kubernetes/static-pod-resources",
 				"--pod-manifest-dir=/etc/kubernetes/manifests",
+				"--max-eligible-revision-to-prune=2",
+				"--protected-revisions-from-pruning=1,2",
 				"--configmaps=test-config",
 				"--secrets=test-secret",
 			},
-			configs: []revision.RevisionResource{{Name: "test-config"}},
-			secrets: []revision.RevisionResource{{Name: "test-secret"}},
+			configs:                    []revision.RevisionResource{{Name: "test-config"}},
+			secrets:                    []revision.RevisionResource{{Name: "test-secret"}},
+			maxEligibleRevisionToPrune: 2,
+			revisionsToKeepFromPruning: []int32{1, 2},
 		},
 		{
 			name: "optional",
@@ -1188,6 +1196,8 @@ func TestEnsureInstallerPod(t *testing.T) {
 				"--pod=test-config",
 				"--resource-dir=/etc/kubernetes/static-pod-resources",
 				"--pod-manifest-dir=/etc/kubernetes/manifests",
+				"--max-eligible-revision-to-prune=-1",
+				"--protected-revisions-from-pruning=",
 				"--configmaps=test-config",
 				"--configmaps=test-config-2",
 				"--optional-configmaps=test-config-opt",
@@ -1203,6 +1213,8 @@ func TestEnsureInstallerPod(t *testing.T) {
 				{Name: "test-secret"},
 				{Name: "test-secret-2"},
 				{Name: "test-secret-opt", Optional: true}},
+			maxEligibleRevisionToPrune: -1,
+			revisionsToKeepFromPruning: []int32{},
 		},
 		{
 			name: "first-cm-not-optional",
@@ -1213,12 +1225,16 @@ func TestEnsureInstallerPod(t *testing.T) {
 				"--pod=test-config",
 				"--resource-dir=/etc/kubernetes/static-pod-resources",
 				"--pod-manifest-dir=/etc/kubernetes/manifests",
+				"--max-eligible-revision-to-prune=-1",
+				"--protected-revisions-from-pruning=",
 				"--configmaps=test-config",
 				"--secrets=test-secret",
 			},
-			configs:     []revision.RevisionResource{{Name: "test-config", Optional: true}},
-			secrets:     []revision.RevisionResource{{Name: "test-secret"}},
-			expectedErr: "pod configmap test-config is required, cannot be optional",
+			configs:                    []revision.RevisionResource{{Name: "test-config", Optional: true}},
+			secrets:                    []revision.RevisionResource{{Name: "test-secret"}},
+			expectedErr:                "pod configmap test-config is required, cannot be optional",
+			maxEligibleRevisionToPrune: -1,
+			revisionsToKeepFromPruning: []int32{},
 		},
 	}
 	for _, tt := range tests {
@@ -1271,7 +1287,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 			err := c.ensureInstallerPod(context.TODO(), &operatorv1.StaticPodOperatorSpec{}, &operatorv1.NodeStatus{
 				NodeName:       "test-node-1",
 				TargetRevision: 1,
-			})
+			}, tt.maxEligibleRevisionToPrune, tt.revisionsToKeepFromPruning)
 			if err != nil {
 				if tt.expectedErr == "" {
 					t.Errorf("InstallerController.ensureInstallerPod() expected no error, got = %v", err)

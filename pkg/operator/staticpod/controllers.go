@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
 	missingstaticpodcontroller "github.com/openshift/library-go/pkg/operator/staticpod/controller/missingstaticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/startupmonitorcondition"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodfallback"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
@@ -60,11 +59,6 @@ type staticPodOperatorControllerBuilder struct {
 	minReadyDuration         time.Duration
 	enableStartMonitor       func() (bool, error)
 
-	// pruning information
-	pruneCommand []string
-	// TODO de-dupe this.  I think it's actually a directory name
-	staticPodPrefix string
-
 	// guard infomation
 	operatorName               string
 	operatorNamespace          string
@@ -98,7 +92,6 @@ type Builder interface {
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
-	WithPruning(command []string, staticPodPrefix string) Builder
 	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort string, createConditionalFunc func() (bool, bool, error)) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
@@ -157,12 +150,6 @@ func (b *staticPodOperatorControllerBuilder) WithStartupMonitor(enabledStartupMo
 func (b *staticPodOperatorControllerBuilder) WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder {
 	b.installCommand = command
 	b.installerPodMutationFunc = installerPodMutationFunc
-	return b
-}
-
-func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, staticPodPrefix string) Builder {
-	b.pruneCommand = command
-	b.staticPodPrefix = staticPodPrefix
 	return b
 }
 
@@ -261,22 +248,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		), 1)
 	} else {
 		eventRecorder.Warning("StaticPodStateControllerMissing", "not enough information provided, not all functionality is present")
-	}
-
-	if len(b.pruneCommand) > 0 {
-		manager.WithController(prune.NewPruneController(
-			b.operandNamespace,
-			b.staticPodPrefix,
-			b.certDir,
-			b.pruneCommand,
-			configMapClient,
-			secretClient,
-			podClient,
-			b.staticPodOperatorClient,
-			eventRecorder,
-		), 1)
-	} else {
-		eventRecorder.Warning("PruningControllerMissing", "not enough information provided, not all functionality is present")
 	}
 
 	if b.enableStartMonitor != nil {

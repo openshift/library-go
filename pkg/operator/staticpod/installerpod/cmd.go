@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,6 +69,10 @@ type InstallOptions struct {
 	PodMutationFns []PodMutationFunc
 
 	KubeletVersion string
+
+	// pruning
+	MaxEligibleRevisionToPrune    int
+	ProtectedRevisionsFromPruning []int
 }
 
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
@@ -145,6 +150,10 @@ func (o *InstallOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.OptionalCertSecretNamePrefixes, "optional-cert-secrets", o.OptionalCertSecretNamePrefixes, "list of optional secret names to be included")
 	fs.StringSliceVar(&o.OptionalCertConfigMapNamePrefixes, "optional-cert-configmaps", o.OptionalCertConfigMapNamePrefixes, "list of optional configmaps to be included")
 	fs.StringVar(&o.CertDir, "cert-dir", o.CertDir, "directory for all certs")
+
+	// pruning
+	fs.IntVar(&o.MaxEligibleRevisionToPrune, "max-eligible-revision-to-prune", o.MaxEligibleRevisionToPrune, "highest revision ID to be eligible for pruning")
+	fs.IntSliceVar(&o.ProtectedRevisionsFromPruning, "protected-revisions-from-pruning", o.ProtectedRevisionsFromPruning, "list of revision IDs to preserve (not delete) from pruning")
 }
 
 func (o *InstallOptions) Complete() error {
@@ -170,6 +179,9 @@ func (o *InstallOptions) Complete() error {
 }
 
 func (o *InstallOptions) Validate() error {
+	if len(o.ResourceDir) == 0 {
+		return fmt.Errorf("--resource-dir is required")
+	}
 	if len(o.Revision) == 0 {
 		return fmt.Errorf("--revision is required")
 	}
@@ -191,6 +203,9 @@ func (o *InstallOptions) Validate() error {
 
 	if o.KubeClient == nil {
 		return fmt.Errorf("missing client")
+	}
+	if o.MaxEligibleRevisionToPrune == 0 {
+		return fmt.Errorf("--max-eligible-revision is required")
 	}
 
 	return nil
@@ -438,12 +453,20 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	}
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)
-	if err := o.copyContent(ctx); err != nil {
+	if err = o.copyContent(ctx); err != nil {
 		recorder.Warningf("StaticPodInstallerFailed", "Installing revision %s: %v", o.Revision, err)
 		return fmt.Errorf("failed to copy: %v", err)
 	}
 
 	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
+
+	// prune only after a successful installation
+	err = o.pruneDisk()
+	if err != nil {
+		return err
+	}
+	klog.Infof("Successfully pruned old resources")
+
 	return nil
 }
 
@@ -609,6 +632,89 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 		return err
 	}
 	return nil
+}
+
+func (o *InstallOptions) pruneDisk() error {
+	protectedIDs := sets.NewInt(o.ProtectedRevisionsFromPruning...)
+
+	files, err := ioutil.ReadDir(o.ResourceDir)
+	if err != nil {
+		return err
+	}
+
+	if o.MaxEligibleRevisionToPrune > 0 {
+		for _, file := range files {
+			// If the file is not a resource directory...
+			if !file.IsDir() {
+				continue
+			}
+			// And doesn't match our static pod prefix...
+			if !strings.HasPrefix(file.Name(), o.PodConfigMapNamePrefix) {
+				continue
+			}
+
+			// Split file name to get just the integer revision ID
+			fileSplit := strings.Split(file.Name(), o.PodConfigMapNamePrefix+"-")
+			revisionID, err := strconv.Atoi(fileSplit[len(fileSplit)-1])
+			if err != nil {
+				return err
+			}
+
+			// And is not protected...
+			if protected := protectedIDs.Has(revisionID); protected {
+				continue
+			}
+			// And is less than or equal to the maxEligibleRevisionID
+			if revisionID > o.MaxEligibleRevisionToPrune {
+				continue
+			}
+
+			err = os.RemoveAll(path.Join(o.ResourceDir, file.Name()))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// prune any temporary certificate files
+	// we do create temporary files to atomically "write" various certificates to disk
+	// usually, these files are short-lived because they are immediately renamed, the following loop removes old/unused/dangling files
+	//
+	// the temporary files have the following form:
+	//  /etc/kubernetes/static-pod-resources/kube-apiserver-certs/configmaps/control-plane-node-kubeconfig/kubeconfig.tmp753375784
+	//  /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/service-network-serving-certkey/tls.key.tmp643092404
+	if len(o.CertDir) == 0 {
+		return nil
+	}
+
+	// If the cert dir does not exist, do nothing.
+	// The dir will get eventually created by an installer pod.
+	if _, err := os.Stat(o.CertDir); os.IsNotExist(err) {
+		klog.Infof("Skipping %s as it does not exist", o.CertDir)
+		return nil
+	}
+
+	return filepath.Walk(o.CertDir,
+		func(filePath string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			// info.Name() gives just a filename like tls.key or tls.key.tmp643092404
+			if !strings.Contains(info.Name(), ".tmp") {
+				return nil
+			}
+			if time.Now().Sub(info.ModTime()) > 30*time.Minute {
+				klog.Infof("Removing %s, the last time it was modified was %v", filePath, info.ModTime())
+				if err := os.RemoveAll(filePath); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
 }
 
 func writeConfig(content []byte, fullFilename string) error {
