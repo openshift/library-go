@@ -45,6 +45,10 @@ func init() {
 	utilruntime.Must(policyv1.AddToScheme(genericScheme))
 }
 
+// PreprocessResourcesFuncType gives the caller an opportunity to preprocess decoded resources
+// before applying them.
+type PreprocessResourcesFuncType func(ctx context.Context, object runtime.Object) (runtime.Object, error)
+
 type AssetFunc func(name string) ([]byte, error)
 
 type ApplyResult struct {
@@ -102,6 +106,12 @@ func (c *ClientHolder) WithMigrationClient(client migrationclient.Interface) *Cl
 
 // ApplyDirectly applies the given manifest files to API server.
 func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
+	return ApplyDirectlyWithPreprocess(ctx, clients, recorder, cache, manifests, defaultPreprocessFunc(), files...)
+}
+
+// ApplyDirectlyWithPreprocess applies the given manifest files to API server (similarly to ApplyDirectly)
+// but also respects the pre-process function.
+func ApplyDirectlyWithPreprocess(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, preprocessFunction func(ctx context.Context, object runtime.Object) (runtime.Object, error), files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -115,6 +125,12 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 		requiredObj, err := decode(objBytes)
 		if err != nil {
 			result.Error = fmt.Errorf("cannot decode %q: %v", file, err)
+			ret = append(ret, result)
+			continue
+		}
+		requiredObj, err = preprocessFunction(ctx, requiredObj)
+		if err != nil {
+			result.Error = fmt.Errorf("cannot preprocess %q: %v", file, err)
 			ret = append(ret, result)
 			continue
 		}
@@ -242,8 +258,7 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 	return ret
 }
 
-func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc,
-	files ...string) []ApplyResult {
+func DeleteAllWithPreprocess(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc, preprocessFunction func(ctx context.Context, object runtime.Object) (runtime.Object, error), files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -257,6 +272,12 @@ func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recor
 		requiredObj, err := decode(objBytes)
 		if err != nil {
 			result.Error = fmt.Errorf("cannot decode %q: %v", file, err)
+			ret = append(ret, result)
+			continue
+		}
+		requiredObj, err = preprocessFunction(ctx, requiredObj)
+		if err != nil {
+			result.Error = fmt.Errorf("cannot preprocess %q: %v", file, err)
 			ret = append(ret, result)
 			continue
 		}
@@ -369,6 +390,16 @@ func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recor
 	}
 
 	return ret
+}
+
+func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc, files ...string) []ApplyResult {
+	return DeleteAllWithPreprocess(ctx, clients, recorder, manifests, defaultPreprocessFunc(), files...)
+}
+
+func defaultPreprocessFunc() func(ctx context.Context, object runtime.Object) (runtime.Object, error) {
+	return func(ctx context.Context, object runtime.Object) (runtime.Object, error) {
+		return object, nil
+	}
 }
 
 func (c *ClientHolder) configMapsGetter() corev1client.ConfigMapsGetter {

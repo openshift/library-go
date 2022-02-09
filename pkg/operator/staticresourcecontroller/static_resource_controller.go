@@ -57,17 +57,25 @@ func init() {
 // In case, the returned ready flag is false, a proper error with a valid description is recommended.
 type StaticResourcesPreconditionsFuncType func(ctx context.Context) (bool, error)
 
+// PreprocessResourcesFuncType gives the caller an opportunity to preprocess decoded resources
+// before applying them.
+//
+// An error emitted from this function will be translated into
+// an error emitted by this controller.
+type PreprocessResourcesFuncType func(ctx context.Context, object runtime.Object) (runtime.Object, error)
+
 type StaticResourceController struct {
 	name                   string
 	manifests              []conditionalManifests
+	preprocessFunction     PreprocessResourcesFuncType
 	ignoreNotFoundOnCreate bool
-	preconditions          []StaticResourcesPreconditionsFuncType
 
+	preconditions  []StaticResourcesPreconditionsFuncType
 	operatorClient v1helpers.OperatorClient
-	clients        *resourceapply.ClientHolder
 
-	eventRecorder events.Recorder
+	clients *resourceapply.ClientHolder
 
+	eventRecorder    events.Recorder
 	factory          *factory.Factory
 	restMapper       meta.RESTMapper
 	categoryExpander restmapper.CategoryExpander
@@ -110,8 +118,9 @@ func NewStaticResourceController(
 
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
-		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
-		performanceCache: resourceapply.NewResourceCache(),
+		factory:            factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
+		performanceCache:   resourceapply.NewResourceCache(),
+		preprocessFunction: defaultPreprocessFunc,
 	}
 	c.WithConditionalResources(manifests, files, nil, nil)
 
@@ -137,6 +146,16 @@ func (c *StaticResourceController) WithIgnoreNotFoundOnCreate() *StaticResourceC
 // When the requirement is not met, the controller reports degraded status.
 func (c *StaticResourceController) WithPrecondition(precondition StaticResourcesPreconditionsFuncType) *StaticResourceController {
 	c.preconditions = append(c.preconditions, precondition)
+	return c
+}
+
+// WithPreprocessFunc adds a pre-process function to the static resources passed into this controller. The caller
+// can apply custom logic to the decoded resorces before applying them.
+//
+// There can be only one pre-process function, so calling this multiple times will override (and not append) the
+// pre-process function.
+func (c *StaticResourceController) WithPreprocessFunc(preprocessFunc PreprocessResourcesFuncType) factory.Controller {
+	c.preprocessFunction = preprocessFunc
 	return c
 }
 
@@ -322,9 +341,9 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			continue
 
 		case shouldCreate:
-			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ApplyDirectlyWithPreprocess(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, c.preprocessFunction, conditionalManifest.files...)
 		case shouldDelete:
-			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.DeleteAllWithPreprocess(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, c.preprocessFunction, conditionalManifest.files...)
 		}
 
 		for _, currResult := range directResourceResults {
@@ -439,4 +458,8 @@ func (c *StaticResourceController) Run(ctx context.Context, workers int) {
 
 func defaultStaticResourcesPreconditionsFunc(_ context.Context) (bool, error) {
 	return true, nil
+}
+
+func defaultPreprocessFunc(_ context.Context, object runtime.Object) (runtime.Object, error) {
+	return object, nil
 }
