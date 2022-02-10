@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/events"
+	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/robfig/cron"
 	"k8s.io/apimachinery/pkg/runtime"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/openshift/library-go/pkg/operator/events"
-	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // DefaultQueueKey is the queue key used for string trigger based controllers.
@@ -26,6 +25,7 @@ type Factory struct {
 	syncDegradedClient    operatorv1helpers.OperatorClient
 	resyncInterval        time.Duration
 	resyncSchedules       []string
+	noPeriodicResync      bool
 	informers             []filteredInformers
 	informerQueueKeys     []informersWithQueueKey
 	bareInformers         []Informer
@@ -181,6 +181,13 @@ func (f *Factory) ResyncSchedule(schedules ...string) *Factory {
 	return f
 }
 
+// WithoutPeriodicResync will disable the warning emitted to log if a controller is started without specifying periodical resync.
+// This means the controller will only reconcile when an informer emits event.
+func (f *Factory) WithoutPeriodicResync() *Factory {
+	f.noPeriodicResync = true
+	return f
+}
+
 // WithSyncContext allows to specify custom, existing sync context for this factory.
 // This is useful during unit testing where you can override the default event recorder or mock the runtime objects.
 // If this function not called, a SyncContext is created by the factory automatically.
@@ -240,6 +247,10 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	// This event is cheap as it is only emitted on operator startup.
 	if c.resyncEvery.Seconds() < 60 {
 		ctx.Recorder().Warningf("FastControllerResync", "Controller %q resync interval is set to %s which might lead to client request throttling", name, c.resyncEvery)
+	}
+	// Detect and warn about controller without periodical resync intervals as they might potentially wedge and cause problems.
+	if !f.noPeriodicResync && c.resyncEvery.Seconds() == 0 && len(c.resyncSchedules) == 0 {
+		ctx.Recorder().Warningf("NoPeriodicResyncController", "Controller %q does not have periodical resync defined. This might lead to stale controller in case informers get stuck.", name)
 	}
 
 	for i := range f.informerQueueKeys {
