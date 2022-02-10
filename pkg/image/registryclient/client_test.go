@@ -859,8 +859,22 @@ type fakeAlternateBlobStrategy struct {
 func (s *fakeAlternateBlobStrategy) FirstRequest(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
 	return s.FirstAlternates, s.FirstErr
 }
+
 func (s *fakeAlternateBlobStrategy) OnFailure(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
 	return s.FailureAlternates, s.FailureErr
+}
+
+type fakeAlternateBlobStrategyFuncs struct {
+	FirstRequestFunc func(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error)
+	OnFailureFunc    func(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error)
+}
+
+func (s *fakeAlternateBlobStrategyFuncs) FirstRequest(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
+	return s.FirstRequestFunc(ctx, locator)
+}
+
+func (s *fakeAlternateBlobStrategyFuncs) OnFailure(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
+	return s.OnFailureFunc(ctx, locator)
 }
 
 func TestMirroredRegistry_BlobGet(t *testing.T) {
@@ -891,14 +905,18 @@ func TestMirroredRegistry_BlobGet(t *testing.T) {
 		t.Fatal("Expected data to be present")
 	}
 
-	c.Alternates = &fakeAlternateBlobStrategy{
-		FirstAlternates: []imagereference.DockerImageReference{
-			{Registry: "quay.io", Namespace: "library", Name: "postgres"},
-			{Registry: "docker.io", Namespace: "library", Name: "postgres"},
+	c.Alternates = &fakeAlternateBlobStrategyFuncs{
+		FirstRequestFunc: func(ctx context.Context, locator imagereference.DockerImageReference) (alternateRepositories []imagereference.DockerImageReference, err error) {
+			if locator.Exact() != "quay.io/test.me/other" {
+				t.Errorf("unexpected locator: %#+v", locator)
+			}
+			return []imagereference.DockerImageReference{
+				{Registry: "quay.io", Namespace: "library", Name: "postgres"},
+				{Registry: "docker.io", Namespace: "library", Name: "postgres"},
+			}, nil
 		},
-		FirstErr: nil,
 	}
-	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test/other", false)
+	r, err = c.Repository(context.Background(), &url.URL{Host: "quay.io"}, "test.me/other", false)
 	if err != nil {
 		t.Fatal(err)
 	}
