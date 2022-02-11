@@ -63,6 +63,8 @@ type InstallOptions struct {
 
 	// StaticPodManifestsLockFile used to coordinate work between multiple processes when writing static pod manifests
 	StaticPodManifestsLockFile string
+	StaticPodName              string
+	StaticPodNamespace         string
 
 	PodMutationFns []PodMutationFunc
 
@@ -209,6 +211,31 @@ func (o *InstallOptions) kubeletVersion(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return node.Status.NodeInfo.KubeletVersion, nil
+}
+
+// waitForPodMirror will wait until the installer pod see that the static pod it installed is mirrored by kubelet to API server.
+// It takes context that should be bound to the overall timeout we give static pod installer to complete (120s by default).
+func (o *InstallOptions) waitForPodMirror(waitCtx, installerCtx context.Context) error {
+	return wait.PollImmediateUntilWithContext(waitCtx, 200*time.Millisecond, func(ctx context.Context) (done bool, err error) {
+		// check if the installer pod was terminated, if yes, we return true because we don't care about this revision to run anymore.
+		select {
+		case <-installerCtx.Done():
+			return true, nil
+		default:
+		}
+		var mirrorPodRevision string
+		if err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (done bool, getStaticPodErr error) {
+			pod, getStaticPodErr := o.KubeClient.CoreV1().Pods(o.StaticPodNamespace).Get(ctx, o.StaticPodName+"-"+o.NodeName, metav1.GetOptions{})
+			if getStaticPodErr != nil {
+				return false, getStaticPodErr
+			}
+			mirrorPodRevision = pod.Labels["revision"]
+			return true, nil
+		}); err != nil {
+			return false, err
+		}
+		return mirrorPodRevision == o.Revision, nil
+	})
 }
 
 func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
@@ -442,7 +469,16 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to copy: %v", err)
 	}
 
-	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed revision %s", o.Revision)
+	// wait 2 minutes for kubelet to notice this pod revision and mirror it
+	waitStartedAt := time.Now()
+	waitForMirrorCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	if err := o.waitForPodMirror(waitForMirrorCtx, ctx); err != nil {
+		recorder.Warningf("StaticPodInstallerMirrorFailed", "Failed to observe mirrored static pod %q revision %s in API server on node %q after %s of waiting: %v", o.StaticPodName, o.Revision, o.NodeName, time.Now().Sub(waitStartedAt), err)
+	}
+
+	recorder.Eventf("StaticPodInstallerCompleted", "Successfully installed and observed revision %s", o.Revision)
+
 	return nil
 }
 
@@ -639,6 +675,10 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, manifestFileName), []byte(finalPodBytes), 0644); err != nil {
 		return err
 	}
+
+	o.StaticPodName = pod.Name
+	o.StaticPodNamespace = pod.Namespace
+
 	return nil
 }
 

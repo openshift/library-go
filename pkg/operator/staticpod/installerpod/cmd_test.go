@@ -7,8 +7,11 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -293,4 +296,69 @@ func checkFileContentMatchesPod(t *testing.T, file, expected string) {
 	if !equality.Semantic.DeepEqual(actualPod, expectedPod) {
 		t.Errorf("unexpected pod was written %v", actualPod)
 	}
+}
+
+func TestWaitForPodMirror(t *testing.T) {
+	o := &InstallOptions{
+		StaticPodNamespace: "test-namespace",
+		StaticPodName:      "kube-apiserver-pod",
+		NodeName:           "node-1",
+		Revision:           "1",
+	}
+
+	o.KubeClient = fake.NewSimpleClientset(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: o.StaticPodNamespace, Name: o.StaticPodName + "-" + o.NodeName, Labels: map[string]string{
+				"revision": "1",
+			}},
+		})
+
+	// happy case
+	if err := o.waitForPodMirror(context.TODO(), context.TODO()); err != nil {
+		t.Fatalf("failed to observe the static pod mirror: %v", err)
+	}
+
+	// sad case
+	o.Revision = "2"
+	timeoutCtx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+	if err := o.waitForPodMirror(timeoutCtx, context.TODO()); err != wait.ErrWaitTimeout {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+
+	// happy case after some waiting
+	var (
+		wg               sync.WaitGroup
+		podMirrorUpdated bool
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timeoutCtx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+		defer cancel()
+		if err := o.waitForPodMirror(timeoutCtx, context.TODO()); err != nil {
+			t.Errorf("failed to observe the static pod mirror: %v", err)
+			return
+		}
+		podMirrorUpdated = true
+	}()
+	time.Sleep(2 * time.Second)
+	if _, err := o.KubeClient.CoreV1().Pods(o.StaticPodNamespace).Update(context.TODO(), &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: o.StaticPodNamespace, Name: o.StaticPodName + "-" + o.NodeName, Labels: map[string]string{"revision": "2"}}}, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("failed to update pod: %v", err)
+	}
+	wg.Wait()
+	if !podMirrorUpdated {
+		t.Fatalf("expected pod mirror to update")
+	}
+
+	// installer killed
+	o.Revision = "3"
+	timeoutCtx, cancel = context.WithTimeout(context.TODO(), 5*time.Second)
+	installerCtx, installerTerminate := context.WithTimeout(context.TODO(), 1*time.Second)
+	go func() { time.Sleep(1 * time.Second); installerTerminate() }()
+	defer cancel()
+	if err := o.waitForPodMirror(timeoutCtx, installerCtx); err != nil {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+
 }
