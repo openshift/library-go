@@ -3,18 +3,17 @@ package missingstaticpodcontroller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/google/go-cmp/cmp"
-	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -56,7 +55,6 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		operatorStatus *operatorv1.StaticPodOperatorStatus
 		pods           []*corev1.Pod
 		cms            []*corev1.ConfigMap
 		expectSyncErr  bool
@@ -64,17 +62,13 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 	}{
 		{
 			name: "two terminated installer pods per node with correct revision",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-					{NodeName: "node-2", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
-				makeTerminatedInstallerPod(1, "node-2", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-2", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeStaticPod(operandName, targetNamespace, "node-1", 2),
+				makeStaticPod(operandName, targetNamespace, "node-2", 2),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, validStaticPodPayloadYaml),
@@ -84,15 +78,11 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "current revision older than the latest installer revision",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-3*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(3, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-3*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeStaticPod(operandName, targetNamespace, "node-1", 2),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
@@ -102,15 +92,11 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "current revision older then the latest installer revision but termination time within threshold",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
-				makeTerminatedInstallerPod(3, "node-1", 0, now),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, now),
+				makeStaticPod(operandName, targetNamespace, "node-1", 2),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
@@ -120,19 +106,14 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "only one node has a missing pod",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-					{NodeName: "node-2", CurrentRevision: 3},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-3*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(3, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
-				makeTerminatedInstallerPod(1, "node-2", 0, metav1.NewTime(now.Add(-3*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-2", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(3, "node-2", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-3*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-3*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(3, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeStaticPod(operandName, targetNamespace, "node-2", 3),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, validStaticPodPayloadYaml),
@@ -143,19 +124,13 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "multiple missing pods for the same revision but on different nodes should produce multiple events",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-					{NodeName: "node-2", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-3*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(3, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
-				makeTerminatedInstallerPod(1, "node-2", 0, metav1.NewTime(now.Add(-3*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-2", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(3, "node-2", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-3*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-3*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(3, "node-2", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
@@ -165,13 +140,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "installer pod is still running",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 0},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeInstallerPod(1, "node-1"),
+				makeInstallerPod(2, "node-1", targetNamespace),
+				makeStaticPod(operandName, targetNamespace, "node-1", 1),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 1, validStaticPodPayloadYaml),
@@ -181,13 +152,8 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "installer pod ran into an error",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 0},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 1, now),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 1, now),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 1, validStaticPodPayloadYaml),
@@ -197,14 +163,10 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "operand configmap with payload without termination grace period",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeStaticPod(operandName, targetNamespace, "node-1", 2),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, staticPodPayloadNoTerminationGracePeriodYaml),
@@ -214,14 +176,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "operand configmap with invalid payload",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, staticPodPayloadInvalidTypeYaml),
@@ -231,14 +188,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "operand configmap with empty payload",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, emptyStaticPodPayloadYaml),
@@ -248,14 +200,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "operand configmap without pod.yaml key",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 2},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
 			},
 			cms: []*corev1.ConfigMap{
 				{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-pod-%d", operandName, 2), Namespace: targetNamespace}},
@@ -265,14 +212,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		},
 		{
 			name: "the controller should take into account the latest graceful termination period of the static pod",
-			operatorStatus: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{
-					{NodeName: "node-1", CurrentRevision: 1},
-				},
-			},
 			pods: []*corev1.Pod{
-				makeTerminatedInstallerPod(1, "node-1", 0, metav1.NewTime(now.Add(-2*time.Hour))),
-				makeTerminatedInstallerPod(2, "node-1", 0, metav1.NewTime(now.Add(-time.Minute))),
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Minute))),
 			},
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 1, makeValidPayloadWithGracefulTerminationPeriod(30)),
@@ -287,18 +229,32 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				nil,
-				tc.operatorStatus,
+				nil,
 				nil,
 				nil,
 			)
 			kubeClient := fake.NewSimpleClientset()
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "missing-static-pod-controller", &corev1.ObjectReference{})
 			syncCtx := factory.NewSyncContext("MissingStaticPodController", eventRecorder)
+
+			podIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			for _, initialObj := range tc.pods {
+				podIndexer.Add(initialObj)
+			}
+			podLister := corev1listers.NewPodLister(podIndexer)
+
+			cmIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			for _, initialObj := range tc.cms {
+				cmIndexer.Add(initialObj)
+			}
+			cmLister := corev1listers.NewConfigMapLister(cmIndexer)
+
 			controller := missingStaticPodController{
 				operatorClient:                    fakeOperatorClient,
-				podListerForTargetNamespace:       &fakePodNamespaceLister{pods: tc.pods},
-				configMapListerForTargetNamespace: &fakeConfigMapNamespaceLister{cms: tc.cms},
+				podListerForTargetNamespace:       podLister.Pods(targetNamespace),
+				configMapListerForTargetNamespace: cmLister.ConfigMaps(targetNamespace),
 				targetNamespace:                   targetNamespace,
+				staticPodName:                     operandName,
 				operandName:                       operandName,
 				lastEventEmissionPerNode:          make(lastEventEmissionPerNode),
 			}
@@ -330,42 +286,8 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 	}
 }
 
-type fakePodNamespaceLister struct {
-	pods []*corev1.Pod
-}
-
-func (f *fakePodNamespaceLister) List(selector labels.Selector) ([]*corev1.Pod, error) {
-	return f.pods, nil
-}
-
-func (f *fakePodNamespaceLister) Get(name string) (*corev1.Pod, error) {
-	for _, pod := range f.pods {
-		if pod.ObjectMeta.Name == name {
-			return pod, nil
-		}
-	}
-	return nil, fmt.Errorf("pod %q not found", name)
-}
-
-type fakeConfigMapNamespaceLister struct {
-	cms []*corev1.ConfigMap
-}
-
-func (f *fakeConfigMapNamespaceLister) List(selector labels.Selector) ([]*corev1.ConfigMap, error) {
-	return f.cms, nil
-}
-
-func (f *fakeConfigMapNamespaceLister) Get(name string) (*corev1.ConfigMap, error) {
-	for _, cm := range f.cms {
-		if cm.ObjectMeta.Name == name {
-			return cm, nil
-		}
-	}
-	return nil, fmt.Errorf("configmap %q not found", name)
-}
-
-func makeTerminatedInstallerPod(revision int, node string, exitCode int32, terminatedAt metav1.Time) *corev1.Pod {
-	pod := makeInstallerPod(revision, node)
+func makeTerminatedInstallerPod(revision int, node string, namespace string, exitCode int32, terminatedAt metav1.Time) *corev1.Pod {
+	pod := makeInstallerPod(revision, node, namespace)
 	pod.Status = corev1.PodStatus{
 		ContainerStatuses: []corev1.ContainerStatus{
 			{Name: "installer", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: exitCode, FinishedAt: terminatedAt}}},
@@ -374,11 +296,24 @@ func makeTerminatedInstallerPod(revision int, node string, exitCode int32, termi
 	return pod
 }
 
-func makeInstallerPod(revision int, node string) *corev1.Pod {
+func makeStaticPod(name string, namespace string, nodeName string, revision int) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("installer-%d-%s", revision, node),
-			Labels: map[string]string{"app": "installer"},
+			Name:      fmt.Sprintf("%s-%s", name, nodeName),
+			Namespace: namespace,
+			Labels:    map[string]string{"revision": strconv.Itoa(revision)},
+		},
+		Spec:   corev1.PodSpec{},
+		Status: corev1.PodStatus{},
+	}
+}
+
+func makeInstallerPod(revision int, node, namespace string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("installer-%d-%s", revision, node),
+			Namespace: namespace,
+			Labels:    map[string]string{"app": "installer"},
 		},
 		Spec: corev1.PodSpec{NodeName: node},
 	}
@@ -472,41 +407,6 @@ func TestGetStaticPodTerminationGracePeriodSecondsForRevision(t *testing.T) {
 			}
 			if actualTerminationGracePeriod != scenario.expectedTerminationGracePeriod {
 				t.Fatalf("unexpected termination grace period for: %v, expected: %v", actualTerminationGracePeriod, scenario.expectedTerminationGracePeriod)
-			}
-		})
-	}
-}
-
-func TestGetStaticPodCurrentRevision(t *testing.T) {
-	testCases := []struct {
-		name             string
-		node             string
-		status           *operatorv1.StaticPodOperatorStatus
-		expectedRevision int
-	}{
-		{
-			name: "node status was reported by the status pod controller",
-			node: "node-1",
-			status: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{{NodeName: "node-1", CurrentRevision: 1}},
-			},
-			expectedRevision: 1,
-		},
-		{
-			name: "node status wasn't reported by the status pod controller",
-			node: "node-1",
-			status: &operatorv1.StaticPodOperatorStatus{
-				NodeStatuses: []operatorv1.NodeStatus{},
-			},
-			expectedRevision: 0,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			revision := getStaticPodCurrentRevision(tc.node, tc.status)
-			if revision != tc.expectedRevision {
-				t.Fatalf("expected revision to be %d, got: %d", tc.expectedRevision, revision)
 			}
 		})
 	}
