@@ -155,14 +155,14 @@ func TestApplyCSIDriver(t *testing.T) {
 	tests := []struct {
 		name     string
 		existing []runtime.Object
-		input    *storagev1beta1.CSIDriver
+		input    *storagev1.CSIDriver
 
 		expectedModified bool
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
 			name: "create",
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Annotations: map[string]string{"my.csi.driver/foo": "bar"}},
 			},
 
@@ -193,7 +193,7 @@ func TestApplyCSIDriver(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
 			},
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"new": "merge"}},
 			},
 			expectedModified: true,
@@ -227,9 +227,9 @@ func TestApplyCSIDriver(t *testing.T) {
 					},
 				},
 			},
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Spec: storagev1beta1.CSIDriverSpec{
+				Spec: storagev1.CSIDriverSpec{
 					AttachRequired: resourcemerge.BoolPtr(false),
 					PodInfoOnMount: resourcemerge.BoolPtr(false),
 				},
@@ -248,7 +248,7 @@ func TestApplyCSIDriver(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyCSIDriverV1Beta1(context.TODO(), client.StorageV1beta1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyCSIDriver(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
