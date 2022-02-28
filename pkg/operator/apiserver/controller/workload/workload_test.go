@@ -12,6 +12,8 @@ import (
 	"k8s.io/utils/pointer"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,6 +25,27 @@ const (
 	defaultControllerName = ""
 )
 
+var _ Delegate = &testDelegate{}
+
+type testDelegate struct {
+	// for preconditions
+	preconditionReady bool
+	preconditionErr   error
+
+	// for Sync
+	syncWorkload            *appsv1.Deployment
+	syncIsAtHighestRevision bool
+	syncErrrors             []error
+}
+
+func (d *testDelegate) PreconditionFulfilled(_ context.Context) (bool, error) {
+	return d.preconditionReady, d.preconditionErr
+}
+
+func (d *testDelegate) Sync(_ context.Context, _ factory.SyncContext) (*appsv1.Deployment, bool, []error) {
+	return d.syncWorkload, d.syncIsAtHighestRevision, d.syncErrrors
+}
+
 func TestUpdateOperatorStatus(t *testing.T) {
 	scenarios := []struct {
 		name string
@@ -31,6 +54,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		pods                            []*corev1.Pod
 		operatorConfigAtHighestRevision bool
 		operatorPreconditionsNotReady   bool
+		preconditionError               error
 		errors                          []error
 		previousConditions              []operatorv1.OperatorCondition
 
@@ -525,7 +549,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
 			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
-				nil,
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
 				&operatorv1.OperatorStatus{
 					Conditions: scenario.previousConditions,
 				},
@@ -536,16 +562,24 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				targetNs = scenario.workload.Namespace
 			}
 
+			delegate := &testDelegate{
+				preconditionReady: !scenario.operatorPreconditionsNotReady,
+				preconditionErr:   scenario.preconditionError,
+
+				syncWorkload:            scenario.workload,
+				syncIsAtHighestRevision: scenario.operatorConfigAtHighestRevision,
+				syncErrrors:             scenario.errors,
+			}
+
 			// act
-			target := &Controller{operatorClient: fakeOperatorClient, targetNamespace: targetNs, podsLister: &fakePodLister{pods: scenario.pods}}
-			err := target.updateOperatorStatus(
-				context.TODO(),
-				&operatorv1.OperatorStatus{Conditions: scenario.previousConditions},
-				scenario.workload,
-				scenario.operatorConfigAtHighestRevision,
-				!scenario.operatorPreconditionsNotReady,
-				scenario.errors,
-			)
+			target := &Controller{
+				operatorClient:  fakeOperatorClient,
+				targetNamespace: targetNs,
+				podsLister:      &fakePodLister{pods: scenario.pods},
+				delegate:        delegate,
+			}
+
+			err := target.sync(context.TODO(), factory.NewSyncContext("workloadcontroller_test", events.NewInMemoryRecorder("workloadcontroller_test")))
 			if err != nil && len(scenario.errors) == 0 {
 				t.Fatal(err)
 			}

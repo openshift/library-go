@@ -123,8 +123,10 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
+	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); err != nil {
 		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
+	} else if !fulfilled {
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, nil)
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
