@@ -107,6 +107,13 @@ var _pkgOperatorApiserverAuditManifestsBasePolicyYaml = []byte(`    apiVersion: 
       - "/version"
       - "/healthz"
       - "/readyz"
+    # Don't log requests by "system:apiserver" on apirequestcounts
+    - level: None
+      users: ["system:apiserver"]
+      resources:
+        - group: "apiserver.openshift.io"
+          resources: ["apirequestcounts", "apirequestcounts/*"]
+      namespaces: [""]
 `)
 
 func pkgOperatorApiserverAuditManifestsBasePolicyYamlBytes() ([]byte, error) {
