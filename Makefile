@@ -11,27 +11,17 @@ GO_BUILD_PACKAGES_EXPANDED :=$(GO_BUILD_PACKAGES)
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
 	targets/openshift/deps.mk \
-	targets/openshift/bindata.mk \
 )
 
-$(call add-bindata,backingresources,./pkg/operator/staticpod/controller/backingresource/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/backingresource/bindata/bindata.go)
-$(call add-bindata,installer,./pkg/operator/staticpod/controller/installer/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/installer/bindata/bindata.go)
-$(call add-bindata,staticpod,./pkg/operator/staticpod/controller/prune/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/prune/bindata/bindata.go)
-$(call add-bindata,guard,./pkg/operator/staticpod/controller/guard/manifests/...,bindata,bindata,./pkg/operator/staticpod/controller/guard/bindata/bindata.go)
-$(call add-bindata,auditpolicies,./pkg/operator/apiserver/audit/manifests/...,bindata,bindata,./pkg/operator/apiserver/audit/bindata/bindata.go)
-$(call add-bindata,podnetworkconnectivitychecks,pkg/operator/connectivitycheckcontroller/manifests/...,bindata,bindata,pkg/operator/connectivitycheckcontroller/bindata/bindata.go)
+.PHONY: update-podnetworkconnectivitychecks
+update: update-podnetworkconnectivitychecks
+update-podnetworkconnectivitychecks:
+	$(MAKE) -C pkg/operator/connectivitycheckcontroller update
 
-pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml: vendor/github.com/openshift/api/operatorcontrolplane/v1alpha1/0000_10-pod-network-connectivity-check.crd.yaml
-	mkdir -p $$(dirname $@)
-	cp $< $@
-
-update-bindata-podnetworkconnectivitychecks: pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml
-
-verify-bindata-podnetworkconnectivitychecks-manifests:
-	diff -Naup pkg/operator/connectivitycheckcontroller/manifests/controlplane.operator.openshift.io_podnetworkconnectivitychecks.yaml vendor/github.com/openshift/api/operatorcontrolplane/v1alpha1/0000_10-pod-network-connectivity-check.crd.yaml
-.PHONY: verify-bindata-podnetworkconnectivitychecks-manifests
-
-verify-bindata-podnetworkconnectivitychecks: verify-bindata-podnetworkconnectivitychecks-manifests
+.PHONY: verify-podnetworkconnectivitychecks
+verify: verify-podnetworkconnectivitychecks
+verify-podnetworkconnectivitychecks:
+	$(MAKE) -C pkg/operator/connectivitycheckcontroller verify
 
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 .PHONY: test-e2e-encryption

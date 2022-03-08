@@ -1,7 +1,7 @@
 package audit
 
 import (
-	"io/ioutil"
+	"embed"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,6 +36,9 @@ func TestDefaultPolicy(t *testing.T) {
 		})
 	}
 }
+
+//go:embed testdata
+var testassets embed.FS
 
 func TestGetAuditPolicy(t *testing.T) {
 	scenarios := []struct {
@@ -141,7 +144,7 @@ func TestGetAuditPolicy(t *testing.T) {
 
 			// validate
 			if len(scenario.goldenFile) > 0 {
-				bs, err := ioutil.ReadFile(filepath.Join("./testdata", scenario.goldenFile))
+				bs, err := testassets.ReadFile(filepath.Join("testdata", scenario.goldenFile))
 				if err != nil {
 					t.Fatal(err)
 				}
