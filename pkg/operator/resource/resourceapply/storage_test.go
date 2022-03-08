@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	storagev1 "k8s.io/api/storage/v1"
-	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -154,15 +153,15 @@ func TestApplyStorageClass(t *testing.T) {
 func TestApplyCSIDriver(t *testing.T) {
 	tests := []struct {
 		name     string
-		existing []runtime.Object
-		input    *storagev1beta1.CSIDriver
+		existing []*storagev1.CSIDriver
+		input    *storagev1.CSIDriver
 
 		expectedModified bool
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
 			name: "create",
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Annotations: map[string]string{"my.csi.driver/foo": "bar"}},
 			},
 
@@ -177,10 +176,11 @@ func TestApplyCSIDriver(t *testing.T) {
 				if !actions[1].Matches("create", "csidrivers") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &storagev1beta1.CSIDriver{
+				expected := &storagev1.CSIDriver{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Annotations: map[string]string{"my.csi.driver/foo": "bar"}},
 				}
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1beta1.CSIDriver)
+				SetSpecHashAnnotation(&expected.ObjectMeta, expected.Spec)
+				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1.CSIDriver)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
 				}
@@ -188,12 +188,12 @@ func TestApplyCSIDriver(t *testing.T) {
 		},
 		{
 			name: "update on missing label",
-			existing: []runtime.Object{
-				&storagev1beta1.CSIDriver{
+			existing: []*storagev1.CSIDriver{
+				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				},
 			},
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"new": "merge"}},
 			},
 			expectedModified: true,
@@ -207,31 +207,66 @@ func TestApplyCSIDriver(t *testing.T) {
 				if !actions[1].Matches("update", "csidrivers") {
 					t.Error(spew.Sdump(actions))
 				}
-				expected := &storagev1beta1.CSIDriver{
+				expected := &storagev1.CSIDriver{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"new": "merge"}},
 				}
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1beta1.CSIDriver)
+				SetSpecHashAnnotation(&expected.ObjectMeta, expected.Spec)
+				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1.CSIDriver)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
 				}
 			},
 		},
 		{
-			name: "don't mutate spec",
-			existing: []runtime.Object{
-				&storagev1beta1.CSIDriver{
+			name: "mutated spec",
+			existing: []*storagev1.CSIDriver{
+				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Spec: storagev1beta1.CSIDriverSpec{
+					Spec: storagev1.CSIDriverSpec{
 						AttachRequired: resourcemerge.BoolPtr(true),
 						PodInfoOnMount: resourcemerge.BoolPtr(true),
 					},
 				},
 			},
-			input: &storagev1beta1.CSIDriver{
+			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-				Spec: storagev1beta1.CSIDriverSpec{
+				Spec: storagev1.CSIDriverSpec{
 					AttachRequired: resourcemerge.BoolPtr(false),
 					PodInfoOnMount: resourcemerge.BoolPtr(false),
+				},
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 3 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("delete", "csidrivers") {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[2].Matches("create", "csidrivers") {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "no change",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+					Spec: storagev1.CSIDriverSpec{
+						AttachRequired: resourcemerge.BoolPtr(true),
+						PodInfoOnMount: resourcemerge.BoolPtr(true),
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				Spec: storagev1.CSIDriverSpec{
+					AttachRequired: resourcemerge.BoolPtr(true),
+					PodInfoOnMount: resourcemerge.BoolPtr(true),
 				},
 			},
 			expectedModified: false,
@@ -247,8 +282,16 @@ func TestApplyCSIDriver(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyCSIDriverV1Beta1(context.TODO(), client.StorageV1beta1(), events.NewInMemoryRecorder("test"), test.input)
+			objs := make([]runtime.Object, len(test.existing))
+			for i, csiDriver := range test.existing {
+				// Add spec hash annotation
+				SetSpecHashAnnotation(&csiDriver.ObjectMeta, csiDriver.Spec)
+				// Convert *CSIDriver to *Object
+				objs[i] = csiDriver
+			}
+
+			client := fake.NewSimpleClientset(objs...)
+			_, actualModified, err := ApplyCSIDriver(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
