@@ -4,8 +4,8 @@
   - group: "route.openshift.io"
     resources: ["routes"]
   - resources: ["secrets"]
-- level: Metadata
-  resources:
+  - group: "authentication.k8s.io"
+    resources: ["tokenreviews", "tokenrequests"]
   - group: "oauth.openshift.io"
     resources: ["oauthclients"]
 # catch-all rule to log all other requests with request and response payloads
