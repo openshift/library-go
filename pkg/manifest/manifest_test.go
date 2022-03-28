@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	configv1 "github.com/openshift/api/config/v1"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 )
@@ -580,4 +584,135 @@ func setupTestFS(t *testing.T, d dir) (string, func() error) {
 		return os.RemoveAll(root)
 	}
 	return root, cleanup
+}
+
+func Test_include(t *testing.T) {
+	tests := []struct {
+		name               string
+		exclude            string
+		includeTechPreview bool
+		profile            string
+		annotations        map[string]interface{}
+		caps               configv1.ClusterVersionCapabilitiesStatus
+
+		expected error
+	}{
+		{
+			name:    "exclusion identifier set",
+			exclude: "identifier",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"exclude.release.openshift.io/identifier":                     "true",
+				"include.release.openshift.io/self-managed-high-availability": "true"},
+			expected: fmt.Errorf("exclude.release.openshift.io/identifier=true"),
+		},
+		{
+			name:        "profile selection works",
+			profile:     "single-node",
+			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
+			expected:    fmt.Errorf("include.release.openshift.io/single-node unset"),
+		},
+		{
+			name:        "profile selection works included",
+			profile:     DefaultClusterProfile,
+			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
+		},
+		{
+			name:    "correct techpreview value is excluded if techpreview off",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
+			},
+			expected: fmt.Errorf("tech-preview excluded, and release.openshift.io/feature-gate=TechPreviewNoUpgrade"),
+		},
+		{
+			name:               "correct techpreview value is included if techpreview on",
+			includeTechPreview: true,
+			profile:            DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
+			},
+		},
+		{
+			name:    "incorrect techpreview value is not excluded if techpreview off",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-gate":                           "Other",
+			},
+			expected: fmt.Errorf("unrecognized value release.openshift.io/feature-gate=Other"),
+		},
+		{
+			name:               "incorrect techpreview value is not excluded if techpreview on",
+			includeTechPreview: true,
+			profile:            DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-gate":                           "Other",
+			},
+			expected: fmt.Errorf("unrecognized value release.openshift.io/feature-gate=Other"),
+		},
+		{
+			name:        "default profile selection excludes without annotation",
+			profile:     DefaultClusterProfile,
+			annotations: map[string]interface{}{},
+			expected:    fmt.Errorf("include.release.openshift.io/self-managed-high-availability unset"),
+		},
+		{
+			name:        "default profile selection excludes with no annotation",
+			profile:     DefaultClusterProfile,
+			annotations: nil,
+			expected:    fmt.Errorf("no annotations"),
+		},
+		{
+			name:    "unrecognized capability works",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1"},
+			expected: fmt.Errorf("unrecognized capability names: cap1"),
+		},
+		{
+			name:    "disabled capability works",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1"},
+			caps: configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			expected: fmt.Errorf("disabled capabilities: cap1"),
+		},
+		{
+			name:    "enabled capability works",
+			profile: DefaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1"},
+			caps: configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		metadata := map[string]interface{}{}
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.annotations != nil {
+				metadata["annotations"] = tt.annotations
+			}
+			m := Manifest{
+				Obj: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": metadata,
+					},
+				},
+			}
+			err := m.Include(&tt.exclude, tt.includeTechPreview, &tt.profile, &tt.caps)
+			assert.Equal(t, err, tt.expected)
+		})
+	}
 }
