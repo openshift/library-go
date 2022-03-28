@@ -753,7 +753,7 @@ func (ca *CA) MakeServerCert(hostnames sets.String, expireDays int, fns ...Certi
 		return nil, err
 	}
 	server := &TLSCertificateConfig{
-		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs...),
+		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs[1:]...),
 		Key:   serverPrivateKey,
 	}
 	return server, nil
@@ -774,7 +774,7 @@ func (ca *CA) MakeServerCertForDuration(hostnames sets.String, lifetime time.Dur
 		return nil, err
 	}
 	server := &TLSCertificateConfig{
-		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs...),
+		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs[1:]...),
 		Key:   serverPrivateKey,
 	}
 	return server, nil
