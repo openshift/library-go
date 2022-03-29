@@ -109,7 +109,7 @@ func (m *Manifest) UnmarshalJSON(in []byte) error {
 // processing by cluster version operator. Pointer arguments can be set nil to avoid excluding based on that
 // filter. For example, setting profile non-nil and capabilities nil will return an error if the manifest's
 // profile does not match, but will never return an error about capability issues.
-func (m *Manifest) Include(excludeIdentifier *string, includeTechPreview bool, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus) error {
+func (m *Manifest) Include(excludeIdentifier *string, includeTechPreview *bool, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus) error {
 
 	annotations := m.Obj.GetAnnotations()
 	if annotations == nil {
@@ -123,14 +123,16 @@ func (m *Manifest) Include(excludeIdentifier *string, includeTechPreview bool, p
 		}
 	}
 
-	featureGateAnnotation := "release.openshift.io/feature-gate"
-	featureGateAnnotationValue, featureGateAnnotationExists := annotations[featureGateAnnotation]
-	if featureGateAnnotationValue == string(configv1.TechPreviewNoUpgrade) && !includeTechPreview {
-		return fmt.Errorf("tech-preview excluded, and %s=%s", featureGateAnnotation, featureGateAnnotationValue)
-	}
-	// never include the manifest if the feature-gate annotation is outside of allowed values (only TechPreviewNoUpgrade is currently allowed)
-	if featureGateAnnotationExists && featureGateAnnotationValue != string(configv1.TechPreviewNoUpgrade) {
-		return fmt.Errorf("unrecognized value %s=%s", featureGateAnnotation, featureGateAnnotationValue)
+	if includeTechPreview != nil {
+		featureGateAnnotation := "release.openshift.io/feature-gate"
+		featureGateAnnotationValue, featureGateAnnotationExists := annotations[featureGateAnnotation]
+		if featureGateAnnotationValue == string(configv1.TechPreviewNoUpgrade) && !(*includeTechPreview) {
+			return fmt.Errorf("tech-preview excluded, and %s=%s", featureGateAnnotation, featureGateAnnotationValue)
+		}
+		// never include the manifest if the feature-gate annotation is outside of allowed values (only TechPreviewNoUpgrade is currently allowed)
+		if featureGateAnnotationExists && featureGateAnnotationValue != string(configv1.TechPreviewNoUpgrade) {
+			return fmt.Errorf("unrecognized value %s=%s", featureGateAnnotation, featureGateAnnotationValue)
+		}
 	}
 
 	if profile != nil {

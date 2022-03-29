@@ -711,7 +711,7 @@ func Test_include(t *testing.T) {
 					},
 				},
 			}
-			err := m.Include(&tt.exclude, tt.includeTechPreview, &tt.profile, &tt.caps)
+			err := m.Include(&tt.exclude, &tt.includeTechPreview, &tt.profile, &tt.caps)
 			assert.Equal(t, err, tt.expected)
 		})
 	}
