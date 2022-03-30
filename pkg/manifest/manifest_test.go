@@ -587,39 +587,62 @@ func setupTestFS(t *testing.T, d dir) (string, func() error) {
 }
 
 func Test_include(t *testing.T) {
+	identifier := "identifier"
+	defaultClusterProfile := "self-managed-high-availability"
+	singleNodeProfile := "single-node"
+	trueBol := true
+	falseBol := false
+
 	tests := []struct {
 		name               string
-		exclude            string
-		includeTechPreview bool
-		profile            string
+		exclude            *string
+		includeTechPreview *bool
+		profile            *string
 		annotations        map[string]interface{}
-		caps               configv1.ClusterVersionCapabilitiesStatus
+		caps               *configv1.ClusterVersionCapabilitiesStatus
 
 		expected error
 	}{
 		{
 			name:    "exclusion identifier set",
-			exclude: "identifier",
-			profile: DefaultClusterProfile,
+			exclude: &identifier,
+			profile: &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"exclude.release.openshift.io/identifier":                     "true",
 				"include.release.openshift.io/self-managed-high-availability": "true"},
 			expected: fmt.Errorf("exclude.release.openshift.io/identifier=true"),
 		},
 		{
+			name:    "exclusion identifier set with no capability",
+			exclude: &identifier,
+			profile: &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"exclude.release.openshift.io/identifier":                     "true",
+				"include.release.openshift.io/self-managed-high-availability": "true"},
+			caps:     &configv1.ClusterVersionCapabilitiesStatus{},
+			expected: fmt.Errorf("exclude.release.openshift.io/identifier=true"),
+		},
+		{
 			name:        "profile selection works",
-			profile:     "single-node",
+			profile:     &singleNodeProfile,
 			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
 			expected:    fmt.Errorf("include.release.openshift.io/single-node unset"),
 		},
 		{
+			name:        "No profile",
+			profile:     nil,
+			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
+			expected:    nil,
+		},
+		{
 			name:        "profile selection works included",
-			profile:     DefaultClusterProfile,
+			profile:     &defaultClusterProfile,
 			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
 		},
 		{
-			name:    "correct techpreview value is excluded if techpreview off",
-			profile: DefaultClusterProfile,
+			name:               "correct techpreview value is excluded if techpreview off",
+			includeTechPreview: &falseBol,
+			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
@@ -628,16 +651,17 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "correct techpreview value is included if techpreview on",
-			includeTechPreview: true,
-			profile:            DefaultClusterProfile,
+			includeTechPreview: &trueBol,
+			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
 			},
 		},
 		{
-			name:    "incorrect techpreview value is not excluded if techpreview off",
-			profile: DefaultClusterProfile,
+			name:               "incorrect techpreview value is not excluded if techpreview off",
+			includeTechPreview: &falseBol,
+			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
@@ -646,8 +670,8 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview on",
-			includeTechPreview: true,
-			profile:            DefaultClusterProfile,
+			includeTechPreview: &trueBol,
+			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
@@ -656,45 +680,51 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:        "default profile selection excludes without annotation",
-			profile:     DefaultClusterProfile,
+			profile:     &defaultClusterProfile,
 			annotations: map[string]interface{}{},
 			expected:    fmt.Errorf("include.release.openshift.io/self-managed-high-availability unset"),
 		},
 		{
 			name:        "default profile selection excludes with no annotation",
-			profile:     DefaultClusterProfile,
+			profile:     &defaultClusterProfile,
 			annotations: nil,
 			expected:    fmt.Errorf("no annotations"),
 		},
 		{
-			name:    "unrecognized capability works",
-			profile: DefaultClusterProfile,
+			name:    "unrecognized capability annotaton",
+			profile: &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
-			expected: fmt.Errorf("unrecognized capability names: cap1"),
+			expected: nil,
 		},
 		{
 			name:    "disabled capability works",
-			profile: DefaultClusterProfile,
+			profile: &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
-			caps: configv1.ClusterVersionCapabilitiesStatus{
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
 				KnownCapabilities: []configv1.ClusterVersionCapability{"cap1"},
 			},
 			expected: fmt.Errorf("disabled capabilities: cap1"),
 		},
 		{
 			name:    "enabled capability works",
-			profile: DefaultClusterProfile,
+			profile: &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
-			caps: configv1.ClusterVersionCapabilitiesStatus{
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
 				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
 				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
 			},
+		},
+		{
+			name:        "all nil",
+			profile:     nil,
+			annotations: nil,
+			expected:    fmt.Errorf("no annotations"),
 		},
 	}
 
@@ -711,8 +741,8 @@ func Test_include(t *testing.T) {
 					},
 				},
 			}
-			err := m.Include(&tt.exclude, &tt.includeTechPreview, &tt.profile, &tt.caps)
-			assert.Equal(t, err, tt.expected)
+			err := m.Include(tt.exclude, tt.includeTechPreview, tt.profile, tt.caps)
+			assert.Equal(t, tt.expected, err)
 		})
 	}
 }
