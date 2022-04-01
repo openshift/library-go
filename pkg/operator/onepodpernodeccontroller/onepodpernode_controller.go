@@ -60,6 +60,7 @@ func NewOnePodPerNodeController(
 		name:           name,
 		operatorClient: operatorClient,
 		clock:          clock.RealClock{},
+		recorder:       recorder,
 
 		namespace:       namespace,
 		podSelector:     selector,
