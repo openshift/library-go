@@ -15,16 +15,13 @@ import (
 
 	machinev1beta1 "github.com/openshift/api/machine/v1beta1"
 	machinev1beta1client "github.com/openshift/client-go/machine/clientset/versioned/typed/machine/v1beta1"
+	"github.com/openshift/library-go/test/library"
 )
 
 const masterMachineLabelSelector = "machine.openshift.io/cluster-api-machine-role" + "=" + "master"
 
-type TestingT interface {
-	Logf(format string, args ...interface{})
-}
-
 // CreateNewMasterMachine creates a new master node by cloning an existing Machine resource
-func CreateNewMasterMachine(ctx context.Context, t TestingT, machineClient machinev1beta1client.MachineInterface) (string, error) {
+func CreateNewMasterMachine(ctx context.Context, t library.TestingT, machineClient machinev1beta1client.MachineInterface) (string, error) {
 	machineList, err := machineClient.List(ctx, metav1.ListOptions{LabelSelector: masterMachineLabelSelector})
 	if err != nil {
 		return "", err
@@ -57,7 +54,7 @@ func CreateNewMasterMachine(ctx context.Context, t TestingT, machineClient machi
 	return clonedMachine.Name, nil
 }
 
-func EnsureMasterMachineRunning(ctx context.Context, t TestingT, machineName string, machineClient machinev1beta1client.MachineInterface) error {
+func EnsureMasterMachineRunning(ctx context.Context, t library.TestingT, machineName string, machineClient machinev1beta1client.MachineInterface) error {
 	waitPollInterval := 15 * time.Second
 	waitPollTimeout := 5 * time.Minute
 	t.Logf("Waiting up to %s for %q machine to be in the Running state", waitPollTimeout.String(), machineName)
@@ -78,41 +75,48 @@ func EnsureMasterMachineRunning(ctx context.Context, t TestingT, machineName str
 
 // EnsureInitialClusterState makes sure the cluster state is expected, that is, has only 3 running machines and exactly 3 voting members
 // otherwise it attempts to recover the cluster by removing any excessive machines
-func EnsureInitialClusterState(ctx context.Context, t TestingT, etcdClientFactory EtcdClientCreator, machineClient machinev1beta1client.MachineInterface) error {
+func EnsureInitialClusterState(ctx context.Context, t library.TestingT, etcdClientFactory EtcdClientCreator, machineClient machinev1beta1client.MachineInterface) error {
 	if err := recoverClusterToInitialStateIfNeeded(ctx, t, machineClient); err != nil {
 		return err
 	}
 	if err := EnsureMembersCount(t, etcdClientFactory, 3); err != nil {
 		return err
 	}
-	return EnsureRunningMachinesAndCount(ctx, machineClient)
+	return EnsureRunningMachinesAndCount(ctx, t, machineClient)
 }
 
 // EnsureRunningMachinesAndCount checks if there are only 3 running master machines otherwise it returns an error
-func EnsureRunningMachinesAndCount(ctx context.Context, machineClient machinev1beta1client.MachineInterface) error {
-	machineList, err := machineClient.List(ctx, metav1.ListOptions{LabelSelector: masterMachineLabelSelector})
-	if err != nil {
-		return err
-	}
+func EnsureRunningMachinesAndCount(ctx context.Context, t library.TestingT, machineClient machinev1beta1client.MachineInterface) error {
+	waitPollInterval := 15 * time.Second
+	waitPollTimeout := 10 * time.Minute
+	t.Logf("Waiting up to %s for the cluster to reach the expected machines count of 3", waitPollTimeout.String())
 
-	if len(machineList.Items) != 3 {
-		var machineNames []string
+	return wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+		machineList, err := machineClient.List(ctx, metav1.ListOptions{LabelSelector: masterMachineLabelSelector})
+		if err != nil {
+			return false, err
+		}
+
+		if len(machineList.Items) != 3 {
+			var machineNames []string
+			for _, machine := range machineList.Items {
+				machineNames = append(machineNames, machine.Name)
+			}
+			t.Logf("expected exactly 3 master machines, got %d, machines are: %v", len(machineList.Items), machineNames)
+			return false, nil
+		}
+
 		for _, machine := range machineList.Items {
-			machineNames = append(machineNames, machine.Name)
+			machinePhase := pointer.StringDeref(machine.Status.Phase, "")
+			if machinePhase != "Running" {
+				return false, fmt.Errorf("%q machine is in unexpected %q state, expected Running", machine.Name, machinePhase)
+			}
 		}
-		return fmt.Errorf("expected exactly 3 master machines, got %d, machines are: %v", len(machineList.Items), machineNames)
-	}
-
-	for _, machine := range machineList.Items {
-		machinePhase := pointer.StringDeref(machine.Status.Phase, "")
-		if machinePhase != "Running" {
-			return fmt.Errorf("%q machine is in unexpected %q state, expected Running", machine.Name, machinePhase)
-		}
-	}
-	return nil
+		return true, nil
+	})
 }
 
-func recoverClusterToInitialStateIfNeeded(ctx context.Context, t TestingT, machineClient machinev1beta1client.MachineInterface) error {
+func recoverClusterToInitialStateIfNeeded(ctx context.Context, t library.TestingT, machineClient machinev1beta1client.MachineInterface) error {
 	machineList, err := machineClient.List(ctx, metav1.ListOptions{LabelSelector: masterMachineLabelSelector})
 	if err != nil {
 		return err
@@ -139,7 +143,7 @@ func recoverClusterToInitialStateIfNeeded(ctx context.Context, t TestingT, machi
 
 // EnsureMembersCount simply counts the current etcd members, it doesn't evaluate health conditions or any other attributes (i.e. name) of individual members
 // this method won't fail immediately on errors, this is useful during scaling down operation until the feature can ensure this operation to be graceful
-func EnsureMembersCount(t TestingT, etcdClientFactory EtcdClientCreator, expectedMembersCount int) error {
+func EnsureMembersCount(t library.TestingT, etcdClientFactory EtcdClientCreator, expectedMembersCount int) error {
 	waitPollInterval := 15 * time.Second
 	waitPollTimeout := 10 * time.Minute
 	t.Logf("Waiting up to %s for the cluster to reach the expected member count of %v", waitPollTimeout.String(), expectedMembersCount)
@@ -200,7 +204,7 @@ func EnsureMemberRemoved(etcdClientFactory EtcdClientCreator, memberName string)
 	return nil
 }
 
-func EnsureHealthyMember(t TestingT, etcdClientFactory EtcdClientCreator, memberName string) error {
+func EnsureHealthyMember(t library.TestingT, etcdClientFactory EtcdClientCreator, memberName string) error {
 	etcdClient, closeFn, err := etcdClientFactory.NewEtcdClientForMember(memberName)
 	if err != nil {
 		return err
