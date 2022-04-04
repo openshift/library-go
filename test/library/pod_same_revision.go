@@ -3,7 +3,6 @@ package library
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,19 +20,17 @@ import (
 //  the number of instances is calculated based on the number of running pods in a namespace.
 //  only pods with the given label are considered
 //  only pods in the given namespace are considered (podClient)
-func WaitForPodsToStabilizeOnTheSameRevision(t *testing.T, podClient corev1client.PodInterface, podLabelSelector string, waitForRevisionSuccessThreshold int, waitForRevisionSuccessInterval, waitForRevisionPollInterval, waitForRevisionTimeout time.Duration) {
-	if err := wait.Poll(waitForRevisionPollInterval, waitForRevisionTimeout, mustSucceedMultipleTimes(waitForRevisionSuccessThreshold, waitForRevisionSuccessInterval, func() (bool, error) {
+func WaitForPodsToStabilizeOnTheSameRevision(t LoggingT, podClient corev1client.PodInterface, podLabelSelector string, waitForRevisionSuccessThreshold int, waitForRevisionSuccessInterval, waitForRevisionPollInterval, waitForRevisionTimeout time.Duration) error {
+	return wait.Poll(waitForRevisionPollInterval, waitForRevisionTimeout, mustSucceedMultipleTimes(waitForRevisionSuccessThreshold, waitForRevisionSuccessInterval, func() (bool, error) {
 		return arePodsOnTheSameRevision(t, podClient, podLabelSelector)
-	})); err != nil {
-		t.Fatal(err)
-	}
+	}))
 }
 
 // arePodsOnTheSameRevision tries to find the current revision that the pods are running at.
 // The number of instances is calculated based on the number of running pods in a namespace.
 // This should be okay because this function is meant to be used by WaitForPodsToStabilizeOnTheSameRevision which will wait at least waitForRevisionSuccessThreshold * waitForRevisionSuccessInterval
 // The number of pods should stabilize in that period of time.
-func arePodsOnTheSameRevision(t *testing.T, podClient corev1client.PodInterface, podLabelSelector string) (bool, error) {
+func arePodsOnTheSameRevision(t LoggingT, podClient corev1client.PodInterface, podLabelSelector string) (bool, error) {
 	revisionLabel := "revision"
 
 	// do a live list so we never get confused about what revision we are on

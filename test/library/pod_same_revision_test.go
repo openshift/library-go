@@ -16,8 +16,8 @@ func TestArePodsOnTheSameRevision(t *testing.T) {
 		expectSameRevision bool
 	}{
 		{
-			name:           "good pod, same revision",
-			initialObjects: []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1")},
+			name:               "good pod, same revision",
+			initialObjects:     []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "node1")},
 			expectSameRevision: true,
 		},
 	}
@@ -42,7 +42,7 @@ func newPod(phase corev1.PodPhase, ready corev1.ConditionStatus, revision, nodeN
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: "test-ns",
 			Labels: map[string]string{
-				"revision": revision,
+				"revision":  revision,
 				"apiserver": "true",
 			}},
 		Spec: corev1.PodSpec{
