@@ -8,6 +8,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +18,11 @@ import (
 )
 
 func TestApplyStorageClass(t *testing.T) {
+	retain := v1.PersistentVolumeReclaimRetain
+	delete := v1.PersistentVolumeReclaimDelete
+	immediate := storagev1.VolumeBindingImmediate
+	wait := storagev1.VolumeBindingWaitForFirstConsumer
+
 	tests := []struct {
 		name     string
 		existing []runtime.Object
@@ -131,6 +137,216 @@ func TestApplyStorageClass(t *testing.T) {
 				}
 				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
 					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "update of mutable AllowVolumeExpansion",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+					Provisioner:       "foo",
+					ReclaimPolicy:     &retain,
+					VolumeBindingMode: &immediate,
+					Parameters: map[string]string{
+						"foo": "bar",
+					},
+					AllowVolumeExpansion: resourcemerge.BoolPtr(true),
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+				Provisioner:       "foo",
+				ReclaimPolicy:     &retain,
+				VolumeBindingMode: &immediate,
+				Parameters: map[string]string{
+					"foo": "bar",
+				},
+				AllowVolumeExpansion: resourcemerge.BoolPtr(false),
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.StorageClass{
+					ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+					Provisioner:       "foo",
+					ReclaimPolicy:     &retain,
+					VolumeBindingMode: &immediate,
+					Parameters: map[string]string{
+						"foo": "bar",
+					},
+					AllowVolumeExpansion: resourcemerge.BoolPtr(false),
+				}
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*storagev1.StorageClass)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "update of immutable Provisioner",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+					Provisioner: "foo",
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+				Provisioner: "bar",
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 3 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("delete", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[2].Matches("create", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.StorageClass{
+					ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+					Provisioner: "bar",
+				}
+				actual := actions[2].(clienttesting.CreateAction).GetObject().(*storagev1.StorageClass)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "update of immutable ReclaimPolicy",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta:    metav1.ObjectMeta{Name: "foo"},
+					Provisioner:   "foo",
+					ReclaimPolicy: &retain,
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta:    metav1.ObjectMeta{Name: "foo"},
+				Provisioner:   "foo",
+				ReclaimPolicy: &delete,
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 3 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("delete", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[2].Matches("create", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.StorageClass{
+					ObjectMeta:    metav1.ObjectMeta{Name: "foo"},
+					Provisioner:   "foo",
+					ReclaimPolicy: &delete,
+				}
+				actual := actions[2].(clienttesting.CreateAction).GetObject().(*storagev1.StorageClass)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "update of immutable VolumeBindingMode",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+					Provisioner:       "foo",
+					VolumeBindingMode: &immediate,
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+				Provisioner:       "foo",
+				VolumeBindingMode: &wait,
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 3 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("delete", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[2].Matches("create", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.StorageClass{
+					ObjectMeta:        metav1.ObjectMeta{Name: "foo"},
+					Provisioner:       "foo",
+					VolumeBindingMode: &wait,
+				}
+				actual := actions[2].(clienttesting.CreateAction).GetObject().(*storagev1.StorageClass)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "update of immutable Parameters",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+					Provisioner: "foo",
+					Parameters: map[string]string{
+						"foo": "bar",
+					},
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+				Provisioner: "foo",
+				Parameters: map[string]string{
+					"foo": "baz",
+				},
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 3 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("delete", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[2].Matches("create", "storageclasses") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.StorageClass{
+					ObjectMeta:  metav1.ObjectMeta{Name: "foo"},
+					Provisioner: "foo",
+					Parameters: map[string]string{
+						"foo": "baz",
+					},
+				}
+				actual := actions[2].(clienttesting.CreateAction).GetObject().(*storagev1.StorageClass)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
 				}
 			},
 		},
