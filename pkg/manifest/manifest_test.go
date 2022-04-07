@@ -746,3 +746,110 @@ func Test_include(t *testing.T) {
 		})
 	}
 }
+
+func TestGetManifestCapabilities(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]interface{}
+		want        []configv1.ClusterVersionCapability
+	}{
+		{
+			name: "no annotations",
+		},
+		{
+			name: "no capability annotation",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+			},
+		},
+		{
+			name: "empty capabilities annotation",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: ""},
+		},
+		{
+			name: "capabilities",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2"},
+			want: []configv1.ClusterVersionCapability{
+				configv1.ClusterVersionCapability("cap1"),
+				configv1.ClusterVersionCapability("cap2"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		metadata := map[string]interface{}{}
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.annotations != nil {
+				metadata["annotations"] = tt.annotations
+			}
+			m := Manifest{
+				Obj: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": metadata,
+					},
+				},
+			}
+			caps := m.GetManifestCapabilities()
+			assert.Equal(t, tt.want, caps)
+		})
+	}
+}
+
+func TestSameResourceID(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      resourceId
+		otherId resourceId
+		want    bool
+	}{
+		{
+			name:    "same id",
+			id:      resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			otherId: resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want:    true,
+		},
+		{
+			name: "default id",
+			id:   resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want: false,
+		},
+		{
+			name:    "different Group",
+			id:      resourceId{Group: "extensionsA", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			otherId: resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want:    false,
+		},
+		{
+			name:    "different Kind",
+			id:      resourceId{Group: "extensions", Kind: "IngressA", Name: "test-ingress", Namespace: "test-namespace"},
+			otherId: resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want:    false,
+		},
+		{
+			name:    "different Name",
+			id:      resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingressA", Namespace: "test-namespace"},
+			otherId: resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want:    false,
+		},
+		{
+			name:    "different Namespace",
+			id:      resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespaceA"},
+			otherId: resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			man := Manifest{
+				id: tt.id,
+			}
+			otherMan := Manifest{
+				id: tt.otherId,
+			}
+			assert.Equal(t, tt.want, man.SameResourceID(otherMan))
+		})
+	}
+}

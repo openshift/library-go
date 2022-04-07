@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -60,12 +61,20 @@ type Manifest struct {
 	Obj *unstructured.Unstructured
 }
 
+func (r resourceId) equal(id resourceId) bool {
+	return reflect.DeepEqual(r, id)
+}
+
 func (r resourceId) String() string {
 	if len(r.Namespace) == 0 {
 		return fmt.Sprintf("Group: %q Kind: %q Name: %q", r.Group, r.Kind, r.Name)
 	} else {
 		return fmt.Sprintf("Group: %q Kind: %q Namespace: %q Name: %q", r.Group, r.Kind, r.Namespace, r.Name)
 	}
+}
+
+func (m Manifest) SameResourceID(manifest Manifest) bool {
+	return m.id.equal(manifest.id)
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for the Manifest
@@ -105,7 +114,7 @@ func (m *Manifest) UnmarshalJSON(in []byte) error {
 	return validateResourceId(m.id)
 }
 
-// Include returns an error if the manifest fails an inclusion filter and should not be excluded from futher
+// Include returns an error if the manifest fails an inclusion filter and should be excluded from further
 // processing by cluster version operator. Pointer arguments can be set nil to avoid excluding based on that
 // filter. For example, setting profile non-nil and capabilities nil will return an error if the manifest's
 // profile does not match, but will never return an error about capability issues.
@@ -157,11 +166,7 @@ func (m *Manifest) Include(excludeIdentifier *string, includeTechPreview *bool, 
 // all invalid capabilities. Otherwise, if any disabled capabilities are found an error is returned listing all
 // disabled capabilities.
 func checkResourceEnablement(annotations map[string]string, capabilities *configv1.ClusterVersionCapabilitiesStatus) error {
-	val, ok := annotations[CapabilityAnnotation]
-	if !ok {
-		return nil
-	}
-	caps := strings.Split(val, "+")
+	caps := getManifestCapabilities(annotations)
 	numCaps := len(caps)
 	unknownCaps := make([]string, 0, numCaps)
 	disabledCaps := make([]string, 0, numCaps)
@@ -171,22 +176,22 @@ func checkResourceEnablement(annotations map[string]string, capabilities *config
 
 	for _, c := range caps {
 		for _, knownCapability := range capabilities.KnownCapabilities {
-			if c == string(knownCapability) {
+			if c == knownCapability {
 				isKnownCap = true
 			}
 		}
 		if !isKnownCap {
-			unknownCaps = append(unknownCaps, c)
+			unknownCaps = append(unknownCaps, string(c))
 			continue
 		}
 		for _, enabledCapability := range capabilities.EnabledCapabilities {
-			if c == string(enabledCapability) {
+			if c == enabledCapability {
 				isEnabledCap = true
 			}
 
 		}
 		if !isEnabledCap {
-			disabledCaps = append(disabledCaps, c)
+			disabledCaps = append(disabledCaps, string(c))
 		}
 	}
 	if len(unknownCaps) > 0 {
@@ -196,6 +201,31 @@ func checkResourceEnablement(annotations map[string]string, capabilities *config
 		return fmt.Errorf("disabled capabilities: %s", strings.Join(disabledCaps, ", "))
 	}
 	return nil
+}
+
+// GetManifestCapabilities returns the manifest's capabilities.
+func (m *Manifest) GetManifestCapabilities() []configv1.ClusterVersionCapability {
+	annotations := m.Obj.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	return getManifestCapabilities(annotations)
+}
+
+func getManifestCapabilities(annotations map[string]string) []configv1.ClusterVersionCapability {
+	val, ok := annotations[CapabilityAnnotation]
+
+	// check for empty string val to avoid returning length 1 slice of the empty string
+	if !ok || val == "" {
+		return nil
+	}
+	caps := strings.Split(val, "+")
+	allCaps := make([]configv1.ClusterVersionCapability, len(caps))
+
+	for i, c := range caps {
+		allCaps[i] = configv1.ClusterVersionCapability(c)
+	}
+	return allCaps
 }
 
 // ManifestsFromFiles reads files and returns Manifests in the same order.
