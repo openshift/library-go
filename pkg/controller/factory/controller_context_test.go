@@ -46,7 +46,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 	tests := []struct {
 		name         string
 		syncContext  SyncContext
-		queueKeyFunc ObjectQueueKeyFunc
+		queueKeyFunc ObjectQueueKeysFunc
 		filterFunc   func(obj interface{}) bool
 		// event handler test
 
@@ -59,9 +59,9 @@ func TestSyncContext_eventHandler(t *testing.T) {
 		{
 			name:        "simple event handler",
 			syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-			queueKeyFunc: func(object runtime.Object) string {
+			queueKeyFunc: func(object runtime.Object) []string {
 				m, _ := meta.Accessor(object)
-				return fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())
+				return []string{fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
 			},
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
 				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
@@ -79,11 +79,33 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			},
 		},
 		{
+			name:        "event handler returning multiple keys",
+			syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
+			queueKeyFunc: func(object runtime.Object) []string {
+				m, _ := meta.Accessor(object)
+				return []string{"randomitem/" + m.GetName(), fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
+			},
+			runEventHandlers: func(handler cache.ResourceEventHandler) {
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
+				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "update"}})
+				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "delete"}})
+			},
+			expectedItemCount: 6,
+			evalQueueItems: func(s *threadSafeStringSet, t *testing.T) {
+				expect := []string{"add", "update", "delete"}
+				for _, e := range expect {
+					if !s.Has("foo/" + e) {
+						t.Errorf("expected %#v to has 'foo/%s'", s.List(), e)
+					}
+				}
+			},
+		},
+		{
 			name:        "namespace event handler",
 			syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-			queueKeyFunc: func(object runtime.Object) string {
+			queueKeyFunc: func(object runtime.Object) []string {
 				m, _ := meta.Accessor(object)
-				return m.GetName()
+				return []string{m.GetName()}
 			},
 			filterFunc: namespaceChecker([]string{"add"}),
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
@@ -101,9 +123,9 @@ func TestSyncContext_eventHandler(t *testing.T) {
 		{
 			name:        "namespace from tombstone event handler",
 			syncContext: NewSyncContext("test", eventstesting.NewTestingEventRecorder(t)),
-			queueKeyFunc: func(object runtime.Object) string {
+			queueKeyFunc: func(object runtime.Object) []string {
 				m, _ := meta.Accessor(object)
-				return m.GetName()
+				return []string{m.GetName()}
 			},
 			filterFunc: namespaceChecker([]string{"delete"}),
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
@@ -130,9 +152,9 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				_, ok = m.GetAnnotations()["onlyFireWhenSet"]
 				return ok
 			},
-			queueKeyFunc: func(object runtime.Object) string {
+			queueKeyFunc: func(object runtime.Object) []string {
 				m, _ := meta.Accessor(object)
-				return fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())
+				return []string{fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
 			},
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
 				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
@@ -176,7 +198,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 				return itemsReceived.Len() == test.expectedItemCount, nil
 			}); err != nil {
-				t.Errorf("%w (received: %#v)", err, itemsReceived.List())
+				t.Errorf("%v (received: %#v)", err, itemsReceived.List())
 				shutdown()
 				return
 			}
