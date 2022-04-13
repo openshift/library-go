@@ -1,11 +1,14 @@
 reviewers:
-  - smarterclayton
-  - mfojtik
-  - bparees
-  - soltysh
   - adambkaplan
+  - bparees
+  - csrwng
+  - mfojtik
+  - gabemontero
+  - soltysh
 approvers:
-  - mfojtik
-  - bparees
-  - soltysh
   - adambkaplan
+  - bparees
+  - csrwng
+  - mfojtik
+  - gabemontero
+  - soltysh
