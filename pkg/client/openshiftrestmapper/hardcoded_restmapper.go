@@ -70,6 +70,11 @@ var defaultRESTMappings = []meta.RESTMapping{
 		Scope:            meta.RESTScopeRoot,
 		Resource:         schema.GroupVersionResource{Group: "security.openshift.io", Version: "v1", Resource: "securitycontextconstraints"},
 	},
+	{
+		GroupVersionKind: schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"},
+		Scope:            meta.RESTScopeNamespace,
+		Resource:         schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"},
+	},
 }
 
 func NewOpenShiftHardcodedRESTMapper(delegate meta.RESTMapper) meta.RESTMapper {
