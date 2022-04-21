@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/googleapis/gnostic/openapiv2"
+	openapi_v2 "github.com/google/gnostic/openapiv2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -225,7 +225,7 @@ func (f *fakeDisco) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.AP
 }
 
 func (f *fakeDisco) ServerResources() ([]*metav1.APIResourceList, error) {
-	return f.delegate.ServerResources()
+	return f.delegate.ServerPreferredResources()
 }
 
 func (f *fakeDisco) ServerPreferredResources() ([]*metav1.APIResourceList, error) {

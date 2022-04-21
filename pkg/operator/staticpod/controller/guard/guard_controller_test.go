@@ -67,6 +67,9 @@ func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { ret
 func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	return nil
 }
+func (i FakeInfrastructureSharedInformer) SetTransform(f cache.TransformFunc) error {
+	return nil
+}
 
 func TestIsSNOCheckFnc(t *testing.T) {
 	tests := []struct {
