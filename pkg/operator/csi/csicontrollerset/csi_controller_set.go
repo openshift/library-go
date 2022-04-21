@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivernodeservicecontroller"
+	"github.com/openshift/library-go/pkg/operator/csi/csistorageclasscontroller"
 	"github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -38,6 +39,7 @@ type CSIControllerSet struct {
 	csiDriverControllerServiceController factory.Controller
 	csiDriverNodeServiceController       factory.Controller
 	serviceMonitorController             factory.Controller
+	csiStorageclassController            factory.Controller
 
 	operatorClient v1helpers.OperatorClientWithFinalizers
 	eventRecorder  events.Recorder
@@ -54,6 +56,7 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
 		c.serviceMonitorController,
+		c.csiStorageclassController,
 	} {
 		if ctrl == nil {
 			continue
@@ -207,6 +210,25 @@ func (c *CSIControllerSet) WithServiceMonitorController(
 		c.operatorClient,
 		c.eventRecorder,
 	).WithIgnoreNotFoundOnCreate()
+	return c
+}
+
+func (c *CSIControllerSet) WithStorageClassController(
+	name string,
+	assetFunc resourceapply.AssetFunc,
+	file string,
+	kubeClient kubernetes.Interface,
+	namespacedInformerFactory informers.SharedInformerFactory,
+) *CSIControllerSet {
+	c.csiStorageclassController = csistorageclasscontroller.NewCSIStorageClassController(
+		name,
+		assetFunc,
+		file,
+		kubeClient,
+		namespacedInformerFactory,
+		c.operatorClient,
+		c.eventRecorder,
+	)
 	return c
 }
 
