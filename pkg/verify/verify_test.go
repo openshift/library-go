@@ -250,7 +250,7 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 		store:          &memory.Store{},
 		signatureCache: make(map[string][][]byte),
 	}
-	if err := verifier.Verify(context.Background(), signedDigest); err == nil || err.Error() != "unable to locate a valid signature for one or more sources" {
+	if err := verifier.Verify(context.Background(), signedDigest); err == nil || err.Error() != fmt.Sprintf("unable to verify %s against keyrings: redhat", signedDigest) {
 		t.Fatal(err)
 	}
 	if sigs := verifier.Signatures(); len(sigs) != 0 {
