@@ -32,6 +32,14 @@ func NewSyncContext(name string, recorder events.Recorder) SyncContext {
 	}
 }
 
+// NewSyncContextWithRateLimiter gives new sync context that allows to control the rate limiter.
+func NewSyncContextWithRateLimiter(name string, recorder events.Recorder, rateLimiter workqueue.RateLimiter) SyncContext {
+	return syncContext{
+		queue:         workqueue.NewNamedRateLimitingQueue(rateLimiter, name),
+		eventRecorder: recorder.WithComponentSuffix(strings.ToLower(name)),
+	}
+}
+
 func (c syncContext) Queue() workqueue.RateLimitingInterface {
 	return c.queue
 }
