@@ -190,6 +190,7 @@ func GetPlatformName(platformType configv1.PlatformType, recorder events.Recorde
 		cloudProvider = "openstack"
 	case configv1.IBMCloudPlatformType:
 	case configv1.NonePlatformType:
+	case configv1.NutanixPlatformType:
 	case configv1.OvirtPlatformType:
 	case configv1.KubevirtPlatformType:
 	case configv1.AlibabaCloudPlatformType:
