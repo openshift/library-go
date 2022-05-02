@@ -12,12 +12,18 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	clusterCloudCredentialName = "cluster"
 )
 
 // CredentialsRequestController is a simple controller that maintains a CredentialsRequest static manifest.
@@ -27,11 +33,12 @@ import (
 // <name>Progressing: indicates that the secret is yet to be provisioned by cloud-credential-operator.
 // <name>Degraded: produced when the sync() method returns an error.
 type CredentialsRequestController struct {
-	name            string
-	operatorClient  v1helpers.OperatorClientWithFinalizers
-	targetNamespace string
-	manifest        []byte
-	dynamicClient   dynamic.Interface
+	name                         string
+	operatorClient               v1helpers.OperatorClientWithFinalizers
+	targetNamespace              string
+	manifest                     []byte
+	dynamicClient                dynamic.Interface
+	typedVersionedOperatorClient operatorv1client.Interface
 }
 
 // NewCredentialsRequestController returns a CredentialsRequestController.
@@ -41,14 +48,16 @@ func NewCredentialsRequestController(
 	manifest []byte,
 	dynamicClient dynamic.Interface,
 	operatorClient v1helpers.OperatorClientWithFinalizers,
+	typedVersionedOperatorClient operatorv1client.Interface,
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &CredentialsRequestController{
-		name:            name,
-		operatorClient:  operatorClient,
-		targetNamespace: targetNamespace,
-		manifest:        manifest,
-		dynamicClient:   dynamicClient,
+		name:                         name,
+		operatorClient:               operatorClient,
+		targetNamespace:              targetNamespace,
+		manifest:                     manifest,
+		dynamicClient:                dynamicClient,
+		typedVersionedOperatorClient: typedVersionedOperatorClient,
 	}
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
@@ -69,8 +78,18 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
+	}
+	clusterCloudCredential, err := c.typedVersionedOperatorClient.OperatorV1().CloudCredentials().Get(ctx, clusterCloudCredentialName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// if clusterCloudCredential is in manual mode, do not sync cloud credentials
+	if clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual {
+		return nil
 	}
 
 	cr, err := c.syncCredentialsRequest(ctx, status, syncContext)
