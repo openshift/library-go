@@ -1,7 +1,6 @@
 package apiserver
 
 import (
-	"testing"
 	"time"
 
 	"github.com/openshift/library-go/test/library"
@@ -32,6 +31,6 @@ var (
 //  the number of instances is calculated based on the number of running pods in a namespace.
 //  only pods with apiserver=true label are considered
 //  only pods in the given namespace are considered (podClient)
-func WaitForAPIServerToStabilizeOnTheSameRevision(t *testing.T, podClient corev1client.PodInterface) {
-	library.WaitForPodsToStabilizeOnTheSameRevision(t, podClient, "apiserver=true", waitForAPIRevisionSuccessThreshold, waitForAPIRevisionSuccessInterval, waitForAPIRevisionPollInterval, waitForAPIRevisionTimeout)
+func WaitForAPIServerToStabilizeOnTheSameRevision(t library.LoggingT, podClient corev1client.PodInterface) error {
+	return library.WaitForPodsToStabilizeOnTheSameRevision(t, podClient, "apiserver=true", waitForAPIRevisionSuccessThreshold, waitForAPIRevisionSuccessInterval, waitForAPIRevisionPollInterval, waitForAPIRevisionTimeout)
 }

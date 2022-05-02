@@ -18,6 +18,10 @@ var (
 	WaitPollTimeout  = 10 * time.Minute
 )
 
+type LoggingT interface {
+	Logf(format string, args ...interface{})
+}
+
 // GenerateNameForTest generates a name of the form `prefix + test name + random string` that
 // can be used as a resource name. Convert the result to lowercase to use as a dns label.
 func GenerateNameForTest(t *testing.T, prefix string) string {
