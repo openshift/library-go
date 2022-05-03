@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,7 @@ import (
 	opv1 "github.com/openshift/api/operator/v1"
 
 	fakeoperatorv1client "github.com/openshift/client-go/operator/clientset/versioned/fake"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -118,6 +120,11 @@ func TestSync(t *testing.T) {
 			// Initialize
 			dynamicClient := &fakeDynamicClient{}
 			typedVersionedOperatorClient := fakeoperatorv1client.NewSimpleClientset(tc.cloudCredential)
+			cloudCredentialinformer := operatorinformer.NewSharedInformerFactory(typedVersionedOperatorClient, 1*time.Minute)
+			cloudCredentialLister := cloudCredentialinformer.Operator().V1().CloudCredentials().Lister()
+
+			// add object to the indexer
+			cloudCredentialinformer.Operator().V1().CloudCredentials().Informer().GetIndexer().Add(tc.cloudCredential)
 
 			cr := resourceread.ReadCredentialRequestsOrDie(tc.manifest)
 			resourceapply.AddCredentialsRequestHash(cr)
@@ -132,7 +139,7 @@ func TestSync(t *testing.T) {
 				tc.manifest,
 				dynamicClient,
 				operatorClient,
-				typedVersionedOperatorClient,
+				cloudCredentialLister,
 				recorder,
 			)
 
