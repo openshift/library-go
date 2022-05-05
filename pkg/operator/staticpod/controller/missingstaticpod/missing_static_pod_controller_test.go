@@ -54,11 +54,12 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 	)
 
 	testCases := []struct {
-		name           string
-		pods           []*corev1.Pod
-		cms            []*corev1.ConfigMap
-		expectSyncErr  bool
-		expectedEvents int
+		name            string
+		pods            []*corev1.Pod
+		cms             []*corev1.ConfigMap
+		expectSyncErr   bool
+		expectedEvents  int
+		isSNODeployment snoDeploymentFunc
 	}{
 		{
 			name: "two terminated installer pods per node with correct revision",
@@ -73,8 +74,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "current revision older than the latest installer revision",
@@ -87,8 +89,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  true,
-			expectedEvents: 1,
+			expectSyncErr:   true,
+			expectedEvents:  1,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "current revision older then the latest installer revision but termination time within threshold",
@@ -101,8 +104,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "only one node has a missing pod",
@@ -119,8 +123,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 				makeOperandConfigMap(targetNamespace, operandName, 2, validStaticPodPayloadYaml),
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  true,
-			expectedEvents: 1,
+			expectSyncErr:   true,
+			expectedEvents:  1,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "multiple missing pods for the same revision but on different nodes should produce multiple events",
@@ -135,8 +140,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 3, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  true,
-			expectedEvents: 2,
+			expectSyncErr:   true,
+			expectedEvents:  2,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "installer pod is still running",
@@ -147,8 +153,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 1, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "installer pod ran into an error",
@@ -158,8 +165,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 1, validStaticPodPayloadYaml),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "operand configmap with payload without termination grace period",
@@ -171,8 +179,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, staticPodPayloadNoTerminationGracePeriodYaml),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "operand configmap with invalid payload",
@@ -183,8 +192,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, staticPodPayloadInvalidTypeYaml),
 			},
-			expectSyncErr:  true,
-			expectedEvents: 0,
+			expectSyncErr:   true,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "operand configmap with empty payload",
@@ -195,8 +205,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				makeOperandConfigMap(targetNamespace, operandName, 2, emptyStaticPodPayloadYaml),
 			},
-			expectSyncErr:  true,
-			expectedEvents: 0,
+			expectSyncErr:   true,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "operand configmap without pod.yaml key",
@@ -207,8 +218,9 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 			cms: []*corev1.ConfigMap{
 				{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-pod-%d", operandName, 2), Namespace: targetNamespace}},
 			},
-			expectSyncErr:  true,
-			expectedEvents: 0,
+			expectSyncErr:   true,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
 		},
 		{
 			name: "the controller should take into account the latest graceful termination period of the static pod",
@@ -220,8 +232,41 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 				makeOperandConfigMap(targetNamespace, operandName, 1, makeValidPayloadWithGracefulTerminationPeriod(30)),
 				makeOperandConfigMap(targetNamespace, operandName, 2, makeValidPayloadWithGracefulTerminationPeriod(300)),
 			},
-			expectSyncErr:  false,
-			expectedEvents: 0,
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeMultiNodeDeploymentFunction(),
+		},
+		{
+			name: "missing pod in SNO within termination threshold",
+			pods: []*corev1.Pod{
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Minute))),
+			},
+			cms: []*corev1.ConfigMap{
+				makeOperandConfigMap(targetNamespace, operandName, 1, makeValidPayloadWithGracefulTerminationPeriod(30)),
+				makeOperandConfigMap(targetNamespace, operandName, 2, makeValidPayloadWithGracefulTerminationPeriod(30)),
+				makeOperandConfigMap(targetNamespace, operandName, 3, makeValidPayloadWithGracefulTerminationPeriod(30)),
+			},
+			expectSyncErr:   false,
+			expectedEvents:  0,
+			isSNODeployment: makeSingleNodeDeploymentFunction(),
+		},
+		{
+			name: "missing pod in SNO over termination threshold",
+			pods: []*corev1.Pod{
+				makeTerminatedInstallerPod(1, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-2*time.Hour))),
+				makeTerminatedInstallerPod(2, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-time.Hour))),
+				makeTerminatedInstallerPod(3, "node-1", targetNamespace, 0, metav1.NewTime(now.Add(-4*time.Minute))),
+			},
+			cms: []*corev1.ConfigMap{
+				makeOperandConfigMap(targetNamespace, operandName, 1, makeValidPayloadWithGracefulTerminationPeriod(30)),
+				makeOperandConfigMap(targetNamespace, operandName, 2, makeValidPayloadWithGracefulTerminationPeriod(30)),
+				makeOperandConfigMap(targetNamespace, operandName, 3, makeValidPayloadWithGracefulTerminationPeriod(30)),
+			},
+			expectSyncErr:   true,
+			expectedEvents:  1,
+			isSNODeployment: makeSingleNodeDeploymentFunction(),
 		},
 	}
 
@@ -257,6 +302,7 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 				staticPodName:                     operandName,
 				operandName:                       operandName,
 				lastEventEmissionPerNode:          make(lastEventEmissionPerNode),
+				isSNODeployment:                   tc.isSNODeployment,
 			}
 
 			err := controller.sync(context.TODO(), syncCtx)
@@ -283,6 +329,18 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func makeMultiNodeDeploymentFunction() snoDeploymentFunc {
+	return func() (bool, bool, error) {
+		return false, true, nil
+	}
+}
+
+func makeSingleNodeDeploymentFunction() snoDeploymentFunc {
+	return func() (bool, bool, error) {
+		return true, true, nil
 	}
 }
 
