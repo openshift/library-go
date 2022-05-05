@@ -20,6 +20,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	staticcontrollercommon "github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
 type FakeInfrastructureInformer struct {
@@ -160,7 +161,7 @@ func TestIsSNOCheckFnc(t *testing.T) {
 				},
 			}
 
-			conditionalFunction := IsSNOCheckFnc(informer)
+			conditionalFunction := staticcontrollercommon.NewIsSingleNodePlatformFn(informer)
 			result, precheckSucceeded, err := conditionalFunction()
 			if test.err {
 				if err == nil {
@@ -419,7 +420,7 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 			}
 
-			createConditionalFunc := IsSNOCheckFnc(informer)
+			createConditionalFunc := staticcontrollercommon.NewIsSingleNodePlatformFn(informer)
 			if test.createConditionalFunc != nil {
 				createConditionalFunc = test.createConditionalFunc
 			}
@@ -559,7 +560,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		pdbGetter:               kubeClient.PolicyV1(),
 		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 		installerPodImageFn:     getInstallerPodImageFromEnv,
-		createConditionalFunc:   IsSNOCheckFnc(informer),
+		createConditionalFunc:   staticcontrollercommon.NewIsSingleNodePlatformFn(informer),
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
