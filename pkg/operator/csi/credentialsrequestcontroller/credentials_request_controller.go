@@ -12,12 +12,18 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
+	operatorv1lister "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+)
+
+const (
+	clusterCloudCredentialName = "cluster"
 )
 
 // CredentialsRequestController is a simple controller that maintains a CredentialsRequest static manifest.
@@ -32,6 +38,7 @@ type CredentialsRequestController struct {
 	targetNamespace string
 	manifest        []byte
 	dynamicClient   dynamic.Interface
+	operatorLister  operatorv1lister.CloudCredentialLister
 }
 
 // NewCredentialsRequestController returns a CredentialsRequestController.
@@ -41,6 +48,7 @@ func NewCredentialsRequestController(
 	manifest []byte,
 	dynamicClient dynamic.Interface,
 	operatorClient v1helpers.OperatorClientWithFinalizers,
+	operatorInformer operatorinformer.SharedInformerFactory,
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &CredentialsRequestController{
@@ -49,9 +57,11 @@ func NewCredentialsRequestController(
 		targetNamespace: targetNamespace,
 		manifest:        manifest,
 		dynamicClient:   dynamicClient,
+		operatorLister:  operatorInformer.Operator().V1().CloudCredentials().Lister(),
 	}
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
+		operatorInformer.Operator().V1().CloudCredentials().Informer(),
 	).WithSync(
 		c.sync,
 	).ResyncEvery(
@@ -69,8 +79,18 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
+
 	if err != nil {
 		return err
+	}
+	clusterCloudCredential, err := c.operatorLister.Get(clusterCloudCredentialName)
+	if err != nil {
+		return err
+	}
+
+	// if clusterCloudCredential is in manual mode, do not sync cloud credentials
+	if clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual {
+		return nil
 	}
 
 	cr, err := c.syncCredentialsRequest(ctx, status, syncContext)

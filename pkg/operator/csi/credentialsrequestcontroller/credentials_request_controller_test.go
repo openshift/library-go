@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,8 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 
+	fakeoperatorv1client "github.com/openshift/client-go/operator/clientset/versioned/fake"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -44,6 +47,7 @@ type testCase struct {
 	name                         string
 	manifest                     []byte
 	inputSecretProvisioned       bool
+	cloudCredential              *opv1.CloudCredential
 	expectedAvailableCondition   *opv1.ConditionStatus
 	expectedProgressingCondition *opv1.ConditionStatus
 	expectedFailingStatus        bool
@@ -57,20 +61,57 @@ func TestSync(t *testing.T) {
 			inputSecretProvisioned:       true,
 			expectedAvailableCondition:   &conditionTrue,
 			expectedProgressingCondition: &conditionFalse,
-			expectedFailingStatus:        false,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeDefault,
+				},
+			},
+			expectedFailingStatus: false,
 		},
 		{
-			name:                         "Secret not provisioned by cloud-credential-operator, bad conditions",
-			manifest:                     makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace),
-			inputSecretProvisioned:       false,
+			name:                   "Secret not provisioned by cloud-credential-operator, bad conditions",
+			manifest:               makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace),
+			inputSecretProvisioned: false,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeDefault,
+				},
+			},
 			expectedAvailableCondition:   &conditionFalse,
 			expectedProgressingCondition: &conditionTrue,
 			expectedFailingStatus:        false,
 		},
 		{
-			name:                  "Bad CredentialRequest manifest, controller degraded",
+			name: "Bad CredentialRequest manifest, controller degraded",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeDefault,
+				},
+			},
 			manifest:              makeFakeManifest("wrong", credentialRequestNamespace, operandNamespace), // Wrong name will cause an error on Create()
 			expectedFailingStatus: true,
+		},
+		{
+			name: "Bad CredentialRequest manifest, in manual mode",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			manifest:              makeFakeManifest("wrong", credentialRequestNamespace, operandNamespace), // Wrong name will cause an error on Create()
+			expectedFailingStatus: false,
 		},
 	}
 
@@ -78,6 +119,11 @@ func TestSync(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Initialize
 			dynamicClient := &fakeDynamicClient{}
+			typedVersionedOperatorClient := fakeoperatorv1client.NewSimpleClientset(tc.cloudCredential)
+			cloudCredentialinformer := operatorinformer.NewSharedInformerFactory(typedVersionedOperatorClient, 1*time.Minute)
+			// add object to the indexer
+			cloudCredentialinformer.Operator().V1().CloudCredentials().Informer().GetIndexer().Add(tc.cloudCredential)
+
 			cr := resourceread.ReadCredentialRequestsOrDie(tc.manifest)
 			resourceapply.AddCredentialsRequestHash(cr)
 			unstructured.SetNestedField(cr.Object, tc.inputSecretProvisioned, "status", "provisioned")
@@ -91,6 +137,7 @@ func TestSync(t *testing.T) {
 				tc.manifest,
 				dynamicClient,
 				operatorClient,
+				cloudCredentialinformer,
 				recorder,
 			)
 
