@@ -161,7 +161,7 @@ func TestIsSNOCheckFnc(t *testing.T) {
 				},
 			}
 
-			conditionalFunction := staticcontrollercommon.IsSNOCheckFnc(informer)
+			conditionalFunction := staticcontrollercommon.NewIsSingleNodePlatformFn(informer)
 			result, precheckSucceeded, err := conditionalFunction()
 			if test.err {
 				if err == nil {
@@ -420,7 +420,7 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 			}
 
-			createConditionalFunc := staticcontrollercommon.IsSNOCheckFnc(informer)
+			createConditionalFunc := staticcontrollercommon.NewIsSingleNodePlatformFn(informer)
 			if test.createConditionalFunc != nil {
 				createConditionalFunc = test.createConditionalFunc
 			}
@@ -560,7 +560,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		pdbGetter:               kubeClient.PolicyV1(),
 		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 		installerPodImageFn:     getInstallerPodImageFromEnv,
-		createConditionalFunc:   staticcontrollercommon.IsSNOCheckFnc(informer),
+		createConditionalFunc:   staticcontrollercommon.NewIsSingleNodePlatformFn(informer),
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())

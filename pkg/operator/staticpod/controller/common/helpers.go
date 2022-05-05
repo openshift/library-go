@@ -7,11 +7,14 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 )
 
-// IsSNOCheckFnc creates a function that checks if the topology is SNO
-// In case the err is nil, precheckSucceeded signifies whether the isSNO is valid.
-// If precheckSucceeded is false, the isSNO return value does not reflect the cluster topology
-// and defaults to the bool default value.
-func IsSNOCheckFnc(infraInformer configv1informers.InfrastructureInformer) func() (isSNO, precheckSucceeded bool, err error) {
+// NewIsSingleNodePlatformFn returns a function that checks if the cluster topology is single node (aka. SNO)
+// In case the err is nil, preconditionFulfilled indicates whether the isSNO is valid.
+// If preconditionFulfilled is false, the isSNO return value does not reflect the cluster topology and defaults to the bool default value.
+//
+// Note:
+// usually when preconditionFulfilled is false you should gate your controller as this means we were not able to
+// check the current topology
+func NewIsSingleNodePlatformFn(infraInformer configv1informers.InfrastructureInformer) func() (isSNO, preconditionFulfilled bool, err error) {
 	return func() (isSNO, precheckSucceeded bool, err error) {
 		if !infraInformer.Informer().HasSynced() {
 			// Do not return transient error
