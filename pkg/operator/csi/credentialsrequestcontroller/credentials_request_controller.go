@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorv1lister "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -47,7 +48,7 @@ func NewCredentialsRequestController(
 	manifest []byte,
 	dynamicClient dynamic.Interface,
 	operatorClient v1helpers.OperatorClientWithFinalizers,
-	operatorLister operatorv1lister.CloudCredentialLister,
+	operatorInformer operatorinformer.SharedInformerFactory,
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &CredentialsRequestController{
@@ -56,10 +57,11 @@ func NewCredentialsRequestController(
 		targetNamespace: targetNamespace,
 		manifest:        manifest,
 		dynamicClient:   dynamicClient,
-		operatorLister:  operatorLister,
+		operatorLister:  operatorInformer.Operator().V1().CloudCredentials().Lister(),
 	}
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
+		operatorInformer.Operator().V1().CloudCredentials().Informer(),
 	).WithSync(
 		c.sync,
 	).ResyncEvery(

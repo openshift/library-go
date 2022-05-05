@@ -121,8 +121,6 @@ func TestSync(t *testing.T) {
 			dynamicClient := &fakeDynamicClient{}
 			typedVersionedOperatorClient := fakeoperatorv1client.NewSimpleClientset(tc.cloudCredential)
 			cloudCredentialinformer := operatorinformer.NewSharedInformerFactory(typedVersionedOperatorClient, 1*time.Minute)
-			cloudCredentialLister := cloudCredentialinformer.Operator().V1().CloudCredentials().Lister()
-
 			// add object to the indexer
 			cloudCredentialinformer.Operator().V1().CloudCredentials().Informer().GetIndexer().Add(tc.cloudCredential)
 
@@ -139,7 +137,7 @@ func TestSync(t *testing.T) {
 				tc.manifest,
 				dynamicClient,
 				operatorClient,
-				cloudCredentialLister,
+				cloudCredentialinformer,
 				recorder,
 			)
 
