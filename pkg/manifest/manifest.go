@@ -171,10 +171,10 @@ func checkResourceEnablement(annotations map[string]string, capabilities *config
 	unknownCaps := make([]string, 0, numCaps)
 	disabledCaps := make([]string, 0, numCaps)
 
-	var isKnownCap bool = false
-	var isEnabledCap bool = false
-
 	for _, c := range caps {
+		var isKnownCap bool
+		var isEnabledCap bool
+
 		for _, knownCapability := range capabilities.KnownCapabilities {
 			if c == knownCapability {
 				isKnownCap = true
