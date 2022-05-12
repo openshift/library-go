@@ -66,7 +66,6 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"RotateKubeletServerCertificate=true",
 				"DownwardAPIHugePages=true",
 				"PodSecurity=true",
-				"CSIDriverAzureFile=true",
 				"CSIMigrationAWS=true",
 				"CSIMigrationGCE=true",
 				"CSIMigrationAzureFile=true",

@@ -16,9 +16,9 @@ require (
 	github.com/imdario/mergo v0.3.7
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0-rc1
-	github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
+	github.com/openshift/api v0.0.0-20220504105152-6f735e7109c8
 	github.com/openshift/build-machinery-go v0.0.0-20211213093930-7e33a7eb4ce3
-	github.com/openshift/client-go v0.0.0-20211209144617-7385dd6338e3
+	github.com/openshift/client-go v0.0.0-20220504114320-6aec01bb0754
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.11.1
@@ -29,7 +29,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/ldap.v2 v2.5.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -106,10 +106,10 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.0 // indirect
-	golang.org/x/net v0.0.0-20210825183410-e898025ed96a // indirect
-	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
