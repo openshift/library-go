@@ -1283,3 +1283,174 @@ func TestSyncPartialSync(t *testing.T) {
 		})
 	}
 }
+
+func withSpecHash(srv *corev1.Service) *corev1.Service {
+	ret := srv.DeepCopy()
+	SetSpecHashAnnotation(&ret.ObjectMeta, ret.Spec)
+	return ret
+}
+
+func TestApplyService(t *testing.T) {
+	srv1Port := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "srv",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "port1",
+					Port: 80,
+				},
+			},
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+	}
+
+	// srv1Port where user changed type without changing spec hash
+	userChangedSrv1Type := withSpecHash(srv1Port)
+	userChangedSrv1Type.Spec.Type = corev1.ServiceTypeClusterIP
+	// srv1Port where user changed an untracked field without changing spec hash
+	userChangedSrv1Untracked := withSpecHash(srv1Port)
+	userChangedSrv1Untracked.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+
+	srv2Ports := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "srv",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "port1",
+					Port: 80,
+				},
+				{
+					Name: "port2",
+					Port: 443,
+				},
+			},
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+	}
+
+	tt := []struct {
+		name             string
+		existingObjects  []runtime.Object
+		input            *corev1.Service
+		expectedModified bool
+		verifyActions    func(actions []clienttesting.Action, t *testing.T)
+	}{
+		{
+			name:             "create when missing",
+			existingObjects:  nil,
+			input:            srv1Port,
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "services") || actions[0].(clienttesting.GetAction).GetName() != "srv" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("create", "services") {
+					t.Error(spew.Sdump(actions))
+				}
+
+				expected := withSpecHash(srv1Port)
+				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Service)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name:             "update when caller wants to change spec",
+			existingObjects:  []runtime.Object{withSpecHash(srv1Port)},
+			input:            srv2Ports,
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "services") || actions[0].(clienttesting.GetAction).GetName() != "srv" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "services") {
+					t.Error(spew.Sdump(actions))
+				}
+
+				expected := withSpecHash(srv2Ports)
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Service)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name:             "no update when nothing changes",
+			existingObjects:  []runtime.Object{withSpecHash(srv1Port)},
+			input:            srv1Port,
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "services") || actions[0].(clienttesting.GetAction).GetName() != "srv" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name:             "overwrite when user changes type",
+			existingObjects:  []runtime.Object{userChangedSrv1Type},
+			input:            withSpecHash(srv1Port),
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "services") || actions[0].(clienttesting.GetAction).GetName() != "srv" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "services") {
+					t.Error(spew.Sdump(actions))
+				}
+
+				expected := withSpecHash(srv1Port)
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Service)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name:             "no overwrite when user changes an untracked field",
+			existingObjects:  []runtime.Object{userChangedSrv1Untracked},
+			input:            withSpecHash(srv1Port),
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "services") || actions[0].(clienttesting.GetAction).GetName() != "srv" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(test.existingObjects...)
+			_, actualModified, err := ApplyService(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.expectedModified != actualModified {
+				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
+			}
+			test.verifyActions(client.Actions(), t)
+		})
+	}
+}
