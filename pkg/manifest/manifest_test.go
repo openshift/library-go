@@ -691,16 +691,14 @@ func Test_include(t *testing.T) {
 			expected:    fmt.Errorf("no annotations"),
 		},
 		{
-			name:    "unrecognized capability annotaton",
-			profile: &defaultClusterProfile,
+			name: "unrecognized capability annotaton",
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
 			expected: nil,
 		},
 		{
-			name:    "disabled capability works",
-			profile: &defaultClusterProfile,
+			name: "disabled capability",
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
@@ -710,14 +708,45 @@ func Test_include(t *testing.T) {
 			expected: fmt.Errorf("disabled capabilities: cap1"),
 		},
 		{
-			name:    "enabled capability works",
-			profile: &defaultClusterProfile,
+			name: "enabled capability",
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				CapabilityAnnotation: "cap1"},
 			caps: &configv1.ClusterVersionCapabilitiesStatus{
 				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
 				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+		},
+		{
+			name: "multiple capabilities, 1 unknown",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2"},
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap3"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap3"},
+			},
+			expected: fmt.Errorf("unrecognized capability names: cap2"),
+		},
+		{
+			name: "multiple capabilities, 1 disabled",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2"},
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2", "cap3"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap3"},
+			},
+			expected: fmt.Errorf("disabled capabilities: cap2"),
+		},
+		{
+			name: "multiple capabilities, all enabled",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2+cap3"},
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2", "cap3"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap2", "cap3"},
 			},
 		},
 		{
