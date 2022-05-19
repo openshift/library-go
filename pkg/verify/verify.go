@@ -210,9 +210,8 @@ func (v *releaseVerifier) Verify(ctx context.Context, releaseDigest string) erro
 		return len(remaining) == 0, nil
 	})
 	if err != nil {
-		klog.V(4).Infof("Failed to retrieve signatures for %s (should never happen)", releaseDigest)
-		errs = append(errs, err)
-		return err
+		klog.V(4).Infof("Failed to retrieve signatures for %s: %v", releaseDigest, err)
+		errs = append(errs, fmt.Errorf("%s: %w", time.Now().Format(time.RFC3339), err))
 	}
 
 	if len(remaining) > 0 {
