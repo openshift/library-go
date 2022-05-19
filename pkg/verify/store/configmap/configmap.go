@@ -84,8 +84,8 @@ func (s *Store) mostRecentConfigMaps() []corev1.ConfigMap {
 	return s.last
 }
 
-// Signatures returns a list of signatures that match the request
-// digest out of config maps labelled with ReleaseLabelConfigMap in the
+// Signatures fetches signatures for the provided digest
+// out of config maps labelled with ReleaseLabelConfigMap in the
 // NamespaceLabelConfigMap namespace.
 func (s *Store) Signatures(ctx context.Context, name string, digest string, fn store.Callback) error {
 	// avoid repeatedly reloading config maps
