@@ -122,6 +122,12 @@ func (s *Store) Signatures(ctx context.Context, name string, digest string, fn s
 				}
 			}
 		}
+		if done, err := fn(ctx, nil, fmt.Errorf("prefix %s in config map %s: %w", prefix, cm.ObjectMeta.Name, store.ErrNotFound)); err != nil || done {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

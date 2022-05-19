@@ -74,7 +74,9 @@ func TestStore(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			signatures := []string{}
 			err := serial.Signatures(ctx, "name", "sha256:123", func(ctx context.Context, signature []byte, errIn error) (done bool, err error) {
-				if errIn != nil {
+				if errors.Is(errIn, store.ErrNotFound) {
+					return false, nil
+				} else if errIn != nil {
 					return false, errIn
 				}
 				signatures = append(signatures, string(signature))
