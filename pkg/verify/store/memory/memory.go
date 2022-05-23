@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift/library-go/pkg/verify/store"
 )
@@ -26,7 +27,8 @@ func (s *Store) Signatures(ctx context.Context, name string, digest string, fn s
 		}
 	}
 
-	return nil
+	_, err := fn(ctx, nil, fmt.Errorf("%s %s: %w", s.String(), digest, store.ErrNotFound))
+	return err
 }
 
 // String returns a description of where this store finds

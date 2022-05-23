@@ -3,12 +3,15 @@ package sigstore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
 	"regexp"
 	"testing"
+
+	"github.com/openshift/library-go/pkg/verify/store"
 )
 
 // RoundTripper implements http.RoundTripper in memory.
@@ -113,7 +116,9 @@ func TestStore(t *testing.T) {
 
 			var signatures []string
 			err := sigstore.Signatures(ctx, "name", "sha256:123", func(ctx context.Context, signature []byte, errIn error) (done bool, err error) {
-				if errIn != nil {
+				if errors.Is(errIn, store.ErrNotFound) {
+					return false, nil
+				} else if errIn != nil {
 					return false, errIn
 				}
 				signatures = append(signatures, string(signature))
