@@ -83,18 +83,14 @@ func multiScenarioLatencyProfilesTest(t *testing.T, observeFn configobserver.Obs
 	}
 }
 
-func alwaysFalse() (bool, error) {
-	return false, nil
-}
-
 func TestCreateLatencyProfileObserverKAS(t *testing.T) {
-	kasoObserveLatencyProfile := NewLatencyProfileObserver(kasLatencyConfigs, alwaysFalse)
+	kasoObserveLatencyProfile := NewLatencyProfileObserver(kasLatencyConfigs, nil)
 
 	scenarios := []workerLatencyProfileTestScenario{
 		// scenario 1: empty worker latency profile
 		{
 			name:                   "default value is not applied when worker latency profile is unset",
-			expectedObservedConfig: nil,
+			expectedObservedConfig: map[string]interface{}{},
 			workerLatencyProfile:   "", // empty worker latency profile
 		},
 
@@ -133,18 +129,68 @@ func TestCreateLatencyProfileObserverKAS(t *testing.T) {
 			},
 			workerLatencyProfile: configv1.LowUpdateSlowReaction,
 		},
+
+		// scenario 5: unknown worker latency profile
+		{
+			name: "unknown worker latency profile should retain existing config",
+
+			// in this case where we encounter an unknown value for WorkerLatencyProfile,
+			// existing config should the same as expected config, because in case
+			// an invalid profile is found we'd like to stick to whatever was set last time
+			// and not update any config to avoid breaking anything
+			existingConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{"300"},
+					"default-unreachable-toleration-seconds": []interface{}{"300"},
+				},
+			},
+			expectedObservedConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{"300"},
+					"default-unreachable-toleration-seconds": []interface{}{"300"},
+				},
+			},
+
+			workerLatencyProfile: "UnknownProfile",
+		},
+
+		// scenario 6: Update worker latency profile from MediumUpdateAverageReaction to Empty
+		{
+			name: "worker latency profile update from MediumUpdateAverageReaction to Empty profile: config with empty values",
+			existingConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{"60"},
+					"default-unreachable-toleration-seconds": []interface{}{"60"},
+				},
+			},
+			expectedObservedConfig: map[string]interface{}{},
+			workerLatencyProfile:   "",
+		},
+
+		// scenario 7: Update worker latency profile from Default to Empty
+		{
+			name: "worker latency profile update from Default to Empty profile: config with empty values",
+			existingConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{"300"},
+					"default-unreachable-toleration-seconds": []interface{}{"300"},
+				},
+			},
+			expectedObservedConfig: map[string]interface{}{},
+			workerLatencyProfile:   "",
+		},
 	}
 	multiScenarioLatencyProfilesTest(t, kasoObserveLatencyProfile, scenarios)
 }
 
 func TestCreateLatencyProfileObserverKCM(t *testing.T) {
-	kcmoObserveLatencyProfile := NewLatencyProfileObserver(kcmLatencyConfigs, alwaysFalse)
+	kcmoObserveLatencyProfile := NewLatencyProfileObserver(kcmLatencyConfigs, nil)
 
 	scenarios := []workerLatencyProfileTestScenario{
 		// scenario 1: empty worker latency profile
 		{
 			name:                   "default value is not applied when worker latency profile is unset",
-			expectedObservedConfig: nil,
+			expectedObservedConfig: map[string]interface{}{},
 			workerLatencyProfile:   "", // empty worker latency profile
 		},
 
@@ -201,6 +247,30 @@ func TestCreateLatencyProfileObserverKCM(t *testing.T) {
 			},
 
 			workerLatencyProfile: "UnknownProfile",
+		},
+
+		// scenario 6: Update worker latency profile from MediumUpdateAverageReaction to Empty
+		{
+			name: "worker latency profile update from MediumUpdateAverageReaction to Empty profile: config with empty values",
+			existingConfig: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []interface{}{"2m0s"},
+				},
+			},
+			expectedObservedConfig: map[string]interface{}{},
+			workerLatencyProfile:   "",
+		},
+
+		// scenario 7: Update worker latency profile from Default to Empty
+		{
+			name: "worker latency profile update from Default to Empty profile: config with empty values",
+			existingConfig: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []interface{}{"40s"},
+				},
+			},
+			expectedObservedConfig: map[string]interface{}{},
+			workerLatencyProfile:   "",
 		},
 	}
 

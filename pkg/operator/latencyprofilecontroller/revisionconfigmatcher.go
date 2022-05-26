@@ -19,6 +19,10 @@ const (
 	// configs across different revisions
 	revisionConfigMapName = "config"
 	revisionConfigMapKey  = "config.yaml"
+
+	revisionZeroMessage           = "one or more static pod(s) are at revision 0 and updating latency profile"
+	revisionsHaveSyncedMessage    = "all static pod revision(s) have updated latency profile"
+	revisionsHaveNotSyncedMessage = "one or more static pod revision(s) are updating latency profile"
 )
 
 type revisionConfigMatcher struct {
@@ -41,41 +45,42 @@ func NewInstallerRevisionConfigMatcher(
 	return ret.matchProfileForActiveRevisions
 }
 
-func (r *revisionConfigMatcher) matchProfileForActiveRevisions(profile configv1.WorkerLatencyProfileType, activeRevisions []int32) (match bool, err error) {
+func (r *revisionConfigMatcher) matchProfileForActiveRevisions(profile configv1.WorkerLatencyProfileType, activeRevisions []int32) (match bool, syncMsg string, err error) {
+	if nodeobserver.IsDayZero(activeRevisions) {
+		return false, revisionZeroMessage, nil
+	}
+
 	// For each revision, check that the configmap for that revision have correct arg val pairs or not
 	for _, revision := range activeRevisions {
+		if revision == 0 {
+			// avoids error "config-0" config map not found
+			// and when even when all non-zero revisions have completed profile
+			// due to any of current revisions being 0, we could say not completed and progressing
+			return false, revisionZeroMessage, nil
+		}
+
 		configMapNameWithRevision := fmt.Sprintf("%s-%d", revisionConfigMapName, revision)
 		configMap, err := r.configMapLister.Get(configMapNameWithRevision)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		match, err := r.configMatchProfileArguments(configMap, profile)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 		// in case a single revision doesn't match return false
 		if !match {
-			return false, nil
+			return false, revisionsHaveNotSyncedMessage, nil
 		}
 	}
-	return true, nil
+	return true, revisionsHaveSyncedMessage, nil
 }
 
 func (r *revisionConfigMatcher) configMatchProfileArguments(
 	configMap *corev1.ConfigMap,
 	currentProfile configv1.WorkerLatencyProfileType,
 ) (bool, error) {
-
-	configData, ok := configMap.Data[revisionConfigMapKey]
-	if !ok {
-		return false, fmt.Errorf("could not find %s in %s config map from %s namespace", revisionConfigMapKey, configMap.Name, configMap.Namespace)
-	}
-
-	var currentConfig map[string]interface{}
-	if err := json.Unmarshal([]byte(configData), &currentConfig); err != nil {
-		return false, err
-	}
 
 	// set the desiredConfig with expected values
 	// also, use the same loop to get a list of configPaths that could be used for pruning
@@ -101,8 +106,10 @@ func (r *revisionConfigMatcher) configMatchProfileArguments(
 		usedConfigPaths[i] = latencyConfig.ConfigPath
 	}
 
-	// prune currently observed config to get an object that only has arg val pairs that we like to monitor
-	currentConfigPruned := configobserver.Pruned(currentConfig, usedConfigPaths...)
+	currentConfigPruned, err := getPrunedConfigFromConfigMap(configMap, usedConfigPaths)
+	if err != nil {
+		return false, err
+	}
 
 	// desired and current config does match
 	if reflect.DeepEqual(currentConfigPruned, desiredConfig) {
@@ -111,4 +118,20 @@ func (r *revisionConfigMatcher) configMatchProfileArguments(
 
 	// desired and current config does not match
 	return false, nil
+}
+
+func getPrunedConfigFromConfigMap(configMap *corev1.ConfigMap, configPathsToPrune [][]string) (map[string]interface{}, error) {
+	configData, ok := configMap.Data[revisionConfigMapKey]
+	if !ok {
+		return nil, fmt.Errorf("could not find %s in %s config map from %s namespace", revisionConfigMapKey, configMap.Name, configMap.Namespace)
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(configData), &config); err != nil {
+		return nil, err
+	}
+
+	// prune currently attained config to get an object that only has arg val pairs that we like to monitor
+	configPruned := configobserver.Pruned(config, configPathsToPrune...)
+	return configPruned, nil
 }
