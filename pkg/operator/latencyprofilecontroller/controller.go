@@ -5,14 +5,12 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	listersv1 "k8s.io/client-go/listers/core/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	listerv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	nodeobserver "github.com/openshift/library-go/pkg/operator/configobserver/node"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -44,16 +42,13 @@ type MatchProfileRevisionConfigsFunc func(profile configv1.WorkerLatencyProfileT
 type LatencyProfileController struct {
 	operatorClient   v1helpers.StaticPodOperatorClient
 	targetNamespace  string
-	configMapLister  listersv1.ConfigMapNamespaceLister
 	configNodeLister listerv1.NodeLister
-	latencyConfigs   []nodeobserver.LatencyConfigProfileTuple
 	matchRevisionsFn MatchProfileRevisionConfigsFunc
 }
 
 func NewLatencyProfileController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	targetNamespace string,
-	latencyConfigs []nodeobserver.LatencyConfigProfileTuple,
 	matchRevisionsFn MatchProfileRevisionConfigsFunc,
 	nodeInformer configv1informers.NodeInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -63,9 +58,7 @@ func NewLatencyProfileController(
 	ret := &LatencyProfileController{
 		operatorClient:   operatorClient,
 		targetNamespace:  targetNamespace,
-		latencyConfigs:   latencyConfigs,
 		matchRevisionsFn: matchRevisionsFn,
-		configMapLister:  kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(targetNamespace),
 		configNodeLister: nodeInformer.Lister(),
 	}
 
