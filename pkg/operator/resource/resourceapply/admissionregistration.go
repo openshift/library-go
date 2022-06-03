@@ -75,6 +75,11 @@ func ApplyMutatingWebhookConfigurationImproved(ctx context.Context, client admis
 	return actual, true, nil
 }
 
+func ApplyMutatingWebhookConfiguration(ctx context.Context, client admissionregistrationclientv1.MutatingWebhookConfigurationsGetter, recorder events.Recorder,
+	requiredOriginal *admissionregistrationv1.MutatingWebhookConfiguration) (*admissionregistrationv1.MutatingWebhookConfiguration, bool, error) {
+	return ApplyMutatingWebhookConfigurationImproved(ctx, client, recorder, requiredOriginal, noCache)
+}
+
 // copyMutatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource if it was set before
 // and is not set in present. This provides upgrade compatibility with service-ca-bundle operator.
 func copyMutatingWebhookCABundle(from, to *admissionregistrationv1.MutatingWebhookConfiguration) {
@@ -148,6 +153,11 @@ func ApplyValidatingWebhookConfigurationImproved(ctx context.Context, client adm
 	// need to store the original so that the early comparison of hashes is done based on the original, not a mutated copy
 	cache.UpdateCachedResourceMetadata(requiredOriginal, actual)
 	return actual, true, nil
+}
+
+func ApplyValidatingWebhookConfiguration(ctx context.Context, client admissionregistrationclientv1.ValidatingWebhookConfigurationsGetter, recorder events.Recorder,
+	requiredOriginal *admissionregistrationv1.ValidatingWebhookConfiguration, cache ResourceCache) (*admissionregistrationv1.ValidatingWebhookConfiguration, bool, error) {
+	return ApplyValidatingWebhookConfigurationImproved(ctx, client, recorder, requiredOriginal, noCache)
 }
 
 // copyValidatingWebhookCABundle populates webhooks[].clientConfig.caBundle fields from existing resource if it was set before
