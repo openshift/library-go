@@ -1,7 +1,7 @@
 package versioning
 
 import (
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 )
 
 type VersionRange interface {

@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/RangelReale/osincli v0.0.0-20160924135400-fababb0555f2
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
 	github.com/evanphx/json-patch v4.12.0+incompatible
@@ -52,7 +52,6 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
