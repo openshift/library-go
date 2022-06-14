@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"time"
 
-	"gopkg.in/ldap.v2"
+	"github.com/go-ldap/ldap/v3"
 )
 
 // Fake is a mock client for an LDAP server
@@ -13,6 +13,7 @@ import (
 // method, if you are not covering all method calls with your override, defer to the parent for handling.
 type Fake struct {
 	SimpleBindResponse     *ldap.SimpleBindResult
+	ModifyResponse         *ldap.ModifyResult
 	PasswordModifyResponse *ldap.PasswordModifyResult
 	SearchResponse         *ldap.SearchResult
 }
@@ -23,6 +24,9 @@ var _ ldap.Client = &Fake{}
 func New() *Fake {
 	return &Fake{
 		SimpleBindResponse: &ldap.SimpleBindResult{
+			Controls: []ldap.Control{},
+		},
+		ModifyResponse: &ldap.ModifyResult{
 			Controls: []ldap.Control{},
 		},
 		PasswordModifyResponse: &ldap.PasswordModifyResult{
@@ -51,14 +55,29 @@ func (c *Fake) Close() {
 	return
 }
 
+// IsClosing returns whether or not we're currently closing
+func (c *Fake) IsClosing() bool {
+	return false
+}
+
 // Bind binds to the LDAP server with a bind DN and password
 func (c *Fake) Bind(username, password string) error {
+	return nil
+}
+
+// UnauthenticatedBind binds to the LDAP server without a password
+func (c *Fake) UnauthenticatedBind(username string) error {
 	return nil
 }
 
 // SimpleBind binds to the LDAP server using the Simple Bind mechanism
 func (c *Fake) SimpleBind(simpleBindRequest *ldap.SimpleBindRequest) (*ldap.SimpleBindResult, error) {
 	return c.SimpleBindResponse, nil
+}
+
+// ExternalBind binds to the LDAP server using the External Bind mechanism
+func (c *Fake) ExternalBind() error {
+	return nil
 }
 
 // Add forwards an addition request to the LDAP server
@@ -74,6 +93,16 @@ func (c *Fake) Del(delRequest *ldap.DelRequest) error {
 // Modify forwards a modification request to the LDAP server
 func (c *Fake) Modify(modifyRequest *ldap.ModifyRequest) error {
 	return nil
+}
+
+// ModifyDN holds the request to modify a DN
+func (c *Fake) ModifyDN(modifyDNRequest *ldap.ModifyDNRequest) error {
+	return nil
+}
+
+// ModifyWithResult holds the request to modify a DN
+func (c *Fake) ModifyWithResult(modifyDNRequest *ldap.ModifyRequest) (*ldap.ModifyResult, error) {
+	return c.ModifyResponse, nil
 }
 
 // Compare ... ?
