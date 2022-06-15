@@ -2,6 +2,8 @@ package csistorageclasscontroller
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -17,7 +19,6 @@ import (
 	v1 "k8s.io/client-go/informers/storage/v1"
 	"k8s.io/client-go/kubernetes"
 	fakecore "k8s.io/client-go/kubernetes/fake"
-	"testing"
 )
 
 const (
@@ -28,6 +29,7 @@ const (
 type testCase struct {
 	name              string
 	initialObjects    testObjects
+	hooks             []StorageClassHookFunc
 	expectedObjects   testObjects
 	appliedAnnotation string
 	expectErr         bool
@@ -122,6 +124,13 @@ func fakeAssetFuncToScObject(assetFunc func(string) ([]byte, error)) *storagev1.
 	return storageClassObject
 }
 
+func withAnnotations(sc *storagev1.StorageClass, keysAndValues ...string) *storagev1.StorageClass {
+	for i := 0; i < len(keysAndValues); i += 2 {
+		metav1.SetMetaDataAnnotation(&sc.ObjectMeta, keysAndValues[i], keysAndValues[i+1])
+	}
+	return sc
+}
+
 type driverModifier func(*fakeDriverInstance) *fakeDriverInstance
 
 func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
@@ -170,6 +179,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		coreInformerFactory,
 		fakeOperatorClient,
 		events.NewInMemoryRecorder(operandName),
+		test.hooks...,
 	)
 
 	return &testContext{
@@ -364,6 +374,31 @@ func TestSync(t *testing.T) {
 					makeFakeScInstance("test-sc", "true"),
 					makeFakeScInstance("test-sc-2", "false"),
 					fakeAssetFuncToScObject(fakeAssetFuncFactory("")),
+				},
+			},
+		},
+		{
+			name: "execute hooks",
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+			hooks: []StorageClassHookFunc{
+				// Two hooks that add an annotation.
+				func(spec *opv1.OperatorSpec, class *storagev1.StorageClass) error {
+					metav1.SetMetaDataAnnotation(&class.ObjectMeta, "test1", "value1")
+					return nil
+				},
+				func(spec *opv1.OperatorSpec, class *storagev1.StorageClass) error {
+					metav1.SetMetaDataAnnotation(&class.ObjectMeta, "test2", "value2")
+					return nil
+				},
+			},
+			appliedAnnotation: "false",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					withAnnotations(
+						fakeAssetFuncToScObject(fakeAssetFuncFactory("false")),
+						"test1", "value1", "test2", "value2"),
 				},
 			},
 		},

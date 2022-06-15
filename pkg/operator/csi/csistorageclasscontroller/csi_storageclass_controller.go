@@ -2,23 +2,29 @@ package csistorageclasscontroller
 
 import (
 	"context"
+	"fmt"
+	"time"
+
 	operatorapi "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/listers/storage/v1"
 	"k8s.io/klog/v2"
-	"time"
 )
 
 const (
 	defaultScAnnotationKey = "storageclass.kubernetes.io/is-default-class"
 )
+
+// StorageClassHookFunc is a hook function to modify a StorageClass.
+type StorageClassHookFunc func(*operatorapi.OperatorSpec, *storagev1.StorageClass) error
 
 // This Controller deploys a StorageClass provided by CSI driver operator
 // and decides if this StorageClass should be applied as default - if requested.
@@ -41,6 +47,11 @@ type CSIStorageClassController struct {
 	storageClassLister v1.StorageClassLister
 	operatorClient     v1helpers.OperatorClient
 	eventRecorder      events.Recorder
+	// Optional hook functions to modify the StorageClass.
+	// If one of these functions returns an error, the sync
+	// fails indicating the ordinal position of the failed function.
+	// Also, in that scenario the Degraded status is set to True.
+	optionalStorageClassHooks []StorageClassHookFunc
 }
 
 func NewCSIStorageClassController(
@@ -50,15 +61,17 @@ func NewCSIStorageClassController(
 	kubeClient kubernetes.Interface,
 	informerFactory informers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
-	eventRecorder events.Recorder) factory.Controller {
+	eventRecorder events.Recorder,
+	optionalStorageClassHooks ...StorageClassHookFunc) factory.Controller {
 	c := &CSIStorageClassController{
-		name:               name,
-		assetFunc:          assetFunc,
-		file:               file,
-		kubeClient:         kubeClient,
-		storageClassLister: informerFactory.Storage().V1().StorageClasses().Lister(),
-		operatorClient:     operatorClient,
-		eventRecorder:      eventRecorder,
+		name:                      name,
+		assetFunc:                 assetFunc,
+		file:                      file,
+		kubeClient:                kubeClient,
+		storageClassLister:        informerFactory.Storage().V1().StorageClasses().Lister(),
+		operatorClient:            operatorClient,
+		eventRecorder:             eventRecorder,
+		optionalStorageClassHooks: optionalStorageClassHooks,
 	}
 
 	return factory.New().WithSync(
@@ -88,18 +101,25 @@ func (c *CSIStorageClassController) Sync(ctx context.Context, syncCtx factory.Sy
 		return nil
 	}
 
-	syncErr := c.syncStorageClass(ctx)
+	syncErr := c.syncStorageClass(ctx, opSpec)
 
 	return syncErr
 }
 
-func (c *CSIStorageClassController) syncStorageClass(ctx context.Context) error {
+func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec *operatorapi.OperatorSpec) error {
 	expectedScBytes, err := c.assetFunc(c.file)
 	if err != nil {
 		return err
 	}
 
 	expectedSC := resourceread.ReadStorageClassV1OrDie(expectedScBytes)
+
+	for i := range c.optionalStorageClassHooks {
+		err := c.optionalStorageClassHooks[i](opSpec, expectedSC)
+		if err != nil {
+			return fmt.Errorf("error running hook function (index=%d): %w", i, err)
+		}
+	}
 
 	existingSCs, err := c.storageClassLister.List(labels.Everything())
 	if err != nil {
