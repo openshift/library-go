@@ -2,33 +2,37 @@ package latencyprofilecontroller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	listersv1 "k8s.io/client-go/listers/core/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	listerv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	nodeobserver "github.com/openshift/library-go/pkg/operator/configobserver/node"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
 	// set of reasons used for updating status
-	reasonLatencyProfileUpdated         = "ProfileUpdated"
-	reasonLatencyProfileUpdateTriggered = "ProfileUpdateTriggered"
-	reasonLatencyProfileEmpty           = "ProfileEmpty"
+	reasonLatencyProfileUpdated          = "ProfileUpdated"
+	reasonLatencyProfileUpdateTriggered  = "ProfileUpdateTriggered"
+	reasonLatencyProfileEmpty            = "ProfileEmpty"
+	reasonLatencyProfileUpdateProhibited = "ProfileUpdateProhibited"
 
-	// prefix used with status types
+	// different status types
 	workerLatencyProfileProgressing = "WorkerLatencyProfileProgressing"
 	workerLatencyProfileComplete    = "WorkerLatencyProfileComplete"
 )
 
-type MatchProfileRevisionConfigsFunc func(profile configv1.WorkerLatencyProfileType, revisions []int32) (match bool, err error)
+type MatchProfileRevisionConfigsFunc func(profile configv1.WorkerLatencyProfileType, revisions []int32) (match bool, revisionsHaveSyncedMessage string, err error)
+type CheckProfileRejectionFunc func(
+	desiredProfile configv1.WorkerLatencyProfileType,
+	currentRevisions []int32,
+) (isRejected bool, rejectMsg string, err error)
 
 // LatencyProfileController either instantly via the informers
 // or periodically via resync, lists the config/v1/node object
@@ -40,20 +44,18 @@ type MatchProfileRevisionConfigsFunc func(profile configv1.WorkerLatencyProfileT
 // Note: In case new latency profiles are added in the future in openshift/api
 // this could break cluster upgrades and set this controller into degraded state
 // because of an "unknown latency profile" error.
-
 type LatencyProfileController struct {
-	operatorClient   v1helpers.StaticPodOperatorClient
-	targetNamespace  string
-	configMapLister  listersv1.ConfigMapNamespaceLister
-	configNodeLister listerv1.NodeLister
-	latencyConfigs   []nodeobserver.LatencyConfigProfileTuple
-	matchRevisionsFn MatchProfileRevisionConfigsFunc
+	operatorClient          v1helpers.StaticPodOperatorClient
+	targetNamespace         string
+	configNodeLister        listerv1.NodeLister
+	checkProfileRejectionFn CheckProfileRejectionFunc
+	matchRevisionsFn        MatchProfileRevisionConfigsFunc
 }
 
 func NewLatencyProfileController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	targetNamespace string,
-	latencyConfigs []nodeobserver.LatencyConfigProfileTuple,
+	checkProfileRejectionFn CheckProfileRejectionFunc,
 	matchRevisionsFn MatchProfileRevisionConfigsFunc,
 	nodeInformer configv1informers.NodeInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -61,12 +63,11 @@ func NewLatencyProfileController(
 ) factory.Controller {
 
 	ret := &LatencyProfileController{
-		operatorClient:   operatorClient,
-		targetNamespace:  targetNamespace,
-		latencyConfigs:   latencyConfigs,
-		matchRevisionsFn: matchRevisionsFn,
-		configMapLister:  kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(targetNamespace),
-		configNodeLister: nodeInformer.Lister(),
+		operatorClient:          operatorClient,
+		targetNamespace:         targetNamespace,
+		checkProfileRejectionFn: checkProfileRejectionFn,
+		matchRevisionsFn:        matchRevisionsFn,
+		configNodeLister:        nodeInformer.Lister(),
 	}
 
 	return factory.New().WithInformers(
@@ -89,18 +90,17 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 	// Collect the current latency profile
 	configNodeObj, err := c.configNodeLister.Get("cluster")
 
-	// if config/v1/node/cluster object is not found this controller should do nothing
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
 
-	// in case of empty workerlatency profile, set status Complete=False and pre-empt sync
-	if apierrors.IsNotFound(err) || configNodeObj.Spec.WorkerLatencyProfile == "" {
+		// in case config/v1/node/cluster object doesn't exist
 		_, err = c.updateStatus(
 			ctx,
 			false, true, // not progressing, complete=True
 			reasonLatencyProfileEmpty,
-			"latency profile not set on cluster",
+			"nodes.config.openshift.io/cluster object was not found on the cluster",
 		)
 		return err
 	}
@@ -121,8 +121,49 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 		}
 	}
 
+	// In case a checkProfileRejection func was used, status will be updated accordingly
+	// ("" profile is also default profile, so "" -> anotherProfile: rejection can be handled)
+	if c.checkProfileRejectionFn != nil {
+		isRejected, rejectMsg, err := c.checkProfileRejectionFn(configNodeObj.Spec.WorkerLatencyProfile, uniqueRevisions)
+		if err != nil {
+			return err
+		}
+		// if profile transition is rejected, set status to progress=False, complete=False
+		// and degrade operator with suitable error message
+		if isRejected {
+			_, err = c.updateStatus(
+				ctx,
+				false, false, // not progressing, not complete
+				reasonLatencyProfileUpdateProhibited,
+				"",
+			)
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf(rejectMsg)
+		}
+	}
+
+	// in case profile was not rejected and,
+	// in case of empty workerlatency profile, set status Complete=False and pre-empt sync;
+	// Note: There's a very low amount of risk involved with this, we might end up skipping a
+	// Progress status when user tries to go from Medium -> "", but that's the only risk.
+	// Apart from that at all times we could ideally expect the profile value to be empty only
+	// for clusters that do not use the worker latency profile feature at all,
+	// also since this is a non-GA feature having a no-op case with profile empty would make sense.
+	// TODO: we should change this behavior in the future before Worker Latency Profiles feature is GA.
+	if configNodeObj.Spec.WorkerLatencyProfile == "" {
+		_, err = c.updateStatus(
+			ctx,
+			false, true, // not progressing, complete=True
+			reasonLatencyProfileEmpty,
+			"latency profile not set on cluster",
+		)
+		return err
+	}
+
 	// For each revision, check that the configmap for that revision have correct arg val pairs or not
-	revisionsHaveSynced, err := c.matchRevisionsFn(configNodeObj.Spec.WorkerLatencyProfile, uniqueRevisions)
+	revisionsHaveSynced, syncMsg, err := c.matchRevisionsFn(configNodeObj.Spec.WorkerLatencyProfile, uniqueRevisions)
 	if err != nil {
 		return err
 	}
@@ -132,14 +173,14 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 			ctx,
 			false, true, // not progressing, complete=True
 			reasonLatencyProfileUpdated,
-			"all static pod revision(s) have updated latency profile",
+			syncMsg,
 		)
 	} else {
 		_, err = c.updateStatus(
 			ctx,
 			true, false, // progressing=True, not complete
 			reasonLatencyProfileUpdateTriggered,
-			"one or more static pod revision(s) are updating latency profile",
+			syncMsg,
 		)
 	}
 	return err
@@ -148,25 +189,21 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 func (c *LatencyProfileController) updateStatus(ctx context.Context, isProgressing, isComplete bool, reason, message string) (bool, error) {
 	progressingCondition := operatorv1.OperatorCondition{
 		Type:   workerLatencyProfileProgressing,
-		Status: operatorv1.ConditionUnknown,
+		Status: operatorv1.ConditionFalse,
 		Reason: reason,
 	}
 	completedCondition := operatorv1.OperatorCondition{
 		Type:   workerLatencyProfileComplete,
-		Status: operatorv1.ConditionUnknown,
+		Status: operatorv1.ConditionFalse,
 		Reason: reason,
 	}
 
 	if isProgressing {
 		progressingCondition.Status = operatorv1.ConditionTrue
 		progressingCondition.Message = message
-
-		completedCondition.Status = operatorv1.ConditionFalse
 	} else if isComplete {
 		completedCondition.Status = operatorv1.ConditionTrue
 		completedCondition.Message = message
-
-		progressingCondition.Status = operatorv1.ConditionFalse
 	}
 
 	_, isUpdated, err := v1helpers.UpdateStatus(

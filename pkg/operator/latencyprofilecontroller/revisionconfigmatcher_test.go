@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,24 +17,25 @@ import (
 	nodeobserver "github.com/openshift/library-go/pkg/operator/configobserver/node"
 )
 
-func TestConfigMatchesControllerManagerArgument(t *testing.T) {
-	createConfigMapFromObservedConfig := func(
-		configMapName, configMapNamespace string,
-		observedConfig map[string]interface{},
-	) (configMap corev1.ConfigMap) {
+func createConfigMapFromObservedConfig(
+	t *testing.T,
+	configMapName, configMapNamespace string,
+	observedConfig map[string]interface{},
+) (configMap corev1.ConfigMap) {
 
-		configAsJsonBytes, err := json.MarshalIndent(observedConfig, "", "")
-		require.NoError(t, err)
+	configAsJsonBytes, err := json.MarshalIndent(observedConfig, "", "")
+	require.NoError(t, err)
 
-		configMap = corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: configMapNamespace},
-			Data: map[string]string{
-				revisionConfigMapKey: string(configAsJsonBytes),
-			},
-		}
-		return configMap
+	configMap = corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: configMapNamespace},
+		Data: map[string]string{
+			revisionConfigMapKey: string(configAsJsonBytes),
+		},
 	}
+	return configMap
+}
 
+func TestConfigMatchesControllerManagerArgument(t *testing.T) {
 	observedConfigs := []map[string]interface{}{
 		// config 1
 		{
@@ -65,6 +67,7 @@ func TestConfigMatchesControllerManagerArgument(t *testing.T) {
 	configMaps := make([]corev1.ConfigMap, len(observedConfigs))
 	for i, observedConfig := range observedConfigs {
 		configMaps[i] = createConfigMapFromObservedConfig(
+			t,
 			fmt.Sprintf("%s-%d", revisionConfigMapName, i), "some-operand-namespace",
 			observedConfig,
 		)
@@ -172,4 +175,125 @@ func TestConfigMatchesControllerManagerArgument(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetPrunedConfigFromConfigMap(t *testing.T) {
+	kcmLatencyPaths := [][]string{
+		{"extendedArguments", "node-monitor-grace-period"},
+	}
+	kasLatencyPaths := [][]string{
+		{"apiServerArguments", "default-not-ready-toleration-seconds"},
+		{"apiServerArguments", "default-unreachable-toleration-seconds"},
+	}
+
+	testCases := []struct {
+		name                string
+		config              map[string]interface{}
+		prunePaths          [][]string
+		desiredPrunedConfig map[string]interface{}
+	}{
+		{
+			name: "prune single path from config with multiple paths",
+			config: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []string{"40s"},
+					"node-monitor-period":       []string{"5s"},
+				},
+			},
+			prunePaths: kcmLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []interface{}{string("40s")},
+				},
+			},
+		},
+		{
+			name: "prune single path from config that doesnt have given path",
+			config: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-period": []string{"5s"},
+				},
+			},
+			prunePaths:          kcmLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{},
+		},
+		{
+			name: "prune single path from config with single path",
+			config: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []string{"40s"},
+				},
+			},
+			prunePaths: kcmLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"node-monitor-grace-period": []interface{}{string("40s")},
+				},
+			},
+		},
+		{
+			name: "prune path from empty config",
+			config: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{},
+			},
+			prunePaths:          kcmLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{},
+		},
+		{
+			name: "prune multiple paths from config",
+			config: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []string{"300"},
+					"default-unreachable-toleration-seconds": []string{"300"},
+					"default-watch-cache-size":               []string{"100"},
+				},
+			},
+			prunePaths: kasLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{string("300")},
+					"default-unreachable-toleration-seconds": []interface{}{string("300")},
+				},
+			},
+		},
+		{
+			name:                "prune multiple paths from empty config",
+			config:              map[string]interface{}{},
+			prunePaths:          kasLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{},
+		},
+		{
+			name: "prune multiple paths from config with same paths",
+			config: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []string{"300"},
+					"default-unreachable-toleration-seconds": []string{"300"},
+				},
+			},
+			prunePaths: kasLatencyPaths,
+			desiredPrunedConfig: map[string]interface{}{
+				"apiServerArguments": map[string]interface{}{
+					"default-not-ready-toleration-seconds":   []interface{}{string("300")},
+					"default-unreachable-toleration-seconds": []interface{}{string("300")},
+				},
+			},
+		},
+	}
+
+	cmNamespace := "some-operand-namespace"
+	for i, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			configMap := createConfigMapFromObservedConfig(t, fmt.Sprintf("config-%d", i), cmNamespace, testCase.config)
+
+			// act
+			prunedConfig, err := getPrunedConfigFromConfigMap(&configMap, testCase.prunePaths)
+
+			// validate
+			require.NoError(t, err)
+			if !cmp.Equal(testCase.desiredPrunedConfig, prunedConfig) {
+				t.Fatalf("unexpected pruned configuration, diff = %v", cmp.Diff(testCase.desiredPrunedConfig, prunedConfig))
+			}
+		})
+	}
+
 }
