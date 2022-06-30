@@ -188,7 +188,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					},
 					{
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
-						Status:  operatorv1.ConditionFalse,
+						Status:  operatorv1.ConditionTrue,
 						Reason:  "PodsUpdating",
 						Message: "deployment/apiserver.openshift-apiserver: 0/3 pods have been updated to the latest generation",
 					},

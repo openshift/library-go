@@ -272,9 +272,6 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: observed generation is %d, desired generation is %d.", workload.Name, c.targetNamespace, workload.Status.ObservedGeneration, workload.ObjectMeta.Generation)
 	} else if workloadIsBeingUpdated {
 		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
-		if workloadIsBeingUpdatedTooLong {
-			deploymentProgressingCondition.Status = operatorv1.ConditionFalse
-		}
 		deploymentProgressingCondition.Reason = "PodsUpdating"
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas)
 	} else {
