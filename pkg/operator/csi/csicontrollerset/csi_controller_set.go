@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
@@ -110,6 +111,7 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 	assetFunc resourceapply.AssetFunc,
 	file string,
 	dynamicClient dynamic.Interface,
+	operatorInformer operatorinformer.SharedInformerFactory,
 ) *CSIControllerSet {
 	manifestFile, err := assetFunc(file)
 	if err != nil {
@@ -121,6 +123,7 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 		manifestFile,
 		dynamicClient,
 		c.operatorClient,
+		operatorInformer,
 		c.eventRecorder,
 	)
 	return c
