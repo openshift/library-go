@@ -143,7 +143,7 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 			return nil
 		}
 		if createErr != nil {
-			syncCtx.Recorder().Warningf("StatusCreateFailed", "Failed to create operator status: %v", err)
+			syncCtx.Recorder().Warningf("StatusCreateFailed", "Failed to create operator status: %v", createErr)
 			return createErr
 		}
 	}
