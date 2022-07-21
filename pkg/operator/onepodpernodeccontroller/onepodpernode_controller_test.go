@@ -6,22 +6,20 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
-	kubetesting "k8s.io/client-go/testing"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	kubetesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/clock"
-	"k8s.io/client-go/kubernetes/fake"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 func mustTime(in string) time.Time {
@@ -89,7 +87,7 @@ func setDeleted(time time.Time) podMutator {
 }
 
 func TestOnePodPerNodeController_syncManaged(t *testing.T) {
-	fakeClock := clock.NewFakeClock(mustTime("2022-03-07T12:00:00Z"))
+	fakeClock := clocktesting.NewFakeClock(mustTime("2022-03-07T12:00:00Z"))
 	twoHoursAgo := fakeClock.Now().Add(-2 * time.Hour)
 	oneHourAgo := fakeClock.Now().Add(-1 * time.Hour)
 	oneMinuteAgo := fakeClock.Now().Add(-1 * time.Minute)
