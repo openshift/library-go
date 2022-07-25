@@ -20,7 +20,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 			Type: configv1.OpenStackPlatformType,
 		},
 		featureGate: nil,
-		expected:    false,
+		expected:    true,
 		expectedErr: nil,
 	}, {
 		name: "FeatureSet: Unknown, Platform: OpenStack",

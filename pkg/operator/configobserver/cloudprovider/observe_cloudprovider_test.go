@@ -174,16 +174,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		},
 		cloudProviderCount: 0,
 	}, {
-		name: "OpenStack platform",
-		infrastructureStatus: configv1.InfrastructureStatus{
-			Platform: configv1.OpenStackPlatformType,
-			PlatformStatus: &configv1.PlatformStatus{
-				Type: configv1.OpenStackPlatformType,
-			},
-		},
-		expected:           "openstack",
-		cloudProviderCount: 1,
-	}, {
 		name: "OpenStack platform set for external configuration",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.OpenStackPlatformType,
