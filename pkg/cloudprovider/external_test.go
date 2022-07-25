@@ -19,9 +19,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		status: &configv1.PlatformStatus{
 			Type: configv1.OpenStackPlatformType,
 		},
-		featureGate: nil,
-		expected:    false,
-		expectedErr: nil,
+		expected: true,
 	}, {
 		name: "FeatureSet: Unknown, Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -34,8 +32,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected:    false,
-		expectedErr: fmt.Errorf(".spec.featureSet \"Unknown\" not found"),
+		expected: true,
 	}, {
 		name: "FeatureSet: TechPreviewNoUpgrade, Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -61,7 +58,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: IPv6DualStackNoUpgrade, Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -74,7 +71,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (No External Feature Gate), Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -90,7 +87,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled), Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -123,7 +120,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Disabled), Platform: OpenStack",
 		status: &configv1.PlatformStatus{
@@ -139,7 +136,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		expected: false,
+		expected: true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: AWS",
 		status: &configv1.PlatformStatus{
