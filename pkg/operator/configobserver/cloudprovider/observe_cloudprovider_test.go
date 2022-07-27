@@ -181,7 +181,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.OpenStackPlatformType,
 			},
 		},
-		expected:           "openstack",
+		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
 		name: "OpenStack platform set for external configuration",
