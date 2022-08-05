@@ -8,6 +8,7 @@ import (
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -188,7 +189,7 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 				utilruntime.HandleError(fmt.Errorf("missing %q: %v", file, err))
 				continue
 			}
-			requiredObj, _, err := genericCodec.Decode(objBytes, nil, nil)
+			requiredObj, err := resourceread.ReadGenericWithUnstructured(objBytes)
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("cannot decode %q: %v", file, err))
 				continue
@@ -397,7 +398,7 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 				errors = append(errors, err)
 				continue
 			}
-			requiredObj, _, err := genericCodec.Decode(objBytes, nil, nil)
+			requiredObj, err := resourceread.ReadGenericWithUnstructured(objBytes)
 			if err != nil {
 				errors = append(errors, err)
 				continue
