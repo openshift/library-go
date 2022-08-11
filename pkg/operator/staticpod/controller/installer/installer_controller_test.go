@@ -23,11 +23,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
@@ -2512,7 +2512,7 @@ func TestTimeToWait(t *testing.T) {
 		},
 	}
 	fakeNow := time.Now()
-	fakeClock := clock.NewFakeClock(fakeNow)
+	fakeClock := clocktesting.NewFakeClock(fakeNow)
 
 	tenSecondsAgo := fakeNow.Add(-10 * time.Second)
 	thirtySecondsAgo := fakeNow.Add(-30 * time.Second)
