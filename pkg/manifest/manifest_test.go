@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	utilpointer "k8s.io/utils/pointer"
+
 	"github.com/davecgh/go-spew/spew"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/stretchr/testify/assert"
@@ -590,13 +592,11 @@ func Test_include(t *testing.T) {
 	identifier := "identifier"
 	defaultClusterProfile := "self-managed-high-availability"
 	singleNodeProfile := "single-node"
-	trueBol := true
-	falseBol := false
 
 	tests := []struct {
 		name               string
 		exclude            *string
-		includeTechPreview *bool
+		requiredFeatureSet *string
 		profile            *string
 		annotations        map[string]interface{}
 		caps               *configv1.ClusterVersionCapabilitiesStatus
@@ -640,18 +640,34 @@ func Test_include(t *testing.T) {
 			annotations: map[string]interface{}{"include.release.openshift.io/self-managed-high-availability": "true"},
 		},
 		{
-			name:               "correct techpreview value is excluded if techpreview off",
-			includeTechPreview: &falseBol,
+			name:               "unspecified manifest included if techpreview off",
+			requiredFeatureSet: utilpointer.String(""),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+			},
+		},
+		{
+			name:               "unspecified manifest included if techpreview on",
+			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+			},
+		},
+		{
+			name:               "correct techpreview value is excluded if techpreview off using feature-gate",
+			requiredFeatureSet: utilpointer.String(""),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
 			},
-			expected: fmt.Errorf("tech-preview excluded, and release.openshift.io/feature-gate=TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("\"Default\" is required, and release.openshift.io/feature-set=TechPreviewNoUpgrade"),
 		},
 		{
-			name:               "correct techpreview value is included if techpreview on",
-			includeTechPreview: &trueBol,
+			name:               "correct techpreview value is included if techpreview on using feature-gate",
+			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -659,24 +675,63 @@ func Test_include(t *testing.T) {
 			},
 		},
 		{
-			name:               "incorrect techpreview value is not excluded if techpreview off",
-			includeTechPreview: &falseBol,
+			name:               "incorrect techpreview value is not excluded if techpreview off using feature-gate",
+			requiredFeatureSet: utilpointer.String(""),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
 			},
-			expected: fmt.Errorf("unrecognized value release.openshift.io/feature-gate=Other"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
-			name:               "incorrect techpreview value is not excluded if techpreview on",
-			includeTechPreview: &trueBol,
+			name:               "incorrect techpreview value is not excluded if techpreview on using feature-gate",
+			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
 			},
-			expected: fmt.Errorf("unrecognized value release.openshift.io/feature-gate=Other"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+		},
+		{
+			name:               "correct techpreview value is excluded if techpreview off using feature-set",
+			requiredFeatureSet: utilpointer.String(""),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-set":                            "TechPreviewNoUpgrade",
+			},
+			expected: fmt.Errorf("\"Default\" is required, and release.openshift.io/feature-set=TechPreviewNoUpgrade"),
+		},
+		{
+			name:               "correct techpreview value is included if techpreview on using feature-set",
+			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-set":                            "TechPreviewNoUpgrade",
+			},
+		},
+		{
+			name:               "incorrect techpreview value is not excluded if techpreview off using feature-set",
+			requiredFeatureSet: utilpointer.String(""),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-set":                            "Other",
+			},
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+		},
+		{
+			name:               "incorrect techpreview value is not excluded if techpreview on using feature-set",
+			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			profile:            &defaultClusterProfile,
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				"release.openshift.io/feature-set":                            "Other",
+			},
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
 			name:        "default profile selection excludes without annotation",
@@ -770,7 +825,7 @@ func Test_include(t *testing.T) {
 					},
 				},
 			}
-			err := m.Include(tt.exclude, tt.includeTechPreview, tt.profile, tt.caps)
+			err := m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
