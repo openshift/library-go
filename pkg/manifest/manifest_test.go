@@ -440,46 +440,46 @@ metadata:
 				contents: `
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm1
-  namespace: test1     
+  namespace: test1
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm1
-  namespace: test1     
+  namespace: test1
 `,
 			}, {
 				name: "f1",
 				contents: `
 apiVersion: extensions/v1
 kind: Ingress
-metadata:                       
+metadata:
   name: test-ingress
   namespace: test-namespace
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm1
-  namespace: test1     
+  namespace: test1
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm2
-  namespace: test1     
+  namespace: test1
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm3
-  namespace: test1     
+  namespace: test1
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm4
   namespace: test1
 `,
@@ -488,13 +488,13 @@ metadata:
 				contents: `
 apiVersion: extensions/v1
 kind: Ingress
-metadata:                       
+metadata:
   name: test-ingress
   namespace: test-namespace
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm4
   namespace: test1
 `,
@@ -503,13 +503,13 @@ metadata:
 				contents: `
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:                       
+metadata:
   name: cm2
   namespace: test1
 ---
 apiVersion: v1beta1
 kind: ConfigMap
-metadata:               
+metadata:
   name: cm4
   namespace: test1
 `,
@@ -682,7 +682,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview on using feature-gate",
@@ -692,7 +692,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-gate":                           "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
 			name:               "correct techpreview value is excluded if techpreview off using feature-set",
@@ -721,7 +721,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-set":                            "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview on using feature-set",
@@ -731,7 +731,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-set":                            "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,IPv6DualStackNoUpgrade,LatencySensitive,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
 		},
 		{
 			name:        "default profile selection excludes without annotation",
