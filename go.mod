@@ -1,6 +1,6 @@
 module github.com/openshift/library-go
 
-go 1.17
+go 1.18
 
 require (
 	github.com/RangelReale/osincli v0.0.0-20160924135400-fababb0555f2
