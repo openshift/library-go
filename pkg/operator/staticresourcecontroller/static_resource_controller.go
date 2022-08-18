@@ -7,36 +7,34 @@ import (
 	"strings"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/restmapper"
-
-	corev1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
-
 	"github.com/openshift/api"
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
-
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
+	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
 )
 
 var (
@@ -59,10 +57,11 @@ func init() {
 type StaticResourcesPreconditionsFuncType func(ctx context.Context) (bool, error)
 
 type StaticResourceController struct {
-	name                   string
-	manifests              []conditionalManifests
-	ignoreNotFoundOnCreate bool
-	preconditions          []StaticResourcesPreconditionsFuncType
+	name                         string
+	manifests                    []conditionalManifests
+	ignoreNotFoundOnCreate       bool
+	preconditions                []StaticResourcesPreconditionsFuncType
+	perResourceRequiredCondition resourceapply.ManifestConditionalFunction
 
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
@@ -111,7 +110,9 @@ func NewStaticResourceController(
 
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
-		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
+		factory: factory.New().
+			WithInformers(operatorClient.Informer()).
+			ResyncEvery(1 * time.Minute),
 		performanceCache: resourceapply.NewResourceCache(),
 	}
 	c.WithConditionalResources(manifests, files, nil, nil)
@@ -275,6 +276,14 @@ func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedInd
 	return c
 }
 
+// AddFeatureSetInformer adds a featureset informer that will require that any manifest being managed satisfy the
+// the current featureset.
+func (c *StaticResourceController) AddFeatureSetInformer(informer configv1informers.FeatureGateInformer) *StaticResourceController {
+	c.perResourceRequiredCondition = resourceapply.NewManifestFeatureSetChecker(informer.Lister())
+	c.factory.WithInformers(informer.Informer())
+	return c
+}
+
 func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
@@ -323,9 +332,9 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			continue
 
 		case shouldCreate:
-			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ConditionallyApplyDirectly(ctx, c.perResourceRequiredCondition, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
 		case shouldDelete:
-			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ConditionallyDeleteAll(ctx, c.perResourceRequiredCondition, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
 		}
 
 		for _, currResult := range directResourceResults {

@@ -130,7 +130,7 @@ func init() {
 	}
 }
 
-func getFeatureSets(annotations map[string]string) (sets.String, bool, error) {
+func GetFeatureSetsFromAnnotations(annotations map[string]string) (sets.String, bool, error) {
 	ret := sets.String{}
 	specified := false
 	for _, featureSetAnnotation := range []string{"release.openshift.io/feature-gate", featureSetAnnotation} {
@@ -149,6 +149,22 @@ func getFeatureSets(annotations map[string]string) (sets.String, bool, error) {
 	}
 
 	return ret, specified, nil
+}
+
+func ResourceSatisfiesFeatureSetRequirement(requiredFeatureSet string, annotations map[string]string) (bool, error) {
+	requiredAnnotationValue := requiredFeatureSet
+	if len(requiredFeatureSet) == 0 {
+		requiredAnnotationValue = "Default" // "" in the FeatureSet API is "Default" in the annotation value
+	}
+	manifestFeatureSets, manifestSpecifiesFeatureSets, err := GetFeatureSetsFromAnnotations(annotations)
+	if err != nil {
+		return false, err
+	}
+	if manifestSpecifiesFeatureSets && !manifestFeatureSets.Has(requiredAnnotationValue) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // Include returns an error if the manifest fails an inclusion filter and should be excluded from further
@@ -170,16 +186,13 @@ func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string
 	}
 
 	if requiredFeatureSet != nil {
-		requiredAnnotationValue := *requiredFeatureSet
-		if len(*requiredFeatureSet) == 0 {
-			requiredAnnotationValue = "Default" // "" in the FeatureSet API is "Default" in the annotation value
-		}
-		manifestFeatureSets, manifestSpecifiesFeatureSets, err := getFeatureSets(annotations)
+		shouldInclude, err := ResourceSatisfiesFeatureSetRequirement(*requiredFeatureSet, annotations)
 		if err != nil {
 			return err
 		}
-		if manifestSpecifiesFeatureSets && !manifestFeatureSets.Has(requiredAnnotationValue) {
-			return fmt.Errorf("%q is required, and %s=%s", requiredAnnotationValue, featureSetAnnotation, strings.Join(manifestFeatureSets.List(), ","))
+		if !shouldInclude {
+			manifestFeatureSets, _, _ := GetFeatureSetsFromAnnotations(annotations) // best effort for message
+			return fmt.Errorf("%q is required, and %s=%s", *requiredFeatureSet, featureSetAnnotation, strings.Join(manifestFeatureSets.List(), ","))
 		}
 	}
 

@@ -38,6 +38,13 @@ type ApplyResult struct {
 // a resource. This conditional function can also be used to delete the resource when not needed
 type ConditionalFunction func() bool
 
+// ManifestConditionalFunction inspects a manifest and determines if the obj passes or not.
+type ManifestConditionalFunction func(obj runtime.Object) (bool, error)
+
+func AlwaysMatchManifest(obj runtime.Object) (bool, error) {
+	return true, nil
+}
+
 type ClientHolder struct {
 	kubeClient          kubernetes.Interface
 	apiExtensionsClient apiextensionsclient.Interface
@@ -79,8 +86,12 @@ func (c *ClientHolder) WithMigrationClient(client migrationclient.Interface) *Cl
 	return c
 }
 
-// ApplyDirectly applies the given manifest files to API server.
 func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
+	return ConditionallyApplyDirectly(ctx, AlwaysMatchManifest, clients, recorder, cache, manifests, files...)
+}
+
+// ConditionallyApplyDirectly applies each of the given manifest files to API server if requiredConditionFn==true is true.
+func ConditionallyApplyDirectly(ctx context.Context, requiredConditionFn ManifestConditionalFunction, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -98,6 +109,17 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 			continue
 		}
 		result.Type = fmt.Sprintf("%T", requiredObj)
+
+		if requiredConditionFn != nil {
+			if matches, err := requiredConditionFn(requiredObj); err != nil {
+				ret = append(ret, result)
+				result.Error = fmt.Errorf("error checking requiredConditionFn: %w", file, err)
+				continue
+			} else if !matches {
+				ret = append(ret, result)
+				continue
+			}
+		}
 
 		// NOTE: Do not add CR resources into this switch otherwise the protobuf client can cause problems.
 		switch t := requiredObj.(type) {
@@ -221,8 +243,12 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 	return ret
 }
 
-func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc,
-	files ...string) []ApplyResult {
+func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc, files ...string) []ApplyResult {
+	return ConditionallyDeleteAll(ctx, AlwaysMatchManifest, clients, recorder, manifests, files...)
+}
+
+// ConditionallyDeleteAll deletes all the files that have requiredConditionFn==true
+func ConditionallyDeleteAll(ctx context.Context, requiredConditionFn ManifestConditionalFunction, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -240,6 +266,18 @@ func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recor
 			continue
 		}
 		result.Type = fmt.Sprintf("%T", requiredObj)
+
+		if requiredConditionFn != nil {
+			if matches, err := requiredConditionFn(requiredObj); err != nil {
+				ret = append(ret, result)
+				result.Error = fmt.Errorf("error checking requiredConditionFn: %w", file, err)
+				continue
+			} else if !matches {
+				ret = append(ret, result)
+				continue
+			}
+		}
+
 		// NOTE: Do not add CR resources into this switch otherwise the protobuf client can cause problems.
 		switch t := requiredObj.(type) {
 		case *corev1.Namespace:
