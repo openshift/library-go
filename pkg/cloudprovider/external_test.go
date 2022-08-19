@@ -155,6 +155,45 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		featureGate: nil,
 		expected:    true,
 	}, {
+		name: "No FeatureGate, Platform: Nutanix",
+		status: &configv1.PlatformStatus{
+			Type: configv1.NutanixPlatformType,
+		},
+		featureGate: nil,
+		expected:    true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled), Platform: Nutanix",
+		status: &configv1.PlatformStatus{
+			Type: configv1.NutanixPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Enabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Disabled), Platform: Nutanix",
+		status: &configv1.PlatformStatus{
+			Type: configv1.NutanixPlatformType,
+		},
+		featureGate: &configv1.FeatureGate{
+			Spec: configv1.FeatureGateSpec{
+				FeatureGateSelection: configv1.FeatureGateSelection{
+					FeatureSet: configv1.CustomNoUpgrade,
+					CustomNoUpgrade: &configv1.CustomFeatureGates{
+						Disabled: []string{ExternalCloudProviderFeature},
+					},
+				},
+			},
+		},
+		expected: true,
+	}, {
 		name: "No FeatureGate, Platform: PowerVS",
 		status: &configv1.PlatformStatus{
 			Type: configv1.PowerVSPlatformType,
