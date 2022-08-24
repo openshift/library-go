@@ -141,7 +141,13 @@ func (d *RevisionLabelPodDeployer) HasSynced() bool {
 //   1. All running pods are ready and at the same revision
 //   2. All master nodes have a running pod
 //   3. There are no pending or unknown pods
-//   4. All succeeded and failed pods have revisions that are before the running pods
+//   4. We tolerate pods in Succeeded or Failed phase only if their revision <= the running pods
+//      It turns out that when a node dies or is disconnected from the rest of the cluster, Kubernetes (kubelet) applies a policy for setting the phase of all Pods on the lost node to Failed.
+//      Pods in the Failed state cannot transition back to Running state.
+//      In addition, failed Pods are note GC'ed. The API objects remain in the cluster's API until a human or controller process explicitly removes them.
+//      See the following for more:
+//        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+//        https://bugzilla.redhat.com/show_bug.cgi?id=2000276
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.
@@ -164,10 +170,6 @@ func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, ap
 	revision, _ := goodRevisions.PopAny()
 	if len(revision) == 0 {
 		revision = "0"
-	}
-
-	if failingRevisions.Has(revision) {
-		return "", fmt.Errorf("api server revision %s has both running and failed pods", revision)
 	}
 
 	// make sure all expected nodes are there
