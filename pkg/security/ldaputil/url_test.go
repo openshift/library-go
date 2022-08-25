@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gopkg.in/ldap.v2"
+	"github.com/go-ldap/ldap/v3"
 )
 
 func TestParseURL(t *testing.T) {
