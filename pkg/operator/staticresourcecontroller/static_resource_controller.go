@@ -221,7 +221,7 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 			case *corev1.Namespace:
 				ret = ret.AddNamespaceInformer(informer.Core().V1().Namespaces().Informer(), t.Name)
 			case *corev1.Service:
-				ret = ret.AddInformer(informer.Core().V1().Namespaces().Informer())
+				ret = ret.AddInformer(informer.Core().V1().Services().Informer())
 			case *corev1.Pod:
 				ret = ret.AddInformer(informer.Core().V1().Pods().Informer())
 			case *corev1.ServiceAccount:
