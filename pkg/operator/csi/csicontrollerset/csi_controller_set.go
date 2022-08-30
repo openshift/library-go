@@ -34,7 +34,7 @@ var defaultCacheSyncTimeout = 10 * time.Minute
 type CSIControllerSet struct {
 	logLevelController                   factory.Controller
 	managementStateController            factory.Controller
-	staticResourcesController            factory.Controller
+	staticResourcesControllers           []factory.Controller
 	credentialsRequestController         factory.Controller
 	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
@@ -48,17 +48,18 @@ type CSIControllerSet struct {
 
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
-	for _, ctrl := range []factory.Controller{
+	controllers := []factory.Controller{
 		c.logLevelController,
 		c.managementStateController,
-		c.staticResourcesController,
 		c.credentialsRequestController,
 		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
 		c.serviceMonitorController,
 		c.csiStorageclassController,
-	} {
+	}
+	controllers = append(controllers, c.staticResourcesControllers...)
+	for _, ctrl := range controllers {
 		if ctrl == nil {
 			continue
 		}
@@ -93,7 +94,7 @@ func (c *CSIControllerSet) WithStaticResourcesController(
 	manifests resourceapply.AssetFunc,
 	files []string,
 ) *CSIControllerSet {
-	c.staticResourcesController = staticresourcecontroller.NewStaticResourceController(
+	staticController := staticresourcecontroller.NewStaticResourceController(
 		name,
 		manifests,
 		files,
@@ -101,6 +102,7 @@ func (c *CSIControllerSet) WithStaticResourcesController(
 		c.operatorClient,
 		c.eventRecorder,
 	).AddKubeInformers(kubeInformersForNamespace)
+	c.staticResourcesControllers = append(c.staticResourcesControllers, staticController)
 	return c
 }
 
