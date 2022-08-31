@@ -311,3 +311,11 @@ func (fake *fakeDynamicClient) Watch(ctx context.Context, opts metav1.ListOption
 func (fake *fakeDynamicClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, errors.New("not implemented")
 }
+
+func (fake *fakeDynamicClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (fake *fakeDynamicClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return nil, errors.New("not implemented")
+}

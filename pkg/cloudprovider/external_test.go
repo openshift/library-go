@@ -60,19 +60,6 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		expected: true,
 	}, {
-		name: "FeatureSet: IPv6DualStackNoUpgrade, Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: &configv1.FeatureGate{
-			Spec: configv1.FeatureGateSpec{
-				FeatureGateSelection: configv1.FeatureGateSelection{
-					FeatureSet: configv1.IPv6DualStackNoUpgrade,
-				},
-			},
-		},
-		expected: true,
-	}, {
 		name: "FeatureSet: CustomNoUpgrade (No External Feature Gate), Platform: OpenStack",
 		status: &configv1.PlatformStatus{
 			Type: configv1.OpenStackPlatformType,
