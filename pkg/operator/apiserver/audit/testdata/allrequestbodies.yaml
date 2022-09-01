@@ -32,7 +32,7 @@ rules:
 - level: Metadata
   resources:
   - group: "route.openshift.io"
-    resources: ["routes"]
+    resources: ["routes","routes/status"]
   - resources: ["secrets"]
   - group: "authentication.k8s.io"
     resources: ["tokenreviews", "tokenrequests"]
