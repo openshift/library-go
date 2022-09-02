@@ -148,7 +148,7 @@ func Test_newFromConfigMapData_slow_sigstore(t *testing.T) {
 	}
 
 	wrapped := errors.Unwrap(err)
-	expected = regexp.MustCompile(`^[[][0-9TZ:-]*: Get "https://example.com/signatures/sha256=123/signature-1": context deadline exceeded, [0-9TZ:-]*: context deadline exceeded]$`)
+	expected = regexp.MustCompile(`^[[][0-9TZ:+-]*: Get "https://example.com/signatures/sha256=123/signature-1": context deadline exceeded, [0-9TZ:+-]*: context deadline exceeded]$`)
 	if !expected.MatchString(wrapped.Error()) {
 		t.Fatalf("expected %s, got %s", expected, wrapped.Error())
 	}
