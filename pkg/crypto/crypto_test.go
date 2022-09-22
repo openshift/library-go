@@ -6,9 +6,15 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"go/importer"
+	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const certificateLifetime = 365 * 2
@@ -361,4 +367,95 @@ func TestValidityPeriodOfSigningCertificate(t *testing.T) {
 			t.Errorf("expected that CA certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
 		}
 	}
+}
+
+func TestCertGeneration(t *testing.T) {
+	testDir := t.TempDir()
+	certfile := filepath.Join(testDir, "ca.crt")
+	keyfile := filepath.Join(testDir, "ca.key")
+	serialfile := filepath.Join(testDir, "serial.txt")
+
+	// create a new CA
+	ca, created, err := EnsureCA(certfile, keyfile, serialfile, "testca", 1)
+	require.NoError(t, err)
+	require.NotNil(t, ca)
+	require.True(t, created)
+
+	// ensure the new CA is still there but does not get recreated
+	ca, created, err = EnsureCA(certfile, keyfile, serialfile, "testca", 1)
+	require.NoError(t, err)
+	require.NotNil(t, ca)
+	require.False(t, created) // this should be false now
+
+	require.Equal(t, "testca", ca.Config.Certs[0].Subject.CommonName)
+	require.Equal(t, "testca", ca.Config.Certs[0].Issuer.CommonName)
+
+	subCADir := filepath.Join(testDir, "subca")
+	subCACertfile := filepath.Join(subCADir, "ca.crt")
+	subCAKeyfile := filepath.Join(subCADir, "ca.key")
+	subCASerialfile := filepath.Join(subCADir, "serial.txt")
+
+	// create a new subCA
+	subCA, created, err := ca.EnsureSubCA(subCACertfile, subCAKeyfile, subCASerialfile, "subca", 1)
+	require.NoError(t, err)
+	require.NotNil(t, subCA)
+	require.True(t, created)
+
+	// ensure the new subCA is still there but does not get recreated
+	subCA, created, err = ca.EnsureSubCA(subCACertfile, subCAKeyfile, subCASerialfile, "subca", 1)
+	require.NoError(t, err)
+	require.NotNil(t, subCA)
+	require.False(t, created)
+
+	require.Equal(t, "subca", subCA.Config.Certs[0].Subject.CommonName)
+	require.Equal(t, "testca", subCA.Config.Certs[0].Issuer.CommonName)
+	require.Len(t, subCA.Config.Certs, 2, "expected the sub-CA cert bundle to contain subCA and signing CA certs")
+	require.Equal(t, ca.Config.Certs[0].Raw, subCA.Config.Certs[1].Raw)
+	require.Equal(t, ca.Config.Certs[0].SubjectKeyId, subCA.Config.Certs[0].AuthorityKeyId, "expected the sub-CA to be signed by the signer CA")
+
+	serverCertDir := filepath.Join(subCADir, "server")
+	serverCertFile := filepath.Join(serverCertDir, "server.crt")
+	serverKeyFile := filepath.Join(serverCertDir, "server.key")
+	hostnames := sets.NewString("myserver.local", "veryglobal.tho", "192.168.0.1")
+
+	// create a new server cert signed by the sub-CA
+	serverCert, created, err := subCA.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.True(t, created)
+
+	// ensure the new server cert signed by the sub-CA exists and does not get recreated
+	serverCert, created, err = subCA.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.False(t, created)
+
+	require.Len(t, serverCert.Certs, 3)
+	require.Equal(t, "192.168.0.1", serverCert.Certs[0].Subject.CommonName)
+	require.Equal(t, "subca", serverCert.Certs[0].Issuer.CommonName)
+	sortedDNSNames := sort.StringSlice(serverCert.Certs[0].DNSNames)
+	sortedDNSNames.Sort()
+	require.Equal(t, hostnames.List(), []string(sortedDNSNames))
+	require.Equal(t, subCA.Config.Certs[0].SubjectKeyId, serverCert.Certs[0].AuthorityKeyId)
+
+	clientCertDir := filepath.Join(testDir, "client")
+	clientCertFile := filepath.Join(clientCertDir, "client.crt")
+	clientKeyFile := filepath.Join(clientCertDir, "client.key")
+
+	// create a new client cert signed by the root CA
+	clientCert, created, err := ca.EnsureClientCertificate(clientCertFile, clientKeyFile, &user.DefaultInfo{Name: "testclient", Groups: []string{"testclients"}}, 1)
+	require.NoError(t, err)
+	require.NotNil(t, clientCert)
+	require.True(t, created)
+
+	// ensure the new client cert signed by the root CA exists and does not get recreated
+	clientCert, created, err = ca.EnsureClientCertificate(clientCertFile, clientKeyFile, &user.DefaultInfo{Name: "testclient", Groups: []string{"testclients"}}, 1)
+	require.NoError(t, err)
+	require.NotNil(t, clientCert)
+	require.False(t, created)
+
+	require.Len(t, clientCert.Certs, 1) // we don't need to include the whole chain, unlike in server certs
+	require.Equal(t, "testclient", clientCert.Certs[0].Subject.CommonName)
+	require.Equal(t, []string{"testclients"}, clientCert.Certs[0].Subject.Organization)
+	require.Equal(t, ca.Config.Certs[0].SubjectKeyId, clientCert.Certs[0].AuthorityKeyId)
 }
