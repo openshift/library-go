@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	mathrand "math/rand"
 	"net"
@@ -387,7 +386,7 @@ func GetTLSCertificateConfig(certFile, keyFile string) (*TLSCertificateConfig, e
 		return nil, errors.New("keyFile missing")
 	}
 
-	certPEMBlock, err := ioutil.ReadFile(certFile)
+	certPEMBlock, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +395,7 @@ func GetTLSCertificateConfig(certFile, keyFile string) (*TLSCertificateConfig, e
 		return nil, fmt.Errorf("Error reading %s: %s", certFile, err)
 	}
 
-	keyPEMBlock, err := ioutil.ReadFile(keyFile)
+	keyPEMBlock, err := os.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -509,14 +508,14 @@ func (s *SerialFileGenerator) Next(template *x509.Certificate) (int64, error) {
 	// always add a newline at the end to have a valid file
 	serialText += "\n"
 
-	if err := ioutil.WriteFile(s.SerialFile, []byte(serialText), os.FileMode(0640)); err != nil {
+	if err := os.WriteFile(s.SerialFile, []byte(serialText), os.FileMode(0640)); err != nil {
 		return 0, err
 	}
 	return next, nil
 }
 
 func fileToSerial(serialFile string) (int64, error) {
-	serialData, err := ioutil.ReadFile(serialFile)
+	serialData, err := os.ReadFile(serialFile)
 	if err != nil {
 		return 0, err
 	}
@@ -611,7 +610,7 @@ func MakeSelfSignedCA(certFile, keyFile, serialFile, name string, expireDays int
 	var serialGenerator SerialGenerator
 	if len(serialFile) > 0 {
 		// create / overwrite the serial file with a zero padded hex value (ending in a newline to have a valid file)
-		if err := ioutil.WriteFile(serialFile, []byte("00\n"), 0644); err != nil {
+		if err := os.WriteFile(serialFile, []byte("00\n"), 0644); err != nil {
 			return nil, err
 		}
 		serialGenerator, err = NewSerialFileGenerator(serialFile)
@@ -716,7 +715,7 @@ func (ca *CA) MakeAndWriteSubCA(certFile, keyFile, serialFile, name string, expi
 	var serialGenerator SerialGenerator
 	if len(serialFile) > 0 {
 		// create / overwrite the serial file with a zero padded hex value (ending in a newline to have a valid file)
-		if err := ioutil.WriteFile(serialFile, []byte("00\n"), 0644); err != nil {
+		if err := os.WriteFile(serialFile, []byte("00\n"), 0644); err != nil {
 			return nil, err
 		}
 
