@@ -692,6 +692,10 @@ func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) 
 	return signerConfig, nil
 }
 
+// EnsureSubCA returns a subCA signed by the `ca`, whether it was created
+// (as opposed to pre-existing), and any error that might occur during the subCA
+// creation.
+// If serialFile is an empty string, a RandomSerialGenerator will be used.
 func (ca *CA) EnsureSubCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, bool, error) {
 	if subCA, err := GetCA(certFile, keyFile, serialFile); err == nil {
 		return subCA, false, err
@@ -700,6 +704,9 @@ func (ca *CA) EnsureSubCA(certFile, keyFile, serialFile, name string, expireDays
 	return subCA, true, err
 }
 
+// MakeAndWriteSubCA returns a new sub-CA configuration. New cert/key pair is generated
+// while using this function.
+// If serialFile is an empty string, a RandomSerialGenerator will be used.
 func (ca *CA) MakeAndWriteSubCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, error) {
 	klog.V(4).Infof("Generating sub-CA certificate in %s, key in %s, serial in %s", certFile, keyFile, serialFile)
 
