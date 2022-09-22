@@ -709,8 +709,17 @@ func (ca *CA) MakeAndWriteSubCA(certFile, keyFile, serialFile, name string, expi
 		return nil, err
 	}
 
+	if err := subCAConfig.WriteCertConfigFile(certFile, keyFile); err != nil {
+		return nil, err
+	}
+
 	var serialGenerator SerialGenerator
 	if len(serialFile) > 0 {
+		// create / overwrite the serial file with a zero padded hex value (ending in a newline to have a valid file)
+		if err := ioutil.WriteFile(serialFile, []byte("00\n"), 0644); err != nil {
+			return nil, err
+		}
+
 		serialGenerator, err = NewSerialFileGenerator(serialFile)
 		if err != nil {
 			return nil, err
@@ -719,15 +728,10 @@ func (ca *CA) MakeAndWriteSubCA(certFile, keyFile, serialFile, name string, expi
 		serialGenerator = &RandomSerialGenerator{}
 	}
 
-	subCA := &CA{
+	return &CA{
 		Config:          subCAConfig,
 		SerialGenerator: serialGenerator,
-	}
-
-	if err := subCAConfig.WriteCertConfigFile(certFile, keyFile); err != nil {
-		return subCA, err
-	}
-	return subCA, nil
+	}, nil
 }
 
 func (ca *CA) EnsureServerCert(certFile, keyFile string, hostnames sets.String, expireDays int) (*TLSCertificateConfig, bool, error) {
@@ -853,10 +857,10 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 		return nil, err
 	}
 
-	if err = ioutil.WriteFile(certFile, certData, os.FileMode(0644)); err != nil {
+	if err = os.WriteFile(certFile, certData, os.FileMode(0644)); err != nil {
 		return nil, err
 	}
-	if err = ioutil.WriteFile(keyFile, keyData, os.FileMode(0600)); err != nil {
+	if err = os.WriteFile(keyFile, keyData, os.FileMode(0600)); err != nil {
 		return nil, err
 	}
 
