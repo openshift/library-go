@@ -831,6 +831,64 @@ func Test_include(t *testing.T) {
 	}
 }
 
+func TestIncludeAllowUnknownCapabilities(t *testing.T) {
+
+	tests := []struct {
+		name               string
+		exclude            *string
+		requiredFeatureSet *string
+		profile            *string
+		annotations        map[string]interface{}
+		caps               *configv1.ClusterVersionCapabilitiesStatus
+		allowUnknown       bool
+
+		expected error
+	}{
+		{
+			name: "multiple capabilities, 1 unknown",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2"},
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap3"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap3"},
+			},
+			allowUnknown: false,
+			expected:     fmt.Errorf("unrecognized capability names: cap2"),
+		},
+		{
+			name: "unknown allowed",
+			annotations: map[string]interface{}{
+				"include.release.openshift.io/self-managed-high-availability": "true",
+				CapabilityAnnotation: "cap1+cap2"},
+			caps: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap3"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap3"},
+			},
+			allowUnknown: true,
+			expected:     fmt.Errorf("disabled capabilities: cap2"),
+		},
+	}
+
+	for _, tt := range tests {
+		metadata := map[string]interface{}{}
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.annotations != nil {
+				metadata["annotations"] = tt.annotations
+			}
+			m := Manifest{
+				Obj: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": metadata,
+					},
+				},
+			}
+			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.allowUnknown)
+			assert.Equal(t, tt.expected, err)
+		})
+	}
+}
+
 func TestGetManifestCapabilities(t *testing.T) {
 	tests := []struct {
 		name        string
