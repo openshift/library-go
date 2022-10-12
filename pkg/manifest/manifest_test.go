@@ -656,45 +656,6 @@ func Test_include(t *testing.T) {
 			},
 		},
 		{
-			name:               "correct techpreview value is excluded if techpreview off using feature-gate",
-			requiredFeatureSet: utilpointer.String(""),
-			profile:            &defaultClusterProfile,
-			annotations: map[string]interface{}{
-				"include.release.openshift.io/self-managed-high-availability": "true",
-				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
-			},
-			expected: fmt.Errorf("\"Default\" is required, and release.openshift.io/feature-set=TechPreviewNoUpgrade"),
-		},
-		{
-			name:               "correct techpreview value is included if techpreview on using feature-gate",
-			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
-			profile:            &defaultClusterProfile,
-			annotations: map[string]interface{}{
-				"include.release.openshift.io/self-managed-high-availability": "true",
-				"release.openshift.io/feature-gate":                           "TechPreviewNoUpgrade",
-			},
-		},
-		{
-			name:               "incorrect techpreview value is not excluded if techpreview off using feature-gate",
-			requiredFeatureSet: utilpointer.String(""),
-			profile:            &defaultClusterProfile,
-			annotations: map[string]interface{}{
-				"include.release.openshift.io/self-managed-high-availability": "true",
-				"release.openshift.io/feature-gate":                           "Other",
-			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
-		},
-		{
-			name:               "incorrect techpreview value is not excluded if techpreview on using feature-gate",
-			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
-			profile:            &defaultClusterProfile,
-			annotations: map[string]interface{}{
-				"include.release.openshift.io/self-managed-high-availability": "true",
-				"release.openshift.io/feature-gate":                           "Other",
-			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-gate=Other; known values are: CustomNoUpgrade,Default,LatencySensitive,TechPreviewNoUpgrade"),
-		},
-		{
 			name:               "correct techpreview value is excluded if techpreview off using feature-set",
 			requiredFeatureSet: utilpointer.String(""),
 			profile:            &defaultClusterProfile,
