@@ -35,6 +35,7 @@ type CSIControllerSet struct {
 	logLevelController                   factory.Controller
 	managementStateController            factory.Controller
 	staticResourcesController            factory.Controller
+	conditionalStaticResourcesController factory.Controller
 	credentialsRequestController         factory.Controller
 	csiConfigObserverController          factory.Controller
 	csiDriverControllerServiceController factory.Controller
@@ -52,6 +53,7 @@ func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
 		c.logLevelController,
 		c.managementStateController,
 		c.staticResourcesController,
+		c.conditionalStaticResourcesController,
 		c.credentialsRequestController,
 		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
@@ -81,6 +83,32 @@ func (c *CSIControllerSet) WithManagementStateController(operandName string, sup
 	if !supportsOperandRemoval {
 		management.SetOperatorNotRemovable()
 	}
+	return c
+}
+
+// WithConditionalStaticResourcesController returns a *ControllerSet with a conditional static resources controller initialized.
+func (c *CSIControllerSet) WithConditionalStaticResourcesController(
+	name string,
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface,
+	kubeInformersForNamespace v1helpers.KubeInformersForNamespaces,
+	manifests resourceapply.AssetFunc,
+	files []string,
+	shouldCreateFnArg, shouldDeleteFnArg resourceapply.ConditionalFunction,
+) *CSIControllerSet {
+	c.conditionalStaticResourcesController = staticresourcecontroller.NewStaticResourceController(
+		name,
+		manifests,
+		[]string{},
+		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithDynamicClient(dynamicClient),
+		c.operatorClient,
+		c.eventRecorder,
+	).WithConditionalResources(
+		manifests,
+		files,
+		shouldCreateFnArg,
+		shouldDeleteFnArg,
+	).AddKubeInformers(kubeInformersForNamespace)
 	return c
 }
 
