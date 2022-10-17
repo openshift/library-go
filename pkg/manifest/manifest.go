@@ -132,8 +132,7 @@ func (m *Manifest) UnmarshalJSON(in []byte) error {
 func getFeatureSets(annotations map[string]string) (sets.String, bool, error) {
 	ret := sets.String{}
 	specified := false
-	// We are removing annotations["release.openshift.io/feature-gate"] in 4.12.
-	for _, featureSetAnnotation := range []string{"release.openshift.io/feature-gate", featureSetAnnotation} {
+	for _, featureSetAnnotation := range []string{featureSetAnnotation} {
 		featureSetAnnotationValue, featureSetAnnotationExists := annotations[featureSetAnnotation]
 		if featureSetAnnotationExists {
 			specified = true
