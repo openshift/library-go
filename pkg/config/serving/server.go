@@ -45,7 +45,7 @@ func ToServerConfig(ctx context.Context, servingInfo configv1.HTTPServingInfo, a
 
 		// In some cases the API server can return connection refused when getting the "extension-apiserver-authentication"
 		// config map.
-		if !le.Disable {
+		if le != nil && !le.Disable {
 			err := assertAPIConnection(pollCtx, kubeClient, le)
 			if err != nil {
 				return nil, fmt.Errorf("failed checking apiserver connectivity: %w", err)
@@ -69,7 +69,7 @@ func ToServerConfig(ctx context.Context, servingInfo configv1.HTTPServingInfo, a
 
 		// In some cases the API server can return connection refused when getting the "extension-apiserver-authentication"
 		// config map.
-		if !le.Disable {
+		if le != nil && !le.Disable {
 			err := assertAPIConnection(pollCtx, kubeClient, le)
 			if err != nil {
 				return nil, fmt.Errorf("failed checking connectivity: %w", err)
