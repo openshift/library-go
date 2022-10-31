@@ -32,6 +32,8 @@ const (
 	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
 
+	defaultTLSCipherSuites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"
+
 	infraConfigName = "cluster"
 )
 
@@ -187,6 +189,9 @@ func WithPlaceholdersHook(configInformer configinformers.SharedInformerFactory) 
 		// Log level
 		logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)
 		pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
+
+		// Default TLS Cipher Suites for Kube RBAC sidecars
+		pairs = append(pairs, []string{"${TLS_CIPHER_SUITES}", defaultTLSCipherSuites}...)
 
 		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 		return []byte(replaced), nil
