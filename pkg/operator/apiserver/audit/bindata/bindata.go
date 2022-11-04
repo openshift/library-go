@@ -62,7 +62,7 @@ var _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml = []byte(`# exc
 - level: Metadata
   resources:
   - group: "route.openshift.io"
-    resources: ["routes"]
+    resources: ["routes", "routes/status"]
   - resources: ["secrets"]
 - level: Metadata
   resources:
@@ -184,7 +184,7 @@ var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# e
 - level: Metadata
   resources:
   - group: "route.openshift.io"
-    resources: ["routes"]
+    resources: ["routes", "routes/status"]
   - resources: ["secrets"]
 - level: Metadata
   resources:
