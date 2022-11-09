@@ -102,11 +102,11 @@ func assetFromTemplate(name string, tb []byte, data interface{}) (*Asset, error)
 	return &Asset{Name: name, Data: bs}, nil
 }
 
-type FileInfoPredicate func(os.FileInfo) bool
+type FileInfoPredicate func(path string, info os.FileInfo) (bool, error)
 
 // OnlyYaml is a predicate for LoadFilesRecursively filters out non-yaml files.
-func OnlyYaml(info os.FileInfo) bool {
-	return strings.HasSuffix(info.Name(), ".yaml") || strings.HasSuffix(info.Name(), ".yml")
+func OnlyYaml(_ string, info os.FileInfo) (bool, error) {
+	return strings.HasSuffix(info.Name(), ".yaml") || strings.HasSuffix(info.Name(), ".yml"), nil
 }
 
 // LoadFilesRecursively returns a map from relative path names to file content.
@@ -122,7 +122,11 @@ func LoadFilesRecursively(dir string, predicates ...FileInfoPredicate) (map[stri
 			}
 
 			for _, p := range predicates {
-				if !p(info) {
+				include, err := p(path, info)
+				if err != nil {
+					return err
+				}
+				if !include {
 					return nil
 				}
 			}
