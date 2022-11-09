@@ -71,6 +71,10 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"MachineAPIProviderOpenStack=true",
 				"CGroupsV2=true",
 				"Crun=true",
+				"InsightsConfigAPI=true",
+				"CSIInlineVolumeAdmission=true",
+				"MatchLabelKeysInPodTopologySpread=true",
+				"OpenShiftPodSecurityAdmission=true",
 			},
 		},
 		{
