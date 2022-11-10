@@ -458,4 +458,69 @@ func TestCertGeneration(t *testing.T) {
 	require.Equal(t, "testclient", clientCert.Certs[0].Subject.CommonName)
 	require.Equal(t, []string{"testclients"}, clientCert.Certs[0].Subject.Organization)
 	require.Equal(t, ca.Config.Certs[0].SubjectKeyId, clientCert.Certs[0].AuthorityKeyId)
+
+	// ensure the new client cert signed by the root CA exists but gets regenerated because the Subject changes
+	clientCert, created, err = ca.EnsureClientCertificate(clientCertFile, clientKeyFile, &user.DefaultInfo{Name: "testclient2", Groups: []string{"testclients"}}, 2)
+	require.NoError(t, err)
+	require.NotNil(t, clientCert)
+	require.True(t, created)
+
+	require.Len(t, clientCert.Certs, 1)
+	require.Equal(t, "testclient2", clientCert.Certs[0].Subject.CommonName)
+	require.Equal(t, []string{"testclients"}, clientCert.Certs[0].Subject.Organization)
+	require.Equal(t, ca.Config.Certs[0].SubjectKeyId, clientCert.Certs[0].AuthorityKeyId)
+
+	// ensure the new client cert signed by the root CA exists but gets regenerated because the groups change
+	clientCert, created, err = ca.EnsureClientCertificate(clientCertFile, clientKeyFile, &user.DefaultInfo{Name: "testclient2", Groups: []string{"testclients", "newgroup"}}, 2)
+	require.NoError(t, err)
+	require.NotNil(t, clientCert)
+	require.True(t, created)
+
+	require.Len(t, clientCert.Certs, 1)
+	require.Equal(t, "testclient2", clientCert.Certs[0].Subject.CommonName)
+	require.ElementsMatch(t, []string{"testclients", "newgroup"}, clientCert.Certs[0].Subject.Organization)
+	require.Equal(t, ca.Config.Certs[0].SubjectKeyId, clientCert.Certs[0].AuthorityKeyId)
+}
+
+func TestSubjectChanged(t *testing.T) {
+	subject1 := pkix.Name{
+		CommonName:   "testclient",
+		Organization: []string{"testclients", "testclients2"},
+		SerialNumber: "1234",
+	}
+
+	// ensure no change is detected for equal subjects
+	require.False(t, subjectChanged(subject1, subject1))
+
+	// ensure no change is detected for out of order organization//groups
+	subject2 := pkix.Name{
+		CommonName:   subject1.CommonName,
+		Organization: []string{"testclients2", "testclients"},
+		SerialNumber: subject1.SerialNumber,
+	}
+	require.False(t, subjectChanged(subject1, subject2))
+
+	// ensure change is detected for different organization//groups
+	subject2 = pkix.Name{
+		CommonName:   subject1.CommonName,
+		Organization: []string{"diff", "testclients"},
+		SerialNumber: subject1.SerialNumber,
+	}
+	require.True(t, subjectChanged(subject1, subject2))
+
+	// ensure change is detected for common name
+	subject2 = pkix.Name{
+		CommonName:   "changed",
+		Organization: subject1.Organization,
+		SerialNumber: subject1.SerialNumber,
+	}
+	require.True(t, subjectChanged(subject1, subject2))
+
+	// ensure change is detected for different organization//groups
+	subject2 = pkix.Name{
+		CommonName:   subject1.CommonName,
+		Organization: subject1.Organization,
+		SerialNumber: "changed",
+	}
+	require.True(t, subjectChanged(subject1, subject2))
 }
