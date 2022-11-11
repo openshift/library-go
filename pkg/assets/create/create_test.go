@@ -292,8 +292,8 @@ func TestLoad(t *testing.T) {
 			name: "read only 00_ prefixed files",
 			options: CreateOptions{
 				Filters: []assets.FileInfoPredicate{
-					func(info os.FileInfo) bool {
-						return strings.HasPrefix(info.Name(), "00")
+					func(_ string, info os.FileInfo) (bool, error) {
+						return strings.HasPrefix(info.Name(), "00"), nil
 					},
 				},
 			},

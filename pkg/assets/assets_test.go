@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"text/template"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 func TestAsset_WriteFile(t *testing.T) {
@@ -57,5 +60,119 @@ func TestAsset_WriteFile(t *testing.T) {
 		if s.Mode() != os.FileMode(sampleAssets[2].FilePermission) {
 			t.Errorf("expected file to have %s permissions, got %s", os.FileMode(sampleAssets[2].FilePermission), s.Mode())
 		}
+	}
+}
+
+func TestInstallerFeatureSet(t *testing.T) {
+
+	dir, err := os.MkdirTemp("", t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	testCases := []struct {
+		name         string
+		NoAnnotation bool
+		Annotation   string
+		shouldMatch  []configv1.FeatureSet
+	}{
+		{
+			name:         "NoAnnotation",
+			NoAnnotation: true,
+			shouldMatch:  []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive},
+		},
+		{
+			name:        "EmptyAnnotation",
+			Annotation:  "",
+			shouldMatch: []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive},
+		},
+		{
+			name:        "Default",
+			Annotation:  "Default",
+			shouldMatch: []configv1.FeatureSet{configv1.Default},
+		},
+		{
+			name:        "TechPreviewNoUpgrade",
+			Annotation:  "TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.TechPreviewNoUpgrade},
+		},
+		{
+			name:        "CustomNoUpgrade",
+			Annotation:  "CustomNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.CustomNoUpgrade},
+		},
+		{
+			name:        "LatencySensitive",
+			Annotation:  "LatencySensitive",
+			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive},
+		},
+		{
+			name:        "UnknownFeatureSet",
+			Annotation:  "SelfAware",
+			shouldMatch: []configv1.FeatureSet{},
+		},
+		{
+			name:        "Multiple",
+			Annotation:  "LatencySensitive,TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive, configv1.TechPreviewNoUpgrade},
+		},
+		{
+			name:        "MultipleWithEmpty",
+			Annotation:  "LatencySensitive,,TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive, configv1.TechPreviewNoUpgrade},
+		},
+		{
+			name:        "MultipleWithUnknown",
+			Annotation:  "CustomNoUpgrade,SelfAware,TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.CustomNoUpgrade, configv1.TechPreviewNoUpgrade},
+		},
+	}
+
+	tmpl, err := template.New("test").Parse("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n" +
+		"{{ if not .NoAnnotation }}  annotations:\n    \"release.openshift.io/feature-set\": \"{{.Annotation}}\"\n{{end}}")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest, err := os.CreateTemp(dir, "*.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := tmpl.Execute(manifest, tc); err != nil {
+				_ = manifest.Close()
+				t.Fatal(err)
+			}
+			path := manifest.Name()
+			manifest.Close()
+			info, err := os.Lstat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, fs := range []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive} {
+
+				var shouldMatch bool
+				for _, i := range tc.shouldMatch {
+					if i == fs {
+						shouldMatch = true
+						break
+					}
+				}
+
+				match, err := InstallerFeatureSet(string(fs))(path, info)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if match == shouldMatch {
+					continue
+				}
+				if fs == configv1.Default {
+					fs = "Default"
+				}
+				t.Errorf("%s: should match: %v, match: %v", fs, shouldMatch, match)
+			}
+		})
 	}
 }
