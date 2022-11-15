@@ -8,10 +8,13 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/pflag"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GenericOptions contains the generic render command options.
@@ -25,6 +28,8 @@ type GenericOptions struct {
 	TemplatesDir   string
 	AssetInputDir  string
 	AssetOutputDir string
+
+	FeatureSet string
 }
 
 type Template struct {
@@ -47,6 +52,7 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, configGVK schema.GroupVersi
 	fs.StringSliceVar(&o.AdditionalConfigOverrideFiles, "config-override-files", o.AdditionalConfigOverrideFiles,
 		fmt.Sprintf("Additional sparse %s files for customiziation through the installer, merged into the default config in the given order.", gvkOutput{configGVK}))
 	fs.StringVar(&o.ConfigOutputFile, "config-output-file", o.ConfigOutputFile, fmt.Sprintf("Output path for the %s yaml file.", gvkOutput{configGVK}))
+	fs.StringVar(&o.FeatureSet, "feature-set", o.FeatureSet, "Enables features that are not part of the default feature set.")
 }
 
 type gvkOutput struct {
@@ -77,6 +83,11 @@ func (o *GenericOptions) Validate() error {
 		return errors.New("missing required flag: --config-output-file")
 	}
 
+	switch configv1.FeatureSet(o.FeatureSet) {
+	case configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive:
+	default:
+		return fmt.Errorf("invalid feature-set specified: %q", o.FeatureSet)
+	}
 	return nil
 }
 

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/errors"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 type Permission os.FileMode
@@ -102,11 +104,36 @@ func assetFromTemplate(name string, tb []byte, data interface{}) (*Asset, error)
 	return &Asset{Name: name, Data: bs}, nil
 }
 
-type FileInfoPredicate func(os.FileInfo) bool
+type FileInfoPredicate func(path string, info os.FileInfo) (bool, error)
 
 // OnlyYaml is a predicate for LoadFilesRecursively filters out non-yaml files.
-func OnlyYaml(info os.FileInfo) bool {
-	return strings.HasSuffix(info.Name(), ".yaml") || strings.HasSuffix(info.Name(), ".yml")
+func OnlyYaml(_ string, info os.FileInfo) (bool, error) {
+	return strings.HasSuffix(info.Name(), ".yaml") || strings.HasSuffix(info.Name(), ".yml"), nil
+}
+
+// InstallerFeatureSet returns a predicate for LoadFilesRecursively that filters manifests
+// based on the specified FeatureSet.
+func InstallerFeatureSet(featureSet string) FileInfoPredicate {
+	targetFeatureSet := "Default"
+	if len(featureSet) > 0 {
+		targetFeatureSet = featureSet
+	}
+	return func(path string, info os.FileInfo) (bool, error) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return false, err
+		}
+		manifestFeatureSets := resourceread.ReadUnstructuredOrDie(data).GetAnnotations()["release.openshift.io/feature-set"]
+		if len(manifestFeatureSets) == 0 {
+			return true, nil
+		}
+		for _, manifestFeatureSet := range strings.Split(manifestFeatureSets, ",") {
+			if manifestFeatureSet == targetFeatureSet {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 }
 
 // LoadFilesRecursively returns a map from relative path names to file content.
@@ -122,7 +149,11 @@ func LoadFilesRecursively(dir string, predicates ...FileInfoPredicate) (map[stri
 			}
 
 			for _, p := range predicates {
-				if !p(info) {
+				include, err := p(path, info)
+				if err != nil {
+					return err
+				}
+				if !include {
 					return nil
 				}
 			}
