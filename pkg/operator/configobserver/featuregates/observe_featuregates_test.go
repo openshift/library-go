@@ -48,9 +48,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 			name:        "default",
 			configValue: configv1.Default,
 			expectedResult: []string{
-				"APIPriorityAndFairness=true",
-				"RotateKubeletServerCertificate=true",
-				"DownwardAPIHugePages=true",
+				"AggregatedDiscoveryEndpoint=true",
 				"CSIMigrationAzureFile=false",
 				"CSIMigrationvSphere=false",
 			},
@@ -59,9 +57,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 			name:        "techpreview",
 			configValue: configv1.TechPreviewNoUpgrade,
 			expectedResult: []string{
-				"APIPriorityAndFairness=true",
-				"RotateKubeletServerCertificate=true",
-				"DownwardAPIHugePages=true",
+				"AggregatedDiscoveryEndpoint=true",
 				"CSIMigrationAzureFile=true",
 				"CSIMigrationvSphere=true",
 				"ExternalCloudProvider=true",
@@ -71,6 +67,9 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"MachineAPIProviderOpenStack=true",
 				"CGroupsV2=true",
 				"Crun=true",
+				"InsightsConfigAPI=true",
+				"CSIInlineVolumeAdmission=true",
+				"MatchLabelKeysInPodTopologySpread=true",
 			},
 		},
 		{
