@@ -129,3 +129,5 @@ require (
 )
 
 replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
+
+replace github.com/openshift/api => github.com/deads2k/api v0.0.0-20221117205239-5f96c820b9e6
