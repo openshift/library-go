@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -99,6 +100,20 @@ func getInstallerPodImageFromEnv() string {
 
 func getGuardPodName(prefix, nodeName string) string {
 	return fmt.Sprintf("%s-guard-%s", prefix, nodeName)
+}
+
+func getGuardPodHostname(nodeName string) string {
+	// The hostname is not used by the controller and not expected to be used at all.
+	// Generate the shorted but unique hostname so the hostname length is always
+	// under 63 characters as specified by hostnameMaxLen so the kubelet does not
+	// truncate the name to avoid conflicting hostnames.
+	// See OCPBUGS-3041 for more details.
+	//
+	// The controller creates exactly one guard pod per each node.
+	// Making the nodename a unique identifier for each guard pod.
+	hostname := fmt.Sprintf("guard-%s", nodeName)
+	// a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character
+	return strings.Replace(hostname, ".", "-", -1)
 }
 
 func getGuardPDBName(prefix string) string {
@@ -261,6 +276,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 			pod.ObjectMeta.Name = getGuardPodName(c.podResourcePrefix, node.Name)
 			pod.ObjectMeta.Namespace = c.targetNamespace
+			pod.Spec.Hostname = getGuardPodHostname(node.Name)
 			pod.Spec.NodeName = node.Name
 			pod.Spec.Containers[0].Image = c.installerPodImageFn()
 			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Host = operands[node.Name].Status.PodIP
@@ -281,6 +297,10 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 				}
 				if actual.Spec.Containers[0].ReadinessProbe.HTTPGet.Host != pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Host {
 					klog.V(5).Infof("Operand PodIP changed, deleting %v so the guard can be re-created", pod.Name)
+					delete = true
+				}
+				if actual.Spec.Hostname != pod.Spec.Hostname {
+					klog.V(5).Infof("Guard Hostname changed, deleting %v so the guard can be re-created", pod.Name)
 					delete = true
 				}
 				if delete {
