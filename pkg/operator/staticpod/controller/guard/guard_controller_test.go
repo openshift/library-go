@@ -360,6 +360,7 @@ func TestRenderGuardPod(t *testing.T) {
 					Labels:    map[string]string{"app": "guard"},
 				},
 				Spec: corev1.PodSpec{
+					Hostname: "guard-master1",
 					NodeName: "master1",
 				},
 				Status: corev1.PodStatus{
@@ -513,6 +514,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 			Labels:    map[string]string{"app": "guard"},
 		},
 		Spec: corev1.PodSpec{
+			Hostname: "guard-master1",
 			NodeName: "master1",
 			Containers: []corev1.Container{
 				{
