@@ -32,7 +32,7 @@ type Assets []Asset
 
 // New walks through a directory recursively and renders each file as asset. Only those files
 // are rendered that make all predicates true.
-func New(dir string, data interface{}, predicates ...FileInfoPredicate) (Assets, error) {
+func New(dir string, data interface{}, manifestPredicates []FileContentsPredicate, predicates ...FileInfoPredicate) (Assets, error) {
 	files, err := LoadFilesRecursively(dir, predicates...)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,21 @@ func New(dir string, data interface{}, predicates ...FileInfoPredicate) (Assets,
 	for path, bs := range files {
 		a, err := assetFromTemplate(path, bs, data)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to render %q: %v", path, err))
+			return nil, fmt.Errorf("failed to render %q: %v", path, err)
+		}
+
+		skipManifest := false
+		for _, manifestPredicate := range manifestPredicates {
+			shouldInclude, err := manifestPredicate(a.Data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check manifest filter %q: %v", path, err)
+			}
+			if !shouldInclude {
+				skipManifest = true
+				break
+			}
+		}
+		if skipManifest {
 			continue
 		}
 
@@ -106,6 +120,8 @@ func assetFromTemplate(name string, tb []byte, data interface{}) (*Asset, error)
 
 type FileInfoPredicate func(path string, info os.FileInfo) (bool, error)
 
+type FileContentsPredicate func(manifest []byte) (bool, error)
+
 // OnlyYaml is a predicate for LoadFilesRecursively filters out non-yaml files.
 func OnlyYaml(_ string, info os.FileInfo) (bool, error) {
 	return strings.HasSuffix(info.Name(), ".yaml") || strings.HasSuffix(info.Name(), ".yml"), nil
@@ -113,17 +129,13 @@ func OnlyYaml(_ string, info os.FileInfo) (bool, error) {
 
 // InstallerFeatureSet returns a predicate for LoadFilesRecursively that filters manifests
 // based on the specified FeatureSet.
-func InstallerFeatureSet(featureSet string) FileInfoPredicate {
+func InstallerFeatureSet(featureSet string) FileContentsPredicate {
 	targetFeatureSet := "Default"
 	if len(featureSet) > 0 {
 		targetFeatureSet = featureSet
 	}
-	return func(path string, info os.FileInfo) (bool, error) {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return false, err
-		}
-		manifestFeatureSets := resourceread.ReadUnstructuredOrDie(data).GetAnnotations()["release.openshift.io/feature-set"]
+	return func(manifest []byte) (bool, error) {
+		manifestFeatureSets := resourceread.ReadUnstructuredOrDie(manifest).GetAnnotations()["release.openshift.io/feature-set"]
 		if len(manifestFeatureSets) == 0 {
 			return true, nil
 		}

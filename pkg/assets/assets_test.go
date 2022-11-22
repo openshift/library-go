@@ -145,9 +145,8 @@ func TestInstallerFeatureSet(t *testing.T) {
 				_ = manifest.Close()
 				t.Fatal(err)
 			}
-			path := manifest.Name()
 			manifest.Close()
-			info, err := os.Lstat(path)
+			content, err := os.ReadFile(manifest.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -161,7 +160,7 @@ func TestInstallerFeatureSet(t *testing.T) {
 					}
 				}
 
-				match, err := InstallerFeatureSet(string(fs))(path, info)
+				match, err := InstallerFeatureSet(string(fs))(content)
 				if err != nil {
 					t.Fatal(err)
 				}
