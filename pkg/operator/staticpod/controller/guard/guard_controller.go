@@ -2,6 +2,8 @@ package guard
 
 import (
 	"context"
+	"crypto/sha1"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -102,7 +104,7 @@ func getGuardPodName(prefix, nodeName string) string {
 	return fmt.Sprintf("%s-guard-%s", prefix, nodeName)
 }
 
-func getGuardPodHostname(nodeName string) string {
+func getGuardPodHostname(namespace, nodeName string) string {
 	// The hostname is not used by the controller and not expected to be used at all.
 	// Generate the shorted but unique hostname so the hostname length is always
 	// under 63 characters as specified by hostnameMaxLen so the kubelet does not
@@ -111,7 +113,9 @@ func getGuardPodHostname(nodeName string) string {
 	//
 	// The controller creates exactly one guard pod per each node.
 	// Making the nodename a unique identifier for each guard pod.
-	hostname := fmt.Sprintf("guard-%s", nodeName)
+	// Adding the namespace to make the input for the generated hash longer
+	hash := sha1.Sum([]byte(fmt.Sprintf("%s-%s", namespace, nodeName)))
+	hostname := "guard-" + fmt.Sprintf("%x", string(hash[:])) + "-end" //6 + 40 + 4 = 50 chars
 	// a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character
 	return strings.Replace(hostname, ".", "-", -1)
 }
@@ -276,7 +280,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 			pod.ObjectMeta.Name = getGuardPodName(c.podResourcePrefix, node.Name)
 			pod.ObjectMeta.Namespace = c.targetNamespace
-			pod.Spec.Hostname = getGuardPodHostname(node.Name)
+			pod.Spec.Hostname = getGuardPodHostname(c.targetNamespace, node.Name)
 			pod.Spec.NodeName = node.Name
 			pod.Spec.Containers[0].Image = c.installerPodImageFn()
 			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Host = operands[node.Name].Status.PodIP
