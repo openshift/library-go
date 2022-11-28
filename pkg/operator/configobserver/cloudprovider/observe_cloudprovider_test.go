@@ -117,6 +117,16 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
+		name: "Nutanix Platform",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.NutanixPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.NutanixPlatformType,
+			},
+		},
+		expected:           "external",
+		cloudProviderCount: 1,
+	}, {
 		name: "Azure platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.AzurePlatformType,
