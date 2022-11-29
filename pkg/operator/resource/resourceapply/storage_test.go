@@ -2,6 +2,8 @@ package resourceapply
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -373,6 +375,7 @@ func TestApplyCSIDriver(t *testing.T) {
 		input    *storagev1.CSIDriver
 
 		expectedModified bool
+		expectedError    error
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
@@ -495,6 +498,73 @@ func TestApplyCSIDriver(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "ephemeral volume mode with required label",
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+					Labels:      map[string]string{csiInlineVolProfileLabel: "restricted"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecycleEphemeral,
+					},
+				},
+			},
+
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("create", "csidrivers") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.CSIDriver{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+						Labels:      map[string]string{csiInlineVolProfileLabel: "restricted"},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecycleEphemeral,
+						},
+					},
+				}
+				SetSpecHashAnnotation(&expected.ObjectMeta, expected.Spec)
+				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1.CSIDriver)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
+				}
+			},
+		},
+		{
+			name: "ephemeral volume mode missing required label",
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecycleEphemeral,
+					},
+				},
+			},
+
+			expectedModified: false,
+			expectedError:    fmt.Errorf("CSIDriver foo supports Ephemeral volume lifecycle but is missing required label security.openshift.io/csi-ephemeral-volume-profile"),
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 0 {
+					t.Fatal(spew.Sdump(actions))
+				}
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -509,8 +579,15 @@ func TestApplyCSIDriver(t *testing.T) {
 			client := fake.NewSimpleClientset(objs...)
 			_, actualModified, err := ApplyCSIDriver(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
 			if err != nil {
-				t.Fatal(err)
+				if test.expectedError == nil {
+					t.Fatalf("%s: returned error: %v", test.name, err)
+				}
+
+				if !strings.Contains(err.Error(), test.expectedError.Error()) {
+					t.Fatalf("%s: the expected error %v, got %v", test.name, test.expectedError, err)
+				}
 			}
+
 			if test.expectedModified != actualModified {
 				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
 			}
