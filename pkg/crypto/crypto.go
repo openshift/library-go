@@ -639,10 +639,6 @@ func MakeSelfSignedCAConfigForSubject(subject pkix.Name, expireDays int) (*TLSCe
 		caLifetimeInDays = expireDays
 	}
 
-	if caLifetimeInDays > DefaultCACertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeInDays)
-	}
-
 	caLifetime := time.Duration(caLifetimeInDays) * 24 * time.Hour
 	return makeSelfSignedCAConfigForSubjectAndDuration(subject, caLifetime)
 }
@@ -1023,10 +1019,6 @@ func newServerCertificateTemplate(subject pkix.Name, hosts []string, expireDays 
 		lifetimeInDays = expireDays
 	}
 
-	if lifetimeInDays > DefaultCertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCertificateLifetimeInDays)
-	}
-
 	lifetime := time.Duration(lifetimeInDays) * 24 * time.Hour
 
 	return newServerCertificateTemplateForDuration(subject, hosts, lifetime, currentTime, authorityKeyId, subjectKeyId)
@@ -1112,10 +1104,6 @@ func newClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime
 		lifetimeInDays = expireDays
 	}
 
-	if lifetimeInDays > DefaultCertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCertificateLifetimeInDays)
-	}
-
 	lifetime := time.Duration(lifetimeInDays) * 24 * time.Hour
 
 	return newClientCertificateTemplateForDuration(subject, lifetime, currentTime)
@@ -1136,12 +1124,6 @@ func newClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Du
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 	}
-}
-
-func warnAboutCertificateLifeTime(name string, defaultLifetimeInDays int) {
-	defaultLifetimeInYears := defaultLifetimeInDays / 365
-	fmt.Fprintf(os.Stderr, "WARNING: Validity period of the certificate for %q is greater than %d years!\n", name, defaultLifetimeInYears)
-	fmt.Fprintln(os.Stderr, "WARNING: By security reasons it is strongly recommended to change this period and make it smaller!")
 }
 
 func signCertificate(template *x509.Certificate, requestKey crypto.PublicKey, issuer *x509.Certificate, issuerKey crypto.PrivateKey) (*x509.Certificate, error) {

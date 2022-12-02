@@ -159,10 +159,6 @@ func newSigningCertificateTemplate(subject pkix.Name, expireDays int, currentTim
 		caLifetimeInDays = expireDays
 	}
 
-	if caLifetimeInDays > DefaultCACertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeInDays)
-	}
-
 	caLifetime := time.Duration(caLifetimeInDays) * 24 * time.Hour
 
 	return newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, nil, nil)
