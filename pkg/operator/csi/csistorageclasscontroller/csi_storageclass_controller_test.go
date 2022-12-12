@@ -3,9 +3,12 @@ package csistorageclasscontroller
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	opv1 "github.com/openshift/api/operator/v1"
+	fakeoperatorv1client "github.com/openshift/client-go/operator/clientset/versioned/fake"
+	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -22,12 +25,14 @@ import (
 )
 
 const (
-	controllerName = "TestCSIStorageClassController"
-	operandName    = "test-csi-storage-class-controller"
+	controllerName  = "TestCSIStorageClassController"
+	operandName     = "test-csi-storage-class-controller"
+	provisionerName = "test.csi.example.com"
 )
 
 type testCase struct {
 	name              string
+	scState           opv1.StorageClassStateName
 	initialObjects    testObjects
 	hooks             []StorageClassHookFunc
 	expectedObjects   testObjects
@@ -131,6 +136,12 @@ func withAnnotations(sc *storagev1.StorageClass, keysAndValues ...string) *stora
 	return sc
 }
 
+func withImmediateVolBinding(sc *storagev1.StorageClass) *storagev1.StorageClass {
+	volBinding := storagev1.VolumeBindingImmediate
+	sc.VolumeBindingMode = &volBinding
+	return sc
+}
+
 type driverModifier func(*fakeDriverInstance) *fakeDriverInstance
 
 func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
@@ -147,6 +158,36 @@ func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
 	for _, modifier := range modifiers {
 		instance = modifier(instance)
 	}
+	return instance
+}
+
+func makeFakeClusterCSIDriver(scState opv1.StorageClassStateName) *opv1.ClusterCSIDriver {
+	return &opv1.ClusterCSIDriver{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterCSIDriver",
+			APIVersion: "operator.openshift.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: provisionerName,
+		},
+		Spec: opv1.ClusterCSIDriverSpec{
+			StorageClassState: scState,
+		},
+	}
+}
+
+func makeFakeScInstance(scName string, defaultSCAnnotation string) *storagev1.StorageClass {
+	instance := &storagev1.StorageClass{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "StorageClass",
+			APIVersion: "storage.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        scName,
+			Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": defaultSCAnnotation},
+		},
+	}
+
 	return instance
 }
 
@@ -171,6 +212,11 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	fakeDriver := makeFakeDriverInstance()
 	fakeOperatorClient := v1helpers.NewFakeOperatorClient(&fakeDriver.Spec, &fakeDriver.Status, nil)
 
+	testCCD := makeFakeClusterCSIDriver(test.scState)
+	typedVersionedOperatorClient := fakeoperatorv1client.NewSimpleClientset(testCCD)
+	fakeOperatorInformer := operatorinformer.NewSharedInformerFactory(typedVersionedOperatorClient, 1*time.Minute)
+	fakeOperatorInformer.Operator().V1().ClusterCSIDrivers().Informer().GetIndexer().Add(testCCD)
+
 	controller := NewCSIStorageClassController(
 		controllerName,
 		fakeAssetFuncFactory(test.appliedAnnotation),
@@ -178,6 +224,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		kubeClient,
 		coreInformerFactory,
 		fakeOperatorClient,
+		fakeOperatorInformer,
 		events.NewInMemoryRecorder(operandName),
 		test.hooks...,
 	)
@@ -188,21 +235,6 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		kubeClient:     kubeClient,
 		scInformer:     scInformer,
 	}
-}
-
-func makeFakeScInstance(scName string, defaultSCAnnotation string) *storagev1.StorageClass {
-	instance := &storagev1.StorageClass{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "StorageClass",
-			APIVersion: "storage.k8s.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        scName,
-			Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": defaultSCAnnotation},
-		},
-	}
-
-	return instance
 }
 
 func TestSync(t *testing.T) {
@@ -402,6 +434,90 @@ func TestSync(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "managed storage class state should create default SC",
+			scState: opv1.ManagedStorageClass,
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					fakeAssetFuncToScObject(fakeAssetFuncFactory("true")),
+				},
+			},
+		},
+		{
+			name:    "managed storage class state should reconcile modified SC",
+			scState: opv1.ManagedStorageClass,
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					withImmediateVolBinding(fakeAssetFuncToScObject(fakeAssetFuncFactory("true"))),
+				},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					fakeAssetFuncToScObject(fakeAssetFuncFactory("true")),
+				},
+			},
+		},
+		{
+			name:    "unmanaged storage class state should not create default SC",
+			scState: opv1.UnmanagedStorageClass,
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+		},
+		{
+			name:    "unmanaged storage class state should not reconcile modified SC",
+			scState: opv1.UnmanagedStorageClass,
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					withImmediateVolBinding(fakeAssetFuncToScObject(fakeAssetFuncFactory("true"))),
+				},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					withImmediateVolBinding(fakeAssetFuncToScObject(fakeAssetFuncFactory("true"))),
+				},
+			},
+		},
+		{
+			name:    "removed storage class state should delete SC",
+			scState: opv1.RemovedStorageClass,
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					makeFakeScInstance("test-sc", "false"),
+					makeFakeScInstance("test-sc-2", "false"),
+					fakeAssetFuncToScObject(fakeAssetFuncFactory("true")),
+				},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{
+					makeFakeScInstance("test-sc", "false"),
+					makeFakeScInstance("test-sc-2", "false"),
+				},
+			},
+		},
+		{
+			name:    "invalid storage class state should return error",
+			scState: "invalid",
+			initialObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+			appliedAnnotation: "true",
+			expectedObjects: testObjects{
+				storageClasses: []*storagev1.StorageClass{},
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, test := range testCases {
@@ -411,8 +527,11 @@ func TestSync(t *testing.T) {
 
 			// Act
 			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName)))
-			if err != nil {
+			if err != nil && !test.expectErr {
 				t.Errorf("Failed to sync StorageClass: %s", err)
+			}
+			if err == nil && test.expectErr {
+				t.Errorf("Error was expected but nil was returned")
 			}
 
 			// Assert
