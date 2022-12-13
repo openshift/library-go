@@ -106,7 +106,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 	}
 
 	// we set cloudprovider configmap values only for some cloud providers.
-	validCloudProviders := sets.NewString("aws", "azure", "gce", "openstack", "vsphere")
+	validCloudProviders := sets.NewString("aws", "azure", "gce", "vsphere")
 	if !validCloudProviders.Has(cloudProvider) {
 		sourceCloudConfigMap = ""
 	}
@@ -187,7 +187,6 @@ func GetPlatformName(platformType configv1.PlatformType, recorder events.Recorde
 		cloudProvider = "gce"
 	case configv1.LibvirtPlatformType:
 	case configv1.OpenStackPlatformType:
-		cloudProvider = "openstack"
 	case configv1.IBMCloudPlatformType:
 	case configv1.NonePlatformType:
 	case configv1.NutanixPlatformType:
