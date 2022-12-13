@@ -35,10 +35,14 @@ type KubeStorageVersionMigrator struct {
 	cacheSynced     func() bool
 }
 
-func (m *KubeStorageVersionMigrator) AddEventHandler(handler cache.ResourceEventHandler) {
+func (m *KubeStorageVersionMigrator) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	informer := m.informer.StorageVersionMigrations().Informer()
-	informer.AddEventHandler(handler)
+	registration, err := informer.AddEventHandler(handler)
+	if err != nil {
+		return nil, err
+	}
 	m.cacheSynced = informer.HasSynced
+	return registration, nil
 }
 
 func (m *KubeStorageVersionMigrator) HasSynced() bool {
