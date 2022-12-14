@@ -830,6 +830,14 @@ func (ca *CA) MakeServerCertForDuration(hostnames sets.String, lifetime time.Dur
 
 func (ca *CA) EnsureClientCertificate(certFile, keyFile string, u user.Info, expireDays int) (*TLSCertificateConfig, bool, error) {
 	certConfig, err := GetClientCertificate(certFile, keyFile, u)
+	if err == nil {
+		roots := x509.NewCertPool()
+		roots.AddCert(ca.Config.Certs[0])
+		if _, verifyErr := certConfig.Certs[0].Verify(x509.VerifyOptions{Roots: roots}); verifyErr != nil {
+			err = verifyErr
+		}
+	}
+
 	if err != nil {
 		certConfig, err = ca.MakeClientCertificate(certFile, keyFile, u, expireDays)
 		return certConfig, true, err // true indicates we wrote the files.
