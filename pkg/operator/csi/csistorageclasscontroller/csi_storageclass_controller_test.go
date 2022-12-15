@@ -220,7 +220,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewCSIStorageClassController(
 		controllerName,
 		fakeAssetFuncFactory(test.appliedAnnotation),
-		"test",
+		[]string{"test"},
 		kubeClient,
 		coreInformerFactory,
 		fakeOperatorClient,

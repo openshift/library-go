@@ -44,7 +44,7 @@ type StorageClassHookFunc func(*operatorapi.OperatorSpec, *storagev1.StorageClas
 type CSIStorageClassController struct {
 	name               string
 	assetFunc          resourceapply.AssetFunc
-	file               string
+	files              []string
 	kubeClient         kubernetes.Interface
 	storageClassLister v1.StorageClassLister
 	operatorClient     v1helpers.OperatorClient
@@ -60,7 +60,7 @@ type CSIStorageClassController struct {
 func NewCSIStorageClassController(
 	name string,
 	assetFunc resourceapply.AssetFunc,
-	file string,
+	files []string,
 	kubeClient kubernetes.Interface,
 	informerFactory informers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
@@ -76,7 +76,7 @@ func NewCSIStorageClassController(
 	c := &CSIStorageClassController{
 		name:                      name,
 		assetFunc:                 assetFunc,
-		file:                      file,
+		files:                     files,
 		kubeClient:                kubeClient,
 		storageClassLister:        informerFactory.Storage().V1().StorageClasses().Lister(),
 		operatorClient:            operatorClient,
@@ -113,13 +113,17 @@ func (c *CSIStorageClassController) Sync(ctx context.Context, syncCtx factory.Sy
 		return nil
 	}
 
-	syncErr := c.syncStorageClass(ctx, opSpec)
+	for _, file := range c.files {
+		if err := c.syncStorageClass(ctx, opSpec, file); err != nil {
+			return err
+		}
+	}
 
-	return syncErr
+	return nil
 }
 
-func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec *operatorapi.OperatorSpec) error {
-	expectedScBytes, err := c.assetFunc(c.file)
+func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec *operatorapi.OperatorSpec, assetFile string) error {
+	expectedScBytes, err := c.assetFunc(assetFile)
 	if err != nil {
 		return err
 	}
@@ -202,7 +206,7 @@ func (e *StorageClassStateEvaluator) EvalAndApplyStorageClass(ctx context.Contex
 	scState := operatorapi.ManagedStorageClass
 	clusterCSIDriver, err := e.clusterCSIDriverLister.Get(expectedSC.Provisioner)
 	if err != nil {
-		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState")
+		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %w", expectedSC.Provisioner, err)
 	} else {
 		scState = clusterCSIDriver.Spec.StorageClassState
 	}
