@@ -311,21 +311,20 @@ func TestValidateRoute(t *testing.T) {
 		expectedErrors    int
 	}{
 		{
-			name:              "Non-DNS-compliant host with non-compliance allowed",
-			host:              "host",
-			allowNonCompliant: "true",
-			expectedErrors:    0,
-		},
-		{
-			name:              "Non-DNS-compliant host with non-compliance not allowed",
-			host:              "host",
-			allowNonCompliant: "false",
-			expectedErrors:    1,
+			name:           "Valid host",
+			host:           "host",
+			expectedErrors: 0,
 		},
 		{
 			name:           "Non-DNS-compliant host without non-compliance annotation",
-			host:           "host",
+			host:           "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host",
 			expectedErrors: 1,
+		},
+		{
+			name:              "Non-DNS-compliant host with non-compliance annotation",
+			host:              "1234567890-1234567890-1234567890-1234567890-1234567890-123456789.host",
+			allowNonCompliant: "true",
+			expectedErrors:    0,
 		},
 		{
 			name:              "Specified label too long",
@@ -363,13 +362,19 @@ func TestValidateRoute(t *testing.T) {
 			name:              "No host",
 			host:              "",
 			allowNonCompliant: "",
-			expectedErrors:    1,
+			expectedErrors:    2,
 		},
 		{
 			name:              "Invalid DNS 952 host",
 			host:              "**",
 			allowNonCompliant: "",
-			expectedErrors:    1,
+			expectedErrors:    2,
+		},
+		{
+			name:              "Invalid host with trailing dot",
+			host:              "hostwithtrailing.",
+			allowNonCompliant: "",
+			expectedErrors:    2,
 		},
 	}
 
