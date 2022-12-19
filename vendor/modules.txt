@@ -1,4 +1,4 @@
-# github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e
+# github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e
 ## explicit
 github.com/Azure/go-ntlmssp
 # github.com/NYTimes/gziphandler v1.1.1
@@ -78,8 +78,8 @@ github.com/ghodss/yaml
 # github.com/go-asn1-ber/asn1-ber v1.5.4
 ## explicit; go 1.13
 github.com/go-asn1-ber/asn1-ber
-# github.com/go-ldap/ldap/v3 v3.4.3
-## explicit; go 1.13
+# github.com/go-ldap/ldap/v3 v3.4.4
+## explicit; go 1.14
 github.com/go-ldap/ldap/v3
 # github.com/go-logr/logr v1.2.3
 ## explicit; go 1.16
@@ -403,7 +403,7 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.7.0
+# github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
@@ -515,7 +515,7 @@ go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
+# golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish

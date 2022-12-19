@@ -120,6 +120,18 @@ func (c *Fake) ModifyWithResult(request *ldap.ModifyRequest) (*ldap.ModifyResult
 	return nil, nil
 }
 
+func (c *Fake) NTLMUnauthenticatedBind(domain, username string) error {
+	return nil
+}
+
+func (c *Fake) TLSConnectionState() (tls.ConnectionState, bool) {
+	return tls.ConnectionState{}, false
+}
+
+func (c *Fake) Unbind() error {
+	return nil
+}
+
 // NewMatchingSearchErrorClient returns a new MatchingSearchError client sitting on top of the parent
 // client. This client returns the given error when a search base DN matches the given base DN, and
 // defers to the parent otherwise.

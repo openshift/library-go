@@ -9,7 +9,7 @@ require (
 	github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-ldap/ldap/v3 v3.4.3
+	github.com/go-ldap/ldap/v3 v3.4.4
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/google/gnostic v0.5.7-v3refs
 	github.com/google/go-cmp v0.5.6
@@ -26,9 +26,9 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.2
 	go.etcd.io/etcd/client/v3 v3.5.4
-	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
@@ -48,7 +48,7 @@ require (
 )
 
 require (
-	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
