@@ -178,6 +178,8 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	// Retrieve existing podnetworkconnectivitychecks which is later used for
+	// removing stale objects from k8s.
 	var existingChecks []*v1alpha1.PodNetworkConnectivityCheck
 	if c.checkLister != nil {
 		existingChecks, err = c.checkLister.List(labels.Everything())
@@ -197,14 +199,12 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		newCheckNames.Insert(newCheck.Name)
 		existing, err := pnccClient.Get(ctx, newCheck.Name, metav1.GetOptions{})
 		if err == nil {
-			if value, ok := existing.Labels[managedByLabelKey]; ok &&
-				value == managedByLabelValue && equality.Semantic.DeepEqual(existing.Spec, newCheck.Spec) {
+			if equality.Semantic.DeepEqual(existing.Spec, newCheck.Spec) {
 				// already exists, no changes, skip
 				continue
 			}
 			updated := existing.DeepCopy()
 			updated.Spec = *newCheck.Spec.DeepCopy()
-			updated = setWithManagedByLabel(updated)
 			_, err := pnccClient.Update(ctx, updated, metav1.UpdateOptions{})
 			if err != nil {
 				syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(newCheck), err)
@@ -215,7 +215,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		}
 		if errors.IsNotFound(err) {
 			newCheck = setWithManagedByLabel(newCheck)
-			_, err = pnccClient.Create(ctx, newCheck, metav1.CreateOptions{})
+			_, err = pnccClient.Create(ctx, newCheck, metav1.CreateOptions{FieldManager: managedByLabelValue})
 		}
 		if err != nil {
 			syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(newCheck), err)
@@ -303,5 +303,8 @@ func setWithManagedByLabel(check *v1alpha1.PodNetworkConnectivityCheck) *v1alpha
 		check.Labels = make(map[string]string)
 	}
 	check.Labels[managedByLabelKey] = managedByLabelValue
+	check.ManagedFields = []metav1.ManagedFieldsEntry{{Manager: managedByLabelValue, Operation: metav1.ManagedFieldsOperationApply,
+		APIVersion: "v1alpha1", Time: &metav1.Time{}, FieldsType: "FieldsV1",
+		FieldsV1: &metav1.FieldsV1{Raw: []byte(`{"f:metadata": {"f:labels": {"f:networking.openshift.io/managedBy": {}}}}`)}}}
 	return check
 }
