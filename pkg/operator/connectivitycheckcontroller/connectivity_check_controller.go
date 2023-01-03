@@ -10,24 +10,23 @@ import (
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	applyconfigv1alpha1 "github.com/openshift/client-go/operatorcontrolplane/applyconfigurations/operatorcontrolplane/v1alpha1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	operatorcontrolplaneinformers "github.com/openshift/client-go/operatorcontrolplane/informers/externalversions"
 	listerv1alpha1 "github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
-
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -90,7 +89,7 @@ type connectivityCheckController struct {
 	enabledByDefault bool
 }
 
-type PodNetworkConnectivityCheckFunc func(ctx context.Context, syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error)
+type PodNetworkConnectivityCheckFunc func(ctx context.Context, syncContext factory.SyncContext) ([]*applyconfigv1alpha1.PodNetworkConnectivityCheckApplyConfiguration, error)
 
 func (c *connectivityCheckController) WithPodNetworkConnectivityCheckFn(podNetworkConnectivityCheckFn PodNetworkConnectivityCheckFunc) ConnectivityCheckController {
 	c.podNetworkConnectivityCheckFn = podNetworkConnectivityCheckFn
@@ -196,27 +195,13 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	pnccClient := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(c.namespace)
 	newCheckNames := sets.NewString()
 	for _, newCheck := range newChecks {
-		newCheckNames.Insert(newCheck.Name)
-		existing, err := pnccClient.Get(ctx, newCheck.Name, metav1.GetOptions{})
-		if err == nil {
-			if equality.Semantic.DeepEqual(existing.Spec, newCheck.Spec) {
-				// already exists, no changes, skip
-				continue
-			}
-			updated := existing.DeepCopy()
-			updated.Spec = *newCheck.Spec.DeepCopy()
-			_, err := pnccClient.Update(ctx, updated, metav1.UpdateOptions{})
-			if err != nil {
-				syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(newCheck), err)
-				continue
-			}
-			syncContext.Recorder().Eventf("EndpointCheckUpdated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(newCheck))
-			continue
-		}
-		if errors.IsNotFound(err) {
-			newCheck = setWithManagedByLabel(newCheck)
-			_, err = pnccClient.Create(ctx, newCheck, metav1.CreateOptions{FieldManager: managedByLabelValue})
-		}
+		newCheckNames.Insert(*newCheck.Name)
+		newCheck.WithLabels(map[string]string{managedByLabelKey: managedByLabelValue})
+
+		_, err := pnccClient.Apply(ctx, newCheck, metav1.ApplyOptions{
+			Force:        true,
+			FieldManager: c.Name(),
+		})
 		if err != nil {
 			syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(newCheck), err)
 			continue
@@ -293,18 +278,4 @@ func (c *connectivityCheckController) enabled(operatorSpec *operatorv1.OperatorS
 		klog.V(3).Info("ConnectivityCheckController is disabled by default.")
 		return false, nil
 	}
-}
-
-func setWithManagedByLabel(check *v1alpha1.PodNetworkConnectivityCheck) *v1alpha1.PodNetworkConnectivityCheck {
-	if check == nil {
-		return check
-	}
-	if check.Labels == nil {
-		check.Labels = make(map[string]string)
-	}
-	check.Labels[managedByLabelKey] = managedByLabelValue
-	check.ManagedFields = []metav1.ManagedFieldsEntry{{Manager: managedByLabelValue, Operation: metav1.ManagedFieldsOperationApply,
-		APIVersion: "v1alpha1", Time: &metav1.Time{}, FieldsType: "FieldsV1",
-		FieldsV1: &metav1.FieldsV1{Raw: []byte(`{"f:metadata": {"f:labels": {"f:networking.openshift.io/managedBy": {}}}}`)}}}
-	return check
 }
