@@ -333,6 +333,11 @@ github.com/openshift/client-go/operatorcontrolplane/applyconfigurations/operator
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/scheme
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/typed/operatorcontrolplane/v1alpha1
+github.com/openshift/client-go/operatorcontrolplane/informers/externalversions
+github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/internalinterfaces
+github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
+github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
+github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/quota/applyconfigurations/internal
 github.com/openshift/client-go/quota/applyconfigurations/quota/v1
 github.com/openshift/client-go/quota/clientset/versioned
