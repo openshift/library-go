@@ -2,6 +2,7 @@ package controllercmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
@@ -59,19 +61,29 @@ type ControllerContext struct {
 	OperatorNamespace string
 }
 
+type leaderElectionResourceLock string
+
+const (
+	LeasesResourceLock           leaderElectionResourceLock = resourcelock.LeasesResourceLock
+	ConfigMapsLeasesResourceLock leaderElectionResourceLock = resourcelock.ConfigMapsLeasesResourceLock
+)
+
+var ErrInvalidResourceLock = errors.New("the leader election resource lock is not supported")
+
 // defaultObserverInterval specifies the default interval that file observer will do rehash the files it watches and react to any changes
 // in those files.
 var defaultObserverInterval = 5 * time.Second
 
 // ControllerBuilder allows the construction of an controller in optional pieces.
 type ControllerBuilder struct {
-	kubeAPIServerConfigFile *string
-	clientOverrides         *client.ClientConnectionOverrides
-	leaderElection          *configv1.LeaderElection
-	fileObserver            fileobserver.Observer
-	fileObserverReactorFn   func(file string, action fileobserver.ActionType) error
-	eventRecorderOptions    record.CorrelatorOptions
-	componentOwnerReference *corev1.ObjectReference
+	kubeAPIServerConfigFile    *string
+	clientOverrides            *client.ClientConnectionOverrides
+	leaderElection             *configv1.LeaderElection
+	leaderElectionResourceLock leaderElectionResourceLock
+	fileObserver               fileobserver.Observer
+	fileObserverReactorFn      func(file string, action fileobserver.ActionType) error
+	eventRecorderOptions       record.CorrelatorOptions
+	componentOwnerReference    *corev1.ObjectReference
 
 	startFunc          StartFunc
 	componentName      string
@@ -154,6 +166,14 @@ func (b *ControllerBuilder) WithLeaderElection(leaderElection configv1.LeaderEle
 
 	defaulted := leaderelectionconverter.LeaderElectionDefaulting(leaderElection, defaultNamespace, defaultName)
 	b.leaderElection = &defaulted
+	return b
+}
+
+// WithLeaderElectionResourceLock sets the resource lock. If not set, controllercmd.ConfigMapsLeasesResourceLock will
+// be used for backwards compatibility.
+func (b *ControllerBuilder) WithLeaderElectionResourceLock(resourceLock leaderElectionResourceLock) *ControllerBuilder {
+	b.leaderElectionResourceLock = resourceLock
+
 	return b
 }
 
@@ -328,8 +348,19 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 	// ensure blocking TCP connections don't block the leader election
 	leaderConfig := rest.CopyConfig(protoConfig)
 	leaderConfig.Timeout = b.leaderElection.RenewDeadline.Duration
+	var leaderElection leaderelection.LeaderElectionConfig
 
-	leaderElection, err := leaderelectionconverter.ToLeaderElectionWithConfigmapLease(leaderConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
+	switch b.leaderElectionResourceLock {
+	// default to configmapsleases for leader election
+	// TODO: In the next version we should switch to using "leases" by default
+	case "", ConfigMapsLeasesResourceLock:
+		leaderElection, err = leaderelectionconverter.ToLeaderElectionWithConfigmapLease(leaderConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
+	case LeasesResourceLock:
+		leaderElection, err = leaderelectionconverter.ToLeaderElectionWithLease(leaderConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
+	default:
+		return fmt.Errorf("%w: %s", ErrInvalidResourceLock, b.leaderElectionResourceLock)
+	}
+
 	if err != nil {
 		return err
 	}

@@ -29,8 +29,20 @@ import (
 // See https://github.com/kubernetes/kubernetes/issues/107454 for
 // details on how to migrate to "leases" leader election.
 // Don't forget the callbacks!
-// TODO: In the next version we should switch to using "leases"
 func ToLeaderElectionWithConfigmapLease(clientConfig *rest.Config, config configv1.LeaderElection, component, identity string) (leaderelection.LeaderElectionConfig, error) {
+	return toLeaderElection(clientConfig, config, component, identity, resourcelock.ConfigMapsLeasesResourceLock)
+}
+
+// ToLeaderElectionWithLease returns a "leases" based leader
+// election config that you just need to fill in the Callback for.
+// Don't forget the callbacks!
+func ToLeaderElectionWithLease(clientConfig *rest.Config, config configv1.LeaderElection, component, identity string) (leaderelection.LeaderElectionConfig, error) {
+	return toLeaderElection(clientConfig, config, component, identity, resourcelock.LeasesResourceLock)
+}
+
+// toLeaderElection returns a leader election config that you just need to fill in the Callback for. The input
+// resourceLock must be a value from the k8s.io/client-go/tools/leaderelection/resourcelock package.
+func toLeaderElection(clientConfig *rest.Config, config configv1.LeaderElection, component, identity, resourceLock string) (leaderelection.LeaderElectionConfig, error) {
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		return leaderelection.LeaderElectionConfig{}, err
@@ -57,7 +69,7 @@ func ToLeaderElectionWithConfigmapLease(clientConfig *rest.Config, config config
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: v1core.New(kubeClient.CoreV1().RESTClient()).Events("")})
 	eventRecorder := eventBroadcaster.NewRecorder(clientgoscheme.Scheme, corev1.EventSource{Component: component})
 	rl, err := resourcelock.New(
-		resourcelock.ConfigMapsLeasesResourceLock,
+		resourceLock,
 		config.Namespace,
 		config.Name,
 		kubeClient.CoreV1(),

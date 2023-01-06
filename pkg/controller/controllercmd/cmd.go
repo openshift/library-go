@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 
@@ -43,6 +44,10 @@ type ControllerCommandConfig struct {
 	// DisableServing disables serving metrics, debug and health checks and so on.
 	DisableServing bool
 
+	// LeaderElectionResourceLock sets the resource lock. If not set, controllercmd.ConfigMapsLeasesResourceLock will
+	// be used for backwards compatibility.
+	LeaderElectionResourceLock leaderElectionResourceLock
+
 	// DisableLeaderElection allows leader election to be suspended
 	DisableLeaderElection bool
 
@@ -59,8 +64,9 @@ func NewControllerCommandConfig(componentName string, version version.Info, star
 
 		basicFlags: NewControllerFlags(),
 
-		DisableServing:        false,
-		DisableLeaderElection: false,
+		LeaderElectionResourceLock: resourcelock.ConfigMapsLeasesResourceLock,
+		DisableServing:             false,
+		DisableLeaderElection:      false,
 	}
 }
 
@@ -282,6 +288,7 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
 		WithComponentNamespace(c.basicFlags.Namespace).
 		WithLeaderElection(config.LeaderElection, c.basicFlags.Namespace, c.componentName+"-lock").
+		WithLeaderElectionResourceLock(c.LeaderElectionResourceLock).
 		WithVersion(c.version).
 		WithEventRecorderOptions(events.RecommendedClusterSingletonCorrelatorOptions()).
 		WithRestartOnChange(exitOnChangeReactorCh, startingFileContent, observedFiles...).
