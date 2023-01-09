@@ -306,7 +306,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 			Type: configv1.VSpherePlatformType,
 		},
 		featureGate: nil,
-		expected:    false,
+		expected:    true,
 	}, {
 		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: vSphere",
 		status: &configv1.PlatformStatus{
