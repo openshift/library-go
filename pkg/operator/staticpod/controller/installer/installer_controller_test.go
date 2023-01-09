@@ -28,7 +28,64 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	clocktesting "k8s.io/utils/clock/testing"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
+
+func TestInternalAPI(t *testing.T) {
+
+	// k8s.io/api/core/v1.EnvVar {Name: "KUBERNETES_SERVICE_PORT", Value: "443", ValueFrom: *k8s.io/api/core/v1.EnvVarSource nil}
+	// k8s.io/api/core/v1.EnvVar {Name: "KUBERNETES_SERVICE_HOST", Value: "internalLoadBalancerHost", ValueFrom: *k8s.io/api/core/v1.EnvVarSource nil}
+
+	type Expected struct {
+		kspValue string
+		kshValue string
+	}
+	type Test struct {
+		name     string
+		inputKSP string
+		inputKSH string
+		expected Expected
+	}
+	for _, test := range []Test{
+		{"missinghostandport", "", "", Expected{"", ""}},
+		{"missinghost", "internalLoadBalancerPort", "", Expected{"", ""}},
+		{"hostandport", "internalLoadBalancerPort", "internalLoadBalancerHost", Expected{"internalLoadBalancerPort", "internalLoadBalancerHost"}},
+		{"hostonly", "", "internalLoadBalancerHost", Expected{"443", "internalLoadBalancerHost"}},
+	} {
+
+		t.Run(test.name, func(t *testing.T) {
+
+			pod := resourceread.ReadPodV1OrDie(podTemplate)
+
+			err := updatePodSpecWithInternalLoadBalancerKubeService(&pod.Spec, []string{pod.Spec.Containers[0].Name}, test.inputKSH, test.inputKSP)
+
+			if err != nil {
+				t.Fatalf("%s failed with: %v", test.name, err)
+			}
+
+			var hostValue, portValue string
+
+			for _, env := range pod.Spec.Containers[0].Env {
+
+				if env.Name == "KUBERNETES_SERVICE_HOST" {
+					hostValue = env.Value
+				} else if env.Name == "KUBERNETES_SERVICE_PORT" {
+					portValue = env.Value
+				}
+			}
+
+			if hostValue != test.expected.kshValue {
+				t.Fatalf("%s failed with missing host value, expected: %s, was: %s", test.name, test.expected.kshValue, hostValue)
+			}
+
+			if portValue != test.expected.kspValue {
+				t.Fatalf("%s failed with missing port value, expected: %s, was: %s", test.name, test.expected.kspValue, portValue)
+			}
+		})
+	}
+
+}
 
 func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	before := metav1.NewTime(time.Date(2021, 1, 2, 3, 3, 4, 5, time.UTC))
@@ -557,6 +614,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
+				nil,
 			)
 			c.now = func() time.Time { return now.Time }
 			c.startupMonitorEnabled = func() (bool, error) {
@@ -690,6 +748,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		eventRecorder,
+		nil,
 	)
 	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
@@ -1097,6 +1156,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		eventRecorder,
+		nil,
 	)
 	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
@@ -1264,6 +1324,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
+				nil,
 			)
 			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
@@ -2005,6 +2066,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
+				nil,
 			)
 			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil

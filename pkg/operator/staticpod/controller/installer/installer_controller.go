@@ -3,8 +3,11 @@ package installer
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"math"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,6 +36,8 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
+
+	v1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 )
 
 const (
@@ -98,6 +103,8 @@ type InstallerController struct {
 	clock            clock.Clock
 	installerBackOff func(count int) time.Duration
 	fallbackBackOff  func(count int) time.Duration
+
+	infraInformer v1.InfrastructureInformer
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -164,6 +171,7 @@ func NewInstallerController(
 	secretsGetter corev1client.SecretsGetter,
 	podsGetter corev1client.PodsGetter,
 	eventRecorder events.Recorder,
+	infraInformer v1.InfrastructureInformer,
 ) *InstallerController {
 	c := &InstallerController{
 		targetNamespace: targetNamespace,
@@ -186,6 +194,7 @@ func NewInstallerController(
 		clock:               clock.RealClock{},
 		installerBackOff:    backOffDuration(10*time.Second, 1.5, 10*time.Minute),
 		fallbackBackOff:     backOffDuration(10*time.Minute, 2, 2*time.Hour), // 10min, 20min, 40min, 1h20, 2h
+		infraInformer:       infraInformer,
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -205,7 +214,7 @@ func (c InstallerController) Name() string {
 // getStaticPodState returns
 // - the state of the static pod,
 // - its revision (in case of the fallback static pod the revision of the non-fallback one),
-// - a human readible reason for the static pod state
+// - a human readable reason for the static pod state
 // - a list of error strings to be stored in the nodeStatus.lastFailedRevisionsErrors
 // - a timestamp of the pod state event
 func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName string) (staticPodState, string, string, []string, time.Time, error) {
@@ -913,6 +922,12 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 
 	pod.Spec.Containers[0].Args = args
 
+	err = c.setInternalLoadBalancer(pod)
+	if err != nil {
+		// just warn for now and let it try with the external lb as before
+		klog.Warningf("Failed to set internal load balancer for installer pod: %v", err)
+	}
+
 	// Some owners need to change aspects of the pod.  Things like arguments for instance
 	for _, fn := range c.installerPodMutationFns {
 		if err := fn(pod, ns.NodeName, operatorSpec, ns.TargetRevision); err != nil {
@@ -922,6 +937,49 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 
 	_, _, err = resourceapply.ApplyPod(ctx, c.podsGetter, c.eventRecorder, pod)
 	return err
+}
+
+func (c *InstallerController) setInternalLoadBalancer(pod *corev1.Pod) error {
+
+	if c.infraInformer != nil {
+		infrastructureConfig, err := c.infraInformer.Lister().Get("cluster")
+
+		// not found just means that we don't have infrastructure configuration yet, so we should tolerate not found and avoid substitution
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		if !apierrors.IsNotFound(err) {
+			lbURL, err := url.Parse(infrastructureConfig.Status.APIServerInternalURL)
+			if err != nil {
+				return err
+			}
+			// if we have any error and have empty strings, substitution below will do nothing and leave the manifest specified value
+			// errors can happen when the port is not specified, in which case we have a host and we write that into the env vars
+			lbHost, lbPort, err := net.SplitHostPort(lbURL.Host)
+			if err != nil {
+				if strings.Contains(err.Error(), "missing port in address") {
+					lbHost = lbURL.Host
+					lbPort = ""
+				} else {
+					return err
+				}
+			}
+
+			err = updatePodSpecWithInternalLoadBalancerKubeService(
+				&pod.Spec,
+				[]string{pod.Spec.Containers[0].Name},
+				lbHost,
+				lbPort,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		return errors.New("nil infrastructure informer for InstallerController")
+	}
+
+	return nil
 }
 
 func (c *InstallerController) setOwnerRefs(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
@@ -1134,4 +1192,79 @@ func max(x, y int) int {
 		return x
 	}
 	return y
+}
+
+// updatePodSpecWithInternalLoadBalancerKubeService mutates the input podspec by setting the KUBERNETES_SERVICE_HOST to the internal
+// loadbalancer endpoint and the KUBERNETES_SERVICE_PORT to the specified port
+func updatePodSpecWithInternalLoadBalancerKubeService(podSpec *corev1.PodSpec, containerNames []string, internalLoadBalancerHost, internalLoadBalancerPort string) error {
+	hasInternalLoadBalancer := len(internalLoadBalancerHost) > 0
+	if !hasInternalLoadBalancer {
+		return nil
+	}
+
+	for _, containerName := range containerNames {
+		found := false
+		for i := range podSpec.Containers {
+			if podSpec.Containers[i].Name != containerName {
+				continue
+			}
+			found = true
+
+			podSpec.Containers[i].Env = setKubeServiceValue(podSpec.Containers[i].Env, internalLoadBalancerHost, internalLoadBalancerPort)
+		}
+		for i := range podSpec.InitContainers {
+			if podSpec.InitContainers[i].Name != containerName {
+				continue
+			}
+			found = true
+
+			podSpec.InitContainers[i].Env = setKubeServiceValue(podSpec.InitContainers[i].Env, internalLoadBalancerHost, internalLoadBalancerPort)
+		}
+
+		if !found {
+			return fmt.Errorf("requested injection for non-existent container: %q", containerName)
+		}
+	}
+
+	return nil
+}
+
+// setKubeServiceValue replaces values if they are present and adds them if they are not
+func setKubeServiceValue(in []corev1.EnvVar, internalLoadBalancerHost, internalLoadBalancerPort string) []corev1.EnvVar {
+	ret := []corev1.EnvVar{}
+
+	portVal := "443"
+	if len(internalLoadBalancerPort) != 0 {
+		portVal = internalLoadBalancerPort
+	}
+
+	foundPort := false
+	foundHost := false
+	for j := range in {
+		ret = append(ret, *in[j].DeepCopy())
+		if ret[j].Name == "KUBERNETES_SERVICE_PORT" {
+			foundPort = true
+			ret[j].Value = portVal
+		}
+		if ret[j].Name == "KUBERNETES_SERVICE_HOST" {
+			foundHost = true
+			ret[j].Value = internalLoadBalancerHost
+		}
+	}
+
+	if !foundPort {
+		ret = append(ret, corev1.EnvVar{
+			Name:  "KUBERNETES_SERVICE_PORT",
+			Value: portVal,
+		})
+	}
+
+	if !foundHost {
+		ret = append(ret, corev1.EnvVar{
+			Name:  "KUBERNETES_SERVICE_HOST",
+			Value: internalLoadBalancerHost,
+		})
+	}
+
+	return ret
 }

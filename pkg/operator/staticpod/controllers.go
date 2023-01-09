@@ -229,6 +229,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			secretClient,
 			podClient,
 			eventRecorder,
+			infraInformers,
 		).WithCerts(
 			b.certDir,
 			b.certConfigMaps,
