@@ -247,18 +247,20 @@ func (c *CSIControllerSet) WithServiceMonitorController(
 func (c *CSIControllerSet) WithStorageClassController(
 	name string,
 	assetFunc resourceapply.AssetFunc,
-	file string,
+	files []string,
 	kubeClient kubernetes.Interface,
 	namespacedInformerFactory informers.SharedInformerFactory,
+	operatorInformer operatorinformer.SharedInformerFactory,
 	hooks ...csistorageclasscontroller.StorageClassHookFunc,
 ) *CSIControllerSet {
 	c.csiStorageclassController = csistorageclasscontroller.NewCSIStorageClassController(
 		name,
 		assetFunc,
-		file,
+		files,
 		kubeClient,
 		namespacedInformerFactory,
 		c.operatorClient,
+		operatorInformer,
 		c.eventRecorder,
 		hooks...,
 	)

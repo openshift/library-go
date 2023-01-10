@@ -6,6 +6,8 @@ import (
 	"time"
 
 	operatorapi "github.com/openshift/api/operator/v1"
+	opinformers "github.com/openshift/client-go/operator/informers/externalversions"
+	oplisters "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -42,11 +44,12 @@ type StorageClassHookFunc func(*operatorapi.OperatorSpec, *storagev1.StorageClas
 type CSIStorageClassController struct {
 	name               string
 	assetFunc          resourceapply.AssetFunc
-	file               string
+	files              []string
 	kubeClient         kubernetes.Interface
 	storageClassLister v1.StorageClassLister
 	operatorClient     v1helpers.OperatorClient
 	eventRecorder      events.Recorder
+	scStateEvaluator   *StorageClassStateEvaluator
 	// Optional hook functions to modify the StorageClass.
 	// If one of these functions returns an error, the sync
 	// fails indicating the ordinal position of the failed function.
@@ -57,20 +60,28 @@ type CSIStorageClassController struct {
 func NewCSIStorageClassController(
 	name string,
 	assetFunc resourceapply.AssetFunc,
-	file string,
+	files []string,
 	kubeClient kubernetes.Interface,
 	informerFactory informers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
+	operatorInformer opinformers.SharedInformerFactory,
 	eventRecorder events.Recorder,
 	optionalStorageClassHooks ...StorageClassHookFunc) factory.Controller {
+	clusterCSIDriverLister := operatorInformer.Operator().V1().ClusterCSIDrivers().Lister()
+	evaluator := NewStorageClassStateEvaluator(
+		kubeClient,
+		clusterCSIDriverLister,
+		eventRecorder,
+	)
 	c := &CSIStorageClassController{
 		name:                      name,
 		assetFunc:                 assetFunc,
-		file:                      file,
+		files:                     files,
 		kubeClient:                kubeClient,
 		storageClassLister:        informerFactory.Storage().V1().StorageClasses().Lister(),
 		operatorClient:            operatorClient,
 		eventRecorder:             eventRecorder,
+		scStateEvaluator:          evaluator,
 		optionalStorageClassHooks: optionalStorageClassHooks,
 	}
 
@@ -83,6 +94,7 @@ func NewCSIStorageClassController(
 	).WithInformers(
 		operatorClient.Informer(),
 		informerFactory.Storage().V1().StorageClasses().Informer(),
+		operatorInformer.Operator().V1().ClusterCSIDrivers().Informer(),
 	).ToController(
 		"StorageClassController",
 		eventRecorder,
@@ -101,13 +113,17 @@ func (c *CSIStorageClassController) Sync(ctx context.Context, syncCtx factory.Sy
 		return nil
 	}
 
-	syncErr := c.syncStorageClass(ctx, opSpec)
+	for _, file := range c.files {
+		if err := c.syncStorageClass(ctx, opSpec, file); err != nil {
+			return err
+		}
+	}
 
-	return syncErr
+	return nil
 }
 
-func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec *operatorapi.OperatorSpec) error {
-	expectedScBytes, err := c.assetFunc(c.file)
+func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec *operatorapi.OperatorSpec, assetFile string) error {
+	expectedScBytes, err := c.assetFunc(assetFile)
 	if err != nil {
 		return err
 	}
@@ -152,9 +168,7 @@ func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec
 		}
 	}
 
-	_, _, err = resourceapply.ApplyStorageClass(ctx, c.kubeClient.StorageV1(), c.eventRecorder, expectedSC)
-
-	return err
+	return c.scStateEvaluator.EvalAndApplyStorageClass(ctx, expectedSC)
 }
 
 // UpdateConditionFunc returns a func to update a condition.
@@ -163,4 +177,52 @@ func removeConditionFn(condType string) v1helpers.UpdateStatusFunc {
 		v1helpers.RemoveOperatorCondition(&oldStatus.Conditions, condType)
 		return nil
 	}
+}
+
+// StorageClassStateEvaluator evaluates the StorageClassState in the corresponding
+// ClusterCSIDriver and reconciles the StorageClass according to that policy.
+// If Managed, apply the SC. If Unmanaged, do nothing. If Removed, delete the SC.
+type StorageClassStateEvaluator struct {
+	kubeClient             kubernetes.Interface
+	clusterCSIDriverLister oplisters.ClusterCSIDriverLister
+	operatorClient         v1helpers.OperatorClient
+	eventRecorder          events.Recorder
+}
+
+func NewStorageClassStateEvaluator(
+	kubeClient kubernetes.Interface,
+	clusterCSIDriverLister oplisters.ClusterCSIDriverLister,
+	eventRecorder events.Recorder) *StorageClassStateEvaluator {
+	return &StorageClassStateEvaluator{
+		kubeClient:             kubeClient,
+		clusterCSIDriverLister: clusterCSIDriverLister,
+		eventRecorder:          eventRecorder,
+	}
+}
+
+func (e *StorageClassStateEvaluator) EvalAndApplyStorageClass(ctx context.Context, expectedSC *storagev1.StorageClass) error {
+	// Look for the corresponding ClusterCSIDriver, but if this fails
+	// then assume the default "Managed" policy.
+	scState := operatorapi.ManagedStorageClass
+	clusterCSIDriver, err := e.clusterCSIDriverLister.Get(expectedSC.Provisioner)
+	if err != nil {
+		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %w", expectedSC.Provisioner, err)
+	} else {
+		scState = clusterCSIDriver.Spec.StorageClassState
+	}
+	// StorageClassState determines how the SC is reconciled.
+	switch scState {
+	case operatorapi.ManagedStorageClass, "":
+		// managed: apply SC
+		_, _, err = resourceapply.ApplyStorageClass(ctx, e.kubeClient.StorageV1(), e.eventRecorder, expectedSC)
+	case operatorapi.UnmanagedStorageClass:
+		// unmanaged: do nothing
+	case operatorapi.RemovedStorageClass:
+		// remove: delete SC
+		_, _, err = resourceapply.DeleteStorageClass(ctx, e.kubeClient.StorageV1(), e.eventRecorder, expectedSC)
+	default:
+		err = fmt.Errorf("invalid StorageClassState %s", scState)
+	}
+
+	return err
 }
