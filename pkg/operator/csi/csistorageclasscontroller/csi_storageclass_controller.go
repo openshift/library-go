@@ -181,7 +181,6 @@ func removeConditionFn(condType string) v1helpers.UpdateStatusFunc {
 
 // StorageClassStateEvaluator evaluates the StorageClassState in the corresponding
 // ClusterCSIDriver and reconciles the StorageClass according to that policy.
-// If Managed, apply the SC. If Unmanaged, do nothing. If Removed, delete the SC.
 type StorageClassStateEvaluator struct {
 	kubeClient             kubernetes.Interface
 	clusterCSIDriverLister oplisters.ClusterCSIDriverLister
@@ -200,16 +199,23 @@ func NewStorageClassStateEvaluator(
 	}
 }
 
-func (e *StorageClassStateEvaluator) EvalAndApplyStorageClass(ctx context.Context, expectedSC *storagev1.StorageClass) error {
-	// Look for the corresponding ClusterCSIDriver, but if this fails
-	// then assume the default "Managed" policy.
+// GetStorageClassState accepts the name of a ClusterCSIDriver and returns the
+// StorageClassState associated with that object. If the ClusterCSIDriver is not
+// found, this function returns the default state (Managed).
+func (e *StorageClassStateEvaluator) GetStorageClassState(ccdName string) operatorapi.StorageClassStateName {
 	scState := operatorapi.ManagedStorageClass
-	clusterCSIDriver, err := e.clusterCSIDriverLister.Get(expectedSC.Provisioner)
+	clusterCSIDriver, err := e.clusterCSIDriverLister.Get(ccdName)
 	if err != nil {
-		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %w", expectedSC.Provisioner, err)
+		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %w", ccdName, err)
 	} else {
 		scState = clusterCSIDriver.Spec.StorageClassState
 	}
+	return scState
+}
+
+// ApplyStorageClass applies the provided SC according to the StorageClassState.
+// If Managed, apply the SC. If Unmanaged, do nothing. If Removed, delete the SC.
+func (e *StorageClassStateEvaluator) ApplyStorageClass(ctx context.Context, expectedSC *storagev1.StorageClass, scState operatorapi.StorageClassStateName) (err error) {
 	// StorageClassState determines how the SC is reconciled.
 	switch scState {
 	case operatorapi.ManagedStorageClass, "":
@@ -223,6 +229,14 @@ func (e *StorageClassStateEvaluator) EvalAndApplyStorageClass(ctx context.Contex
 	default:
 		err = fmt.Errorf("invalid StorageClassState %s", scState)
 	}
-
 	return err
+}
+
+func (e *StorageClassStateEvaluator) EvalAndApplyStorageClass(ctx context.Context, expectedSC *storagev1.StorageClass) error {
+	scState := e.GetStorageClassState(expectedSC.Provisioner)
+	return e.ApplyStorageClass(ctx, expectedSC, scState)
+}
+
+func (e *StorageClassStateEvaluator) IsManaged(scState operatorapi.StorageClassStateName) bool {
+	return (scState == operatorapi.ManagedStorageClass || scState == "")
 }
