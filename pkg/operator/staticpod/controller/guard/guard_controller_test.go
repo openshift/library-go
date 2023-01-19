@@ -519,7 +519,8 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: &corev1.HTTPGetAction{
 								Host: "1.1.1.1",
-								Port: intstr.FromInt(99999),
+								Port: intstr.FromInt(99998),
+								Path: "readyzpath",
 							},
 						},
 					},
@@ -555,6 +556,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
 		operatorName:            "operator",
 		readyzPort:              "99999",
+		readyzEndpoint:          "readyz",
 		nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
 		podLister:               kubeInformers.Core().V1().Pods().Lister(),
 		podGetter:               kubeClient.CoreV1(),
@@ -581,6 +583,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	} else {
 		probe := p.Spec.Containers[0].ReadinessProbe.HTTPGet
+		originalProbe := guardPod.Spec.Containers[0].ReadinessProbe.HTTPGet
 		if probe == nil {
 			t.Errorf("missing ReadinessProbe in the guard")
 		}
@@ -588,8 +591,22 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 			t.Errorf("expected %q host in ReadinessProbe in the guard, got %q instead", operandPod.Status.PodIP, probe.Host)
 		}
 
+		// The port is expected to be set to 99999 by the guard controller
 		if probe.Port.IntValue() != 99999 {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected 99999, got %v instead", probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzPort, probe.Port.IntValue())
+		}
+		// The port is expected to be different from the one initially set in the guard pod readiness probe
+		if originalProbe.Port.IntValue() == probe.Port.IntValue() {
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected it to be different from %q, got %q", originalProbe.Port.IntValue(), probe.Port.IntValue())
+		}
+
+		// The path is expected to be set to healthz by the guard controller
+		if probe.Path != ctrl.readyzEndpoint {
+			t.Errorf("unexpected path in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzEndpoint, probe.Path)
+		}
+		// The path is expected to be different from the one initially set in the guard pod readiness probe
+		if probe.Path == originalProbe.Path {
+			t.Errorf("unexpected path in ReadinessProbe in the guard, expected it to be differenf from %q, got %q", originalProbe.Path, probe.Path)
 		}
 	}
 }
