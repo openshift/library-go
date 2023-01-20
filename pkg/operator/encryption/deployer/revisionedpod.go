@@ -108,19 +108,25 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx context.Co
 	return s, true, nil
 }
 
-// AddEventHandler registers a event handler whenever the backing resource change
+// AddEventHandler registers an event handler whenever the backing resource change
 // that might influence the result of DeployedEncryptionConfigSecret.
-func (d *RevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
+func (d *RevisionLabelPodDeployer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	targetPodInformer := d.targetNamespaceInformers.Core().V1().Pods().Informer()
-	targetPodInformer.AddEventHandler(handler)
+	if _, err := targetPodInformer.AddEventHandler(handler); err != nil {
+		return nil, err
+	}
 
 	targetSecretsInformer := d.targetNamespaceInformers.Core().V1().Secrets().Informer()
-	targetSecretsInformer.AddEventHandler(handler)
+	if _, err := targetSecretsInformer.AddEventHandler(handler); err != nil {
+		return nil, err
+	}
 
 	d.cacheSynced = append([]cache.InformerSynced{
 		targetPodInformer.HasSynced,
 		targetSecretsInformer.HasSynced,
 	}, d.nodeProvider.AddEventHandler(handler)...)
+
+	return nil, nil
 }
 
 func (d *RevisionLabelPodDeployer) HasSynced() bool {
@@ -138,16 +144,17 @@ func (d *RevisionLabelPodDeployer) HasSynced() bool {
 // the API servers are running at.  If all API servers have not converged onto a
 // a single revision, it returns the empty string and possibly an error.
 // Converged can be defined as:
-//   1. All running pods are ready and at the same revision
-//   2. All master nodes have a running pod
-//   3. There are no pending or unknown pods
-//   4. We tolerate pods in Succeeded or Failed phase only if their revision <= the running pods
-//      It turns out that when a node dies or is disconnected from the rest of the cluster, Kubernetes (kubelet) applies a policy for setting the phase of all Pods on the lost node to Failed.
-//      Pods in the Failed state cannot transition back to Running state.
-//      In addition, failed Pods are note GC'ed. The API objects remain in the cluster's API until a human or controller process explicitly removes them.
-//      See the following for more:
-//        https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-//        https://bugzilla.redhat.com/show_bug.cgi?id=2000276
+//  1. All running pods are ready and at the same revision
+//  2. All master nodes have a running pod
+//  3. There are no pending or unknown pods
+//  4. We tolerate pods in Succeeded or Failed phase only if their revision <= the running pods
+//     It turns out that when a node dies or is disconnected from the rest of the cluster, Kubernetes (kubelet) applies a policy for setting the phase of all Pods on the lost node to Failed.
+//     Pods in the Failed state cannot transition back to Running state.
+//     In addition, failed Pods are note GC'ed. The API objects remain in the cluster's API until a human or controller process explicitly removes them.
+//     See the following for more:
+//     https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+//     https://bugzilla.redhat.com/show_bug.cgi?id=2000276
+//
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.

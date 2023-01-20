@@ -17,7 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
-// Deployer abstracts the deployment machanism like the static pod controllers.
+// Deployer abstracts the deployment mechanism like the static pod controllers.
 type Deployer interface {
 	// DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 	// instances of the operand have acknowledged it.
@@ -25,7 +25,7 @@ type Deployer interface {
 
 	// AddEventHandler registers a event handler whenever the backing resource change
 	// that might influence the result of DeployedEncryptionConfigSecret.
-	AddEventHandler(handler cache.ResourceEventHandler)
+	AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error)
 	HasSynced() bool
 }
 

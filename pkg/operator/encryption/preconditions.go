@@ -56,10 +56,11 @@ func (pc *preconditionChecker) PreconditionFulfilled() (bool, error) {
 }
 
 // encryptionWasEnabled checks whether encryption was enabled on a cluster. It wasn't enabled when:
-//   a server configuration doesn't exist
-//   the current encryption mode is empty or set to identity mode and
-//   a secret with encryption configuration doesn't exist in the managed namespace and
-//   secrets with encryption keys don't exist in the managed namespace
+//
+//	a server configuration doesn't exist
+//	the current encryption mode is empty or set to identity mode and
+//	a secret with encryption configuration doesn't exist in the managed namespace and
+//	secrets with encryption keys don't exist in the managed namespace
 func (pc *preconditionChecker) encryptionWasEnabled() (bool, error) {
 	apiServerConfig, err := pc.apiServerConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {

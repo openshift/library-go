@@ -24,10 +24,11 @@ type fakeInformer struct {
 	sync.Mutex
 }
 
-func (f *fakeInformer) AddEventHandler(handler cache.ResourceEventHandler) {
+func (f *fakeInformer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	f.Lock()
 	defer func() { f.addEventHandlerCount++; f.Unlock() }()
 	f.eventHandler = handler
+	return nil, nil
 }
 
 func (f *fakeInformer) HasSynced() bool {

@@ -54,10 +54,23 @@ type FakeInfrastructureSharedInformer struct {
 	HasSynced_ bool
 }
 
-func (i FakeInfrastructureSharedInformer) AddIndexers(indexers cache.Indexers) error          { return nil }
-func (i FakeInfrastructureSharedInformer) GetIndexer() cache.Indexer                          { return nil }
-func (i FakeInfrastructureSharedInformer) AddEventHandler(handler cache.ResourceEventHandler) {}
-func (i FakeInfrastructureSharedInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) {
+func (i FakeInfrastructureSharedInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (i FakeInfrastructureSharedInformer) IsStopped() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (i FakeInfrastructureSharedInformer) AddIndexers(indexers cache.Indexers) error { return nil }
+func (i FakeInfrastructureSharedInformer) GetIndexer() cache.Indexer                 { return nil }
+func (i FakeInfrastructureSharedInformer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
+}
+func (i FakeInfrastructureSharedInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
 }
 func (i FakeInfrastructureSharedInformer) GetStore() cache.Store           { return nil }
 func (i FakeInfrastructureSharedInformer) GetController() cache.Controller { return nil }
