@@ -170,8 +170,9 @@ func (m *InProcessMigrator) PruneMigration(gr schema.GroupResource) error {
 	return nil
 }
 
-func (m *InProcessMigrator) AddEventHandler(handler cache.ResourceEventHandler) {
+func (m *InProcessMigrator) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	m.handler = handler
+	return nil, nil
 }
 
 func preferredResourceVersion(c discovery.ServerResourcesInterface, gr schema.GroupResource) (string, error) {

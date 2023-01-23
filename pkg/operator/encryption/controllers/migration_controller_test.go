@@ -755,8 +755,8 @@ type fakeMigrator struct {
 	pruneReplies  map[schema.GroupResource]error
 }
 
-func (m *fakeMigrator) AddEventHandler(handler cache.ResourceEventHandler) {
-	return
+func (m *fakeMigrator) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
 }
 
 func (m *fakeMigrator) HasSynced() bool {

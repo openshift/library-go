@@ -87,9 +87,10 @@ func NewFileWatcherOptions() *FileWatcherOptions {
 // This command should be used as a side-car to a container which will react to file changes in the main container
 // and terminate the main container process in case a change is observed.
 // TODO: If the main container start before the watchdog side-car container (image pull) there might be a case
-// 		 the watchdog won't react to a changed file (simply because it is not running yet). In that case the main process
-//       will not be reloaded. However, the operator image should be pulled on master node and therefore chances to hit this
-//       case are minimal.
+//
+//			 the watchdog won't react to a changed file (simply because it is not running yet). In that case the main process
+//	      will not be reloaded. However, the operator image should be pulled on master node and therefore chances to hit this
+//	      case are minimal.
 func NewFileWatcherWatchdog() *cobra.Command {
 	o := NewFileWatcherOptions()
 

@@ -40,9 +40,10 @@ type Monitor interface {
 // monitor watches an operand's readiness condition
 //
 // This monitor understands a directory structure created by an OCP installation. That is:
-//  The root manifest are looked up in the manifestPath
-//  The revisioned manifest are looked up in the staticPodResourcesPath
-//  The target (operand) name is derived from the targetName.
+//
+//	The root manifest are looked up in the manifestPath
+//	The revisioned manifest are looked up in the staticPodResourcesPath
+//	The target (operand) name is derived from the targetName.
 type monitor struct {
 	// probeInterval specifies a time interval at which health of the target will be assessed
 	// be mindful of not setting it too low, on each iteration, an i/o is involved

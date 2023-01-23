@@ -196,7 +196,7 @@ func (s orderedPodNamespaceLister) Get(name string) (*v1.Pod, error) {
 	return s.podLister.Get(name)
 }
 
-//  is a sort.Interface that Sorts a list of Pods based on the names of the Pod
+// is a sort.Interface that Sorts a list of Pods based on the names of the Pod
 type ascendingName []*v1.Pod
 
 func (as ascendingName) Len() int {

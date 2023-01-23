@@ -383,7 +383,6 @@ func TestApplyCSIDriver(t *testing.T) {
 			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Annotations: map[string]string{"my.csi.driver/foo": "bar"}},
 			},
-
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
 				if len(actions) != 2 {
@@ -430,7 +429,7 @@ func TestApplyCSIDriver(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Labels: map[string]string{"new": "merge"}},
 				}
 				SetSpecHashAnnotation(&expected.ObjectMeta, expected.Spec)
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*storagev1.CSIDriver)
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*storagev1.CSIDriver)
 				if !equality.Semantic.DeepEqual(expected, actual) {
 					t.Error(JSONPatchNoError(expected, actual))
 				}
@@ -512,7 +511,6 @@ func TestApplyCSIDriver(t *testing.T) {
 					},
 				},
 			},
-
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
 				if len(actions) != 2 {
@@ -556,12 +554,106 @@ func TestApplyCSIDriver(t *testing.T) {
 					},
 				},
 			},
-
 			expectedModified: false,
 			expectedError:    fmt.Errorf("CSIDriver foo supports Ephemeral volume lifecycle but is missing required label security.openshift.io/csi-ephemeral-volume-profile"),
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
 				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "exempt label with differing value should not be overwritten during update",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+						Labels:      map[string]string{csiInlineVolProfileLabel: "restricted"},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecycleEphemeral,
+						},
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+					Labels:      map[string]string{csiInlineVolProfileLabel: "privileged"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecycleEphemeral,
+					},
+				},
+			},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "missing exempt labels should be added with default value during update",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecycleEphemeral,
+						},
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+					Labels:      map[string]string{csiInlineVolProfileLabel: "restricted"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecycleEphemeral,
+					},
+				},
+			},
+			expectedModified: true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "csidrivers") {
+					t.Error(spew.Sdump(actions))
+				}
+				expected := &storagev1.CSIDriver{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+						Labels:      map[string]string{csiInlineVolProfileLabel: "restricted"},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecycleEphemeral,
+						},
+					},
+				}
+				SetSpecHashAnnotation(&expected.ObjectMeta, expected.Spec)
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*storagev1.CSIDriver)
+				if !equality.Semantic.DeepEqual(expected, actual) {
+					t.Error(JSONPatchNoError(expected, actual))
 				}
 			},
 		},

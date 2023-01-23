@@ -40,20 +40,20 @@ const (
 // The migrationController controller migrates resources to a new write key
 // and annotated the write key secret afterwards with the migrated GRs. It
 //
-// * watches pods and secrets in <operand-target-namespace>
-// * watches secrets in openshift-config-manager
-// * computes a new, desired encryption config from encryption-config-<revision>
-//   and the existing keys in openshift-config-managed.
-// * compares desired with current target config and stops when they differ
-// * checks the write-key secret whether
+//   - watches pods and secrets in <operand-target-namespace>
+//   - watches secrets in openshift-config-manager
+//   - computes a new, desired encryption config from encryption-config-<revision>
+//     and the existing keys in openshift-config-managed.
+//   - compares desired with current target config and stops when they differ
+//   - checks the write-key secret whether
 //   - encryption.apiserver.operator.openshift.io/migrated-timestamp annotation
 //     is missing or
 //   - a write-key for a resource does not show up in the
 //     encryption.apiserver.operator.openshift.io/migrated-resources And then
 //     starts a migration job (currently in-place synchronously, soon with the upstream migration tool)
-// * updates the encryption.apiserver.operator.openshift.io/migrated-timestamp and
-//   encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
-//   current write-key secrets.
+//   - updates the encryption.apiserver.operator.openshift.io/migrated-timestamp and
+//     encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
+//     current write-key secrets.
 type migrationController struct {
 	component string
 	name      string

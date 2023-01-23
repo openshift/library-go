@@ -43,20 +43,21 @@ const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 //   - secrets in openshift-config-managed
 //   - pods in target namespace
 //   - secrets in target namespace
-// * computes a new, desired encryption config from encryption-config-<revision>
-//   and the existing keys in openshift-config-managed.
-// * derives from the desired encryption config whether a new key is needed due to
+//   - computes a new, desired encryption config from encryption-config-<revision>
+//     and the existing keys in openshift-config-managed.
+//   - derives from the desired encryption config whether a new key is needed due to
 //   - encryption is being enabled via the API or
 //   - a new to-be-encrypted resource shows up or
 //   - the EncryptionType in the API does not match with the newest existing key or
 //   - based on time (once a week is the proposed rotation interval) or
 //   - an external reason given as a string in .encryption.reason of UnsupportedConfigOverrides.
-//   It then creates it.
+//     It then creates it.
 //
 // Note: the "based on time" reason for a new key is based on the annotation
-//       encryption.apiserver.operator.openshift.io/migrated-timestamp instead of
-//       the key secret's creationTimestamp because the clock is supposed to
-//       start when a migration has been finished, not when it begins.
+//
+//	encryption.apiserver.operator.openshift.io/migrated-timestamp instead of
+//	the key secret's creationTimestamp because the clock is supposed to
+//	start when a migration has been finished, not when it begins.
 type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
