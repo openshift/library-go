@@ -137,24 +137,32 @@ func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec
 		}
 	}
 
-	existingSCs, err := c.storageClassLister.List(labels.Everything())
+	err = SetDefaultStorageClass(c.storageClassLister, expectedSC)
 	if err != nil {
-		klog.V(2).Infof("could not list StorageClass objects")
+		return err
+	}
+
+	return c.scStateEvaluator.EvalAndApplyStorageClass(ctx, expectedSC)
+}
+
+func SetDefaultStorageClass(storageClassLister v1.StorageClassLister, storageClass *storagev1.StorageClass) error {
+	existingSCs, err := storageClassLister.List(labels.Everything())
+	if err != nil {
 		return err
 	}
 
 	defaultSCCount := 0
 	annotationKeyPresent := false
 	// Skip the default SC annotation check if it's not in the input/expectedSC.
-	if expectedSC.Annotations != nil && expectedSC.Annotations[defaultScAnnotationKey] != "" {
+	if storageClass.Annotations != nil && storageClass.Annotations[defaultScAnnotationKey] != "" {
 		for _, sc := range existingSCs {
-			if sc.Annotations[defaultScAnnotationKey] == "true" && sc.Name != expectedSC.Name {
+			if sc.Annotations[defaultScAnnotationKey] == "true" && sc.Name != storageClass.Name {
 				defaultSCCount++
 			}
-			if sc.Name == expectedSC.Name && sc.Annotations != nil {
+			if sc.Name == storageClass.Name && sc.Annotations != nil {
 				// There already is an SC with same name we intend to apply, copy its annotation.
 				if val, ok := sc.Annotations[defaultScAnnotationKey]; ok {
-					expectedSC.Annotations[defaultScAnnotationKey] = val
+					storageClass.Annotations[defaultScAnnotationKey] = val
 					annotationKeyPresent = true // If there is a key, we need to preserve it, whatever the value is.
 				} else {
 					annotationKeyPresent = false
@@ -164,11 +172,10 @@ func (c *CSIStorageClassController) syncStorageClass(ctx context.Context, opSpec
 		// There already is a default, and it's not set on the SC we intend to apply. Also, if there is any value for
 		// defaultScAnnotationKey do not overwrite it (empty string is a correct value).
 		if defaultSCCount > 0 && !annotationKeyPresent {
-			expectedSC.Annotations[defaultScAnnotationKey] = "false"
+			storageClass.Annotations[defaultScAnnotationKey] = "false"
 		}
 	}
-
-	return c.scStateEvaluator.EvalAndApplyStorageClass(ctx, expectedSC)
+	return nil
 }
 
 // UpdateConditionFunc returns a func to update a condition.
