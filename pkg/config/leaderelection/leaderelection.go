@@ -3,6 +3,7 @@ package leaderelection
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/transport"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -31,7 +33,21 @@ import (
 // Don't forget the callbacks!
 // TODO: In the next version we should switch to using "leases"
 func ToLeaderElectionWithConfigmapLease(clientConfig *rest.Config, config configv1.LeaderElection, component, identity string) (leaderelection.LeaderElectionConfig, error) {
+	// this wrapper will make sure the leader election client provide very detailed debugging information in logs.
+	// this is useful because when networking is malfunctioning, the leader election is the first thing that is affected.
+	verboseClientConfig := *clientConfig
+
+	// reducing the amount of requests this client will make with higher verbosity to reduce noise in logs
+	verboseClientConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		return transport.NewDebuggingRoundTripper(rt, transport.DebugDetailedTiming, transport.DebugURLTiming, transport.DebugResponseStatus)
+	}
+
+	// we need to keep the non-verbose client for event sink (we don't want to spam logs with networking debug info for events)
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return leaderelection.LeaderElectionConfig{}, err
+	}
+	verboseKubeClient, err := kubernetes.NewForConfig(&verboseClientConfig)
 	if err != nil {
 		return leaderelection.LeaderElectionConfig{}, err
 	}
@@ -56,12 +72,13 @@ func ToLeaderElectionWithConfigmapLease(clientConfig *rest.Config, config config
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: v1core.New(kubeClient.CoreV1().RESTClient()).Events("")})
 	eventRecorder := eventBroadcaster.NewRecorder(clientgoscheme.Scheme, corev1.EventSource{Component: component})
+
 	rl, err := resourcelock.New(
 		resourcelock.ConfigMapsLeasesResourceLock,
 		config.Namespace,
 		config.Name,
-		kubeClient.CoreV1(),
-		kubeClient.CoordinationV1(),
+		verboseKubeClient.CoreV1(),
+		verboseKubeClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      identity,
 			EventRecorder: eventRecorder,
