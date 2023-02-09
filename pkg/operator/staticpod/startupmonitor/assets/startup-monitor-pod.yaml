@@ -24,12 +24,6 @@ spec:
         - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig #TODO: use a different config
         {{- if .LogFilePath}}
         - --log-file-path={{.LogFilePath}}
-        # since klog binds to go's std flag pkg
-        # indicate that we want to log to a file
-        # this is necessary, otherwise logging to stderr and a file won't work
-        - --logtostderr=false
-        # now indicate that we want to log to stderr and a file
-        - --alsologtostderr=true
         {{- end}}
       volumeMounts:
         - mountPath: /etc/kubernetes/manifests
