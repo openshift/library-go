@@ -200,7 +200,15 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	if c.podNetworkConnectivityCheckFn != nil {
 		newCheckNames, err = c.handlePodNetworkConnectivityCheckFn(ctx, syncContext)
 	} else if c.podNetworkConnectivityCheckApplyFn != nil {
-		newCheckNames, err = c.handlePodNetworkConnectivityCheckApplyFn(ctx, syncContext)
+		var existingChecksApply []*applyconfigv1alpha1.PodNetworkConnectivityCheckApplyConfiguration
+		for _, checks := range existingChecks {
+			checkApply, err := applyconfigv1alpha1.ExtractPodNetworkConnectivityCheck(checks, c.Name())
+			if err != nil {
+				return err
+			}
+			existingChecksApply = append(existingChecksApply, checkApply)
+		}
+		newCheckNames, err = c.handlePodNetworkConnectivityCheckApplyFn(ctx, syncContext, existingChecksApply)
 	}
 	if err != nil {
 		return err
@@ -264,7 +272,8 @@ func (c *connectivityCheckController) handlePodNetworkConnectivityCheckFn(ctx co
 	return newCheckNames, nil
 }
 
-func (c *connectivityCheckController) handlePodNetworkConnectivityCheckApplyFn(ctx context.Context, syncContext factory.SyncContext) (sets.String, error) {
+func (c *connectivityCheckController) handlePodNetworkConnectivityCheckApplyFn(ctx context.Context, syncContext factory.SyncContext,
+	existingChecksApply []*applyconfigv1alpha1.PodNetworkConnectivityCheckApplyConfiguration) (sets.String, error) {
 	newChecks, err := c.podNetworkConnectivityCheckApplyFn(ctx, syncContext)
 	if err != nil {
 		return nil, err
@@ -274,6 +283,9 @@ func (c *connectivityCheckController) handlePodNetworkConnectivityCheckApplyFn(c
 	for _, newCheck := range newChecks {
 		newCheckNames.Insert(*newCheck.Name)
 		newCheck.WithLabels(map[string]string{managedByLabelKey: managedByLabelValue})
+		if c.exists(existingChecksApply, newCheck) {
+			continue
+		}
 		_, err := pnccClient.Apply(ctx, newCheck, metav1.ApplyOptions{
 			Force:        true,
 			FieldManager: c.Name(),
@@ -286,6 +298,16 @@ func (c *connectivityCheckController) handlePodNetworkConnectivityCheckApplyFn(c
 		syncContext.Recorder().Eventf("EndpointCheckApplied", "The check %s is applied", newCheckStrForCLI)
 	}
 	return newCheckNames, nil
+}
+
+func (c *connectivityCheckController) exists(checks []*applyconfigv1alpha1.PodNetworkConnectivityCheckApplyConfiguration,
+	item *applyconfigv1alpha1.PodNetworkConnectivityCheckApplyConfiguration) bool {
+	for _, check := range checks {
+		if equality.Semantic.DeepEqual(check, item) {
+			return true
+		}
+	}
+	return false
 }
 
 //go:embed manifests
