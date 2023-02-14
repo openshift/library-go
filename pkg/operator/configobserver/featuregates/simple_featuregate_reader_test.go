@@ -14,7 +14,6 @@ import (
 )
 
 type testFeatureGateBuilder struct {
-	featureSetName    string
 	versionToFeatures map[string]Features
 }
 
@@ -24,15 +23,9 @@ func featureGateBuilder() *testFeatureGateBuilder {
 	}
 }
 
-func (f *testFeatureGateBuilder) specFeatureSet(featureSetName string) *testFeatureGateBuilder {
-	f.featureSetName = featureSetName
-
-	return f
-}
-
 func (f *testFeatureGateBuilder) enabled(version string, enabled ...string) *testFeatureGateBuilder {
 	curr := f.versionToFeatures[version]
-	curr.Enabled = enabled
+	curr.Enabled = StringsToFeatureGateNames(enabled)
 	f.versionToFeatures[version] = curr
 
 	return f
@@ -40,7 +33,7 @@ func (f *testFeatureGateBuilder) enabled(version string, enabled ...string) *tes
 
 func (f *testFeatureGateBuilder) disabled(version string, disabled ...string) *testFeatureGateBuilder {
 	curr := f.versionToFeatures[version]
-	curr.Disabled = disabled
+	curr.Disabled = StringsToFeatureGateNames(disabled)
 	f.versionToFeatures[version] = curr
 
 	return f
@@ -49,11 +42,18 @@ func (f *testFeatureGateBuilder) disabled(version string, disabled ...string) *t
 func (f *testFeatureGateBuilder) toFeatureGate() *configv1.FeatureGate {
 	ret := &configv1.FeatureGate{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec: configv1.FeatureGateSpec{
-			FeatureGateSelection: configv1.FeatureGateSelection{
-				FeatureSet: configv1.FeatureSet(f.featureSetName),
-			},
-		},
+	}
+	for version, features := range f.versionToFeatures {
+		details := configv1.FeatureGateDetails{
+			Version: version,
+		}
+		for _, curr := range features.Enabled {
+			details.Enabled = append(details.Enabled, configv1.FeatureGateAttributes{Name: curr})
+		}
+		for _, curr := range features.Disabled {
+			details.Disabled = append(details.Disabled, configv1.FeatureGateAttributes{Name: curr})
+		}
+		ret.Status.FeatureGates = append(ret.Status.FeatureGates, details)
 	}
 
 	return ret
@@ -93,7 +93,6 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 			name: "read-explicit-version",
 
 			firstFeatureGate: featureGateBuilder().
-				specFeatureSet("features-for-desired-version").
 				enabled("desired-version", "alpha", "bravo").
 				disabled("desired-version", "charlie", "delta").
 				toFeatureGate(),
@@ -108,10 +107,10 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 				if history[0].Previous != nil {
 					t.Fatalf("bad changes: %v", history)
 				}
-				if !reflect.DeepEqual([]string{"alpha", "bravo"}, history[0].New.Enabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo"}, history[0].New.Enabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
-				if !reflect.DeepEqual([]string{"charlie", "delta"}, history[0].New.Disabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"charlie", "delta"}, history[0].New.Disabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
 			},
@@ -120,7 +119,6 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 			name: "read-explicit-version-from-others",
 
 			firstFeatureGate: featureGateBuilder().
-				specFeatureSet("features-for-desired-version").
 				enabled("desired-version", "alpha", "bravo").
 				disabled("desired-version", "charlie", "delta").
 				enabled("other-version", "yankee", "zulu").
@@ -136,10 +134,10 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 				if history[0].Previous != nil {
 					t.Fatalf("bad changes: %v", history)
 				}
-				if !reflect.DeepEqual([]string{"alpha", "bravo"}, history[0].New.Enabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo"}, history[0].New.Enabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
-				if !reflect.DeepEqual([]string{"charlie", "delta"}, history[0].New.Disabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"charlie", "delta"}, history[0].New.Disabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
 			},
@@ -148,12 +146,10 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 			name: "no-change-means-no-extra-watch-call",
 
 			firstFeatureGate: featureGateBuilder().
-				specFeatureSet("features-for-desired-version").
 				enabled("desired-version", "alpha", "bravo").
 				disabled("desired-version", "charlie", "delta").
 				toFeatureGate(),
 			secondFeatureGate: featureGateBuilder().
-				specFeatureSet("features-for-desired-version").
 				enabled("desired-version", "alpha", "bravo").
 				disabled("desired-version", "charlie", "delta").
 				toFeatureGate(),
@@ -168,10 +164,76 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 				if history[0].Previous != nil {
 					t.Fatalf("bad changes: %v", history)
 				}
-				if !reflect.DeepEqual([]string{"alpha", "bravo"}, history[0].New.Enabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo"}, history[0].New.Enabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
-				if !reflect.DeepEqual([]string{"charlie", "delta"}, history[0].New.Disabled) {
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"charlie", "delta"}, history[0].New.Disabled) {
+					t.Fatal(history[0].New.Enabled)
+				}
+			},
+		},
+		{
+			name: "change-means-watch-call",
+
+			firstFeatureGate: featureGateBuilder().
+				enabled("desired-version", "alpha", "bravo").
+				disabled("desired-version", "charlie", "delta").
+				toFeatureGate(),
+			secondFeatureGate: featureGateBuilder().
+				enabled("desired-version", "alpha", "bravo", "charlie", "delta").
+				toFeatureGate(),
+			fields: fields{
+				desiredVersion: "desired-version",
+			},
+
+			changeVerifier: func(t *testing.T, history []FeatureChange) {
+				if len(history) != 2 {
+					t.Fatalf("bad changes: %v", history)
+				}
+				if history[0].Previous != nil {
+					t.Fatalf("bad changes: %v", history)
+				}
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo"}, history[0].New.Enabled) {
+					t.Fatal(history[0].New.Enabled)
+				}
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"charlie", "delta"}, history[0].New.Disabled) {
+					t.Fatal(history[0].New.Enabled)
+				}
+				if !reflect.DeepEqual(*(history[1].Previous), history[0].New) {
+					t.Fatalf("bad changes: %v", history)
+				}
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo", "charlie", "delta"}, history[1].New.Enabled) {
+					t.Fatal(history[1].New.Enabled)
+				}
+				if len(history[1].New.Disabled) != 0 {
+					t.Fatal(history[1].New.Disabled)
+				}
+			},
+		},
+		{
+			name: "missing-version-means-use-cluster-version",
+
+			firstFeatureGate: featureGateBuilder().
+				enabled("other-version", "alpha", "bravo").
+				disabled("other-version", "charlie", "delta").
+				toFeatureGate(),
+			fields: fields{
+				desiredVersion:       "missing-version",
+				missingVersionMarker: "missing-version",
+			},
+			clusterVersion: "other-version",
+
+			changeVerifier: func(t *testing.T, history []FeatureChange) {
+				if len(history) != 1 {
+					t.Fatalf("bad changes: %v", history)
+				}
+				if history[0].Previous != nil {
+					t.Fatalf("bad changes: %v", history)
+				}
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"alpha", "bravo"}, history[0].New.Enabled) {
+					t.Fatal(history[0].New.Enabled)
+				}
+				if !reflect.DeepEqual([]configv1.FeatureGateName{"charlie", "delta"}, history[0].New.Disabled) {
 					t.Fatal(history[0].New.Enabled)
 				}
 			},
@@ -180,34 +242,19 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 			name: "missing desiredVersion",
 
 			firstFeatureGate: featureGateBuilder().
-				specFeatureSet("features-for-missing-version").
 				enabled("other-version", "alpha", "bravo").
 				disabled("other-version", "charlie", "delta").
 				toFeatureGate(),
 			fields: fields{
-				desiredVersion: "missing-version",
+				desiredVersion: "desired-version",
 			},
 
 			wantErr: true,
 		},
 	}
 
-	// set the map.  This is very  ugly, but will hopefully be replaced by https://github.com/openshift/library-go/pull/1468/files shortly
-	configv1.FeatureSets["features-for-desired-version"] = &configv1.FeatureGateEnabledDisabled{
-		Enabled:  []string{"alpha", "bravo"},
-		Disabled: []string{"charlie", "delta"},
-	}
-	configv1.FeatureSets["features-for-other-version"] = &configv1.FeatureGateEnabledDisabled{
-		Enabled:  []string{"alpha", "bravo"},
-		Disabled: []string{"charlie", "delta"},
-	}
-	defer func() {
-		delete(configv1.FeatureSets, "features-for-desired-version")
-	}()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			ctx := context.Background()
 			_, cancel := context.WithCancel(ctx)
 			defer cancel()

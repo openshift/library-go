@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
@@ -31,6 +30,37 @@ func (l testLister) PreRunHasSynced() []cache.InformerSynced {
 	return nil
 }
 
+var testingFeatureSets = map[configv1.FeatureSet]configv1.FeatureGateEnabledDisabled{
+	configv1.Default: {
+		Enabled: []string{
+			"OpenShiftPodSecurityAdmission", // bz-auth, stlaz, OCP specific
+		},
+		Disabled: []string{
+			"RetroactiveDefaultStorageClass", // sig-storage, RomanBednar, Kubernetes feature gate
+		},
+	},
+	configv1.CustomNoUpgrade: {
+		Enabled:  []string{},
+		Disabled: []string{},
+	},
+	configv1.TechPreviewNoUpgrade: {
+		Enabled: []string{
+			"OpenShiftPodSecurityAdmission",     // bz-auth, stlaz, OCP specific
+			"ExternalCloudProvider",             // sig-cloud-provider, jspeed, OCP specific
+			"CSIDriverSharedResource",           // sig-build, adkaplan, OCP specific
+			"BuildCSIVolumes",                   // sig-build, adkaplan, OCP specific
+			"NodeSwap",                          // sig-node, ehashman, Kubernetes feature gate
+			"MachineAPIProviderOpenStack",       // openstack, egarcia (#forum-openstack), OCP specific
+			"InsightsConfigAPI",                 // insights, tremes (#ccx), OCP specific
+			"MatchLabelKeysInPodTopologySpread", // sig-scheduling, ingvagabund (#forum-workloads), Kubernetes feature gate
+			"PDBUnhealthyPodEvictionPolicy",     // sig-apps, atiratree (#forum-workloads), Kubernetes feature gate
+		},
+		Disabled: []string{
+			"RetroactiveDefaultStorageClass", // sig-storage, RomanBednar, Kubernetes feature gate
+		},
+	},
+}
+
 func TestObserveFeatureFlags(t *testing.T) {
 	configPath := []string{"foo", "bar"}
 
@@ -41,8 +71,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 		expectedResult      []string
 		expectError         bool
 		customNoUpgrade     *configv1.CustomFeatureGates
-		knownFeatures       sets.String
-		blacklistedFeatures sets.String
+		knownFeatures       sets.Set[configv1.FeatureGateName]
+		blacklistedFeatures sets.Set[configv1.FeatureGateName]
 	}{
 		{
 			name:        "default",
@@ -64,11 +94,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"MachineAPIProviderOpenStack=true",
 				"InsightsConfigAPI=true",
 				"MatchLabelKeysInPodTopologySpread=true",
-				"RetroactiveDefaultStorageClass=true",
 				"PDBUnhealthyPodEvictionPolicy=true",
-				"DynamicResourceAllocation=true",
-				"ValidatingAdmissionPolicy=true",
-				"AdmissionWebhookMatchConditions=true",
+				"RetroactiveDefaultStorageClass=false",
 			},
 		},
 		{
@@ -98,7 +125,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled"},
 				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled"},
 			},
-			knownFeatures: sets.NewString("CustomFeatureEnabled"),
+			knownFeatures: sets.New[configv1.FeatureGateName]("CustomFeatureEnabled"),
 		},
 		{
 			name:        "custom no upgrade and blacklisted features",
@@ -112,32 +139,28 @@ func TestObserveFeatureFlags(t *testing.T) {
 				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled", "AnotherThing", "AThirdThing"},
 				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled", "DisabledThing"},
 			},
-			blacklistedFeatures: sets.NewString("AnotherThing", "DisabledThing"),
+			blacklistedFeatures: sets.New[configv1.FeatureGateName]("AnotherThing", "DisabledThing"),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			indexer.Add(&configv1.FeatureGate{
-				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-				Spec: configv1.FeatureGateSpec{
-					FeatureGateSelection: configv1.FeatureGateSelection{
-						FeatureSet:      tc.configValue,
-						CustomNoUpgrade: tc.customNoUpgrade,
-					},
-				},
-			})
-			listers := testLister{
-				lister: configlistersv1.NewFeatureGateLister(indexer),
+			apiEnabledDisabled := testingFeatureSets[tc.configValue]
+			enabled := []configv1.FeatureGateName{}
+			enabled = append(enabled, StringsToFeatureGateNames(apiEnabledDisabled.Enabled)...)
+			disabled := []configv1.FeatureGateName{}
+			disabled = append(disabled, StringsToFeatureGateNames(apiEnabledDisabled.Disabled)...)
+
+			if tc.customNoUpgrade != nil {
+				enabled = append(enabled, tc.customNoUpgrade.Enabled...)
+				disabled = append(disabled, tc.customNoUpgrade.Disabled...)
 			}
+			featureAccessor := NewHardcodedFeatureGateAccess(enabled, disabled)
 			eventRecorder := events.NewInMemoryRecorder("")
-
 			initialExistingConfig := map[string]interface{}{}
+			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath, featureAccessor)
 
-			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath)
-
-			observed, errs := observeFn(listers, eventRecorder, initialExistingConfig)
+			observed, errs := observeFn(nil, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 && !tc.expectError {
 				t.Fatal(errs)
 			}
