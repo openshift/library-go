@@ -270,7 +270,7 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
-	case state.AESCBC, state.Identity: // secretbox is disabled for now
+	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, nil

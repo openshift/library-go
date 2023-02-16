@@ -95,10 +95,15 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 				// skip fake provider. If this is write-key, wait for first aesgcm provider providing the write key.
 				continue
 
-			case provider.AESGCM != nil && len(provider.AESGCM.Keys) == 1 && provider.AESGCM.Keys[0].Secret == emptyStaticIdentityKey:
+			case provider.AESGCM != nil && len(provider.AESGCM.Keys) == 1:
+				s := state.AESGCM
+				if provider.AESGCM.Keys[0].Secret == emptyStaticIdentityKey {
+					s = state.Identity
+				}
+
 				ks = state.KeyState{
 					Key:  provider.AESGCM.Keys[0],
-					Mode: state.Identity,
+					Mode: s,
 				}
 
 			default:
@@ -161,6 +166,12 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 		case state.AESCBC:
 			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 				AESCBC: &apiserverconfigv1.AESConfiguration{
+					Keys: []apiserverconfigv1.Key{key.Key},
+				},
+			})
+		case state.AESGCM:
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				AESGCM: &apiserverconfigv1.AESConfiguration{
 					Keys: []apiserverconfigv1.Key{key.Key},
 				},
 			})
