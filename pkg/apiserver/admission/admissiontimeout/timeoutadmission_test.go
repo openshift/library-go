@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -30,8 +29,6 @@ func (p dummyAdmit) Validate(ctx context.Context, a admission.Attributes, o admi
 }
 
 func TestTimeoutAdmission(t *testing.T) {
-	utilruntime.ReallyCrash = false
-
 	tests := []struct {
 		name string
 
@@ -71,12 +68,12 @@ func TestTimeoutAdmission(t *testing.T) {
 					panic("fail!")
 				}, stopCh
 			},
-			expectedError: "default to ",
+			expectedError: "admission panic'd: fail!",
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/Admit", test.name), func(t *testing.T) {
 			admitFn, stopCh := test.admissionPlugin()
 			defer close(stopCh)
 
@@ -84,10 +81,47 @@ func TestTimeoutAdmission(t *testing.T) {
 			decorator := AdmissionTimeout{Timeout: test.timeout}
 			decoratedPlugin := decorator.WithTimeout(fakePlugin, "fake-name")
 
-			actualErr := decoratedPlugin.(admission.MutationInterface).Admit(context.TODO(), nil, nil)
-			validateErr(t, actualErr, test.expectedError)
+			var actualErr error
+			func() {
+				defer func() {
+					// if there is a panic we expect the timeout delegator to
+					// propagate the panic error.
+					if err := recover(); err != nil {
+						switch t := err.(type) {
+						case error:
+							actualErr = t
+						}
+					}
+				}()
+				actualErr = decoratedPlugin.(admission.MutationInterface).Admit(context.TODO(), nil, nil)
+			}()
 
-			actualErr = decoratedPlugin.(admission.ValidationInterface).Validate(context.TODO(), nil, nil)
+			validateErr(t, actualErr, test.expectedError)
+		})
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s/Validate", test.name), func(t *testing.T) {
+			admitFn, stopCh := test.admissionPlugin()
+			defer close(stopCh)
+
+			fakePlugin := dummyAdmit{admitFn: admitFn}
+			decorator := AdmissionTimeout{Timeout: test.timeout}
+			decoratedPlugin := decorator.WithTimeout(fakePlugin, "fake-name")
+
+			var actualErr error
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						switch t := err.(type) {
+						case error:
+							actualErr = t
+						}
+					}
+				}()
+				actualErr = decoratedPlugin.(admission.ValidationInterface).Validate(context.TODO(), nil, nil)
+			}()
+
 			validateErr(t, actualErr, test.expectedError)
 		})
 	}
