@@ -18,9 +18,6 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 	certificates := []*x509.Certificate{}
 	for _, input := range inputConfigMaps {
 		inputConfigMap, err := lister.ConfigMaps(input.Namespace).Get(input.Name)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
 		if err != nil {
 			return nil, err
 		}
