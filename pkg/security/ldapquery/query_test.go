@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/openshift/library-go/pkg/security/ldapclient"
 	"github.com/openshift/library-go/pkg/security/ldaptestclient"
 	"github.com/openshift/library-go/pkg/security/ldaputil"
 )
@@ -255,7 +256,13 @@ func TestErrNoSuchObject(t *testing.T) {
 			ldap.NewError(ldap.LDAPResultNoSuchObject, errors.New("")),
 		)
 		testConfig := ldaptestclient.NewConfig(testClient)
-		if _, err := QueryForEntries(testConfig, testCase.searchRequest); !reflect.DeepEqual(err, testCase.expectedError) {
+
+		testLDAPClient, err := ldapclient.ConnectMaybeBind(testConfig)
+		if err != nil {
+			t.Fatalf("failed to create an LDAP client: %v", err)
+		}
+
+		if _, err := QueryForEntries(testLDAPClient, testCase.searchRequest); !reflect.DeepEqual(err, testCase.expectedError) {
 			t.Errorf("%s: error did not match:\n\texpected:\n\t%v\n\tgot:\n\t%v", testCase.name, testCase.expectedError, err)
 		}
 	}
@@ -278,13 +285,17 @@ func TestErrEntryNotFound(t *testing.T) {
 
 	expectedErr := &errEntryNotFound{baseDN: "dc=example,dc=com", filter: "(objectClass=*)"}
 
+	testClient, err := ldapclient.ConnectMaybeBind(testConfig)
+	if err != nil {
+		t.Fatalf("failed to create an LDAP client: %v", err)
+	}
 	// test that a unique search errors on no result
-	if _, err := QueryForUniqueEntry(testConfig, testSearchRequest); !reflect.DeepEqual(err, expectedErr) {
+	if _, err := QueryForUniqueEntry(testClient, testSearchRequest); !reflect.DeepEqual(err, expectedErr) {
 		t.Errorf("query for unique entry did not get correct error:\n\texpected:\n\t%v\n\tgot:\n\t%v", expectedErr, err)
 	}
 
 	// test that a non-unique search doesn't error
-	if _, err := QueryForEntries(testConfig, testSearchRequest); !reflect.DeepEqual(err, nil) {
+	if _, err := QueryForEntries(testClient, testSearchRequest); !reflect.DeepEqual(err, nil) {
 		t.Errorf("query for entries did not get correct error:\n\texpected:\n\t%v\n\tgot:\n\t%v", nil, err)
 	}
 }
@@ -309,8 +320,13 @@ func TestQueryWithPaging(t *testing.T) {
 		Controls:     []ldap.Control{ldap.NewControlPaging(5)},
 	}
 
+	testClient, err := ldapclient.ConnectMaybeBind(testConfig)
+	if err != nil {
+		t.Fatalf("failed to create an LDAP client: %v", err)
+	}
+
 	// test that a search request with paging controls gets correctly routed to the SearchWithPaging call
-	response, err := QueryForEntries(testConfig, testSearchRequest)
+	response, err := QueryForEntries(testClient, testSearchRequest)
 	if err != nil {
 		t.Errorf("query with paging control should not create error, but got %v", err)
 	}
