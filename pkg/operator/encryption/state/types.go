@@ -56,7 +56,8 @@ type Mode string
 // These values are encoded into the secret and thus must not be changed.
 // Strings are used over iota because they are easier for a human to understand.
 const (
-	AESCBC    Mode = "aescbc"    // available from the first release, see defaultMode below
+	AESCBC    Mode = "aescbc" // available from the first release, see defaultMode below
+	AESGCM    Mode = "aesgcm"
 	SecretBox Mode = "secretbox" // available from the first release, see defaultMode below
 	Identity  Mode = "identity"  // available from the first release, see defaultMode below
 

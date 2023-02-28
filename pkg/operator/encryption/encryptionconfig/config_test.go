@@ -327,6 +327,40 @@ func TestToEncryptionState(t *testing.T) {
 
 		// scenario 9
 		// TODO: encryption on after being off
+
+		// scenario 10
+		{
+			name: "aes-gcm write key and aes-cbc read key",
+			input: func() *apiserverconfigv1.EncryptionConfiguration {
+				keysRes := encryptiontesting.EncryptionKeysResourceTuple{
+					Resource: "secrets",
+					Keys: []apiserverconfigv1.Key{
+						{
+							Name:   "35",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
+						{
+							Name:   "34",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
+					},
+					Modes: []string{"aesgcm", "aescbc"},
+				}
+				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
+				return ec
+			}(),
+			output: map[schema.GroupResource]state.GroupResourceState{
+				{Group: "", Resource: "secrets"}: {
+					WriteKey: state.KeyState{
+						Key: apiserverconfigv1.Key{Name: "35", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, Mode: "aesgcm",
+					},
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "35", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, Mode: "aesgcm"},
+						{Key: apiserverconfigv1.Key{Name: "34", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, Mode: "aescbc"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

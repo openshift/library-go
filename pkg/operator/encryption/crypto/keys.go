@@ -9,6 +9,7 @@ import (
 var (
 	ModeToNewKeyFunc = map[state.Mode]func() []byte{
 		state.AESCBC:    NewAES256Key,
+		state.AESGCM:    NewAES256Key,
 		state.SecretBox: NewAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
 		state.Identity:  NewIdentityKey,
 	}

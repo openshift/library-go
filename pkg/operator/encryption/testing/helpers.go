@@ -73,7 +73,11 @@ func CreateEncryptionKeySecretWithRawKeyWithMode(targetNS string, grs []schema.G
 }
 
 func CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNS string, grs []schema.GroupResource, keyID uint64, existingSecret *corev1.Secret) *corev1.Secret {
-	secret := CreateEncryptionKeySecretNoData(targetNS, grs, keyID)
+	return CreateEncryptionKeySecretWithKeyFromExistingSecretWithMode(targetNS, grs, keyID, existingSecret, "aescbc")
+}
+
+func CreateEncryptionKeySecretWithKeyFromExistingSecretWithMode(targetNS string, grs []schema.GroupResource, keyID uint64, existingSecret *corev1.Secret, mode string) *corev1.Secret {
+	secret := CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, mode)
 	if rawKey, exist := existingSecret.Data[encryptionSecretKeyDataForTest]; exist {
 		secret.Data[encryptionSecretKeyDataForTest] = rawKey
 	}
@@ -182,20 +186,7 @@ func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKey
 			if len(keysResource.Modes) == len(keysResource.Keys) {
 				desiredMode = keysResource.Modes[i]
 			}
-			switch desiredMode {
-			case "aesgcm":
-				rc.Providers = append(rc.Providers, apiserverconfigv1.ProviderConfiguration{
-					AESGCM: &apiserverconfigv1.AESConfiguration{
-						Keys: []apiserverconfigv1.Key{key},
-					},
-				})
-			default:
-				rc.Providers = append(rc.Providers, apiserverconfigv1.ProviderConfiguration{
-					AESCBC: &apiserverconfigv1.AESConfiguration{
-						Keys: []apiserverconfigv1.Key{key},
-					},
-				})
-			}
+			rc.Providers = append(rc.Providers, *createProviderCfg(desiredMode, key))
 		}
 		ec.Resources = append(ec.Resources, rc)
 	}
@@ -208,12 +199,12 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 	for _, keysResource := range keysResources {
 		// TODO allow secretbox -> not sure if EncryptionKeysResourceTuple makes sense
 		providers := []apiserverconfigv1.ProviderConfiguration{}
-		for _, key := range keysResource.Keys {
-			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
-				AESCBC: &apiserverconfigv1.AESConfiguration{
-					Keys: []apiserverconfigv1.Key{key},
-				},
-			})
+		for i, key := range keysResource.Keys {
+			desiredMode := ""
+			if len(keysResource.Modes) == len(keysResource.Keys) {
+				desiredMode = keysResource.Modes[i]
+			}
+			providers = append(providers, *createProviderCfg(desiredMode, key))
 		}
 		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
@@ -231,6 +222,33 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 			APIVersion: "apiserver.config.k8s.io/v1",
 		},
 		Resources: configurations,
+	}
+}
+
+func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv1.ProviderConfiguration {
+	switch mode {
+	case "aesgcm":
+		return &apiserverconfigv1.ProviderConfiguration{
+			AESGCM: &apiserverconfigv1.AESConfiguration{
+				Keys: []apiserverconfigv1.Key{key},
+			},
+		}
+	case "secretbox":
+		return &apiserverconfigv1.ProviderConfiguration{
+			Secretbox: &apiserverconfigv1.SecretboxConfiguration{
+				Keys: []apiserverconfigv1.Key{key},
+			},
+		}
+	case "identity":
+		return &apiserverconfigv1.ProviderConfiguration{
+			Identity: &apiserverconfigv1.IdentityConfiguration{},
+		}
+	default:
+		return &apiserverconfigv1.ProviderConfiguration{
+			AESCBC: &apiserverconfigv1.AESConfiguration{
+				Keys: []apiserverconfigv1.Key{key},
+			},
+		}
 	}
 }
 

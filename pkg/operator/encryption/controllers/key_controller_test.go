@@ -31,14 +31,13 @@ import (
 )
 
 func TestKeyController(t *testing.T) {
-	apiServerAesCBC := []runtime.Object{&configv1.APIServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec: configv1.APIServerSpec{
-			Encryption: configv1.APIServerEncryption{
-				Type: "aescbc",
-			},
-		},
-	}}
+	simpleAPIServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+
+	apiServerWithAESCBC := simpleAPIServer.DeepCopy()
+	apiServerWithAESCBC.Spec.Encryption = configv1.APIServerEncryption{Type: "aescbc"}
+
+	apiServerWithAESGCM := simpleAPIServer.DeepCopy()
+	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
 	scenarios := []struct {
 		name                     string
@@ -73,7 +72,7 @@ func TestKeyController(t *testing.T) {
 			},
 			targetNamespace:  "kms",
 			initialObjects:   []runtime.Object{},
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			apiServerObjects: []runtime.Object{simpleAPIServer},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
 			expectedActions: []string{"list:pods:kms"},
@@ -86,7 +85,7 @@ func TestKeyController(t *testing.T) {
 			},
 			targetNamespace:  "kms",
 			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1")},
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			apiServerObjects: []runtime.Object{simpleAPIServer},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
@@ -104,14 +103,7 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
-			apiServerObjects: []runtime.Object{&configv1.APIServer{
-				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-				Spec: configv1.APIServerSpec{
-					Encryption: configv1.APIServerEncryption{
-						Type: "aescbc",
-					},
-				},
-			}},
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -145,7 +137,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -159,7 +151,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865"), time.Now()),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -173,7 +165,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 		},
@@ -187,7 +179,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
@@ -245,7 +237,7 @@ func TestKeyController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions: []string{
 				"list:pods:kms",
@@ -266,7 +258,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -280,7 +272,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("")),
 			},
-			apiServerObjects: apiServerAesCBC,
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
@@ -293,6 +285,42 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
 			expectedError: errors.New("secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target"),
+		},
+
+		{
+			name: "creates a new write key because the encryption mode changed",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865"), "aescbc"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithAESGCM},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						expectedSecret := encryptiontesting.CreateEncryptionKeySecretWithKeyFromExistingSecretWithMode(targetNamespace, []schema.GroupResource{}, 6, actualSecret, "aesgcm")
+						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "secrets-encryption-mode-changed"
+						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
+						}
+						if err := encryptiontesting.ValidateEncryptionKey(actualSecret); err != nil {
+							ts.Error(err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
 		},
 	}
 

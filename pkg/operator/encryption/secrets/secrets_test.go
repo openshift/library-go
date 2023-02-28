@@ -56,6 +56,40 @@ func TestRoundtrip(t *testing.T) {
 			},
 		},
 		{
+			name:      "full aesgcm",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "54",
+					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
+				},
+				Backed: true, // this will be set by ToKeyState()
+				Mode:   "aesgcm",
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "networking.openshift.io", Resource: "routes"},
+					},
+				},
+				InternalReason: "internal",
+				ExternalReason: "external",
+			},
+		},
+		{
+			name:      "sparse aesgcm",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "54",
+					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
+				},
+				Backed: true, // this will be set by ToKeyState()
+				Mode:   "aesgcm",
+			},
+		},
+		{
 			name:      "identity",
 			component: "kms",
 			ks: state.KeyState{
