@@ -2,10 +2,12 @@ package encryption
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -41,6 +43,26 @@ func TestEncryptionTypeAESCBC(t *testing.T, scenario BasicScenario) {
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
+func TestEncryptionTypeAESGCM(t *testing.T, scenario BasicScenario) {
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESGCM, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeAESGCM, scenario.Namespace, scenario.LabelSelector)
+	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
+}
+
+func TestEncryptionType(t *testing.T, scenario BasicScenario, provider configv1.EncryptionType) {
+	switch provider {
+	case configv1.EncryptionTypeAESCBC:
+		TestEncryptionTypeAESCBC(t, scenario)
+	case configv1.EncryptionTypeAESGCM:
+		TestEncryptionTypeAESGCM(t, scenario)
+	case configv1.EncryptionTypeIdentity, "":
+		TestEncryptionTypeIdentity(t, scenario)
+	default:
+		t.Fatalf("Unknown encryption type: %s", provider)
+	}
+}
+
 type OnOffScenario struct {
 	BasicScenario
 	CreateResourceFunc             func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
@@ -48,6 +70,7 @@ type OnOffScenario struct {
 	AssertResourceNotEncryptedFunc func(t testing.TB, clientSet ClientSet, resource runtime.Object)
 	ResourceFunc                   func(t testing.TB, namespace string) runtime.Object
 	ResourceName                   string
+	EncryptionProvider             configv1.EncryptionType
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
@@ -59,7 +82,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}},
-		{name: "OnAESCBC", testFunc: func(t *testing.T) { TestEncryptionTypeAESCBC(t, scenario.BasicScenario) }},
+		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t *testing.T) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
 		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -69,7 +92,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "OnAESCBCSecond", testFunc: func(t *testing.T) { TestEncryptionTypeAESCBC(t, scenario.BasicScenario) }},
+		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t *testing.T) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
 		{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t *testing.T) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -96,6 +119,7 @@ type RotationScenario struct {
 	CreateResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
 	GetRawResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) string
 	UnsupportedConfigFunc UpdateUnsupportedConfigFunc
+	EncryptionProvider    configv1.EncryptionType
 }
 
 // TestEncryptionRotation first encrypts data with aescbc key
@@ -110,8 +134,8 @@ func TestEncryptionRotation(t *testing.T, scenario RotationScenario) {
 	clientSet := GetClients(e)
 	scenario.CreateResourceFunc(e, GetClients(e), ns)
 
-	// step 2: run encryption aescbc scenario
-	TestEncryptionTypeAESCBC(t, scenario.BasicScenario)
+	// step 2: run provided encryption scenario
+	TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider)
 
 	// step 3: take samples
 	rawEncryptedResourceWithKey1 := scenario.GetRawResourceFunc(e, clientSet, ns)
@@ -121,7 +145,7 @@ func TestEncryptionRotation(t *testing.T, scenario RotationScenario) {
 	require.NoError(e, err)
 	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
 	WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyMeta, scenario.TargetGRs, ns, labelSelector)
-	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeAESCBC, ns, labelSelector)
+	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider, ns, labelSelector)
 
 	// step 5: verify if the provided resource was encrypted with a different key (step 2 vs step 4)
 	rawEncryptedResourceWithKey2 := scenario.GetRawResourceFunc(e, clientSet, ns)
