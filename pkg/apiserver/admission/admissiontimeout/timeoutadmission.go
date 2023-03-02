@@ -56,6 +56,8 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 		r.admissionErr = mutatingHandler.Admit(ctx, a, o)
 	}()
 
+	timer := time.NewTimer(p.timeout)
+	defer timer.Stop()
 	select {
 	case r := <-resultCh:
 		if r.panicErr != nil {
@@ -63,7 +65,7 @@ func (p pluginHandlerWithTimeout) Admit(ctx context.Context, a admission.Attribu
 			panic(r.panicErr.(interface{}))
 		}
 		return r.admissionErr
-	case <-time.After(p.timeout):
+	case <-timer.C:
 		return errors.NewInternalError(fmt.Errorf("admission plugin %q failed to complete mutation in %v", p.name, p.timeout))
 	}
 }
@@ -99,6 +101,8 @@ func (p pluginHandlerWithTimeout) Validate(ctx context.Context, a admission.Attr
 		r.admissionErr = validatingHandler.Validate(ctx, a, o)
 	}()
 
+	timer := time.NewTimer(p.timeout)
+	defer timer.Stop()
 	select {
 	case r := <-resultCh:
 		if r.panicErr != nil {
