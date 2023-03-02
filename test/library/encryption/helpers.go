@@ -174,7 +174,8 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 		}
 
 		if currentKeyMeta.Name == nextKeyName {
-			if len(prevKeyMeta.Migrated) == len(currentKeyMeta.Migrated) {
+			if (len(prevKeyMeta.Migrated) == len(currentKeyMeta.Migrated)) ||
+				(len(prevKeyMeta.Name) == 0 && len(currentKeyMeta.Migrated) > 0) {
 				for _, expectedGR := range prevKeyMeta.Migrated {
 					if !hasResource(expectedGR, prevKeyMeta.Migrated) {
 						return false, nil
