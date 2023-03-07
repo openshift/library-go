@@ -104,7 +104,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.AWSPlatformType,
 			},
 		},
-		expected:           "aws",
+		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
 		name: "AlibabaCloud Platform",
