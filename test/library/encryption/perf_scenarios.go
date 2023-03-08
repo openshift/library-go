@@ -18,16 +18,17 @@ type PerfScenario struct {
 	AssertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
 	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
-	DBLoaderWorkers int
+	DBLoaderWorkers    int
+	EncryptionProvider configv1.EncryptionType
 }
 
-func TestPerfEncryptionTypeAESCBC(t *testing.T, scenario PerfScenario) {
+func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	migrationStartedCh := make(chan time.Time, 1)
 
 	populateDatabase(e, scenario.DBLoaderWorkers, scenario.DBLoaderFunc, scenario.AssertDBPopulatedFunc)
 	watchForMigrationControllerProgressingConditionAsync(e, scenario.GetOperatorConditionsFunc, migrationStartedCh)
-	endTimeStamp := runTestEncryptionTypeAESCBCScenario(t, scenario.BasicScenario)
+	endTimeStamp := runTestEncryption(t, scenario)
 
 	select {
 	case migrationStarted := <-migrationStartedCh:
@@ -37,9 +38,9 @@ func TestPerfEncryptionTypeAESCBC(t *testing.T, scenario PerfScenario) {
 	}
 }
 
-func runTestEncryptionTypeAESCBCScenario(tt *testing.T, scenario BasicScenario) time.Time {
+func runTestEncryption(tt *testing.T, scenario PerfScenario) time.Time {
 	var ts time.Time
-	TestEncryptionTypeAESCBC(tt, BasicScenario{
+	TestEncryptionType(tt, BasicScenario{
 		Namespace:                       scenario.Namespace,
 		LabelSelector:                   scenario.LabelSelector,
 		EncryptionConfigSecretName:      scenario.EncryptionConfigSecretName,
@@ -50,8 +51,8 @@ func runTestEncryptionTypeAESCBCScenario(tt *testing.T, scenario BasicScenario) 
 			// Note that AssertFunc is executed after an encryption secret has been annotated
 			ts = time.Now()
 			scenario.AssertFunc(t, clientSet, expectedMode, scenario.Namespace, scenario.LabelSelector)
-			t.Logf("AssertFunc for TestEncryptionTypeAESCBC scenario took %v", time.Now().Sub(ts))
+			t.Logf("AssertFunc for TestEncryption scenario with %q provider took %v", scenario.EncryptionProvider, time.Since(ts))
 		},
-	})
+	}, scenario.EncryptionProvider)
 	return ts
 }

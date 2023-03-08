@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/etcd/client/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +32,7 @@ const (
 	jsonEncodingPrefix           = "{"
 	protoEncryptedDataPrefix     = "k8s:enc:"
 	aesCBCTransformerPrefixV1    = "k8s:enc:aescbc:v1:"
+	aesGCMTransformerPrefixV1    = "k8s:enc:aesgcm:v1:"
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
 )
 
@@ -158,6 +159,8 @@ func encryptionModeFromEtcdValue(data []byte) (string, bool) {
 		switch {
 		case hasPrefixAndTrailingData(data, []byte(aesCBCTransformerPrefixV1)): // AES-CBC has this prefix
 			return "aescbc"
+		case hasPrefixAndTrailingData(data, []byte(aesGCMTransformerPrefixV1)): // AES-GCM has this prefix
+			return "aesgcm"
 		case hasPrefixAndTrailingData(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
 			return "secretbox"
 		case hasPrefixAndTrailingData(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
