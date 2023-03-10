@@ -36,7 +36,8 @@ type CABundleConfigMap struct {
 	EventRecorder events.Recorder
 }
 
-func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+// EnsureConfigMapCABundle ensures that the ca-bundle contains the current signing cert as well as any previous, non-expired certs
+func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)

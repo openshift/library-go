@@ -106,17 +106,17 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 }
 
 func (c CertRotationController) syncWorker(ctx context.Context) error {
-	signingCertKeyPair, err := c.rotatedSigningCASecret.ensureSigningCertKeyPair(ctx)
+	signingCertKeyPair, err := c.rotatedSigningCASecret.EnsureSigningCertKeyPair(ctx)
 	if err != nil {
 		return err
 	}
 
-	cabundleCerts, err := c.CABundleConfigMap.ensureConfigMapCABundle(ctx, signingCertKeyPair)
+	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair)
 	if err != nil {
 		return err
 	}
 
-	if err := c.RotatedSelfSignedCertKeySecret.ensureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
+	if err := c.RotatedSelfSignedCertKeySecret.EnsureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 
