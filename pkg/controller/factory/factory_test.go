@@ -77,7 +77,7 @@ func TestFactory_ToController(t *testing.T) {
 	if informer.hasSyncedCount == 0 {
 		t.Errorf("expected the informer to be registered")
 	}
-	informer.eventHandler.OnAdd(&v1.Secret{})
+	informer.eventHandler.OnAdd(&v1.Secret{}, false /* isInInitialList */)
 	if !queueFuncUsed {
 		t.Error("expected to use the queue function")
 	}
