@@ -491,7 +491,7 @@ func (d *lockStepDeployer) Deploy() error {
 
 	for _, h := range handlers {
 		if old == nil {
-			h.OnAdd(d.current)
+			h.OnAdd(d.current, false /* isInInitialList */)
 		} else {
 			h.OnUpdate(old, d.current)
 		}
@@ -557,11 +557,12 @@ func (c *secretInterceptor) Patch(ctx context.Context, name string, pt types.Pat
 	return s, nil
 }
 
-func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
+func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	d.handlers = append(d.handlers, handler)
+	return d, nil
 }
 
 func (d *lockStepDeployer) HasSynced() bool {
