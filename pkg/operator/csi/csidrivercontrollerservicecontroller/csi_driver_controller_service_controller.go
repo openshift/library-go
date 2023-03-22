@@ -82,7 +82,7 @@ func NewCSIDriverControllerServiceController(
 	optionalManifestHooks = append(optionalManifestHooks, WithLeaderElectionReplacerHook(leConfig))
 
 	var deploymentHooks []dc.DeploymentHookFunc
-	deploymentHooks = append(deploymentHooks, optionalDeploymentHooks...)
 	deploymentHooks = append(deploymentHooks, WithControlPlaneTopologyHook(configInformer))
+	deploymentHooks = append(deploymentHooks, optionalDeploymentHooks...)
 	return dc.NewDeploymentController(name, manifest, recorder, operatorClient, kubeClient, deployInformer, optionalInformers, optionalManifestHooks, deploymentHooks...)
 }
