@@ -51,7 +51,7 @@ func (f *observeStorageFlags) ObserveStorageOperator(genericListers configobserv
 	}
 
 	newStorageMap := storageToMap(storageOperator)
-	if newStorageMap != nil {
+	if len(newStorageMap) > 0 {
 		if err := unstructured.SetNestedStringMap(observedConfig, newStorageMap, f.configPath...); err != nil {
 			return existingConfig, append(errs, err)
 		}
@@ -71,15 +71,9 @@ func (f *observeStorageFlags) ObserveStorageOperator(genericListers configobserv
 }
 
 func storageToMap(storage *opv1.Storage) map[string]string {
-	storageMap := map[string]string{}
-
 	if storage.Spec.VSphereStorageDriver == opv1.CSIWithMigrationDriver {
-		storageMap["OPENSHIFT_DO_VSPHERE_MIGRATION"] = "true"
+		return map[string]string{"OPENSHIFT_DO_VSPHERE_MIGRATION": "true"}
 	}
 
-	if len(storageMap) == 0 {
-		return nil
-	}
-
-	return storageMap
+	return nil
 }
