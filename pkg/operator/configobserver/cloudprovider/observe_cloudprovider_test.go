@@ -251,6 +251,43 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		},
 		cloudProviderCount: 0,
 	}, {
+		name: "External platform, CloudControllerManager.State = External",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.ExternalPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.ExternalPlatformType,
+				External: &configv1.ExternalPlatformStatus{
+					CloudControllerManager: configv1.CloudControllerManagerStatus{
+						State: configv1.CloudControllerManagerExternal,
+					},
+				},
+			},
+		},
+		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
+			[]configv1.FeatureGateName{},
+		),
+		expected:           "external",
+		cloudProviderCount: 1,
+	}, {
+		name: "External platform, CloudControllerManager.State = None",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.ExternalPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.ExternalPlatformType,
+				External: &configv1.ExternalPlatformStatus{
+					CloudControllerManager: configv1.CloudControllerManagerStatus{
+						State: configv1.CloudControllerManagerNone,
+					},
+				},
+			},
+		},
+		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
+			[]configv1.FeatureGateName{},
+		),
+		cloudProviderCount: 0,
+	}, {
 		name: "empty or unknown platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: "",
