@@ -134,7 +134,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.AzurePlatformType,
 			},
 		},
-		expected:           "external",
+		expected:           "azure",
 		cloudProviderCount: 1,
 	}, {
 		name: "Azure platform set for external configuration",
