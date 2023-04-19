@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -415,6 +416,13 @@ func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (h
 	resp.Body.Close()
 
 	_, err = verifyServerCertChain(issuerURL.Hostname(), resp.TLS.PeerCertificates)
+	// In go 1.20 and upwards versions, x509 errors in the switch statement
+	// are wrapped in tls.CertificateVerificationError.
+	var cerr *tls.CertificateVerificationError
+	if errors.As(err, &cerr) {
+		err = cerr.Unwrap()
+	}
+
 	switch err.(type) {
 	case nil:
 		// copy the config so we can freely mutate it
