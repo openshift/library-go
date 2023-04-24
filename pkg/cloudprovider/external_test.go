@@ -69,7 +69,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{},
+						Enabled: []configv1.FeatureGateName{},
 					},
 				},
 			},
@@ -85,7 +85,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -101,8 +101,8 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled:  []string{ExternalCloudProviderFeature},
-						Disabled: []string{ExternalCloudProviderFeature},
+						Enabled:  []configv1.FeatureGateName{ExternalCloudProviderFeature},
+						Disabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -118,7 +118,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Disabled: []string{ExternalCloudProviderFeature},
+						Disabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -134,7 +134,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -171,7 +171,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -187,7 +187,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Disabled: []string{ExternalCloudProviderFeature},
+						Disabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -217,7 +217,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -242,7 +242,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -258,7 +258,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -281,7 +281,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -317,7 +317,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -346,7 +346,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},
@@ -360,7 +360,7 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				FeatureGateSelection: configv1.FeatureGateSelection{
 					FeatureSet: configv1.CustomNoUpgrade,
 					CustomNoUpgrade: &configv1.CustomFeatureGates{
-						Enabled: []string{ExternalCloudProviderFeature},
+						Enabled: []configv1.FeatureGateName{ExternalCloudProviderFeature},
 					},
 				},
 			},

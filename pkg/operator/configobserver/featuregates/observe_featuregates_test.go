@@ -48,9 +48,6 @@ func TestObserveFeatureFlags(t *testing.T) {
 			name:        "default",
 			configValue: configv1.Default,
 			expectedResult: []string{
-				"APIPriorityAndFairness=true",
-				"RotateKubeletServerCertificate=true",
-				"DownwardAPIHugePages=true",
 				"OpenShiftPodSecurityAdmission=true",
 				"RetroactiveDefaultStorageClass=false",
 			},
@@ -59,9 +56,6 @@ func TestObserveFeatureFlags(t *testing.T) {
 			name:        "techpreview",
 			configValue: configv1.TechPreviewNoUpgrade,
 			expectedResult: []string{
-				"APIPriorityAndFairness=true",
-				"RotateKubeletServerCertificate=true",
-				"DownwardAPIHugePages=true",
 				"OpenShiftPodSecurityAdmission=true",
 				"ExternalCloudProvider=true",
 				"CSIDriverSharedResource=true",
@@ -73,6 +67,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"RetroactiveDefaultStorageClass=true",
 				"PDBUnhealthyPodEvictionPolicy=true",
 				"DynamicResourceAllocation=true",
+				"ValidatingAdmissionPolicy=true",
+				"AdmissionWebhookMatchConditions=true",
 			},
 		},
 		{
@@ -83,8 +79,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"CustomFeatureDisabled=false",
 			},
 			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []string{"CustomFeatureEnabled"},
-				Disabled: []string{"CustomFeatureDisabled"},
+				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled"},
+				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled"},
 			},
 		},
 		{
@@ -99,8 +95,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"CustomFeatureEnabled=true",
 			},
 			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []string{"CustomFeatureEnabled"},
-				Disabled: []string{"CustomFeatureDisabled"},
+				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled"},
+				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled"},
 			},
 			knownFeatures: sets.NewString("CustomFeatureEnabled"),
 		},
@@ -113,8 +109,8 @@ func TestObserveFeatureFlags(t *testing.T) {
 				"CustomFeatureDisabled=false",
 			},
 			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []string{"CustomFeatureEnabled", "AnotherThing", "AThirdThing"},
-				Disabled: []string{"CustomFeatureDisabled", "DisabledThing"},
+				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled", "AnotherThing", "AThirdThing"},
+				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled", "DisabledThing"},
 			},
 			blacklistedFeatures: sets.NewString("AnotherThing", "DisabledThing"),
 		},

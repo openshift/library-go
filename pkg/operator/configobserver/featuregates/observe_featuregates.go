@@ -130,7 +130,9 @@ func (f *featureFlags) getWhitelistedFeatureNames(fg *configv1.FeatureGate) ([]s
 func FeaturesGatesFromFeatureSets(fg *configv1.FeatureGate) ([]string, []string, error) {
 	if fg.Spec.FeatureSet == configv1.CustomNoUpgrade {
 		if fg.Spec.FeatureGateSelection.CustomNoUpgrade != nil {
-			return fg.Spec.FeatureGateSelection.CustomNoUpgrade.Enabled, fg.Spec.FeatureGateSelection.CustomNoUpgrade.Disabled, nil
+			return FeatureGateNamesToStrings(fg.Spec.FeatureGateSelection.CustomNoUpgrade.Enabled),
+				FeatureGateNamesToStrings(fg.Spec.FeatureGateSelection.CustomNoUpgrade.Disabled),
+				nil
 		}
 		return []string{}, []string{}, nil
 	}
@@ -140,4 +142,22 @@ func FeaturesGatesFromFeatureSets(fg *configv1.FeatureGate) ([]string, []string,
 		return []string{}, []string{}, fmt.Errorf(".spec.featureSet %q not found", featureSet)
 	}
 	return featureSet.Enabled, featureSet.Disabled, nil
+}
+
+func StringsToFeatureGateNames(in []string) []configv1.FeatureGateName {
+	out := []configv1.FeatureGateName{}
+	for _, curr := range in {
+		out = append(out, configv1.FeatureGateName(curr))
+	}
+
+	return out
+}
+
+func FeatureGateNamesToStrings(in []configv1.FeatureGateName) []string {
+	out := []string{}
+	for _, curr := range in {
+		out = append(out, string(curr))
+	}
+
+	return out
 }
