@@ -3,6 +3,8 @@ package cloudprovider
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -65,8 +67,8 @@ func isExternalFeatureGateEnabled(featureGate *configv1.FeatureGate) (bool, erro
 	disabledFeatureGates := sets.NewString(featureSet.Disabled...)
 	// CustomNoUpgrade will override the deafult enabled feature gates.
 	if featureGate.Spec.FeatureSet == configv1.CustomNoUpgrade && featureGate.Spec.CustomNoUpgrade != nil {
-		enabledFeatureGates = sets.NewString(featureGate.Spec.CustomNoUpgrade.Enabled...)
-		disabledFeatureGates = sets.NewString(featureGate.Spec.CustomNoUpgrade.Disabled...)
+		enabledFeatureGates = sets.NewString(featuregates.FeatureGateNamesToStrings(featureGate.Spec.CustomNoUpgrade.Enabled)...)
+		disabledFeatureGates = sets.NewString(featuregates.FeatureGateNamesToStrings(featureGate.Spec.CustomNoUpgrade.Disabled)...)
 	}
 
 	return !disabledFeatureGates.Has(ExternalCloudProviderFeature) && enabledFeatureGates.Has(ExternalCloudProviderFeature), nil
