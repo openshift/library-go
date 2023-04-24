@@ -149,7 +149,7 @@ func TestRequestToken(t *testing.T) {
 
 		// Prompting basic handler
 		"prompting basic handler, no challenge, success": {
-			Handler: challengehandlers.NewBasicChallengeHandler("", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
+			Handler: challengehandlers.NewBasicChallengeHandler("", "", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, success},
@@ -157,7 +157,7 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic challenge, success": {
-			Handler: challengehandlers.NewBasicChallengeHandler("", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
+			Handler: challengehandlers.NewBasicChallengeHandler("", "", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, basicChallenge1},
@@ -166,7 +166,7 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic+negotiate challenge, success": {
-			Handler: challengehandlers.NewBasicChallengeHandler("", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
+			Handler: challengehandlers.NewBasicChallengeHandler("", "", bytes.NewBufferString("mypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, doubleChallenge},
@@ -175,7 +175,7 @@ func TestRequestToken(t *testing.T) {
 			ExpectedToken: successfulToken,
 		},
 		"prompting basic handler, basic challenge, failure": {
-			Handler: challengehandlers.NewBasicChallengeHandler("", nil, nil, &testPasswordPrompter{}, "myuser", ""),
+			Handler: challengehandlers.NewBasicChallengeHandler("", "", nil, nil, &testPasswordPrompter{}, "myuser", ""),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, basicChallenge1},
@@ -184,7 +184,7 @@ func TestRequestToken(t *testing.T) {
 			ExpectedError: "challenger chose not to retry the request",
 		},
 		"prompting basic handler, negotiate challenge, failure": {
-			Handler: challengehandlers.NewBasicChallengeHandler("", bytes.NewBufferString("myuser\nmypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
+			Handler: challengehandlers.NewBasicChallengeHandler("", "", bytes.NewBufferString("myuser\nmypassword\n"), nil, &testPasswordPrompter{}, "myuser", ""),
 			Requests: []requestResponse{
 				{initialHead, initialHeadResp},
 				{initialRequest, negotiateChallenge1},
