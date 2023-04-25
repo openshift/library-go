@@ -38,9 +38,9 @@ type FeatureGateAccess interface {
 
 	// Run starts a go func that continously watches the set of featuregates enabled in the cluster.
 	Run(ctx context.Context)
-	// InitialFeatureGatesObserved returns a channel that is closed once the featuregates have been observed.
-	// Once closed, the CurrentFeatureGates method can be called successfully.
-	InitialFeatureGatesObserved() chan struct{}
+	// InitialFeatureGatesObserved returns a channel that is closed once the featuregates have
+	// been observed. Once closed, the CurrentFeatureGates method will return the current set of
+	// featuregates and will never return a non-nil error.
 	InitialFeatureGatesObserved() <-chan struct{}
 	// CurrentFeatureGates returns the list of enabled and disabled featuregates.
 	// It returns an error if the current set of featuregates is not known.
