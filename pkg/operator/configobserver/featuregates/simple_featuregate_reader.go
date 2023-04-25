@@ -41,6 +41,7 @@ type FeatureGateAccess interface {
 	// InitialFeatureGatesObserved returns a channel that is closed once the featuregates have been observed.
 	// Once closed, the CurrentFeatureGates method can be called successfully.
 	InitialFeatureGatesObserved() chan struct{}
+	InitialFeatureGatesObserved() <-chan struct{}
 	// CurrentFeatureGates returns the list of enabled and disabled featuregates.
 	// It returns an error if the current set of featuregates is not known.
 	CurrentFeatureGates() (enabled []configv1.FeatureGateName, disabled []configv1.FeatureGateName, err error)
@@ -254,7 +255,7 @@ func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 	}
 }
 
-func (c *defaultFeatureGateAccess) InitialFeatureGatesObserved() chan struct{} {
+func (c *defaultFeatureGateAccess) InitialFeatureGatesObserved() <-chan struct{} {
 	return c.initialFeatureGatesObserved
 }
 
