@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	v1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -21,18 +23,34 @@ import (
 
 type FeatureGateChangeHandlerFunc func(featureChange FeatureChange)
 
+// FeatureGateAccess is used to get a list of enabled and disabled featuregates.
+// Create a new instance using NewFeatureGateAccess.
+// To create one for unit testing, use NewHardcodedFeatureGateAccess.
 type FeatureGateAccess interface {
+	// SetChangeHandler can only be called before Run.
+	// The default change handler will exit 0 when the set of featuregates changes.
+	// That is usually the easiest and simplest thing for an *operator* to do.
+	// This also discourages direct operand reading since all operands restarting simultaneously is bad.
+	// This function allows changing that default behavior to something else (perhaps a channel notification for
+	// all impacted controllers in an operator.
+	// I doubt this will be worth the effort in the majority of cases.
 	SetChangeHandler(featureGateChangeHandlerFn FeatureGateChangeHandlerFunc)
 
+	// Run starts a go func that continously watches the set of featuregates enabled in the cluster.
 	Run(ctx context.Context)
+	// InitialFeatureGatesObserved returns a channel that is closed once the featuregates have been observed.
+	// Once closed, the CurrentFeatureGates method can be called successfully.
 	InitialFeatureGatesObserved() chan struct{}
-	CurrentFeatureGates() (enabled []string, disabled []string, err error)
+	// CurrentFeatureGates returns the list of enabled and disabled featuregates.
+	// It returns an error if the current set of featuregates is not known.
+	CurrentFeatureGates() (enabled []configv1.FeatureGateName, disabled []configv1.FeatureGateName, err error)
+	// AreInitialFeatureGatesObserved returns true if the initial featuregates have been observed.
 	AreInitialFeatureGatesObserved() bool
 }
 
 type Features struct {
-	Enabled  []string
-	Disabled []string
+	Enabled  []configv1.FeatureGateName
+	Disabled []configv1.FeatureGateName
 }
 
 type FeatureChange struct {
@@ -182,14 +200,25 @@ func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
 		return err
 	}
 
+	found := false
 	features := Features{}
-	enabled, disabled, err := FeaturesGatesFromFeatureSets(featureGate)
-	if err != nil {
-		return err
+	for _, featureGateValues := range featureGate.Status.FeatureGates {
+		if featureGateValues.Version != desiredVersion {
+			continue
+		}
+		found = true
+		for _, enabled := range featureGateValues.Enabled {
+			features.Enabled = append(features.Enabled, enabled.Name)
+		}
+		for _, disabled := range featureGateValues.Disabled {
+			features.Disabled = append(features.Disabled, disabled.Name)
+		}
+		break
 	}
-	features.Enabled = enabled
-	features.Disabled = disabled
 
+	if !found {
+		return fmt.Errorf("missing desired version %q in featuregates.config.openshift.io/cluster", desiredVersion)
+	}
 	c.setFeatureGates(features)
 
 	return nil
@@ -238,15 +267,15 @@ func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	}
 }
 
-func (c *defaultFeatureGateAccess) CurrentFeatureGates() ([]string, []string, error) {
+func (c *defaultFeatureGateAccess) CurrentFeatureGates() ([]configv1.FeatureGateName, []configv1.FeatureGateName, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if !c.AreInitialFeatureGatesObserved() {
 		return nil, nil, fmt.Errorf("featureGates not yet observed")
 	}
-	retEnabled := make([]string, len(c.currentFeatures.Enabled))
-	retDisabled := make([]string, len(c.currentFeatures.Disabled))
+	retEnabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Enabled))
+	retDisabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Disabled))
 	copy(retEnabled, c.currentFeatures.Enabled)
 	copy(retDisabled, c.currentFeatures.Disabled)
 
