@@ -1,6 +1,7 @@
 package featuregates
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -30,61 +31,46 @@ func (l testLister) PreRunHasSynced() []cache.InformerSynced {
 	return nil
 }
 
-var testingFeatureSets = map[configv1.FeatureSet]configv1.FeatureGateEnabledDisabled{
-	configv1.Default: {
-		Enabled: []string{
-			"OpenShiftPodSecurityAdmission", // bz-auth, stlaz, OCP specific
-		},
-		Disabled: []string{
-			"RetroactiveDefaultStorageClass", // sig-storage, RomanBednar, Kubernetes feature gate
-		},
-	},
-	configv1.CustomNoUpgrade: {
-		Enabled:  []string{},
-		Disabled: []string{},
-	},
-	configv1.TechPreviewNoUpgrade: {
-		Enabled: []string{
-			"OpenShiftPodSecurityAdmission",     // bz-auth, stlaz, OCP specific
-			"ExternalCloudProvider",             // sig-cloud-provider, jspeed, OCP specific
-			"CSIDriverSharedResource",           // sig-build, adkaplan, OCP specific
-			"BuildCSIVolumes",                   // sig-build, adkaplan, OCP specific
-			"NodeSwap",                          // sig-node, ehashman, Kubernetes feature gate
-			"MachineAPIProviderOpenStack",       // openstack, egarcia (#forum-openstack), OCP specific
-			"InsightsConfigAPI",                 // insights, tremes (#ccx), OCP specific
-			"MatchLabelKeysInPodTopologySpread", // sig-scheduling, ingvagabund (#forum-workloads), Kubernetes feature gate
-			"PDBUnhealthyPodEvictionPolicy",     // sig-apps, atiratree (#forum-workloads), Kubernetes feature gate
-		},
-		Disabled: []string{
-			"RetroactiveDefaultStorageClass", // sig-storage, RomanBednar, Kubernetes feature gate
-		},
-	},
-}
-
 func TestObserveFeatureFlags(t *testing.T) {
 	configPath := []string{"foo", "bar"}
 
 	tests := []struct {
-		name string
-
-		configValue         configv1.FeatureSet
+		name                string
+		accessor            FeatureGateAccess
 		expectedResult      []string
 		expectError         bool
-		customNoUpgrade     *configv1.CustomFeatureGates
 		knownFeatures       sets.Set[configv1.FeatureGateName]
 		blacklistedFeatures sets.Set[configv1.FeatureGateName]
 	}{
 		{
-			name:        "default",
-			configValue: configv1.Default,
+			name: "default",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"OpenShiftPodSecurityAdmission"},
+				[]configv1.FeatureGateName{"RetroactiveDefaultStorageClass"},
+			),
 			expectedResult: []string{
 				"OpenShiftPodSecurityAdmission=true",
 				"RetroactiveDefaultStorageClass=false",
 			},
 		},
 		{
-			name:        "techpreview",
-			configValue: configv1.TechPreviewNoUpgrade,
+			name: "techpreview",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{
+					"OpenShiftPodSecurityAdmission",
+					"ExternalCloudProvider",
+					"CSIDriverSharedResource",
+					"BuildCSIVolumes",
+					"NodeSwap",
+					"MachineAPIProviderOpenStack",
+					"InsightsConfigAPI",
+					"MatchLabelKeysInPodTopologySpread",
+					"PDBUnhealthyPodEvictionPolicy",
+				},
+				[]configv1.FeatureGateName{
+					"RetroactiveDefaultStorageClass",
+				},
+			),
 			expectedResult: []string{
 				"OpenShiftPodSecurityAdmission=true",
 				"ExternalCloudProvider=true",
@@ -99,66 +85,76 @@ func TestObserveFeatureFlags(t *testing.T) {
 			},
 		},
 		{
-			name:        "custom no upgrade and all allowed",
-			configValue: configv1.CustomNoUpgrade,
+			name: "custom no upgrade and all allowed",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"CustomFeatureEnabled"},
+				[]configv1.FeatureGateName{"CustomFeatureDisabled"},
+			),
 			expectedResult: []string{
 				"CustomFeatureEnabled=true",
 				"CustomFeatureDisabled=false",
 			},
-			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled"},
-				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled"},
-			},
 		},
 		{
 			name:           "custom no upgrade flag set and none upgrades were provided",
-			configValue:    configv1.CustomNoUpgrade,
+			accessor:       NewHardcodedFeatureGateAccess(nil, nil),
 			expectedResult: []string{},
 		},
 		{
-			name:        "custom no upgrade and known features",
-			configValue: configv1.CustomNoUpgrade,
+			name: "custom no upgrade and known features",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"CustomFeatureEnabled"},
+				[]configv1.FeatureGateName{"CustomFeatureDisabled"},
+			),
 			expectedResult: []string{
 				"CustomFeatureEnabled=true",
-			},
-			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled"},
-				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled"},
 			},
 			knownFeatures: sets.New[configv1.FeatureGateName]("CustomFeatureEnabled"),
 		},
 		{
-			name:        "custom no upgrade and blacklisted features",
-			configValue: configv1.CustomNoUpgrade,
+			name: "custom no upgrade and blacklisted features",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"CustomFeatureEnabled", "AnotherThing", "AThirdThing"},
+				[]configv1.FeatureGateName{"CustomFeatureDisabled", "DisabledThing"},
+			),
 			expectedResult: []string{
 				"CustomFeatureEnabled=true",
 				"AThirdThing=true",
 				"CustomFeatureDisabled=false",
 			},
-			customNoUpgrade: &configv1.CustomFeatureGates{
-				Enabled:  []configv1.FeatureGateName{"CustomFeatureEnabled", "AnotherThing", "AThirdThing"},
-				Disabled: []configv1.FeatureGateName{"CustomFeatureDisabled", "DisabledThing"},
-			},
 			blacklistedFeatures: sets.New[configv1.FeatureGateName]("AnotherThing", "DisabledThing"),
+		},
+		{
+			name: "initial gates not observed",
+			accessor: NewHardcodedFeatureGateAccessForTesting(
+				[]configv1.FeatureGateName{"CustomFeatureEnabled"},
+				[]configv1.FeatureGateName{"CustomFeatureDisabled"},
+				make(chan struct{}),
+				nil,
+			),
+			expectedResult: nil,
+		},
+		{
+			name: "error getting current gates",
+			accessor: NewHardcodedFeatureGateAccessForTesting(
+				[]configv1.FeatureGateName{"CustomFeatureEnabled"},
+				[]configv1.FeatureGateName{"CustomFeatureDisabled"},
+				func() chan struct{} {
+					c := make(chan struct{})
+					close(c)
+					return c
+				}(),
+				errors.New("test error"),
+			),
+			expectError: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			apiEnabledDisabled := testingFeatureSets[tc.configValue]
-			enabled := []configv1.FeatureGateName{}
-			enabled = append(enabled, StringsToFeatureGateNames(apiEnabledDisabled.Enabled)...)
-			disabled := []configv1.FeatureGateName{}
-			disabled = append(disabled, StringsToFeatureGateNames(apiEnabledDisabled.Disabled)...)
-
-			if tc.customNoUpgrade != nil {
-				enabled = append(enabled, tc.customNoUpgrade.Enabled...)
-				disabled = append(disabled, tc.customNoUpgrade.Disabled...)
-			}
-			featureAccessor := NewHardcodedFeatureGateAccess(enabled, disabled)
 			eventRecorder := events.NewInMemoryRecorder("")
 			initialExistingConfig := map[string]interface{}{}
-			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath, featureAccessor)
+			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath, tc.accessor)
 
 			observed, errs := observeFn(nil, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 && !tc.expectError {

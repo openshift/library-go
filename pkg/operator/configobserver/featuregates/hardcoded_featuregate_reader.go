@@ -14,7 +14,8 @@ type hardcodedFeatureGateAccess struct {
 	initialFeatureGatesObserved chan struct{}
 }
 
-// NewHardcodedFeatureGateAccess is useful for unit testing, potentially in other packages as well.
+// NewHardcodedFeatureGateAccess returns a FeatureGateAccess that is always initialized and always
+// returns the provided feature gates.
 func NewHardcodedFeatureGateAccess(enabled, disabled []configv1.FeatureGateName) FeatureGateAccess {
 	initialFeatureGatesObserved := make(chan struct{})
 	close(initialFeatureGatesObserved)
@@ -25,6 +26,17 @@ func NewHardcodedFeatureGateAccess(enabled, disabled []configv1.FeatureGateName)
 	}
 
 	return c
+}
+
+// NewHardcodedFeatureGateAccessForTesting returns a FeatureGateAccess that returns stub responses
+// using caller-supplied values.
+func NewHardcodedFeatureGateAccessForTesting(enabled, disabled []configv1.FeatureGateName, initialFeatureGatesObserved chan struct{}, readErr error) FeatureGateAccess {
+	return &hardcodedFeatureGateAccess{
+		enabled:                     enabled,
+		disabled:                    disabled,
+		initialFeatureGatesObserved: initialFeatureGatesObserved,
+		readErr:                     readErr,
+	}
 }
 
 func (c *hardcodedFeatureGateAccess) SetChangeHandler(featureGateChangeHandlerFn FeatureGateChangeHandlerFunc) {
