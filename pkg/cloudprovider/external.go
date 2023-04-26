@@ -10,11 +10,17 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 )
 
-const (
+var (
 	// ExternalCloudProviderFeature is the name of the external cloud provider feature gate.
 	// This is used to flag to operators that the cluster should be using the external cloud-controller-manager
 	// rather than the in-tree cloud controller loops.
-	ExternalCloudProviderFeature = "ExternalCloudProvider"
+	ExternalCloudProviderFeature = configv1.FeatureGateExternalCloudProvider
+
+	// ExternalCloudProviderFeatureAzure is the name of the external cloud provider feature gate for Azure.
+	ExternalCloudProviderFeatureAzure = configv1.FeatureGateExternalCloudProviderAzure
+
+	// ExternalCloudProviderFeatureGCP is the name of the external cloud provider feature gate for GCP.
+	ExternalCloudProviderFeatureGCP = configv1.FeatureGateExternalCloudProviderGCP
 )
 
 // IsCloudProviderExternal is used to check whether external cloud provider settings should be used in a component.
@@ -30,12 +36,12 @@ func IsCloudProviderExternal(platformStatus *configv1.PlatformStatus, featureGat
 	switch platformStatus.Type {
 	case configv1.GCPPlatformType:
 		// Platforms that are external based on feature gate presence
-		return isExternalFeatureGateEnabled(featureGateAccessor)
+		return isExternalFeatureGateEnabled(featureGateAccessor, ExternalCloudProviderFeature, ExternalCloudProviderFeatureGCP)
 	case configv1.AzurePlatformType:
 		if isAzureStackHub(platformStatus) {
 			return true, nil
 		}
-		return isExternalFeatureGateEnabled(featureGateAccessor)
+		return isExternalFeatureGateEnabled(featureGateAccessor, ExternalCloudProviderFeature, ExternalCloudProviderFeatureAzure)
 	case configv1.AlibabaCloudPlatformType,
 		configv1.AWSPlatformType,
 		configv1.IBMCloudPlatformType,
@@ -57,15 +63,29 @@ func isAzureStackHub(platformStatus *configv1.PlatformStatus) bool {
 
 // isExternalFeatureGateEnabled determines whether the ExternalCloudProvider feature gate is present in the current
 // feature set.
-func isExternalFeatureGateEnabled(featureGateAccess featuregates.FeatureGateAccess) (bool, error) {
+func isExternalFeatureGateEnabled(featureGateAccess featuregates.FeatureGateAccess, featureGateNames ...configv1.FeatureGateName) (bool, error) {
 	enabled, disabled, err := featureGateAccess.CurrentFeatureGates()
 	if err != nil {
 		return false, fmt.Errorf("unable to read current featuregates: %w", err)
 	}
 
-	enabledFeatureGates := sets.New[configv1.FeatureGateName](enabled...)
-	disabledFeatureGates := sets.New[configv1.FeatureGateName](disabled...)
+	enabledFeatureGates := sets.New(enabled...)
+	disabledFeatureGates := sets.New(disabled...)
 
-	// TODO left to be compatible, but we should standardize on positive checks only.
-	return !disabledFeatureGates.Has(configv1.FeatureGateExternalCloudProvider) && enabledFeatureGates.Has(configv1.FeatureGateExternalCloudProvider), nil
+	// If any of the desired feature gates are disabled explictily, then the external cloud provider should not be used.
+	for _, featureGateName := range featureGateNames {
+		if disabledFeatureGates.Has(featureGateName) {
+			return false, nil
+		}
+	}
+
+	// If any of the desired feature gates are enabled, then the external cloud provider should be used.
+	for _, featureGateName := range featureGateNames {
+		if enabledFeatureGates.Has(featureGateName) {
+			return true, nil
+		}
+	}
+
+	// No explicit opinion on the feature gate, assume it's not enabled.
+	return false, nil
 }

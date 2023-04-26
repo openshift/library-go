@@ -140,6 +140,23 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 		expected:    true,
 	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Azure), Platform: Azure",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AzurePlatformType,
+		},
+		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderAzure}, nil),
+		expected:    true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled but External Feature Gate Azure Disabled), Platform: Azure",
+		status: &configv1.PlatformStatus{
+			Type: configv1.AzurePlatformType,
+		},
+		featureGate: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider},
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderAzure},
+		),
+		expected: false,
+	}, {
 		name: "Platform: Azure, CloudName: AzureStackHub",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AzurePlatformType,
@@ -178,6 +195,23 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		},
 		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 		expected:    true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate GCP), Platform: GCP",
+		status: &configv1.PlatformStatus{
+			Type: configv1.GCPPlatformType,
+		},
+		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderGCP}, nil),
+		expected:    true,
+	}, {
+		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled but External Feature Gate GCP Disabled), Platform: GCP",
+		status: &configv1.PlatformStatus{
+			Type: configv1.GCPPlatformType,
+		},
+		featureGate: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider},
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderGCP},
+		),
+		expected: false,
 	}, {
 		name: "FeatureSet: TechPreviewNoUpgrade, Platform: GCP",
 		status: &configv1.PlatformStatus{
