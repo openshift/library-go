@@ -600,6 +600,7 @@ func Test_include(t *testing.T) {
 		profile            *string
 		annotations        map[string]interface{}
 		caps               *configv1.ClusterVersionCapabilitiesStatus
+		overrides          []configv1.ComponentOverride
 
 		expected error
 	}{
@@ -766,6 +767,44 @@ func Test_include(t *testing.T) {
 			},
 		},
 		{
+			name:        "unrelated override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Kind:      "Pod",
+					Name:      "my-pod",
+					Namespace: "my-namespace",
+					Unmanaged: true,
+				},
+			},
+		},
+		{
+			name:        "override, but managed",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Group:     "apps",
+					Kind:      "Deployment",
+					Name:      "my-deployment",
+					Namespace: "my-namespace",
+				},
+			},
+		},
+		{
+			name:        "unmanaged override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Group:     "apps",
+					Kind:      "Deployment",
+					Name:      "my-deployment",
+					Namespace: "my-namespace",
+					Unmanaged: true,
+				},
+			},
+			expected: fmt.Errorf("overridden"),
+		},
+		{
 			name:        "all nil",
 			profile:     nil,
 			annotations: nil,
@@ -774,7 +813,10 @@ func Test_include(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		metadata := map[string]interface{}{}
+		metadata := map[string]interface{}{
+			"name":      "my-deployment",
+			"namespace": "my-namespace",
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.annotations != nil {
 				metadata["annotations"] = tt.annotations
@@ -782,11 +824,16 @@ func Test_include(t *testing.T) {
 			m := Manifest{
 				Obj: &unstructured.Unstructured{
 					Object: map[string]interface{}{
-						"metadata": metadata,
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata":   metadata,
 					},
 				},
 			}
-			err := m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps)
+			err := m.populateFromObj()
+			assert.Equal(t, nil, err)
+
+			err = m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
@@ -801,6 +848,7 @@ func TestIncludeAllowUnknownCapabilities(t *testing.T) {
 		profile            *string
 		annotations        map[string]interface{}
 		caps               *configv1.ClusterVersionCapabilitiesStatus
+		overrides          []configv1.ComponentOverride
 		allowUnknown       bool
 
 		expected error
@@ -844,7 +892,7 @@ func TestIncludeAllowUnknownCapabilities(t *testing.T) {
 					},
 				},
 			}
-			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.allowUnknown)
+			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.allowUnknown)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
