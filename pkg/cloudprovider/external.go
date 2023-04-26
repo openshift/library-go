@@ -3,10 +3,11 @@ package cloudprovider
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -19,19 +20,22 @@ const (
 // IsCloudProviderExternal is used to check whether external cloud provider settings should be used in a component.
 // It checks whether the ExternalCloudProvider feature gate is enabled and whether the ExternalCloudProvider feature
 // has been implemented for the platform.
-func IsCloudProviderExternal(platformStatus *configv1.PlatformStatus, featureGate *configv1.FeatureGate) (bool, error) {
+func IsCloudProviderExternal(platformStatus *configv1.PlatformStatus, featureGateAccessor featuregates.FeatureGateAccess) (bool, error) {
+	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+		return false, fmt.Errorf("featureGates have not been read yet")
+	}
 	if platformStatus == nil {
 		return false, fmt.Errorf("platformStatus is required")
 	}
 	switch platformStatus.Type {
 	case configv1.GCPPlatformType:
 		// Platforms that are external based on feature gate presence
-		return isExternalFeatureGateEnabled(featureGate)
+		return isExternalFeatureGateEnabled(featureGateAccessor)
 	case configv1.AzurePlatformType:
 		if isAzureStackHub(platformStatus) {
 			return true, nil
 		}
-		return isExternalFeatureGateEnabled(featureGate)
+		return isExternalFeatureGateEnabled(featureGateAccessor)
 	case configv1.AlibabaCloudPlatformType,
 		configv1.AWSPlatformType,
 		configv1.IBMCloudPlatformType,
@@ -53,23 +57,15 @@ func isAzureStackHub(platformStatus *configv1.PlatformStatus) bool {
 
 // isExternalFeatureGateEnabled determines whether the ExternalCloudProvider feature gate is present in the current
 // feature set.
-func isExternalFeatureGateEnabled(featureGate *configv1.FeatureGate) (bool, error) {
-	if featureGate == nil {
-		// If no featureGate is present, then the user hasn't opted in to the external cloud controllers
-		return false, nil
-	}
-	featureSet, ok := configv1.FeatureSets[featureGate.Spec.FeatureSet]
-	if !ok {
-		return false, fmt.Errorf(".spec.featureSet %q not found", featureGate.Spec.FeatureSet)
+func isExternalFeatureGateEnabled(featureGateAccess featuregates.FeatureGateAccess) (bool, error) {
+	enabled, disabled, err := featureGateAccess.CurrentFeatureGates()
+	if err != nil {
+		return false, fmt.Errorf("unable to read current featuregates: %w", err)
 	}
 
-	enabledFeatureGates := sets.NewString(featureSet.Enabled...)
-	disabledFeatureGates := sets.NewString(featureSet.Disabled...)
-	// CustomNoUpgrade will override the deafult enabled feature gates.
-	if featureGate.Spec.FeatureSet == configv1.CustomNoUpgrade && featureGate.Spec.CustomNoUpgrade != nil {
-		enabledFeatureGates = sets.NewString(featuregates.FeatureGateNamesToStrings(featureGate.Spec.CustomNoUpgrade.Enabled)...)
-		disabledFeatureGates = sets.NewString(featuregates.FeatureGateNamesToStrings(featureGate.Spec.CustomNoUpgrade.Disabled)...)
-	}
+	enabledFeatureGates := sets.New[configv1.FeatureGateName](enabled...)
+	disabledFeatureGates := sets.New[configv1.FeatureGateName](disabled...)
 
-	return !disabledFeatureGates.Has(ExternalCloudProviderFeature) && enabledFeatureGates.Has(ExternalCloudProviderFeature), nil
+	// TODO left to be compatible, but we should standardize on positive checks only.
+	return !disabledFeatureGates.Has(configv1.FeatureGateExternalCloudProvider) && enabledFeatureGates.Has(configv1.FeatureGateExternalCloudProvider), nil
 }
