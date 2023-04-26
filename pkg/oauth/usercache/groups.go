@@ -2,7 +2,6 @@ package usercache
 
 import (
 	"fmt"
-
 	"k8s.io/client-go/tools/cache"
 
 	userapi "github.com/openshift/api/user/v1"
@@ -42,9 +41,19 @@ func (c *GroupCache) GroupsFor(username string) ([]*userapi.Group, error) {
 		return nil, err
 	}
 
-	groups := make([]*userapi.Group, len(objs))
+	groups := []*userapi.Group{}
 	for i := range objs {
-		groups[i] = objs[i].(*userapi.Group)
+		switch t := objs[i].(type) {
+		case *userapi.Group:
+			groups = append(groups, t)
+		case nil:
+			// if there is a race and something remove the groups from this user, skip it
+			// TODO: we should investigate this more and probably use non-racy informer here?
+			continue
+		default:
+			// if the type is not nil nor group, panic
+			panic(fmt.Sprintf("possible race: unexpected object of type %T found in group cache indexer", objs[i]))
+		}
 	}
 
 	return groups, nil
