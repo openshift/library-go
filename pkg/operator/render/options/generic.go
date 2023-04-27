@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -19,9 +20,10 @@ import (
 
 // GenericOptions contains the generic render command options.
 type GenericOptions struct {
-	DefaultFile                   string
-	BootstrapOverrideFile         string
-	AdditionalConfigOverrideFiles []string
+	DefaultFile                    string
+	BootstrapOverrideFile          string
+	AdditionalConfigOverrideFiles  []string
+	RenderedManifestInputFilenames []string
 
 	ConfigOutputFile string
 
@@ -53,6 +55,8 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, configGVK schema.GroupVersi
 		fmt.Sprintf("Additional sparse %s files for customiziation through the installer, merged into the default config in the given order.", gvkOutput{configGVK}))
 	fs.StringVar(&o.ConfigOutputFile, "config-output-file", o.ConfigOutputFile, fmt.Sprintf("Output path for the %s yaml file.", gvkOutput{configGVK}))
 	fs.StringVar(&o.FeatureSet, "feature-set", o.FeatureSet, "Enables features that are not part of the default feature set.")
+	fs.StringSliceVar(&o.RenderedManifestInputFilenames, "rendered-manifest-files", o.RenderedManifestInputFilenames,
+		"files or directories containing yaml or json manifests that will be created via cluster-bootstrapping.")
 }
 
 type gvkOutput struct {
@@ -83,6 +87,13 @@ func (o *GenericOptions) Validate() error {
 		return errors.New("missing required flag: --config-output-file")
 	}
 
+	for _, filename := range o.RenderedManifestInputFilenames {
+		_, err := os.Stat(filename)
+		if err != nil {
+			return fmt.Errorf("--rendered-manifest-files, value %q could not be read: %v", filename, err)
+		}
+	}
+
 	switch configv1.FeatureSet(o.FeatureSet) {
 	case configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive:
 	default:
@@ -103,6 +114,19 @@ func (o *GenericOptions) ApplyTo(cfg *FileConfig, defaultConfig, bootstrapOverri
 	// load and render templates
 	if cfg.Assets, err = assets.LoadFilesRecursively(o.AssetInputDir); err != nil {
 		return fmt.Errorf("failed loading assets from %q: %v", o.AssetInputDir, err)
+	}
+
+	for _, filename := range o.RenderedManifestInputFilenames {
+		manifestContent, err := assets.LoadFilesRecursively(filename)
+		if err != nil {
+			return fmt.Errorf("failed loading rendered manifest inputs from %q: %w", filename, err)
+		}
+		for manifestFile, content := range manifestContent {
+			cfg.RenderedManifests = append(cfg.RenderedManifests, RenderedManifest{
+				OriginalFilename: manifestFile,
+				Content:          content,
+			})
+		}
 	}
 
 	return nil
