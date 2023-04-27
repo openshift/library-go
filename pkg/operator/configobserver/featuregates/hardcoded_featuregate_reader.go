@@ -2,6 +2,7 @@ package featuregates
 
 import (
 	"context"
+	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -62,4 +63,16 @@ func (c *hardcodedFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 
 func (c *hardcodedFeatureGateAccess) CurrentFeatureGates() ([]configv1.FeatureGateName, []configv1.FeatureGateName, error) {
 	return c.enabled, c.disabled, c.readErr
+}
+
+// NewHardcodedFeatureGateAccessFromFeatureGate returns a FeatureGateAccess that is static and initialised from
+// a populated FeatureGate status.
+// If the desired version is missing, this will return an error.
+func NewHardcodedFeatureGateAccessFromFeatureGate(featureGate *configv1.FeatureGate, desiredVersion string) (FeatureGateAccess, error) {
+	features, err := featuresFromFeatureGate(featureGate, desiredVersion)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine features: %w", err)
+	}
+
+	return NewHardcodedFeatureGateAccess(features.Enabled, features.Disabled), nil
 }
