@@ -201,25 +201,11 @@ func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
 		return err
 	}
 
-	found := false
-	features := Features{}
-	for _, featureGateValues := range featureGate.Status.FeatureGates {
-		if featureGateValues.Version != desiredVersion {
-			continue
-		}
-		found = true
-		for _, enabled := range featureGateValues.Enabled {
-			features.Enabled = append(features.Enabled, enabled.Name)
-		}
-		for _, disabled := range featureGateValues.Disabled {
-			features.Disabled = append(features.Disabled, disabled.Name)
-		}
-		break
+	features, err := featuresFromFeatureGate(featureGate, desiredVersion)
+	if err != nil {
+		return fmt.Errorf("unable to determine features: %w", err)
 	}
 
-	if !found {
-		return fmt.Errorf("missing desired version %q in featuregates.config.openshift.io/cluster", desiredVersion)
-	}
 	c.setFeatureGates(features)
 
 	return nil
@@ -305,4 +291,28 @@ func (c *defaultFeatureGateAccess) processNextWorkItem(ctx context.Context) bool
 	c.queue.AddRateLimited(dsKey)
 
 	return true
+}
+
+func featuresFromFeatureGate(featureGate *configv1.FeatureGate, desiredVersion string) (Features, error) {
+	found := false
+	features := Features{}
+	for _, featureGateValues := range featureGate.Status.FeatureGates {
+		if featureGateValues.Version != desiredVersion {
+			continue
+		}
+		found = true
+		for _, enabled := range featureGateValues.Enabled {
+			features.Enabled = append(features.Enabled, enabled.Name)
+		}
+		for _, disabled := range featureGateValues.Disabled {
+			features.Disabled = append(features.Disabled, disabled.Name)
+		}
+		break
+	}
+
+	if !found {
+		return Features{}, fmt.Errorf("missing desired version %q in featuregates.config.openshift.io/cluster", desiredVersion)
+	}
+
+	return features, nil
 }
