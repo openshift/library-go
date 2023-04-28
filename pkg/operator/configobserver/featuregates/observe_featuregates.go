@@ -13,10 +13,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-type FeatureGateAccessor interface {
-	FeatureGates() FeatureGateAccess
-}
-
 // NewObserveFeatureFlagsFunc produces a configobserver for feature gates.  If non-nil, the featureWhitelist filters
 // feature gates to a known subset (instead of everything).  The featureBlacklist will stop certain features from making
 // it through the list.  The featureBlacklist should be empty, but for a brief time, some featuregates may need to skipped.
@@ -51,12 +47,12 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 		return prunedExistingConfig, nil
 	}
 
-	enabledFeatures, disabledFeatures, err := f.featureGateAccess.CurrentFeatureGates()
+	featureGates, err := f.featureGateAccess.CurrentFeatureGates()
 	if err != nil {
 		return prunedExistingConfig, append(errs, err)
 	}
 	observedConfig := map[string]interface{}{}
-	newConfigValue := f.getWhitelistedFeatureNames(enabledFeatures, disabledFeatures)
+	newConfigValue := f.getWhitelistedFeatureNames(featureGates)
 
 	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, f.configPath...)
 	if err != nil {
@@ -75,7 +71,7 @@ func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers
 	return configobserver.Pruned(observedConfig, f.configPath), errs
 }
 
-func (f *featureFlags) getWhitelistedFeatureNames(enabledFeatures, disabledFeatures []configv1.FeatureGateName) []string {
+func (f *featureFlags) getWhitelistedFeatureNames(featureGates FeatureGate) []string {
 	newConfigValue := []string{}
 	formatEnabledFunc := func(fs configv1.FeatureGateName) string {
 		return fmt.Sprintf("%v=true", fs)
@@ -84,25 +80,20 @@ func (f *featureFlags) getWhitelistedFeatureNames(enabledFeatures, disabledFeatu
 		return fmt.Sprintf("%v=false", fs)
 	}
 
-	for _, enable := range enabledFeatures {
-		if f.featureBlacklist.Has(enable) {
+	for _, knownFeatureGate := range featureGates.KnownFeatures() {
+		if f.featureBlacklist.Has(knownFeatureGate) {
 			continue
 		}
 		// only add whitelisted feature flags
-		if !f.allowAll && !f.featureWhitelist.Has(enable) {
+		if !f.allowAll && !f.featureWhitelist.Has(knownFeatureGate) {
 			continue
 		}
-		newConfigValue = append(newConfigValue, formatEnabledFunc(enable))
-	}
-	for _, disable := range disabledFeatures {
-		if f.featureBlacklist.Has(disable) {
-			continue
+
+		if featureGates.Enabled(knownFeatureGate) {
+			newConfigValue = append(newConfigValue, formatEnabledFunc(knownFeatureGate))
+		} else {
+			newConfigValue = append(newConfigValue, formatDisabledFunc(knownFeatureGate))
 		}
-		// only add whitelisted feature flags
-		if !f.allowAll && !f.featureWhitelist.Has(disable) {
-			continue
-		}
-		newConfigValue = append(newConfigValue, formatDisabledFunc(disable))
 	}
 
 	return newConfigValue

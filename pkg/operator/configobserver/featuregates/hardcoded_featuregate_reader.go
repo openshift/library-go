@@ -61,8 +61,8 @@ func (c *hardcodedFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	}
 }
 
-func (c *hardcodedFeatureGateAccess) CurrentFeatureGates() ([]configv1.FeatureGateName, []configv1.FeatureGateName, error) {
-	return c.enabled, c.disabled, c.readErr
+func (c *hardcodedFeatureGateAccess) CurrentFeatureGates() (FeatureGate, error) {
+	return NewFeatureGate(c.enabled, c.disabled), c.readErr
 }
 
 // NewHardcodedFeatureGateAccessFromFeatureGate returns a FeatureGateAccess that is static and initialised from

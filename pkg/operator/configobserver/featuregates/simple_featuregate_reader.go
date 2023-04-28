@@ -44,7 +44,7 @@ type FeatureGateAccess interface {
 	InitialFeatureGatesObserved() <-chan struct{}
 	// CurrentFeatureGates returns the list of enabled and disabled featuregates.
 	// It returns an error if the current set of featuregates is not known.
-	CurrentFeatureGates() (enabled []configv1.FeatureGateName, disabled []configv1.FeatureGateName, err error)
+	CurrentFeatureGates() (FeatureGate, error)
 	// AreInitialFeatureGatesObserved returns true if the initial featuregates have been observed.
 	AreInitialFeatureGatesObserved() bool
 }
@@ -93,8 +93,8 @@ go featureGateAccessor.Run(ctx)
 
 select{
 case <- featureGateAccessor.InitialFeatureGatesObserved():
-	enabled, disabled, _ := featureGateAccessor.CurrentFeatureGates()
-	klog.Infof("FeatureGates initialized: enabled=%v  disabled=%v", enabled, disabled)
+	featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+	klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 case <- time.After(1*time.Minute):
 	klog.Errorf("timed out waiting for FeatureGate detection")
 	return fmt.Errorf("timed out waiting for FeatureGate detection")
@@ -254,19 +254,19 @@ func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	}
 }
 
-func (c *defaultFeatureGateAccess) CurrentFeatureGates() ([]configv1.FeatureGateName, []configv1.FeatureGateName, error) {
+func (c *defaultFeatureGateAccess) CurrentFeatureGates() (FeatureGate, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if !c.AreInitialFeatureGatesObserved() {
-		return nil, nil, fmt.Errorf("featureGates not yet observed")
+		return nil, fmt.Errorf("featureGates not yet observed")
 	}
 	retEnabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Enabled))
 	retDisabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Disabled))
 	copy(retEnabled, c.currentFeatures.Enabled)
 	copy(retDisabled, c.currentFeatures.Disabled)
 
-	return retEnabled, retDisabled, nil
+	return NewFeatureGate(retEnabled, retDisabled), nil
 }
 
 func (c *defaultFeatureGateAccess) runWorker(ctx context.Context) {
