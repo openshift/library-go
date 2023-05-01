@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -90,10 +89,11 @@ func (o *GenericOptions) Validate() error {
 		return errors.New("missing required flag: --config-output-file")
 	}
 
-	for _, filename := range o.RenderedManifestInputFilenames {
-		_, err := os.Stat(filename)
-		if err != nil {
-			return fmt.Errorf("--rendered-manifest-files, value %q could not be read: %v", filename, err)
+	if renderedManifests, err := o.ReadInputManifests(); err != nil {
+		return fmt.Errorf("--rendered-manifest-files, could not be read: %v", err)
+	} else {
+		if err := renderedManifests.ValidateManifestPredictability(); err != nil {
+			return fmt.Errorf("--rendered-manifest-files, are not consistent so results would be unpredictable depending on apply order: %v", err)
 		}
 	}
 
@@ -102,6 +102,7 @@ func (o *GenericOptions) Validate() error {
 	default:
 		return fmt.Errorf("invalid feature-set specified: %q", o.FeatureSet)
 	}
+
 	return nil
 }
 
