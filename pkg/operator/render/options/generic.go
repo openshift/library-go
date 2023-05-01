@@ -9,13 +9,13 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	"github.com/spf13/pflag"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/assets"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // GenericOptions contains the generic render command options.
@@ -31,7 +31,8 @@ type GenericOptions struct {
 	AssetInputDir  string
 	AssetOutputDir string
 
-	FeatureSet string
+	FeatureSet     string
+	PayloadVersion string
 }
 
 type Template struct {
@@ -57,6 +58,8 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, configGVK schema.GroupVersi
 	fs.StringVar(&o.FeatureSet, "feature-set", o.FeatureSet, "Enables features that are not part of the default feature set.")
 	fs.StringSliceVar(&o.RenderedManifestInputFilenames, "rendered-manifest-files", o.RenderedManifestInputFilenames,
 		"files or directories containing yaml or json manifests that will be created via cluster-bootstrapping.")
+	fs.StringVar(&o.PayloadVersion, "payload-version", o.PayloadVersion, "Version that will eventually be placed into ClusterOperator.status.  This normally comes from the CVO set via env var: OPERATOR_IMAGE_VERSION.")
+
 }
 
 type gvkOutput struct {
@@ -102,6 +105,71 @@ func (o *GenericOptions) Validate() error {
 	return nil
 }
 
+func (o *GenericOptions) ReadInputManifests() (RenderedManifests, error) {
+	ret := RenderedManifests{}
+	for _, filename := range o.RenderedManifestInputFilenames {
+		manifestContent, err := assets.LoadFilesRecursively(filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed loading rendered manifest inputs from %q: %w", filename, err)
+		}
+		for manifestFile, content := range manifestContent {
+			ret = append(ret, RenderedManifest{
+				OriginalFilename: manifestFile,
+				Content:          content,
+			})
+		}
+	}
+
+	return ret, nil
+}
+
+func (o *GenericOptions) FeatureGates() (featuregates.FeatureGateAccess, error) {
+	if len(o.PayloadVersion) == 0 {
+		return nil, fmt.Errorf("cannot return FeatureGate without payload version")
+	}
+	if len(o.RenderedManifestInputFilenames) == 0 {
+		return nil, fmt.Errorf("cannot return FeatureGate without rendered manifests")
+	}
+
+	inputManifest, err := o.ReadInputManifests()
+	if err != nil {
+		return nil, fmt.Errorf("error reading input manifests: %w", err)
+	}
+	featureGates := inputManifest.ListManifestOfType(configv1.GroupVersion.WithKind("FeatureGate"))
+	if len(featureGates) == 0 {
+		return nil, fmt.Errorf("no FeatureGates found in manfest dir: %v", o.RenderedManifestInputFilenames)
+	}
+	var prev *RenderedManifest
+	var featureGate *configv1.FeatureGate
+	for i := range featureGates {
+		curr := featureGates[i]
+		decodedObj, err := curr.GetDecodedObj()
+		if err != nil {
+			return nil, fmt.Errorf("decoding failure for %q: %w", curr.OriginalFilename, err)
+		}
+		currFeatureGate, ok := decodedObj.(*configv1.FeatureGate)
+		if !ok {
+			return nil, fmt.Errorf("wrong obj type for %q: %T: %v", curr.OriginalFilename, decodedObj, curr.Content)
+		}
+		if featureGate == nil {
+			prev = &curr
+			featureGate = currFeatureGate
+			continue
+		}
+
+		if !equality.Semantic.DeepEqual(featureGate, currFeatureGate) {
+			return nil, fmt.Errorf("FeatureGate manifests disagree: %q and %q, with \n%v\n%v ", prev.OriginalFilename, curr.OriginalFilename, prev.Content, curr.Content)
+		}
+	}
+
+	ret, err := featuregates.NewHardcodedFeatureGateAccessFromFeatureGate(featureGate, o.PayloadVersion)
+	if err != nil {
+		return nil, fmt.Errorf("error creating feature accessor: %w", err)
+	}
+
+	return ret, nil
+}
+
 // ApplyTo applies the options to the given config struct using the provided text/template data.
 func (o *GenericOptions) ApplyTo(cfg *FileConfig, defaultConfig, bootstrapOverrides Template, templateData interface{}, specialCases map[string]resourcemerge.MergeFunc) error {
 	var err error
@@ -114,19 +182,6 @@ func (o *GenericOptions) ApplyTo(cfg *FileConfig, defaultConfig, bootstrapOverri
 	// load and render templates
 	if cfg.Assets, err = assets.LoadFilesRecursively(o.AssetInputDir); err != nil {
 		return fmt.Errorf("failed loading assets from %q: %v", o.AssetInputDir, err)
-	}
-
-	for _, filename := range o.RenderedManifestInputFilenames {
-		manifestContent, err := assets.LoadFilesRecursively(filename)
-		if err != nil {
-			return fmt.Errorf("failed loading rendered manifest inputs from %q: %w", filename, err)
-		}
-		for manifestFile, content := range manifestContent {
-			cfg.RenderedManifests = append(cfg.RenderedManifests, RenderedManifest{
-				OriginalFilename: manifestFile,
-				Content:          content,
-			})
-		}
 	}
 
 	return nil
