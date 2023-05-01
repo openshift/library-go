@@ -34,18 +34,15 @@ type ManifestConfig struct {
 	ImagePullPolicy string
 }
 
-// FileConfig
 type FileConfig struct {
 	// BootstrapConfig holds the rendered control plane component config file for bootstrapping (phase 1).
 	BootstrapConfig []byte
 
 	// Assets holds the loaded assets like certs and keys.
 	Assets map[string][]byte
-
-	// RenderedManifests are the files, content, and (optionally) decoded objects that were passed to the command
-	// as already present to be created by cluster-bootstrap.
-	RenderedManifests []RenderedManifest
 }
+
+type RenderedManifests []RenderedManifest
 
 type RenderedManifest struct {
 	OriginalFilename string
@@ -60,16 +57,16 @@ type TemplateData struct {
 	FileConfig
 }
 
-func (c *FileConfig) ListManifestOfType(gvk schema.GroupVersionKind) []RenderedManifest {
+func (c RenderedManifests) ListManifestOfType(gvk schema.GroupVersionKind) []RenderedManifest {
 	ret := []RenderedManifest{}
-	for i := range c.RenderedManifests {
-		obj, err := c.RenderedManifests[i].GetDecodedObj()
+	for i := range c {
+		obj, err := c[i].GetDecodedObj()
 		if err != nil {
-			klog.Warningf("failure to read %q: %v", c.RenderedManifests[i].OriginalFilename, err)
+			klog.Warningf("failure to read %q: %v", c[i].OriginalFilename, err)
 			continue
 		}
 		if obj.GetObjectKind().GroupVersionKind() == gvk {
-			ret = append(ret, c.RenderedManifests[i])
+			ret = append(ret, c[i])
 		}
 	}
 
