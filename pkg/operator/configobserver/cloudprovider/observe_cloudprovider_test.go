@@ -125,6 +125,10 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.AzurePlatformType,
 			},
 		},
+		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{},
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderAzure},
+		),
 		expected:           "azure",
 		cloudProviderCount: 1,
 	}, {
@@ -135,9 +139,12 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.AzurePlatformType,
 			},
 		},
-		expected:            "external",
-		cloudProviderCount:  1,
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
+		expected:           "external",
+		cloudProviderCount: 1,
+		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderAzure},
+			[]configv1.FeatureGateName{},
+		),
 	}, {
 		name: "Azure Stack Hub defaulting to external configuration",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -198,6 +205,10 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.GCPPlatformType,
 			},
 		},
+		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+			[]configv1.FeatureGateName{},
+			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderGCP},
+		),
 		expected:           "gce",
 		cloudProviderCount: 1,
 	}, {

@@ -3,8 +3,6 @@ package cloudprovider
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -64,24 +62,14 @@ func isAzureStackHub(platformStatus *configv1.PlatformStatus) bool {
 // isExternalFeatureGateEnabled determines whether the ExternalCloudProvider feature gate is present in the current
 // feature set.
 func isExternalFeatureGateEnabled(featureGateAccess featuregates.FeatureGateAccess, featureGateNames ...configv1.FeatureGateName) (bool, error) {
-	enabled, disabled, err := featureGateAccess.CurrentFeatureGates()
+	featureGates, err := featureGateAccess.CurrentFeatureGates()
 	if err != nil {
 		return false, fmt.Errorf("unable to read current featuregates: %w", err)
 	}
 
-	enabledFeatureGates := sets.New(enabled...)
-	disabledFeatureGates := sets.New(disabled...)
-
-	// If any of the desired feature gates are disabled explictily, then the external cloud provider should not be used.
-	for _, featureGateName := range featureGateNames {
-		if disabledFeatureGates.Has(featureGateName) {
-			return false, nil
-		}
-	}
-
 	// If any of the desired feature gates are enabled, then the external cloud provider should be used.
 	for _, featureGateName := range featureGateNames {
-		if enabledFeatureGates.Has(featureGateName) {
+		if featureGates.Enabled(featureGateName) {
 			return true, nil
 		}
 	}
