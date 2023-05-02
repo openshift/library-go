@@ -5,7 +5,9 @@ import (
 	"os"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/controller"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -35,6 +37,16 @@ func WithImageHook() DeploymentHookFunc {
 			return fmt.Errorf("CLI_IMAGE is not populated")
 		}
 		deployment.Spec.Template.Spec.Containers[0].Image = image
+		return nil
+	}
+}
+
+// WithOwnerReference sets the ownerRef in the Deployment's
+// ownerReferences if needed.  It removes references with conflicting
+// UIDs.
+func WithOwnerReference(ownerRef metav1.OwnerReference) DeploymentHookFunc {
+	return func(_ *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		controller.EnsureOwnerRef(&deployment.ObjectMeta, ownerRef)
 		return nil
 	}
 }

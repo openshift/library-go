@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	coreinformers "k8s.io/client-go/informers"
 	fakecore "k8s.io/client-go/kubernetes/fake"
 )
@@ -224,6 +225,43 @@ func TestWithImageHook(t *testing.T) {
 		}
 		if tc.expectedDeployment.Spec.Template.Spec.Containers[0].Image != tc.image {
 			t.Errorf("Unexpected Deployment content:\n%s", cmp.Diff(tc.initialDeployment, tc.expectedDeployment))
+		}
+	}
+}
+
+func TestWithOwnerReference(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		hooks                   []DeploymentHookFunc
+		expectedOwnerReferences []metav1.OwnerReference
+	}{
+		{
+			name: "multiple",
+			hooks: []DeploymentHookFunc{
+				WithOwnerReference(metav1.OwnerReference{
+					APIVersion: "v1", Kind: "A", Name: "name-A", UID: types.UID("uid-a"),
+				}),
+				WithOwnerReference(metav1.OwnerReference{
+					APIVersion: "v2", Kind: "B", Name: "name-B", UID: types.UID("uid-b"),
+				}),
+			},
+			expectedOwnerReferences: []metav1.OwnerReference{
+				{APIVersion: "v1", Kind: "A", Name: "name-A", UID: types.UID("uid-a")},
+				{APIVersion: "v2", Kind: "B", Name: "name-B", UID: types.UID("uid-b")},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		modifiers := make([]deploymentModifier, 0, len(tc.hooks))
+		for i := range tc.hooks {
+			modifiers = append(modifiers, func(deployment *appsv1.Deployment) *appsv1.Deployment {
+				tc.hooks[i](nil, deployment)
+				return deployment
+			})
+		}
+		deployment := makeDeployment(modifiers...)
+		if !equality.Semantic.DeepEqual(deployment.ObjectMeta.OwnerReferences, tc.expectedOwnerReferences) {
+			t.Errorf("Unexpected Deployment ownerReferences:\n%s", cmp.Diff(deployment.ObjectMeta.OwnerReferences, tc.expectedOwnerReferences))
 		}
 	}
 }
