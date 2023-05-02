@@ -11,8 +11,13 @@ import (
 
 // WriteFiles writes the manifests and the bootstrap config file.
 func WriteFiles(opt *options.GenericOptions, fileConfig *options.FileConfig, templateData interface{}, additionalPredicates ...assets.FileInfoPredicate) error {
+	featureSet, err := opt.FeatureSetName()
+	if err != nil {
+		return err
+	}
+
 	defaultPredicates := []assets.FileInfoPredicate{assets.OnlyYaml}
-	manifestPredicates := []assets.FileContentsPredicate{assets.InstallerFeatureSet(opt.FeatureSet)}
+	manifestPredicates := []assets.FileContentsPredicate{assets.InstallerFeatureSet(string(featureSet))}
 
 	// write assets
 	for _, manifestDir := range []string{"bootstrap-manifests", "manifests"} {
