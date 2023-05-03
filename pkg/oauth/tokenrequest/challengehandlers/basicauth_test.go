@@ -173,6 +173,29 @@ Password: `,
 				},
 			},
 		},
+		"interactive challenge with default user with console url": {
+			Handler: &BasicChallengeHandler{
+				Host:             "https://myhost",
+				WebConsoleURL:    "https://console.url",
+				passwordPrompter: &testPasswordPrompter{},
+				Reader:           bytes.NewBufferString("mypassword\n"),
+				Username:         "myuser",
+				Password:         "",
+			},
+			Challenges: []Challenge{
+				{
+					Headers:           basicChallenge,
+					ExpectedCanHandle: true,
+					ExpectedHeaders:   http.Header{AUTHORIZATION: []string{getBasicHeader("myuser", "mypassword")}},
+					ExpectedHandled:   true,
+					ExpectedErr:       nil,
+					ExpectedPrompt: `Console URL: https://console.url
+Authentication required for https://myhost (myrealm)
+Username: myuser
+Password: `,
+				},
+			},
+		},
 	}
 
 	for k, tc := range testCases {

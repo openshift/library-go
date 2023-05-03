@@ -112,7 +112,7 @@ func (c *BasicChallengeHandler) HandleChallenge(requestURL string, headers http.
 		}
 
 		if len(c.WebConsoleURL) > 0 {
-			fmt.Fprintf(w, "Console URL: %s/console\n", c.WebConsoleURL)
+			fmt.Fprintf(w, "Console URL: %s\n", c.WebConsoleURL)
 		}
 
 		if _, realm := basicRealm(headers); len(realm) > 0 {
