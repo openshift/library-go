@@ -191,7 +191,7 @@ type fakeHandler struct {
 	calls []string
 }
 
-func (h *fakeHandler) OnAdd(obj interface{}) {
+func (h *fakeHandler) OnAdd(obj interface{}, isInInitialList bool) {
 	h.calls = append(h.calls, "add")
 }
 

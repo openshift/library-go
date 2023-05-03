@@ -119,7 +119,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 		migration.result = &result
 		migration.timestamp = time.Now()
 
-		m.handler.OnAdd(&corev1.Secret{}) // fake secret to trigger event loop of controller
+		m.handler.OnAdd(&corev1.Secret{}, false) // fake secret to trigger event loop of controller
 	}()
 
 	ctx, cancelFn := context.WithCancel(context.Background())

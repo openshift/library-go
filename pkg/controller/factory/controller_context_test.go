@@ -64,7 +64,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				return []string{fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
 			},
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
-				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}}, false /* isInInitialList */)
 				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "update"}})
 				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "delete"}})
 			},
@@ -86,7 +86,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				return []string{"randomitem/" + m.GetName(), fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
 			},
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
-				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}}, false /* isInInitialList */)
 				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "update"}})
 				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "delete"}})
 			},
@@ -109,7 +109,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			},
 			filterFunc: namespaceChecker([]string{"add"}),
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
-				handler.OnAdd(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "add"}})
+				handler.OnAdd(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "add"}}, false /* isInInitialList */)
 				handler.OnUpdate(nil, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "update"}})
 				handler.OnDelete(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "delete"}})
 			},
@@ -157,11 +157,11 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				return []string{fmt.Sprintf("%s/%s", m.GetNamespace(), m.GetName())}
 			},
 			runEventHandlers: func(handler cache.ResourceEventHandler) {
-				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}})
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "add"}}, false /* isInInitialList */)
 				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "update"}})
 				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "delete"}})
 
-				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "add", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
+				handler.OnAdd(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "add", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}}, false /* isInInitialList */)
 				handler.OnUpdate(nil, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "update", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
 				handler.OnDelete(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "delete", Annotations: map[string]string{"onlyFireWhenSet": "do it"}}})
 			},
