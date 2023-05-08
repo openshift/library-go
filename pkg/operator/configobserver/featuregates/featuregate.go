@@ -13,6 +13,8 @@ type FeatureGate interface {
 	Enabled(key configv1.FeatureGateName) bool
 	// KnownFeatures returns a slice of strings describing the FeatureGate's known features.
 	KnownFeatures() []configv1.FeatureGateName
+	// IsKnown returns a true when the feature is known
+	IsKnown(configv1.FeatureGateName) bool
 }
 
 type featureGate struct {
@@ -44,4 +46,15 @@ func (f *featureGate) KnownFeatures() []configv1.FeatureGateName {
 	allKnown.Insert(FeatureGateNamesToStrings(f.disabled.UnsortedList())...)
 
 	return StringsToFeatureGateNames(allKnown.List())
+}
+
+func (f *featureGate) IsKnown(feature configv1.FeatureGateName) bool {
+	if f.enabled.Has(feature) {
+		return true
+	}
+	if f.disabled.Has(feature) {
+		return true
+	}
+
+	return false
 }
