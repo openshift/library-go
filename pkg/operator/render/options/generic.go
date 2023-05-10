@@ -30,7 +30,6 @@ type GenericOptions struct {
 	AssetInputDir  string
 	AssetOutputDir string
 
-	FeatureSet     string
 	PayloadVersion string
 }
 
@@ -54,7 +53,6 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, configGVK schema.GroupVersi
 	fs.StringSliceVar(&o.AdditionalConfigOverrideFiles, "config-override-files", o.AdditionalConfigOverrideFiles,
 		fmt.Sprintf("Additional sparse %s files for customiziation through the installer, merged into the default config in the given order.", gvkOutput{configGVK}))
 	fs.StringVar(&o.ConfigOutputFile, "config-output-file", o.ConfigOutputFile, fmt.Sprintf("Output path for the %s yaml file.", gvkOutput{configGVK}))
-	fs.StringVar(&o.FeatureSet, "feature-set", o.FeatureSet, "Enables features that are not part of the default feature set.")
 	fs.StringSliceVar(&o.RenderedManifestInputFilenames, "rendered-manifest-files", o.RenderedManifestInputFilenames,
 		"files or directories containing yaml or json manifests that will be created via cluster-bootstrapping.")
 	fs.StringVar(&o.PayloadVersion, "payload-version", o.PayloadVersion, "Version that will eventually be placed into ClusterOperator.status.  This normally comes from the CVO set via env var: OPERATOR_IMAGE_VERSION.")
@@ -95,12 +93,6 @@ func (o *GenericOptions) Validate() error {
 		if err := renderedManifests.ValidateManifestPredictability(); err != nil {
 			return fmt.Errorf("--rendered-manifest-files, are not consistent so results would be unpredictable depending on apply order: %v", err)
 		}
-	}
-
-	switch configv1.FeatureSet(o.FeatureSet) {
-	case configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive:
-	default:
-		return fmt.Errorf("invalid feature-set specified: %q", o.FeatureSet)
 	}
 
 	return nil
@@ -197,7 +189,7 @@ func (o *GenericOptions) FeatureGateManifests() (RenderedManifests, error) {
 
 func (o *GenericOptions) FeatureSetName() (configv1.FeatureSet, error) {
 	if len(o.RenderedManifestInputFilenames) == 0 {
-		return configv1.FeatureSet(o.FeatureSet), nil
+		return configv1.Default, nil
 	}
 
 	manifests, err := o.FeatureGateManifests()
