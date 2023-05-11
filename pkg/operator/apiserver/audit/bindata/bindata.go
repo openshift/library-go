@@ -63,13 +63,14 @@ var _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml = []byte(`# exc
   resources:
   - group: "route.openshift.io"
     resources: ["routes", "routes/status"]
-  - resources: ["secrets"]
-- level: Metadata
-  resources:
+  - resources: ["secrets", "serviceaccounts/token"]
+  - group: "authentication.k8s.io"
+    resources: ["tokenreviews", "tokenrequests"]
   - group: "oauth.openshift.io"
-    resources: ["oauthclients"]
+    resources: ["oauthclients", "tokenreviews"]
 # catch-all rule to log all other requests with request and response payloads
-- level: RequestResponse`)
+- level: RequestResponse
+`)
 
 func pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYamlBytes() ([]byte, error) {
 	return _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml, nil
@@ -185,11 +186,11 @@ var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# e
   resources:
   - group: "route.openshift.io"
     resources: ["routes", "routes/status"]
-  - resources: ["secrets"]
-- level: Metadata
-  resources:
+  - resources: ["secrets", "serviceaccounts/token"]
+  - group: "authentication.k8s.io"
+    resources: ["tokenreviews", "tokenrequests"]
   - group: "oauth.openshift.io"
-    resources: ["oauthclients"]
+    resources: ["oauthclients", "tokenreviews"]
 # log request and response payloads for all write requests
 - level: RequestResponse
   verbs:
@@ -203,7 +204,8 @@ var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# e
   # Long-running requests like watches that fall under this rule will not
   # generate an audit event in RequestReceived.
   omitStages:
-  - RequestReceived`)
+  - RequestReceived
+`)
 
 func pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYamlBytes() ([]byte, error) {
 	return _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml, nil
