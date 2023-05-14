@@ -489,6 +489,23 @@ func TestGetMostRecentInstallerPodByNode(t *testing.T) {
 				"node-2": {ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
 			},
 		},
+		{
+			name: "only one installer pods in one node",
+			pods: []*corev1.Pod{
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-1"}, Spec: corev1.PodSpec{NodeName: "node-1"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-3"}, Spec: corev1.PodSpec{NodeName: "node-3"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-3"}, Spec: corev1.PodSpec{NodeName: "node-3"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-4"}, Spec: corev1.PodSpec{NodeName: "node-4"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-4"}, Spec: corev1.PodSpec{NodeName: "node-4"}},
+			},
+			expectedPodByNode: map[string]*corev1.Pod{
+				"node-2": {ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
+				"node-3": {ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-3"}, Spec: corev1.PodSpec{NodeName: "node-3"}},
+				"node-4": {ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-4"}, Spec: corev1.PodSpec{NodeName: "node-4"}},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -499,47 +516,6 @@ func TestGetMostRecentInstallerPodByNode(t *testing.T) {
 
 			if !cmp.Equal(podByNode, tc.expectedPodByNode) {
 				t.Fatalf("unexpected most recent installer pod by node:\n%s", cmp.Diff(podByNode, tc.expectedPodByNode))
-			}
-		})
-	}
-}
-
-func TestGetInstallerPodsByNode(t *testing.T) {
-	testCases := []struct {
-		name               string
-		pods               []*corev1.Pod
-		expectedPodsByNode map[string][]*corev1.Pod
-	}{
-		{
-			name: "two installer pods per node",
-			pods: []*corev1.Pod{
-				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-1"}, Spec: corev1.PodSpec{NodeName: "node-1"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-1"}, Spec: corev1.PodSpec{NodeName: "node-1"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
-			},
-			expectedPodsByNode: map[string][]*corev1.Pod{
-				"node-1": {
-					{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-1"}, Spec: corev1.PodSpec{NodeName: "node-1"}},
-					{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-1"}, Spec: corev1.PodSpec{NodeName: "node-1"}},
-				},
-				"node-2": {
-					{ObjectMeta: metav1.ObjectMeta{Name: "installer-1-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
-					{ObjectMeta: metav1.ObjectMeta{Name: "installer-2-node-2"}, Spec: corev1.PodSpec{NodeName: "node-2"}},
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			podsByNode, err := getInstallerPodsByNode(tc.pods)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if !cmp.Equal(podsByNode, tc.expectedPodsByNode) {
-				t.Fatalf("unexpected pods by node seperation:\n%s", cmp.Diff(podsByNode, tc.expectedPodsByNode))
 			}
 		})
 	}

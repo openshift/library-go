@@ -228,27 +228,21 @@ func (c *missingStaticPodController) getStaticPodTerminationGracePeriodSecondsFo
 
 func getMostRecentInstallerPodByNode(pods []*corev1.Pod) (map[string]*corev1.Pod, error) {
 	mostRecentInstallerPodByNode := map[string]*corev1.Pod{}
-	byNodes, err := getInstallerPodsByNode(pods)
+	installerRevision := "installer-"
+	if len(pods) == 0 {
+		return nil, nil
+	}
+	sort.Sort(sort.Reverse(internal.ByRevision(pods)))
+	latestRevision, err := internal.GetRevisionOfPod(pods[0])
 	if err != nil {
 		return nil, err
+	} else {
+		installerRevision = fmt.Sprintf("installer-%d", latestRevision)
 	}
 
-	for node, installerPodsOnThisNode := range byNodes {
-		if len(installerPodsOnThisNode) == 0 {
-			continue
-		}
-		sort.Sort(internal.ByRevision(installerPodsOnThisNode))
-		mostRecentInstallerPodByNode[node] = installerPodsOnThisNode[len(installerPodsOnThisNode)-1]
-	}
-
-	return mostRecentInstallerPodByNode, nil
-}
-
-func getInstallerPodsByNode(pods []*corev1.Pod) (map[string][]*corev1.Pod, error) {
-	byNodes := map[string][]*corev1.Pod{}
 	for i := range pods {
 		pod := pods[i]
-		if !strings.HasPrefix(pod.Name, "installer-") {
+		if !strings.HasPrefix(pod.Name, installerRevision) {
 			continue
 		}
 
@@ -256,10 +250,9 @@ func getInstallerPodsByNode(pods []*corev1.Pod) (map[string][]*corev1.Pod, error
 		if len(nodeName) == 0 {
 			return nil, fmt.Errorf("node name for installer pod %q is empty", pod.Name)
 		}
-		byNodes[nodeName] = append(byNodes[nodeName], pod)
+		mostRecentInstallerPodByNode[nodeName] = pod
 	}
-
-	return byNodes, nil
+	return mostRecentInstallerPodByNode, nil
 }
 
 // installerPodFinishedAt returns the 'finishedAt' time for an installer
