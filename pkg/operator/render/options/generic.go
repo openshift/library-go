@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -107,7 +108,7 @@ func (o *GenericOptions) ReadInputManifests() (RenderedManifests, error) {
 		}
 		for manifestFile, content := range manifestContent {
 			ret = append(ret, RenderedManifest{
-				OriginalFilename: manifestFile,
+				OriginalFilename: filepath.Join(filename, manifestFile),
 				Content:          content,
 			})
 		}
