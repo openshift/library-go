@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert"
@@ -18,9 +17,6 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 	certificates := []*x509.Certificate{}
 	for _, input := range inputConfigMaps {
 		inputConfigMap, err := lister.ConfigMaps(input.Namespace).Get(input.Name)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
 		if err != nil {
 			return nil, err
 		}
