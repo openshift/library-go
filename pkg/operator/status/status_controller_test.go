@@ -460,6 +460,115 @@ func TestRelatedObjects(t *testing.T) {
 
 }
 
+func TestVersions(t *testing.T) {
+	foo1 := configv1.OperandVersion{
+		Name:    "foo",
+		Version: "1",
+	}
+	bar1 := configv1.OperandVersion{
+		Name:    "bar",
+		Version: "1",
+	}
+	bar2 := configv1.OperandVersion{
+		Name:    "bar",
+		Version: "2",
+	}
+
+	testCases := []struct {
+		name             string
+		allowRemoval     bool
+		initialVersions  []configv1.OperandVersion
+		getterVersions   map[string]string
+		expectedVersions []configv1.OperandVersion
+	}{
+		{
+			name:             "empty version",
+			initialVersions:  []configv1.OperandVersion{},
+			getterVersions:   map[string]string{},
+			expectedVersions: []configv1.OperandVersion{},
+		},
+		{
+			name:             "version added",
+			initialVersions:  []configv1.OperandVersion{},
+			getterVersions:   map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions: []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:             "version changed",
+			initialVersions:  []configv1.OperandVersion{foo1, bar1},
+			getterVersions:   map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions: []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:             "no version changed",
+			initialVersions:  []configv1.OperandVersion{foo1, bar2},
+			getterVersions:   map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions: []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:             "non-removable version removed",
+			initialVersions:  []configv1.OperandVersion{foo1, bar1},
+			getterVersions:   map[string]string{"foo": "1"},
+			expectedVersions: []configv1.OperandVersion{foo1, bar1},
+		},
+		{
+			name:             "no version changed (removable)",
+			allowRemoval:     true,
+			initialVersions:  []configv1.OperandVersion{foo1, bar2},
+			getterVersions:   map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions: []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:             "removable version removed",
+			allowRemoval:     true,
+			initialVersions:  []configv1.OperandVersion{foo1, bar1},
+			getterVersions:   map[string]string{"foo": "1"},
+			expectedVersions: []configv1.OperandVersion{foo1},
+		},
+	}
+	for idx, tc := range testCases {
+		t.Run(fmt.Sprintf("%d/%s", idx, tc.name), func(t *testing.T) {
+
+			clusterOperator := &configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+				Status: configv1.ClusterOperatorStatus{
+					Versions: tc.initialVersions,
+				},
+			}
+			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			indexer.Add(clusterOperator)
+
+			statusClient := &statusClient{
+				t:      t,
+				status: operatorv1.OperatorStatus{},
+			}
+			versionGetter := NewVersionGetter()
+			for operand, v := range tc.getterVersions {
+				versionGetter.SetVersion(operand, v)
+			}
+
+			controller := &StatusSyncer{
+				clusterOperatorName:   "OPERATOR_NAME",
+				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:        statusClient,
+				versionGetter:         versionGetter,
+			}
+			if tc.allowRemoval {
+				controller = controller.WithVersionRemoval()
+			}
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+				t.Errorf("unexpected sync error: %v", err)
+				return
+			}
+			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
+			assert.ElementsMatch(t, tc.expectedVersions, result.Status.Versions)
+		})
+	}
+}
+
 // OperatorStatusProvider
 type statusClient struct {
 	t      *testing.T
