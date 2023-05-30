@@ -3,6 +3,7 @@ package apiservice
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"sort"
 	"strings"
@@ -12,11 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	kubeaggregatorfake "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/fake"
+	"k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -172,11 +175,11 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 			operator := &APIServiceController{
-				precondition:            func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
-				kubeClient:              kubeClient,
-				operatorClient:          fakeOperatorClient,
-				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
-				getAPIServicesToManageFn: func() ([]*apiregistrationv1.APIService, error) {
+				preconditionForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
+				kubeClient:                        kubeClient,
+				operatorClient:                    fakeOperatorClient,
+				apiregistrationv1Client:           kubeAggregatorClient.ApiregistrationV1(),
+				getAPIServicesToManageFn: func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
 					return []*apiregistrationv1.APIService{
 						{
 							ObjectMeta: metav1.ObjectMeta{Name: "v1.apps.openshift.io"},
@@ -186,7 +189,7 @@ func TestAvailableStatus(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io"},
 							Spec:       apiregistrationv1.APIServiceSpec{Group: "build.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
 						},
-					}, nil
+					}, nil, nil
 				},
 			}
 
@@ -220,6 +223,191 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 		})
+	}
+
+}
+
+func TestDisabledAPIService(t *testing.T) {
+	existingAPIServices := []runtime.Object{
+		runtime.Object(newAPIService("build.openshift.io", "v1")),
+		runtime.Object(newAPIService("apps.openshift.io", "v1")),
+	}
+	apiServiceReactorOverride := func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+		return false, nil, nil
+	}
+	apiServiceReactor := func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+		return apiServiceReactorOverride(action)
+	}
+
+	kubeClient := fake.NewSimpleClientset()
+	kubeAggregatorClient := kubeaggregatorfake.NewSimpleClientset(existingAPIServices...)
+	if apiServiceReactor != nil {
+		kubeAggregatorClient.PrependReactor("*", "apiservices", apiServiceReactor)
+	}
+
+	eventRecorder := events.NewInMemoryRecorder("")
+	fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
+	fakeAuthOperatorIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	{
+		authOperator := &operatorv1.Authentication{
+			TypeMeta:   metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+			Spec:       operatorv1.AuthenticationSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+			Status:     operatorv1.AuthenticationStatus{OperatorStatus: operatorv1.OperatorStatus{}},
+		}
+
+		err := fakeAuthOperatorIndexer.Add(authOperator)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	informerFactory := externalversions.NewSharedInformerFactory(kubeAggregatorClient, 10*time.Minute)
+
+	operator := &APIServiceController{
+		preconditionForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
+		kubeClient:                        kubeClient,
+		operatorClient:                    fakeOperatorClient,
+		apiregistrationv1Client:           kubeAggregatorClient.ApiregistrationV1(),
+		apiservicelister:                  informerFactory.Apiregistration().V1().APIServices().Lister(),
+	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	informerFactory.Start(stopCh)
+	informerFactory.WaitForCacheSync(stopCh)
+
+	// Both APIs enabled
+	operator.getAPIServicesToManageFn = func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
+		return []*apiregistrationv1.APIService{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "v1.apps.openshift.io"},
+				Spec:       apiregistrationv1.APIServiceSpec{Group: "apps.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io"},
+				Spec:       apiregistrationv1.APIServiceSpec{Group: "build.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+			},
+		}, nil, nil
+	}
+
+	_ = operator.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
+
+	list, err := kubeAggregatorClient.ApiregistrationV1().APIServices().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	services := sets.NewString()
+	for _, item := range list.Items {
+		t.Logf("Found %q APIService", item.Spec.Group)
+		services.Insert(item.Spec.Group)
+	}
+
+	if !services.Has("apps.openshift.io") || !services.Has("build.openshift.io") {
+		t.Fatalf("At least one of ['apps.openshift.io', 'build.openshift.io'] APIServices is missing")
+	}
+
+	_, resultStatus, _, err := fakeOperatorClient.GetOperatorState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServicesDegraded")
+	if condition == nil {
+		t.Fatal("APIServicesDegraded condition not found")
+	}
+	t.Logf("condition: %v\n", condition)
+
+	if condition.Status != operatorv1.ConditionFalse {
+		t.Error(diff.ObjectGoPrintSideBySide(condition.Status, operatorv1.ConditionFalse))
+	}
+
+	// build API disabled and deleted
+	operator.getAPIServicesToManageFn = func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
+		return []*apiregistrationv1.APIService{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "v1.apps.openshift.io"},
+					Spec:       apiregistrationv1.APIServiceSpec{Group: "apps.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+				},
+			}, []*apiregistrationv1.APIService{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io"},
+					Spec:       apiregistrationv1.APIServiceSpec{Group: "build.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+				},
+			}, nil
+	}
+
+	_ = operator.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
+
+	list, err = kubeAggregatorClient.ApiregistrationV1().APIServices().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	services = sets.NewString()
+	for _, item := range list.Items {
+		t.Logf("Found %q APIService", item.Spec.Group)
+		services.Insert(item.Spec.Group)
+	}
+
+	if !services.Has("apps.openshift.io") {
+		t.Fatalf("Missing 'apps.openshift.io' APIServices")
+	}
+
+	if services.Has("build.openshift.io") {
+		t.Fatalf("Found unexpected 'build.openshift.io' APIService")
+	}
+
+	_, resultStatus, _, err = fakeOperatorClient.GetOperatorState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition = operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServicesDegraded")
+	if condition == nil {
+		t.Fatal("APIServicesDegraded condition not found")
+	}
+	t.Logf("condition: %v\n", condition)
+	if condition.Status != operatorv1.ConditionFalse {
+		t.Error(diff.ObjectGoPrintSideBySide(condition.Status, operatorv1.ConditionFalse))
+	}
+
+	// build API disabled but not deleted
+	_, err = kubeAggregatorClient.ApiregistrationV1().APIServices().Create(context.TODO(), newAPIService("build.openshift.io", "v1"), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Unable to create a build APIService: %v", err)
+	}
+	apiServiceReactorOverride = func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+		if action.GetVerb() == "delete" && action.(kubetesting.DeleteAction).GetName() == "v1.build.openshift.io" {
+			return true, nil, fmt.Errorf("unable to delete v1.build.openshift.io")
+		}
+		return false, nil, nil
+	}
+
+	// creating the api services needs some time to propagate to the informer
+	time.Sleep(time.Millisecond)
+	_ = operator.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
+
+	list, err = kubeAggregatorClient.ApiregistrationV1().APIServices().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	services = sets.NewString()
+	for _, item := range list.Items {
+		t.Logf("Found %q APIService", item.Spec.Group)
+		services.Insert(item.Spec.Group)
+	}
+
+	_, resultStatus, _, err = fakeOperatorClient.GetOperatorState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition = operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServicesDegraded")
+	if condition == nil {
+		t.Fatal("APIServicesDegraded condition not found")
+	}
+	t.Logf("condition: %v\n", condition)
+	if condition.Status != operatorv1.ConditionTrue {
+		t.Error(diff.ObjectGoPrintSideBySide(condition.Status, operatorv1.ConditionTrue))
 	}
 
 }
