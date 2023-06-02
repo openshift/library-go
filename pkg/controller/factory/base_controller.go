@@ -133,7 +133,7 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 		workerWg.Add(1)
 		go func() {
 			defer workerWg.Done()
-			c.runPeriodicalResync(ctx, c.resyncEvery)
+			wait.UntilWithContext(ctx, func(ctx context.Context) { c.syncContext.Queue().Add(DefaultQueueKey) }, c.resyncEvery)
 		}()
 	}
 
@@ -169,15 +169,6 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 
 func (c *baseController) Sync(ctx context.Context, syncCtx SyncContext) error {
 	return c.sync(ctx, syncCtx)
-}
-
-func (c *baseController) runPeriodicalResync(ctx context.Context, interval time.Duration) {
-	if interval == 0 {
-		return
-	}
-	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		c.syncContext.Queue().Add(DefaultQueueKey)
-	}, interval)
 }
 
 // runWorker runs a single worker
