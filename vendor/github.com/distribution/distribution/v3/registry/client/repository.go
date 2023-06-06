@@ -783,23 +783,12 @@ func (bs *blobs) Create(ctx context.Context, options ...distribution.BlobCreateO
 		return nil, err
 	}
 
-<<<<<<< HEAD:vendor/github.com/distribution/distribution/v3/registry/client/repository.go
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := bs.client.Do(req)
-||||||| parent of e3d00344b (Update go.mod and vendor):vendor/github.com/docker/distribution/registry/client/repository.go
-	resp, err := bs.client.Post(u, "", nil)
-=======
-	req, err := http.NewRequest("POST", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := bs.client.Do(req)
->>>>>>> e3d00344b (Update go.mod and vendor):vendor/github.com/docker/distribution/registry/client/repository.go
 	if err != nil {
 		return nil, err
 	}
