@@ -237,13 +237,13 @@ func (c *clientCertificateController) syncCSR(secret *corev1.Secret) (map[string
 		return nil, err
 	}
 
-	// skip if csr is not approved yet
 	if !isCSRApproved(csr) {
+		klog.V(4).Infof("csr %q is not approved yet. Reason %v", csr.Name, csr.Status)
 		return nil, nil
 	}
 
-	// skip if csr has no certificate in its status yet
 	if len(csr.Status.Certificate) == 0 {
+		klog.V(4).Infof("csr %q has no certificate in its status yet. Reason %v", csr.Name, csr.Status.Certificate)
 		return nil, nil
 	}
 
