@@ -204,7 +204,7 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 		return err
 	}
 
-	targetCertKeyPairSecret.Data["tls.crt"], targetCertKeyPairSecret.Data["tls.key"], err = certKeyPair.GetPEMBytes()
+	targetCertKeyPairSecret.Data[corev1.TLSCertKey], targetCertKeyPairSecret.Data[corev1.TLSPrivateKeyKey], err = certKeyPair.GetPEMBytes()
 	if err != nil {
 		return err
 	}

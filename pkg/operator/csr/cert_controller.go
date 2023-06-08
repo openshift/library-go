@@ -30,9 +30,9 @@ import (
 
 const (
 	// TLSKeyFile is the name of tls key file in kubeconfigSecret
-	TLSKeyFile = "tls.key"
+	TLSKeyFile = corev1.TLSPrivateKeyKey
 	// TLSCertFile is the name of the tls cert file in kubeconfigSecret
-	TLSCertFile = "tls.crt"
+	TLSCertFile = corev1.TLSCertKey
 )
 
 // ControllerResyncInterval is exposed so that integration tests can crank up the constroller sync speed.

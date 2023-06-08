@@ -116,12 +116,12 @@ func NewKubeconfig(key, cert []byte) []byte {
 	if key != nil {
 		clientKeyData = key
 	} else {
-		clientKey = "tls.key"
+		clientKey = corev1.TLSPrivateKeyKey
 	}
 	if cert != nil {
 		clientCertificateData = cert
 	} else {
-		clientCertificate = "tls.crt"
+		clientCertificate = corev1.TLSCertKey
 	}
 
 	kubeconfig := clientcmdapi.Config{
@@ -165,10 +165,10 @@ func NewHubKubeconfigSecret(namespace, name, resourceVersion string, cert *TestC
 		Data: data,
 	}
 	if cert != nil && cert.Cert != nil {
-		secret.Data["tls.crt"] = cert.Cert
+		secret.Data[corev1.TLSCertKey] = cert.Cert
 	}
 	if cert != nil && cert.Key != nil {
-		secret.Data["tls.key"] = cert.Key
+		secret.Data[corev1.TLSPrivateKeyKey] = cert.Key
 	}
 	return secret
 }

@@ -420,7 +420,7 @@ func TestApplySecret(t *testing.T) {
 					ObjectMeta: m,
 					Type:       corev1.SecretTypeServiceAccountToken,
 					Data: map[string][]byte{
-						"tls.key": []byte("aaa"),
+						corev1.TLSPrivateKeyKey: []byte("aaa"),
 					},
 				},
 			},
@@ -434,7 +434,7 @@ func TestApplySecret(t *testing.T) {
 				ObjectMeta: m,
 				Type:       corev1.SecretTypeServiceAccountToken,
 				Data: map[string][]byte{
-					"tls.key": []byte("aaa"),
+					corev1.TLSPrivateKeyKey: []byte("aaa"),
 				},
 			},
 			actions: []clienttesting.Action{

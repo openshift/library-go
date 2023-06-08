@@ -71,7 +71,7 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 	// at this point, the secret has the correct signer, so we should read that signer to be able to sign
-	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
+	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data[corev1.TLSCertKey], signingCertKeyPairSecret.Data[corev1.TLSPrivateKeyKey])
 	if err != nil {
 		return nil, err
 	}
@@ -148,8 +148,8 @@ func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validi
 	if signingCertKeyPairSecret.Data == nil {
 		signingCertKeyPairSecret.Data = map[string][]byte{}
 	}
-	signingCertKeyPairSecret.Data["tls.crt"] = certBytes.Bytes()
-	signingCertKeyPairSecret.Data["tls.key"] = keyBytes.Bytes()
+	signingCertKeyPairSecret.Data[corev1.TLSCertKey] = certBytes.Bytes()
+	signingCertKeyPairSecret.Data[corev1.TLSPrivateKeyKey] = keyBytes.Bytes()
 	signingCertKeyPairSecret.Annotations[CertificateNotAfterAnnotation] = ca.Certs[0].NotAfter.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateNotBeforeAnnotation] = ca.Certs[0].NotBefore.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateIssuer] = ca.Certs[0].Issuer.CommonName

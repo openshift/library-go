@@ -161,7 +161,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 
 				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
+				if len(actual.Data[corev1.TLSCertKey]) == 0 || len(actual.Data[corev1.TLSPrivateKeyKey]) == 0 {
 					t.Error(actual.Data)
 				}
 			},
@@ -190,7 +190,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
+				if len(actual.Data[corev1.TLSCertKey]) == 0 || len(actual.Data[corev1.TLSPrivateKeyKey]) == 0 {
 					t.Error(actual.Data)
 				}
 				if actual.Annotations[CertificateHostnames] != "bar,foo" {
@@ -328,7 +328,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 
 				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
+				if len(actual.Data[corev1.TLSCertKey]) == 0 || len(actual.Data[corev1.TLSPrivateKeyKey]) == 0 {
 					t.Error(actual.Data)
 				}
 
@@ -336,7 +336,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 					t.Errorf("expected certificate type 'target', got: %v", certType)
 				}
 
-				signingCertKeyPair, err := crypto.GetCAFromBytes(actual.Data["tls.crt"], actual.Data["tls.key"])
+				signingCertKeyPair, err := crypto.GetCAFromBytes(actual.Data[corev1.TLSCertKey], actual.Data[corev1.TLSPrivateKeyKey])
 				if err != nil {
 					t.Error(actual.Data)
 				}
@@ -373,14 +373,14 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
+				if len(actual.Data[corev1.TLSCertKey]) == 0 || len(actual.Data[corev1.TLSPrivateKeyKey]) == 0 {
 					t.Error(actual.Data)
 				}
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeTarget {
 					t.Errorf("expected certificate type 'target', got: %v", certType)
 				}
 
-				signingCertKeyPair, err := crypto.GetCAFromBytes(actual.Data["tls.crt"], actual.Data["tls.key"])
+				signingCertKeyPair, err := crypto.GetCAFromBytes(actual.Data[corev1.TLSCertKey], actual.Data[corev1.TLSPrivateKeyKey])
 				if err != nil {
 					t.Error(actual.Data)
 				}
