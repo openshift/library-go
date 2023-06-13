@@ -19,13 +19,13 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/schema2"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/api/errcode"
-	registryclient "github.com/docker/distribution/registry/client"
-	"github.com/docker/distribution/registry/client/auth"
+	"github.com/distribution/distribution/v3"
+	"github.com/distribution/distribution/v3/manifest/manifestlist"
+	"github.com/distribution/distribution/v3/manifest/schema2"
+	"github.com/distribution/distribution/v3/reference"
+	"github.com/distribution/distribution/v3/registry/api/errcode"
+	registryclient "github.com/distribution/distribution/v3/registry/client"
+	"github.com/distribution/distribution/v3/registry/client/auth"
 	"github.com/opencontainers/go-digest"
 	imagereference "github.com/openshift/library-go/pkg/image/reference"
 )

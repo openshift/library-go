@@ -38,24 +38,25 @@ github.com/coreos/go-systemd/v22/journal
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/docker/distribution v0.0.0-20180920194744-16128bbac47f
-## explicit
-github.com/docker/distribution
-github.com/docker/distribution/digestset
-github.com/docker/distribution/manifest
-github.com/docker/distribution/manifest/manifestlist
-github.com/docker/distribution/manifest/schema1
-github.com/docker/distribution/manifest/schema2
-github.com/docker/distribution/metrics
-github.com/docker/distribution/reference
-github.com/docker/distribution/registry/api/errcode
-github.com/docker/distribution/registry/api/v2
-github.com/docker/distribution/registry/client
-github.com/docker/distribution/registry/client/auth
-github.com/docker/distribution/registry/client/auth/challenge
-github.com/docker/distribution/registry/client/transport
-github.com/docker/distribution/registry/storage/cache
-github.com/docker/distribution/registry/storage/cache/memory
+# github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca
+## explicit; go 1.18
+github.com/distribution/distribution/v3
+github.com/distribution/distribution/v3/context
+github.com/distribution/distribution/v3/manifest
+github.com/distribution/distribution/v3/manifest/manifestlist
+github.com/distribution/distribution/v3/manifest/schema1
+github.com/distribution/distribution/v3/manifest/schema2
+github.com/distribution/distribution/v3/metrics
+github.com/distribution/distribution/v3/reference
+github.com/distribution/distribution/v3/registry/api/errcode
+github.com/distribution/distribution/v3/registry/api/v2
+github.com/distribution/distribution/v3/registry/client
+github.com/distribution/distribution/v3/registry/client/auth
+github.com/distribution/distribution/v3/registry/client/auth/challenge
+github.com/distribution/distribution/v3/registry/client/transport
+github.com/distribution/distribution/v3/registry/storage/cache
+github.com/distribution/distribution/v3/registry/storage/cache/memory
+github.com/distribution/distribution/v3/uuid
 # github.com/docker/go-metrics v0.0.1
 ## explicit; go 1.11
 github.com/docker/go-metrics
@@ -206,6 +207,10 @@ github.com/grpc-ecosystem/go-grpc-prometheus
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
+# github.com/hashicorp/golang-lru v0.5.4
+## explicit; go 1.12
+github.com/hashicorp/golang-lru
+github.com/hashicorp/golang-lru/simplelru
 # github.com/imdario/mergo v0.3.7
 ## explicit
 github.com/imdario/mergo
@@ -238,10 +243,10 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/opencontainers/go-digest v1.0.0-rc1
-## explicit
+# github.com/opencontainers/go-digest v1.0.0
+## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.0.1
+# github.com/opencontainers/image-spec v1.0.2
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
@@ -441,7 +446,7 @@ github.com/robfig/cron
 # github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
-# github.com/spf13/cobra v1.6.0
+# github.com/spf13/cobra v1.6.1
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
