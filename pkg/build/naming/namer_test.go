@@ -11,6 +11,8 @@ func TestGetName(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		shortName := randSeq(rand.Intn(kvalidation.DNS1123SubdomainMaxLength-1) + 1)
 		shortNameForDeploy := randSeq(rand.Intn(kvalidation.DNS1123SubdomainMaxLength-len("-deploy")-1) + 1)
+		shortNameLongerThan9 := randSeq(rand.Intn(kvalidation.DNS1123SubdomainMaxLength-10) + 10)
+		mediumName := randSeq(kvalidation.DNS1123SubdomainMaxLength - 10)
 		longName := randSeq(kvalidation.DNS1123SubdomainMaxLength + rand.Intn(100))
 
 		tests := []struct {
@@ -30,6 +32,11 @@ func TestGetName(t *testing.T) {
 				base:     shortName,
 				suffix:   longName,
 				expected: shortName[0:min(len(shortName), kvalidation.DNS1123SubdomainMaxLength-9)] + "-" + hash(shortName+"-"+longName),
+			},
+			{
+				base:     shortNameLongerThan9,
+				suffix:   mediumName,
+				expected: shortNameLongerThan9[0:min(len(shortNameLongerThan9), kvalidation.DNS1123SubdomainMaxLength-9)] + "-" + hash(shortNameLongerThan9+"-"+mediumName),
 			},
 			{
 				base:     "",
