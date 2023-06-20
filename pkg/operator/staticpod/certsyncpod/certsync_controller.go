@@ -258,8 +258,11 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 		for filename, content := range secret.Data {
 			// TODO fix permissions
 			fullFilename := filepath.Join(contentDir, filename)
+			f, _ := os.Stat(fullFilename)
+			klog.Infof("Permissions of %q are %#o ...", fullFilename, f.Mode().Perm())
 			// if the existing is the same, do nothing
 			if reflect.DeepEqual(data[fullFilename], content) {
+				klog.Infof("Bypassing sync of %q since no changes were detected ...", fullFilename)
 				continue
 			}
 
