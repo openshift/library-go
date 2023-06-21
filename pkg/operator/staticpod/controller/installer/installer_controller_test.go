@@ -558,7 +558,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				kubeClient.CoreV1(),
 				eventRecorder,
 			)
-			c.now = func() time.Time { return now.Time }
+			c.clock = clocktesting.NewFakeClock(now.Time)
 			c.startupMonitorEnabled = func() (bool, error) {
 				return test.startupMonitorEnabled, nil
 			}

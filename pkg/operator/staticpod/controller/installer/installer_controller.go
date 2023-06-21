@@ -83,7 +83,6 @@ type InstallerController struct {
 	secretsGetter    corev1client.SecretsGetter
 	podsGetter       corev1client.PodsGetter
 	eventRecorder    events.Recorder
-	now              func() time.Time // for test plumbing
 
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn func() string
@@ -177,7 +176,6 @@ func NewInstallerController(
 		secretsGetter:    secretsGetter,
 		podsGetter:       podsGetter,
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
-		now:              time.Now,
 		startupMonitorEnabled: func() (bool, error) {
 			return false, nil
 		},
@@ -467,9 +465,9 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 						delay = c.installerBackOff(currNodeState.LastFailedCount)
 					}
 					earliestRetry := currNodeState.LastFailedTime.Add(delay)
-					if !c.now().After(earliestRetry) {
+					if !c.clock.Now().After(earliestRetry) {
 						klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
-						return true, earliestRetry.Sub(c.now()), nil
+						return true, earliestRetry.Sub(c.clock.Now()), nil
 					}
 				}
 
@@ -784,7 +782,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 
 		ret := deepCopyNodeStatusWithoutOldFailedState(currNodeState)
 		ret.LastFailedRevision = currNodeState.TargetRevision
-		now := metav1.NewTime(c.now())
+		now := metav1.NewTime(c.clock.Now())
 		ret.LastFailedTime = &now
 		ret.LastFailedCount++
 		ret.LastFailedReason = nodeStatusInstalledFailedReason
