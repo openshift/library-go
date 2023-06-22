@@ -282,11 +282,13 @@ data:
 			}},
 		},
 		want: []Manifest{{
-			id:  resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
-			GVK: schema.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+			OriginalFilename: "f0",
+			id:               resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			GVK:              schema.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
 		}, {
-			id:  resourceId{Group: "", Kind: "ConfigMap", Name: "a-config", Namespace: "default"},
-			GVK: schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			OriginalFilename: "f1",
+			id:               resourceId{Group: "", Kind: "ConfigMap", Name: "a-config", Namespace: "default"},
+			GVK:              schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
 		}},
 	}, {
 		name: "files-with-multiple-manifests",
@@ -337,14 +339,17 @@ data:
 			}},
 		},
 		want: []Manifest{{
-			id:  resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
-			GVK: schema.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+			OriginalFilename: "f0",
+			id:               resourceId{Group: "extensions", Kind: "Ingress", Name: "test-ingress", Namespace: "test-namespace"},
+			GVK:              schema.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
 		}, {
-			id:  resourceId{Group: "", Kind: "ConfigMap", Name: "a-config", Namespace: "default"},
-			GVK: schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			OriginalFilename: "f0",
+			id:               resourceId{Group: "", Kind: "ConfigMap", Name: "a-config", Namespace: "default"},
+			GVK:              schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
 		}, {
-			id:  resourceId{Group: "", Kind: "ConfigMap", Name: "b-config", Namespace: "default"},
-			GVK: schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			OriginalFilename: "f1",
+			id:               resourceId{Group: "", Kind: "ConfigMap", Name: "b-config", Namespace: "default"},
+			GVK:              schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
 		}},
 	}}
 	for _, test := range tests {
@@ -365,6 +370,7 @@ data:
 				t.Fatal(err)
 			}
 			for i := range got {
+				t.Logf("loaded %s", &got[i])
 				got[i].Raw = nil
 				got[i].Obj = nil
 			}
