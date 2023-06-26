@@ -31,6 +31,7 @@ func TestApplyStorageClass(t *testing.T) {
 		input    *storagev1.StorageClass
 
 		expectedModified bool
+		expectedFailure  bool
 		verifyActions    func(actions []clienttesting.Action, t *testing.T)
 	}{
 		{
@@ -130,6 +131,61 @@ func TestApplyStorageClass(t *testing.T) {
 			input: &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
+				},
+			},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "don't update because the object has been modified",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "foo",
+						Annotations:     map[string]string{"storageclass.kubernetes.io/is-default-class": "false"},
+						ResourceVersion: "1",
+					},
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "foo",
+					Annotations:     map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+					ResourceVersion: "2",
+				},
+			},
+			expectedModified: false,
+			expectedFailure:  true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "storageclasses") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "don't overwrite default StorageClass annotation if already set",
+			existing: []runtime.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "false"},
+					},
+				},
+			},
+			input: &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
 				},
 			},
 			expectedModified: false,
@@ -357,8 +413,11 @@ func TestApplyStorageClass(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
 			_, actualModified, err := ApplyStorageClass(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
-			if err != nil {
+			if err != nil && !test.expectedFailure {
 				t.Fatal(err)
+			}
+			if err == nil && test.expectedFailure {
+				t.Errorf("expected failure, but the call succeeded")
 			}
 			if test.expectedModified != actualModified {
 				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)

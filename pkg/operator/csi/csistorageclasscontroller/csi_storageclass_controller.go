@@ -167,6 +167,7 @@ func SetDefaultStorageClass(storageClassLister v1.StorageClassLister, storageCla
 				} else {
 					annotationKeyPresent = false
 				}
+				storageClass.ObjectMeta.ResourceVersion = sc.ObjectMeta.ResourceVersion
 			}
 		}
 		// There already is a default, and it's not set on the SC we intend to apply. Also, if there is any value for
