@@ -785,6 +785,45 @@ func Test_include(t *testing.T) {
 			},
 		},
 		{
+			name:        "wrong group override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Kind:      "Deployment",
+					Group:     "v1",
+					Name:      "my-deployment",
+					Namespace: "my-namespace",
+					Unmanaged: true,
+				},
+			},
+		},
+		{
+			name:        "wrong name override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Kind:      "Deployment",
+					Group:     "apps",
+					Name:      "not-my-deployment",
+					Namespace: "my-namespace",
+					Unmanaged: true,
+				},
+			},
+		},
+		{
+			name:        "wrong namespace override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Kind:      "Deployment",
+					Group:     "apps",
+					Name:      "my-deployment",
+					Namespace: "not-my-namespace",
+					Unmanaged: true,
+				},
+			},
+		},
+		{
 			name:        "override, but managed",
 			annotations: map[string]interface{}{},
 			overrides: []configv1.ComponentOverride{
