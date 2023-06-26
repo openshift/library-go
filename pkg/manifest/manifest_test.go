@@ -850,6 +850,20 @@ func Test_include(t *testing.T) {
 			expected: fmt.Errorf("overridden"),
 		},
 		{
+			name:        "unmanaged gv override",
+			annotations: map[string]interface{}{},
+			overrides: []configv1.ComponentOverride{
+				{
+					Group:     "apps/v1",
+					Kind:      "Deployment",
+					Name:      "my-deployment",
+					Namespace: "my-namespace",
+					Unmanaged: true,
+				},
+			},
+			expected: fmt.Errorf("overridden"),
+		},
+		{
 			name:        "all nil",
 			profile:     nil,
 			annotations: nil,

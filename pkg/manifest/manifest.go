@@ -249,8 +249,12 @@ func (m *Manifest) getOverrideForManifest(overrides []configv1.ComponentOverride
 		if m.id.Namespace == "" {
 			namespace = "" // cluster-scoped objects don't have namespace.
 		}
+		group := override.Group
+		if gv, err := schema.ParseGroupVersion(group); err == nil && gv.Group != "" {
+			group = gv.Group
+		}
 		if m.id.equal(resourceId{
-			Group:     override.Group,
+			Group:     group,
 			Kind:      override.Kind,
 			Name:      override.Name,
 			Namespace: namespace,
