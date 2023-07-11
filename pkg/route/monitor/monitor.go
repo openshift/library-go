@@ -23,8 +23,6 @@ type Object struct {
 	// waitGroup is used to ensure that there won't be two concurrent calls to reflector.Run
 	waitGroup sync.WaitGroup
 
-	// lock is to ensure the access and modify of lastAccessTime, stopped, and immutable are thread safety,
-	// and protecting from closing stopCh multiple times.
 	lock    sync.Mutex
 	stopped bool
 	stopCh  chan struct{}

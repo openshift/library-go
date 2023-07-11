@@ -1,4 +1,4 @@
-package templaterouter
+package secret
 
 import (
 	"context"
@@ -139,7 +139,7 @@ func (sm *SecretMonitor) RegisterRoute(parent *routev1.Route, getReferencedObjec
 
 	for name := range names {
 
-		key := objectKey{namespace: parent.Namespace, name: name}
+		key := objectKey{namespace: parent.Namespace, name: name, uid: parent.UID}
 		m, exists := sm.monitors[key]
 
 		if !exists {
