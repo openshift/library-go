@@ -302,7 +302,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.staticPodOperatorClient,
 			b.kubeInformers,
 			b.enableStartMonitor,
-			b.eventRecorder,
+			eventRecorder,
 		); err == nil {
 			manager.WithController(staticPodFallbackController, 1)
 		} else {
