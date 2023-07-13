@@ -1,25 +1,26 @@
 package secret
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"sync"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
-type listObjectFunc func(string, metav1.ListOptions) (runtime.Object, error)
-type watchObjectFunc func(string, metav1.ListOptions) (watch.Interface, error)
-
 type SecretEventHandlerRegistration interface {
 	cache.ResourceEventHandlerRegistration
 
-	GetKey() objectKey
+	GetKey() ObjectKey
 }
 
 type SecretMonitor interface {
@@ -27,89 +28,111 @@ type SecretMonitor interface {
 
 	RemoveEventHandler(SecretEventHandlerRegistration) error
 
-	GetSecret(SecretEventHandlerRegistration) (*v1.Secret, error)
+	GetSecret(namespace, name string) (*corev1.Secret, error)
+}
+
+type secretEventHandlerRegistration struct {
+	cache.ResourceEventHandlerRegistration
+
+	objectKey ObjectKey
+}
+
+func (r *secretEventHandlerRegistration) GetKey() ObjectKey {
+	return r.objectKey
 }
 
 type sm struct {
-	listObject  listObjectFunc
-	watchObject watchObjectFunc
+	kubeClient kubernetes.Interface
 
-	monitors map[objectKey]*Object
+	lock     sync.RWMutex
+	monitors map[ObjectKey]*singleItemMonitor
 }
 
-func (s *sm) AddEventHandler(namespace, name string, handler cache.ResourceEventHandler) (SecretEventHandlerRegistration, error) {
+func NewSecretMonitor(kubeClient *kubernetes.Clientset) SecretMonitor {
+	return &sm{
+		kubeClient: kubeClient,
+		monitors:    map[ObjectKey]*singleItemMonitor{}
+	}
+}
 
-	// name is a combination or routename_secretname
-	key := objectKey{namespace: namespace, name: name}
+func (s *sm) AddEventHandler(namespace, name string, handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	key := ObjectKey{Namespace: namespace, Name: name}
 	m, exists := s.monitors[key]
 
-    // TODO refactor this later 
-	secretName := strings.Split(name, "_")[1]
 	if !exists {
-		fieldSelector := fields.Set{"metadata.name": secretName}.AsSelector().String()
-		listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
-			options.FieldSelector = fieldSelector
+		sharedInformer := cache.NewSharedInformer(
+			cache.NewListWatchFromClient(
+				s.kubeClient.CoreV1().RESTClient(),
+				"secrets",
+				namespace,
+				fields.OneTermEqualSelector("metadata.name", name),
+			),
+			&corev1.Secret{},
+			0)
 
-			klog.Info(fieldSelector)
-			return s.listObject(namespace, options)
-		}
-		watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = fieldSelector
-
-			klog.Info(fieldSelector)
-			return s.watchObject(namespace, options)
-		}
-
-		store, informer := cache.NewInformer(
-			&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc},
-			&v1.Secret{},
-			0, handler)
-
-		m = NewObject(key, informer, store)
-
+		m := newSingleItemMonitor(key, sharedInformer)
 		go m.StartInformer()
 
 		s.monitors[key] = m
 
-		klog.Info("secret monitor key added", " item key ", key)
+		klog.Info("secret informer started", " item key ", key)
 	}
 
-	return m, nil
+	klog.Info("secret handler added", " item key ", key)
+	return m.AddEventHandler(handler)
 }
 
 func (s *sm) RemoveEventHandler(handle SecretEventHandlerRegistration) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	key := handle.GetKey()
-	item, ok := s.monitors[key]
-	if ok {
-		if item.Stop() {
-			klog.Info("secret monitor stopped ", " item key ", key)
-			delete(s.monitors, key)
-		}
-	} else {
-		klog.Error("secret monitor handle not found")
-		return fmt.Errorf("secret monitor handle not found: %s", key)
+	m, ok := s.monitors[key]
+	if !ok {
+		// already gone
+		return nil
+	}
+
+	klog.Info("secret handler removed", " item key ", key)
+	if err := m.RemoveEventHandler(handle); err != nil {
+		return err
+	}
+
+	if m.numHandlers.Load() <= 0 {
+		klog.Info("secret informer stopped", " item key ", key)
+		m.Stop()
+		delete(s.monitors, key)
 	}
 
 	return nil
 }
 
-func (s *sm) GetSecret(handle SecretEventHandlerRegistration) (*v1.Secret, error) {
+func (s *sm) GetSecret(namespace, name string) (*corev1.Secret, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 
-	key := handle.GetKey()
+	key := ObjectKey{Namespace: namespace, Name: name}
+	m, exists := s.monitors[key]
 
-	if item, ok := s.monitors[key]; ok {
-
-		secretName := strings.Split(key.name, "_")[1]
-		sc, ok, err := item.store.GetByKey(item.Key(key.namespace, secretName))
-		if err != nil {
-			return nil, err
-		}
-
-		if ok {
-			return sc.(*v1.Secret), nil
-		}
+	if !exists {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, name)
 	}
 
-	return nil, fmt.Errorf("not found: %s", handle)
+	uncast, exists, err := m.GetItem()
+	if !exists {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, name)
+	}
+	if err != nil {
+		return nil, err
+	}
 
+	ret, ok := uncast.(*corev1.Secret)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type: %T", uncast)
+	}
+
+	return ret, nil
 }

@@ -1,7 +1,6 @@
 package secret
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -9,16 +8,17 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
+// this looks somewhat confused, I'm not sure this layer is necessary.  Given a SecretMonitor and a controller
+// that observes Routes, it seems as though you'd simply wire handles to trigger evaluation for the route in question
+// and eventhandler for that controller would do the diff/deletion on its own.
+// If you have a sample controller I can help there
 type Monitor interface {
 	// Get secret by secret namespace and name.
 	GetSecret(namespace, name string) (*v1.Secret, error)
@@ -50,17 +50,9 @@ type Manager struct {
 	secretHandler cache.ResourceEventHandlerFuncs
 }
 
-func NewSecretMonitor(clientset *kubernetes.Clientset, queue workqueue.RateLimitingInterface) *Manager {
+func NewRouteManager(kubeClient *kubernetes.Clientset, queue workqueue.RateLimitingInterface) *Manager {
 	return &Manager{
-		monitor: &sm{
-			monitors: make(map[objectKey]*Object),
-			listObject: func(namespace string, opts metav1.ListOptions) (runtime.Object, error) {
-				return clientset.CoreV1().Secrets(namespace).List(context.TODO(), opts)
-			},
-			watchObject: func(namespace string, opts metav1.ListOptions) (watch.Interface, error) {
-				return clientset.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
-			},
-		},
+		monitor:            NewSecretMonitor(kubeClient),
 		lock:               sync.RWMutex{},
 		stopCh:             make(<-chan struct{}),
 		resourceChanges:    queue,
