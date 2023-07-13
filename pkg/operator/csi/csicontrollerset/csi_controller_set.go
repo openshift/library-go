@@ -140,6 +140,7 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 	file string,
 	dynamicClient dynamic.Interface,
 	operatorInformer operatorinformer.SharedInformerFactory,
+	hooks ...credentialsrequestcontroller.CredentialsRequestHook,
 ) *CSIControllerSet {
 	manifestFile, err := assetFunc(file)
 	if err != nil {
@@ -153,6 +154,7 @@ func (c *CSIControllerSet) WithCredentialsRequestController(
 		c.operatorClient,
 		operatorInformer,
 		c.eventRecorder,
+		hooks...,
 	)
 	return c
 }
