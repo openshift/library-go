@@ -1,24 +1,21 @@
-package monitor
+package secret
 
 import (
 	"sync"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 )
 
 type objectKey struct {
 	namespace string
 	name      string
-	uid       types.UID
 }
 
 type Object struct {
-	RefCount int
+	key      objectKey
 	store    cache.Store
 	informer cache.Controller
-
-	HasSynced func() (bool, error)
 
 	// waitGroup is used to ensure that there won't be two concurrent calls to reflector.Run
 	waitGroup sync.WaitGroup
@@ -28,13 +25,12 @@ type Object struct {
 	stopCh  chan struct{}
 }
 
-func NewObject(informer cache.Controller, store cache.Store, hasSynced func() (bool, error), stopCh chan struct{}) *Object {
+func NewObject(key objectKey, informer cache.Controller, store cache.Store) *Object {
 	return &Object{
-		RefCount:  0,
-		informer:  informer,
-		store:     store,
-		HasSynced: hasSynced,
-		stopCh:    stopCh,
+		key:      key,
+		informer: informer,
+		store:    store,
+		stopCh:   make(chan struct{}),
 	}
 }
 
@@ -53,12 +49,16 @@ func (i *Object) stopThreadUnsafe() bool {
 	return true
 }
 
-func (c *Object) IncrementRef() {
-	c.RefCount++
+func (i *Object) HasSynced() bool {
+	return i.informer.HasSynced()
 }
 
 func (c *Object) GetByKey(name string) (interface{}, bool, error) {
 	return c.store.GetByKey(name)
+}
+
+func (c *Object) GetKey() objectKey {
+	return c.key
 }
 
 // key returns key of an object with a given name and namespace.
@@ -74,5 +74,6 @@ func (i *Object) StartInformer() {
 	i.waitGroup.Wait()
 	i.waitGroup.Add(1)
 	defer i.waitGroup.Done()
+	klog.Info("starting informer")
 	i.informer.Run(i.stopCh)
 }
