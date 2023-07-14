@@ -1,46 +1,47 @@
 package secret
 
 import (
+	"fmt"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
-type objectKey struct {
-	namespace string
-	name      string
+type ObjectKey struct {
+	Namespace string
+	Name      string
 }
 
-type Object struct {
-	key      objectKey
-	store    cache.Store
-	informer cache.Controller
+type singleItemMonitor struct {
+	key ObjectKey
+	// store    cache.Store
+	// informer cache.Controller
+	informer cache.SharedInformer
 
 	// waitGroup is used to ensure that there won't be two concurrent calls to reflector.Run
-	waitGroup sync.WaitGroup
+	// waitGroup sync.WaitGroup
+	numHandlers atomic.Int32
 
 	lock    sync.Mutex
 	stopped bool
 	stopCh  chan struct{}
 }
 
-func NewObject(key objectKey, informer cache.Controller, store cache.Store) *Object {
-	return &Object{
+func newSingleItemMonitor(key ObjectKey, informer cache.SharedInformer) *singleItemMonitor {
+	return &singleItemMonitor{
 		key:      key,
 		informer: informer,
-		store:    store,
 		stopCh:   make(chan struct{}),
 	}
 }
 
-func (i *Object) Stop() bool {
+func (i *singleItemMonitor) Stop() bool {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	return i.stopThreadUnsafe()
-}
 
-func (i *Object) stopThreadUnsafe() bool {
 	if i.stopped {
 		return false
 	}
@@ -49,31 +50,62 @@ func (i *Object) stopThreadUnsafe() bool {
 	return true
 }
 
-func (i *Object) HasSynced() bool {
+func (i *singleItemMonitor) HasSynced() bool {
 	return i.informer.HasSynced()
 }
 
-func (c *Object) GetByKey(name string) (interface{}, bool, error) {
-	return c.store.GetByKey(name)
-}
-
-func (c *Object) GetKey() objectKey {
-	return c.key
-}
+// func (c *singleItemMonitor) GetByKey(name string) (interface{}, bool, error) {
+// 	return c.store.GetByKey(name)
+// }
+//
+// func (c *singleItemMonitor) GetKey() objectKey {
+// 	return c.key
+// }
 
 // key returns key of an object with a given name and namespace.
 // This has to be in-sync with cache.MetaNamespaceKeyFunc.
-func (c *Object) Key(namespace, name string) string {
-	if len(namespace) > 0 {
-		return namespace + "/" + name
-	}
-	return name
-}
+// func (c *singleItemMonitor) Key(namespace, name string) string {
+// 	if len(namespace) > 0 {
+// 		return namespace + "/" + name
+// 	}
+// 	return name
+// }
 
-func (i *Object) StartInformer() {
-	i.waitGroup.Wait()
-	i.waitGroup.Add(1)
-	defer i.waitGroup.Done()
+func (i *singleItemMonitor) StartInformer() {
 	klog.Info("starting informer")
 	i.informer.Run(i.stopCh)
+}
+
+func (i *singleItemMonitor) AddEventHandler(handler cache.ResourceEventHandler) (SecretEventHandlerRegistration, error) {
+	registration, err := i.informer.AddEventHandler(handler)
+	if err != nil {
+		return nil, err
+	}
+	i.numHandlers.Add(1)
+
+	return &secretEventHandlerRegistration{
+		ResourceEventHandlerRegistration: registration,
+		objectKey:                        i.key,
+	}, nil
+}
+
+func (i *singleItemMonitor) RemoveEventHandler(handle SecretEventHandlerRegistration) error {
+	if err := i.informer.RemoveEventHandler(handle); err != nil {
+		return err
+	}
+	i.numHandlers.Add(-1)
+	return nil
+}
+
+func (i *singleItemMonitor) GetItemKey() string {
+	if keys := strings.Split(i.key.Name, "_"); len(keys) == 1 {
+		return keys[1]
+	}
+
+	return ""
+}
+
+func (i *singleItemMonitor) GetItem() (item interface{}, exists bool, err error) {
+	itemKey := i.GetItemKey()
+	return i.informer.GetStore().Get(fmt.Sprintf("%s/%s", i.key.Namespace, itemKey))
 }
