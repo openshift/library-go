@@ -16,13 +16,8 @@ type ObjectKey struct {
 }
 
 type singleItemMonitor struct {
-	key ObjectKey
-	// store    cache.Store
-	// informer cache.Controller
-	informer cache.SharedInformer
-
-	// waitGroup is used to ensure that there won't be two concurrent calls to reflector.Run
-	// waitGroup sync.WaitGroup
+	key         ObjectKey
+	informer    cache.SharedInformer
 	numHandlers atomic.Int32
 
 	lock    sync.Mutex
@@ -53,23 +48,6 @@ func (i *singleItemMonitor) Stop() bool {
 func (i *singleItemMonitor) HasSynced() bool {
 	return i.informer.HasSynced()
 }
-
-// func (c *singleItemMonitor) GetByKey(name string) (interface{}, bool, error) {
-// 	return c.store.GetByKey(name)
-// }
-//
-// func (c *singleItemMonitor) GetKey() objectKey {
-// 	return c.key
-// }
-
-// key returns key of an object with a given name and namespace.
-// This has to be in-sync with cache.MetaNamespaceKeyFunc.
-// func (c *singleItemMonitor) Key(namespace, name string) string {
-// 	if len(namespace) > 0 {
-// 		return namespace + "/" + name
-// 	}
-// 	return name
-// }
 
 func (i *singleItemMonitor) StartInformer() {
 	klog.Info("starting informer")

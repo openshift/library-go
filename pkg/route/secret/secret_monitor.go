@@ -45,9 +45,6 @@ func (r *secretEventHandlerRegistration) GetKey() ObjectKey {
 }
 
 type sm struct {
-	// listObject  listObjectFunc
-	// watchObject watchObjectFunc
-
 	kubeClient kubernetes.Interface
 
 	lock     sync.RWMutex
@@ -72,25 +69,6 @@ func (s *sm) AddEventHandler(namespace, name string, handler cache.ResourceEvent
 	// TODO refactor this later
 	secretName := strings.Split(name, "_")[1]
 	if !exists {
-		// fieldSelector := fields.Set{"metadata.name": secretName}.AsSelector().String()
-		// listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
-		// 	options.FieldSelector = fieldSelector
-		//
-		// 	klog.Info(fieldSelector)
-		// 	return s.listObject(namespace, options)
-		// }
-		// watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-		// 	options.FieldSelector = fieldSelector
-		//
-		// 	klog.Info(fieldSelector)
-		// 	return s.watchObject(namespace, options)
-		// }
-		//
-		// store, informer := cache.NewInformer(
-		// 	&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc},
-		// 	&v1.Secret{},
-		// 	0, handler)
-
 		sharedInformer := cache.NewSharedInformer(
 			cache.NewListWatchFromClient(
 				s.kubeClient.CoreV1().RESTClient(),
