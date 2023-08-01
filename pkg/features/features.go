@@ -69,9 +69,9 @@ func setFeatureGates(featureGatesMap map[string]bool, featureGates featuregate.M
 	// ideally we filter these at the operator level, but that isn't trivial to do and this is.
 	// We don't allow users to set values, so hopefully we have e2e test that prevent invalid values.
 	allowedFeatureGates := map[string]bool{}
-	knownFeatures := sets.NewString(featureGates.KnownFeatures()...)
+	knownFeatures := featureGates.GetAll()
 	for featureGateName, val := range featureGatesMap {
-		if !knownFeatures.Has(featureGateName) {
+		if _, exists := knownFeatures[featuregate.Feature(featureGateName)]; !exists {
 			warnings = append(warnings, fmt.Sprintf("Ignoring unknown FeatureGate %q", featureGateName))
 			continue
 		}
@@ -89,22 +89,18 @@ func setFeatureGates(featureGatesMap map[string]bool, featureGates featuregate.M
 // featuregates that your process will honor.
 func InitializeFeatureGates(featureGates featuregate.MutableFeatureGate, usedFeatures ...configv1.FeatureGateName) error {
 	defaultFeatures := sets.String{}
-	enabledFeatures := sets.String{}
+	enabledDefaultFeatures := sets.String{}
 	for _, enabled := range configv1.FeatureSets[configv1.Default].Enabled {
 		defaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
-		enabledFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
+		enabledDefaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
 	}
 	for _, disabled := range configv1.FeatureSets[configv1.Default].Disabled {
 		defaultFeatures.Insert(string(disabled.FeatureGateAttributes.Name))
 	}
 
-	for _, enabled := range configv1.FeatureSets[configv1.TechPreviewNoUpgrade].Enabled {
-		enabledFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
-	}
-
 	localFeatures := map[featuregate.Feature]featuregate.FeatureSpec{}
 	for _, featureName := range usedFeatures {
-		if enabledFeatures.Has(string(featureName)) {
+		if enabledDefaultFeatures.Has(string(featureName)) {
 			localFeatures[featuregate.Feature(featureName)] = featuregate.FeatureSpec{
 				Default:    true,
 				PreRelease: featuregate.GA,
