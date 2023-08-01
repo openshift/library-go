@@ -89,18 +89,22 @@ func setFeatureGates(featureGatesMap map[string]bool, featureGates featuregate.M
 // featuregates that your process will honor.
 func InitializeFeatureGates(featureGates featuregate.MutableFeatureGate, usedFeatures ...configv1.FeatureGateName) error {
 	defaultFeatures := sets.String{}
-	enabledDefaultFeatures := sets.String{}
+	enabledFeatures := sets.String{}
 	for _, enabled := range configv1.FeatureSets[configv1.Default].Enabled {
 		defaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
-		enabledDefaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
+		enabledFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
 	}
 	for _, disabled := range configv1.FeatureSets[configv1.Default].Disabled {
 		defaultFeatures.Insert(string(disabled.FeatureGateAttributes.Name))
 	}
 
+	for _, enabled := range configv1.FeatureSets[configv1.TechPreviewNoUpgrade].Enabled {
+		enabledFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
+	}
+
 	localFeatures := map[featuregate.Feature]featuregate.FeatureSpec{}
 	for _, featureName := range usedFeatures {
-		if enabledDefaultFeatures.Has(string(featureName)) {
+		if enabledFeatures.Has(string(featureName)) {
 			localFeatures[featuregate.Feature(featureName)] = featuregate.FeatureSpec{
 				Default:    true,
 				PreRelease: featuregate.GA,
