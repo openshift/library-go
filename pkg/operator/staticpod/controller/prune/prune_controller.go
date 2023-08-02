@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 	"strconv"
 	"strings"
@@ -37,10 +38,15 @@ type PruneController struct {
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
+	prunerPodMutationFns []PrunerPodMutationFunc
+
 	configMapGetter corev1client.ConfigMapsGetter
 	secretGetter    corev1client.SecretsGetter
 	podGetter       corev1client.PodsGetter
 }
+
+// PrunerPodMutationFunc is a function that has a chance at changing the pruner pod before it is created
+type PrunerPodMutationFunc func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error
 
 const (
 	statusConfigMapName  = "revision-status-"
@@ -58,6 +64,7 @@ func NewPruneController(
 	podGetter corev1client.PodsGetter,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	eventRecorder events.Recorder,
+	prunerPodMutationFn PrunerPodMutationFunc,
 ) factory.Controller {
 	c := &PruneController{
 		targetNamespace:   targetNamespace,
@@ -72,9 +79,10 @@ func NewPruneController(
 
 		prunerPodImageFn: getPrunerPodImageFromEnv,
 	}
+	c.prunerPodMutationFns = append(c.prunerPodMutationFns, prunerPodMutationFn)
 	c.retrieveStatusConfigMapOwnerRefsFn = c.createStatusConfigMapOwnerRefs
 
-	return factory.New().WithInformers(operatorClient.Informer()).WithSync(c.sync).ToController("PruneController", eventRecorder)
+	return factory.New().WithInformers(operatorClient.Informer()).WithSync(c.sync).ToController("PruneController", eventRecorder) //TODO refactor
 }
 
 func defaultedLimits(operatorSpec *operatorv1.StaticPodOperatorSpec) (int, int) {
@@ -146,11 +154,11 @@ func int32RangeBelowOrEqual(upper int32, num int) []int32 {
 	return ret
 }
 
-func (c *PruneController) pruneDiskResources(ctx context.Context, recorder events.Recorder, operatorStatus *operatorv1.StaticPodOperatorStatus, toKeep []int32) error {
+func (c *PruneController) pruneDiskResources(ctx context.Context, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, operatorStatus *operatorv1.StaticPodOperatorStatus, toKeep []int32) error {
 	// Run pruning pod on each node and pin it to that node
 	for _, nodeStatus := range operatorStatus.NodeStatuses {
 		// note: we attach the pod (via owner-ref) to the latestAvailable
-		if err := c.ensurePrunePod(ctx, recorder, nodeStatus.NodeName, operatorStatus.LatestAvailableRevision, toKeep, operatorStatus.LatestAvailableRevision); err != nil {
+		if err := c.ensurePrunePod(ctx, recorder, nodeStatus, operatorSpec, operatorStatus.LatestAvailableRevision, toKeep, operatorStatus.LatestAvailableRevision); err != nil {
 			return err
 		}
 	}
@@ -188,15 +196,15 @@ func (c *PruneController) pruneAPIResources(ctx context.Context, toKeep sets.Int
 //go:embed manifests/pruner-pod.yaml
 var podTemplate []byte
 
-func (c *PruneController) ensurePrunePod(ctx context.Context, recorder events.Recorder, nodeName string, maxEligibleRevision int32, protectedRevisions []int32, revision int32) error {
+func (c *PruneController) ensurePrunePod(ctx context.Context, recorder events.Recorder, ns operatorv1.NodeStatus, operatorSpec *operatorv1.StaticPodOperatorSpec, maxEligibleRevision int32, protectedRevisions []int32, revision int32) error {
 	if revision == 0 {
 		return nil
 	}
 	pod := resourceread.ReadPodV1OrDie(podTemplate)
 
-	pod.Name = getPrunerPodName(nodeName, revision)
+	pod.Name = getPrunerPodName(ns.NodeName, revision)
 	pod.Namespace = c.targetNamespace
-	pod.Spec.NodeName = nodeName
+	pod.Spec.NodeName = ns.NodeName
 	pod.Spec.Containers[0].Image = c.prunerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 	pod.Spec.Containers[0].Args = append(pod.Spec.Containers[0].Args,
@@ -213,6 +221,13 @@ func (c *PruneController) ensurePrunePod(ctx context.Context, recorder events.Re
 		return fmt.Errorf("unable to set pruner pod ownerrefs: %+v", err)
 	}
 	pod.OwnerReferences = ownerRefs
+
+	// Some owners need to change aspects of the pod.  Things like arguments for instance
+	for _, fn := range c.prunerPodMutationFns {
+		if err := fn(pod, ns.NodeName, operatorSpec, ns.TargetRevision); err != nil {
+			return err
+		}
+	}
 
 	_, _, err = resourceapply.ApplyPod(ctx, c.podGetter, recorder, pod)
 	return err
@@ -271,7 +286,7 @@ func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	errs := []error{}
-	if diskErr := c.pruneDiskResources(ctx, syncCtx.Recorder(), operatorStatus, toKeep.List()); diskErr != nil {
+	if diskErr := c.pruneDiskResources(ctx, syncCtx.Recorder(), operatorSpec, operatorStatus, toKeep.List()); diskErr != nil {
 		errs = append(errs, diskErr)
 	}
 	if apiErr := c.pruneAPIResources(ctx, toKeep, operatorStatus.LatestAvailableRevision); apiErr != nil {
