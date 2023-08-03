@@ -3,6 +3,7 @@ package credentialsrequestcontroller
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -39,7 +40,10 @@ type CredentialsRequestController struct {
 	manifest        []byte
 	dynamicClient   dynamic.Interface
 	operatorLister  operatorv1lister.CloudCredentialLister
+	hooks           []CredentialsRequestHook
 }
+
+type CredentialsRequestHook func(*opv1.OperatorSpec, *unstructured.Unstructured) error
 
 // NewCredentialsRequestController returns a CredentialsRequestController.
 func NewCredentialsRequestController(
@@ -50,6 +54,7 @@ func NewCredentialsRequestController(
 	operatorClient v1helpers.OperatorClientWithFinalizers,
 	operatorInformer operatorinformer.SharedInformerFactory,
 	recorder events.Recorder,
+	hooks ...CredentialsRequestHook,
 ) factory.Controller {
 	c := &CredentialsRequestController{
 		name:            name,
@@ -58,6 +63,7 @@ func NewCredentialsRequestController(
 		manifest:        manifest,
 		dynamicClient:   dynamicClient,
 		operatorLister:  operatorInformer.Operator().V1().CloudCredentials().Lister(),
+		hooks:           hooks,
 	}
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
@@ -75,25 +81,25 @@ func NewCredentialsRequestController(
 }
 
 func (c CredentialsRequestController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	_, status, _, err := c.operatorClient.GetOperatorState()
+	spec, status, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
-
 	if err != nil {
 		return err
 	}
+
 	clusterCloudCredential, err := c.operatorLister.Get(clusterCloudCredentialName)
 	if err != nil {
 		return err
 	}
 
-	// if clusterCloudCredential is in manual mode, do not sync cloud credentials
-	if clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual {
+	// if clusterCloudCredential is in manual mode without STS, do not sync cloud credentials
+	if clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual && os.Getenv("ROLEARN") == "" {
 		return nil
 	}
 
-	cr, err := c.syncCredentialsRequest(ctx, status, syncContext)
+	cr, err := c.syncCredentialsRequest(ctx, spec, status, syncContext)
 	if err != nil {
 		return err
 	}
@@ -133,6 +139,7 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 
 func (c CredentialsRequestController) syncCredentialsRequest(
 	ctx context.Context,
+	spec *opv1.OperatorSpec,
 	status *opv1.OperatorStatus,
 	syncContext factory.SyncContext,
 ) (*unstructured.Unstructured, error) {
@@ -140,6 +147,12 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	err := unstructured.SetNestedField(cr.Object, c.targetNamespace, "spec", "secretRef", "namespace")
 	if err != nil {
 		return nil, err
+	}
+
+	for _, hook := range c.hooks {
+		if err := hook(spec, cr); err != nil {
+			return nil, err
+		}
 	}
 
 	var expectedGeneration int64 = -1

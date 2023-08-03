@@ -65,7 +65,8 @@ type staticPodOperatorControllerBuilder struct {
 	// pruning information
 	pruneCommand []string
 	// TODO de-dupe this.  I think it's actually a directory name
-	staticPodPrefix string
+	staticPodPrefix       string
+	prunerPodMutationFunc prune.PrunerPodMutationFunc
 
 	// guard infomation
 	operatorName               string
@@ -104,6 +105,9 @@ type Builder interface {
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
+	// WithCustomPruning allows mutating the pruner pod definition just before
+	// the pruner pod is created for a revision.
+	WithCustomPruner(command []string, staticPodPrefix string, prunerPodMutationFunc prune.PrunerPodMutationFunc) Builder
 	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, createConditionalFunc func() (bool, bool, error)) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
@@ -168,6 +172,16 @@ func (b *staticPodOperatorControllerBuilder) WithCustomInstaller(command []strin
 func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, staticPodPrefix string) Builder {
 	b.pruneCommand = command
 	b.staticPodPrefix = staticPodPrefix
+	b.prunerPodMutationFunc = func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+		return nil
+	}
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithCustomPruner(command []string, staticPodPrefix string, prunerPodMutationFunc prune.PrunerPodMutationFunc) Builder {
+	b.pruneCommand = command
+	b.staticPodPrefix = staticPodPrefix
+	b.prunerPodMutationFunc = prunerPodMutationFunc
 	return b
 }
 
@@ -281,6 +295,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			podClient,
 			b.staticPodOperatorClient,
 			eventRecorder,
+			b.prunerPodMutationFunc,
 		), 1)
 	} else {
 		eventRecorder.Warning("PruningControllerMissing", "not enough information provided, not all functionality is present")
