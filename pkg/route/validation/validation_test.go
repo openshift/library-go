@@ -1,16 +1,26 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 
-	routev1 "github.com/openshift/api/route/v1"
-
+	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	testclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	routev1 "github.com/openshift/api/route/v1"
+	routecommon "github.com/openshift/library-go/pkg/route"
 )
 
 const (
@@ -40,6 +50,63 @@ func createRouteSpecTo(name string, kind string) routev1.RouteTargetReference {
 		Kind: kind,
 	}
 	return svc
+}
+
+type testSAR struct {
+	allow bool
+	err   error
+	sar   *authorizationv1.SubjectAccessReview
+}
+
+func (t *testSAR) Create(_ context.Context, subjectAccessReview *authorizationv1.SubjectAccessReview, _ metav1.CreateOptions) (*authorizationv1.SubjectAccessReview, error) {
+	t.sar = subjectAccessReview
+	return &authorizationv1.SubjectAccessReview{
+		Status: authorizationv1.SubjectAccessReviewStatus{
+			Allowed: t.allow,
+		},
+	}, t.err
+}
+
+type testSecretGetter struct {
+	getter    corev1client.SecretsGetter
+	secrets   []*corev1.Secret
+	namespace string
+}
+
+func (t *testSecretGetter) Secrets(_ string) corev1client.SecretInterface {
+	existingObjects := []runtime.Object{}
+	for _, s := range t.secrets {
+		existingObjects = append(existingObjects, s)
+	}
+	return testclient.NewSimpleClientset(existingObjects...).CoreV1().Secrets(t.namespace)
+}
+
+func (t *testSecretGetter) WithSecret(_ *routev1.Route, secret corev1.Secret) *testSecretGetter {
+	t.secrets = append(t.secrets, &secret)
+	return t
+}
+
+func (t *testSecretGetter) WithNamespace(namespace string) *testSecretGetter {
+	t.namespace = namespace
+	return t
+}
+
+func (t *testSecretGetter) WithSecretData(route *routev1.Route, data map[string]string) *testSecretGetter {
+	t.secrets = append(t.secrets, &corev1.Secret{
+		StringData: data,
+		Type:       corev1.SecretTypeTLS,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      route.Spec.TLS.ExternalCertificate.Name,
+			Namespace: route.Namespace,
+		},
+	})
+	return t
+}
+
+func init() {
+	scheme := scheme.Scheme
+	corev1.AddToScheme(scheme)
+	testclient.AddToScheme(scheme)
 }
 
 // Context around testing hostname validation.
@@ -77,6 +144,13 @@ func TestValidateRoute(t *testing.T) {
 		name           string
 		route          *routev1.Route
 		expectedErrors int
+
+		// fields for externalCertificate
+		allow     bool
+		validType bool
+		validNS   bool
+		opts      routecommon.RouteValidationOptions
+		err       error
 	}{
 		{
 			name: "No Name",
@@ -971,7 +1045,7 @@ func TestValidateRoute(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		errs := ValidateRoute(tc.route)
+		errs := ValidateRoute(context.Background(), tc.route, &testSAR{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
 		}
@@ -1800,6 +1874,13 @@ func TestValidateTLS(t *testing.T) {
 		name           string
 		route          *routev1.Route
 		expectedErrors int
+
+		// fields for externalCertificate
+		allow     bool
+		validType bool
+		validNS   bool
+		opts      routecommon.RouteValidationOptions
+		err       error
 	}{
 		{
 			name: "No TLS Termination",
@@ -1946,12 +2027,162 @@ func TestValidateTLS(t *testing.T) {
 					},
 				},
 			},
+
+			expectedErrors: 1,
+		},
+		{
+			name: "Invalid Reencrypt termination as externalCertificate and certificate set",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationReencrypt,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+						Certificate: "dummy",
+					},
+				},
+			},
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 1,
+		},
+		{
+			name: "Invalid Passthrough termination as externalCertificate",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationPassthrough,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+					},
+				},
+			},
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 1,
+		},
+		{
+			name: "Invalid Passthrough termination as externalCertificate and certificate set",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationPassthrough,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+						Certificate: "dummy",
+					},
+				},
+			},
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 2,
+		},
+		{
+			name: "Invalid Edge termination as externalCertificate and certificate",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+						Certificate: "dummy",
+					},
+				},
+			},
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 1,
+		},
+		{
+			name: "Invalid externalCertificate as not authorized",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-test",
+					Namespace: "sandbox",
+				},
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+					},
+				},
+			},
+			allow:          false,
+			validType:      true,
+			validNS:        true,
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 5,
+		},
+		{
+			name: "Invalid externalCertificate as secret not found",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-test",
+					Namespace: "sandbox",
+				},
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+					},
+				},
+			},
+			allow:          true,
+			validNS:        false,
+			validType:      true,
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
+			expectedErrors: 1,
+		},
+		{
+			name: "Invalid externalCertificate as secret of incorrect type",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-test",
+					Namespace: "sandbox",
+				},
+				Spec: routev1.RouteSpec{
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+						ExternalCertificate: &routev1.LocalObjectReference{
+							Name: "tls-secret",
+						},
+					},
+				},
+			},
+			allow:          true,
+			validNS:        true,
+			validType:      false,
+			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 	}
 
+	ctx := request.WithUser(context.Background(), &user.DefaultInfo{})
 	for _, tc := range tests {
-		errs := validateTLS(tc.route, nil)
+
+		secrets := &testSecretGetter{}
+		secrets.WithNamespace(tc.route.Namespace)
+
+		var secret corev1.Secret
+		if tc.opts.AllowExternalCertificates {
+			secret.ObjectMeta.Name = tc.route.Spec.TLS.ExternalCertificate.Name
+			secret.ObjectMeta.Namespace = tc.route.Namespace
+			secret.Type = corev1.SecretTypeTLS
+		}
+
+		if !tc.validType && tc.opts.AllowExternalCertificates {
+			secret.Type = corev1.SecretTypeBasicAuth
+		} else if !tc.validNS && tc.opts.AllowExternalCertificates {
+			secret.ObjectMeta.Namespace = "dummyns"
+		}
+
+		secrets.WithSecret(tc.route, secret)
+
+		errs := validateTLS(ctx, tc.route, nil, &testSAR{allow: tc.allow}, secrets, tc.opts)
 
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
@@ -1980,7 +2211,7 @@ func TestValidatePassthroughInsecureEdgeTerminationPolicy(t *testing.T) {
 			},
 		}
 		route.Spec.TLS.InsecureEdgeTerminationPolicy = key
-		errs := validateTLS(route, nil)
+		errs := validateTLS(context.Background(), route, nil, &testSAR{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
 		if !expected && len(errs) != 0 {
 			t.Errorf("Test case for Passthrough termination with insecure=%s got %d errors where none where expected. %v",
 				key, len(errs), errs)
@@ -2145,7 +2376,7 @@ func TestValidateRouteUpdate(t *testing.T) {
 	for i, tc := range tests {
 		newRoute := tc.route.DeepCopy()
 		tc.change(newRoute)
-		errs := ValidateRouteUpdate(newRoute, tc.route)
+		errs := ValidateRouteUpdate(context.Background(), newRoute, tc.route, &testSAR{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("%d: expected %d error(s), got %d. %v", i, tc.expectedErrors, len(errs), errs)
 		}
@@ -2321,7 +2552,7 @@ func TestValidateInsecureEdgeTerminationPolicy(t *testing.T) {
 				},
 			},
 		}
-		errs := validateTLS(route, nil)
+		errs := validateTLS(context.Background(), route, nil, &testSAR{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
 
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
@@ -2379,7 +2610,7 @@ func TestValidateEdgeReencryptInsecureEdgeTerminationPolicy(t *testing.T) {
 	for _, tc := range tests {
 		for key, expected := range insecureTypes {
 			tc.route.Spec.TLS.InsecureEdgeTerminationPolicy = key
-			errs := validateTLS(tc.route, nil)
+			errs := validateTLS(context.Background(), tc.route, nil, &testSAR{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
 			if !expected && len(errs) != 0 {
 				t.Errorf("Test case %s with insecure=%s got %d errors where none were expected. %v",
 					tc.name, key, len(errs), errs)

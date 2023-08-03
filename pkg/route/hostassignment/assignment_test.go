@@ -12,6 +12,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/library-go/pkg/route"
 )
 
 type testAllocator struct {
@@ -51,6 +52,13 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 
 		expected          string
 		expectedSubdomain string
+
+		// fields for externalCertificate
+		validType  bool
+		secretData map[string]string
+		validNS    bool
+		opts       route.RouteValidationOptions
+		err        error
 
 		errs  int
 		allow bool
@@ -216,6 +224,62 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			errs:           1,
 		},
 		{
+			name:           "external-certificate-changed-from-certificate",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			validNS:        true,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "certificate-changed-from-external-certificate",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			validNS:        true,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-changed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "old-b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			validNS:        true,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-secret-changed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			validNS:        true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
 			name:           "ca-certificate-unchanged",
 			host:           "host",
 			expected:       "host",
@@ -368,9 +432,9 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 						},
 					},
 				}
-				errs = ValidateHostUpdate(ctx, route, oldRoute, &testSAR{allow: tc.allow})
+				errs = ValidateHostUpdate(ctx, route, oldRoute, &testSAR{allow: tc.allow}, tc.opts)
 			} else {
-				errs = AllocateHost(ctx, route, &testSAR{allow: tc.allow}, testAllocator{})
+				errs = AllocateHost(ctx, route, &testSAR{allow: tc.allow}, testAllocator{}, tc.opts)
 			}
 
 			if route.Spec.Host != tc.expected {
