@@ -39,9 +39,9 @@ func (f *featureGate) Enabled(key configv1.FeatureGateName) bool {
 }
 
 func (f *featureGate) KnownFeatures() []configv1.FeatureGateName {
-	allKnown := sets.NewString()
-	allKnown.Insert(FeatureGateNamesToStrings(f.enabled.UnsortedList())...)
-	allKnown.Insert(FeatureGateNamesToStrings(f.disabled.UnsortedList())...)
+	allKnown := sets.New[configv1.FeatureGateName]()
+	allKnown.Insert(f.enabled.UnsortedList()...)
+	allKnown.Insert(f.disabled.UnsortedList()...)
 
-	return StringsToFeatureGateNames(allKnown.List())
+	return sets.List(allKnown)
 }

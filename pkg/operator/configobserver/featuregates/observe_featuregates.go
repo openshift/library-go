@@ -98,21 +98,3 @@ func (f *featureFlags) getWhitelistedFeatureNames(featureGates FeatureGate) []st
 
 	return newConfigValue
 }
-
-func StringsToFeatureGateNames(in []string) []configv1.FeatureGateName {
-	out := []configv1.FeatureGateName{}
-	for _, curr := range in {
-		out = append(out, configv1.FeatureGateName(curr))
-	}
-
-	return out
-}
-
-func FeatureGateNamesToStrings(in []configv1.FeatureGateName) []string {
-	out := []string{}
-	for _, curr := range in {
-		out = append(out, string(curr))
-	}
-
-	return out
-}

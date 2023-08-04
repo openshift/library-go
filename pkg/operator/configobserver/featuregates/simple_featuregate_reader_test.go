@@ -23,17 +23,17 @@ func featureGateBuilder() *testFeatureGateBuilder {
 	}
 }
 
-func (f *testFeatureGateBuilder) enabled(version string, enabled ...string) *testFeatureGateBuilder {
+func (f *testFeatureGateBuilder) enabled(version string, enabled ...configv1.FeatureGateName) *testFeatureGateBuilder {
 	curr := f.versionToFeatures[version]
-	curr.Enabled = StringsToFeatureGateNames(enabled)
+	curr.Enabled = enabled
 	f.versionToFeatures[version] = curr
 
 	return f
 }
 
-func (f *testFeatureGateBuilder) disabled(version string, disabled ...string) *testFeatureGateBuilder {
+func (f *testFeatureGateBuilder) disabled(version string, disabled ...configv1.FeatureGateName) *testFeatureGateBuilder {
 	curr := f.versionToFeatures[version]
-	curr.Disabled = StringsToFeatureGateNames(disabled)
+	curr.Disabled = disabled
 	f.versionToFeatures[version] = curr
 
 	return f
