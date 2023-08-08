@@ -1,12 +1,16 @@
 package validation
 
 import (
+	"fmt"
+	"regexp"
+	"strings"
 	"testing"
+
+	routev1 "github.com/openshift/api/route/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	routev1 "github.com/openshift/api/route/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 const (
@@ -65,6 +69,10 @@ func createRouteSpecTo(name string, kind string) routev1.RouteTargetReference {
 // TestValidateRoute ensures not specifying a required field results in error and a fully specified
 // route passes successfully
 func TestValidateRoute(t *testing.T) {
+	var headerNameXFrame string = "X-Frame-Options"
+	var headerNameXSS string = "X-XSS-Protection"
+	invalidNumRequests := make([]routev1.RouteHTTPHeader, maxRequestHeaderList+1)
+	invalidNumResponses := make([]routev1.RouteHTTPHeader, maxResponseHeaderList+1)
 	tests := []struct {
 		name           string
 		route          *routev1.Route
@@ -833,6 +841,133 @@ func TestValidateRoute(t *testing.T) {
 			},
 			expectedErrors: 1,
 		},
+		{
+			name: "Valid headers for response but route's tls termination is passthrough",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationPassthrough,
+					},
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: headerNameXFrame,
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "DENY",
+										},
+									},
+								},
+								{
+									Name: headerNameXSS,
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "1;mode=block",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: 1,
+		},
+		{
+			name: "Valid headers for request but route's tls termination is passthrough",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationPassthrough,
+					},
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "text/plain,text/html",
+										},
+									},
+								},
+								{
+									Name: "Accept-Encoding",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: 1,
+		},
+		{
+			name: "Should not exceed more than 20 request items.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+					},
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: invalidNumRequests,
+						},
+					},
+				},
+			},
+			expectedErrors: 1,
+		},
+		{
+			name: "Should not exceed more than 20 response items.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					TLS: &routev1.TLSConfig{
+						Termination: routev1.TLSTerminationEdge,
+					},
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: invalidNumResponses,
+						},
+					},
+				},
+			},
+			expectedErrors: 1,
+		},
 	}
 
 	for _, tc := range tests {
@@ -840,6 +975,823 @@ func TestValidateRoute(t *testing.T) {
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
 		}
+	}
+}
+
+// TestValidateHeaders verifies that validateHeaders correctly validates
+// response and request header actions in the route spec and returns the
+// appropriate error messages.
+func TestValidateHeaders(t *testing.T) {
+	var (
+		tooLargeName  = strings.Repeat("x", 256)
+		tooLargeValue = strings.Repeat("y", 16385)
+	)
+	tests := []struct {
+		name                 string
+		route                *routev1.Route
+		expectedErrorMessage string
+	}{
+		{
+			name: "should give an error on attempt to delete the HSTS header.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "Strict-Transport-Security",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.response[0].name: Forbidden: the following headers may not be modified using this API: strict-transport-security, proxy, cookie, set-cookie",
+		},
+		{
+			name: "should give an error on attempt to delete the Proxy header.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "Proxy",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.response[0].name: Forbidden: the following headers may not be modified using this API: strict-transport-security, proxy, cookie, set-cookie",
+		},
+		{
+			name: "should give an error on attempt to delete the Cookie header.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Cookie",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.request[0].name: Forbidden: the following headers may not be modified using this API: strict-transport-security, proxy, cookie, set-cookie",
+		},
+		{
+			name: "should give an error on attempt to delete the Set-Cookie header.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "Set-Cookie",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.response[0].name: Forbidden: the following headers may not be modified using this API: strict-transport-security, proxy, cookie, set-cookie",
+		},
+		{
+			name: "should give an error when brackets are not closed properly.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "expires",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%{+Q}[ssl_c_der,base64",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.response[0].action.set.value: Invalid value: "%{+Q}[ssl_c_der,base64": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64.`,
+		},
+		{
+			name: "should give an error if the converter in dynamic header value is not permitted.",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "map",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[res.hdr(host),bogus]",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.response[0].action.set.value: Invalid value: "%[res.hdr(host),bogus]": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64.`,
+		},
+		{
+			name: "should give an error when same header name provided more than once",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "X-Frame-Options",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "DENY",
+										},
+									},
+								},
+								{
+									Name: "X-Server",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "X-Frame-Options",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "SAMEORIGIN",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.response[2].name: Duplicate value: "X-Frame-Options"`,
+		},
+		{
+			name: "valid request headers",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "text/plain,text/html",
+										},
+									},
+								},
+								{
+									Name: "Accept-Encoding",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "Conditional",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[req.hdr(Host)] if foo",
+										},
+									},
+								},
+								{
+									Name: "Condition",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: `%[req.hdr(Host)]\ if\ foo`,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "",
+		},
+		{
+			name: "valid request and response headers",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "valid-request-and-response-headers",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%{+Q}[ssl_c_der,base64]",
+										},
+									},
+								},
+								{
+									Name: "x-bar",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "x-baz",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[req.hdr(Host),lower]",
+										},
+									},
+								},
+							},
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%{+Q}[ssl_c_der,base64]",
+										},
+									},
+								},
+								{
+									Name: "x-fooby",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "x-barby",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[res.hdr(server),lower]",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "",
+		},
+		{
+			name: "invalid request and response headers",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-request-and-response-headers",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%+Q[ssl_c_der,base64]",
+										},
+									},
+								},
+								{
+									Name: "x-bar",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "x-baz",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[req.hdr(Host),lower",
+										},
+									},
+								},
+							},
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%{+Q}[ssl_c_der,base64]",
+										},
+									},
+								},
+								{
+									Name: "x-fooby",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+								{
+									Name: "x-barby",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[res.hdr(server),tolower]",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `[spec.httpHeaders.actions.response[2].action.set.value: Invalid value: "%[res.hdr(server),tolower]": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64., spec.httpHeaders.actions.request[0].action.set.value: Invalid value: "%+Q[ssl_c_der,base64]": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are req.hdr, ssl_c_der. Converters allowed are lower, base64., spec.httpHeaders.actions.request[2].action.set.value: Invalid value: "%[req.hdr(Host),lower": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are req.hdr, ssl_c_der. Converters allowed are lower, base64.]`,
+		},
+		{
+			name: "should give an error if the header value exceeds 16384 chars",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "X-SSL-Client-Cert",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: tooLargeValue,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: fmt.Sprintf("spec.httpHeaders.actions.response[0].action.set.value: Invalid value: %q: value exceeds the maximum length, which is 16384", tooLargeValue),
+		},
+		{
+			name: "should give an error if the header value is 0 chars",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "X-SSL-Client-Cert",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.response[0].action.set.value: Required value",
+		},
+		{
+			name: "should give an error if the header name exceeds 1024 chars",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: tooLargeName,
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "foo",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: fmt.Sprintf("spec.httpHeaders.actions.response[0].name: Invalid value: %q: name exceeds the maximum length, which is 255", tooLargeName),
+		},
+		{
+			name: "should give an error if the header name is 0 chars",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "foo",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.response[0].name: Required value",
+		},
+		{
+			name: "should give an error if the response header's value has sample fetcher req.hdr",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Response: []routev1.RouteHTTPHeader{
+								{
+									Name: "X-SSL-Client-Cert",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[req.hdr(host),lower]",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.response[0].action.set.value: Invalid value: "%[req.hdr(host),lower]": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64.`,
+		},
+		{
+			name: "should give an error if the request header's value has converter base_64",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "X-SSL-Client-Cert",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "%[ssl_c_der,base_64]",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].action.set.value: Invalid value: "%[ssl_c_der,base_64]": Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are req.hdr, ssl_c_der. Converters allowed are lower, base64.`,
+		},
+		{
+			name: "should not allow repetition of a header name",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host:           "subdomain.wildcard.test",
+					To:             createRouteSpecTo("serviceName", "Service"),
+					WildcardPolicy: routev1.WildcardPolicySubdomain,
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "text/plain,text/html",
+										},
+									},
+								},
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[1].name: Duplicate value: "Accept"`,
+		},
+		{
+			name: "set is required when type is Set",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "missing-set-field",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Set,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].action.set: Required value: set is required when type is Set, and forbidden otherwise`,
+		},
+		{
+			name: "set is forbidden when type is not Set",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "missing-set-field",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "Accept",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+										Set: &routev1.RouteSetHTTPHeader{
+											Value: "text/plain,text/html",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].action.set: Required value: set is required when type is Set, and forbidden otherwise`,
+		},
+		{
+			name: "empty header name",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "empty-name",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: "spec.httpHeaders.actions.request[0].name: Required value",
+		},
+		{
+			name: "invalid header name",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-name",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "foo bar",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: routev1.Delete,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].name: Invalid value: "foo bar": name must be a valid HTTP header name as defined in RFC 2616 section 4.2`,
+		},
+		{
+			name: "empty action",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "empty-action",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].action.type: Invalid value: "": type must be "Set" or "Delete"`,
+		},
+		{
+			name: "invalid action",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-action",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					Host: "subdomain.example.test",
+					To:   createRouteSpecTo("serviceName", "Service"),
+					HTTPHeaders: &routev1.RouteHTTPHeaders{
+						Actions: routev1.RouteHTTPHeaderActions{
+							Request: []routev1.RouteHTTPHeader{
+								{
+									Name: "x-foo",
+									Action: routev1.RouteHTTPHeaderActionUnion{
+										Type: "Replace",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorMessage: `spec.httpHeaders.actions.request[0].action.type: Invalid value: "Replace": type must be "Set" or "Delete"`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var allErrs field.ErrorList
+			allErrs = append(allErrs, validateHeaders(field.NewPath("spec", "httpHeaders", "actions", "response"), tc.route.Spec.HTTPHeaders.Actions.Response, permittedResponseHeaderValueRE, permittedResponseHeaderValueErrorMessage)...)
+			allErrs = append(allErrs, validateHeaders(field.NewPath("spec", "httpHeaders", "actions", "request"), tc.route.Spec.HTTPHeaders.Actions.Request, permittedRequestHeaderValueRE, permittedRequestHeaderValueErrorMessage)...)
+			var actualErrorMessage string
+			if err := allErrs.ToAggregate(); err != nil {
+				actualErrorMessage = err.Error()
+			}
+			switch {
+			case tc.expectedErrorMessage == "" && actualErrorMessage != "":
+				t.Fatalf("unexpected error: %v", actualErrorMessage)
+			case tc.expectedErrorMessage != "" && actualErrorMessage == "":
+				t.Fatalf("got nil, expected %v", tc.expectedErrorMessage)
+			case tc.expectedErrorMessage != actualErrorMessage:
+				t.Fatalf("unexpected error: %v, expected: %v", actualErrorMessage, tc.expectedErrorMessage)
+			}
+		})
 	}
 }
 
@@ -1039,7 +1991,7 @@ func TestValidatePassthroughInsecureEdgeTerminationPolicy(t *testing.T) {
 	}
 }
 
-// TestValidateRouteBad ensures not specifying a required field results in error and a fully specified
+// TestValidateRouteUpdate ensures not specifying a required field results in error and a fully specified
 // route passes successfully
 func TestValidateRouteUpdate(t *testing.T) {
 	tests := []struct {
@@ -1197,6 +2149,128 @@ func TestValidateRouteUpdate(t *testing.T) {
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("%d: expected %d error(s), got %d. %v", i, tc.expectedErrors, len(errs), errs)
 		}
+	}
+}
+
+// This unit test tests the Route header regex for validating user input.
+func TestPermittedHeaderRegexp(t *testing.T) {
+	// The syntax is http-request set-header <name> <fmt>. As per this http://cbonte.github.io/haproxy-dconv/2.6/configuration.html#4.2-http-request%20add-header
+	// the format  follows the log-format rules (see Custom Log Format in section 8.2.4) i.e http://cbonte.github.io/haproxy-dconv/2.6/configuration.html#8.2.4
+	// The usage of it shall be as per section 8.2.6
+	// However for dynamic values, req.hdr, res.hdr, ssl_c_der are the allowed fetchers and lower, base64 are the allowed converters.
+	type HeaderValueTest struct {
+		description string
+		validInput  bool
+		input       string
+	}
+
+	tests := []HeaderValueTest{
+		{description: "empty value", input: ``, validInput: false},
+		{description: "single character", input: `a`, validInput: true},
+		{description: "multiple characters", input: `abc`, validInput: true},
+		{description: "multiple words without escaped space", input: `abc def`, validInput: true},
+		{description: "multiple words with escaped space", input: `abc\ def`, validInput: true},
+		{description: "multiple words each word quoted", input: `"abc"\ "def"`, validInput: true},
+		{description: "multiple words each word quoted and with an embedded space", input: `"abc "\ "def "`, validInput: true},
+		{description: "multiple words each word one double quoted and other single quoted and with an embedded space", input: `"abc "\ 'def '`, validInput: true},
+		{description: "single % character", input: `%`, validInput: false},
+		{description: "escaped % character", input: `%%`, validInput: true},
+		{description: "escaped % and only a % character", input: `%%%`, validInput: false},
+		{description: "two literal % characters", input: `%%%%`, validInput: true},
+		{description: "zero percent", input: `%%%%%%0`, validInput: true},
+		{description: "escaped expression", input: `%%[XYZ.hdr(Host)]\ %[XYZ.hdr(Host)]`, validInput: true},
+		{description: "simple empty expression", input: `%[]`, validInput: false},
+		{description: "nested empty expressions", input: `%[%[]]`, validInput: false},
+		{description: "empty quoted value", input: `%{+Q}`, validInput: false},
+		{description: "quoted value", input: `%{+Q}foo`, validInput: false},
+		{description: "quoted value", input: `%{+Q} ssl_c_der`, validInput: false},
+		{description: "valid input", input: `{+Q}[ssl_c_der,base64]`, validInput: true},
+		{description: "valid input", input: `%{+Q}[ssl_c_der,base64]`, validInput: true},
+
+		{description: "hdr with empty field", input: `%[XYZ.hdr()]`, validInput: false},
+		{description: "hdr with percent field", input: `%[XYZ.hdr(%)]`, validInput: false},
+		{description: "hdr with known field", input: `%[XYZ.hdr(Host)]`, validInput: true},
+		{description: "hdr with syntax error", input: `%[XYZ.hdr(Host]`, validInput: false},
+
+		{description: "hdr with valid X-XSS-Protection value", input: `1;mode=block`, validInput: true},
+		{description: "hdr with valid Content-Type value", input: `text/plain,text/html`, validInput: true},
+
+		{description: "incomplete expression", input: `%[req`, validInput: false},
+		{description: "quoted field", input: `%[XYZ.hdr(%{+Q}Host)]`, validInput: false},
+
+		// If the value has "if foo" in it, the string "if foo" will be taken literally as part of the value.
+		// The router will quote the entire value so that the "if foo" is not interpreted as a conditional.
+		{description: "value with conditional expression", input: `%[XYZ.hdr(Host)] if foo`, validInput: true},
+		{description: "value with what looks like a conditional expression", input: `%[XYZ.hdr(Host)]\ if\ foo`, validInput: true},
+
+		{description: "unsupported fetcher and converter", input: `%[date(3600),http_date]`, validInput: false},
+		{description: "not allowed sample fetchers", input: `%[foo,lower]`, validInput: false},
+		{description: "not allowed converters", input: `%[req.hdr(host),foo]`, validInput: false},
+		{description: "missing parentheses or braces `}`", input: `%{Q[req.hdr(host)]`, validInput: false},
+		{description: "missing parentheses or braces `{`", input: `%Q}[req.hdr(host)]`, validInput: false},
+		{description: "missing parentheses or braces `}`", input: `%{{Q}[req.hdr(host)]`, validInput: false},
+		{description: "missing parentheses or braces `]`", input: `%[req.hdr(host)`, validInput: false},
+		{description: "missing parentheses or braces `[`", input: `%req.hdr(host)]`, validInput: false},
+		{description: "missing parentheses or braces `(`", input: `%[req.hdrhost)]`, validInput: false},
+		{description: "missing parentheses or braces `)`", input: `%[req.hdr(host]`, validInput: false},
+		{description: "missing parentheses or braces `)]`", input: `%[req.hdr(host`, validInput: false},
+		{description: "missing parentheses or braces `[]`", input: `%{req.hdr(host)}`, validInput: false},
+		{description: "parameters for a sample fetcher that doesn't take parameters", input: `%[ssl_c_der(host)]`, validInput: false},
+		{description: "dangerous sample fetchers and converters", input: `%[env(FOO)]`, validInput: false},
+		{description: "dangerous sample fetchers and converters", input: `%[req.hdr(host),debug()]`, validInput: false},
+		{description: "extra comma", input: `%[req.hdr(host),,lower]`, validInput: false},
+
+		// CR and LF are not allowed in header value as per RFC https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.4
+		{description: "carriage return", input: "\r", validInput: false},
+		{description: "CRLF", input: "\r\n", validInput: false},
+
+		// HAProxy does not interpret ${} syntax, so it is safe to have ${ in the value; it will be taken
+		// literally as part of the header value.
+		{description: "environment variable with a bracket missing", input: `${NET_COOLOCP_HOSTPRIMARY`, validInput: true},
+		{description: "value with conditional expression and env var", input: `%[XYZ.hdr(Host)] if ${NET_COOLOCP_HOSTPRIMARY`, validInput: true},
+		{description: "value with what looks like a conditional expression and env var", input: `%[XYZ.hdr(Host)]\ if\ ${NET_COOLOCP_HOSTPRIMARY`, validInput: true},
+
+		{description: "sample value", input: `%ci:%cp [%tr] %ft %ac/%fc %[fc_err]/%[ssl_fc_err,hex]/%[ssl_c_err]/%[ssl_c_ca_err]/%[ssl_fc_is_resumed] %[ssl_fc_sni]/%sslv/%sslc`, validInput: false},
+		{description: "interpolation of T i.e %T", input: `%T`, validInput: false},
+
+		// url
+		// regex does not check validity of url in a header value.
+		{description: "hdr with url", input: `http:??//url/hack`, validInput: true},
+
+		// spaces and tab
+		// regex allows spaces before and after. The reason is that after a dynamic value is provided someone might provide a condition `%[XYZ.hdr(Host)] if foo` which would have
+		// spaces after the dynamic value and if condition.
+		// tab is rejected as control characters are not allowed by the regex.
+		{description: "space before and after the value", input: ` T `, validInput: true},
+		{description: "double space before and after the value", input: `  T  `, validInput: true},
+		{description: "tab before and after the value", input: "\tT\t", validInput: false},
+	}
+
+	var requestTypes = []struct {
+		description          string
+		regexp               *regexp.Regexp
+		testInputSubstituter func(s string) string
+	}{{
+		description:          "request",
+		regexp:               permittedRequestHeaderValueRE,
+		testInputSubstituter: func(s string) string { return strings.ReplaceAll(s, "XYZ", "req") },
+	}, {
+		description:          "response",
+		regexp:               permittedResponseHeaderValueRE,
+		testInputSubstituter: func(s string) string { return strings.ReplaceAll(s, "XYZ", "res") },
+	}}
+
+	for _, rt := range requestTypes {
+		t.Run(rt.description, func(t *testing.T) {
+			for _, tc := range tests {
+				t.Run(tc.description, func(t *testing.T) {
+					input := rt.testInputSubstituter(tc.input)
+					if got := rt.regexp.MatchString(input); got != tc.validInput {
+						t.Errorf("%q: expected %v, got %t", input, tc.validInput, got)
+					}
+				})
+			}
+		})
 	}
 }
 
