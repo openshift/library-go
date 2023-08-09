@@ -180,6 +180,7 @@ func (cs *APIServerControllerSet) WithAPIServiceController(
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
+	informers ...factory.Informer,
 ) *APIServerControllerSet {
 	cs.apiServiceController.controller = apiservice.NewAPIServiceController(
 		controllerName,
@@ -190,6 +191,7 @@ func (cs *APIServerControllerSet) WithAPIServiceController(
 		kubeInformersForTargetNamesace,
 		kubeClient,
 		cs.eventRecorder,
+		informers...,
 	)
 	return cs
 }

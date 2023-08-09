@@ -52,6 +52,7 @@ func NewAPIServiceController(
 	kubeInformersForOperandNamespace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
+	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
 		preconditionForEnabledAPIServices: newEndpointPrecondition(kubeInformersForOperandNamespace),
@@ -64,9 +65,11 @@ func NewAPIServiceController(
 	}
 
 	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
-		kubeInformersForOperandNamespace.Core().V1().Services().Informer(),
-		kubeInformersForOperandNamespace.Core().V1().Endpoints().Informer(),
-		apiregistrationInformers.Apiregistration().V1().APIServices().Informer(),
+		append(informers,
+			kubeInformersForOperandNamespace.Core().V1().Services().Informer(),
+			kubeInformersForOperandNamespace.Core().V1().Endpoints().Informer(),
+			apiregistrationInformers.Apiregistration().V1().APIServices().Informer(),
+		)...,
 	).ToController("APIServiceController_"+name, eventRecorder.WithComponentSuffix("apiservice-"+name+"-controller"))
 }
 
