@@ -45,10 +45,14 @@ func TestObserveFeatureFlags(t *testing.T) {
 		{
 			name: "default",
 			accessor: NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{"OpenShiftPodSecurityAdmission"},
+				[]configv1.FeatureGateName{
+					"OpenShiftPodSecurityAdmission",
+					"BuildCSIVolumes",
+				},
 				[]configv1.FeatureGateName{"RetroactiveDefaultStorageClass"},
 			),
 			expectedResult: []string{
+				"BuildCSIVolumes=true",
 				"OpenShiftPodSecurityAdmission=true",
 				"RetroactiveDefaultStorageClass=false",
 			},
@@ -60,7 +64,6 @@ func TestObserveFeatureFlags(t *testing.T) {
 					"OpenShiftPodSecurityAdmission",
 					"ExternalCloudProvider",
 					"CSIDriverSharedResource",
-					"BuildCSIVolumes",
 					"NodeSwap",
 					"MachineAPIProviderOpenStack",
 					"InsightsConfigAPI",
@@ -72,7 +75,6 @@ func TestObserveFeatureFlags(t *testing.T) {
 				},
 			),
 			expectedResult: []string{
-				"BuildCSIVolumes=true",
 				"CSIDriverSharedResource=true",
 				"ExternalCloudProvider=true",
 				"InsightsConfigAPI=true",
