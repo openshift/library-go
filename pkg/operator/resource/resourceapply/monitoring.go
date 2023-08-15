@@ -96,6 +96,65 @@ func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder
 	return newObj, true, err
 }
 
+var prometheusGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheuses"}
+
+// ApplyPrometheus applies the Prometheus object.
+func ApplyPrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	namespace := required.GetNamespace()
+
+	existing, err := client.Resource(prometheusGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		newObj, createErr := client.Resource(prometheusGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
+		if createErr != nil {
+			recorder.Warningf("PrometheusCreateFailed", "Failed to create Prometheus.monitoring.coreos.com/v1: %v", createErr)
+			return nil, true, createErr
+		}
+		recorder.Eventf("PrometheusCreated", "Created Prometheus.monitoring.coreos.com/v1 because it was missing")
+		return newObj, true, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	existingCopy := existing.DeepCopy()
+
+	toUpdate, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !modified {
+		return nil, false, nil
+	}
+
+	if klog.V(4).Enabled() {
+		klog.Infof("Prometheus %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, toUpdate))
+	}
+
+	newObj, err := client.Resource(prometheusGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
+	if err != nil {
+		recorder.Warningf("PrometheusUpdateFailed", "Failed to update Prometheus.monitoring.coreos.com/v1: %v", err)
+		return nil, true, err
+	}
+
+	recorder.Eventf("PrometheusUpdated", "Updated Prometheus.monitoring.coreos.com/v1 because it changed")
+	return newObj, true, err
+}
+
+// DeletePrometheus deletes the Prometheus object.
+func DeletePrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	namespace := required.GetNamespace()
+	err := client.Resource(prometheusGVR).Namespace(namespace).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	reportDeleteEvent(recorder, required, err)
+	return nil, true, nil
+}
+
 var prometheusRuleGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
 
 // ApplyPrometheusRule applies the PrometheusRule
