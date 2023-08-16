@@ -3,7 +3,6 @@ package resourceapply
 import (
 	"context"
 
-	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,9 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
-)
 
-var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+	"github.com/openshift/library-go/pkg/operator/events"
+)
 
 func ensureGenericSpec(required, existing *unstructured.Unstructured, mimicDefaultingFn mimicDefaultingFunc, equalityChecker equalityChecker) (*unstructured.Unstructured, bool, error) {
 	requiredCopy := required.DeepCopy()
@@ -54,17 +53,21 @@ type equalityChecker interface {
 	DeepEqual(a1, a2 interface{}) bool
 }
 
+var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+
 // ApplyServiceMonitor applies the Prometheus service monitor.
 func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	serviceMonitorGVRString := serviceMonitorGVR.String()
 	namespace := required.GetNamespace()
+
 	existing, err := client.Resource(serviceMonitorGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		newObj, createErr := client.Resource(serviceMonitorGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
 		if createErr != nil {
-			recorder.Warningf("ServiceMonitorCreateFailed", "Failed to create ServiceMonitor.monitoring.coreos.com/v1: %v", createErr)
+			recorder.Warningf("ServiceMonitorCreateFailed", "Failed to create "+serviceMonitorGVRString+": %v", createErr)
 			return nil, true, createErr
 		}
-		recorder.Eventf("ServiceMonitorCreated", "Created ServiceMonitor.monitoring.coreos.com/v1 because it was missing")
+		recorder.Eventf("ServiceMonitorCreated", "Created "+serviceMonitorGVRString+" because it was missing")
 		return newObj, true, nil
 	}
 	if err != nil {
@@ -88,11 +91,11 @@ func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder
 
 	newObj, err := client.Resource(serviceMonitorGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
 	if err != nil {
-		recorder.Warningf("ServiceMonitorUpdateFailed", "Failed to update ServiceMonitor.monitoring.coreos.com/v1: %v", err)
+		recorder.Warningf("ServiceMonitorUpdateFailed", "Failed to update "+serviceMonitorGVRString+": %v", err)
 		return nil, true, err
 	}
 
-	recorder.Eventf("ServiceMonitorUpdated", "Updated ServiceMonitor.monitoring.coreos.com/v1 because it changed")
+	recorder.Eventf("ServiceMonitorUpdated", "Updated "+serviceMonitorGVRString+" because it changed")
 	return newObj, true, err
 }
 
@@ -101,15 +104,16 @@ var prometheusRuleGVR = schema.GroupVersionResource{Group: "monitoring.coreos.co
 // ApplyPrometheusRule applies the PrometheusRule
 func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
 	namespace := required.GetNamespace()
+	prometheusRuleGVRString := prometheusRuleGVR.String()
 
 	existing, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		newObj, createErr := client.Resource(prometheusRuleGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
 		if createErr != nil {
-			recorder.Warningf("PrometheusRuleCreateFailed", "Failed to create PrometheusRule.monitoring.coreos.com/v1: %v", createErr)
+			recorder.Warningf("PrometheusRuleCreateFailed", "Failed to create "+prometheusRuleGVRString+": %v", createErr)
 			return nil, true, createErr
 		}
-		recorder.Eventf("PrometheusRuleCreated", "Created PrometheusRule.monitoring.coreos.com/v1 because it was missing")
+		recorder.Eventf("PrometheusRuleCreated", "Created "+prometheusRuleGVRString+" because it was missing")
 		return newObj, true, nil
 	}
 	if err != nil {
@@ -133,11 +137,57 @@ func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder
 
 	newObj, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
 	if err != nil {
-		recorder.Warningf("PrometheusRuleUpdateFailed", "Failed to update PrometheusRule.monitoring.coreos.com/v1: %v", err)
+		recorder.Warningf("PrometheusRuleUpdateFailed", "Failed to update "+prometheusRuleGVRString+": %v", err)
 		return nil, true, err
 	}
 
-	recorder.Eventf("PrometheusRuleUpdated", "Updated PrometheusRule.monitoring.coreos.com/v1 because it changed")
+	recorder.Eventf("PrometheusRuleUpdated", "Updated "+prometheusRuleGVRString+" because it changed")
+	return newObj, true, err
+}
+
+var alertmanagerGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "alertmanagers"}
+
+// ApplyAlertmanager applies the Alertmanager.
+func ApplyAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	namespace := required.GetNamespace()
+	alertmanagerGVRString := alertmanagerGVR.String()
+
+	existing, err := client.Resource(alertmanagerGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		newObj, createErr := client.Resource(alertmanagerGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
+		if createErr != nil {
+			recorder.Warningf("AlertmanagerCreateFailed", "Failed to create "+alertmanagerGVRString+": %v", createErr)
+			return nil, true, createErr
+		}
+		recorder.Eventf("AlertmanagerCreated", "Created "+alertmanagerGVRString+" because it was missing")
+		return newObj, true, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	existingCopy := existing.DeepCopy()
+
+	toUpdate, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !modified {
+		return nil, false, nil
+	}
+
+	if klog.V(4).Enabled() {
+		klog.Infof("Alertmanager %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, toUpdate))
+	}
+
+	newObj, err := client.Resource(alertmanagerGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
+	if err != nil {
+		recorder.Warningf("AlertmanagerUpdateFailed", "Failed to update "+alertmanagerGVRString+": %v", err)
+		return nil, true, err
+	}
+
+	recorder.Eventf("AlertmanagerUpdated", "Updated "+alertmanagerGVRString+" because it changed")
 	return newObj, true, err
 }
 
@@ -157,6 +207,19 @@ func DeletePrometheusRule(ctx context.Context, client dynamic.Interface, recorde
 func DeleteServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
 	namespace := required.GetNamespace()
 	err := client.Resource(serviceMonitorGVR).Namespace(namespace).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	reportDeleteEvent(recorder, required, err)
+	return nil, true, nil
+}
+
+func DeleteAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	namespace := required.GetNamespace()
+	err := client.Resource(alertmanagerGVR).Namespace(namespace).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		return nil, false, nil
 	}
