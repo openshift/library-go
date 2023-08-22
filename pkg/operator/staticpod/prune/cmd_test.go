@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"vbom.ml/util/sortorder"
+	"github.com/fvbommel/sortorder"
 )
 
 func TestRun(t *testing.T) {
