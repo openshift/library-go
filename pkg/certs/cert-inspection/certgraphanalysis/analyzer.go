@@ -33,3 +33,25 @@ func InspectSecret(obj *corev1.Secret) (*certgraphapi.CertKeyPair, error) {
 	}
 	return nil, fmt.Errorf("didn't see that coming")
 }
+
+func InspectConfigMap(obj *corev1.ConfigMap) (*certgraphapi.CertificateAuthorityBundle, error) {
+	caBundle, ok := obj.Data["ca-bundle.crt"]
+	if !ok {
+		return nil, nil
+	}
+	if len(caBundle) == 0 {
+		return nil, nil
+	}
+
+	certificates, err := cert.ParseCertsPEM([]byte(caBundle))
+	if err != nil {
+		return nil, err
+	}
+	caBundleDetail, err := toCABundle(certificates)
+	if err != nil {
+		return nil, err
+	}
+	caBundleDetail = addConfigMapLocation(caBundleDetail, obj.Namespace, obj.Name)
+
+	return caBundleDetail, nil
+}
