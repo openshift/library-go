@@ -758,11 +758,10 @@ func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertifi
 	}
 
 	cert := server.Certs[0]
-	stringCertIPs := make([]string, len(cert.IPAddresses))
-	for i, ip := range cert.IPAddresses {
-		stringCertIPs[i] = ip.String()
+	certNames := sets.NewString()
+	for _, ip := range cert.IPAddresses {
+		certNames.Insert(ip.String())
 	}
-	certNames := sets.NewString(stringCertIPs...)
 	certNames.Insert(cert.DNSNames...)
 	if hostnames.Equal(certNames) {
 		klog.V(4).Infof("Found existing server certificate in %s", certFile)
