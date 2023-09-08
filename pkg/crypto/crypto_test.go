@@ -524,3 +524,42 @@ func TestSubjectChanged(t *testing.T) {
 	}
 	require.True(t, subjectChanged(subject1, subject2))
 }
+
+func TestServerCertRegeneration(t *testing.T) {
+	testDir := t.TempDir()
+	certfile := filepath.Join(testDir, "ca.crt")
+	keyfile := filepath.Join(testDir, "ca.key")
+	serialfile := filepath.Join(testDir, "serial.txt")
+
+	ca, created, err := EnsureCA(certfile, keyfile, serialfile, "testca", 1)
+	require.NoError(t, err)
+	require.NotNil(t, ca)
+	require.True(t, created)
+
+	serverCertDir := filepath.Join(testDir, "server")
+	serverCertFile := filepath.Join(serverCertDir, "server.crt")
+	serverKeyFile := filepath.Join(serverCertDir, "server.key")
+	hostnames := sets.NewString("myserver.local", "veryglobal.tho", "192.168.0.1")
+
+	serverCert, created, err := ca.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.True(t, created)
+
+	serverCert, created, err = ca.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.False(t, created)
+
+	hostnames.Insert("secondname.local")
+	serverCert, created, err = ca.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.True(t, created)
+
+	hostnames.Delete("secondname.local")
+	serverCert, created, err = ca.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
+	require.NoError(t, err)
+	require.NotNil(t, serverCert)
+	require.True(t, created)
+}
