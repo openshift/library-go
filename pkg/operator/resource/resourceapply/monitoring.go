@@ -19,8 +19,30 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 )
 
+var alertmanagerGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "alertmanagers"}
+var prometheusGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheuses"}
 var prometheusRuleGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
 var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+
+// ApplyAlertmanager applies the Alertmanager.
+func ApplyAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, alertmanagerGVR)
+}
+
+// DeleteAlertmanager deletes the Alertmanager.
+func DeleteAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	return DeleteUnstructuredResource(ctx, client, recorder, required, alertmanagerGVR)
+}
+
+// ApplyPrometheus applies the Prometheus.
+func ApplyPrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusGVR)
+}
+
+// DeletePrometheus deletes the Prometheus.
+func DeletePrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	return DeleteUnstructuredResource(ctx, client, recorder, required, prometheusGVR)
+}
 
 // ApplyPrometheusRule applies the PrometheusRule.
 func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
@@ -114,7 +136,7 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 	}
 
 	// Perform update if resource exists but different from the desired one.
-	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	actual, err := client.Resource(alertmanagerGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
