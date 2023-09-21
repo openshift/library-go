@@ -2,123 +2,127 @@ package resourceapply
 
 import (
 	"context"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
-	"k8s.io/apimachinery/pkg/api/equality"
+	errorsstdlib "errors"
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 )
 
-var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
 var prometheusRuleGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
+var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
 
 // ApplyPrometheusRule applies the PrometheusRule.
 func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	namespace := required.GetNamespace()
-
-	existing, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		newObj, createErr := client.Resource(prometheusRuleGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
-		if createErr != nil {
-			recorder.Warningf("PrometheusRuleCreateFailed", "Failed to create PrometheusRule.monitoring.coreos.com/v1: %v", createErr)
-			return nil, true, createErr
-		}
-		recorder.Eventf("PrometheusRuleCreated", "Created PrometheusRule.monitoring.coreos.com/v1 because it was missing")
-		return newObj, true, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-
-	existingCopy := existing.DeepCopy()
-
-	toUpdate, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if !modified {
-		return nil, false, nil
-	}
-
-	if klog.V(2).Enabled() {
-		klog.Infof("PrometheusRule %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, toUpdate))
-	}
-
-	newObj, err := client.Resource(prometheusRuleGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
-	if err != nil {
-		recorder.Warningf("PrometheusRuleUpdateFailed", "Failed to update PrometheusRule.monitoring.coreos.com/v1: %v", err)
-		return nil, true, err
-	}
-
-	recorder.Eventf("PrometheusRuleUpdated", "Updated PrometheusRule.monitoring.coreos.com/v1 because it changed")
-	return newObj, true, err
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusRuleGVR)
 }
 
 // DeletePrometheusRule deletes the PrometheusRule.
 func DeletePrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	namespace := required.GetNamespace()
-	err := client.Resource(prometheusRuleGVR).Namespace(namespace).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
-	if err != nil && errors.IsNotFound(err) {
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	resourcehelper.ReportDeleteEvent(recorder, required, err)
-	return nil, true, nil
+	return DeleteUnstructuredResource(ctx, client, recorder, required, prometheusRuleGVR)
 }
 
 // ApplyServiceMonitor applies the ServiceMonitor.
 func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	namespace := required.GetNamespace()
-	existing, err := client.Resource(serviceMonitorGVR).Namespace(namespace).Get(ctx, required.GetName(), metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		newObj, createErr := client.Resource(serviceMonitorGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
-		if createErr != nil {
-			recorder.Warningf("ServiceMonitorCreateFailed", "Failed to create ServiceMonitor.monitoring.coreos.com/v1: %v", createErr)
-			return nil, true, createErr
-		}
-		recorder.Eventf("ServiceMonitorCreated", "Created ServiceMonitor.monitoring.coreos.com/v1 because it was missing")
-		return newObj, true, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-
-	existingCopy := existing.DeepCopy()
-
-	toUpdate, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if !modified {
-		return nil, false, nil
-	}
-
-	if klog.V(4).Enabled() {
-		klog.Infof("ServiceMonitor %q changes: %v", namespace+"/"+required.GetName(), JSONPatchNoError(existing, toUpdate))
-	}
-
-	newObj, err := client.Resource(serviceMonitorGVR).Namespace(namespace).Update(ctx, toUpdate, metav1.UpdateOptions{})
-	if err != nil {
-		recorder.Warningf("ServiceMonitorUpdateFailed", "Failed to update ServiceMonitor.monitoring.coreos.com/v1: %v", err)
-		return nil, true, err
-	}
-
-	recorder.Eventf("ServiceMonitorUpdated", "Updated ServiceMonitor.monitoring.coreos.com/v1 because it changed")
-	return newObj, true, err
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, serviceMonitorGVR)
 }
 
 // DeleteServiceMonitor deletes the ServiceMonitor.
 func DeleteServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
+	return DeleteUnstructuredResource(ctx, client, recorder, required, serviceMonitorGVR)
+}
+
+// ApplyUnstructuredResourceImproved can utilize the cache to reconcile the existing resource to the desired state.
+func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured, cache ResourceCache, resourceGVR schema.GroupVersionResource) (*unstructured.Unstructured, bool, error) {
+	name := required.GetName()
 	namespace := required.GetNamespace()
-	err := client.Resource(serviceMonitorGVR).Namespace(namespace).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
+
+	// Create if resource does not exist, and update cache with new metadata.
+	existing, err := client.Resource(resourceGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		requiredCopy := required.DeepCopy()
+		want, err := client.Resource(resourceGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
+		reportCreateEvent(recorder, requiredCopy, err)
+		cache.UpdateCachedResourceMetadata(required, want)
+		return want, true, err
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Return if the metadata hash or resource version matches.
+	if cache.SafeToSkipApply(required, existing) {
+		return existing, false, nil
+	}
+
+	// Ensure all expected metadata fields are set.
+	existingCopy := existing.DeepCopy()
+	existingObjectMeta, found, err := unstructured.NestedMap(existingCopy.Object, "metadata")
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in %s", existingCopy.GetName()))
+	}
+	requiredObjectMeta, found, err := unstructured.NestedMap(required.Object, "metadata")
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in %s", required.GetName()))
+	}
+	var existingObjectMetaTyped, requiredObjectMetaTyped metav1.ObjectMeta
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(existingObjectMeta, &existingObjectMetaTyped)
+	if err != nil {
+		return nil, false, err
+	}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(requiredObjectMeta, &requiredObjectMetaTyped)
+	if err != nil {
+		return nil, false, err
+	}
+	modifiedPtr := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modifiedPtr, &existingObjectMetaTyped, requiredObjectMetaTyped)
+	if !*modifiedPtr {
+		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
+		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above.
+		cache.UpdateCachedResourceMetadata(required, existingCopy)
+		return existingCopy, false, nil
+	}
+
+	// Ensure all expected spec fields are set.
+	existingCopy, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	if !modified {
+		cache.UpdateCachedResourceMetadata(required, existingCopy)
+		return existingCopy, false, nil
+	}
+
+	if klog.V(4).Enabled() {
+		klog.Infof("%s %q changes: %v", resourceGVR.String(), namespace+"/"+name, JSONPatchNoError(existing, existingCopy))
+	}
+
+	// Perform update if resource exists but different from the desired one.
+	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	reportUpdateEvent(recorder, required, err)
+	cache.UpdateCachedResourceMetadata(required, actual)
+	return actual, true, err
+}
+
+// DeleteUnstructuredResource deletes the unstructured resource.
+func DeleteUnstructuredResource(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured, resourceGVR schema.GroupVersionResource) (*unstructured.Unstructured, bool, error) {
+	err := client.Resource(resourceGVR).Namespace(required.GetNamespace()).Delete(ctx, required.GetName(), metav1.DeleteOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		return nil, false, nil
 	}
