@@ -46,7 +46,7 @@ var secretLocationToLogicalName = map[certgraphapi.InClusterSecretLocation]logic
 	newSecretLocation("openshift-kube-apiserver", "service-network-serving-certkey"):                  newMeaning("kube-apiserver-service-network-serving", "Serving certificate used by the kube-apiserver to terminate requests via the service network."),
 	newSecretLocation("openshift-kube-apiserver-operator", "localhost-serving-signer"):                newMeaning("kube-apiserver-localhost-signer", "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via localhost."),
 	newSecretLocation("openshift-kube-apiserver", "localhost-serving-cert-certkey"):                   newMeaning("kube-apiserver-localhost-serving", "Serving certificate used by the kube-apiserver to terminate requests via localhost."),
-	newSecretLocation("openshift-machine-config-operator", "machine-config-server-tls"):               newMeaning("mco-mystery-cert", "TODO: team needs to make description"),
+	newSecretLocation("openshift-machine-config-operator", "machine-config-server-tls"):               newMeaning("mco-mcs-cert", "Serving certificate used by machine config server to serve Ignition during node scaling."),
 	newSecretLocation("openshift-config", "etcd-signer"):                                              newMeaning("etcd-signer", "Signer for etcd to create client and serving certificates."),
 	newSecretLocation("", ""): newMeaning("", ""),
 	newSecretLocation("", ""): newMeaning("", ""),
