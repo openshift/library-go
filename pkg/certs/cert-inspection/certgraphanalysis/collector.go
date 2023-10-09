@@ -2,6 +2,7 @@ package certgraphanalysis
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
@@ -60,6 +61,14 @@ func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, a
 	certs := []*certgraphapi.CertKeyPair{}
 	caBundles := []*certgraphapi.CertificateAuthorityBundle{}
 	errs := []error{}
+	nodes := map[string]int{}
+	nodeList, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster nodes: %v", err)
+	}
+	for i, node := range nodeList.Items {
+		nodes[node.Name] = i
+	}
 
 	configMapList, err := kubeClient.CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{})
 	switch {
@@ -99,17 +108,17 @@ func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, a
 		}
 	}
 
-	pkiList := PKIListFromParts(ctx, certs, caBundles)
+	pkiList := PKIListFromParts(ctx, certs, caBundles, nodes)
 	return pkiList, errors.NewAggregate(errs)
 }
 
-func PKIListFromParts(ctx context.Context, certs []*certgraphapi.CertKeyPair, caBundles []*certgraphapi.CertificateAuthorityBundle) *certgraphapi.PKIList {
+func PKIListFromParts(ctx context.Context, certs []*certgraphapi.CertKeyPair, caBundles []*certgraphapi.CertificateAuthorityBundle, nodes map[string]int) *certgraphapi.PKIList {
 	certs = deduplicateCertKeyPairs(certs)
 	certList := &certgraphapi.CertKeyPairList{}
 	for i := range certs {
 		certList.Items = append(certList.Items, *certs[i])
 	}
-	guessLogicalNamesForCertKeyPairList(certList)
+	guessLogicalNamesForCertKeyPairList(certList, nodes)
 
 	caBundles = deduplicateCABundles(caBundles)
 	caBundleList := &certgraphapi.CertificateAuthorityBundleList{}
