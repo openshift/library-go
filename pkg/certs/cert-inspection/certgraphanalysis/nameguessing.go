@@ -1,6 +1,7 @@
 package certgraphanalysis
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
@@ -8,9 +9,9 @@ import (
 
 // TODO these should all be eliminated in favor of self-describing annotations.
 
-func guessLogicalNamesForCertKeyPairList(in *certgraphapi.CertKeyPairList) {
+func guessLogicalNamesForCertKeyPairList(in *certgraphapi.CertKeyPairList, nodes map[string]int) {
 	for i := range in.Items {
-		meaning := guessMeaningForCertKeyPair(in.Items[i])
+		meaning := guessMeaningForCertKeyPair(in.Items[i], nodes)
 		in.Items[i].LogicalName = meaning.name
 		in.Items[i].Description = meaning.description
 	}
@@ -55,22 +56,59 @@ var secretLocationToLogicalName = map[certgraphapi.InClusterSecretLocation]logic
 	newSecretLocation("", ""): newMeaning("", ""),
 }
 
-func guessMeaningForCertKeyPair(in certgraphapi.CertKeyPair) logicalMeaning {
+func formatSecretLocation(loc certgraphapi.InClusterSecretLocation, nodes map[string]int) certgraphapi.InClusterSecretLocation {
+	if location, updated := formatEtcdServingMetricsCertificate(loc, nodes); updated {
+		return location
+	}
+	if location, updated := formatEtcdServingCertificate(loc, nodes); updated {
+		return location
+	}
+	if location, updated := formatEtcdPeerCertificate(loc, nodes); updated {
+		return location
+	}
+	if location, updated := formatKubeAPIEtcdClientCertificate(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeAPIVersionedCertificate(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeSchedulerVersionedCertificate(loc); updated {
+		return location
+	}
+	if location, updated := formatOpenshiftMonitoringVersionedCertificate(loc); updated {
+		return location
+	}
+	return loc
+}
+
+func formatConfigMapLocation(loc certgraphapi.InClusterConfigMapLocation) certgraphapi.InClusterConfigMapLocation {
+	if location, updated := formatEtcdVersionedCABundle(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeAPIVersionedCABundle(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeControllerVersionedCABundle(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeControllerVersionedCABundle(loc); updated {
+		return location
+	}
+	if location, updated := formatKubeSchedulerVersionedCABundle(loc); updated {
+		return location
+	}
+	if location, updated := formatOpenshiftMonitoringVersionedCABundle(loc); updated {
+		return location
+	}
+	return loc
+}
+
+func guessMeaningForCertKeyPair(in certgraphapi.CertKeyPair, nodes map[string]int) logicalMeaning {
 	for _, loc := range in.Spec.SecretLocations {
-		if meaning, ok := secretLocationToLogicalName[loc]; ok {
+		updatedLocation := formatSecretLocation(loc, nodes)
+		if meaning, ok := secretLocationToLogicalName[updatedLocation]; ok {
 			return meaning
 		}
-	}
-
-	for _, loc := range in.Spec.SecretLocations {
-		if loc.Namespace != "openshift-etcd" {
-			continue
-		}
-		if !strings.HasPrefix(loc.Name, "etcd-serving-metrics-") {
-			continue
-		}
-		master := loc.Name[len("etcd-serving-metrics-"):]
-		return newMeaning("etcd-metrics-for-master-"+master, "")
 	}
 
 	// service serving certs
@@ -80,6 +118,173 @@ func guessMeaningForCertKeyPair(in certgraphapi.CertKeyPair) logicalMeaning {
 	}
 
 	return newMeaning("", "")
+}
+
+func formatEtcdServingCertificate(loc certgraphapi.InClusterSecretLocation, nodes map[string]int) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-etcd" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "etcd-serving-") {
+		return loc, false
+	}
+	master := loc.Name[len("etcd-serving-"):]
+	return certgraphapi.InClusterSecretLocation{
+		Name:      fmt.Sprintf("etcd-serving-for-master-%d", nodes[master]),
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatEtcdServingMetricsCertificate(loc certgraphapi.InClusterSecretLocation, nodes map[string]int) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-etcd" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "etcd-serving-metrics-") {
+		return loc, false
+	}
+	master := loc.Name[len("etcd-serving-metrics-"):]
+	return certgraphapi.InClusterSecretLocation{
+		Name:      fmt.Sprintf("etcd-metrics-for-master-%d", nodes[master]),
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatEtcdPeerCertificate(loc certgraphapi.InClusterSecretLocation, nodes map[string]int) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-etcd" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "etcd-peer-") {
+		return loc, false
+	}
+	master := loc.Name[len("etcd-peer-"):]
+	return certgraphapi.InClusterSecretLocation{
+		Name:      fmt.Sprintf("etcd-peer-for-master-%d", nodes[master]),
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatKubeAPIEtcdClientCertificate(loc certgraphapi.InClusterSecretLocation) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-kube-apiserver" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "etcd-client-") {
+		return loc, false
+	}
+	return certgraphapi.InClusterSecretLocation{
+		Name:      "etcd-client",
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatKubeAPIVersionedCertificate(loc certgraphapi.InClusterSecretLocation) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-kube-apiserver" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "localhost-recovery-serving-certkey-") {
+		return loc, false
+	}
+	return certgraphapi.InClusterSecretLocation{
+		Name:      "localhost-recovery-serving-certkey",
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatKubeSchedulerVersionedCertificate(loc certgraphapi.InClusterSecretLocation) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-kube-scheduler" && loc.Namespace != "kube-controller-manager" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "serving-cert-") {
+		return loc, false
+	}
+	return certgraphapi.InClusterSecretLocation{
+		Name:      "serving-cert",
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatOpenshiftMonitoringVersionedCertificate(loc certgraphapi.InClusterSecretLocation) (certgraphapi.InClusterSecretLocation, bool) {
+	if loc.Namespace != "openshift-monitoring" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "prometheus-adapter-") || strings.HasSuffix(loc.Name, "-tls") {
+		return loc, false
+	}
+	return certgraphapi.InClusterSecretLocation{
+		Name:      "prometheus-adapter",
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatEtcdVersionedCABundle(loc certgraphapi.InClusterConfigMapLocation) (certgraphapi.InClusterConfigMapLocation, bool) {
+	if loc.Namespace != "openshift-etcd" {
+		return loc, false
+	}
+	for _, name := range []string{"etcd-metrics-proxy-client-ca", "etcd-peer-client-ca", "etcd-serving-ca"} {
+		if strings.HasPrefix(loc.Name, fmt.Sprintf("%s-", name)) {
+			return certgraphapi.InClusterConfigMapLocation{
+				Name:      name,
+				Namespace: loc.Namespace,
+			}, true
+		}
+	}
+	return loc, false
+}
+
+func formatKubeAPIVersionedCABundle(loc certgraphapi.InClusterConfigMapLocation) (certgraphapi.InClusterConfigMapLocation, bool) {
+	if loc.Namespace != "openshift-kube-apiserver" {
+		return loc, false
+	}
+	for _, name := range []string{"etcd-serving-ca", "kube-apiserver-server-ca", "kubelet-serving-ca"} {
+		if strings.HasPrefix(loc.Name, fmt.Sprintf("%s-", name)) {
+			return certgraphapi.InClusterConfigMapLocation{
+				Name:      name,
+				Namespace: loc.Namespace,
+			}, true
+		}
+	}
+	return loc, false
+}
+
+func formatKubeControllerVersionedCABundle(loc certgraphapi.InClusterConfigMapLocation) (certgraphapi.InClusterConfigMapLocation, bool) {
+	if loc.Namespace != "openshift-kube-controller-manager" {
+		return loc, false
+	}
+	for _, name := range []string{"service-ca", "serviceaccount-ca"} {
+		if strings.HasPrefix(loc.Name, fmt.Sprintf("%s-", name)) {
+			return certgraphapi.InClusterConfigMapLocation{
+				Name:      name,
+				Namespace: loc.Namespace,
+			}, true
+		}
+	}
+	return loc, false
+}
+
+func formatKubeSchedulerVersionedCABundle(loc certgraphapi.InClusterConfigMapLocation) (certgraphapi.InClusterConfigMapLocation, bool) {
+	if loc.Namespace != "openshift-kube-scheduler" {
+		return loc, false
+	}
+	if !strings.HasPrefix(loc.Name, "serviceaccount-ca-") {
+		return loc, false
+	}
+	return certgraphapi.InClusterConfigMapLocation{
+		Name:      "serving-cert",
+		Namespace: loc.Namespace,
+	}, true
+}
+
+func formatOpenshiftMonitoringVersionedCABundle(loc certgraphapi.InClusterConfigMapLocation) (certgraphapi.InClusterConfigMapLocation, bool) {
+	if loc.Namespace != "openshift-monitoring" {
+		return loc, false
+	}
+	for _, name := range []string{"alertmanager-trusted-ca-bundle-", "prometheus-trusted-ca-bundle-", "thanos-querier-trusted-ca-bundle-"} {
+		if strings.HasPrefix(loc.Name, fmt.Sprintf("%s-", name)) {
+			return certgraphapi.InClusterConfigMapLocation{
+				Name:      name,
+				Namespace: loc.Namespace,
+			}, true
+		}
+	}
+	return loc, false
 }
 
 func guessLogicalNamesForCABundleList(in *certgraphapi.CertificateAuthorityBundleList) {
@@ -136,7 +341,8 @@ var configmapLocationToLogicalName = map[certgraphapi.InClusterConfigMapLocation
 
 func guessMeaningForCABundle(in certgraphapi.CertificateAuthorityBundle) logicalMeaning {
 	for _, loc := range in.Spec.ConfigMapLocations {
-		if meaning, ok := configmapLocationToLogicalName[loc]; ok {
+		updatedLocation := formatConfigMapLocation(loc)
+		if meaning, ok := configmapLocationToLogicalName[updatedLocation]; ok {
 			return meaning
 		}
 	}
