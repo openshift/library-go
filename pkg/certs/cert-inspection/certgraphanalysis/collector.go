@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,7 @@ func platformSecrets(obj *corev1.Secret) bool {
 }
 
 func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, acceptConfigMap configMapFilterFunc, acceptSecret secretFilterFunc) (*certgraphapi.PKIList, error) {
+	inClusterResourceData := &certgraphapi.PerInClusterResourceData{}
 	certs := []*certgraphapi.CertKeyPair{}
 	caBundles := []*certgraphapi.CertificateAuthorityBundle{}
 	errs := []error{}
@@ -82,6 +84,18 @@ func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, a
 			details, err := InspectConfigMap(&configMap)
 			if details != nil {
 				caBundles = append(caBundles, details)
+
+				inClusterResourceData.CertificateAuthorityBundles = append(inClusterResourceData.CertificateAuthorityBundles,
+					certgraphapi.PKIRegistryInClusterCABundle{
+						ConfigMapLocation: certgraphapi.InClusterConfigMapLocation{
+							Namespace: configMap.Namespace,
+							Name:      configMap.Name,
+						},
+						CABundleInfo: certgraphapi.PKIRegistryCertificateAuthorityInfo{
+							OwningJiraComponent: configMap.Annotations[annotations.OpenShiftComponent],
+							Description:         configMap.Annotations[annotations.OpenShiftDescription],
+						},
+					})
 			}
 			if err != nil {
 				errs = append(errs, err)
@@ -101,6 +115,18 @@ func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, a
 			details, err := InspectSecret(&secret)
 			if details != nil {
 				certs = append(certs, details)
+
+				inClusterResourceData.CertKeyPairs = append(inClusterResourceData.CertKeyPairs,
+					certgraphapi.PKIRegistryInClusterCertKeyPair{
+						SecretLocation: certgraphapi.InClusterSecretLocation{
+							Namespace: secret.Namespace,
+							Name:      secret.Name,
+						},
+						CertKeyInfo: certgraphapi.PKIRegistryCertKeyPairInfo{
+							OwningJiraComponent: secret.Annotations[annotations.OpenShiftComponent],
+							Description:         secret.Annotations[annotations.OpenShiftDescription],
+						},
+					})
 			}
 			if err != nil {
 				errs = append(errs, err)
@@ -108,11 +134,11 @@ func gatherFilteredCerts(ctx context.Context, kubeClient kubernetes.Interface, a
 		}
 	}
 
-	pkiList := PKIListFromParts(ctx, certs, caBundles, nodes)
+	pkiList := PKIListFromParts(ctx, inClusterResourceData, certs, caBundles, nodes)
 	return pkiList, errors.NewAggregate(errs)
 }
 
-func PKIListFromParts(ctx context.Context, certs []*certgraphapi.CertKeyPair, caBundles []*certgraphapi.CertificateAuthorityBundle, nodes map[string]int) *certgraphapi.PKIList {
+func PKIListFromParts(ctx context.Context, inClusterResourceData *certgraphapi.PerInClusterResourceData, certs []*certgraphapi.CertKeyPair, caBundles []*certgraphapi.CertificateAuthorityBundle, nodes map[string]int) *certgraphapi.PKIList {
 	certs = deduplicateCertKeyPairs(certs)
 	certList := &certgraphapi.CertKeyPairList{}
 	for i := range certs {
@@ -127,8 +153,13 @@ func PKIListFromParts(ctx context.Context, certs []*certgraphapi.CertKeyPair, ca
 	}
 	guessLogicalNamesForCABundleList(caBundleList)
 
-	return &certgraphapi.PKIList{
+	ret := &certgraphapi.PKIList{
 		CertificateAuthorityBundles: *caBundleList,
 		CertKeyPairs:                *certList,
 	}
+	if inClusterResourceData != nil {
+		ret.InClusterResourceData = *inClusterResourceData
+	}
+
+	return ret
 }
