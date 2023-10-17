@@ -217,7 +217,7 @@ func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc r
 			errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.Key, older.Spec.TLS.Key, field.NewPath("spec", "tls", "key"))...)
 
 			if opts.AllowExternalCertificates && route.Spec.TLS.ExternalCertificate != nil && older.Spec.TLS.ExternalCertificate != nil {
-				errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.ExternalCertificate.Name, older.Spec.TLS.ExternalCertificate.Name, field.NewPath("spec", "tls", "certificate"))...)
+				errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.ExternalCertificate.Name, older.Spec.TLS.ExternalCertificate.Name, field.NewPath("spec", "tls", "externalCertificate"))...)
 			}
 			return errs
 		}

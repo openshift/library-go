@@ -42,7 +42,7 @@ func TestValidateHostExternalCertificate(t *testing.T) {
 				allow: false,
 				opts:  routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			},
-			want: field.ErrorList{},
+			want: nil,
 		},
 		{
 			name: "Updating new route with nil TLS",
@@ -61,7 +61,7 @@ func TestValidateHostExternalCertificate(t *testing.T) {
 				allow: false,
 				opts:  routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			},
-			want: field.ErrorList{},
+			want: nil,
 		},
 		{
 			name: "Updating route from externalCertificate to certificate without permissions",
@@ -170,7 +170,7 @@ func TestValidateHostExternalCertificate(t *testing.T) {
 				allow: true,
 				opts:  routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			},
-			want: field.ErrorList{},
+			want: nil,
 		},
 		{
 			name: "Updating route from certificate to externalCertificate when feature gate is off and no permission",
@@ -195,7 +195,7 @@ func TestValidateHostExternalCertificate(t *testing.T) {
 				allow: false,
 				opts:  routecommon.RouteValidationOptions{AllowExternalCertificates: false},
 			},
-			want: field.ErrorList{},
+			want: nil,
 		},
 	}
 	for _, tt := range tests {

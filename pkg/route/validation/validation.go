@@ -73,8 +73,8 @@ var (
 	permittedResponseHeaderValueRE = regexp.MustCompile(strings.Replace(permittedHeaderValueTemplate, "XYZ", "res", 1))
 )
 
-func ValidateRoute(ctx context.Context, route *routev1.Route, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
-	return validateRoute(ctx, route, true, sarc, secrets, opts)
+func ValidateRoute(ctx context.Context, route *routev1.Route, sarCreator routecommon.SubjectAccessReviewCreator, secretsGetter corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
+	return validateRoute(ctx, route, true, sarCreator, secretsGetter, opts)
 }
 
 // validLabels - used in the ValidateRouteUpdate function to check if "older" routes conform to DNS1123Labels or not
@@ -303,13 +303,14 @@ func validateTLS(ctx context.Context, route *routev1.Route, fldPath *field.Path,
 	return result
 }
 
-func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, fldPath *field.Path, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter) field.ErrorList {
+// validateTLSExternalCertificate
+func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, fldPath *field.Path, sarCreator routecommon.SubjectAccessReviewCreator, secretsGetter corev1client.SecretsGetter) field.ErrorList {
 	tls := route.Spec.TLS
 	var errs field.ErrorList
 
-	errs = append(errs, routecommon.CheckRouteCustomHostSAR(ctx, fldPath, sarc)...)
+	errs = append(errs, routecommon.CheckRouteCustomHostSAR(ctx, fldPath, sarCreator)...)
 
-	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
+	if err := authorizationutil.Authorize(sarCreator, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
 		&authorizationv1.ResourceAttributes{
 			Namespace: route.Namespace,
 			Verb:      "get",
@@ -319,7 +320,7 @@ func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, f
 		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to get this secret"))
 	}
 
-	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
+	if err := authorizationutil.Authorize(sarCreator, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
 		&authorizationv1.ResourceAttributes{
 			Namespace: route.Namespace,
 			Verb:      "watch",
@@ -329,7 +330,7 @@ func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, f
 		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to watch this secret"))
 	}
 
-	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
+	if err := authorizationutil.Authorize(sarCreator, &user.DefaultInfo{Name: "system:serviceaccount:openshift-ingress:router"},
 		&authorizationv1.ResourceAttributes{
 			Namespace: route.Namespace,
 			Verb:      "list",
@@ -339,13 +340,12 @@ func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, f
 		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to list this secret"))
 	}
 
-	secret, err := secrets.Secrets(route.Namespace).Get(ctx, tls.ExternalCertificate.Name, metav1.GetOptions{})
+	secret, err := secretsGetter.Secrets(route.Namespace).Get(ctx, tls.ExternalCertificate.Name, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		errs = append(errs, field.NotFound(fldPath, err))
 		return errs
 	} else if err != nil {
-		errs = append(errs, field.InternalError(fldPath, err))
-		return errs
+		return append(errs, field.InternalError(fldPath, err))
 	}
 
 	if secret.Type != corev1.SecretTypeTLS {

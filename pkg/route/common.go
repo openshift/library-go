@@ -13,20 +13,21 @@ import (
 	"github.com/openshift/library-go/pkg/authorization/authorizationutil"
 )
 
-// Registry is an interface for performing subject access reviews
+// SubjectAccessReviewCreator is an interface for performing subject access reviews
 type SubjectAccessReviewCreator interface {
 	Create(ctx context.Context, sar *authorizationv1.SubjectAccessReview, opts metav1.CreateOptions) (*authorizationv1.SubjectAccessReview, error)
 }
 
-// routeValidationOptions used to tweak how/what fields are validated. These
+// RouteValidationOptions used to tweak how/what fields are validated. These
 // options are propagated by the apiserver.
 type RouteValidationOptions struct {
 
-	// allowExternalCertificates option is set when RouteExternalCertificate
-	// feature gate is enabled on the apiserver.
+	// AllowExternalCertificates option is set when RouteExternalCertificate
 	AllowExternalCertificates bool
 }
 
+// CheckRouteCustomHostSAR checks if user has permission to create and update routes/custom-host
+// sub-resource
 func CheckRouteCustomHostSAR(ctx context.Context, fldPath *field.Path, sarc SubjectAccessReviewCreator) field.ErrorList {
 
 	var errs field.ErrorList
