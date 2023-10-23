@@ -50,20 +50,20 @@ func (n ConfigMapLocationByNamespaceName) Less(i, j int) bool {
 	return n[i].Name < n[j].Name
 }
 
-func LocateCertKeyPair(targetLocation certgraphapi.InClusterSecretLocation, certKeyPairs []certgraphapi.PKIRegistryInClusterCertKeyPair) (*certgraphapi.PKIRegistryInClusterCertKeyPair, error) {
-	for i, curr := range certKeyPairs {
-		if targetLocation == curr.SecretLocation {
-			return &certKeyPairs[i], nil
+func LocateCertKeyPair(targetLocation certgraphapi.InClusterSecretLocation, expectedCertKeyPairs []certgraphapi.PKIRegistryInClusterCertKeyPair) (*certgraphapi.PKIRegistryInClusterCertKeyPair, error) {
+	for i, expected := range expectedCertKeyPairs {
+		if targetLocation == expected.SecretLocation {
+			return &expectedCertKeyPairs[i], nil
 		}
 	}
 
 	return nil, fmt.Errorf("not found: %#v", targetLocation)
 }
 
-func LocateCertificateAuthorityBundle(targetLocation certgraphapi.InClusterConfigMapLocation, caBundles []certgraphapi.PKIRegistryInClusterCABundle) (*certgraphapi.PKIRegistryInClusterCABundle, error) {
-	for i, curr := range caBundles {
-		if targetLocation == curr.ConfigMapLocation {
-			return &caBundles[i], nil
+func LocateCertificateAuthorityBundle(targetLocation certgraphapi.InClusterConfigMapLocation, expectedCABundles []certgraphapi.PKIRegistryInClusterCABundle) (*certgraphapi.PKIRegistryInClusterCABundle, error) {
+	for i, expected := range expectedCABundles {
+		if targetLocation == expected.ConfigMapLocation {
+			return &expectedCABundles[i], nil
 		}
 	}
 
