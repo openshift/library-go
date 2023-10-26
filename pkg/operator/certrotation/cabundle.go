@@ -51,16 +51,7 @@ func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingC
 		caBundleConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: c.Namespace, Name: c.Name}}
 	}
 	if c.Owner != nil {
-		var found bool
-		for _, ref := range caBundleConfigMap.ObjectMeta.OwnerReferences {
-			if ref == *c.Owner {
-				found = true
-				break
-			}
-		}
-		if !found {
-			caBundleConfigMap.ObjectMeta.OwnerReferences = append(caBundleConfigMap.ObjectMeta.OwnerReferences, *c.Owner)
-		}
+		ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
 	}
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
