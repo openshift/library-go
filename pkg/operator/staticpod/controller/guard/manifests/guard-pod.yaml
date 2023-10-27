@@ -38,15 +38,15 @@ spec:
           trap 'jobs -p | xargs -r kill; exit 0' TERM
           sleep infinity & wait
       readinessProbe:
-        failureThreshold: 3
+        failureThreshold: # Value set by operator
         httpGet:
           host: # Value set by operator
           path: # Value set by operator
           port: # Value set by operator
           scheme: HTTPS
-        periodSeconds: 5
-        successThreshold: 1
-        timeoutSeconds: 5
+        periodSeconds: # Value set by operator
+        successThreshold: # Value set by operator
+        timeoutSeconds: # Value set by operator
       resources:
         requests:
           cpu: 10m

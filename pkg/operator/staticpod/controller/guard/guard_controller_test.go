@@ -19,6 +19,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/monitor"
 	"github.com/openshift/library-go/pkg/operator/events"
 	staticcontrollercommon "github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
@@ -447,7 +448,7 @@ func TestRenderGuardPod(t *testing.T) {
 				podResourcePrefix:       "operand",
 				operatorName:            "operator",
 				operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
-				readyzPort:              "99999",
+				readyZConf:              monitor.ReadyZConf{Port: "99999"},
 				nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
 				podLister:               kubeInformers.Core().V1().Pods().Lister(),
 				podGetter:               kubeClient.CoreV1(),
@@ -572,8 +573,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		podResourcePrefix:       "operand",
 		operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
 		operatorName:            "operator",
-		readyzPort:              "99999",
-		readyzEndpoint:          "readyz",
+		readyZConf:              monitor.ReadyZConf{Port: "99999", Endpoint: "readyz"},
 		nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
 		podLister:               kubeInformers.Core().V1().Pods().Lister(),
 		podGetter:               kubeClient.CoreV1(),
@@ -610,7 +610,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 		// The port is expected to be set to 99999 by the guard controller
 		if probe.Port.IntValue() != 99999 {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzPort, probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyZConf.Port, probe.Port.IntValue())
 		}
 		// The port is expected to be different from the one initially set in the guard pod readiness probe
 		if originalProbe.Port.IntValue() == probe.Port.IntValue() {
@@ -618,8 +618,8 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		}
 
 		// The path is expected to be set to healthz by the guard controller
-		if probe.Path != ctrl.readyzEndpoint {
-			t.Errorf("unexpected path in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzEndpoint, probe.Path)
+		if probe.Path != ctrl.readyZConf.Endpoint {
+			t.Errorf("unexpected path in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyZConf.Endpoint, probe.Path)
 		}
 		// The path is expected to be different from the one initially set in the guard pod readiness probe
 		if probe.Path == originalProbe.Path {
