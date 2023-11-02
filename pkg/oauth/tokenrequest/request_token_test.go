@@ -729,7 +729,7 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 				return err
 			}
 
-			_, err := o.WithLocalCallback(authzUrlHandler, 0)
+			_, err := o.WithLocalCallback("", authzUrlHandler, 0)
 			if err != nil {
 				t.Errorf("%s: unexpected SetDefaultOsinConfig error: %v", tc.name, err)
 				return
