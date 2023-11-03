@@ -29,6 +29,22 @@ const (
 	noHTTPProxyValue          = ""
 )
 
+var (
+	defaultServingInfo = map[string]any{
+		"servingInfo": map[string]any{
+			"cipherSuites": []any{
+				"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+				"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+				"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+			"minTLSVersion": string("VersionTLS12"),
+		},
+	}
+)
+
 type testCase struct {
 	name            string
 	initialObjects  testObjects
@@ -84,6 +100,12 @@ func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
 		},
 		Spec: opv1.OperatorSpec{
 			ManagementState: opv1.Managed,
+			ObservedConfig: runtime.RawExtension{
+				Raw: nil,
+				Object: &unstructured.Unstructured{
+					Object: map[string]any{"targetcsiconfig": defaultServingInfo},
+				},
+			},
 		},
 		Status: opv1.OperatorStatus{},
 	}
@@ -95,10 +117,16 @@ func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
 
 func withHTTPProxy(proxy string) driverModifier {
 	return func(i *fakeDriverInstance) *fakeDriverInstance {
-		observedConfig := map[string]interface{}{}
-		unstructured.SetNestedStringMap(observedConfig, map[string]string{"HTTP_PROXY": proxy}, ProxyConfigPath()...)
+		observedConfigCopy := i.Spec.ObservedConfig.DeepCopy()
 
-		i.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
+		// Copy existing config
+		config := observedConfigCopy.Object.(*unstructured.Unstructured).Object
+
+		// Overwrite any proxy configuration that might exist
+		unstructured.SetNestedStringMap(config, map[string]string{"HTTP_PROXY": proxy}, ProxyConfigPath()...)
+
+		// Write the new observed config
+		i.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: config}}
 		return i
 	}
 }

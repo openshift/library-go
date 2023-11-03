@@ -52,9 +52,8 @@ import (
 //
 // 5. TLS Cipher Suites
 //
-// The placeholder ${TLS_CIPHER_SUITES} is replaced with recommended OCP defaults.
-// These are primarily meant for Kube RBAC sidecars, which may allow some insecure
-// ciphers unless the --tls-cipher-suites argument is explictly provided.
+// The placeholders ${TLS_CIPHER_SUITES} and ${TLS_MIN_VERSION} are replaced with recommended OCP defaults.
+// These are primarily meant for Kube RBAC sidecars, which may allow some insecure TLS versions and ciphers suites.
 //
 // This controller supports removable operands, as configured in pkg/operator/management.
 //
@@ -78,6 +77,7 @@ func NewCSIDriverControllerServiceController(
 	optionalInformers = append(optionalInformers, configInformer.Config().V1().Infrastructures().Informer())
 	var optionalManifestHooks []dc.ManifestHookFunc
 	optionalManifestHooks = append(optionalManifestHooks, WithPlaceholdersHook(configInformer))
+	optionalManifestHooks = append(optionalManifestHooks, WithServingInfo())
 	leConfig := leaderelection.LeaderElectionDefaulting(configv1.LeaderElection{}, "default", "default")
 	optionalManifestHooks = append(optionalManifestHooks, WithLeaderElectionReplacerHook(leConfig))
 
