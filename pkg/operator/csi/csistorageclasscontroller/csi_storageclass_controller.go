@@ -214,7 +214,7 @@ func (e *StorageClassStateEvaluator) GetStorageClassState(ccdName string) operat
 	scState := operatorapi.ManagedStorageClass
 	clusterCSIDriver, err := e.clusterCSIDriverLister.Get(ccdName)
 	if err != nil {
-		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %w", ccdName, err)
+		klog.V(4).Infof("failed to get ClusterCSIDriver %s, assuming Managed StorageClassState: %v", ccdName, err)
 	} else {
 		scState = clusterCSIDriver.Spec.StorageClassState
 	}
