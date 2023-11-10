@@ -109,7 +109,7 @@ func NewCommand(check ReadinessChecker, newOperatorClient func(config *rest.Conf
 			}
 			clientConfig, err := client.GetKubeConfigOrInClusterConfig(o.KubeConfig, nil)
 			if err != nil {
-				klog.Fatal("either use --kubeconfig or run in-cluster: %v", err)
+				klog.Fatalf("either use --kubeconfig or run in-cluster: %v", err)
 			}
 			restConfig := rest.CopyConfig(clientConfig)
 			if c, ok := o.Check.(WantsRestConfig); ok {
@@ -196,7 +196,7 @@ type suicider interface {
 func (o *Options) suicide(installerLock Locker) {
 	if err := os.Remove(filepath.Join(o.ManifestDir, fmt.Sprintf("%s-startup-monitor-pod.yaml", o.TargetName))); err != nil && !os.IsNotExist(err) {
 		installerLock.Unlock()
-		klog.Exit("Failed to suicide: %v", err)
+		klog.Exitf("Failed to suicide: %v", err)
 	}
 	installerLock.Unlock()
 	klog.Info("Waiting for SIGTERM...")
