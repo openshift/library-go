@@ -8,6 +8,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const rewritePrefix = "rewritten.cert-info.openshift.io/"
+
 type configMapRewriteFunc func(configMap *corev1.ConfigMap)
 type secretRewriteFunc func(secret *corev1.Secret)
 type caBundleRewriteFunc func(caBundle *certgraphapi.CertificateAuthorityBundle)
@@ -52,7 +54,7 @@ var (
 	}
 )
 
-func RewriteNodeIPs(nodeList []corev1.Node) *metadataOptions {
+func RewriteNodeIPs(nodeList []*corev1.Node) *metadataOptions {
 	nodes := map[string]int{}
 	for i, node := range nodeList {
 		nodes[node.Name] = i
@@ -66,7 +68,7 @@ func RewriteNodeIPs(nodeList []corev1.Node) *metadataOptions {
 					if len(secret.Annotations) == 0 {
 						secret.Annotations = map[string]string{}
 					}
-					secret.Annotations["openshift.io/last-rewritten-by"] = "RewriteNodeIPs"
+					secret.Annotations[rewritePrefix+"RewriteNodeIPs"] = nodeName
 				}
 			}
 		},
