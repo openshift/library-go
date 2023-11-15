@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -12,8 +14,8 @@ const rewritePrefix = "rewritten.cert-info.openshift.io/"
 
 type configMapRewriteFunc func(configMap *corev1.ConfigMap)
 type secretRewriteFunc func(secret *corev1.Secret)
-type caBundleRewriteFunc func(caBundle *certgraphapi.CertificateAuthorityBundle)
-type certKeyPairRewriteFunc func(certKeyPair *certgraphapi.CertKeyPair)
+type caBundleRewriteFunc func(metadata metav1.ObjectMeta, caBundle *certgraphapi.CertificateAuthorityBundle)
+type certKeyPairRewriteFunc func(metadata metav1.ObjectMeta, certKeyPair *certgraphapi.CertKeyPair)
 
 type metadataOptions struct {
 	rewriteCABundle    caBundleRewriteFunc
@@ -26,13 +28,23 @@ func (metadataOptions) approved() {}
 
 var (
 	ElideProxyCADetails = &metadataOptions{
-		rewriteCABundle: func(caBundle *certgraphapi.CertificateAuthorityBundle) {
+		rewriteCABundle: func(metadata metav1.ObjectMeta, caBundle *certgraphapi.CertificateAuthorityBundle) {
 			isProxyCA := false
-			for _, location := range caBundle.Spec.ConfigMapLocations {
-				if location.Namespace == "openshift-config-managed" && location.Name == "trusted-ca-bundle" {
-					isProxyCA = true
-				}
+			if metadata.Namespace == "openshift-config-managed" && metadata.Name == "trusted-ca-bundle" {
+				isProxyCA = true
 			}
+			// this plugin does a direct copy
+			if metadata.Namespace == "openshift-cloud-controller-manager" && metadata.Name == "ccm-trusted-ca" {
+				isProxyCA = true
+			}
+			// this namespace appears to hash (notice trailing dash) the content and lose labels
+			if metadata.Namespace == "openshift-monitoring" && strings.Contains(metadata.Name, "-trusted-ca-bundle-") {
+				isProxyCA = true
+			}
+			if len(metadata.Labels["config.openshift.io/inject-trusted-cabundle"]) > 0 {
+				isProxyCA = true
+			}
+
 			if !isProxyCA {
 				return
 			}
