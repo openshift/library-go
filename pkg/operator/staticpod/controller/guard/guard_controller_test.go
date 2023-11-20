@@ -385,6 +385,61 @@ func TestRenderGuardPod(t *testing.T) {
 			node: fakeMasterNode("master1"),
 		},
 		{
+			name: "Guard pod is not pending nor running",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
+				},
+			},
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "master1",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			guardPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "master1"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Host: "1.1.1.1",
+										Port: intstr.FromInt(99999),
+										Path: "",
+									},
+								},
+							},
+						},
+					},
+					Hostname: getGuardPodHostname("test", "master1"),
+					NodeName: "master1",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+					Phase: corev1.PodSucceeded,
+				},
+			},
+			node:        fakeMasterNode("master1"),
+			guardExists: true,
+		},
+		{
 			name: "Conditional return precheckSucceeded is false",
 			infraObject: &configv1.Infrastructure{
 				ObjectMeta: v1.ObjectMeta{
@@ -486,6 +541,10 @@ func TestRenderGuardPod(t *testing.T) {
 
 						if probe.Port.IntValue() != 99999 {
 							t.Errorf("%s: unexpected port in ReadinessProbe in the guard, expected 99999, got %v instead", test.name, probe.Port.IntValue())
+						}
+
+						if p.Status.Phase != "" {
+							t.Errorf("%s: unexpected pod status: %v, expected no status set", test.name, p.Status.Phase)
 						}
 					}
 				} else {
