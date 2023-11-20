@@ -1,8 +1,11 @@
 package csidrivercontrollerservicecontroller
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -460,6 +463,21 @@ func withInvalidObservedHTTPProxy(proxy string, path []string) driverModifier {
 	}
 }
 
+func withObservedServingInfo(ciphers []string, version string) driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		observedConfig := map[string]interface{}{}
+		if len(ciphers) > 0 {
+			unstructured.SetNestedStringSlice(observedConfig, ciphers, csiconfigobservercontroller.CipherSuitesPath()...)
+		}
+		if version != "" {
+			unstructured.SetNestedField(observedConfig, version, csiconfigobservercontroller.MinTLSVersionPath()...)
+		}
+		d, _ := json.Marshal(observedConfig)
+		i.Spec.ObservedConfig = runtime.RawExtension{Raw: d, Object: &unstructured.Unstructured{Object: observedConfig}}
+		return i
+	}
+}
+
 func withDeploymentHTTPProxyAnnotation(containerName string) deploymentModifier {
 	return func(instance *appsv1.Deployment) *appsv1.Deployment {
 		instance.Annotations = map[string]string{"config.openshift.io/inject-proxy": containerName}
@@ -511,5 +529,73 @@ func TestWithLeaderElectionReplacerHook(t *testing.T) {
 	}
 	if string(out) != expected {
 		t.Errorf("expected %q, got %q", expected, string(out))
+	}
+}
+
+func makeServingInfoManifest(ciphers string, version string) []byte {
+	manifest := `
+           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+           - --tls-min-version=${TLS_MIN_VERSION}
+`
+	if ciphers != "" {
+		manifest = strings.ReplaceAll(manifest, "${TLS_CIPHER_SUITES}", ciphers)
+	}
+	if version != "" {
+		manifest = strings.ReplaceAll(manifest, "${TLS_MIN_VERSION}", version)
+	}
+	return []byte(manifest)
+}
+
+func TestWithServingInfoHook(t *testing.T) {
+	testCases := []struct {
+		name             string
+		initialDriver    *fakeDriverInstance
+		initialManifest  []byte
+		expectedManifest []byte
+		expectedError    bool
+	}{
+		{
+			name:             "no observed serving info",
+			initialDriver:    makeFakeDriverInstance(),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+		},
+		{
+			name:             "observed serving info, manifest patched",
+			initialDriver:    makeFakeDriverInstance(withObservedServingInfo([]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12")),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: makeServingInfoManifest("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12"),
+		},
+		{
+			name:             "observed ciphers only, error is returned",
+			initialDriver:    makeFakeDriverInstance(withObservedServingInfo([]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "")),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: nil,
+			expectedError:    true,
+		},
+		{
+			name:             "observed version only, error is returned",
+			initialDriver:    makeFakeDriverInstance(withObservedServingInfo(nil, "VersionTLS12")),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: nil,
+			expectedError:    true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hook := WithServingInfo()
+			out, err := hook(&tc.initialDriver.Spec, tc.initialManifest)
+			if err != nil {
+				if !tc.expectedError {
+					t.Errorf("unexpected error: %s", err)
+				} else {
+					return // Success
+				}
+			}
+			if !bytes.Equal(out, tc.expectedManifest) {
+				t.Errorf("expected %q, got %q", string(tc.expectedManifest), string(out))
+			}
+
+		})
 	}
 }

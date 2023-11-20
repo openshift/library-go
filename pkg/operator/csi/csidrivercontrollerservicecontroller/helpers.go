@@ -1,7 +1,9 @@
 package csidrivercontrollerservicecontroller
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,6 +11,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -31,8 +34,6 @@ const (
 	snapshotterImageEnvName   = "SNAPSHOTTER_IMAGE"
 	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
-
-	defaultTLSCipherSuites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"
 
 	infraConfigName = "cluster"
 )
@@ -190,8 +191,49 @@ func WithPlaceholdersHook(configInformer configinformers.SharedInformerFactory) 
 		logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)
 		pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
 
-		// Default TLS Cipher Suites for Kube RBAC sidecars
-		pairs = append(pairs, []string{"${TLS_CIPHER_SUITES}", defaultTLSCipherSuites}...)
+		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
+		return []byte(replaced), nil
+	}
+}
+
+// WithServingInfo is a manifest hook that replaces ${TLS_CIPHER_SUITES} and ${TLS_MIN_VERSION}
+// placeholders with the observed configuration.
+func WithServingInfo() dc.ManifestHookFunc {
+	return func(opSpec *opv1.OperatorSpec, manifest []byte) ([]byte, error) {
+		if len(opSpec.ObservedConfig.Raw) == 0 {
+			return manifest, nil
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(opSpec.ObservedConfig.Raw, &config); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal the observedConfig: %w", err)
+		}
+
+		cipherSuites, cipherSuitesFound, err := unstructured.NestedStringSlice(config, csiconfigobservercontroller.CipherSuitesPath()...)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get the servingInfo.cipherSuites config from observed config: %w", err)
+		}
+		if !cipherSuitesFound && bytes.Contains(manifest, []byte("${TLS_CIPHER_SUITES}")) {
+			return nil, fmt.Errorf("could not find the servingInfo.cipherSuites config from observed config")
+		}
+
+		minTLSVersion, minTLSVersionFound, err := unstructured.NestedString(config, csiconfigobservercontroller.MinTLSVersionPath()...)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get the servingInfo.minTLSVersion config from observed config: %v", err)
+		}
+		if !minTLSVersionFound && bytes.Contains(manifest, []byte("${TLS_MIN_VERSION}")) {
+			return nil, fmt.Errorf("could not find the servingInfo.minTLSVersion config from observed config")
+		}
+
+		pairs := []string{}
+		if cipherSuitesFound && len(cipherSuites) > 0 {
+			pairs = append(pairs, []string{"${TLS_CIPHER_SUITES}", strings.Join(cipherSuites, ",")}...)
+
+		}
+
+		if minTLSVersionFound && len(minTLSVersion) > 0 {
+			pairs = append(pairs, []string{"${TLS_MIN_VERSION}", minTLSVersion}...)
+		}
 
 		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 		return []byte(replaced), nil
