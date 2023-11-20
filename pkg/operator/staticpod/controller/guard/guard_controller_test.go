@@ -2,6 +2,7 @@ package guard
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	staticcontrollercommon "github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 )
 
@@ -612,5 +614,40 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		if probe.Path == originalProbe.Path {
 			t.Errorf("unexpected path in ReadinessProbe in the guard, expected it to be differenf from %q, got %q", originalProbe.Path, probe.Path)
 		}
+	}
+}
+
+func TestGuardPodTemplate(t *testing.T) {
+	const partitioningAnnotation = "target.workload.openshift.io/management"
+
+	tests := []struct {
+		name  string
+		check func(pod *corev1.Pod) error
+	}{
+		{
+			// https://github.com/openshift/enhancements/blob/master/enhancements/workload-partitioning/management-workload-partitioning.md
+			name: fmt.Sprintf("has the %q annotation set correctly", partitioningAnnotation),
+			check: func(pod *corev1.Pod) error {
+				expectedValue := "{\"effect\": \"PreferredDuringScheduling\"}"
+				annotation := pod.GetAnnotations()[partitioningAnnotation]
+				if annotation == "" {
+					return fmt.Errorf("expected %q annotation to be set", partitioningAnnotation)
+				}
+				if annotation != expectedValue {
+					return fmt.Errorf("expected %q annotation to be set to %q, got %q", partitioningAnnotation, expectedValue, annotation)
+				}
+				return nil
+			},
+		},
+	}
+
+	pod := resourceread.ReadPodV1OrDie(podTemplate)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.check(pod); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
