@@ -512,6 +512,7 @@ func TestRenderGuardPod(t *testing.T) {
 				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 				installerPodImageFn:     getInstallerPodImageFromEnv,
 				createConditionalFunc:   createConditionalFunc,
+				delayTimeout:            time.Second,
 			}
 
 			ctx, cancel := context.WithCancel(context.TODO())
