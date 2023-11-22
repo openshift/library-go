@@ -7,6 +7,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/manager"
+	"github.com/openshift/library-go/pkg/monitor"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -70,8 +71,7 @@ type staticPodOperatorControllerBuilder struct {
 	// guard infomation
 	operatorName               string
 	operatorNamespace          string
-	readyzPort                 string
-	readyzEndpoint             string
+	readyZConf                 monitor.ReadyZConf
 	guardCreateConditionalFunc func() (bool, bool, error)
 }
 
@@ -104,7 +104,7 @@ type Builder interface {
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
-	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, createConditionalFunc func() (bool, bool, error)) Builder
+	WithPodDisruptionBudgetGuard(operatorNamespace string, operatorName string, readyZConf monitor.ReadyZConf, createConditionalFunc func() (bool, bool, error)) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
 
@@ -171,11 +171,12 @@ func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, stati
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, createConditionalFunc func() (bool, bool, error)) Builder {
+// WithPodDisruptionBudgetGuard configures a PDB guard pod.
+// To keep the default readyZ behaviour, use a monitor.NewGuardPodDefaultReadyZConfig instead of the endpoint/port configuration.
+func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace string, operatorName string, readyZConfig monitor.ReadyZConf, createConditionalFunc func() (bool, bool, error)) Builder {
 	b.operatorNamespace = operatorNamespace
 	b.operatorName = operatorName
-	b.readyzPort = readyzPort
-	b.readyzEndpoint = readyzEndpoint
+	b.readyZConf = readyZConfig
 	b.guardCreateConditionalFunc = createConditionalFunc
 	return b
 }
@@ -332,14 +333,12 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	manager.WithController(unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.staticPodOperatorClient, eventRecorder), 1)
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)
 
-	if len(b.operatorNamespace) > 0 && len(b.operatorName) > 0 && len(b.readyzPort) > 0 && len(b.readyzEndpoint) > 0 {
+	if len(b.operatorNamespace) > 0 && len(b.operatorName) > 0 && len(b.readyZConf.Port) > 0 && len(b.readyZConf.Endpoint) > 0 {
 		if guardController, err := guard.NewGuardController(
 			b.operandNamespace,
 			b.operandPodLabelSelector,
 			b.staticPodName,
 			b.operatorName,
-			b.readyzPort,
-			b.readyzEndpoint,
 			operandInformers,
 			clusterInformers,
 			b.staticPodOperatorClient,
@@ -347,6 +346,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			pdbClient,
 			eventRecorder,
 			b.guardCreateConditionalFunc,
+			b.readyZConf,
 		); err == nil {
 			manager.WithController(guardController, 1)
 		} else {

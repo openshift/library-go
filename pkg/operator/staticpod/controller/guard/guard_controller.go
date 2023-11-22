@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +24,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/monitor"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -36,9 +36,8 @@ import (
 type GuardController struct {
 	targetNamespace, podResourcePrefix string
 	operatorName                       string
-	readyzPort                         string
-	readyzEndpoint                     string
 	operandPodLabelSelector            labels.Selector
+	readyZConf                         monitor.ReadyZConf
 
 	nodeLister corelisterv1.NodeLister
 	podLister  corelisterv1.PodLister
@@ -56,8 +55,6 @@ func NewGuardController(
 	operandPodLabelSelector labels.Selector,
 	podResourcePrefix string,
 	operatorName string,
-	readyzPort string,
-	readyzEndpoint string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
@@ -65,6 +62,7 @@ func NewGuardController(
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	eventRecorder events.Recorder,
 	createConditionalFunc func() (bool, bool, error),
+	readyZConf monitor.ReadyZConf,
 ) (factory.Controller, error) {
 	if operandPodLabelSelector == nil {
 		return nil, fmt.Errorf("GuardController: missing required operandPodLabelSelector")
@@ -78,8 +76,7 @@ func NewGuardController(
 		operandPodLabelSelector: operandPodLabelSelector,
 		podResourcePrefix:       podResourcePrefix,
 		operatorName:            operatorName,
-		readyzPort:              readyzPort,
-		readyzEndpoint:          readyzEndpoint,
+		readyZConf:              readyZConf,
 		nodeLister:              kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 		podLister:               kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
 		podGetter:               podGetter,
@@ -289,13 +286,14 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			pod.Spec.NodeName = node.Name
 			pod.Spec.Containers[0].Image = c.installerPodImageFn()
 			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Host = operands[node.Name].Status.PodIP
-			// The readyz port as string type is expected to be convertible into int!!!
-			readyzPort, err := strconv.Atoi(c.readyzPort)
-			if err != nil {
-				panic(err)
-			}
-			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Port = intstr.FromInt(readyzPort)
-			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Path = c.readyzEndpoint
+
+			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Port = intstr.Parse(c.readyZConf.Port)
+			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Path = c.readyZConf.Endpoint
+			pod.Spec.Containers[0].ReadinessProbe.FailureThreshold = c.readyZConf.FailureThreshold
+			pod.Spec.Containers[0].ReadinessProbe.SuccessThreshold = c.readyZConf.SuccessThreshold
+			pod.Spec.Containers[0].ReadinessProbe.InitialDelaySeconds = c.readyZConf.InitialDelaySeconds
+			pod.Spec.Containers[0].ReadinessProbe.PeriodSeconds = c.readyZConf.PeriodSeconds
+			pod.Spec.Containers[0].ReadinessProbe.TimeoutSeconds = c.readyZConf.TimeoutSeconds
 
 			actual, err := c.podGetter.Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 			if err == nil {
