@@ -191,13 +191,13 @@ func TestControllerBuilder_OnLeadingFunc_NonZeroExit(t *testing.T) {
 func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 	testCases := []struct {
 		desc     string
-		infra    *configv1.InfrastructureStatus
+		topology configv1.TopologyMode
 		original configv1.LeaderElection
 		expected configv1.LeaderElection
 	}{
 		{
-			desc:  "should not set SNO config when infra is nil",
-			infra: nil,
+			desc:     "should not set SNO config when no topology found",
+			topology: "",
 			original: configv1.LeaderElection{
 				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
 				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
@@ -210,10 +210,8 @@ func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 			},
 		},
 		{
-			desc: "should not set SNO config when infra is HighlyAvailableTopologyMode",
-			infra: &configv1.InfrastructureStatus{
-				ControlPlaneTopology: configv1.HighlyAvailableTopologyMode,
-			},
+			desc:     "should not set SNO config when infra is HighlyAvailableTopologyMode",
+			topology: configv1.HighlyAvailableTopologyMode,
 			original: configv1.LeaderElection{
 				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
 				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
@@ -226,10 +224,8 @@ func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 			},
 		},
 		{
-			desc: "should set SNO leader election config when SingleReplicaToplogy Controlplane",
-			infra: &configv1.InfrastructureStatus{
-				ControlPlaneTopology: configv1.SingleReplicaTopologyMode,
-			},
+			desc:     "should set SNO leader election config when SingleReplicaToplogy Controlplane",
+			topology: configv1.SingleReplicaTopologyMode,
 			original: configv1.LeaderElection{
 				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
 				RenewDeadline: metav1.Duration{Duration: 40 * time.Second},
@@ -244,7 +240,7 @@ func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			leConfig := infraStatusTopologyLeaderElection(tc.infra, tc.original)
+			leConfig := topologyLeaderElection(tc.topology, tc.original)
 			if !reflect.DeepEqual(tc.expected, leConfig) {
 				t.Errorf("expected %#v, got %#v", tc.expected, leConfig)
 			}
