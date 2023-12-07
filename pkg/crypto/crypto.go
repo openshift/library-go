@@ -644,15 +644,20 @@ func MakeSelfSignedCAConfigForSubject(subject pkix.Name, expireDays int) (*TLSCe
 	}
 
 	caLifetime := time.Duration(caLifetimeInDays) * 24 * time.Hour
-	return makeSelfSignedCAConfigForSubjectAndDuration(subject, caLifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime)
 }
 
 func MakeSelfSignedCAConfigForDuration(name string, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	subject := pkix.Name{CommonName: name}
-	return makeSelfSignedCAConfigForSubjectAndDuration(subject, caLifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime)
 }
 
-func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, caLifetime time.Duration) (*TLSCertificateConfig, error) {
+func UnsafeMakeSelfSignedCAConfigForDurationAtTime(name string, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
+	subject := pkix.Name{CommonName: name}
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, currentTime, caLifetime)
+}
+
+func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	// Create CA cert
 	rootcaPublicKey, rootcaPrivateKey, publicKeyHash, err := newKeyPairWithHash()
 	if err != nil {
@@ -661,7 +666,7 @@ func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, caLifetime t
 	// AuthorityKeyId and SubjectKeyId should match for a self-signed CA
 	authorityKeyId := publicKeyHash
 	subjectKeyId := publicKeyHash
-	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, time.Now, authorityKeyId, subjectKeyId)
+	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, authorityKeyId, subjectKeyId)
 	rootcaCert, err := signCertificate(rootcaTemplate, rootcaPublicKey, rootcaTemplate, rootcaPrivateKey)
 	if err != nil {
 		return nil, err
