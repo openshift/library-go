@@ -371,7 +371,7 @@ func (c *TLSCertificateConfig) GetPEMBytes() ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	keyBytes, err := encodeKey(c.Key)
+	keyBytes, err := EncodeKey(c.Key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -687,7 +687,7 @@ func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) 
 	authorityKeyId := issuer.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
 	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId)
-	signerCert, err := issuer.signCertificate(signerTemplate, signerPublicKey)
+	signerCert, err := issuer.SignCertificate(signerTemplate, signerPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -803,7 +803,7 @@ func (ca *CA) MakeServerCert(hostnames sets.String, expireDays int, fns ...Certi
 			return nil, err
 		}
 	}
-	serverCrt, err := ca.signCertificate(serverTemplate, serverPublicKey)
+	serverCrt, err := ca.SignCertificate(serverTemplate, serverPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +824,7 @@ func (ca *CA) MakeServerCertForDuration(hostnames sets.String, lifetime time.Dur
 			return nil, err
 		}
 	}
-	serverCrt, err := ca.signCertificate(serverTemplate, serverPublicKey)
+	serverCrt, err := ca.SignCertificate(serverTemplate, serverPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -850,7 +850,7 @@ func GetClientCertificate(certFile, keyFile string, u user.Info) (*TLSCertificat
 		return nil, err
 	}
 
-	if subject := certConfig.Certs[0].Subject; subjectChanged(subject, userToSubject(u)) {
+	if subject := certConfig.Certs[0].Subject; subjectChanged(subject, UserToSubject(u)) {
 		return nil, fmt.Errorf("existing client certificate in %s was issued for a different Subject (%s)",
 			certFile, subject)
 	}
@@ -878,8 +878,8 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 	}
 
 	clientPublicKey, clientPrivateKey, _ := NewKeyPair()
-	clientTemplate := newClientCertificateTemplate(userToSubject(u), expireDays, time.Now)
-	clientCrt, err := ca.signCertificate(clientTemplate, clientPublicKey)
+	clientTemplate := NewClientCertificateTemplate(UserToSubject(u), expireDays, time.Now)
+	clientCrt, err := ca.SignCertificate(clientTemplate, clientPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -888,7 +888,7 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 	if err != nil {
 		return nil, err
 	}
-	keyData, err := encodeKey(clientPrivateKey)
+	keyData, err := EncodeKey(clientPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -905,8 +905,8 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 
 func (ca *CA) MakeClientCertificateForDuration(u user.Info, lifetime time.Duration) (*TLSCertificateConfig, error) {
 	clientPublicKey, clientPrivateKey, _ := NewKeyPair()
-	clientTemplate := newClientCertificateTemplateForDuration(userToSubject(u), lifetime, time.Now)
-	clientCrt, err := ca.signCertificate(clientTemplate, clientPublicKey)
+	clientTemplate := NewClientCertificateTemplateForDuration(UserToSubject(u), lifetime, time.Now)
+	clientCrt, err := ca.SignCertificate(clientTemplate, clientPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +915,7 @@ func (ca *CA) MakeClientCertificateForDuration(u user.Info, lifetime time.Durati
 	if err != nil {
 		return nil, err
 	}
-	keyData, err := encodeKey(clientPrivateKey)
+	keyData, err := EncodeKey(clientPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -940,7 +940,7 @@ func (s sortedForDER) Less(i, j int) bool {
 	return l1 < l2
 }
 
-func userToSubject(u user.Info) pkix.Name {
+func UserToSubject(u user.Info) pkix.Name {
 	// Ok we are going to order groups in a peculiar way here to workaround a
 	// 2 bugs, 1 in golang (https://github.com/golang/go/issues/24254) which
 	// incorrectly encodes Multivalued RDNs and another in GNUTLS clients
@@ -966,7 +966,7 @@ func userToSubject(u user.Info) pkix.Name {
 	}
 }
 
-func (ca *CA) signCertificate(template *x509.Certificate, requestKey crypto.PublicKey) (*x509.Certificate, error) {
+func (ca *CA) SignCertificate(template *x509.Certificate, requestKey crypto.PublicKey) (*x509.Certificate, error) {
 	// Increment and persist serial
 	serial, err := ca.SerialGenerator.Next(template)
 	if err != nil {
@@ -1113,7 +1113,7 @@ func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 }
 
 // Can be used as a certificate in http.Transport TLSClientConfig
-func newClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime func() time.Time) *x509.Certificate {
+func NewClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime func() time.Time) *x509.Certificate {
 	var lifetimeInDays = DefaultCertificateLifetimeInDays
 	if expireDays > 0 {
 		lifetimeInDays = expireDays
@@ -1125,11 +1125,11 @@ func newClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime
 
 	lifetime := time.Duration(lifetimeInDays) * 24 * time.Hour
 
-	return newClientCertificateTemplateForDuration(subject, lifetime, currentTime)
+	return NewClientCertificateTemplateForDuration(subject, lifetime, currentTime)
 }
 
 // Can be used as a certificate in http.Transport TLSClientConfig
-func newClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
+func NewClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
 	return &x509.Certificate{
 		Subject: subject,
 
@@ -1175,7 +1175,7 @@ func EncodeCertificates(certs ...*x509.Certificate) ([]byte, error) {
 	}
 	return b.Bytes(), nil
 }
-func encodeKey(key crypto.PrivateKey) ([]byte, error) {
+func EncodeKey(key crypto.PrivateKey) ([]byte, error) {
 	b := bytes.Buffer{}
 	switch key := key.(type) {
 	case *ecdsa.PrivateKey:
@@ -1209,7 +1209,7 @@ func writeCertificates(f io.Writer, certs ...*x509.Certificate) error {
 	return nil
 }
 func writeKeyFile(f io.Writer, key crypto.PrivateKey) error {
-	bytes, err := encodeKey(key)
+	bytes, err := EncodeKey(key)
 	if err != nil {
 		return err
 	}
