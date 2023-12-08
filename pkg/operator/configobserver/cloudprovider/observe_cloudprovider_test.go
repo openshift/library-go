@@ -70,12 +70,13 @@ func (l FakeInfrastructureLister) ConfigMapLister() corelisterv1.ConfigMapLister
 
 func TestObserveCloudProviderNames(t *testing.T) {
 	cases := []struct {
-		name                 string
-		infrastructureStatus configv1.InfrastructureStatus
-		featureGateAccessor  featuregates.FeatureGateAccess
-		expected             string
-		cloudProviderCount   int
-		expectErrors         bool
+		name                      string
+		infrastructureStatus      configv1.InfrastructureStatus
+		featureGateAccessor       featuregates.FeatureGateAccess
+		skipCloudProviderExternal bool
+		expected                  string
+		cloudProviderCount        int
+		expectErrors              bool
 	}{{
 		name: "AWS platform set for external configuration",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -87,6 +88,18 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:            "external",
 		cloudProviderCount:  1,
 		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
+	}, {
+		name: "AWS platform set for external configuration (skip external for kas-o)",
+		infrastructureStatus: configv1.InfrastructureStatus{
+			Platform: configv1.AWSPlatformType,
+			PlatformStatus: &configv1.PlatformStatus{
+				Type: configv1.AWSPlatformType,
+			},
+		},
+		skipCloudProviderExternal: true,
+		expected:                  "",
+		cloudProviderCount:        1,
+		featureGateAccessor:       featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 	}, {
 		name: "AWS platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -327,7 +340,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			}
 			cloudProvidersPath := []string{"extendedArguments", "cloud-provider"}
 			cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
-			observerFunc := NewCloudProviderObserver("kube-controller-manager", cloudProvidersPath, cloudProviderConfPath, featureGateAccessor)
+			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal, cloudProvidersPath, cloudProviderConfPath, featureGateAccessor)
 			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
 			if errorsOccured := len(errs) > 0; c.expectErrors != errorsOccured {
 				t.Fatalf("expected errors: %v, got: %v", c.expectErrors, errs)
@@ -335,6 +348,9 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			cloudProvider, _, err := unstructured.NestedSlice(result, "extendedArguments", "cloud-provider")
 			if err != nil {
 				t.Fatal(err)
+			}
+			if c.skipCloudProviderExternal && len(cloudProvider) == 0 {
+				return
 			}
 			if e, a := c.cloudProviderCount, len(cloudProvider); e != a {
 				t.Fatalf("expected len(cloudProvider) == %d, got %d", e, a)
