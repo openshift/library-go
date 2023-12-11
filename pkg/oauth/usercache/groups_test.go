@@ -14,7 +14,7 @@ func TestGroupCache_GroupsFor(t *testing.T) {
 	tests := []struct {
 		name       string
 		username   string
-		wantGroups sets.String
+		wantGroups sets.Set[string]
 	}{
 		{
 			name:     "user with no groups",
@@ -23,7 +23,7 @@ func TestGroupCache_GroupsFor(t *testing.T) {
 		{
 			name:       "user with some groups",
 			username:   "user1",
-			wantGroups: sets.NewString("group0", "group2"),
+			wantGroups: sets.New("group0", "group2"),
 		},
 	}
 	for _, tt := range tests {
@@ -36,12 +36,12 @@ func TestGroupCache_GroupsFor(t *testing.T) {
 			got, err := c.GroupsFor(tt.username)
 			require.NoError(t, err)
 
-			gotGroupNames := sets.NewString()
+			gotGroupNames := sets.New[string]()
 			for _, g := range got {
 				gotGroupNames.Insert(g.Name)
 			}
 			if gotGroupNames.Difference(tt.wantGroups).Len() > 0 {
-				t.Errorf("wanted groups: %v; but got %v", tt.wantGroups.List(), gotGroupNames.List())
+				t.Errorf("wanted groups: %v; but got %v", sets.List(tt.wantGroups), sets.List(gotGroupNames))
 			}
 		})
 	}

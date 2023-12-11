@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/component-base/cli/flag"
-	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/featuregate"
 )
 
@@ -38,7 +37,7 @@ func NewFeatureGateOptionsOrDie(featureGates featuregate.MutableFeatureGate, use
 
 func (o *FeatureGateOptions) AddFlags(cmd *cobra.Command) {
 	flags := cmd.Flags()
-	flags.Var(cliflag.NewMapStringBool(&o.featureGateArgs), "feature-gates", "A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+	flags.Var(flag.NewMapStringBool(&o.featureGateArgs), "feature-gates", "A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(o.featureGates.KnownFeatures(), "\n"))
 }
 
@@ -88,8 +87,8 @@ func setFeatureGates(featureGatesMap map[string]bool, featureGates featuregate.M
 // InitializeFeatureGates should be called when your binary is starting with your featuregate instance and the list of
 // featuregates that your process will honor.
 func InitializeFeatureGates(featureGates featuregate.MutableFeatureGate, usedFeatures ...configv1.FeatureGateName) error {
-	defaultFeatures := sets.String{}
-	enabledDefaultFeatures := sets.String{}
+	defaultFeatures := sets.Set[string]{}
+	enabledDefaultFeatures := sets.Set[string]{}
 	for _, enabled := range configv1.FeatureSets[configv1.Default].Enabled {
 		defaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))
 		enabledDefaultFeatures.Insert(string(enabled.FeatureGateAttributes.Name))

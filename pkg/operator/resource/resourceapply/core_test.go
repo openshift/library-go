@@ -1052,7 +1052,7 @@ func TestSyncPartialSync(t *testing.T) {
 		name                        string
 		sourceNamespace, sourceName string
 		targetNamespace, targetName string
-		syncedKeys                  sets.String
+		syncedKeys                  sets.Set[string]
 		ownerRefs                   []metav1.OwnerReference
 		existingObjects             []runtime.Object
 		expectedSecret              *corev1.Secret
@@ -1065,7 +1065,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("foo", "qux"),
+			syncedKeys:      sets.New("foo", "qux"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{
@@ -1101,7 +1101,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("lol", "troll", "semaphore"),
+			syncedKeys:      sets.New("lol", "troll", "semaphore"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{
@@ -1124,7 +1124,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("foo", "baz"),
+			syncedKeys:      sets.New("foo", "baz"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{
@@ -1171,7 +1171,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("foo", "qux", "troll", "semaphore"),
+			syncedKeys:      sets.New("foo", "qux", "troll", "semaphore"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{
@@ -1220,7 +1220,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("foo", "baz"),
+			syncedKeys:      sets.New("foo", "baz"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{},
 			expectedSecret:  nil,
@@ -1233,7 +1233,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("foo"),
+			syncedKeys:      sets.New("foo"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{
@@ -1255,7 +1255,7 @@ func TestSyncPartialSync(t *testing.T) {
 			sourceName:      "sourceName",
 			targetNamespace: "targetNamespace",
 			targetName:      "targetName",
-			syncedKeys:      sets.NewString("troll", "semaphore"),
+			syncedKeys:      sets.New("troll", "semaphore"),
 			ownerRefs:       nil,
 			existingObjects: []runtime.Object{
 				&corev1.Secret{

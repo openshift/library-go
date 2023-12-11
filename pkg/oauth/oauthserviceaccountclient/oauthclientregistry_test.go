@@ -1070,14 +1070,14 @@ func TestRedirectURIsFromRoutes(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		namespace string
-		names     sets.String
+		names     sets.Set[string]
 		routes    []*routev1.Route
 		expected  map[string]redirectURIList
 	}{
 		{
 			name:      "single route with single ingress",
 			namespace: "ns01",
-			names:     sets.NewString("routeA"),
+			names:     sets.New("routeA"),
 			routes: []*routev1.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1108,7 +1108,7 @@ func TestRedirectURIsFromRoutes(t *testing.T) {
 		{
 			name:      "multiple routes with multiple ingresses",
 			namespace: "ns01",
-			names:     sets.NewString("route0", "route1", "route2"),
+			names:     sets.New("route0", "route1", "route2"),
 			routes: []*routev1.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{

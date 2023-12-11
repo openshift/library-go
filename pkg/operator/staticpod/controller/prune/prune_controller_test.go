@@ -331,13 +331,13 @@ func TestSync(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error %q", err)
 			}
-			expected := sets.NewInt32(tc.expectedObjects...)
-			got := sets.NewInt32(configMapRevisions(t, statusConfigMaps.Items)...)
+			expected := sets.New(tc.expectedObjects...)
+			got := sets.New(configMapRevisions(t, statusConfigMaps.Items)...)
 			if missing := expected.Difference(got); len(missing) > 0 {
-				t.Errorf("got %+v, missing %+v", got.List(), missing.List())
+				t.Errorf("got %+v, missing %+v", sets.List(got), sets.List(missing))
 			}
 			if unexpected := got.Difference(expected); len(unexpected) > 0 {
-				t.Errorf("got %+v, unexpected %+v", got.List(), unexpected.List())
+				t.Errorf("got %+v, unexpected %+v", sets.List(got), sets.List(unexpected))
 			}
 
 			// check prune pod

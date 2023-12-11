@@ -10,7 +10,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/authorization/scopemetadata"
 
-	clientv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +64,7 @@ func init() {
 // Based on the namespace and names provided, it builds a map of resource name to redirect URIs.
 // The redirect URIs represent the default values as specified by the resource.
 // These values can be overridden by user specified data. Errors returned are informative and non-fatal.
-type namesToObjMapperFunc func(ctx context.Context, namespace string, names sets.String) (map[string]redirectURIList, []error)
+type namesToObjMapperFunc func(ctx context.Context, namespace string, names sets.Set[string]) (map[string]redirectURIList, []error)
 
 // TODO add ingress support
 // var ingressGroupKind = routeapi.SchemeGroupVersion.WithKind(IngressKind).GroupKind()
@@ -127,8 +126,8 @@ func (m *model) updateFromReference(r *oauthv1.RedirectReference) {
 type modelList []model
 
 // getNames determines the unique, non-empty resource names specified by the models.
-func (ml modelList) getNames() sets.String {
-	data := sets.NewString()
+func (ml modelList) getNames() sets.Set[string] {
+	data := sets.New[string]()
 	for _, model := range ml {
 		if len(model.name) > 0 {
 			data.Insert(model.name)
@@ -216,7 +215,7 @@ func NewServiceAccountOAuthClientGetter(
 ) OAuthClientGetter {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&kcoreclient.EventSinkImpl{Interface: eventClient})
-	recorder := eventBroadcaster.NewRecorder(scheme, clientv1.EventSource{Component: "service-account-oauth-client-getter"})
+	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "service-account-oauth-client-getter"})
 	return &saOAuthClientAdapter{
 		saClient:      saClient,
 		secretClient:  secretClient,
@@ -290,7 +289,7 @@ func (a *saOAuthClientAdapter) Get(ctx context.Context, name string, options met
 		// 1. service IP (useless in general)
 		// 2. service DNS (useless in general)
 		// 3. loopback? (useful, but maybe a bit weird)
-		RedirectURIs: sets.NewString(redirectURIs...).List(),
+		RedirectURIs: sets.List(sets.New(redirectURIs...)),
 		GrantMethod:  a.grantMethod,
 	}
 	return saClient, nil
@@ -383,7 +382,7 @@ func (a *saOAuthClientAdapter) extractRedirectURIs(ctx context.Context, modelsMa
 // redirectURIsFromRoutes is the namesToObjMapperFunc specific to Routes.
 // Returns a map of route name to redirect URIs that contain the default data as specified by the route's ingresses.
 // Errors returned are informative and non-fatal.
-func (a *saOAuthClientAdapter) redirectURIsFromRoutes(ctx context.Context, namespace string, osRouteNames sets.String) (map[string]redirectURIList, []error) {
+func (a *saOAuthClientAdapter) redirectURIsFromRoutes(ctx context.Context, namespace string, osRouteNames sets.Set[string]) (map[string]redirectURIList, []error) {
 	var routes []routev1.Route
 	routeErrors := []error{}
 	routeInterface := a.routeClient.Routes(namespace)
@@ -394,7 +393,7 @@ func (a *saOAuthClientAdapter) redirectURIsFromRoutes(ctx context.Context, names
 			routeErrors = append(routeErrors, err)
 		}
 	} else {
-		if r, err := routeInterface.Get(ctx, osRouteNames.List()[0], metav1.GetOptions{}); err == nil {
+		if r, err := routeInterface.Get(ctx, sets.List(osRouteNames)[0], metav1.GetOptions{}); err == nil {
 			routes = append(routes, *r)
 		} else {
 			routeErrors = append(routeErrors, err)

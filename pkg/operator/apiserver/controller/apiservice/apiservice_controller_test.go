@@ -297,7 +297,7 @@ func TestDisabledAPIService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	services := sets.NewString()
+	services := sets.New[string]()
 	for _, item := range list.Items {
 		t.Logf("Found %q APIService", item.Spec.Group)
 		services.Insert(item.Spec.Group)
@@ -343,7 +343,7 @@ func TestDisabledAPIService(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	services = sets.NewString()
+	services = sets.New[string]()
 	for _, item := range list.Items {
 		t.Logf("Found %q APIService", item.Spec.Group)
 		services.Insert(item.Spec.Group)
@@ -391,7 +391,7 @@ func TestDisabledAPIService(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	services = sets.NewString()
+	services = sets.New[string]()
 	for _, item := range list.Items {
 		t.Logf("Found %q APIService", item.Spec.Group)
 		services.Insert(item.Spec.Group)
