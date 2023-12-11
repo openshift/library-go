@@ -59,7 +59,7 @@ func TestServingCertVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	servingCertConfig, err := signerDelta.MakeServerCertForDuration(sets.NewString("::", "127.0.0.1", "localhost"), 1*time.Hour)
+	servingCertConfig, err := signerDelta.MakeServerCertForDuration(sets.New("::", "127.0.0.1", "localhost"), 1*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestClientCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	servingCertConfig, err := rootServing.MakeServerCertForDuration(sets.NewString("::", "127.0.0.1", "localhost"), 1*time.Hour)
+	servingCertConfig, err := rootServing.MakeServerCertForDuration(sets.New("::", "127.0.0.1", "localhost"), 1*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

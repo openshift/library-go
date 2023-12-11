@@ -158,7 +158,7 @@ func getFeatureSets(annotations map[string]string) (sets.Set[string], bool, erro
 			for _, manifestFeatureSet := range featureSetAnnotationValues {
 				if !knownFeatureSets.Has(manifestFeatureSet) {
 					// never include the manifest if the feature-set annotation is outside of known values
-					return nil, specified, fmt.Errorf("unrecognized value %q in %s=%s; known values are: %v", manifestFeatureSet, featureSetAnnotation, featureSetAnnotationValue, strings.Join(sets.List[string](knownFeatureSets), ","))
+					return nil, specified, fmt.Errorf("unrecognized value %q in %s=%s; known values are: %v", manifestFeatureSet, featureSetAnnotation, featureSetAnnotationValue, strings.Join(sets.List(knownFeatureSets), ","))
 				}
 			}
 			ret.Insert(featureSetAnnotationValues...)
@@ -178,7 +178,7 @@ func checkFeatureSets(requiredFeatureSet string, annotations map[string]string) 
 		return err
 	}
 	if manifestSpecifiesFeatureSets && !manifestFeatureSets.Has(requiredAnnotationValue) {
-		return fmt.Errorf("%q is required, and %s=%s", requiredAnnotationValue, featureSetAnnotation, strings.Join(sets.List[string](manifestFeatureSets), ","))
+		return fmt.Errorf("%q is required, and %s=%s", requiredAnnotationValue, featureSetAnnotation, strings.Join(sets.List(manifestFeatureSets), ","))
 	}
 
 	return nil

@@ -382,7 +382,7 @@ func (c *Context) cachedTransport(rt http.RoundTripper, host string, scopes []au
 		}
 	}
 
-	// avoid taking a dependency on kube sets.String for minimal dependencies
+	// avoid taking a dependency on kube sets.Set for minimal dependencies
 	names := make([]string, 0, len(scopeNames))
 	for s := range scopeNames {
 		names = append(names, s)

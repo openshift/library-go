@@ -182,13 +182,13 @@ func runFuzzer(t *testing.T) {
 func checkState(controller *ClusterQuotaMappingController, finalNamespaces map[string]*corev1.Namespace, finalQuotas map[string]*quotav1.ClusterResourceQuota, t *testing.T, quotaActions, namespaceActions map[string][]string) []string {
 	failures := []string{}
 
-	quotaToNamespaces := map[string]sets.String{}
+	quotaToNamespaces := map[string]sets.Set[string]{}
 	for _, quotaName := range quotaNames {
-		quotaToNamespaces[quotaName] = sets.String{}
+		quotaToNamespaces[quotaName] = sets.Set[string]{}
 	}
-	namespacesToQuota := map[string]sets.String{}
+	namespacesToQuota := map[string]sets.Set[string]{}
 	for _, namespaceName := range namespaceNames {
-		namespacesToQuota[namespaceName] = sets.String{}
+		namespacesToQuota[namespaceName] = sets.Set[string]{}
 	}
 	for _, quota := range finalQuotas {
 		matcherFunc, err := GetMatcher(quota.Spec.Selector)
@@ -205,9 +205,9 @@ func checkState(controller *ClusterQuotaMappingController, finalNamespaces map[s
 
 	for _, quotaName := range quotaNames {
 		namespaces, selector := controller.clusterQuotaMapper.GetNamespacesFor(quotaName)
-		nsSet := sets.NewString(namespaces...)
+		nsSet := sets.New(namespaces...)
 		if !nsSet.Equal(quotaToNamespaces[quotaName]) {
-			failures = append(failures, fmt.Sprintf("quota %v, expected %v, got %v", quotaName, quotaToNamespaces[quotaName].List(), nsSet.List()))
+			failures = append(failures, fmt.Sprintf("quota %v, expected %v, got %v", quotaName, sets.List(quotaToNamespaces[quotaName]), sets.List(nsSet)))
 			failures = append(failures, quotaActions[quotaName]...)
 		}
 		if quota, ok := finalQuotas[quotaName]; ok && !reflect.DeepEqual(quota.Spec.Selector, selector) {
@@ -217,9 +217,9 @@ func checkState(controller *ClusterQuotaMappingController, finalNamespaces map[s
 
 	for _, namespaceName := range namespaceNames {
 		quotas, selectionFields := controller.clusterQuotaMapper.GetClusterQuotasFor(namespaceName)
-		quotaSet := sets.NewString(quotas...)
+		quotaSet := sets.New(quotas...)
 		if !quotaSet.Equal(namespacesToQuota[namespaceName]) {
-			failures = append(failures, fmt.Sprintf("namespace %v, expected %v, got %v", namespaceName, namespacesToQuota[namespaceName].List(), quotaSet.List()))
+			failures = append(failures, fmt.Sprintf("namespace %v, expected %v, got %v", namespaceName, sets.List(namespacesToQuota[namespaceName]), sets.List(quotaSet)))
 			failures = append(failures, namespaceActions[namespaceName]...)
 		}
 		if namespace, ok := finalNamespaces[namespaceName]; ok && !reflect.DeepEqual(GetSelectionFields(namespace), selectionFields) {
@@ -232,7 +232,7 @@ func checkState(controller *ClusterQuotaMappingController, finalNamespaces map[s
 
 func CreateStartingQuotas() []runtime.Object {
 	count := rand.Intn(len(quotaNames))
-	used := sets.String{}
+	used := sets.Set[string]{}
 	ret := []runtime.Object{}
 
 	for i := 0; i < count; i++ {
@@ -248,7 +248,7 @@ func CreateStartingQuotas() []runtime.Object {
 
 func CreateStartingNamespaces() []runtime.Object {
 	count := rand.Intn(len(namespaceNames))
-	used := sets.String{}
+	used := sets.Set[string]{}
 	ret := []runtime.Object{}
 
 	for i := 0; i < count; i++ {

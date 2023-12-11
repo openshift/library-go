@@ -192,7 +192,7 @@ func (o *RequestTokenOptions) SetDefaultOsinConfig(clientID string, redirectURL 
 		config.RedirectUrl = *redirectURL
 	}
 
-	if !o.TokenFlow && sets.NewString(metadata.CodeChallengeMethodsSupported...).Has(pkce_s256) {
+	if !o.TokenFlow && sets.New(metadata.CodeChallengeMethodsSupported...).Has(pkce_s256) {
 		if err := osincli.PopulatePKCE(config); err != nil {
 			return err
 		}
@@ -256,7 +256,7 @@ func (o *RequestTokenOptions) requestTokenWithChallengeHandlers() (string, error
 	// requestHeaders holds additional headers to add to the request. This can be changed by o.Handlers
 	requestHeaders := http.Header{}
 	// requestedURLSet/requestedURLList hold the URLs we have requested, to prevent redirect loops. Gets reset when a challenge is handled.
-	requestedURLSet := sets.NewString()
+	requestedURLSet := sets.New[string]()
 	requestedURLList := []string{}
 	handledChallenge := false
 
@@ -299,7 +299,7 @@ func (o *RequestTokenOptions) requestTokenWithChallengeHandlers() (string, error
 				handledChallenge = true
 
 				// Reset request set/list. Since we're setting different headers, it is legitimate to request the same urls
-				requestedURLSet = sets.NewString()
+				requestedURLSet = sets.New[string]()
 				requestedURLList = []string{}
 				// Use the response to the challenge as the new headers
 				requestHeaders = newRequestHeaders

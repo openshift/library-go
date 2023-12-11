@@ -11,12 +11,12 @@ func TestKeysSetInUnsupportedConfig(t *testing.T) {
 		name string
 
 		yaml     string
-		expected sets.String
+		expected sets.Set[string]
 	}{
 		{
 			name:     "empty",
 			yaml:     "",
-			expected: sets.NewString(),
+			expected: sets.New[string](),
 		},
 		{
 			name: "nested maps",
@@ -25,7 +25,7 @@ apple:
   banana:
     carrot: hammer
 `,
-			expected: sets.NewString(
+			expected: sets.New(
 				"apple.banana.carrot",
 			),
 		},
@@ -39,7 +39,7 @@ apple:
     cabbage: saw
 artichoke: plane
 `,
-			expected: sets.NewString(
+			expected: sets.New(
 				"apple.banana.carrot",
 				"apple.blueberry.cabbage",
 				"artichoke",
@@ -60,7 +60,7 @@ apple:
         dill: square
 artichoke: plane
 `,
-			expected: sets.NewString(
+			expected: sets.New(
 				"artichoke",
 				"apple.banana.carrot.0",
 				"apple.banana.carrot.1",
@@ -79,7 +79,7 @@ artichoke: plane
 			}
 
 			if !actual.Equal(test.expected) {
-				t.Fatalf("missing expected %v, extra actual %v", test.expected.Difference(actual).List(), actual.Difference(test.expected).List())
+				t.Fatalf("missing expected %v, extra actual %v", sets.List(test.expected.Difference(actual)), sets.List(actual.Difference(test.expected)))
 			}
 		})
 	}

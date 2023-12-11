@@ -484,7 +484,7 @@ func SyncConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, re
 
 // SyncPartialConfigMap does what SyncConfigMap does but it only synchronizes a subset of keys given by `syncedKeys`.
 // SyncPartialConfigMap will delete the target if `syncedKeys` are set but the source does not contain any of these keys.
-func SyncPartialConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.String, ownerRefs []metav1.OwnerReference) (*corev1.ConfigMap, bool, error) {
+func SyncPartialConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.Set[string], ownerRefs []metav1.OwnerReference) (*corev1.ConfigMap, bool, error) {
 	source, err := client.ConfigMaps(sourceNamespace).Get(ctx, sourceName, metav1.GetOptions{})
 	switch {
 	case apierrors.IsNotFound(err):
@@ -545,7 +545,7 @@ func SyncSecret(ctx context.Context, client coreclientv1.SecretsGetter, recorder
 
 // SyncPartialSecret does what SyncSecret does but it only synchronizes a subset of keys given by `syncedKeys`.
 // SyncPartialSecret will delete the target if `syncedKeys` are set but the source does not contain any of these keys.
-func SyncPartialSecret(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.String, ownerRefs []metav1.OwnerReference) (*corev1.Secret, bool, error) {
+func SyncPartialSecret(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, sourceNamespace, sourceName, targetNamespace, targetName string, syncedKeys sets.Set[string], ownerRefs []metav1.OwnerReference) (*corev1.Secret, bool, error) {
 	source, err := client.Secrets(sourceNamespace).Get(ctx, sourceName, metav1.GetOptions{})
 	switch {
 	case apierrors.IsNotFound(err):

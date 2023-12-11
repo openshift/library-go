@@ -77,7 +77,7 @@ func (o *PruneOptions) Validate() error {
 }
 
 func (o *PruneOptions) Run() error {
-	protectedIDs := sets.NewInt(o.ProtectedRevisions...)
+	protectedIDs := sets.New(o.ProtectedRevisions...)
 
 	files, err := os.ReadDir(o.ResourceDir)
 	if err != nil {
