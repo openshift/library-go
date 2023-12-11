@@ -34,21 +34,23 @@ type InfrastructureLister interface {
 
 // NewCloudProviderObserver returns a new cloudprovider observer for syncing cloud provider specific
 // information to controller-manager and api-server.
-func NewCloudProviderObserver(targetNamespaceName string, cloudProviderNamePath, cloudProviderConfigPath []string, featureGateAccess featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+func NewCloudProviderObserver(targetNamespaceName string, skipCloudProviderExternal bool, cloudProviderNamePath, cloudProviderConfigPath []string, featureGateAccess featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
 	cloudObserver := &cloudProviderObserver{
-		targetNamespaceName:     targetNamespaceName,
-		cloudProviderNamePath:   cloudProviderNamePath,
-		cloudProviderConfigPath: cloudProviderConfigPath,
-		featureGateAccess:       featureGateAccess,
+		targetNamespaceName:       targetNamespaceName,
+		skipCloudProviderExternal: skipCloudProviderExternal,
+		cloudProviderNamePath:     cloudProviderNamePath,
+		cloudProviderConfigPath:   cloudProviderConfigPath,
+		featureGateAccess:         featureGateAccess,
 	}
 	return cloudObserver.ObserveCloudProviderNames
 }
 
 type cloudProviderObserver struct {
-	targetNamespaceName     string
-	cloudProviderNamePath   []string
-	cloudProviderConfigPath []string
-	featureGateAccess       featuregates.FeatureGateAccess
+	targetNamespaceName       string
+	skipCloudProviderExternal bool
+	cloudProviderNamePath     []string
+	cloudProviderConfigPath   []string
+	featureGateAccess         featuregates.FeatureGateAccess
 }
 
 // ObserveCloudProviderNames observes the cloud provider from the global cluster infrastructure resource.
@@ -84,8 +86,10 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 	// Still using in-tree cloud provider, fall back to setting provider information based on platform type.
 	cloudProvider := GetPlatformName(infrastructure.Status.Platform, recorder)
 	if external {
-		if err := unstructured.SetNestedStringSlice(observedConfig, []string{"external"}, c.cloudProviderNamePath...); err != nil {
-			errs = append(errs, err)
+		if !c.skipCloudProviderExternal {
+			if err := unstructured.SetNestedStringSlice(observedConfig, []string{"external"}, c.cloudProviderNamePath...); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	} else if len(cloudProvider) > 0 {
 		if err := unstructured.SetNestedStringSlice(observedConfig, []string{cloudProvider}, c.cloudProviderNamePath...); err != nil {
