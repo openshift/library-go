@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"text/template"
 
@@ -235,7 +235,7 @@ func (o *GenericOptions) configFromDefaultsPlusOverride(defaultConfig, overrides
 	}
 	configs := [][]byte{defaultConfigContent, overridesContent}
 	for _, fname := range o.AdditionalConfigOverrideFiles {
-		bs, err := ioutil.ReadFile(fname)
+		bs, err := os.ReadFile(fname)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config overrides at %q: %v", fname, err)
 		}

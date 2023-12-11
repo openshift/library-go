@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -22,7 +22,7 @@ import (
 )
 
 func Test_ReleaseVerifier_Verify(t *testing.T) {
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
+	data, err := os.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err = ioutil.ReadFile(filepath.Join("testdata", "keyrings", "simple.txt"))
+	data, err = os.ReadFile(filepath.Join("testdata", "keyrings", "simple.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err = ioutil.ReadFile(filepath.Join("testdata", "keyrings", "combined.txt"))
+	data, err = os.ReadFile(filepath.Join("testdata", "keyrings", "combined.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 	defer emptyServer.Close()
 	emptyServerURL, _ := url.Parse(emptyServer.URL)
 
-	validSignatureData, err := ioutil.ReadFile(filepath.Join("testdata", "signatures", "sha256=e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7", "signature-1"))
+	validSignatureData, err := os.ReadFile(filepath.Join("testdata", "signatures", "sha256=e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7", "signature-1"))
 	validSignatureStore := &memory.Store{
 		Data: map[string][][]byte{
 			"sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7": {
@@ -178,7 +178,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 }
 
 func Test_ReleaseVerifier_String(t *testing.T) {
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
+	data, err := os.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func Test_ReleaseVerifier_String(t *testing.T) {
 }
 
 func Test_ReleaseVerifier_Signatures(t *testing.T) {
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
+	data, err := os.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 
 	const signedDigest = "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7"
 
-	expectedSignature, err := ioutil.ReadFile(filepath.Join("testdata", "signatures", strings.Replace(signedDigest, ":", "=", 1), "signature-1"))
+	expectedSignature, err := os.ReadFile(filepath.Join("testdata", "signatures", strings.Replace(signedDigest, ":", "=", 1), "signature-1"))
 	if err != nil {
 		t.Fatal(err)
 	}

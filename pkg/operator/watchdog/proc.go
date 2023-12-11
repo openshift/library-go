@@ -2,7 +2,6 @@ package watchdog
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,7 +14,7 @@ import (
 // If the process is not found, the bool is false.
 // NOTE: This require container with shared process namespace (if run as side-car).
 func FindProcessByName(name string) (int, bool, error) {
-	files, err := ioutil.ReadDir("/proc")
+	files, err := os.ReadDir("/proc")
 	if err != nil {
 		return 0, false, err
 	}

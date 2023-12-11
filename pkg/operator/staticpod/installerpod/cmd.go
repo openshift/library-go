@@ -3,7 +3,6 @@ package installerpod
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -605,7 +604,7 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 	// Write secrets, config maps and pod to disk
 	// This does not need timeout, instead we should fail hard when we are not able to write.
 	klog.Infof("Writing pod manifest %q ...", path.Join(resourceDir, manifestFileName))
-	if err := ioutil.WriteFile(path.Join(resourceDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
+	if err := os.WriteFile(path.Join(resourceDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
 		return err
 	}
 
@@ -616,7 +615,7 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 		return err
 	}
 	klog.Infof("Writing static pod manifest %q ...\n%s", path.Join(o.PodManifestDir, manifestFileName), finalPodBytes)
-	if err := ioutil.WriteFile(path.Join(o.PodManifestDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
+	if err := os.WriteFile(path.Join(o.PodManifestDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
 		return err
 	}
 	return nil

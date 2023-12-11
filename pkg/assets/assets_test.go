@@ -1,7 +1,6 @@
 package assets
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +27,7 @@ func TestAsset_WriteFile(t *testing.T) {
 		},
 	}
 
-	assetDir, err := ioutil.TempDir("", "asset-test")
+	assetDir, err := os.MkdirTemp("", "asset-test")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -2,7 +2,6 @@ package startupmonitor
 
 import (
 	"io/fs"
-	"io/ioutil"
 	"os"
 )
 
@@ -12,7 +11,7 @@ type ioInterface interface {
 	Stat(path string) (os.FileInfo, error)
 	Remove(path string) error
 	ReadFile(filename string) ([]byte, error)
-	ReadDir(dirname string) ([]fs.FileInfo, error)
+	ReadDir(dirname string) ([]fs.DirEntry, error)
 	WriteFile(filename string, data []byte, perm fs.FileMode) error
 }
 
@@ -34,17 +33,17 @@ func (realFS) Remove(path string) error {
 	return os.Remove(path)
 }
 
-// ReadFile will call ioutil.ReadFile to read data
+// ReadFile will call os.ReadFile to read data
 func (realFS) ReadFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
-// ReadDir will call ioutil.ReadDir to get a list of fs.FileInfo for the given directory
-func (realFS) ReadDir(dirname string) ([]fs.FileInfo, error) {
-	return ioutil.ReadDir(dirname)
+// ReadDir will call os.ReadDir to get a list of fs.DirEntry for the given directory
+func (realFS) ReadDir(dirname string) ([]fs.DirEntry, error) {
+	return os.ReadDir(dirname)
 }
 
-// WriteFile will call ioutil.WriteFile to write data
+// WriteFile will call os.WriteFile to write data
 func (realFS) WriteFile(filename string, data []byte, perm fs.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
+	return os.WriteFile(filename, data, perm)
 }

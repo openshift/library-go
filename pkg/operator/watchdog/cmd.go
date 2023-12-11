@@ -3,7 +3,6 @@ package watchdog
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -202,7 +201,7 @@ func (o *FileWatcherOptions) runPidObserver(ctx context.Context, pidObservedCh c
 		}
 		if len(o.PidFile) > 0 {
 			// attempt to find the PID by pid file
-			bs, err := ioutil.ReadFile(o.PidFile)
+			bs, err := os.ReadFile(o.PidFile)
 			if err != nil {
 				klog.Warningf("Unable to read pid file %s: %v", o.PidFile, err)
 			} else {
@@ -248,7 +247,7 @@ func readInitialFileContent(files []string) (map[string][]byte, error) {
 		if _, err := os.Stat(name); os.IsNotExist(err) {
 			continue
 		}
-		content, err := ioutil.ReadFile(name)
+		content, err := os.ReadFile(name)
 		if err != nil {
 			return nil, err
 		}
