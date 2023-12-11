@@ -1,7 +1,6 @@
 package prune
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
@@ -52,7 +51,7 @@ func TestRun(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testDir, err := ioutil.TempDir("", "prune-revisions-test")
+			testDir, err := os.MkdirTemp("", "prune-revisions-test")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -85,7 +84,7 @@ func TestRun(t *testing.T) {
 }
 
 func checkPruned(t *testing.T, resourceDir string, expected []string) {
-	files, err := ioutil.ReadDir(resourceDir)
+	files, err := os.ReadDir(resourceDir)
 	if err != nil {
 		t.Error(err)
 	}

@@ -2,7 +2,6 @@ package proc
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +15,7 @@ import (
 // parseProcForZombies parses the current procfs mounted at /proc
 // to find processes in the zombie state.
 func parseProcForZombies() ([]int, error) {
-	files, err := ioutil.ReadDir("/proc")
+	files, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, err
 	}

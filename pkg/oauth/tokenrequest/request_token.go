@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -310,7 +309,7 @@ func (o *RequestTokenOptions) requestTokenWithChallengeHandlers() (string, error
 			// Unauthorized with no challenge
 			unauthorizedError := apierrs.NewUnauthorized("")
 			// Attempt to read body content and include as an error detail
-			if details, err := ioutil.ReadAll(resp.Body); err == nil && len(details) > 0 {
+			if details, err := io.ReadAll(resp.Body); err == nil && len(details) > 0 {
 				unauthorizedError.ErrStatus.Details = &metav1.StatusDetails{
 					Causes: []metav1.StatusCause{
 						{Message: string(details)},

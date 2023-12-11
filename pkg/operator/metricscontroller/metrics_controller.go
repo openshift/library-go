@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	prometheusapi "github.com/prometheus/client_golang/api"
@@ -68,7 +68,7 @@ type idleConnectionCloser interface {
 }
 
 func newInClusterPrometheusClient(serviceCAPath string) (prometheusv1.API, idleConnectionCloser, error) {
-	serviceCABytes, err := ioutil.ReadFile(serviceCAPath)
+	serviceCABytes, err := os.ReadFile(serviceCAPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error reading service CA: %w", err)
 	}
@@ -78,7 +78,7 @@ func newInClusterPrometheusClient(serviceCAPath string) (prometheusv1.API, idleC
 		return nil, nil, fmt.Errorf("error instantiating prometheus client transport: %w", err)
 	}
 
-	saToken, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	saToken, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err != nil {
 		return nil, nil, fmt.Errorf("error reading service account token: %w", err)
 	}

@@ -3,7 +3,6 @@ package manifest
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -576,7 +575,7 @@ type dir struct {
 
 // setupTestFS returns path of the tmp d created and cleanup function.
 func setupTestFS(t *testing.T, d dir) (string, func() error) {
-	root, err := ioutil.TempDir("", "test")
+	root, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -586,7 +585,7 @@ func setupTestFS(t *testing.T, d dir) (string, func() error) {
 	}
 	for _, file := range d.files {
 		path := filepath.Join(dpath, file.name)
-		ioutil.WriteFile(path, []byte(file.contents), 0755)
+		os.WriteFile(path, []byte(file.contents), 0755)
 	}
 	cleanup := func() error {
 		return os.RemoveAll(root)
