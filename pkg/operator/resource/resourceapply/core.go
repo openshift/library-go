@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 // TODO find  way to create a registry of these based on struct mapping or some such that forces users to get this right
@@ -114,11 +115,11 @@ func ApplyNamespaceImproved(ctx context.Context, client coreclientv1.NamespacesG
 		return existing, false, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
-	if !*modified {
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	if !modified {
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -161,12 +162,12 @@ func ApplyServiceImproved(ctx context.Context, client coreclientv1.ServicesGette
 		return existing, false, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
 
 	// This will catch also changes between old `required.spec` and current `required.spec`, because
 	// the annotation from SetSpecHashAnnotation will be different.
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	selectorSame := equality.Semantic.DeepEqual(existingCopy.Spec.Selector, required.Spec.Selector)
 
 	typeSame := false
@@ -176,7 +177,7 @@ func ApplyServiceImproved(ctx context.Context, client coreclientv1.ServicesGette
 		typeSame = true
 	}
 
-	if selectorSame && typeSame && !*modified {
+	if selectorSame && typeSame && !modified {
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -213,11 +214,11 @@ func ApplyPodImproved(ctx context.Context, client coreclientv1.PodsGetter, recor
 		return existing, false, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
-	if !*modified {
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	if !modified {
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -251,11 +252,11 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 		return existing, false, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
-	if !*modified {
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	if !modified {
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -287,10 +288,10 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 		return existing, false, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := existing.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 
 	// injected by cluster-network-operator: https://github.com/openshift/cluster-network-operator/blob/acc819ee0f3424a341b9ad4e1e83ca0a742c230a/docs/architecture.md?L192#configmap-ca-injector
 	caBundleInjected := required.Labels["config.openshift.io/inject-trusted-cabundle"] == "true"
@@ -333,7 +334,7 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 	}
 
 	dataSame := len(modifiedKeys) == 0
-	if dataSame && !*modified {
+	if dataSame && !modified {
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -407,7 +408,7 @@ func applySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 
 	existingCopy := existing.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(resourcemerge.BoolPtr(false), &existingCopy.ObjectMeta, required.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(ptr.To(false), &existingCopy.ObjectMeta, required.ObjectMeta)
 
 	switch required.Type {
 	case corev1.SecretTypeServiceAccountToken:

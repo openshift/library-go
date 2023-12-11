@@ -9,7 +9,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 )
 
 func TestApplyStorageClass(t *testing.T) {
@@ -209,7 +209,7 @@ func TestApplyStorageClass(t *testing.T) {
 					Parameters: map[string]string{
 						"foo": "bar",
 					},
-					AllowVolumeExpansion: resourcemerge.BoolPtr(true),
+					AllowVolumeExpansion: ptr.To(true),
 				},
 			},
 			input: &storagev1.StorageClass{
@@ -220,7 +220,7 @@ func TestApplyStorageClass(t *testing.T) {
 				Parameters: map[string]string{
 					"foo": "bar",
 				},
-				AllowVolumeExpansion: resourcemerge.BoolPtr(false),
+				AllowVolumeExpansion: ptr.To(false),
 			},
 			expectedModified: true,
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
@@ -241,7 +241,7 @@ func TestApplyStorageClass(t *testing.T) {
 					Parameters: map[string]string{
 						"foo": "bar",
 					},
-					AllowVolumeExpansion: resourcemerge.BoolPtr(false),
+					AllowVolumeExpansion: ptr.To(false),
 				}
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*storagev1.StorageClass)
 				if !equality.Semantic.DeepEqual(expected, actual) {
@@ -500,16 +500,16 @@ func TestApplyCSIDriver(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: storagev1.CSIDriverSpec{
-						AttachRequired: resourcemerge.BoolPtr(true),
-						PodInfoOnMount: resourcemerge.BoolPtr(true),
+						AttachRequired: ptr.To(true),
+						PodInfoOnMount: ptr.To(true),
 					},
 				},
 			},
 			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				Spec: storagev1.CSIDriverSpec{
-					AttachRequired: resourcemerge.BoolPtr(false),
-					PodInfoOnMount: resourcemerge.BoolPtr(false),
+					AttachRequired: ptr.To(false),
+					PodInfoOnMount: ptr.To(false),
 				},
 			},
 			expectedModified: true,
@@ -534,16 +534,16 @@ func TestApplyCSIDriver(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: storagev1.CSIDriverSpec{
-						AttachRequired: resourcemerge.BoolPtr(true),
-						PodInfoOnMount: resourcemerge.BoolPtr(true),
+						AttachRequired: ptr.To(true),
+						PodInfoOnMount: ptr.To(true),
 					},
 				},
 			},
 			input: &storagev1.CSIDriver{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				Spec: storagev1.CSIDriverSpec{
-					AttachRequired: resourcemerge.BoolPtr(true),
-					PodInfoOnMount: resourcemerge.BoolPtr(true),
+					AttachRequired: ptr.To(true),
+					PodInfoOnMount: ptr.To(true),
 				},
 			},
 			expectedModified: false,
