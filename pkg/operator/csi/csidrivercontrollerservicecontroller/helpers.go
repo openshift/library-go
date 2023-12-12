@@ -19,6 +19,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	opv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	libgocrypto "github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -36,6 +37,10 @@ const (
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
 
 	infraConfigName = "cluster"
+)
+
+var (
+	defaultMinTLSVersion = libgocrypto.TLSVersionToNameOrDie(libgocrypto.DefaultTLSVersion())
 )
 
 // WithObservedProxyDeploymentHook creates a deployment hook that injects into the deployment's containers the observed proxy config.
@@ -231,7 +236,13 @@ func WithServingInfo() dc.ManifestHookFunc {
 
 		}
 
-		if minTLSVersionFound && len(minTLSVersion) > 0 {
+		// It is possible to set a custom profile with no MinTLSVersion.
+		// In this case, the observer will return an empty string, and we
+		// fall back to the default (the same as when no profile is set).
+		if minTLSVersionFound {
+			if len(minTLSVersion) == 0 {
+				minTLSVersion = defaultMinTLSVersion
+			}
 			pairs = append(pairs, []string{"${TLS_MIN_VERSION}", minTLSVersion}...)
 		}
 
