@@ -614,3 +614,164 @@ func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.O
 func (c *statusClient) UpdateOperatorStatus(context.Context, string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	panic("missing")
 }
+
+func TestSkipOperatorStatusChangedEvent(t *testing.T) {
+	testCases := []struct {
+		name         string
+		original     configv1.ClusterOperatorStatus
+		updated      configv1.ClusterOperatorStatus
+		skipExpected bool
+	}{
+		{
+			name: "skip, happy",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			skipExpected: true,
+		},
+		{
+			name: "no skip, something else changed",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+				},
+				Versions: []configv1.OperandVersion{{Name: "TEST", Version: "1.0"}},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+				},
+				Versions: []configv1.OperandVersion{{Name: "TEST", Version: "2.0"}},
+			},
+			skipExpected: false,
+		},
+		{
+			name: "skip, partial challenge",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			skipExpected: true,
+		},
+		{
+			name: "no skip, partial challenge response",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			skipExpected: false,
+		},
+		{
+			name: "no skip, non-standard type",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+					{Message: "\ufeffTest", Type: "NonStandard"},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+					{Message: "Test", Type: "NonStandard"},
+				},
+			},
+			skipExpected: false,
+		},
+		{
+			name: "no skip, non challenge response",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Test", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "Skip", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			skipExpected: false,
+		},
+		{
+			name: "no skip, non-trivial response",
+			original: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
+					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
+					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
+					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			updated: configv1.ClusterOperatorStatus{
+				Conditions: []configv1.ClusterOperatorStatusCondition{
+					{Message: "Test", Type: configv1.OperatorAvailable},
+					{Message: "Test", Type: configv1.OperatorProgressing},
+					{Message: "Test", Type: configv1.OperatorDegraded},
+					{Message: "TestUpdated", Type: configv1.OperatorUpgradeable},
+				},
+			},
+			skipExpected: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipExpected != skipOperatorStatusChangedEvent(tc.original, tc.updated) {
+				t.Errorf("expected: %v, got: %v", tc.skipExpected, !tc.skipExpected)
+			}
+		})
+	}
+}
