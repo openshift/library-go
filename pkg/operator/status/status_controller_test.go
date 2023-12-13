@@ -232,6 +232,24 @@ func TestDegraded(t *testing.T) {
 			},
 		},
 		{
+			name: "one EvaluationConditionDetected in conditions",
+			conditions: []operatorv1.OperatorCondition{
+				{
+					Type:               string(configv1.EvaluationConditionsDetected),
+					Status:             operatorv1.ConditionTrue,
+					LastTransitionTime: fiveSecondsAgo,
+					Message:            "a message from evaluation detection",
+					Reason:             "PodSecurityReadinessController",
+				},
+			},
+			expectedType:   configv1.EvaluationConditionsDetected,
+			expectedStatus: configv1.ConditionTrue,
+			expectedReason: "_PodSecurityReadinessController",
+			expectedMessages: []string{
+				"EvaluationConditionsDetected: a message from evaluation detection",
+			},
+		},
+		{
 			name: "one not available/within threshold",
 			conditions: []operatorv1.OperatorCondition{
 				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: fiveSecondsAgo, Message: "a message from type a"},
