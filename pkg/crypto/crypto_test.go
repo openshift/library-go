@@ -219,7 +219,7 @@ func buildClient(t *testing.T, signingKey crypto.PrivateKey, signingCrt *x509.Ce
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
 	}
-	clientTemplate := newClientCertificateTemplate(pkix.Name{CommonName: "Client"}, certificateLifetime, time.Now)
+	clientTemplate := NewClientCertificateTemplate(pkix.Name{CommonName: "Client"}, certificateLifetime, time.Now)
 	clientCrt, err := signCertificate(clientTemplate, clientPublicKey, signingCrt, signingKey)
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
@@ -283,7 +283,7 @@ func TestValidityPeriodOfClientCertificate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		cert := newClientCertificateTemplate(pkix.Name{CommonName: "client"}, test.passedExpireDays, currentFakeTime)
+		cert := NewClientCertificateTemplate(pkix.Name{CommonName: "client"}, test.passedExpireDays, currentFakeTime)
 		expirationDate := cert.NotAfter
 		expectedExpirationDate := currentTime.Add(time.Duration(test.realExpireDays) * 24 * time.Hour)
 		if expectedExpirationDate != expirationDate {
