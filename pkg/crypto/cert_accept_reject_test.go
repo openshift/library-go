@@ -298,7 +298,7 @@ func TestClientCertVerification(t *testing.T) {
 	}{
 		{
 			name:          "no-client-with-no-client-ca",
-			expectedError: "remote error: tls: bad certificate",
+			expectedError: "remote error: tls: unknown certificate authority",
 		},
 		{
 			name: "no-client-with-all-client-ca",
