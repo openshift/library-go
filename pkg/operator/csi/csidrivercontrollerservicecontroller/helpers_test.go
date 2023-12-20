@@ -469,9 +469,8 @@ func withObservedServingInfo(ciphers []string, version string) driverModifier {
 		if len(ciphers) > 0 {
 			unstructured.SetNestedStringSlice(observedConfig, ciphers, csiconfigobservercontroller.CipherSuitesPath()...)
 		}
-		if version != "" {
-			unstructured.SetNestedField(observedConfig, version, csiconfigobservercontroller.MinTLSVersionPath()...)
-		}
+		// The observer may return an empty string for MinTLSVersion.
+		unstructured.SetNestedField(observedConfig, version, csiconfigobservercontroller.MinTLSVersionPath()...)
 		d, _ := json.Marshal(observedConfig)
 		i.Spec.ObservedConfig = runtime.RawExtension{Raw: d, Object: &unstructured.Unstructured{Object: observedConfig}}
 		return i
@@ -567,11 +566,10 @@ func TestWithServingInfoHook(t *testing.T) {
 			expectedManifest: makeServingInfoManifest("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12"),
 		},
 		{
-			name:             "observed ciphers only, error is returned",
+			name:             "observed ciphers only, default version is used",
 			initialDriver:    makeFakeDriverInstance(withObservedServingInfo([]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "")),
 			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
-			expectedManifest: nil,
-			expectedError:    true,
+			expectedManifest: makeServingInfoManifest("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", defaultMinTLSVersion),
 		},
 		{
 			name:             "observed version only, error is returned",
