@@ -289,6 +289,7 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 // getLatestAvailableRevision returns the latest known revision to the operator
 // This is determined by checking revision status configmaps.
 func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int32, error) {
+	// this appears to use a cached getter.  I conceded that past-David should have explicitly used Listers
 	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return 0, err
@@ -313,7 +314,7 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 }
 
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	operatorSpec, _, latestAvailableRevision, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
+	operatorSpec, _, latestAvailableRevisionSeenByOperator, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
 	if err != nil {
 		return err
 	}
@@ -322,26 +323,22 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 		return nil
 	}
 
-	// If the operator status has 0 as its latest available revision, this is either the first revision
-	// or possibly the operator resource was deleted and reset back to 0, which is not what we want so check configmaps
-	if latestAvailableRevision == 0 {
-		// Check to see if current revision is accurate and if not, search through configmaps for latest revision
-		latestRevision, err := c.getLatestAvailableRevision(ctx)
+	// If the operator status's latest available revision is not the same as the observed latest revision, update the operator.
+	latestObservedRevision, err := c.getLatestAvailableRevision(ctx)
+	if err != nil {
+		return err
+	}
+	if latestObservedRevision != 0 && latestAvailableRevisionSeenByOperator != latestObservedRevision {
+		// Then make sure that revision number is what's in the operator status
+		_, _, err := c.operatorClient.UpdateLatestRevisionOperatorStatus(ctx, latestObservedRevision)
 		if err != nil {
 			return err
 		}
-		if latestRevision != 0 {
-			// Then make sure that revision number is what's in the operator status
-			_, _, err := c.operatorClient.UpdateLatestRevisionOperatorStatus(ctx, latestRevision)
-			if err != nil {
-				return err
-			}
-			// regardless of whether we made a change, requeue to rerun the sync with updated status
-			return factory.SyntheticRequeueError
-		}
+		// regardless of whether we made a change, requeue to rerun the sync with updated status
+		return factory.SyntheticRequeueError
 	}
 
-	requeue, syncErr := c.createRevisionIfNeeded(ctx, syncCtx.Recorder(), latestAvailableRevision, resourceVersion)
+	requeue, syncErr := c.createRevisionIfNeeded(ctx, syncCtx.Recorder(), latestAvailableRevisionSeenByOperator, resourceVersion)
 	if requeue && syncErr == nil {
 		return factory.SyntheticRequeueError
 	}
