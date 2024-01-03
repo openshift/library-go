@@ -2,6 +2,7 @@ package revisioncontroller
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,11 @@ func filterCreateActions(actions []clienttesting.Action) []runtime.Object {
 	for _, a := range actions {
 		createAction, isCreate := a.(clienttesting.CreateAction)
 		if !isCreate {
+			continue
+		}
+		// Filter out Update actions as both clienttesting.CreateAction
+		// and clienttesting.UpdateAction implement the same interface
+		if reflect.TypeOf(a) == reflect.TypeOf(clienttesting.UpdateActionImpl{}) {
 			continue
 		}
 		_, isEvent := createAction.GetObject().(*v1.Event)
@@ -101,7 +107,7 @@ func TestRevisionController(t *testing.T) {
 			},
 			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
 				updatedObjects := filterUpdateActions(actions)
-				if len(updatedObjects) != 3 {
+				if len(updatedObjects) != 4 {
 					t.Errorf("expected 4 updated objects, but got %v", len(updatedObjects))
 				}
 				_, err := kclient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-2", metav1.GetOptions{})
