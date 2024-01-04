@@ -30,6 +30,7 @@ type Factory struct {
 	syncContext           SyncContext
 	syncDegradedClient    operatorv1helpers.OperatorClient
 	resyncInterval        time.Duration
+	noEventHandlers       bool
 	resyncSchedules       []string
 	informers             []filteredInformers
 	informerQueueKeys     []informersWithQueueKey
@@ -208,6 +209,14 @@ func (f *Factory) ResyncEvery(interval time.Duration) *Factory {
 	return f
 }
 
+// WithoutEventHandlers will skip adding even handlers for informers. Used alongside ResyncEvery.
+// This is useful for cases where informers are getting updated more often than resyncInterval.
+// To avoid running Sync() more often than resyncInterval specifies.
+func (f *Factory) WithoutEventHandlers() *Factory {
+	f.noEventHandlers = true
+	return f
+}
+
 // ResyncSchedule allows to supply a Cron syntax schedule that will be used to schedule the sync() call runs.
 // This allows more fine-tuned controller scheduling than ResyncEvery.
 // Examples:
@@ -243,6 +252,10 @@ func (f *Factory) WithSyncDegradedOnError(operatorClient operatorv1helpers.Opera
 func (f *Factory) ToController(name string, eventRecorder events.Recorder) Controller {
 	if f.sync == nil {
 		panic(fmt.Errorf("WithSync() must be used before calling ToController() in %q", name))
+	}
+
+	if f.noEventHandlers && f.resyncInterval == 0 {
+		panic(fmt.Errorf("ResyncEvery() must be used when calling WithoutEventHandlers() in %q", name))
 	}
 
 	var ctx SyncContext
@@ -283,7 +296,9 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 		for d := range f.informerQueueKeys[i].informers {
 			informer := f.informerQueueKeys[i].informers[d]
 			queueKeyFn := f.informerQueueKeys[i].queueKeyFn
-			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, f.informerQueueKeys[i].filter))
+			if !f.noEventHandlers {
+				informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(queueKeyFn, f.informerQueueKeys[i].filter))
+			}
 			c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
 		}
 	}
@@ -291,7 +306,9 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	for i := range f.informers {
 		for d := range f.informers[i].informers {
 			informer := f.informers[i].informers[d]
-			informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(DefaultQueueKeysFunc, f.informers[i].filter))
+			if !f.noEventHandlers {
+				informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(DefaultQueueKeysFunc, f.informers[i].filter))
+			}
 			c.cachesToSync = append(c.cachesToSync, informer.HasSynced)
 		}
 	}
@@ -301,7 +318,9 @@ func (f *Factory) ToController(name string, eventRecorder events.Recorder) Contr
 	}
 
 	for i := range f.namespaceInformers {
-		f.namespaceInformers[i].informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(DefaultQueueKeysFunc, f.namespaceInformers[i].nsFilter))
+		if !f.noEventHandlers {
+			f.namespaceInformers[i].informer.AddEventHandler(c.syncContext.(syncContext).eventHandler(DefaultQueueKeysFunc, f.namespaceInformers[i].nsFilter))
+		}
 		c.cachesToSync = append(c.cachesToSync, f.namespaceInformers[i].informer.HasSynced)
 	}
 
