@@ -20,17 +20,13 @@ func deduplicateCertKeyPairs(in []*certgraphapi.CertKeyPair) []*certgraphapi.Cer
 			if len(currOut.Name) == 0 {
 				continue
 			}
-			switch len(currIn.Name) {
-			case 0:
-				// Certificate and key have matching modulus
-				if currOut.Spec.CertMetadata.CertIdentifier.PubkeyModulus == currIn.Spec.CertMetadata.CertIdentifier.PubkeyModulus {
-					foundIdx = j
-				}
-			default:
+			switch {
+			case len(currIn.Name) == 0 && currOut.Spec.CertMetadata.CertIdentifier.PubkeyModulus == currIn.Spec.CertMetadata.CertIdentifier.PubkeyModulus:
+				// No name to check and certificate and key have matching modulus
+				foundIdx = j
+			case currOut.Name == currIn.Name:
 				// Two certificates with matching names
-				if currOut.Name == currIn.Name {
-					foundIdx = j
-				}
+				foundIdx = j
 			}
 			// Append currIn locations to found certkeypair
 			if foundIdx != -1 {
