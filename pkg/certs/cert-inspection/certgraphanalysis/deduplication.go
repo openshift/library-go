@@ -6,37 +6,28 @@ import (
 
 func deduplicateCertKeyPairs(in []*certgraphapi.CertKeyPair) []*certgraphapi.CertKeyPair {
 	ret := []*certgraphapi.CertKeyPair{}
+
 	for _, currIn := range in {
 		if currIn == nil {
 			panic("currIn is nil")
 		}
 
-		foundIdx := -1
+		found := false
 		for j, currOut := range ret {
 			if currOut == nil {
 				panic("currOut is nil")
 			}
-			// currOut has no name set - skip and allow it to be found later
-			if len(currOut.Name) == 0 {
-				continue
+			if currOut.Spec.CertMetadata.CertIdentifier.PubkeyModulus == currIn.Spec.CertMetadata.CertIdentifier.PubkeyModulus {
+				// Append currIn locations to found certkeypair
+				ret[j] = combineSecretLocations(ret[j], currIn.Spec.SecretLocations)
+				ret[j] = combineCertOnDiskLocations(ret[j], currIn.Spec.OnDiskLocations)
+				found = true
 			}
-			switch {
-			case len(currIn.Name) == 0 && currOut.Spec.CertMetadata.CertIdentifier.PubkeyModulus == currIn.Spec.CertMetadata.CertIdentifier.PubkeyModulus:
-				// No name to check and certificate and key have matching modulus
-				foundIdx = j
-			case currOut.Name == currIn.Name:
-				// Two certificates with matching names
-				foundIdx = j
-			}
-			// Append currIn locations to found certkeypair
-			if foundIdx != -1 {
-				ret[foundIdx] = combineSecretLocations(ret[foundIdx], currIn.Spec.SecretLocations)
-				ret[foundIdx] = combineCertOnDiskLocations(ret[foundIdx], currIn.Spec.OnDiskLocations)
-			}
+
 		}
 
 		// No match found - add currIn as is
-		if foundIdx == -1 {
+		if !found {
 			ret = append(ret, currIn.DeepCopy())
 		}
 	}
@@ -77,7 +68,6 @@ func combineSecretLocations(in *certgraphapi.CertKeyPair, rhs []certgraphapi.InC
 }
 
 func combineCertOnDiskLocations(in *certgraphapi.CertKeyPair, rhs []certgraphapi.OnDiskCertKeyPairLocation) *certgraphapi.CertKeyPair {
-	keyLocation := certgraphapi.OnDiskLocation{}
 	out := in.DeepCopy()
 	for _, curr := range rhs {
 		found := false
@@ -87,22 +77,7 @@ func combineCertOnDiskLocations(in *certgraphapi.CertKeyPair, rhs []certgraphapi
 			}
 		}
 		if !found {
-			// Store key to be merged into Cert
-			if len(curr.Cert.Path) == 0 {
-				keyLocation = curr.Key
-				continue
-			}
 			out.Spec.OnDiskLocations = append(out.Spec.OnDiskLocations, curr)
-		}
-	}
-
-	// Fill in Key property if it was found earlier and unset
-	if len(keyLocation.Path) == 0 {
-		return out
-	}
-	for idx, loc := range out.Spec.OnDiskLocations {
-		if len(loc.Key.Path) == 0 {
-			out.Spec.OnDiskLocations[idx].Key = keyLocation
 		}
 	}
 
