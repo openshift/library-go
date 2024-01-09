@@ -607,6 +607,10 @@ func (c *statusClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1
 	return &c.spec, &c.status, "", nil
 }
 
+func (c *statusClient) GetOperatorStateWithQuorum(ctx context.Context) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
+	return c.GetOperatorState()
+}
+
 func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	panic("missing")
 }
