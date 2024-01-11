@@ -194,7 +194,6 @@ func GetPlatformName(platformType configv1.PlatformType, recorder events.Recorde
 	case configv1.NutanixPlatformType:
 	case configv1.OvirtPlatformType:
 	case configv1.KubevirtPlatformType:
-	case configv1.AlibabaCloudPlatformType:
 	case configv1.PowerVSPlatformType:
 	case configv1.ExternalPlatformType:
 	default:

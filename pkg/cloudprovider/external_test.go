@@ -82,13 +82,6 @@ func TestIsCloudProviderExternal(t *testing.T) {
 		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 		expected:    true,
 	}, {
-		name: "No FeatureGate: Platform: AlibabaCloud",
-		status: &configv1.PlatformStatus{
-			Type: configv1.AlibabaCloudPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
-	}, {
 		name: "No FeatureGate, Platform: IBMCloud",
 		status: &configv1.PlatformStatus{
 			Type: configv1.IBMCloudPlatformType,

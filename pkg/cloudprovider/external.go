@@ -43,8 +43,7 @@ func IsCloudProviderExternal(platformStatus *configv1.PlatformStatus, featureGat
 			return true, nil
 		}
 		return isExternalFeatureGateEnabled(featureGateAccessor, ExternalCloudProviderFeature, ExternalCloudProviderFeatureAzure)
-	case configv1.AlibabaCloudPlatformType,
-		configv1.AWSPlatformType,
+	case configv1.AWSPlatformType,
 		configv1.IBMCloudPlatformType,
 		configv1.KubevirtPlatformType,
 		configv1.NutanixPlatformType,
