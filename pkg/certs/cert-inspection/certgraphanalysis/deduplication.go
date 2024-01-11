@@ -106,18 +106,19 @@ func combineCertOnDiskLocations(in *certgraphapi.CertKeyPair, rhs []certgraphapi
 func deduplicateCABundles(in []*certgraphapi.CertificateAuthorityBundle) []*certgraphapi.CertificateAuthorityBundle {
 	ret := []*certgraphapi.CertificateAuthorityBundle{}
 	for _, currIn := range in {
+		if currIn == nil {
+			panic("one")
+		}
+
 		found := false
 		for j, currOut := range ret {
-			if currIn == nil {
-				panic("one")
-			}
 			if currOut == nil {
 				panic("two")
 			}
 			if currOut.Name == currIn.Name {
+				found = true
 				ret[j] = combineConfigMapLocations(ret[j], currIn.Spec.ConfigMapLocations)
 				ret[j] = combineCABundleOnDiskLocations(ret[j], currIn.Spec.OnDiskLocations)
-				found = true
 				break
 			}
 		}
@@ -138,8 +139,9 @@ func deduplicateCABundlesList(in *certgraphapi.CertificateAuthorityBundleList) *
 	for idx := range in.Items {
 		bundles = append(bundles, &in.Items[idx])
 	}
-	for idx := range deduplicateCABundles(bundles) {
-		ret.Items = append(ret.Items, *bundles[idx])
+	dedup := deduplicateCABundles(bundles)
+	for idx := range dedup {
+		ret.Items = append(ret.Items, *dedup[idx])
 	}
 	return ret
 }
