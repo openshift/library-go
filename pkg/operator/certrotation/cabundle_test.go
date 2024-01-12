@@ -236,7 +236,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = c.ensureConfigMapCABundle(context.TODO(), newCA)
+			_, err = c.EnsureConfigMapCABundle(context.TODO(), newCA)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
