@@ -335,7 +335,7 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 	var details string
 	if !dataSame {
 		sort.Sort(sort.StringSlice(modifiedKeys))
-		details = fmt.Sprintf("cause by changes in %v", strings.Join(modifiedKeys, ","))
+		details = fmt.Sprintf("caused by changes in %v", strings.Join(modifiedKeys, ","))
 	}
 	if klog.V(2).Enabled() {
 		klog.Infof("ConfigMap %q changes: %v", required.Namespace+"/"+required.Name, JSONPatchNoError(existing, required))

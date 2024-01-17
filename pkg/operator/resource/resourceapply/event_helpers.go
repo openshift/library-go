@@ -39,7 +39,7 @@ func reportUpdateEvent(recorder events.Recorder, obj runtime.Object, originalErr
 	case len(details) == 0:
 		recorder.Eventf(fmt.Sprintf("%sUpdated", gvk.Kind), "Updated %s because it changed", resourcehelper.FormatResourceForCLIWithNamespace(obj))
 	default:
-		recorder.Eventf(fmt.Sprintf("%sUpdated", gvk.Kind), "Updated %s:\n%s", resourcehelper.FormatResourceForCLIWithNamespace(obj), strings.Join(details, "\n"))
+		recorder.Eventf(fmt.Sprintf("%sUpdated", gvk.Kind), "Updated %s: %s", resourcehelper.FormatResourceForCLIWithNamespace(obj), strings.Join(details, "\n"))
 	}
 }
 
@@ -51,6 +51,6 @@ func reportDeleteEvent(recorder events.Recorder, obj runtime.Object, originalErr
 	case len(details) == 0:
 		recorder.Eventf(fmt.Sprintf("%sDeleted", gvk.Kind), "Deleted %s", resourcehelper.FormatResourceForCLIWithNamespace(obj))
 	default:
-		recorder.Eventf(fmt.Sprintf("%sDeleted", gvk.Kind), "Deleted %s:\n%s", resourcehelper.FormatResourceForCLIWithNamespace(obj), strings.Join(details, "\n"))
+		recorder.Eventf(fmt.Sprintf("%sDeleted", gvk.Kind), "Deleted %s: %s", resourcehelper.FormatResourceForCLIWithNamespace(obj), strings.Join(details, "\n"))
 	}
 }
