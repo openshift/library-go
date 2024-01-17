@@ -43,6 +43,10 @@ func (c *fakeOperatorClient) GetOperatorState() (spec *operatorv1.OperatorSpec, 
 	return c.startingSpec, &operatorv1.OperatorStatus{}, "", nil
 }
 
+func (c *fakeOperatorClient) GetOperatorStateWithQuorum(ctx context.Context) (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, resourceVersion string, err error) {
+	return c.GetOperatorState()
+}
+
 func (c *fakeOperatorClient) UpdateOperatorSpec(ctx context.Context, rv string, in *operatorv1.OperatorSpec) (spec *operatorv1.OperatorSpec, resourceVersion string, err error) {
 	if c.specUpdateFailure != nil {
 		return &operatorv1.OperatorSpec{}, rv, c.specUpdateFailure
