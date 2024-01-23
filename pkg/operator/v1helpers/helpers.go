@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,6 +162,7 @@ func UpdateStatus(ctx context.Context, client OperatorClient, updateFuncs ...Upd
 	updated := false
 	var updatedOperatorStatus *operatorv1.OperatorStatus
 	numberOfAttempts := 0
+	previousResourceVersion := "0"
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		defer func() {
 			numberOfAttempts++
@@ -168,12 +171,15 @@ func UpdateStatus(ctx context.Context, client OperatorClient, updateFuncs ...Upd
 		var resourceVersion string
 		var err error
 
-		if numberOfAttempts < 1 { // prefer lister if we haven't already failed.
-			_, oldStatus, resourceVersion, err = client.GetOperatorState()
-
-		} else { // if we have failed enough times (chose 1 as a starting point, do a live GET
+		// prefer lister if we haven't already failed.
+		_, oldStatus, resourceVersion, err = client.GetOperatorState()
+		if resourceVersion == previousResourceVersion {
+			listerResourceVersion := resourceVersion
+			// this indicates that we've had a conflict and the lister has not caught up, so do a live GET
 			_, oldStatus, resourceVersion, err = client.GetOperatorStateWithQuorum(ctx)
+			klog.V(2).Infof("lister was stale at resourceVersion=%v, live get showed resourceVersion=%v", listerResourceVersion, resourceVersion)
 		}
+		previousResourceVersion = resourceVersion
 		if err != nil {
 			return err
 		}
@@ -215,6 +221,7 @@ func UpdateStaticPodStatus(ctx context.Context, client StaticPodOperatorClient, 
 	updated := false
 	var updatedOperatorStatus *operatorv1.StaticPodOperatorStatus
 	numberOfAttempts := 0
+	previousResourceVersion := "0"
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		defer func() {
 			numberOfAttempts++
@@ -223,12 +230,15 @@ func UpdateStaticPodStatus(ctx context.Context, client StaticPodOperatorClient, 
 		var resourceVersion string
 		var err error
 
-		if numberOfAttempts < 1 { // prefer lister if we haven't already failed.
-			_, oldStatus, resourceVersion, err = client.GetStaticPodOperatorState()
-
-		} else { // if we have failed enough times (chose 1 as a starting point, do a live GET
+		// prefer lister if we haven't already failed.
+		_, oldStatus, resourceVersion, err = client.GetStaticPodOperatorState()
+		if resourceVersion == previousResourceVersion {
+			listerResourceVersion := resourceVersion
+			// this indicates that we've had a conflict and the lister has not caught up, so do a live GET
 			_, oldStatus, resourceVersion, err = client.GetStaticPodOperatorStateWithQuorum(ctx)
+			klog.V(2).Infof("lister was stale at resourceVersion=%v, live get showed resourceVersion=%v", listerResourceVersion, resourceVersion)
 		}
+		previousResourceVersion = resourceVersion
 		if err != nil {
 			return err
 		}
