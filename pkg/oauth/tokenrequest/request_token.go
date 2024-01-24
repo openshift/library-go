@@ -96,6 +96,36 @@ func RequestTokenWithLocalCallback(clientCfg *restclient.Config, authzURLHandler
 	return o.RequestToken()
 }
 
+// ExtractOAuthMetadata extracts the OAuth related metadata from the host's
+// .well-known/oauth-authorization-server endpoint.
+func ExtractOAuthMetadata(clientCfg *restclient.Config) (*oauthdiscovery.OauthAuthorizationServerMetadata, error) {
+	// get the OAuth metadata directly from the api server
+	// we only want to use the ca data from our config
+	rt, err := restclient.TransportFor(clientCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	requestURL := strings.TrimRight(clientCfg.Host, "/") + oauthMetadataEndpoint
+
+	resp, err := request(rt, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("couldn't get %v: unexpected response status %v", requestURL, resp.StatusCode)
+	}
+
+	metadata := &oauthdiscovery.OauthAuthorizationServerMetadata{}
+	if err := json.NewDecoder(resp.Body).Decode(metadata); err != nil {
+		return nil, err
+	}
+
+	return metadata, nil
+}
+
 func NewRequestTokenOptions(
 	clientCfg *restclient.Config,
 	tokenFlow bool,
@@ -158,26 +188,8 @@ func (o *RequestTokenOptions) SetDefaultOsinConfig(clientID string, redirectURL 
 		return fmt.Errorf("osin config is already set to: %#v", *o.OsinConfig)
 	}
 
-	// get the OAuth metadata directly from the api server
-	// we only want to use the ca data from our config
-	rt, err := restclient.TransportFor(o.ClientConfig)
+	metadata, err := ExtractOAuthMetadata(o.ClientConfig)
 	if err != nil {
-		return err
-	}
-
-	requestURL := strings.TrimRight(o.ClientConfig.Host, "/") + oauthMetadataEndpoint
-	resp, err := request(rt, requestURL, nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("couldn't get %v: unexpected response status %v", requestURL, resp.StatusCode)
-	}
-
-	metadata := &oauthdiscovery.OauthAuthorizationServerMetadata{}
-	if err := json.NewDecoder(resp.Body).Decode(metadata); err != nil {
 		return err
 	}
 
