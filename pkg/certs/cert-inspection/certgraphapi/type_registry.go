@@ -1,13 +1,5 @@
 package certgraphapi
 
-// PKIRegistryInfo holds information about TLS artifacts stored in etcd. This includes object location and metadata based on object annotations
-type PKIRegistryInfo struct {
-	// +mapType:=atomic
-	CertificateAuthorityBundles []PKIRegistryCABundle `json:"certificateAuthorityBundles"`
-	// +mapType:=atomic
-	CertKeyPairs []PKIRegistryCertKeyPair `json:"certKeyPairs"`
-}
-
 type PKIRegistryCertKeyPair struct {
 	InClusterLocation *PKIRegistryInClusterCertKeyPair
 	OnDiskLocation    *PKIRegistryOnDiskCertKeyPair
