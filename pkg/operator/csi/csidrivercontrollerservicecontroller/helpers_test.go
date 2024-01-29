@@ -18,8 +18,8 @@ import (
 	coreinformers "k8s.io/client-go/informers"
 	fakecore "k8s.io/client-go/kubernetes/fake"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
+	"sigs.k8s.io/yaml"
 
 	configv1 "github.com/openshift/api/config/v1"
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
