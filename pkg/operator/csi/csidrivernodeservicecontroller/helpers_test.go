@@ -9,9 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
+	"sigs.k8s.io/yaml"
 )
 
 const (

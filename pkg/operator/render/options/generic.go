@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
@@ -16,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
 )
 
 // GenericOptions contains the generic render command options.

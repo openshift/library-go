@@ -9,7 +9,6 @@ require (
 	github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/fvbommel/sortorder v1.1.0
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-ldap/ldap/v3 v3.4.3
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/google/gnostic-models v0.6.8
