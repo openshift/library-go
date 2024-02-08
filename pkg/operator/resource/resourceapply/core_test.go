@@ -180,6 +180,30 @@ func TestApplyConfigMap(t *testing.T) {
 			},
 		},
 		{
+			name: "don't mutate service CA if injected",
+			existing: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo", Annotations: map[string]string{"service.beta.openshift.io/inject-cabundle": "true"}},
+					Data: map[string]string{
+						"service-ca.crt": "value",
+					},
+				},
+			},
+			input: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo", Annotations: map[string]string{"service.beta.openshift.io/inject-cabundle": "true"}},
+			},
+
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "configmaps") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
 			name: "update on missing label",
 			existing: []runtime.Object{
 				&corev1.ConfigMap{
