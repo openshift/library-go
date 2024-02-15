@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
-	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -14,8 +14,20 @@ import (
 	"github.com/openshift/library-go/pkg/authorization/authorizationutil"
 )
 
-// HostGeneratedAnnotationKey is the key for an annotation set to "true" if the route's host was generated
-const HostGeneratedAnnotationKey = "openshift.io/host.generated"
+const (
+	// HostGeneratedAnnotationKey is the key for an annotation set to "true"
+	// if the route's host was generated.
+	HostGeneratedAnnotationKey = "openshift.io/host.generated"
+	// routeHostPermissionErrMsg is the error message for trying to set a
+	// route's spec.host field without the required permission.
+	routeHostPermissionErrMsg = "you do not have permission to set the host field of the route"
+	// routeSubdomainPermissionErrMsg is the error message for trying to set
+	// a route's spec.subdomain field without the required permission.
+	routeSubdomainPermissionErrMsg = "you do not have permission to set the subdomain field of the route"
+	// routeTLSPermissionErrMsg is the error message for trying to set a
+	// route's spec.tls field or subfields without the required permission.
+	routeTLSPermissionErrMsg = "you do not have permission to set certificate fields on the route"
+)
 
 // Registry is an interface for performing subject access reviews
 type SubjectAccessReviewCreator interface {
@@ -60,9 +72,9 @@ func AllocateHost(ctx context.Context, route *routev1.Route, sarc SubjectAccessR
 		}
 		if !res.Status.Allowed {
 			if hostSet {
-				return field.ErrorList{field.Forbidden(field.NewPath("spec", "host"), "you do not have permission to set the host field of the route")}
+				return field.ErrorList{field.Forbidden(field.NewPath("spec", "host"), routeHostPermissionErrMsg)}
 			}
-			return field.ErrorList{field.Forbidden(field.NewPath("spec", "tls"), "you do not have permission to set certificate fields on the route")}
+			return field.ErrorList{field.Forbidden(field.NewPath("spec", "tls"), routeTLSPermissionErrMsg)}
 		}
 	}
 
@@ -117,6 +129,16 @@ func certificateChangeRequiresAuth(route, older *routev1.Route) bool {
 	}
 }
 
+// validateImmutableField is equivalent to apimachinery.ValidateImmutableField
+// except that it uses a custom error message.
+func validateImmutableField(newVal, oldVal interface{}, fldPath *field.Path, errMsg string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if !apiequality.Semantic.DeepEqual(oldVal, newVal) {
+		allErrs = append(allErrs, field.Invalid(fldPath, newVal, errMsg))
+	}
+	return allErrs
+}
+
 func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc SubjectAccessReviewCreator) field.ErrorList {
 	hostChanged := route.Spec.Host != older.Spec.Host
 	subdomainChanged := route.Spec.Subdomain != older.Spec.Subdomain
@@ -154,10 +176,10 @@ func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc S
 	}
 	if !res.Status.Allowed {
 		if hostChanged {
-			return apimachineryvalidation.ValidateImmutableField(route.Spec.Host, older.Spec.Host, field.NewPath("spec", "host"))
+			return field.ErrorList{field.Invalid(field.NewPath("spec", "host"), route.Spec.Host, routeHostPermissionErrMsg)}
 		}
 		if subdomainChanged {
-			return apimachineryvalidation.ValidateImmutableField(route.Spec.Subdomain, older.Spec.Subdomain, field.NewPath("spec", "subdomain"))
+			return field.ErrorList{field.Invalid(field.NewPath("spec", "subdomain"), route.Spec.Subdomain, routeSubdomainPermissionErrMsg)}
 		}
 
 		// if tls is being updated without host being updated, we check if 'create' permission exists on custom-host subresource
@@ -184,12 +206,12 @@ func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc S
 		}
 		if !res.Status.Allowed {
 			if route.Spec.TLS == nil || older.Spec.TLS == nil {
-				return apimachineryvalidation.ValidateImmutableField(route.Spec.TLS, older.Spec.TLS, field.NewPath("spec", "tls"))
+				return validateImmutableField(route.Spec.TLS, older.Spec.TLS, field.NewPath("spec", "tls"), routeTLSPermissionErrMsg)
 			}
-			errs := apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.CACertificate, older.Spec.TLS.CACertificate, field.NewPath("spec", "tls", "caCertificate"))
-			errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.Certificate, older.Spec.TLS.Certificate, field.NewPath("spec", "tls", "certificate"))...)
-			errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.DestinationCACertificate, older.Spec.TLS.DestinationCACertificate, field.NewPath("spec", "tls", "destinationCACertificate"))...)
-			errs = append(errs, apimachineryvalidation.ValidateImmutableField(route.Spec.TLS.Key, older.Spec.TLS.Key, field.NewPath("spec", "tls", "key"))...)
+			errs := validateImmutableField(route.Spec.TLS.CACertificate, older.Spec.TLS.CACertificate, field.NewPath("spec", "tls", "caCertificate"), routeTLSPermissionErrMsg)
+			errs = append(errs, validateImmutableField(route.Spec.TLS.Certificate, older.Spec.TLS.Certificate, field.NewPath("spec", "tls", "certificate"), routeTLSPermissionErrMsg)...)
+			errs = append(errs, validateImmutableField(route.Spec.TLS.DestinationCACertificate, older.Spec.TLS.DestinationCACertificate, field.NewPath("spec", "tls", "destinationCACertificate"), routeTLSPermissionErrMsg)...)
+			errs = append(errs, validateImmutableField(route.Spec.TLS.Key, older.Spec.TLS.Key, field.NewPath("spec", "tls", "key"), routeTLSPermissionErrMsg)...)
 			return errs
 		}
 	}
