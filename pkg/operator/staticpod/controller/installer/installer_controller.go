@@ -587,7 +587,12 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 	revisionStrings := []string{}
 	for _, currentRevision := range Int32KeySet(counts).List() {
 		count := counts[currentRevision]
-		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, currentRevision))
+		if count > 1 {
+			revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, currentRevision))
+		} else {
+			revisionStrings = append(revisionStrings, fmt.Sprintf("%d node is at revision %d", count, currentRevision))
+		}
+
 	}
 	// if we are progressing and no nodes have achieved that level, we should indicate
 	if numProgressing > 0 && counts[newStatus.LatestAvailableRevision] == 0 {
