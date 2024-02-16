@@ -3,6 +3,7 @@ package deploymentcontroller
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -34,7 +35,7 @@ type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 //
 // This controller supports removable operands, as configured in pkg/operator/management.
 //
-// This controller produces the following conditions:
+// This controller optionally produces the following conditions:
 // <name>Available: indicates that the deployment controller  was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the Deployment is in progress.
 // <name>Degraded: produced when the sync() method returns an error.
@@ -46,6 +47,7 @@ type DeploymentController struct {
 	deployInformer    appsinformersv1.DeploymentInformer
 	optionalInformers []factory.Informer
 	recorder          events.Recorder
+	conditions        []string
 	// Optional hook functions to modify the deployment manifest.
 	// This helps in modifying the manifests before it deployment
 	// is created from the manifest.
@@ -79,6 +81,10 @@ func NewDeploymentController(
 		operatorClient,
 		kubeClient,
 		deployInformer,
+	).WithConditions(
+		opv1.OperatorStatusTypeAvailable,
+		opv1.OperatorStatusTypeProgressing,
+		opv1.OperatorStatusTypeDegraded,
 	).WithExtraInformers(
 		optionalInformers...,
 	).WithManifestHooks(
@@ -122,6 +128,10 @@ func (c *DeploymentController) WithDeploymentHooks(hooks ...DeploymentHookFunc) 
 	return c
 }
 
+func (c *DeploymentController) WithConditions(conditions ...string) *DeploymentController {
+	c.conditions = conditions
+	return c
+}
 
 func (c *DeploymentController) ToController() factory.Controller {
 	informers := append(
@@ -129,15 +139,17 @@ func (c *DeploymentController) ToController() factory.Controller {
 		c.operatorClient.Informer(),
 		c.deployInformer.Informer(),
 	)
-	return factory.New().WithInformers(
+	controller := factory.New().WithInformers(
 		informers...,
 	).WithSync(
 		c.sync,
 	).ResyncEvery(
 		time.Minute,
-	).WithSyncDegradedOnError(
-		c.operatorClient,
-	).ToController(
+	)
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
+		controller = controller.WithSyncDegradedOnError(c.operatorClient)
+	}
+	return controller.ToController(
 		c.name,
 		c.recorder.WithComponentSuffix(strings.ToLower(c.name)+"-deployment-controller-"),
 	)
@@ -194,42 +206,48 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		return err
 	}
 
-	availableCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeAvailable,
-		Status: opv1.ConditionTrue,
+	updateStatusFuncs := []v1helpers.UpdateStatusFunc{
+		func(newStatus *opv1.OperatorStatus) error {
+			// TODO: set ObservedGeneration (the last stable generation change we dealt with)
+			resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
+			return nil
+		},
 	}
 
-	if deployment.Status.AvailableReplicas > 0 {
-		availableCondition.Status = opv1.ConditionTrue
-	} else {
-		availableCondition.Status = opv1.ConditionFalse
-		availableCondition.Message = "Waiting for Deployment"
-		availableCondition.Reason = "Deploying"
+	// Set Available Condition
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
+		availableCondition := opv1.OperatorCondition{
+			Type:   c.name + opv1.OperatorStatusTypeAvailable,
+			Status: opv1.ConditionTrue,
+		}
+		if deployment.Status.AvailableReplicas > 0 {
+			availableCondition.Status = opv1.ConditionTrue
+		} else {
+			availableCondition.Status = opv1.ConditionFalse
+			availableCondition.Message = "Waiting for Deployment"
+			availableCondition.Reason = "Deploying"
+		}
+		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(availableCondition))
 	}
 
-	progressingCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeProgressing,
-		Status: opv1.ConditionFalse,
-	}
-
-	if ok, msg := isProgressing(deployment); ok {
-		progressingCondition.Status = opv1.ConditionTrue
-		progressingCondition.Message = msg
-		progressingCondition.Reason = "Deploying"
-	}
-
-	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {
-		// TODO: set ObservedGeneration (the last stable generation change we dealt with)
-		resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
-		return nil
+	// Set Progressing Condition
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
+		progressingCondition := opv1.OperatorCondition{
+			Type:   c.name + opv1.OperatorStatusTypeProgressing,
+			Status: opv1.ConditionFalse,
+		}
+		if ok, msg := isProgressing(deployment); ok {
+			progressingCondition.Status = opv1.ConditionTrue
+			progressingCondition.Message = msg
+			progressingCondition.Reason = "Deploying"
+		}
+		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(progressingCondition))
 	}
 
 	_, _, err = v1helpers.UpdateStatus(
 		ctx,
 		c.operatorClient,
-		updateStatusFn,
-		v1helpers.UpdateConditionFn(availableCondition),
-		v1helpers.UpdateConditionFn(progressingCondition),
+		updateStatusFuncs...,
 	)
 
 	return err
