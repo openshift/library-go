@@ -39,11 +39,13 @@ type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 // <name>Progressing: indicates that the Deployment is in progress.
 // <name>Degraded: produced when the sync() method returns an error.
 type DeploymentController struct {
-	name           string
-	manifest       []byte
-	operatorClient v1helpers.OperatorClientWithFinalizers
-	kubeClient     kubernetes.Interface
-	deployInformer appsinformersv1.DeploymentInformer
+	name              string
+	manifest          []byte
+	operatorClient    v1helpers.OperatorClientWithFinalizers
+	kubeClient        kubernetes.Interface
+	deployInformer    appsinformersv1.DeploymentInformer
+	optionalInformers []factory.Informer
+	recorder          events.Recorder
 	// Optional hook functions to modify the deployment manifest.
 	// This helps in modifying the manifests before it deployment
 	// is created from the manifest.
@@ -70,22 +72,63 @@ func NewDeploymentController(
 	optionalManifestHooks []ManifestHookFunc,
 	optionalDeploymentHooks ...DeploymentHookFunc,
 ) factory.Controller {
-	c := &DeploymentController{
-		name:                    name,
-		manifest:                manifest,
-		operatorClient:          operatorClient,
-		kubeClient:              kubeClient,
-		deployInformer:          deployInformer,
-		optionalManifestHooks:   optionalManifestHooks,
-		optionalDeploymentHooks: optionalDeploymentHooks,
-	}
-
-	informers := append(
-		optionalInformers,
-		operatorClient.Informer(),
-		deployInformer.Informer(),
+	c := NewDeploymentControllerBuilder(
+		name,
+		manifest,
+		recorder,
+		operatorClient,
+		kubeClient,
+		deployInformer,
+	).WithExtraInformers(
+		optionalInformers...,
+	).WithManifestHooks(
+		optionalManifestHooks...,
+	).WithDeploymentHooks(
+		optionalDeploymentHooks...,
 	)
+	return c.ToController()
+}
 
+func NewDeploymentControllerBuilder(
+	name string,
+	manifest []byte,
+	recorder events.Recorder,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
+	kubeClient kubernetes.Interface,
+	deployInformer appsinformersv1.DeploymentInformer,
+) *DeploymentController {
+	return &DeploymentController{
+		name:           name,
+		manifest:       manifest,
+		operatorClient: operatorClient,
+		kubeClient:     kubeClient,
+		deployInformer: deployInformer,
+		recorder:       recorder,
+	}
+}
+
+func (c *DeploymentController) WithExtraInformers(informers ...factory.Informer) *DeploymentController {
+	c.optionalInformers = informers
+	return c
+}
+
+func (c *DeploymentController) WithManifestHooks(hooks ...ManifestHookFunc) *DeploymentController {
+	c.optionalManifestHooks = hooks
+	return c
+}
+
+func (c *DeploymentController) WithDeploymentHooks(hooks ...DeploymentHookFunc) *DeploymentController {
+	c.optionalDeploymentHooks = hooks
+	return c
+}
+
+
+func (c *DeploymentController) ToController() factory.Controller {
+	informers := append(
+		c.optionalInformers,
+		c.operatorClient.Informer(),
+		c.deployInformer.Informer(),
+	)
 	return factory.New().WithInformers(
 		informers...,
 	).WithSync(
@@ -93,10 +136,10 @@ func NewDeploymentController(
 	).ResyncEvery(
 		time.Minute,
 	).WithSyncDegradedOnError(
-		operatorClient,
+		c.operatorClient,
 	).ToController(
 		c.name,
-		recorder.WithComponentSuffix(strings.ToLower(name)+"-deployment-controller-"),
+		c.recorder.WithComponentSuffix(strings.ToLower(c.name)+"-deployment-controller-"),
 	)
 }
 
