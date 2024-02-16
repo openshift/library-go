@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -36,7 +35,7 @@ type SecretMonitor interface {
 
 	// GetSecret retrieves the secret object from the informer's cache using the provided SecretEventHandlerRegistration.
 	// This allows accessing the latest state of the secret without making an API call.
-	GetSecret(SecretEventHandlerRegistration) (*v1.Secret, error)
+	GetSecret(SecretEventHandlerRegistration) (*corev1.Secret, error)
 }
 
 // secretEventHandlerRegistration is an implementation of the SecretEventHandlerRegistration.
@@ -133,6 +132,8 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 		return nil, err
 	}
 	m.numHandlers.Add(1)
+
+	// TODO: this can be too noisy, later we need to use higher verbosity
 	klog.Info("secret handler added", " item key ", key)
 
 	return registration, nil
@@ -178,7 +179,7 @@ func (s *secretMonitor) RemoveSecretEventHandler(handlerRegistration SecretEvent
 }
 
 // GetSecret retrieves the secret object from the informer's cache. Error if the secret is not found in the cache.
-func (s *secretMonitor) GetSecret(handlerRegistration SecretEventHandlerRegistration) (*v1.Secret, error) {
+func (s *secretMonitor) GetSecret(handlerRegistration SecretEventHandlerRegistration) (*corev1.Secret, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -208,7 +209,7 @@ func (s *secretMonitor) GetSecret(handlerRegistration SecretEventHandlerRegistra
 		return nil, err
 	}
 
-	secret, ok := uncast.(*v1.Secret)
+	secret, ok := uncast.(*corev1.Secret)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type: %T", uncast)
 	}
