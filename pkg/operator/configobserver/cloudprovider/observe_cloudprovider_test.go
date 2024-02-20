@@ -111,16 +111,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
-		name: "AlibabaCloud Platform",
-		infrastructureStatus: configv1.InfrastructureStatus{
-			Platform: configv1.AlibabaCloudPlatformType,
-			PlatformStatus: &configv1.PlatformStatus{
-				Type: configv1.AlibabaCloudPlatformType,
-			},
-		},
-		expected:           "external",
-		cloudProviderCount: 1,
-	}, {
 		name: "Nutanix Platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.NutanixPlatformType,
