@@ -26,6 +26,8 @@ kind: ServiceMonitor
 metadata:
   name: cluster-kube-apiserver
   namespace: openshift-kube-apiserver
+  labels:
+    app: openshift-kube-apiserver
 spec:
   endpoints:
     - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -54,6 +56,8 @@ kind: ServiceMonitor
 metadata:
   name: cluster-kube-apiserver
   namespace: openshift-kube-apiserver
+  labels:
+    app: openshift-kube-apiserver-fake
 spec:
   endpoints:
     - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token

@@ -4,6 +4,7 @@ import (
 	"context"
 	errorsstdlib "errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,12 +83,14 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 		return nil, false, err
 	}
 
-	// Return if the metadata hash or resource version matches.
+	// Skip if:
+	// * cache is non-nil, and,
+	// * the metadata hashes and resource version hashes match.
 	if cache.SafeToSkipApply(required, existing) {
 		return existing, false, nil
 	}
 
-	// Ensure all expected metadata fields are set.
+	// Ensure metadata field is present on the object.
 	existingCopy := existing.DeepCopy()
 	existingObjectMeta, found, err := unstructured.NestedMap(existingCopy.Object, "metadata")
 	if err != nil {
@@ -103,6 +106,8 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 	if !found {
 		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in %s", required.GetName()))
 	}
+
+	// Cast the metadata to the correct type.
 	var existingObjectMetaTyped, requiredObjectMetaTyped metav1.ObjectMeta
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(existingObjectMeta, &existingObjectMetaTyped)
 	if err != nil {
@@ -112,21 +117,25 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 	if err != nil {
 		return nil, false, err
 	}
+
+	// Check if the metadata objects differ.
 	modifiedPtr := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modifiedPtr, &existingObjectMetaTyped, requiredObjectMetaTyped)
 	if !*modifiedPtr {
 		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
-		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above.
+		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
 
-	// Ensure all expected spec fields are set.
-	existingCopy, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, nil)
+	// Deep-check the spec objects for equality, and update the cache in either case.
+	existingCopy, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
 	if err != nil {
 		return nil, false, err
 	}
 	if !modified {
+		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
+		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existingCopy, false, nil
 	}
@@ -135,8 +144,8 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 		klog.Infof("%s %q changes: %v", resourceGVR.String(), namespace+"/"+name, JSONPatchNoError(existing, existingCopy))
 	}
 
-	// Perform update if resource exists but different from the desired one.
-	actual, err := client.Resource(alertmanagerGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	// Perform update if resource exists but different from the required (desired) one.
+	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
