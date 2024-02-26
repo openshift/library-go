@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-
 	configv1 "github.com/openshift/api/config/v1"
 )
 
@@ -16,121 +14,51 @@ func TestIsCloudProviderExternal(t *testing.T) {
 	cases := []struct {
 		name        string
 		status      *configv1.PlatformStatus
-		featureGate featuregates.FeatureGateAccess
 		expected    bool
 		expectedErr error
 	}{{
-		name: "No FeatureGate, Platform: OpenStack",
+		name: "Platform: OpenStack",
 		status: &configv1.PlatformStatus{
 			Type: configv1.OpenStackPlatformType,
 		},
 		expected: true,
 	}, {
-		name: "FeatureSet: Unknown, Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
-	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    true,
-	}, {
-		name: "FeatureSet: LatencySensitive, Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(nil, nil),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (No External Feature Gate), Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(nil, nil),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled), Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled & Disabled), Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, []configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Disabled), Platform: OpenStack",
-		status: &configv1.PlatformStatus{
-			Type: configv1.OpenStackPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(nil, []configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: AWS",
+		name: "Platform: AWS",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AWSPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    true,
+		expected: true,
 	}, {
-		name: "No FeatureGate: Platform: AlibabaCloud",
+		name: "Platform: AlibabaCloud",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AlibabaCloudPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
+		expected: true,
 	}, {
-		name: "No FeatureGate, Platform: IBMCloud",
+		name: "Platform: IBMCloud",
 		status: &configv1.PlatformStatus{
 			Type: configv1.IBMCloudPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
+		expected: true,
 	}, {
-		name: "No FeatureGate, Platform: Nutanix",
+		name: " Platform: Nutanix",
 		status: &configv1.PlatformStatus{
 			Type: configv1.NutanixPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
-	}, {
-		name: "No FeatureGate, Platform: External, CloudControllerManager.State = External",
-		status: &configv1.PlatformStatus{
-			Type: configv1.ExternalPlatformType,
-			External: &configv1.ExternalPlatformStatus{
-				CloudControllerManager: configv1.CloudControllerManagerStatus{
-					State: configv1.CloudControllerManagerExternal,
-				},
-			},
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    false,
-	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: External, CloudControllerManager.State = External",
-		status: &configv1.PlatformStatus{
-			Type: configv1.ExternalPlatformType,
-			External: &configv1.ExternalPlatformStatus{
-				CloudControllerManager: configv1.CloudControllerManagerStatus{
-					State: configv1.CloudControllerManagerExternal,
-				},
-			},
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			nil,
-		),
 		expected: true,
 	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: External, CloudControllerManager.State = None",
+		name: "Platform: External, CloudControllerManager.State = External",
+		status: &configv1.PlatformStatus{
+			Type: configv1.ExternalPlatformType,
+			External: &configv1.ExternalPlatformStatus{
+				CloudControllerManager: configv1.CloudControllerManagerStatus{
+					State: configv1.CloudControllerManagerExternal,
+				},
+			},
+		},
+		expected: true,
+	}, {
+		name: "Platform: External, CloudControllerManager.State = None",
 		status: &configv1.PlatformStatus{
 			Type: configv1.ExternalPlatformType,
 			External: &configv1.ExternalPlatformStatus{
@@ -139,92 +67,38 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				},
 			},
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			nil,
-		),
 		expected: false,
 	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: External, CloudControllerManager.State is empty",
+		name: "Platform: External, CloudControllerManager.State is empty",
 		status: &configv1.PlatformStatus{
 			Type:     configv1.ExternalPlatformType,
 			External: &configv1.ExternalPlatformStatus{},
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			nil,
-		),
 		expected: false,
 	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: External, ExternalPlatformSpec is nil",
+		name: "Platform: External, ExternalPlatformSpec is nil",
 		status: &configv1.PlatformStatus{
 			Type:     configv1.ExternalPlatformType,
 			External: nil,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			nil,
-		),
 		expected: false,
 	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled), Platform: Nutanix",
-		status: &configv1.PlatformStatus{
-			Type: configv1.NutanixPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-
-		expected: true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Disabled), Platform: Nutanix",
-		status: &configv1.PlatformStatus{
-			Type: configv1.NutanixPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(nil, []configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}),
-
-		expected: true,
-	}, {
-		name: "No FeatureGate, Platform: PowerVS",
+		name: "Platform: PowerVS",
 		status: &configv1.PlatformStatus{
 			Type: configv1.PowerVSPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
+		expected: true,
 	}, {
-		name: "No FeatureGate, Platform: Kubevirt",
+		name: "Platform: Kubevirt",
 		status: &configv1.PlatformStatus{
 			Type: configv1.KubevirtPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: Azure",
-		status: &configv1.PlatformStatus{
-			Type: configv1.AzurePlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderAzure},
-			[]configv1.FeatureGateName{},
-		),
 		expected: true,
 	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Azure), Platform: Azure",
+		name: "Platform: Azure",
 		status: &configv1.PlatformStatus{
 			Type: configv1.AzurePlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderAzure, configv1.FeatureGateExternalCloudProvider},
-			[]configv1.FeatureGateName{},
-		),
-		expected: true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled but External Feature Gate Azure Disabled), Platform: Azure",
-		status: &configv1.PlatformStatus{
-			Type: configv1.AzurePlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider},
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderAzure},
-		),
 		expected: true,
 	}, {
 		name: "Platform: Azure, CloudName: AzureStackHub",
@@ -234,114 +108,47 @@ func TestIsCloudProviderExternal(t *testing.T) {
 				CloudName: configv1.AzureStackCloud,
 			},
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
+		expected: true,
 	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: BareMetal",
+		name: "Platform: BareMetal",
 		status: &configv1.PlatformStatus{
 			Type: configv1.BareMetalPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    false,
+		expected: false,
 	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: Libvirt",
+		name: "Platform: Libvirt",
 		status: &configv1.PlatformStatus{
 			Type: configv1.LibvirtPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-
 		expected: false,
 	}, {
-		name: "No FeatureGate, Platform: GCP",
+		name: "Platform: GCP",
 		status: &configv1.PlatformStatus{
 			Type: configv1.GCPPlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    false,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: GCP",
-		status: &configv1.PlatformStatus{
-			Type: configv1.GCPPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderGCP},
-			[]configv1.FeatureGateName{},
-		),
 		expected: true,
 	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate GCP), Platform: GCP",
-		status: &configv1.PlatformStatus{
-			Type: configv1.GCPPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderGCP},
-			[]configv1.FeatureGateName{},
-		),
-		expected: true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate Enabled but External Feature Gate GCP Disabled), Platform: GCP",
-		status: &configv1.PlatformStatus{
-			Type: configv1.GCPPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider},
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProviderGCP},
-		),
-		expected: true,
-	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: GCP",
-		status: &configv1.PlatformStatus{
-			Type: configv1.GCPPlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderGCP},
-			nil),
-		expected: true,
-	}, {
-		name: "No FeatureGate, Platform: vSphere",
+		name: "Platform: vSphere",
 		status: &configv1.PlatformStatus{
 			Type: configv1.VSpherePlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, readyCh, fmt.Errorf("missing")),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: vSphere",
-		status: &configv1.PlatformStatus{
-			Type: configv1.VSpherePlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider},
-			nil,
-		),
 		expected: true,
 	}, {
-		name: "FeatureSet: TechPreviewNoUpgrade, Platform: vSphere",
-		status: &configv1.PlatformStatus{
-			Type: configv1.VSpherePlatformType,
-		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    true,
-	}, {
-		name: "FeatureSet: CustomNoUpgrade (With External Feature Gate), Platform: None",
+		name: "Platform: None",
 		status: &configv1.PlatformStatus{
 			Type: configv1.NonePlatformType,
 		},
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-		expected:    false,
+
+		expected: false,
 	}, {
 		name:        "Platform status is empty",
 		status:      nil,
-		featureGate: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 		expected:    false,
 		expectedErr: fmt.Errorf("platformStatus is required"),
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			featureGateAccessor := featuregates.NewHardcodedFeatureGateAccess(nil, nil)
-			if c.featureGate != nil {
-				featureGateAccessor = c.featureGate
-			}
-			got, err := IsCloudProviderExternal(c.status, featureGateAccessor)
+			got, err := IsCloudProviderExternal(c.status)
 			if c.expectedErr != nil {
 				if err == nil {
 					t.Errorf("expected error: %v, but got no error", c.expectedErr)

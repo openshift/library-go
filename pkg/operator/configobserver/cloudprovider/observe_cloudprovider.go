@@ -13,7 +13,6 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
@@ -34,13 +33,12 @@ type InfrastructureLister interface {
 
 // NewCloudProviderObserver returns a new cloudprovider observer for syncing cloud provider specific
 // information to controller-manager and api-server.
-func NewCloudProviderObserver(targetNamespaceName string, skipCloudProviderExternal bool, cloudProviderNamePath, cloudProviderConfigPath []string, featureGateAccess featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+func NewCloudProviderObserver(targetNamespaceName string, skipCloudProviderExternal bool, cloudProviderNamePath, cloudProviderConfigPath []string) configobserver.ObserveConfigFunc {
 	cloudObserver := &cloudProviderObserver{
 		targetNamespaceName:       targetNamespaceName,
 		skipCloudProviderExternal: skipCloudProviderExternal,
 		cloudProviderNamePath:     cloudProviderNamePath,
 		cloudProviderConfigPath:   cloudProviderConfigPath,
-		featureGateAccess:         featureGateAccess,
 	}
 	return cloudObserver.ObserveCloudProviderNames
 }
@@ -50,7 +48,6 @@ type cloudProviderObserver struct {
 	skipCloudProviderExternal bool
 	cloudProviderNamePath     []string
 	cloudProviderConfigPath   []string
-	featureGateAccess         featuregates.FeatureGateAccess
 }
 
 // ObserveCloudProviderNames observes the cloud provider from the global cluster infrastructure resource.
@@ -58,11 +55,6 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 	defer func() {
 		ret = configobserver.Pruned(ret, c.cloudProviderConfigPath, c.cloudProviderNamePath)
 	}()
-
-	if !c.featureGateAccess.AreInitialFeatureGatesObserved() {
-		// if we haven't observed featuregates yet, return the existing
-		return existingConfig, nil
-	}
 
 	listers := genericListers.(InfrastructureLister)
 	var errs []error
@@ -77,7 +69,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		return existingConfig, append(errs, err)
 	}
 
-	external, err := IsCloudProviderExternal(c.featureGateAccess, infrastructure.Status.PlatformStatus)
+	external, err := cloudprovider.IsCloudProviderExternal(infrastructure.Status.PlatformStatus)
 	if err != nil {
 		recorder.Warningf("ObserveCloudProviderNames", "Could not determine external cloud provider state: %v", err)
 		return existingConfig, append(errs, err)
@@ -157,18 +149,6 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 	}
 
 	return observedConfig, errs
-}
-
-// IsCloudProviderExternal is used to determine if the cluster should use external cloud providers.
-// Currently, this is opt in via a feature gate. If no feature gate is present, the cluster should remain
-// using the in-tree implementation.
-func IsCloudProviderExternal(featureGateAccessor featuregates.FeatureGateAccess, platform *configv1.PlatformStatus) (bool, error) {
-	external, err := cloudprovider.IsCloudProviderExternal(platform, featureGateAccessor)
-	if err != nil {
-		return false, fmt.Errorf("could not determine if cloud provider is external from featuregate: %v", err)
-	}
-
-	return external, nil
 }
 
 // GetPlatformName returns the platform name as required by flags such as `cloud-provider`.
