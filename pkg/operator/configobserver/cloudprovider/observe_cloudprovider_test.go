@@ -78,17 +78,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		cloudProviderCount        int
 		expectErrors              bool
 	}{{
-		name: "AWS platform set for external configuration",
-		infrastructureStatus: configv1.InfrastructureStatus{
-			Platform: configv1.AWSPlatformType,
-			PlatformStatus: &configv1.PlatformStatus{
-				Type: configv1.AWSPlatformType,
-			},
-		},
-		expected:            "external",
-		cloudProviderCount:  1,
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-	}, {
 		name: "AWS platform set for external configuration (skip external for kas-o)",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.AWSPlatformType,
@@ -99,7 +88,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		skipCloudProviderExternal: true,
 		expected:                  "",
 		cloudProviderCount:        1,
-		featureGateAccessor:       featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 	}, {
 		name: "AWS platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -138,26 +126,8 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.AzurePlatformType,
 			},
 		},
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{},
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderAzure},
-		),
-		expected:           "azure",
-		cloudProviderCount: 1,
-	}, {
-		name: "Azure platform set for external configuration",
-		infrastructureStatus: configv1.InfrastructureStatus{
-			Platform: configv1.AzurePlatformType,
-			PlatformStatus: &configv1.PlatformStatus{
-				Type: configv1.AzurePlatformType,
-			},
-		},
 		expected:           "external",
 		cloudProviderCount: 1,
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderAzure},
-			[]configv1.FeatureGateName{},
-		),
 	}, {
 		name: "Azure Stack Hub defaulting to external configuration",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -200,17 +170,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
-		name: "OpenStack platform set for external configuration",
-		infrastructureStatus: configv1.InfrastructureStatus{
-			Platform: configv1.OpenStackPlatformType,
-			PlatformStatus: &configv1.PlatformStatus{
-				Type: configv1.OpenStackPlatformType,
-			},
-		},
-		expected:            "external",
-		cloudProviderCount:  1,
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
-	}, {
 		name: "GCP platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
 			Platform: configv1.GCPPlatformType,
@@ -218,11 +177,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				Type: configv1.GCPPlatformType,
 			},
 		},
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{},
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderGCP},
-		),
-		expected:           "gce",
+		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
 		name: "IBM Cloud platform",
@@ -276,10 +231,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				},
 			},
 		},
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			[]configv1.FeatureGateName{},
-		),
 		expected:           "external",
 		cloudProviderCount: 1,
 	}, {
@@ -295,10 +246,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				},
 			},
 		},
-		featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-			[]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider, configv1.FeatureGateExternalCloudProviderExternal},
-			[]configv1.FeatureGateName{},
-		),
 		cloudProviderCount: 0,
 	}, {
 		name: "empty or unknown platform",
@@ -315,7 +262,6 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		expected:             "",
 		cloudProviderCount:   0,
 		expectErrors:         true,
-		featureGateAccessor:  featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateExternalCloudProvider}, nil),
 	}}
 	for _, c := range cases {
 		t.Run(string(c.name), func(t *testing.T) {
@@ -329,10 +275,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			if err := indexer.Add(infra); err != nil {
 				t.Fatal(err.Error())
 			}
-			featureGateAccessor := featuregates.NewHardcodedFeatureGateAccess(nil, nil)
-			if c.featureGateAccessor != nil {
-				featureGateAccessor = c.featureGateAccessor
-			}
+
 			listers := FakeInfrastructureLister{
 				InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
 				ResourceSync:          &FakeResourceSyncer{},
@@ -340,7 +283,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			}
 			cloudProvidersPath := []string{"extendedArguments", "cloud-provider"}
 			cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
-			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal, cloudProvidersPath, cloudProviderConfPath, featureGateAccessor)
+			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal, cloudProvidersPath, cloudProviderConfPath)
 			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
 			if errorsOccured := len(errs) > 0; c.expectErrors != errorsOccured {
 				t.Fatalf("expected errors: %v, got: %v", c.expectErrors, errs)
