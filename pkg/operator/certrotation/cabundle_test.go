@@ -253,6 +253,10 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 
 // NewCACertificate generates and signs new CA certificate and key.
 func newTestCACertificate(subject pkix.Name, serialNumber int64, validity metav1.Duration, currentTime func() time.Time) (*crypto.CA, error) {
+	return newTestCACertificateWithAuthority(subject, serialNumber, validity, currentTime, nil)
+}
+
+func newTestCACertificateWithAuthority(subject pkix.Name, serialNumber int64, validity metav1.Duration, currentTime func() time.Time, subjectKeyId []byte) (*crypto.CA, error) {
 	caPublicKey, caPrivateKey, err := crypto.NewKeyPair()
 	if err != nil {
 		return nil, err
@@ -263,9 +267,11 @@ func newTestCACertificate(subject pkix.Name, serialNumber int64, validity metav1
 
 		SignatureAlgorithm: x509.SHA256WithRSA,
 
-		NotBefore:    currentTime().Add(-1 * time.Second),
-		NotAfter:     currentTime().Add(validity.Duration),
-		SerialNumber: big.NewInt(serialNumber),
+		NotBefore:      currentTime().Add(-1 * time.Second),
+		NotAfter:       currentTime().Add(validity.Duration),
+		SerialNumber:   big.NewInt(serialNumber),
+		AuthorityKeyId: subjectKeyId,
+		SubjectKeyId:   subjectKeyId,
 
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,

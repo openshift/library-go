@@ -1,7 +1,9 @@
 package certrotation
 
 import (
+	"bytes"
 	"context"
+	cryptorand "crypto/rand"
 	"crypto/x509/pkix"
 	"strings"
 	"testing"
@@ -304,8 +306,9 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 
 		initialSecretFn func() *corev1.Secret
 		caFn            func() (*crypto.CA, error)
+		bundleInitialCa bool
 
-		verifyActions func(t *testing.T, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset, ca *crypto.CA)
 		expectedError string
 	}{
 		{
@@ -314,7 +317,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
 			initialSecretFn: func() *corev1.Secret { return nil },
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, ca *crypto.CA) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -362,7 +365,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, ca *crypto.CA) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -376,6 +379,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
 				}
+
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeTarget {
 					t.Errorf("expected certificate type 'target', got: %v", certType)
 				}
@@ -433,7 +437,131 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				t.Errorf("missing %q", test.expectedError)
 			}
 
-			test.verifyActions(t, client)
+			test.verifyActions(t, client, newCA)
+		})
+	}
+}
+
+func TestSignerSignatureRotation(t *testing.T) {
+	newCaWithAuthority := func() (*crypto.CA, error) {
+		ski := make([]byte, 32)
+		_, err := cryptorand.Read(ski)
+		if err != nil {
+			return nil, err
+		}
+
+		return newTestCACertificateWithAuthority(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now, ski)
+	}
+
+	tests := []struct {
+		name           string
+		caFn           func() (*crypto.CA, error)
+		matchingLeaf   bool
+		expectRotation bool
+	}{
+		{
+			name:           "leaf matches signer, no authority set",
+			matchingLeaf:   true,
+			expectRotation: false,
+			caFn: func() (*crypto.CA, error) {
+				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+			},
+		},
+		{
+			name:           "leaf matches signer, authority set",
+			matchingLeaf:   true,
+			expectRotation: false,
+			caFn:           newCaWithAuthority,
+		},
+		{
+			name:           "leaf does not match signer, authority set",
+			matchingLeaf:   false,
+			expectRotation: true,
+			caFn:           newCaWithAuthority,
+		},
+		{
+			name:           "leaf does not match signer, no authority set",
+			matchingLeaf:   false,
+			expectRotation: true,
+			caFn: func() (*crypto.CA, error) {
+				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+			client := kubefake.NewSimpleClientset()
+			c := &RotatedSelfSignedCertKeySecret{
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
+				CertCreator: &SignerRotation{
+					SignerName: "lower-signer",
+				},
+
+				Client:        client.CoreV1(),
+				Lister:        corev1listers.NewSecretLister(indexer),
+				EventRecorder: events.NewInMemoryRecorder("test"),
+			}
+
+			ca, err := test.caFn()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			secret, err := c.EnsureTargetCertKeyPair(context.TODO(), ca, ca.Config.Certs)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// need to ensure the client returns the created secret now
+			_ = indexer.Add(secret)
+
+			if !test.matchingLeaf {
+				ca, err = test.caFn()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			newSecret, err := c.EnsureTargetCertKeyPair(context.TODO(), ca, ca.Config.Certs)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if test.expectRotation {
+				if bytes.Equal(newSecret.Data["tls.crt"], secret.Data["tls.crt"]) {
+					t.Error("expected the certificate to rotate")
+				}
+				secretUpdated := false
+				for _, action := range client.Actions() {
+					if action.Matches("update", "secrets") {
+						secretUpdated = true
+					}
+				}
+				if !secretUpdated {
+					t.Errorf("expected secret to get updated, but only found actions: %s", spew.Sdump(client.Actions()))
+				}
+			} else {
+				if !bytes.Equal(newSecret.Data["tls.crt"], secret.Data["tls.crt"]) {
+					t.Error("expected the certificate to not rotate")
+				}
+
+				secretUpdated := false
+				for _, action := range client.Actions() {
+					if action.Matches("update", "secrets") {
+						secretUpdated = true
+					}
+				}
+				if secretUpdated {
+					t.Errorf("expected secret to not get updated, found actions: %s", spew.Sdump(client.Actions()))
+				}
+			}
+
 		})
 	}
 }
