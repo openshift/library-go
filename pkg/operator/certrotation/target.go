@@ -107,21 +107,9 @@ func (c RotatedSelfSignedCertKeySecret) ensureTargetCertKeyPair(ctx context.Cont
 		}
 	}
 
-	needsMetadataUpdate := false
-	// no ownerReference set
-	if c.Owner != nil {
-		needsMetadataUpdate = ensureOwnerReference(&targetCertKeyPairSecret.ObjectMeta, c.Owner)
-	}
-	// ownership annotations not set
-	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta) || needsMetadataUpdate
-	// convert outdated secret type (set pre 4.7)
-	if targetCertKeyPairSecret.Type != corev1.SecretTypeTLS {
-		targetCertKeyPairSecret.Type = corev1.SecretTypeTLS
-		needsMetadataUpdate = true
-	}
-	// apply changes (possibly via delete+recreate) if secret exists and requires metadata update
+	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	if needsMetadataUpdate && len(targetCertKeyPairSecret.ResourceVersion) > 0 {
+	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) {
 		actualTargetCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
 		if err != nil {
 			return err
