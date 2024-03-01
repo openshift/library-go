@@ -62,24 +62,36 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
-		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: NewTLSArtifactObjectMeta(
-			c.Name,
-			c.Namespace,
-			c.AdditionalAnnotations,
-		)}
+		signingCertKeyPairSecret = &corev1.Secret{
+			ObjectMeta: NewTLSArtifactObjectMeta(
+				c.Name,
+				c.Namespace,
+				c.AdditionalAnnotations,
+			),
+			Type: corev1.SecretTypeTLS,
+		}
 	}
-	signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
 	needsMetadataUpdate := false
+	// no ownerReference set
 	if c.Owner != nil {
 		needsMetadataUpdate = ensureOwnerReference(&signingCertKeyPairSecret.ObjectMeta, c.Owner)
 	}
+	// ownership annotations not set
 	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta) || needsMetadataUpdate
+	// convert outdated secret type (set pre 4.7)
+	if signingCertKeyPairSecret.Type != corev1.SecretTypeTLS {
+		signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
+		needsMetadataUpdate = true
+	}
+	// apply changes (possibly via delete+recreate) if secret exists and requires metadata update
+	// this is done before content update to prevent unexpected rollouts
 	if needsMetadataUpdate && len(signingCertKeyPairSecret.ResourceVersion) > 0 {
-		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
+		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
 			return nil, err
 		}
+		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
 	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
