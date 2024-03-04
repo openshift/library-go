@@ -218,6 +218,12 @@ func TestRevisionController(t *testing.T) {
 					t.Errorf("expected status to be 'configmaps test-config not found', got: %s", status.Conditions[0].Message)
 				}
 			},
+			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
+				createdObjects := filterCreateActions(actions)
+				if createdObjectCount := len(createdObjects); createdObjectCount != 0 {
+					t.Errorf("expected no objects to be created, got %d", createdObjectCount)
+				}
+			},
 		},
 		{
 			testName:        "copy-resources",
