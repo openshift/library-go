@@ -97,24 +97,24 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	targetCertKeyPairSecret := originalTargetCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
-		targetCertKeyPairSecret = &corev1.Secret{ObjectMeta: NewTLSArtifactObjectMeta(
-			c.Name,
-			c.Namespace,
-			c.AdditionalAnnotations,
-		)}
+		targetCertKeyPairSecret = &corev1.Secret{
+			ObjectMeta: NewTLSArtifactObjectMeta(
+				c.Name,
+				c.Namespace,
+				c.AdditionalAnnotations,
+			),
+			Type: corev1.SecretTypeTLS,
+		}
 	}
-	targetCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
-	needsMetadataUpdate := false
-	if c.Owner != nil {
-		needsMetadataUpdate = ensureOwnerReference(&targetCertKeyPairSecret.ObjectMeta, c.Owner)
-	}
-	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta) || needsMetadataUpdate
-	if needsMetadataUpdate && len(targetCertKeyPairSecret.ResourceVersion) > 0 {
-		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
+	// apply necessary metadata (possibly via delete+recreate) if secret exists
+	// this is done before content update to prevent unexpected rollouts
+	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) {
+		actualTargetCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
 		if err != nil {
 			return nil, err
 		}
+		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	}
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired); len(reason) > 0 {
