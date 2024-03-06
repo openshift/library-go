@@ -101,26 +101,6 @@ func TestGetClient(t *testing.T) {
 			expectedOSActions:   []clientgotesting.Action{},
 		},
 		{
-			name:       "sa no tokens",
-			clientName: "system:serviceaccount:ns-01:default",
-			kubeClient: fake.NewSimpleClientset(
-				&corev1.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace:   "ns-01",
-						Name:        "default",
-						Annotations: map[string]string{OAuthRedirectModelAnnotationURIPrefix + "one": "http://anywhere"},
-					},
-				}),
-			routeClient:      routev1fake.NewSimpleClientset(),
-			expectedErr:      `system:serviceaccount:ns-01:default has no tokens`,
-			expectedEventMsg: `Warning NoSAOAuthTokens system:serviceaccount:ns-01:default has no tokens`,
-			expectedKubeActions: []clientgotesting.Action{
-				clientgotesting.NewGetAction(serviceAccountsResource, "ns-01", "default"),
-				clientgotesting.NewListAction(secretsResource, secretKind, "ns-01", metav1.ListOptions{}),
-			},
-			expectedOSActions: []clientgotesting.Action{},
-		},
-		{
 			name:       "good SA",
 			clientName: "system:serviceaccount:ns-01:default",
 			kubeClient: fake.NewSimpleClientset(

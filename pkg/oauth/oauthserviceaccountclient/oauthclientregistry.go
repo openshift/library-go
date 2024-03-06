@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/openshift/library-go/pkg/authorization/scopemetadata"
+	authenticationv1 "k8s.io/api/authentication/v1"
 
 	clientv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -273,16 +274,11 @@ func (a *saOAuthClientAdapter) Get(ctx context.Context, name string, options met
 		return nil, err
 	}
 
-	tokens, err := a.getServiceAccountTokens(sa)
+	tokenReq, err := a.saClient.ServiceAccounts(sa.Namespace).CreateToken(ctx, sa.Name, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if len(tokens) == 0 {
-		err = fmt.Errorf("%v has no tokens", name)
-		failReason = "NoSAOAuthTokens"
-		saErrors = append(saErrors, err)
-		return nil, err
-	}
+	tokens := []string{tokenReq.Status.Token}
 
 	saWantsChallenges, _ := strconv.ParseBool(sa.Annotations[OAuthWantChallengesAnnotationPrefix])
 
@@ -463,22 +459,6 @@ func getScopeRestrictionsFor(namespace, name string) []oauthv1.ScopeRestriction 
 		}},
 		{ClusterRole: &oauthv1.ClusterRoleScopeRestriction{RoleNames: []string{"*"}, Namespaces: []string{namespace}, AllowEscalation: true}},
 	}
-}
-
-// getServiceAccountTokens returns all ServiceAccountToken secrets for the given ServiceAccount
-func (a *saOAuthClientAdapter) getServiceAccountTokens(sa *corev1.ServiceAccount) ([]string, error) {
-	allSecrets, err := a.secretClient.Secrets(sa.Namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	tokens := []string{}
-	for i := range allSecrets.Items {
-		secret := &allSecrets.Items[i]
-		if IsServiceAccountToken(secret, sa) {
-			tokens = append(tokens, string(secret.Data[corev1.ServiceAccountTokenKey]))
-		}
-	}
-	return tokens, nil
 }
 
 // IsServiceAccountToken returns true if the secret is a valid api token for the service account
