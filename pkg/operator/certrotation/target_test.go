@@ -151,7 +151,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			initialSecretFn: func() *corev1.Secret { return nil },
 			verifyActions: func(t *testing.T, updateonly bool, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 4 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
@@ -161,8 +161,14 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				if !actions[1].Matches("create", "secrets") {
 					t.Error(actions[1])
 				}
+				if !actions[2].Matches("get", "secrets") {
+					t.Error(actions[2])
+				}
+				if !actions[3].Matches("update", "secrets") {
+					t.Error(actions[3])
+				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				actual := actions[3].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 				if len(actual.Annotations) == 0 {
 					t.Errorf("expected certificates to be annotated")
 				}
@@ -191,9 +197,16 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			},
 			initialSecretFn: func() *corev1.Secret {
 				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
-					Data:       map[string][]byte{},
-					Type:       corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret",
+						ResourceVersion: "10",
+						Annotations: map[string]string{
+							annotations.OpenShiftComponent: "test",
+						},
+						OwnerReferences: []metav1.OwnerReference{{
+							Name: "operator",
+						}}},
+					Data: map[string][]byte{},
+					Type: corev1.SecretTypeTLS,
 				}
 				return caBundleSecret
 			},
@@ -239,9 +252,16 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			},
 			initialSecretFn: func() *corev1.Secret {
 				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
-					Data:       map[string][]byte{},
-					Type:       "SecretTypeTLS",
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret",
+						ResourceVersion: "10",
+						Annotations: map[string]string{
+							annotations.OpenShiftComponent: "test",
+						},
+						OwnerReferences: []metav1.OwnerReference{{
+							Name: "operator",
+						}}},
+					Data: map[string][]byte{},
+					Type: "SecretTypeTLS",
 				}
 				return caBundleSecret
 			},
