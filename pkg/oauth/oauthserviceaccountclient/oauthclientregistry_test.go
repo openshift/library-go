@@ -111,9 +111,14 @@ func TestGetClient(t *testing.T) {
 						Annotations: map[string]string{OAuthRedirectModelAnnotationURIPrefix + "one": "http://anywhere"},
 					},
 				}),
-			routeClient:      routev1fake.NewSimpleClientset(),
-			expectedErr:      `system:serviceaccount:ns-01:default has no tokens`,
-			expectedEventMsg: `Warning NoSAOAuthTokens system:serviceaccount:ns-01:default has no tokens`,
+			routeClient: routev1fake.NewSimpleClientset(),
+			expectedClient: &oauthv1.OAuthClient{
+				ObjectMeta:        metav1.ObjectMeta{Name: "system:serviceaccount:ns-01:default"},
+				ScopeRestrictions: getScopeRestrictionsFor("ns-01", "default"),
+				AdditionalSecrets: []string{},
+				RedirectURIs:      []string{"http://anywhere"},
+				GrantMethod:       oauthv1.GrantHandlerPrompt,
+			},
 			expectedKubeActions: []clientgotesting.Action{
 				clientgotesting.NewGetAction(serviceAccountsResource, "ns-01", "default"),
 				clientgotesting.NewListAction(secretsResource, secretKind, "ns-01", metav1.ListOptions{}),
