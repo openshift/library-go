@@ -45,7 +45,7 @@ var (
 	// your cluster may fail in an unrecoverable way.
 	CustomNoUpgrade FeatureSet = "CustomNoUpgrade"
 
-	// TopologyManager enables ToplogyManager support. Upgrades are enabled with this feature.
+	// TopologyManager enables TopologyManager support. Upgrades are enabled with this feature.
 	LatencySensitive FeatureSet = "LatencySensitive"
 )
 

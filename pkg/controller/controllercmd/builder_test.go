@@ -224,7 +224,7 @@ func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 			},
 		},
 		{
-			desc:     "should set SNO leader election config when SingleReplicaToplogy Controlplane",
+			desc:     "should set SNO leader election config when SingleReplicaTopology Controlplane",
 			topology: configv1.SingleReplicaTopologyMode,
 			original: configv1.LeaderElection{
 				LeaseDuration: metav1.Duration{Duration: 60 * time.Second},
