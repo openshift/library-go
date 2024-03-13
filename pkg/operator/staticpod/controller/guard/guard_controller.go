@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/policy/v1"
@@ -106,7 +107,7 @@ func NewGuardController(
 	return factory.New().WithInformers(
 		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 		kubeInformersClusterScoped.Core().V1().Nodes().Informer(),
-	).WithSync(c.sync).WithSyncDegradedOnError(operatorClient).ToController("GuardController", eventRecorder), nil
+	).ResyncEvery(20*time.Second).WithoutEventHandlers().WithSync(c.sync).WithSyncDegradedOnError(operatorClient).ToController("GuardController", eventRecorder), nil
 }
 
 func getInstallerPodImageFromEnv() string {
