@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/util/cert"
-
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -26,6 +24,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/cert"
 )
 
 func TestEnsureConfigMapCABundle(t *testing.T) {
@@ -64,6 +63,66 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+				if got, exists := actual.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+					t.Errorf("owner annotation is missing: %#v", actual.Annotations)
+				}
+			},
+		},
+		{
+			name: "missing metadata",
+			caFn: func() (*crypto.CA, error) {
+				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+			},
+			initialConfigMapFn: func() *corev1.ConfigMap {
+				return &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns", Name: "trust-bundle",
+						ResourceVersion: "10",
+					},
+					Data: map[string]string{},
+				}
+			},
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+				actions := client.Actions()
+				if len(actions) != 4 {
+					t.Fatal(spew.Sdump(actions))
+				}
+
+				if !actions[0].Matches("get", "configmaps") {
+					t.Error(actions[0])
+				}
+				if !actions[1].Matches("update", "configmaps") {
+					t.Error(actions[1])
+				}
+				if !actions[2].Matches("get", "configmaps") {
+					t.Error(actions[2])
+				}
+				if !actions[3].Matches("update", "configmaps") {
+					t.Error(actions[3])
+				}
+
+				actual := actions[3].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
+					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
+				}
+				if len(actual.Data["ca-bundle.crt"]) == 0 {
+					t.Error(actual.Data)
+				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+				if got, exists := actual.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+					t.Errorf("owner annotation is missing: %#v", actual.Annotations)
+				}
 			},
 		},
 		{
@@ -100,6 +159,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
+				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+				if got, exists := actual.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+					t.Errorf("owner annotation is missing: %#v", actual.Annotations)
 				}
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
 					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
@@ -147,6 +215,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
+				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+				if got, exists := actual.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+					t.Errorf("owner annotation is missing: %#v", actual.Annotations)
 				}
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
 					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
@@ -199,6 +276,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+				if got, exists := actual.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+					t.Errorf("owner annotation is missing: %#v", actual.Annotations)
+				}
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
 					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
 				}
@@ -227,9 +313,11 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				Namespace: "ns",
 				Name:      "trust-bundle",
 
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewConfigMapLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test"),
+				Client:                client.CoreV1(),
+				Lister:                corev1listers.NewConfigMapLister(indexer),
+				EventRecorder:         events.NewInMemoryRecorder("test"),
+				AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+				Owner:                 &metav1.OwnerReference{Name: "operator"},
 			}
 
 			newCA, err := test.caFn()
