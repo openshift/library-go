@@ -117,5 +117,7 @@ func InitializeFeatureGates(featureGates featuregate.MutableFeatureGate, usedFea
 		return err
 	}
 
+	featureGates.AddMetrics()
+
 	return nil
 }
