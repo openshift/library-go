@@ -55,7 +55,7 @@ func NewAPIServiceController(
 	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
-		preconditionForEnabledAPIServices: newEndpointPrecondition(kubeInformersForOperandNamespace),
+		preconditionForEnabledAPIServices: preconditionsForEnabledAPIServices(kubeInformersForOperandNamespace),
 		getAPIServicesToManageFn:          getAPIServicesToManageFunc,
 
 		operatorClient:          operatorClient,
