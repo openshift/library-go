@@ -7,11 +7,13 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	corelistersv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -19,17 +21,18 @@ import (
 
 func preconditionsForEnabledAPIServices(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
 	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
+	configmapLister := kubeInformers.Core().V1().ConfigMaps().Lister()
 
 	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
 		areEndpointsPresent, err := checkEndpointsPresence(endpointsLister, apiServices)
 		if !areEndpointsPresent || err != nil {
 			return areEndpointsPresent, err
 		}
-		return true, nil
+		return isBootstrapComplete(configmapLister)
 	}
 }
 
-func checkEndpointsPresence(endpointsLister corelistersv1.EndpointsLister, apiServices []*apiregistrationv1.APIService) (bool, error) {
+func checkEndpointsPresence(endpointsLister corev1listers.EndpointsLister, apiServices []*apiregistrationv1.APIService) (bool, error) {
 	type coordinate struct {
 		namespace string
 		name      string
@@ -71,6 +74,28 @@ func checkEndpointsPresence(endpointsLister corelistersv1.EndpointsLister, apiSe
 		}
 	}
 
+	return true, nil
+}
+
+// isBootstrapComplete returns true if bootstrap has completed.
+func isBootstrapComplete(configMapClient corev1listers.ConfigMapLister) (bool, error) {
+	bootstrapFinishedConfigMap, err := configMapClient.ConfigMaps("kube-system").Get("bootstrap")
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If the resource was deleted (e.g. by an admin) after bootstrap is actually complete,
+			// this is a false negative.
+			klog.V(4).Infof("bootstrap considered incomplete because the kube-system/bootstrap configmap wasn't found")
+			return false, nil
+		}
+		// We don't know, give up quickly.
+		return false, fmt.Errorf("failed to get configmap %s/%s: %w", "kube-system", "bootstrap", err)
+	}
+
+	if status, ok := bootstrapFinishedConfigMap.Data["status"]; !ok || status != "complete" {
+		// do nothing, not torn down
+		klog.V(4).Infof("bootstrap considered incomplete because status is %q", status)
+		return false, nil
+	}
 	return true, nil
 }
 
