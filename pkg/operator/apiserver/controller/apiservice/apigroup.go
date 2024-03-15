@@ -3,6 +3,8 @@ package apiservice
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"sync"
 	"time"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -19,16 +20,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-func preconditionsForEnabledAPIServices(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
-	configmapLister := kubeInformers.Core().V1().ConfigMaps().Lister()
+func preconditionsForEnabledAPIServices(targetNamespace string, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+	endpointsListerForTargetNs := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Lister()
+	configmapListerForKubeSystemNs := kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Lister()
 
 	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-		areEndpointsPresent, err := checkEndpointsPresence(endpointsLister, apiServices)
+		areEndpointsPresent, err := checkEndpointsPresence(endpointsListerForTargetNs, apiServices)
 		if !areEndpointsPresent || err != nil {
 			return areEndpointsPresent, err
 		}
-		return isBootstrapComplete(configmapLister)
+		return isBootstrapComplete(configmapListerForKubeSystemNs)
 	}
 }
 
