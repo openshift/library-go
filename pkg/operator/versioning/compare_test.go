@@ -3,7 +3,7 @@ package versioning
 import (
 	"testing"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 )
 
 func TestBetween(t *testing.T) {
