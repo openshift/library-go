@@ -33,7 +33,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				t.Helper()
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 4 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
@@ -43,8 +43,14 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				if !actions[1].Matches("create", "secrets") {
 					t.Error(actions[1])
 				}
+				if !actions[2].Matches("get", "secrets") {
+					t.Error(actions[2])
+				}
+				if !actions[3].Matches("update", "secrets") {
+					t.Error(actions[3])
+				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				actual := actions[3].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeSigner {
 					t.Errorf("expected certificate type 'signer', got: %v", certType)
 				}
@@ -72,9 +78,16 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		{
 			name: "update no annotations",
 			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer", ResourceVersion: "10"},
-				Type:       corev1.SecretTypeTLS,
-				Data:       map[string][]byte{"tls.crt": {}, "tls.key": {}},
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer",
+					ResourceVersion: "10",
+					Annotations: map[string]string{
+						annotations.OpenShiftComponent: "test",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						Name: "operator",
+					}}},
+				Type: corev1.SecretTypeTLS,
+				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				t.Helper()
@@ -120,7 +133,10 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
 						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
 						annotations.OpenShiftComponent:             "test",
-					}},
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						Name: "operator",
+					}}},
 				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
@@ -141,7 +157,12 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 					Annotations: map[string]string{
 						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
 						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
+						annotations.OpenShiftComponent:             "test",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						Name: "operator",
 					}},
+				},
 				Type: "SecretTypeTLS",
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
