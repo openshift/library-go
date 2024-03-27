@@ -3,68 +3,101 @@ package apiservice
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-func newEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-	// this is outside the func so it always registers before the informers start
-	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
+func preconditionsForEnabledAPIServices(targetNamespace string, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+	endpointsListerForTargetNs := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Lister()
+	configmapListerForKubeSystemNs := kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Lister()
 
+	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+		areEndpointsPresent, err := checkEndpointsPresence(endpointsListerForTargetNs, apiServices)
+		if !areEndpointsPresent || err != nil {
+			return areEndpointsPresent, err
+		}
+		return isBootstrapComplete(configmapListerForKubeSystemNs)
+	}
+}
+
+func checkEndpointsPresence(endpointsLister corev1listers.EndpointsLister, apiServices []*apiregistrationv1.APIService) (bool, error) {
 	type coordinate struct {
 		namespace string
 		name      string
 	}
 
-	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-
-		coordinates := []coordinate{}
-		for _, apiService := range apiServices {
-			curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
-			exists := false
-			for _, j := range coordinates {
-				if j == curr {
-					exists = true
-					break
-				}
-			}
-			if !exists {
-				coordinates = append(coordinates, curr)
+	coordinates := []coordinate{}
+	for _, apiService := range apiServices {
+		curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
+		exists := false
+		for _, j := range coordinates {
+			if j == curr {
+				exists = true
+				break
 			}
 		}
-
-		for _, curr := range coordinates {
-			endpoints, err := endpointsLister.Endpoints(curr.namespace).Get(curr.name)
-			if err != nil {
-				return false, err
-			}
-			if len(endpoints.Subsets) == 0 {
-				return false, nil
-			}
-
-			exists := false
-			for _, subset := range endpoints.Subsets {
-				if len(subset.Addresses) > 0 {
-					exists = true
-					break
-				}
-			}
-			if !exists {
-				return false, nil
-			}
+		if !exists {
+			coordinates = append(coordinates, curr)
 		}
-
-		return true, nil
 	}
+
+	for _, curr := range coordinates {
+		endpoints, err := endpointsLister.Endpoints(curr.namespace).Get(curr.name)
+		if err != nil {
+			return false, err
+		}
+		if len(endpoints.Subsets) == 0 {
+			return false, nil
+		}
+
+		exists := false
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// isBootstrapComplete returns true if bootstrap has completed.
+func isBootstrapComplete(configMapClient corev1listers.ConfigMapLister) (bool, error) {
+	bootstrapFinishedConfigMap, err := configMapClient.ConfigMaps("kube-system").Get("bootstrap")
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If the resource was deleted (e.g. by an admin) after bootstrap is actually complete,
+			// this is a false negative.
+			klog.V(4).Infof("bootstrap considered incomplete because the kube-system/bootstrap configmap wasn't found")
+			return false, nil
+		}
+		// We don't know, give up quickly.
+		return false, fmt.Errorf("failed to get configmap %s/%s: %w", "kube-system", "bootstrap", err)
+	}
+
+	if status, ok := bootstrapFinishedConfigMap.Data["status"]; !ok || status != "complete" {
+		// do nothing, not torn down
+		klog.V(4).Infof("bootstrap considered incomplete because status is %q", status)
+		return false, nil
+	}
+	return true, nil
 }
 
 func checkDiscoveryForByAPIServices(ctx context.Context, recorder events.Recorder, restclient rest.Interface, apiServices []*apiregistrationv1.APIService) []string {

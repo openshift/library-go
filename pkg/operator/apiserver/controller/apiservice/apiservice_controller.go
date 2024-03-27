@@ -10,7 +10,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -34,8 +33,8 @@ type apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool
 
 type APIServiceController struct {
 	getAPIServicesToManageFn GetAPIServicesToMangeFunc
-	// preconditionForEnabledAPIServices must return true before the apiservices will be created
-	preconditionForEnabledAPIServices apiServicesPreconditionFuncType
+	// preconditionsForEnabledAPIServices must return true before the apiservices will be created
+	preconditionsForEnabledAPIServices apiServicesPreconditionFuncType
 
 	operatorClient          v1helpers.OperatorClient
 	kubeClient              kubernetes.Interface
@@ -44,19 +43,19 @@ type APIServiceController struct {
 }
 
 func NewAPIServiceController(
-	name string,
+	name, targetNamespace string,
 	getAPIServicesToManageFunc GetAPIServicesToMangeFunc,
 	operatorClient v1helpers.OperatorClient,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
-	kubeInformersForOperandNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
 	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
-		preconditionForEnabledAPIServices: newEndpointPrecondition(kubeInformersForOperandNamespace),
-		getAPIServicesToManageFn:          getAPIServicesToManageFunc,
+		preconditionsForEnabledAPIServices: preconditionsForEnabledAPIServices(targetNamespace, kubeInformersForNamespaces),
+		getAPIServicesToManageFn:           getAPIServicesToManageFunc,
 
 		operatorClient:          operatorClient,
 		apiregistrationv1Client: apiregistrationv1Client,
@@ -66,8 +65,9 @@ func NewAPIServiceController(
 
 	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
 		append(informers,
-			kubeInformersForOperandNamespace.Core().V1().Services().Informer(),
-			kubeInformersForOperandNamespace.Core().V1().Endpoints().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Services().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Informer(),
+			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Informer(),
 			apiregistrationInformers.Apiregistration().V1().APIServices().Informer(),
 		)...,
 	).ToController("APIServiceController_"+name, eventRecorder.WithComponentSuffix("apiservice-"+name+"-controller"))
@@ -182,13 +182,13 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var syncEnabledAPIServicesErr error
 
 	syncDisabledAPIServicesErr := c.syncDisabledAPIServices(ctx, disabledApiServices)
-	preconditionReady, preconditionErr := c.preconditionForEnabledAPIServices(enabledApiServices)
+	preconditionsReady, preconditionsErr := c.preconditionsForEnabledAPIServices(enabledApiServices)
 
-	if preconditionErr == nil && preconditionReady {
+	if preconditionsErr == nil && preconditionsReady {
 		syncEnabledAPIServicesErr = c.syncEnabledAPIServices(ctx, enabledApiServices, syncCtx.Recorder())
 	}
 
-	return c.updateOperatorStatus(ctx, syncDisabledAPIServicesErr, preconditionErr, preconditionReady, syncEnabledAPIServicesErr)
+	return c.updateOperatorStatus(ctx, syncDisabledAPIServicesErr, preconditionsErr, preconditionsReady, syncEnabledAPIServicesErr)
 }
 
 func (c *APIServiceController) syncDisabledAPIServices(ctx context.Context, apiServices []*apiregistrationv1.APIService) error {
