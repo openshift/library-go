@@ -19,26 +19,26 @@ import (
 )
 
 type threadSafeStringSet struct {
-	sets.String
+	sets.Set[string]
 	sync.Mutex
 }
 
 func newThreadSafeStringSet() *threadSafeStringSet {
 	return &threadSafeStringSet{
-		String: sets.NewString(),
+		Set: sets.New[string](),
 	}
 }
 
 func (s *threadSafeStringSet) Len() int {
 	s.Lock()
 	defer s.Unlock()
-	return s.String.Len()
+	return s.Set.Len()
 }
 
 func (s *threadSafeStringSet) Insert(items ...string) *threadSafeStringSet {
 	s.Lock()
 	defer s.Unlock()
-	s.String.Insert(items...)
+	s.Set.Insert(items...)
 	return s
 }
 
@@ -53,7 +53,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 		runEventHandlers  func(cache.ResourceEventHandler)
 		evalQueueItems    func(*threadSafeStringSet, *testing.T)
 		expectedItemCount int
-		// func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, interestingNamespaces sets.String) cache.ResourceEventHandler {
+		// func (c syncContext) eventHandler(queueKeyFunc ObjectQueueKeyFunc, interestingNamespaces sets.Set[string]) cache.ResourceEventHandler {
 
 	}{
 		{
@@ -73,7 +73,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				expect := []string{"add", "update", "delete"}
 				for _, e := range expect {
 					if !s.Has("foo/" + e) {
-						t.Errorf("expected %#v to has 'foo/%s'", s.List(), e)
+						t.Errorf("expected %#v to has 'foo/%s'", sets.List(s.Set), e)
 					}
 				}
 			},
@@ -95,7 +95,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				expect := []string{"add", "update", "delete"}
 				for _, e := range expect {
 					if !s.Has("foo/" + e) {
-						t.Errorf("expected %#v to has 'foo/%s'", s.List(), e)
+						t.Errorf("expected %#v to has 'foo/%s'", sets.List(s.Set), e)
 					}
 				}
 			},
@@ -116,7 +116,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			expectedItemCount: 1,
 			evalQueueItems: func(s *threadSafeStringSet, t *testing.T) {
 				if !s.Has("add") {
-					t.Errorf("expected %#v to has only 'add'", s.List())
+					t.Errorf("expected %#v to has only 'add'", sets.List(s.Set))
 				}
 			},
 		},
@@ -136,7 +136,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			expectedItemCount: 1,
 			evalQueueItems: func(s *threadSafeStringSet, t *testing.T) {
 				if !s.Has("delete") {
-					t.Errorf("expected %#v to has only 'add'", s.List())
+					t.Errorf("expected %#v to has only 'add'", sets.List(s.Set))
 				}
 			},
 		},
@@ -170,7 +170,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 				expect := []string{"add", "update", "delete"}
 				for _, e := range expect {
 					if !s.Has("bar/" + e) {
-						t.Errorf("expected %#v to have 'bar/%s'", s.List(), e)
+						t.Errorf("expected %#v to have 'bar/%s'", sets.List(s.Set), e)
 					}
 				}
 			},
@@ -198,7 +198,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 				return itemsReceived.Len() == test.expectedItemCount, nil
 			}); err != nil {
-				t.Errorf("%v (received: %#v)", err, itemsReceived.List())
+				t.Errorf("%v (received: %#v)", err, sets.List(itemsReceived.Set))
 				shutdown()
 				return
 			}
@@ -207,7 +207,7 @@ func TestSyncContext_eventHandler(t *testing.T) {
 			shutdown()
 
 			if itemsReceived.Len() != test.expectedItemCount {
-				t.Errorf("expected %d items received, got %d (%#v)", test.expectedItemCount, itemsReceived.Len(), itemsReceived.List())
+				t.Errorf("expected %d items received, got %d (%#v)", test.expectedItemCount, itemsReceived.Len(), sets.List(itemsReceived.Set))
 			}
 			// evaluate items received
 			test.evalQueueItems(itemsReceived, t)

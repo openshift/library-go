@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -134,7 +134,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 0,
@@ -205,7 +205,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 0,
@@ -275,7 +275,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				},
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 2,
@@ -338,7 +338,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 3,
@@ -382,7 +382,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 100,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas:  3,
@@ -458,7 +458,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 2,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					ReadyReplicas:      2,
@@ -503,7 +503,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 3,

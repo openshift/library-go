@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -97,7 +96,7 @@ func (r *mockBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, re
 	return r.serveErr
 }
 
-func (r *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (r *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (io.ReadSeekCloser, error) {
 	return nil, r.openErr
 }
 
@@ -714,14 +713,14 @@ func Test_blobStoreVerifier_Open(t *testing.T) {
 		bytes   []byte
 		err     error
 		dgst    digest.Digest
-		want    func(t *testing.T, got distribution.ReadSeekCloser)
+		want    func(t *testing.T, got io.ReadSeekCloser)
 		wantErr bool
 	}{
 		{
 			dgst:  payload1Digest,
 			bytes: []byte(payload1),
-			want: func(t *testing.T, got distribution.ReadSeekCloser) {
-				data, err := ioutil.ReadAll(got)
+			want: func(t *testing.T, got io.ReadSeekCloser) {
+				data, err := io.ReadAll(got)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -733,8 +732,8 @@ func Test_blobStoreVerifier_Open(t *testing.T) {
 		{
 			dgst:  payload2Digest,
 			bytes: []byte(payload2),
-			want: func(t *testing.T, got distribution.ReadSeekCloser) {
-				data, err := ioutil.ReadAll(got)
+			want: func(t *testing.T, got io.ReadSeekCloser) {
+				data, err := io.ReadAll(got)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -746,8 +745,8 @@ func Test_blobStoreVerifier_Open(t *testing.T) {
 		{
 			dgst:  payload1Digest,
 			bytes: []byte(payload2),
-			want: func(t *testing.T, got distribution.ReadSeekCloser) {
-				data, err := ioutil.ReadAll(got)
+			want: func(t *testing.T, got io.ReadSeekCloser) {
+				data, err := io.ReadAll(got)
 				if err == nil || !strings.Contains(err.Error(), "content integrity error") || !strings.Contains(err.Error(), payload2Digest.String()) {
 					t.Fatal(err)
 				}
@@ -759,12 +758,12 @@ func Test_blobStoreVerifier_Open(t *testing.T) {
 		{
 			dgst:  payload1Digest,
 			bytes: []byte(payload2),
-			want: func(t *testing.T, got distribution.ReadSeekCloser) {
+			want: func(t *testing.T, got io.ReadSeekCloser) {
 				_, err := got.Seek(0, 0)
 				if err == nil || err.Error() != "invoked seek" {
 					t.Fatal(err)
 				}
-				data, err := ioutil.ReadAll(got)
+				data, err := io.ReadAll(got)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -825,7 +824,7 @@ func (s *fakeBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, er
 	return s.bytes, s.err
 }
 
-func (s *fakeBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (s *fakeBlobStore) Open(ctx context.Context, dgst digest.Digest) (io.ReadSeekCloser, error) {
 	return fakeSeekCloser{bytes.NewBuffer(s.bytes)}, s.err
 }
 

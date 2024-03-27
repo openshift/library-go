@@ -198,7 +198,7 @@ func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, ap
 		return "", fmt.Errorf("api server has invalid revision: %v", err)
 	}
 
-	for _, failedRevision := range failingRevisions.List() { // iterate in defined order
+	for _, failedRevision := range sets.List(failingRevisions) { // iterate in defined order
 		if len(failedRevision) == 0 {
 			// these will never be bigger than revisionNum
 			continue
@@ -215,16 +215,16 @@ func getAPIServerRevisionOfAllInstances(revisionLabel string, nodes []string, ap
 	return revision, nil
 }
 
-func revisions(revisionLabel string, pods []*corev1.Pod) sets.String {
-	ret := sets.NewString()
+func revisions(revisionLabel string, pods []*corev1.Pod) sets.Set[string] {
+	ret := sets.New[string]()
 	for _, p := range pods {
 		ret.Insert(p.Labels[revisionLabel])
 	}
 	return ret
 }
 
-func nodeNames(pods []*corev1.Pod) sets.String {
-	ret := sets.NewString()
+func nodeNames(pods []*corev1.Pod) sets.Set[string] {
+	ret := sets.New[string]()
 	for _, p := range pods {
 		ret.Insert(p.Spec.NodeName)
 	}

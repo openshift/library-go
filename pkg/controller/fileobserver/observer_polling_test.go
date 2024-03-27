@@ -2,7 +2,6 @@ package fileobserver
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -173,7 +172,7 @@ func TestObserverPolling(t *testing.T) {
 		},
 	}
 
-	baseDir, err := ioutil.TempDir("", "observer-poll-test")
+	baseDir, err := os.MkdirTemp("", "observer-poll-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +202,7 @@ func TestObserverPolling(t *testing.T) {
 			}
 
 			if !test.startWithNoFile {
-				if err := ioutil.WriteFile(testFile, test.startFileContent, os.ModePerm); err != nil {
+				if err := os.WriteFile(testFile, test.startFileContent, os.ModePerm); err != nil {
 					t.Fatal(err)
 				}
 				t.Logf("created file %q with content: %q", testFile, string(test.startFileContent))
@@ -251,7 +250,7 @@ func TestObserverPolling(t *testing.T) {
 
 			if test.changeFileContent != nil {
 				t.Logf("writing %q ...", string(test.changeFileContent))
-				if err := ioutil.WriteFile(testFile, test.changeFileContent, os.ModePerm); err != nil {
+				if err := os.WriteFile(testFile, test.changeFileContent, os.ModePerm); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -301,7 +300,7 @@ func (r *reactionRecorder) add(f string, action ActionType) {
 }
 
 func TestObserverSimple(t *testing.T) {
-	dir, err := ioutil.TempDir("", "observer-simple-")
+	dir, err := os.MkdirTemp("", "observer-simple-")
 	if err != nil {
 		t.Fatalf("tempdir: %v", err)
 	}
@@ -345,7 +344,7 @@ func TestObserverSimple(t *testing.T) {
 		}
 	}()
 
-	ioutil.WriteFile(testFile, []byte("foo"), os.ModePerm)
+	os.WriteFile(testFile, []byte("foo"), os.ModePerm)
 	<-fileCreateObserved
 
 	fileModifiedObserved := make(chan struct{})
@@ -367,7 +366,7 @@ func TestObserverSimple(t *testing.T) {
 		}
 	}()
 
-	ioutil.WriteFile(testFile, []byte("bar"), os.ModePerm)
+	os.WriteFile(testFile, []byte("bar"), os.ModePerm)
 	<-fileModifiedObserved
 
 	fileRemoveObserved := make(chan struct{})
@@ -393,7 +392,7 @@ func TestObserverSimple(t *testing.T) {
 }
 
 func TestObserverSimpleContentSpecified(t *testing.T) {
-	dir, err := ioutil.TempDir("", "observer-simple-")
+	dir, err := os.MkdirTemp("", "observer-simple-")
 	if err != nil {
 		t.Fatalf("tempdir: %v", err)
 	}
@@ -412,7 +411,7 @@ func TestObserverSimpleContentSpecified(t *testing.T) {
 	}
 
 	testFile := filepath.Join(dir, "test-file-1")
-	ioutil.WriteFile(testFile, []byte("foo"), os.ModePerm)
+	os.WriteFile(testFile, []byte("foo"), os.ModePerm)
 
 	o.AddReactor(
 		testReaction,

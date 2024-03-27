@@ -2,7 +2,7 @@ package render
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/openshift/library-go/pkg/assets"
@@ -31,7 +31,7 @@ func WriteFiles(opt *options.GenericOptions, fileConfig *options.FileConfig, tem
 	}
 
 	// create bootstrap configuration
-	if err := ioutil.WriteFile(opt.ConfigOutputFile, fileConfig.BootstrapConfig, 0644); err != nil {
+	if err := os.WriteFile(opt.ConfigOutputFile, fileConfig.BootstrapConfig, 0644); err != nil {
 		return fmt.Errorf("failed to write merged config to %q: %v", opt.ConfigOutputFile, err)
 	}
 

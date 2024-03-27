@@ -2,7 +2,7 @@ package examples
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -36,7 +36,7 @@ func (g RemoteValueGenerator) GenerateValue(expression string) (interface{}, err
 			return "", err
 		}
 		defer response.Body.Close()
-		body, err := ioutil.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			return "", err
 		}

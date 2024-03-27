@@ -26,7 +26,7 @@ type fakeIO struct {
 	ReadFileFnCounter         int
 	ExpectedReadFileFnCounter int
 
-	ReadDirFn                func(string) ([]fs.FileInfo, error)
+	ReadDirFn                func(string) ([]fs.DirEntry, error)
 	ReadDirFnCounter         int
 	ExpectedReadDirFnCounter int
 
@@ -68,7 +68,7 @@ func (f *fakeIO) ReadFile(filename string) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeIO) ReadDir(dirname string) ([]fs.FileInfo, error) {
+func (f *fakeIO) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	f.ReadDirFnCounter++
 	if f.ReadDirFn != nil {
 		return f.ReadDirFn(dirname)
@@ -115,18 +115,22 @@ func (f *fakeIO) Validate() error {
 
 type fakeFile string
 
-func (f fakeFile) Name() string       { return string(f) }
-func (f fakeFile) Size() int64        { return 0 }
-func (f fakeFile) Mode() fs.FileMode  { return fs.ModeAppend }
-func (f fakeFile) ModTime() time.Time { return time.Unix(0, 0) }
-func (f fakeFile) IsDir() bool        { return false }
-func (f fakeFile) Sys() interface{}   { return nil }
+func (f fakeFile) Name() string               { return string(f) }
+func (f fakeFile) Size() int64                { return 0 }
+func (f fakeFile) Mode() fs.FileMode          { return fs.ModeAppend }
+func (f fakeFile) ModTime() time.Time         { return time.Unix(0, 0) }
+func (f fakeFile) IsDir() bool                { return false }
+func (f fakeFile) Sys() interface{}           { return nil }
+func (f fakeFile) Info() (os.FileInfo, error) { return f, nil }
+func (f fakeFile) Type() fs.FileMode          { return f.Mode() }
 
 type fakeDir string
 
-func (f fakeDir) Name() string       { return string(f) }
-func (f fakeDir) Size() int64        { return 0 }
-func (f fakeDir) Mode() fs.FileMode  { return fs.ModeDir | 0500 }
-func (f fakeDir) ModTime() time.Time { return time.Unix(0, 0) }
-func (f fakeDir) IsDir() bool        { return true }
-func (f fakeDir) Sys() interface{}   { return nil }
+func (f fakeDir) Name() string               { return string(f) }
+func (f fakeDir) Size() int64                { return 0 }
+func (f fakeDir) Mode() fs.FileMode          { return fs.ModeDir | 0500 }
+func (f fakeDir) ModTime() time.Time         { return time.Unix(0, 0) }
+func (f fakeDir) IsDir() bool                { return true }
+func (f fakeDir) Sys() interface{}           { return nil }
+func (f fakeDir) Info() (os.FileInfo, error) { return f, nil }
+func (f fakeDir) Type() fs.FileMode          { return f.Mode() }

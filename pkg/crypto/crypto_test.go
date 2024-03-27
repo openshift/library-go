@@ -416,7 +416,7 @@ func TestCertGeneration(t *testing.T) {
 	serverCertDir := filepath.Join(subCADir, "server")
 	serverCertFile := filepath.Join(serverCertDir, "server.crt")
 	serverKeyFile := filepath.Join(serverCertDir, "server.key")
-	hostnames := sets.NewString("myserver.local", "veryglobal.tho", "192.168.0.1")
+	hostnames := sets.New("myserver.local", "veryglobal.tho", "192.168.0.1")
 
 	// create a new server cert signed by the sub-CA
 	serverCert, created, err := subCA.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
@@ -435,7 +435,7 @@ func TestCertGeneration(t *testing.T) {
 	require.Equal(t, "subca", serverCert.Certs[0].Issuer.CommonName)
 	sortedDNSNames := sort.StringSlice(serverCert.Certs[0].DNSNames)
 	sortedDNSNames.Sort()
-	require.Equal(t, hostnames.List(), []string(sortedDNSNames))
+	require.Equal(t, sets.List(hostnames), []string(sortedDNSNames))
 	require.Equal(t, subCA.Config.Certs[0].SubjectKeyId, serverCert.Certs[0].AuthorityKeyId)
 
 	clientCertDir := filepath.Join(testDir, "client")
@@ -539,7 +539,7 @@ func TestServerCertRegeneration(t *testing.T) {
 	serverCertDir := filepath.Join(testDir, "server")
 	serverCertFile := filepath.Join(serverCertDir, "server.crt")
 	serverKeyFile := filepath.Join(serverCertDir, "server.key")
-	hostnames := sets.NewString("myserver.local", "veryglobal.tho", "192.168.0.1")
+	hostnames := sets.New("myserver.local", "veryglobal.tho", "192.168.0.1")
 
 	serverCert, created, err := ca.EnsureServerCert(serverCertFile, serverKeyFile, hostnames, 1)
 	require.NoError(t, err)

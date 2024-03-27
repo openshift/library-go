@@ -1,7 +1,6 @@
 package watchdog
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,11 +21,11 @@ func TestReadLink(t *testing.T) {
 				}
 			},
 			preRun: func(t *testing.T) (string, string, string) {
-				tmpDir, err := ioutil.TempDir("", "existing")
+				tmpDir, err := os.MkdirTemp("", "existing")
 				if err != nil {
 					t.Fatalf("unable to create temp dir: %v", err)
 				}
-				if err := ioutil.WriteFile(filepath.Join(tmpDir, "testfile"), []byte{1}, os.ModePerm); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte{1}, os.ModePerm); err != nil {
 					t.Fatalf("unable to write file: %v", err)
 				}
 				if err := os.Symlink(filepath.Join(tmpDir, "testfile"), filepath.Join(tmpDir, "newfile")); err != nil {
@@ -48,7 +47,7 @@ func TestReadLink(t *testing.T) {
 				}
 			},
 			preRun: func(t *testing.T) (string, string, string) {
-				tmpDir, err := ioutil.TempDir("", "broken")
+				tmpDir, err := os.MkdirTemp("", "broken")
 				if err != nil {
 					t.Fatalf("unable to create temp dir: %v", err)
 				}
@@ -71,7 +70,7 @@ func TestReadLink(t *testing.T) {
 				}
 			},
 			preRun: func(t *testing.T) (string, string, string) {
-				tmpDir, err := ioutil.TempDir("", "broken-source")
+				tmpDir, err := os.MkdirTemp("", "broken-source")
 				if err != nil {
 					t.Fatalf("unable to create temp dir: %v", err)
 				}

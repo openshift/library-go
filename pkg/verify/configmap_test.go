@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -42,18 +43,18 @@ func (rt *roundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	if !ok {
 		return &http.Response{
 			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(bytes.NewReader(nil)),
+			Body:       io.NopCloser(bytes.NewReader(nil)),
 		}, nil
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte(data))),
+		Body:       io.NopCloser(bytes.NewReader([]byte(data))),
 	}, nil
 }
 
 func Test_newFromConfigMapData(t *testing.T) {
-	redhatData, err := ioutil.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
+	redhatData, err := os.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,7 @@ func Test_newFromConfigMapData(t *testing.T) {
 }
 
 func Test_newFromConfigMapData_slow_sigstore(t *testing.T) {
-	redhatData, err := ioutil.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
+	redhatData, err := os.ReadFile(filepath.Join("testdata", "keyrings", "redhat.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}

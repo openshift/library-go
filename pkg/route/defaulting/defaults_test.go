@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "github.com/openshift/api/route/v1"
 )
@@ -55,22 +55,22 @@ func TestSetDefaults_RouteTargetReference(t *testing.T) {
 			name: "nonempty kind and non-null weight preserved",
 			original: v1.RouteTargetReference{
 				Kind:   "nonempty",
-				Weight: pointer.Int32(7),
+				Weight: ptr.To[int32](7),
 			},
 			expected: v1.RouteTargetReference{
 				Kind:   "nonempty",
-				Weight: pointer.Int32(7),
+				Weight: ptr.To[int32](7),
 			},
 		},
 		{
 			name: "empty kind defaulted and non-null weight preserved",
 			original: v1.RouteTargetReference{
 				Kind:   "",
-				Weight: pointer.Int32(7),
+				Weight: ptr.To[int32](7),
 			},
 			expected: v1.RouteTargetReference{
 				Kind:   "Service",
-				Weight: pointer.Int32(7),
+				Weight: ptr.To[int32](7),
 			},
 		},
 		{
@@ -81,7 +81,7 @@ func TestSetDefaults_RouteTargetReference(t *testing.T) {
 			},
 			expected: v1.RouteTargetReference{
 				Kind:   "Service",
-				Weight: pointer.Int32(100),
+				Weight: ptr.To[int32](100),
 			},
 		},
 		{
@@ -92,7 +92,7 @@ func TestSetDefaults_RouteTargetReference(t *testing.T) {
 			},
 			expected: v1.RouteTargetReference{
 				Kind:   "nonempty",
-				Weight: pointer.Int32(100),
+				Weight: ptr.To[int32](100),
 			},
 		},
 	} {

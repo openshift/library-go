@@ -390,7 +390,7 @@ func validateInsecureEdgeTerminationPolicy(tls *routev1.TLSConfig, fldPath *fiel
 
 var (
 	allowedWildcardPolicies    = []string{string(routev1.WildcardPolicyNone), string(routev1.WildcardPolicySubdomain)}
-	allowedWildcardPoliciesSet = sets.NewString(allowedWildcardPolicies...)
+	allowedWildcardPoliciesSet = sets.New(allowedWildcardPolicies...)
 )
 
 // validateWildcardPolicy tests that the wildcard policy is either empty or one of the supported types.
@@ -413,7 +413,7 @@ func validateWildcardPolicy(host string, policy routev1.WildcardPolicyType, fldP
 
 var (
 	notAllowedHTTPHeaders        = []string{"strict-transport-security", "proxy", "cookie", "set-cookie"}
-	notAllowedHTTPHeaderSet      = sets.NewString(notAllowedHTTPHeaders...)
+	notAllowedHTTPHeaderSet      = sets.New(notAllowedHTTPHeaders...)
 	notAllowedHTTPHeadersMessage = fmt.Sprintf("the following headers may not be modified using this API: %v", strings.Join(notAllowedHTTPHeaders, ", "))
 )
 
@@ -498,7 +498,7 @@ func validateObjectMetaUpdate(newMeta, oldMeta *metav1.ObjectMeta, fldPath *fiel
 	return allErrs
 }
 
-var standardFinalizers = sets.NewString(
+var standardFinalizers = sets.New(
 	string(corev1.FinalizerKubernetes),
 	metav1.FinalizerOrphanDependents,
 	metav1.FinalizerDeleteDependents,

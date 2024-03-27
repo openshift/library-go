@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -28,13 +28,13 @@ func (rt *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error)
 	if !ok {
 		return &http.Response{
 			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(bytes.NewReader(nil)),
+			Body:       io.NopCloser(bytes.NewReader(nil)),
 		}, nil
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte(data))),
+		Body:       io.NopCloser(bytes.NewReader([]byte(data))),
 	}, nil
 }
 

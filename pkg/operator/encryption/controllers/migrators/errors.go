@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // isConnectionRefusedError checks if the error string include "connection refused"
@@ -38,9 +38,9 @@ func canRetry(err error) *bool {
 	case err == nil:
 		return nil
 	case errors.IsNotFound(err), errors.IsMethodNotSupported(err):
-		return pointer.BoolPtr(false)
+		return ptr.To(false)
 	case errors.IsConflict(err), errors.IsServerTimeout(err), errors.IsTooManyRequests(err), net.IsProbableEOF(err), net.IsConnectionReset(err), net.IsNoRoutesError(err), isConnectionRefusedError(err):
-		return pointer.BoolPtr(true)
+		return ptr.To(true)
 	default:
 		return nil
 	}

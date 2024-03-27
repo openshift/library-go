@@ -146,7 +146,7 @@ func (c *OnePodPerNodeController) syncManaged(ctx context.Context, syncContext f
 			}
 		}
 
-		displayPodString := sets.String{}
+		displayPodString := sets.Set[string]{}
 		for _, pod := range pods {
 			displayPodString.Insert("pod/" + pod.Name)
 		}
@@ -154,7 +154,7 @@ func (c *OnePodPerNodeController) syncManaged(ctx context.Context, syncContext f
 		// we use eviction, not deletion.  Eviction honors PDBs.
 		c.recorder.Warningf("MalscheduledPod",
 			"%v should be one per node, but all were placed on node/%v; evicting pod/%v",
-			strings.Join(displayPodString.List(), " "),
+			strings.Join(sets.List(displayPodString), " "),
 			oldestPod.Spec.NodeName,
 			oldestPod.Name,
 		)

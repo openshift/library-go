@@ -2,7 +2,6 @@ package watchdog
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -64,12 +63,12 @@ func TestWatchdogRun(t *testing.T) {
 	signalKillRecv := make(chan int)
 
 	// Make temporary file we are going to watch and write changes
-	testDir, err := ioutil.TempDir("", "test")
+	testDir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(testDir)
-	if err := ioutil.WriteFile(filepath.Join(testDir, "testfile"), []byte("starting"), os.ModePerm); err != nil {
+	if err := os.WriteFile(filepath.Join(testDir, "testfile"), []byte("starting"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
 
@@ -114,7 +113,7 @@ func TestWatchdogRun(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Modify the monitored file
-	if err := ioutil.WriteFile(filepath.Join(testDir, "testfile"), []byte("changed"), os.ModePerm); err != nil {
+	if err := os.WriteFile(filepath.Join(testDir, "testfile"), []byte("changed"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
 
