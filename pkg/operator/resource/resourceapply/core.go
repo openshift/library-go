@@ -430,31 +430,8 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 	}
 
 	var actual *corev1.Secret
-	/*
-	 * Kubernetes validation silently hides failures to update secret type.
-	 * https://github.com/kubernetes/kubernetes/blob/98e65951dccfd40d3b4f31949c2ab8df5912d93e/pkg/apis/core/validation/validation.go#L5048
-	 * We need to explicitly opt for delete+create in that case.
-	 */
-	if existingCopy.Type == existing.Type {
-		actual, err = client.Secrets(required.Namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
-		reportUpdateEvent(recorder, existingCopy, err)
-
-		if err == nil {
-			return actual, true, err
-		}
-		if !strings.Contains(err.Error(), "field is immutable") {
-			return actual, true, err
-		}
-	}
-
-	// if the field was immutable on a secret, we're going to be stuck until we delete it.  Try to delete and then create
-	deleteErr := client.Secrets(required.Namespace).Delete(ctx, existingCopy.Name, metav1.DeleteOptions{})
-	reportDeleteEvent(recorder, existingCopy, deleteErr)
-
-	// clear the RV and track the original actual and error for the return like our create value.
-	existingCopy.ResourceVersion = ""
-	actual, err = client.Secrets(required.Namespace).Create(ctx, existingCopy, metav1.CreateOptions{})
-	reportCreateEvent(recorder, existingCopy, err)
+	actual, err = client.Secrets(required.Namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	reportUpdateEvent(recorder, existingCopy, err)
 	cache.UpdateCachedResourceMetadata(requiredInput, actual)
 	return actual, true, err
 }
