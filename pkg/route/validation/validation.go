@@ -1,19 +1,26 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/authentication/user"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/library-go/pkg/authorization/authorizationutil"
+	routecommon "github.com/openshift/library-go/pkg/route"
 )
 
 const (
@@ -50,6 +57,8 @@ const (
 	// permittedResponseHeaderValueErrorMessage is the API validation
 	// message for an invalid HTTP response header value.
 	permittedResponseHeaderValueErrorMessage = "Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64."
+	// routerServiceAccount is used to validate RBAC permissions for externalCertificate
+	routerServiceAccount = "system:serviceaccount:openshift-ingress:router"
 )
 
 var (
@@ -66,8 +75,8 @@ var (
 	permittedResponseHeaderValueRE = regexp.MustCompile(strings.Replace(permittedHeaderValueTemplate, "XYZ", "res", 1))
 )
 
-func ValidateRoute(route *routev1.Route) field.ErrorList {
-	return validateRoute(route, true)
+func ValidateRoute(ctx context.Context, route *routev1.Route, sarCreator routecommon.SubjectAccessReviewCreator, secretsGetter corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
+	return validateRoute(ctx, route, true, sarCreator, secretsGetter, opts)
 }
 
 // validLabels - used in the ValidateRouteUpdate function to check if "older" routes conform to DNS1123Labels or not
@@ -91,7 +100,7 @@ func checkLabelSegments(host string) bool {
 }
 
 // validateRoute - private function to validate route
-func validateRoute(route *routev1.Route, checkHostname bool) field.ErrorList {
+func validateRoute(ctx context.Context, route *routev1.Route, checkHostname bool, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
 	//ensure meta is set properly
 	result := validateObjectMeta(&route.ObjectMeta, true, validateRouteName, field.NewPath("metadata"))
 
@@ -198,18 +207,18 @@ func validateRoute(route *routev1.Route, checkHostname bool) field.ErrorList {
 		}
 	}
 
-	if errs := validateTLS(route, specPath.Child("tls")); len(errs) != 0 {
+	if errs := validateTLS(ctx, route, specPath.Child("tls"), sarc, secrets, opts); len(errs) != 0 {
 		result = append(result, errs...)
 	}
 
 	return result
 }
 
-func ValidateRouteUpdate(route *routev1.Route, older *routev1.Route) field.ErrorList {
+func ValidateRouteUpdate(ctx context.Context, route *routev1.Route, older *routev1.Route, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
 	allErrs := validateObjectMetaUpdate(&route.ObjectMeta, &older.ObjectMeta, field.NewPath("metadata"))
 	allErrs = append(allErrs, apimachineryvalidation.ValidateImmutableField(route.Spec.WildcardPolicy, older.Spec.WildcardPolicy, field.NewPath("spec", "wildcardPolicy"))...)
 	hostnameUpdated := route.Spec.Host != older.Spec.Host
-	allErrs = append(allErrs, validateRoute(route, hostnameUpdated && validLabels(older.Spec.Host))...)
+	allErrs = append(allErrs, validateRoute(ctx, route, hostnameUpdated && validLabels(older.Spec.Host), sarc, secrets, opts)...)
 	return allErrs
 }
 
@@ -226,7 +235,7 @@ func ValidateRouteStatusUpdate(route *routev1.Route, older *routev1.Route) field
 
 // validateTLS tests fields for different types of TLS combinations are set.  Called
 // by ValidateRoute.
-func validateTLS(route *routev1.Route, fldPath *field.Path) field.ErrorList {
+func validateTLS(ctx context.Context, route *routev1.Route, fldPath *field.Path, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
 	result := field.ErrorList{}
 	tls := route.Spec.TLS
 
@@ -235,10 +244,19 @@ func validateTLS(route *routev1.Route, fldPath *field.Path) field.ErrorList {
 		return nil
 	}
 
+	// in all cases certificate and externalCertificate must not be specified at the same time
 	switch tls.Termination {
 	// reencrypt may specify destination ca cert
-	// cert, key, cacert may not be specified because the route may be a wildcard
+	// externalCert, cert, key, cacert may not be specified because the route may be a wildcard
 	case routev1.TLSTerminationReencrypt:
+		if opts.AllowExternalCertificates && tls.ExternalCertificate != nil {
+			if len(tls.Certificate) > 0 && len(tls.ExternalCertificate.Name) > 0 {
+				result = append(result, field.Invalid(fldPath.Child("externalCertificate"), tls.ExternalCertificate.Name, "cannot specify both tls.certificate and tls.externalCertificate"))
+			} else if len(tls.ExternalCertificate.Name) > 0 {
+				errs := validateTLSExternalCertificate(ctx, route, fldPath.Child("externalCertificate"), sarc, secrets)
+				result = append(result, errs...)
+			}
+		}
 	//passthrough term should not specify any cert
 	case routev1.TLSTerminationPassthrough:
 		if len(tls.Certificate) > 0 {
@@ -247,6 +265,12 @@ func validateTLS(route *routev1.Route, fldPath *field.Path) field.ErrorList {
 
 		if len(tls.Key) > 0 {
 			result = append(result, field.Invalid(fldPath.Child("key"), "redacted key data", "passthrough termination does not support certificates"))
+		}
+
+		if opts.AllowExternalCertificates && tls.ExternalCertificate != nil {
+			if len(tls.ExternalCertificate.Name) > 0 {
+				result = append(result, field.Invalid(fldPath.Child("externalCertificate"), tls.ExternalCertificate.Name, "passthrough termination does not support certificates"))
+			}
 		}
 
 		if len(tls.CACertificate) > 0 {
@@ -262,6 +286,16 @@ func validateTLS(route *routev1.Route, fldPath *field.Path) field.ErrorList {
 		if len(tls.DestinationCACertificate) > 0 {
 			result = append(result, field.Invalid(fldPath.Child("destinationCACertificate"), "redacted destination ca certificate data", "edge termination does not support destination certificates"))
 		}
+
+		if opts.AllowExternalCertificates && tls.ExternalCertificate != nil {
+			if len(tls.Certificate) > 0 && len(tls.ExternalCertificate.Name) > 0 {
+				result = append(result, field.Invalid(fldPath.Child("externalCertificate"), tls.ExternalCertificate.Name, "cannot specify both tls.certificate and tls.externalCertificate"))
+			} else if len(tls.ExternalCertificate.Name) > 0 {
+				errs := validateTLSExternalCertificate(ctx, route, fldPath.Child("externalCertificate"), sarc, secrets)
+				result = append(result, errs...)
+			}
+		}
+
 	default:
 		validValues := []string{string(routev1.TLSTerminationEdge), string(routev1.TLSTerminationPassthrough), string(routev1.TLSTerminationReencrypt)}
 		result = append(result, field.NotSupported(fldPath.Child("termination"), tls.Termination, validValues))
@@ -272,6 +306,63 @@ func validateTLS(route *routev1.Route, fldPath *field.Path) field.ErrorList {
 	}
 
 	return result
+}
+
+// validateTLSExternalCertificate tests different pre-conditions required for
+// using externalCertificate. Called by validateTLS.
+func validateTLSExternalCertificate(ctx context.Context, route *routev1.Route, fldPath *field.Path, sarc routecommon.SubjectAccessReviewCreator, secretsGetter corev1client.SecretsGetter) field.ErrorList {
+	tls := route.Spec.TLS
+
+	// user must have create and update permission on the custom-host sub-resource.
+	errs := routecommon.CheckRouteCustomHostSAR(ctx, fldPath, sarc)
+
+	// The router serviceaccount must have permission to get/list/watch the referenced secret.
+	// The role and rolebinding to provide this access must be provided by the user.
+	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: routerServiceAccount},
+		&authorizationv1.ResourceAttributes{
+			Namespace: route.Namespace,
+			Verb:      "get",
+			Resource:  "secrets",
+			Name:      tls.ExternalCertificate.Name,
+		}); err != nil {
+		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to get this secret"))
+	}
+
+	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: routerServiceAccount},
+		&authorizationv1.ResourceAttributes{
+			Namespace: route.Namespace,
+			Verb:      "watch",
+			Resource:  "secrets",
+			Name:      tls.ExternalCertificate.Name,
+		}); err != nil {
+		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to watch this secret"))
+	}
+
+	if err := authorizationutil.Authorize(sarc, &user.DefaultInfo{Name: routerServiceAccount},
+		&authorizationv1.ResourceAttributes{
+			Namespace: route.Namespace,
+			Verb:      "list",
+			Resource:  "secrets",
+			Name:      tls.ExternalCertificate.Name,
+		}); err != nil {
+		errs = append(errs, field.Forbidden(fldPath, "router serviceaccount does not have permission to list this secret"))
+	}
+
+	// The secret should be in the same namespace as that of the route.
+	secret, err := secretsGetter.Secrets(route.Namespace).Get(ctx, tls.ExternalCertificate.Name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return append(errs, field.NotFound(fldPath, err))
+		}
+		return append(errs, field.InternalError(fldPath, err))
+	}
+
+	// The secret should be of type kubernetes.io/tls
+	if secret.Type != corev1.SecretTypeTLS {
+		errs = append(errs, field.Invalid(fldPath, tls.ExternalCertificate.Name, fmt.Sprintf("secret of type %q required", corev1.SecretTypeTLS)))
+	}
+
+	return errs
 }
 
 // validateInsecureEdgeTerminationPolicy tests fields for different types of
