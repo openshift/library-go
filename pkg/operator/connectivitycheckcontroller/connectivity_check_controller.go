@@ -30,6 +30,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	// this is dependency magnet, required so that we can sync the pod-network checker definition yaml
+	_ "github.com/openshift/api/operatorcontrolplane/v1alpha1/zz_generated.crd-manifests"
 )
 
 const (
