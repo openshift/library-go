@@ -220,6 +220,28 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			errs:           1,
 		},
 		{
+			name:           "create-with-external-certificate-denied",
+			host:           "host",
+			expected:       "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "create-with-external-certificate-allowed",
+			host:           "host",
+			expected:       "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
 			name:           "no-certificate-changed-to-external-certificate-denied",
 			host:           "host",
 			expected:       "host",
