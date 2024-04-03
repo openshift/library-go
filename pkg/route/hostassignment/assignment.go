@@ -109,7 +109,7 @@ func hasCertificateInfo(tls *routev1.TLSConfig, opts route.RouteValidationOption
 // certificateChangeRequiresAuth determines whether changes to the TLS certificate configuration require authentication.
 // Note: If either route uses externalCertificate, this function always returns true, as we cannot definitively verify if
 // the content of the referenced secret has been modified. Even if the secret name remains the same,
-// we must assume that the secret content is changed, necessitating authentication.
+// we must assume that the secret content is changed, necessitating authorization.
 func certificateChangeRequiresAuth(route, older *routev1.Route, opts route.RouteValidationOptions) bool {
 	switch {
 	case route.Spec.TLS != nil && older.Spec.TLS != nil:
