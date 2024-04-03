@@ -12,6 +12,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/library-go/pkg/route"
 )
 
 type testAllocator struct {
@@ -51,6 +52,9 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 
 		expected          string
 		expectedSubdomain string
+
+		// field for externalCertificate
+		opts route.RouteValidationOptions
 
 		errs  int
 		allow bool
@@ -216,6 +220,138 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 			errs:           1,
 		},
 		{
+			name:           "no-certificate-changed-to-external-certificate-denied",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "no-certificate-changed-to-external-certificate-allowed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-changed-to-certificate-denied",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           2,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-changed-to-certificate-allowed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "certificate-changed-to-external-certificate-denied",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           2,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "certificate-changed-to-external-certificate-allowed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "b"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:     "certificate-changed-to-external-certificate-allowed-but-featuregate-is-not-set",
+			host:     "host",
+			expected: "host",
+			oldHost:  "host",
+			// if the featuregate was disabled, and ExternalCertificate wasn't previously set, apiserver will strip ExternalCertificate field.
+			// https://github.com/openshift/openshift-apiserver/blob/1fac5e7e3a6153efae875185af2dba48fbad41ab/pkg/route/apiserver/registry/route/strategy.go#L73-L93
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: nil},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, Certificate: "a"},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: false},
+		},
+		{
+			name:           "external-certificate-changed-denied",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "old-b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           1,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-changed-allowed",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "old-b"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          true,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
+			name:           "external-certificate-secret-unchanged",
+			host:           "host",
+			expected:       "host",
+			oldHost:        "host",
+			tls:            &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			oldTLS:         &routev1.TLSConfig{Termination: routev1.TLSTerminationEdge, ExternalCertificate: &routev1.LocalObjectReference{Name: "a"}},
+			wildcardPolicy: routev1.WildcardPolicyNone,
+			allow:          false,
+			errs:           0,
+
+			opts: route.RouteValidationOptions{AllowExternalCertificates: true},
+		},
+		{
 			name:           "ca-certificate-unchanged",
 			host:           "host",
 			expected:       "host",
@@ -368,9 +504,9 @@ func TestHostWithWildcardPolicies(t *testing.T) {
 						},
 					},
 				}
-				errs = ValidateHostUpdate(ctx, route, oldRoute, &testSAR{allow: tc.allow})
+				errs = ValidateHostUpdate(ctx, route, oldRoute, &testSAR{allow: tc.allow}, tc.opts)
 			} else {
-				errs = AllocateHost(ctx, route, &testSAR{allow: tc.allow}, testAllocator{})
+				errs = AllocateHost(ctx, route, &testSAR{allow: tc.allow}, testAllocator{}, tc.opts)
 			}
 
 			if route.Spec.Host != tc.expected {
