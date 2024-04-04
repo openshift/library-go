@@ -157,7 +157,7 @@ func TestRotatedSigningCASecretShouldNotUseDelete(t *testing.T) {
 		defer close(ctrlADone)
 		defer close(ctrlBPauses)
 		// step 'a': A starts first
-		_, err := ctrlA.EnsureSigningCertKeyPair(context.TODO())
+		_, _, err := ctrlA.EnsureSigningCertKeyPair(context.TODO())
 		if err != nil {
 			t.Logf("error from controller-A - %v", err)
 		}
@@ -166,7 +166,7 @@ func TestRotatedSigningCASecretShouldNotUseDelete(t *testing.T) {
 		defer close(ctrlBDone)
 		// wait until step 'c' completes
 		<-ctrlBStart
-		_, err := ctrlB.EnsureSigningCertKeyPair(context.TODO())
+		_, _, err := ctrlB.EnsureSigningCertKeyPair(context.TODO())
 		if err != nil {
 			t.Logf("error from controller-B - %v", err)
 		}
@@ -268,16 +268,20 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 
 		initialSecret *corev1.Secret
 
-		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool)
 		expectedError string
 	}{
 		{
 			name: "initial create",
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
+				}
+
+				if !controllerUpdatedSecret {
+					t.Errorf("expected controller to update secret")
 				}
 
 				if !actions[0].Matches("get", "secrets") {
@@ -319,7 +323,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type:       corev1.SecretTypeTLS,
 				Data:       map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
 				if len(actions) != 2 {
@@ -332,6 +336,10 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				if !actions[1].Matches("update", "secrets") {
 					t.Error(actions[1])
 				}
+				if !controllerUpdatedSecret {
+					t.Errorf("expected controller to update secret")
+				}
+
 				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeSigner {
 					t.Errorf("expected certificate type 'signer', got: %v", certType)
@@ -367,11 +375,14 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
 				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
+				}
+				if controllerUpdatedSecret {
+					t.Errorf("expected controller to not update secret")
 				}
 			},
 			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
@@ -388,7 +399,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type: "SecretTypeTLS",
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				lengthWant := 3
 				if updateOnly {
@@ -422,7 +433,6 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 						t.Error(actions[2])
 					}
 				}
-
 				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if actual.Type != corev1.SecretTypeTLS {
 					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
@@ -462,7 +472,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type: corev1.SecretTypeOpaque,
 				Data: map[string][]byte{"foo": {}, "bar": {}},
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				lengthWant := 3
 				if updateOnly {
@@ -495,6 +505,9 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 					if !actions[2].Matches("create", "secrets") {
 						t.Error(actions[2])
 					}
+				}
+				if controllerUpdatedSecret {
+					t.Errorf("expected controller to not update secret")
 				}
 
 				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
@@ -540,7 +553,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 					UseSecretUpdateOnly: b,
 				}
 
-				_, err := c.EnsureSigningCertKeyPair(context.TODO())
+				_, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
 				switch {
 				case err != nil && len(test.expectedError) == 0:
 					t.Error(err)
@@ -550,7 +563,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 					t.Errorf("missing %q", test.expectedError)
 				}
 
-				test.verifyActions(t, b, client)
+				test.verifyActions(t, b, client, updated)
 			})
 		}
 	}
