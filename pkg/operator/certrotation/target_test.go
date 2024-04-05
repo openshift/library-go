@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/x509/pkix"
 	"fmt"
-	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -687,19 +686,17 @@ func FuzzEnsureTargetCertKeyPair(f *testing.F) {
 	if err := setTargetCertKeyPairSecret(existing, 24*time.Hour, newCA, certCreator, additionalAnnotations); err != nil {
 		f.Fatal(err)
 	}
-	// give it a second so we have a unique target name,
-	// and also unique not-after, and not-before values
-	<-time.After(2 * time.Second)
-
 	for _, b := range []bool{true, false} {
-		f.Add(int64(1), b)
+		for _, choices := range [][]byte{{1}, {1, 2}, {1, 2, 3}} {
+			f.Add(choices, b)
+		}
 	}
 
-	f.Fuzz(func(t *testing.T, seed int64, useSecretUpdateOnly bool) {
-		t.Logf("seed: %v, useSecretUpdateOnly: %v", seed, useSecretUpdateOnly)
+	f.Fuzz(func(t *testing.T, choices []byte, useSecretUpdateOnly bool) {
+		t.Logf("choices: %v, useSecretUpdateOnly: %v", choices, useSecretUpdateOnly)
 		d := &dispatcher{
 			t:        t,
-			source:   rand.NewSource(seed),
+			choices:  choices,
 			requests: make(chan request, WorkerCount),
 		}
 		go d.Run()

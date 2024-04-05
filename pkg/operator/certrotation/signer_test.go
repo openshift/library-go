@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math/rand"
 	"slices"
 	"strings"
 	"sync"
@@ -577,7 +576,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 
 type dispatcher struct {
 	t        *testing.T
-	source   rand.Source
+	choices  []byte
 	requests chan request
 }
 
@@ -622,7 +621,7 @@ func (d *dispatcher) Stop() {
 func (d *dispatcher) Run() {
 	members := make(map[string]struct{})
 	var waiting []request
-	rng := rand.New(d.source)
+	choices := d.choices
 
 	dispatch := func() {
 		slices.SortFunc(waiting, func(a, b request) int {
@@ -634,11 +633,30 @@ func (d *dispatcher) Run() {
 			}
 			return 1
 		})
-		rng.Shuffle(len(waiting), func(i, j int) {
-			waiting[i], waiting[j] = waiting[j], waiting[i]
-		})
-		w := waiting[len(waiting)-1]
-		waiting = waiting[:len(waiting)-1]
+		d.t.Logf("queue %v", waiting)
+		if len(choices) == 0 {
+			choices = d.choices
+		}
+		choice := int(choices[0])
+		if choice > len(waiting)-1 {
+			choice = choice % len(waiting)
+		}
+		d.t.Logf("choice %v", choice)
+
+		var w request
+		var newWaiting []request
+		for i, v := range waiting {
+			if i == choice {
+				w = v
+			} else {
+				newWaiting = append(newWaiting, v)
+			}
+		}
+		d.t.Logf("w %v", w)
+
+		choices = choices[1:]
+		waiting = newWaiting
+		d.t.Logf("new queue %v", waiting)
 		d.t.Logf("dispatching %q by %q", w.what, w.who)
 		close(w.when)
 	}
@@ -661,7 +679,7 @@ func (d *dispatcher) Run() {
 			waiting = append(waiting, r)
 		}
 
-		for len(waiting) > 0 && len(waiting) >= len(members) {
+		for len(waiting) > 0 && len(waiting) >= len(members) && len(d.choices) > 0 {
 			dispatch()
 		}
 	}
@@ -741,19 +759,21 @@ func FuzzEnsureSigningCertKeyPair(f *testing.F) {
 	if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
 		f.Fatal(err)
 	}
-	// give it a second so we have a unique signer name,
-	// and also unique not-after, and not-before values
-	<-time.After(2 * time.Second)
 
 	for _, b := range []bool{true, false} {
-		f.Add(int64(1), b)
+		for _, choices := range [][]byte{{1, 2, 3}, {2, 1, 3}, {3, 2, 1}} {
+			f.Add(choices, b)
+		}
 	}
 
-	f.Fuzz(func(t *testing.T, seed int64, useSecretUpdateOnly bool) {
-		t.Logf("seed: %v, useSecretUpdateOnly: %v", seed, useSecretUpdateOnly)
+	f.Fuzz(func(t *testing.T, choices []byte, useSecretUpdateOnly bool) {
+		if len(choices) == 0 {
+			t.Skip()
+		}
+		t.Logf("choices: %v, useSecretUpdateOnly: %v", choices, useSecretUpdateOnly)
 		d := &dispatcher{
 			t:        t,
-			source:   rand.NewSource(seed),
+			choices:  choices,
 			requests: make(chan request, WorkerCount),
 		}
 		go d.Run()

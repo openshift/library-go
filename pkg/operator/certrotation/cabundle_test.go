@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	mathrand "math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -423,16 +422,15 @@ func FuzzEnsureConfigMapCABundle(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	// give it a second so we have a unique signer name,
-	// and also unique not-after, and not-before values
-	<-time.After(2 * time.Second)
 
-	f.Add(int64(1))
+	for _, choices := range [][]byte{{1}, {1, 2}, {1, 2, 3}} {
+		f.Add(choices)
+	}
 
-	f.Fuzz(func(t *testing.T, seed int64) {
+	f.Fuzz(func(t *testing.T, choices []byte) {
 		d := &dispatcher{
 			t:        t,
-			source:   mathrand.NewSource(seed),
+			choices:  choices,
 			requests: make(chan request, WorkerCount),
 		}
 		go d.Run()
