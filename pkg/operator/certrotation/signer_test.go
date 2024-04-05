@@ -742,7 +742,6 @@ func (l *fakeSecretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 
 func FuzzEnsureSigningCertKeyPair(f *testing.F) {
 	const (
-		WorkerCount                 = 3
 		SecretNamespace, SecretName = "ns", "test-signer"
 	)
 	// represents a secret that was created before 4.7 and
@@ -760,21 +759,26 @@ func FuzzEnsureSigningCertKeyPair(f *testing.F) {
 		f.Fatal(err)
 	}
 
-	for _, b := range []bool{true, false} {
-		for _, choices := range [][]byte{{1, 2, 3}, {2, 1, 3}, {3, 2, 1}} {
-			f.Add(choices, b)
+	for workers := 1; workers <= 3; workers++ {
+		for _, b := range []bool{true, false} {
+			for _, choices := range [][]byte{{1, 2, 3}, {2, 1, 3}, {3, 2, 1}} {
+				f.Add(choices, b, workers)
+			}
 		}
 	}
 
-	f.Fuzz(func(t *testing.T, choices []byte, useSecretUpdateOnly bool) {
+	f.Fuzz(func(t *testing.T, choices []byte, useSecretUpdateOnly bool, workers int) {
 		if len(choices) == 0 {
 			t.Skip()
 		}
-		t.Logf("choices: %v, useSecretUpdateOnly: %v", choices, useSecretUpdateOnly)
+		if workers < 1 || workers > 10 {
+			t.Skip()
+		}
+		t.Logf("choices: %v, useSecretUpdateOnly: %v, workers: %d", choices, useSecretUpdateOnly, workers)
 		d := &dispatcher{
 			t:        t,
 			choices:  choices,
-			requests: make(chan request, WorkerCount),
+			requests: make(chan request, workers),
 		}
 		go d.Run()
 		defer d.Stop()
@@ -799,7 +803,7 @@ func FuzzEnsureSigningCertKeyPair(f *testing.F) {
 		client := clientset.CoreV1().Secrets(SecretNamespace)
 
 		var wg sync.WaitGroup
-		for i := 1; i <= WorkerCount; i++ {
+		for i := 1; i <= workers; i++ {
 			controllerName := fmt.Sprintf("controller-%d", i)
 			wg.Add(1)
 			d.Join(controllerName)
@@ -827,6 +831,7 @@ func FuzzEnsureSigningCertKeyPair(f *testing.F) {
 					AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
 					Owner:                 &metav1.OwnerReference{Name: "operator"},
 					EventRecorder:         recorder,
+					UseSecretUpdateOnly:   useSecretUpdateOnly,
 				}
 
 				d.Sequence(controllerName, "begin")
