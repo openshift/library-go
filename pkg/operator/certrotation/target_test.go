@@ -1,21 +1,26 @@
 package certrotation
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509/pkix"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/testing/linearizer"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
@@ -654,4 +659,124 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestEnsureTargetCertKeyPairWithLinearization(t *testing.T) {
+	const (
+		workerCount                 = 2
+		SecretNamespace, SecretName = "ns", "test-target"
+	)
+
+	exhaustive := &linearizer.Exhaustive{}
+	d := linearizer.NewIterationCoordinator(t, workerCount, exhaustive)
+	for d.More() {
+		t.Run("", func(t *testing.T) {
+			run := d.NewIteration(t)
+			defer func() {
+				t.Logf("sequence: %s", run.Sequence())
+				run.Done()
+			}()
+
+			// represents a secret that was created before 4.7 and
+			// hasn't been updated until now (upgrade to 4.15)
+			existing := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       SecretNamespace,
+					Name:            SecretName,
+					ResourceVersion: "10",
+				},
+				Type: "SecretTypeTLS",
+				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+			}
+			newCA, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			certCreator := &SignerRotation{
+				SignerName: "lower-signer",
+			}
+			additionalAnnotations := AdditionalAnnotations{JiraComponent: "test"}
+			if err := setTargetCertKeyPairSecret(existing, 24*time.Hour, newCA, certCreator, additionalAnnotations); err != nil {
+				t.Fatal(err)
+			}
+
+			// get the original crt and key bytes to compare later
+			tlsCertWant, ok := existing.Data["tls.crt"]
+			if !ok || len(tlsCertWant) == 0 {
+				t.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+			}
+			tlsKeyWant, ok := existing.Data["tls.key"]
+			if !ok || len(tlsKeyWant) == 0 {
+				t.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+			}
+
+			storage := kubefake.NewObjectTracker(existing)
+			secretWant := existing.DeepCopy()
+			newControllerFn := func(ctrlName string) *RotatedSelfSignedCertKeySecret {
+				clientset := kubefake.NewSimpleClientsetWithTracker(storage)
+				clientset.PrependReactor("*", "*", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+					if actor := run.GetMyActor(); actor != nil {
+						op := fmt.Sprintf("%s/%s", action.GetVerb(), action.GetResource().Resource)
+						<-actor.Wait(op)
+					}
+					return false, nil, nil
+				})
+				return &RotatedSelfSignedCertKeySecret{
+					Namespace:             SecretNamespace,
+					Name:                  SecretName,
+					Validity:              24 * time.Hour,
+					Refresh:               12 * time.Hour,
+					Client:                clientset.CoreV1(),
+					CertCreator:           certCreator,
+					Lister:                linearizer.NewFakeSecretLister(storage),
+					AdditionalAnnotations: additionalAnnotations,
+					Owner:                 &metav1.OwnerReference{Name: "operator"},
+					EventRecorder:         events.NewInMemoryRecorder("test"),
+					UseSecretUpdateOnly:   false,
+				}
+			}
+
+			var wg sync.WaitGroup
+			wg.Add(workerCount)
+			for i := 0; i < workerCount; i++ {
+				go func() {
+					defer wg.Done()
+					actor := run.GetMyActor()
+					defer actor.Exit()
+
+					<-actor.Wait("Start")
+
+					ctrlName := fmt.Sprintf("controller-%d", actor.ID())
+					ctrl := newControllerFn(ctrlName)
+					_, err := ctrl.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+					if err != nil {
+						t.Logf("error from %s: %v", ctrlName, err)
+					}
+				}()
+			}
+
+			wg.Wait()
+
+			// controllers are done, we don't expect the target to change
+			clientset := kubefake.NewSimpleClientsetWithTracker(storage)
+			client := clientset.CoreV1().Secrets(SecretNamespace)
+			secretGot, err := client.Get(context.TODO(), SecretName, metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if tlsCertGot, ok := secretGot.Data["tls.crt"]; !ok || !bytes.Equal(tlsCertWant, tlsCertGot) {
+				t.Errorf("the target cert has mutated unexpectedly")
+			}
+			if tlsKeyGot, ok := secretGot.Data["tls.key"]; !ok || !bytes.Equal(tlsKeyWant, tlsKeyGot) {
+				t.Errorf("the target cert has mutated unexpectedly")
+			}
+			if got, exists := secretGot.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+				t.Errorf("owner annotation is missing: %#v", secretGot.Annotations)
+			}
+			t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
+		})
+	}
+
+	exhaustive.Report()
 }

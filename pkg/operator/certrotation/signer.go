@@ -183,7 +183,7 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 
 // setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
 func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration) error {
-	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
+	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().UnixNano())
 	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
 	if err != nil {
 		return err
