@@ -247,7 +247,7 @@ func (l *fakeSecretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	return nil, err
 }
 
-func prepareSecret(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
+func prepareSigningSecret(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
 	existing := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       secretNamespace,
@@ -260,10 +260,19 @@ func prepareSecret(f *testing.F, secretNamespace, secretName string) *corev1.Sec
 	if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
 		f.Fatal(err)
 	}
+	// get the original crt and key bytes to compare later
+	tlsCertWant, ok := existing.Data["tls.crt"]
+	if !ok || len(tlsCertWant) == 0 {
+		f.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+	}
+	tlsKeyWant, ok := existing.Data["tls.key"]
+	if !ok || len(tlsKeyWant) == 0 {
+		f.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+	}
 	return existing
 }
 
-func prepareSecretController(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder, useSecretUpdateOnly bool) {
+func prepareSecretController(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
 	ctrl := &RotatedSigningCASecret{
 		Namespace: secretNamespace,
 		Name:      secretName,
@@ -278,7 +287,7 @@ func prepareSecretController(t *testing.T, secretNamespace, secretName string, c
 		AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
 		Owner:                 &metav1.OwnerReference{Name: "operator"},
 		EventRecorder:         *recorder,
-		UseSecretUpdateOnly:   useSecretUpdateOnly,
+		UseSecretUpdateOnly:   false,
 	}
 
 	d.Sequence(controllerName, "begin")
@@ -288,15 +297,28 @@ func prepareSecretController(t *testing.T, secretNamespace, secretName string, c
 	}
 }
 
-func waitForInitialSecretToSettle(t *testing.T, secret *corev1.Secret) {
-	// get the original crt and key bytes to compare later
-	tlsCertWant, ok := secret.Data["tls.crt"]
-	if !ok || len(tlsCertWant) == 0 {
-		t.Fatalf("missing data in 'tls.crt' key of Data: %#v", secret.Data)
+func prepareSecretControllerUseSecretUpdateOnly(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
+	ctrl := &RotatedSigningCASecret{
+		Namespace: secretNamespace,
+		Name:      secretName,
+		Validity:  24 * time.Hour,
+		Refresh:   12 * time.Hour,
+		Client:    getter,
+		Lister: &fakeSecretLister{
+			who:        controllerName,
+			dispatcher: d,
+			tracker:    *tracker,
+		},
+		AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+		Owner:                 &metav1.OwnerReference{Name: "operator"},
+		EventRecorder:         *recorder,
+		UseSecretUpdateOnly:   true,
 	}
-	tlsKeyWant, ok := secret.Data["tls.key"]
-	if !ok || len(tlsKeyWant) == 0 {
-		t.Fatalf("missing data in 'tls.key' key of Data: %#v", secret.Data)
+
+	d.Sequence(controllerName, "begin")
+	_, _, err := ctrl.EnsureSigningCertKeyPair(context.TODO())
+	if err != nil {
+		t.Logf("error from %s: %v", controllerName, err)
 	}
 }
 
@@ -319,34 +341,39 @@ func verifySecret(t *testing.T, secretWant, secretGot *corev1.Secret) {
 	if got, exists := secretGot.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
 		t.Errorf("owner annotation is missing: %#v", secretGot.Annotations)
 	}
+	if secretGot.Type == "SecretTypeTLS" {
+		t.Errorf("secret type was not updated: %#v", secretGot.Type)
+	}
 	t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
 }
 
-func FuzzSecretControllers(f *testing.F) {
-	const (
-		SecretNamespace, SecretName = "ns", "test-secret"
-	)
-	// Prepare signing secret
-	existing := prepareSecret(f, SecretNamespace, SecretName)
+type SecretControllerFuzzer struct {
+	name                        string
+	secretNamespace, secretName string
+	prepareSecretFn             func(f *testing.F, secretNamespace, secretName string) *corev1.Secret
+	prepareSecretControllerFn   func(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder)
+	verifySecretFn              func(t *testing.T, secretWant, secretGot *corev1.Secret)
+}
 
-	// Prepare options cache for fuzzer
-	for workers := 1; workers <= 3; workers++ {
-		for _, b := range []bool{true, false} {
-			for _, choices := range [][]byte{{1, 2, 3}, {2, 1, 3}, {3, 2, 1}} {
-				f.Add(choices, b, workers)
-			}
-		}
+func NewSecretControllerFuzzer(name string) SecretControllerFuzzer {
+	return SecretControllerFuzzer{
+		name:            name,
+		secretNamespace: "ns",
+		secretName:      "test-secret",
 	}
+}
 
-	// Run fuzzing func
-	f.Fuzz(func(t *testing.T, choices []byte, useSecretUpdateOnly bool, workers int) {
+func (c SecretControllerFuzzer) Run(f *testing.F) {
+	existing := c.prepareSecretFn(f, c.secretNamespace, c.secretName)
+	f.Add([]byte{1, 2, 3}, 3)
+	f.Fuzz(func(t *testing.T, choices []byte, workers int) {
 		if len(choices) == 0 {
 			t.Skip()
 		}
 		if workers < 1 || workers > 10 {
 			t.Skip()
 		}
-		t.Logf("choices: %v, useSecretUpdateOnly: %v, workers: %d", choices, useSecretUpdateOnly, workers)
+		t.Logf("choices: %v, workers: %d", choices, workers)
 		d := &dispatcher{
 			t:        t,
 			choices:  choices,
@@ -355,13 +382,11 @@ func FuzzSecretControllers(f *testing.F) {
 		go d.Run()
 		defer d.Stop()
 
-		waitForInitialSecretToSettle(t, existing)
-
 		secretWant := existing.DeepCopy()
 
 		clientset := kubefake.NewSimpleClientset(existing)
 		options := events.RecommendedClusterSingletonCorrelatorOptions()
-		client := clientset.CoreV1().Secrets(SecretNamespace)
+		client := clientset.CoreV1().Secrets(c.secretNamespace)
 
 		var wg sync.WaitGroup
 		for i := 1; i <= workers; i++ {
@@ -375,22 +400,38 @@ func FuzzSecretControllers(f *testing.F) {
 					wg.Done()
 				}()
 
-				recorder := events.NewKubeRecorderWithOptions(clientset.CoreV1().Events(SecretNamespace), options, "operator", &corev1.ObjectReference{Name: controllerName, Namespace: SecretNamespace})
+				recorder := events.NewKubeRecorderWithOptions(clientset.CoreV1().Events(c.secretNamespace), options, "operator", &corev1.ObjectReference{Name: controllerName, Namespace: c.secretNamespace})
 				wrapped := &secretwrapped{SecretInterface: client, name: controllerName, t: t, d: d}
 				getter := &secretgetter{w: wrapped}
 				tracker := clientset.Tracker()
-				prepareSecretController(t, SecretNamespace, SecretName, controllerName, getter, d, &tracker, &recorder, useSecretUpdateOnly)
+				c.prepareSecretControllerFn(t, c.secretNamespace, c.secretName, controllerName, getter, d, &tracker, &recorder)
 			}(controllerName)
 		}
 
 		wg.Wait()
 		t.Log("controllers done")
 		// controllers are done, we don't expect the signer to change
-		secretGot, err := client.Get(context.TODO(), SecretName, metav1.GetOptions{})
+		secretGot, err := client.Get(context.TODO(), c.secretName, metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
 		}
-		verifySecret(t, secretWant, secretGot)
+		c.verifySecretFn(t, secretWant, secretGot)
 	})
+}
+
+func FuzzRotatedSigningCASecretDefault(f *testing.F) {
+	c := NewSecretControllerFuzzer("RotatedSigningCASecret")
+	c.prepareSecretFn = prepareSigningSecret
+	c.prepareSecretControllerFn = prepareSecretController
+	c.verifySecretFn = verifySecret
+	c.Run(f)
+}
+
+func FuzzRotatedSigningCASecretUseSecretUpdateOnly(f *testing.F) {
+	c := NewSecretControllerFuzzer("RotatedSigningCASecretUseSecretUpdateOnly")
+	c.prepareSecretFn = prepareSigningSecret
+	c.prepareSecretControllerFn = prepareSecretControllerUseSecretUpdateOnly
+	c.verifySecretFn = verifySecret
+	c.Run(f)
 }
