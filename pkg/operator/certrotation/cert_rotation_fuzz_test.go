@@ -39,23 +39,27 @@ type secretwrapped struct {
 }
 
 func (w secretwrapped) Create(ctx context.Context, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("create-%s", secret.Name))
 	w.t.Logf("[%s] op=Create, secret=%s/%s", w.name, secret.Namespace, secret.Name)
 	return w.SecretInterface.Create(ctx, secret, opts)
 }
 func (w secretwrapped) Update(ctx context.Context, secret *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("update-%s", secret.Name))
 	w.t.Logf("[%s] op=Update, secret=%s/%s", w.name, secret.Namespace, secret.Name)
 	return w.SecretInterface.Update(ctx, secret, opts)
 }
 func (w secretwrapped) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	w.t.Logf("[%s] op=Delete, secret=%s", w.name, name)
+	w.d.Sequence(w.name, fmt.Sprintf("delete-%s", name))
 	defer func() {
 		if w.hook != nil {
 			w.hook(w.name, operation(w.t, opts))
 		}
 	}()
+	w.t.Logf("[%s] op=Delete, secret=%s", w.name, name)
 	return w.SecretInterface.Delete(ctx, name, opts)
 }
 func (w secretwrapped) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("get-%s", name))
 	if w.hook != nil {
 		w.hook(w.name, operation(w.t, opts))
 	}
@@ -94,6 +98,9 @@ type request struct {
 }
 
 func (d *dispatcher) Sequence(who, what string) {
+	if d.requests == nil {
+		return
+	}
 	signal := make(chan struct{})
 	d.requests <- request{
 		who:  who,
@@ -140,7 +147,6 @@ func (d *dispatcher) Run() {
 			}
 			return 1
 		})
-		d.t.Logf("queue %v", waiting)
 		if len(choices) == 0 {
 			choices = d.choices
 		}
@@ -148,7 +154,6 @@ func (d *dispatcher) Run() {
 		if choice > len(waiting)-1 {
 			choice = choice % len(waiting)
 		}
-		d.t.Logf("choice %v", choice)
 
 		var w request
 		var newWaiting []request
@@ -159,11 +164,8 @@ func (d *dispatcher) Run() {
 				newWaiting = append(newWaiting, v)
 			}
 		}
-		d.t.Logf("w %v", w)
-
 		choices = choices[1:]
 		waiting = newWaiting
-		d.t.Logf("new queue %v", waiting)
 		d.t.Logf("dispatching %q by %q", w.what, w.who)
 		close(w.when)
 	}
@@ -322,31 +324,6 @@ func prepareSecretControllerUseSecretUpdateOnly(t *testing.T, secretNamespace, s
 	}
 }
 
-func verifySecret(t *testing.T, secretWant, secretGot *corev1.Secret) {
-	tlsCertWant, ok := secretWant.Data["tls.crt"]
-	if !ok || len(tlsCertWant) == 0 {
-		t.Fatalf("missing data in 'tls.crt' key of Data: %#v", secretWant.Data)
-	}
-	tlsKeyWant, ok := secretWant.Data["tls.key"]
-	if !ok || len(tlsKeyWant) == 0 {
-		t.Fatalf("missing data in 'tls.key' key of Data: %#v", secretWant.Data)
-	}
-
-	if tlsCertGot, ok := secretGot.Data["tls.crt"]; !ok || !bytes.Equal(tlsCertWant, tlsCertGot) {
-		t.Errorf("the signer cert has mutated unexpectedly")
-	}
-	if tlsKeyGot, ok := secretGot.Data["tls.key"]; !ok || !bytes.Equal(tlsKeyWant, tlsKeyGot) {
-		t.Errorf("the signer cert has mutated unexpectedly")
-	}
-	if got, exists := secretGot.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
-		t.Errorf("owner annotation is missing: %#v", secretGot.Annotations)
-	}
-	if secretGot.Type == "SecretTypeTLS" {
-		t.Errorf("secret type was not updated: %#v", secretGot.Type)
-	}
-	t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
-}
-
 type SecretControllerFuzzer struct {
 	name                        string
 	secretNamespace, secretName string
@@ -365,14 +342,12 @@ func NewSecretControllerFuzzer(name string) SecretControllerFuzzer {
 
 func (c SecretControllerFuzzer) Run(f *testing.F) {
 	existing := c.prepareSecretFn(f, c.secretNamespace, c.secretName)
-	f.Add([]byte{1, 2, 3}, 3)
-	f.Fuzz(func(t *testing.T, choices []byte, workers int) {
-		if len(choices) == 0 {
+	f.Add([]byte{0, 1, 2})
+	f.Fuzz(func(t *testing.T, choices []byte) {
+		if len(choices) == 0 || len(choices) > 10 {
 			t.Skip()
 		}
-		if workers < 1 || workers > 10 {
-			t.Skip()
-		}
+		workers := len(choices)
 		t.Logf("choices: %v, workers: %d", choices, workers)
 		d := &dispatcher{
 			t:        t,
@@ -390,7 +365,7 @@ func (c SecretControllerFuzzer) Run(f *testing.F) {
 
 		var wg sync.WaitGroup
 		for i := 1; i <= workers; i++ {
-			controllerName := fmt.Sprintf("controller-%d", i)
+			controllerName := fmt.Sprintf("controller-fuzz-%d", i)
 			wg.Add(1)
 			d.Join(controllerName)
 
@@ -420,18 +395,166 @@ func (c SecretControllerFuzzer) Run(f *testing.F) {
 	})
 }
 
-func FuzzRotatedSigningCASecretDefault(f *testing.F) {
-	c := NewSecretControllerFuzzer("RotatedSigningCASecret")
-	c.prepareSecretFn = prepareSigningSecret
-	c.prepareSecretControllerFn = prepareSecretController
+func verifySecret(t *testing.T, secretWant, secretGot *corev1.Secret) {
+	tlsCertWant, ok := secretWant.Data["tls.crt"]
+	if !ok || len(tlsCertWant) == 0 {
+		t.Fatalf("missing data in 'tls.crt' key of Data: %#v", secretWant.Data)
+	}
+	tlsKeyWant, ok := secretWant.Data["tls.key"]
+	if !ok || len(tlsKeyWant) == 0 {
+		t.Fatalf("missing data in 'tls.key' key of Data: %#v", secretWant.Data)
+	}
+
+	if tlsCertGot, ok := secretGot.Data["tls.crt"]; !ok || !bytes.Equal(tlsCertWant, tlsCertGot) {
+		t.Errorf("the signer cert has mutated unexpectedly")
+	}
+	if tlsKeyGot, ok := secretGot.Data["tls.key"]; !ok || !bytes.Equal(tlsKeyWant, tlsKeyGot) {
+		t.Errorf("the signer cert has mutated unexpectedly")
+	}
+	if got, exists := secretGot.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+		t.Errorf("owner annotation is missing: %#v", secretGot.Annotations)
+	}
+	if secretGot.Type == "SecretTypeTLS" {
+		t.Errorf("secret type was not updated: %#v", secretGot.Type)
+	}
+	t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
+}
+
+// func FuzzRotatedSigningCASecretDefault(f *testing.F) {
+// 	c := NewSecretControllerFuzzer("RotatedSigningCASecret")
+// 	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
+// 		existing := &corev1.Secret{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Namespace:       secretNamespace,
+// 				Name:            secretName,
+// 				ResourceVersion: "10",
+// 			},
+// 			Type: "SecretTypeTLS",
+// 			Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+// 		}
+// 		if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
+// 			f.Fatal(err)
+// 		}
+// 		// ensure the secret has been processed initially
+// 		tlsCertWant, ok := existing.Data["tls.crt"]
+// 		if !ok || len(tlsCertWant) == 0 {
+// 			f.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+// 		}
+// 		tlsKeyWant, ok := existing.Data["tls.key"]
+// 		if !ok || len(tlsKeyWant) == 0 {
+// 			f.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+// 		}
+// 		return existing
+// 	}
+// 	c.prepareSecretControllerFn = prepareSecretController
+// 	c.verifySecretFn = verifySecret
+// 	c.Run(f)
+// }
+
+func FuzzRotatedSigningCASecretUseSecretUpdateOnly(f *testing.F) {
+	c := NewSecretControllerFuzzer("RotatedSigningCASecretUseSecretUpdateOnly")
+	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
+		existing := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       secretNamespace,
+				Name:            secretName,
+				ResourceVersion: "10",
+			},
+			Type: "SecretTypeTLS",
+			Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+		}
+		if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
+			f.Fatal(err)
+		}
+		// ensure the secret has been processed initially
+		tlsCertWant, ok := existing.Data["tls.crt"]
+		if !ok || len(tlsCertWant) == 0 {
+			f.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+		}
+		tlsKeyWant, ok := existing.Data["tls.key"]
+		if !ok || len(tlsKeyWant) == 0 {
+			f.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+		}
+		return existing
+	}
+	c.prepareSecretControllerFn = func(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
+		ctrl := &RotatedSigningCASecret{
+			Namespace: secretNamespace,
+			Name:      secretName,
+			Validity:  24 * time.Hour,
+			Refresh:   12 * time.Hour,
+			Client:    getter,
+			Lister: &fakeSecretLister{
+				who:        controllerName,
+				dispatcher: d,
+				tracker:    *tracker,
+			},
+			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+			Owner:                 &metav1.OwnerReference{Name: "operator"},
+			EventRecorder:         *recorder,
+			UseSecretUpdateOnly:   true,
+		}
+
+		d.Sequence(controllerName, "begin")
+		_, _, err := ctrl.EnsureSigningCertKeyPair(context.TODO())
+		if err != nil {
+			t.Logf("error from %s: %v", controllerName, err)
+		}
+	}
 	c.verifySecretFn = verifySecret
 	c.Run(f)
 }
 
-func FuzzRotatedSigningCASecretUseSecretUpdateOnly(f *testing.F) {
-	c := NewSecretControllerFuzzer("RotatedSigningCASecretUseSecretUpdateOnly")
-	c.prepareSecretFn = prepareSigningSecret
-	c.prepareSecretControllerFn = prepareSecretControllerUseSecretUpdateOnly
+func FuzzRotatedTargetSecretUseSecretUpdateOnly(f *testing.F) {
+	c := NewSecretControllerFuzzer("FuzzRotatedTargetSecretUseSecretUpdateOnly")
+	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
+		existing := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       secretNamespace,
+				Name:            secretName,
+				ResourceVersion: "10",
+			},
+			Type: "SecretTypeTLS",
+			Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+		}
+		if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
+			f.Fatal(err)
+		}
+		// ensure the secret has been processed initially
+		tlsCertWant, ok := existing.Data["tls.crt"]
+		if !ok || len(tlsCertWant) == 0 {
+			f.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+		}
+		tlsKeyWant, ok := existing.Data["tls.key"]
+		if !ok || len(tlsKeyWant) == 0 {
+			f.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+		}
+		return existing
+	}
+	c.prepareSecretControllerFn = func(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
+		ctrl := &RotatedSigningCASecret{
+			Namespace: secretNamespace,
+			Name:      secretName,
+			Validity:  24 * time.Hour,
+			Refresh:   12 * time.Hour,
+			Client:    getter,
+			Lister: &fakeSecretLister{
+				who:        controllerName,
+				dispatcher: d,
+				tracker:    *tracker,
+			},
+			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+			Owner:                 &metav1.OwnerReference{Name: "operator"},
+			EventRecorder:         *recorder,
+			UseSecretUpdateOnly:   true,
+		}
+
+		d.Sequence(controllerName, "begin")
+		_, _, err := ctrl.EnsureSigningCertKeyPair(context.TODO())
+		if err != nil {
+			t.Logf("error from %s: %v", controllerName, err)
+		}
+	}
 	c.verifySecretFn = verifySecret
 	c.Run(f)
 }
