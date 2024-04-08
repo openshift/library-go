@@ -3,6 +3,7 @@ package certrotation
 import (
 	"bytes"
 	"context"
+	"crypto/x509/pkix"
 	"fmt"
 	"slices"
 	"sync"
@@ -506,6 +507,16 @@ func FuzzRotatedSigningCASecretUseSecretUpdateOnly(f *testing.F) {
 }
 
 func FuzzRotatedTargetSecretUseSecretUpdateOnly(f *testing.F) {
+	certCreator := &SignerRotation{
+		SignerName: "lower-signer",
+	}
+	additionalAnnotations := AdditionalAnnotations{JiraComponent: "test"}
+
+	newCA, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+	if err != nil {
+		f.Fatal(err)
+	}
+
 	c := NewSecretControllerFuzzer("FuzzRotatedTargetSecretUseSecretUpdateOnly")
 	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
 		existing := &corev1.Secret{
@@ -517,7 +528,7 @@ func FuzzRotatedTargetSecretUseSecretUpdateOnly(f *testing.F) {
 			Type: "SecretTypeTLS",
 			Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 		}
-		if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
+		if err := setTargetCertKeyPairSecret(existing, 24*time.Hour, newCA, certCreator, additionalAnnotations); err != nil {
 			f.Fatal(err)
 		}
 		// ensure the secret has been processed initially
@@ -532,25 +543,26 @@ func FuzzRotatedTargetSecretUseSecretUpdateOnly(f *testing.F) {
 		return existing
 	}
 	c.prepareSecretControllerFn = func(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
-		ctrl := &RotatedSigningCASecret{
-			Namespace: secretNamespace,
-			Name:      secretName,
-			Validity:  24 * time.Hour,
-			Refresh:   12 * time.Hour,
-			Client:    getter,
+		ctrl := &RotatedSelfSignedCertKeySecret{
+			Namespace:   secretNamespace,
+			Name:        secretName,
+			Validity:    24 * time.Hour,
+			Refresh:     12 * time.Hour,
+			Client:      getter,
+			CertCreator: certCreator,
 			Lister: &fakeSecretLister{
 				who:        controllerName,
 				dispatcher: d,
 				tracker:    *tracker,
 			},
-			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+			AdditionalAnnotations: additionalAnnotations,
 			Owner:                 &metav1.OwnerReference{Name: "operator"},
 			EventRecorder:         *recorder,
 			UseSecretUpdateOnly:   true,
 		}
 
 		d.Sequence(controllerName, "begin")
-		_, _, err := ctrl.EnsureSigningCertKeyPair(context.TODO())
+		_, err := ctrl.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
 		if err != nil {
 			t.Logf("error from %s: %v", controllerName, err)
 		}
