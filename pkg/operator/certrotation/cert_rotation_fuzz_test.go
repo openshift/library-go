@@ -50,12 +50,12 @@ func (w secretwrapped) Update(ctx context.Context, secret *corev1.Secret, opts m
 	return w.SecretInterface.Update(ctx, secret, opts)
 }
 func (w secretwrapped) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	w.d.Sequence(w.name, fmt.Sprintf("delete-%s", name))
 	defer func() {
 		if w.hook != nil {
 			w.hook(w.name, operation(w.t, opts))
 		}
 	}()
+	w.d.Sequence(w.name, fmt.Sprintf("delete-%s", name))
 	w.t.Logf("[%s] op=Delete, secret=%s", w.name, name)
 	return w.SecretInterface.Delete(ctx, name, opts)
 }
@@ -69,6 +69,52 @@ func (w secretwrapped) Get(ctx context.Context, name string, opts metav1.GetOpti
 	return obj, err
 }
 
+type configmapgetter struct {
+	w *configmapwrapped
+}
+
+func (g *configmapgetter) ConfigMaps(string) corev1client.ConfigMapInterface {
+	return g.w
+}
+
+type configmapwrapped struct {
+	corev1client.ConfigMapInterface
+	d    *dispatcher
+	name string
+	t    *testing.T
+	// the hooks are not invoked for every operation
+	hook func(controllerName, op string)
+}
+
+func (w configmapwrapped) Create(ctx context.Context, cm *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("create-%s", cm.Name))
+	w.t.Logf("[%s] op=Create, cm=%s/%s", w.name, cm.Namespace, cm.Name)
+	return w.ConfigMapInterface.Create(ctx, cm, opts)
+}
+func (w configmapwrapped) Update(ctx context.Context, cm *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("update-%s", cm.Name))
+	w.t.Logf("[%s] op=Update, cm=%s/%s", w.name, cm.Namespace, cm.Name)
+	return w.ConfigMapInterface.Update(ctx, cm, opts)
+}
+func (w configmapwrapped) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	defer func() {
+		if w.hook != nil {
+			w.hook(w.name, operation(w.t, opts))
+		}
+	}()
+	w.d.Sequence(w.name, fmt.Sprintf("delete-%s", name))
+	w.t.Logf("[%s] op=Delete, cm=%s", w.name, name)
+	return w.ConfigMapInterface.Delete(ctx, name, opts)
+}
+func (w configmapwrapped) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
+	w.d.Sequence(w.name, fmt.Sprintf("get-%s", name))
+	if w.hook != nil {
+		w.hook(w.name, operation(w.t, opts))
+	}
+	obj, err := w.ConfigMapInterface.Get(ctx, name, opts)
+	w.t.Logf("[%s] op=Get, cm=%s, err: %v", w.name, name, err)
+	return obj, err
+}
 func operation(t *testing.T, options interface{}) string {
 	switch options.(type) {
 	case metav1.CreateOptions:
@@ -226,11 +272,13 @@ type fakeSecretNamespaceLister struct {
 }
 
 func (l *fakeSecretNamespaceLister) List(selector labels.Selector) (ret []*corev1.Secret, err error) {
+	l.dispatcher.Sequence(l.who, "before-lister-list")
 	obj, err := l.tracker.List(
 		schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
 		schema.GroupVersionKind{Version: "v1", Kind: "Secret"},
 		l.ns,
 	)
+	l.dispatcher.Sequence(l.who, "after-lister-list")
 	var secrets []*corev1.Secret
 	if l, ok := obj.(*corev1.SecretList); ok {
 		for i := range l.Items {
@@ -250,24 +298,78 @@ func (l *fakeSecretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	return nil, err
 }
 
-type SecretControllerFuzzer struct {
-	name                        string
-	secretNamespace, secretName string
-	prepareSecretFn             func(f *testing.F, secretNamespace, secretName string) *corev1.Secret
-	prepareSecretControllerFn   func(t *testing.T, secretNamespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder)
-	verifySecretFn              func(t *testing.T, secretWant, secretGot *corev1.Secret)
+type fakeConfigMapLister struct {
+	who        string
+	dispatcher *dispatcher
+	tracker    clienttesting.ObjectTracker
 }
 
-func NewSecretControllerFuzzer(name string) SecretControllerFuzzer {
+func (l *fakeConfigMapLister) List(selector labels.Selector) (ret []*corev1.ConfigMap, err error) {
+	l.dispatcher.Sequence(l.who, "before-lister-list")
+	result, err := l.ConfigMaps("").List(selector)
+	l.dispatcher.Sequence(l.who, "after-lister-list")
+	return result, err
+}
+
+func (l *fakeConfigMapLister) ConfigMaps(namespace string) corev1listers.ConfigMapNamespaceLister {
+	return &fakeConfigMapNamespaceLister{
+		who:        l.who,
+		dispatcher: l.dispatcher,
+		tracker:    l.tracker,
+		ns:         namespace,
+	}
+}
+
+type fakeConfigMapNamespaceLister struct {
+	who        string
+	dispatcher *dispatcher
+	tracker    clienttesting.ObjectTracker
+	ns         string
+}
+
+func (l *fakeConfigMapNamespaceLister) List(selector labels.Selector) (ret []*corev1.ConfigMap, err error) {
+	l.dispatcher.Sequence(l.who, "before-lister-list")
+	obj, err := l.tracker.List(
+		schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+		schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+		l.ns,
+	)
+	l.dispatcher.Sequence(l.who, "after-lister-list")
+	var cms []*corev1.ConfigMap
+	if l, ok := obj.(*corev1.ConfigMapList); ok {
+		for i := range l.Items {
+			cms = append(cms, &l.Items[i])
+		}
+	}
+	return cms, err
+}
+
+func (l *fakeConfigMapNamespaceLister) Get(name string) (*corev1.ConfigMap, error) {
+	l.dispatcher.Sequence(l.who, "before-lister-get")
+	obj, err := l.tracker.Get(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}, l.ns, name)
+	l.dispatcher.Sequence(l.who, "after-lister-get")
+	if cm, ok := obj.(*corev1.ConfigMap); ok {
+		return cm, err
+	}
+	return nil, err
+}
+
+type SecretControllerFuzzer struct {
+	namespace, name           string
+	prepareSecretFn           func(f *testing.F, namespace, name string) *corev1.Secret
+	prepareSecretControllerFn func(t *testing.T, namespace, secretName string, controllerName string, getter *secretgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder)
+	verifySecretFn            func(t *testing.T, want, got *corev1.Secret)
+}
+
+func NewSecretControllerFuzzer() SecretControllerFuzzer {
 	return SecretControllerFuzzer{
-		name:            name,
-		secretNamespace: "ns",
-		secretName:      "test-secret",
+		namespace: "ns",
+		name:      "test-secret",
 	}
 }
 
 func (c SecretControllerFuzzer) Run(f *testing.F) {
-	existing := c.prepareSecretFn(f, c.secretNamespace, c.secretName)
+	existing := c.prepareSecretFn(f, c.namespace, c.name)
 	f.Fuzz(func(t *testing.T, choices []byte) {
 		if len(choices) == 0 || len(choices) > 10 {
 			t.Skip()
@@ -286,7 +388,7 @@ func (c SecretControllerFuzzer) Run(f *testing.F) {
 
 		clientset := kubefake.NewSimpleClientset(existing)
 		options := events.RecommendedClusterSingletonCorrelatorOptions()
-		client := clientset.CoreV1().Secrets(c.secretNamespace)
+		client := clientset.CoreV1().Secrets(c.namespace)
 
 		var wg sync.WaitGroup
 		for i := 1; i <= workers; i++ {
@@ -300,18 +402,18 @@ func (c SecretControllerFuzzer) Run(f *testing.F) {
 					wg.Done()
 				}()
 
-				recorder := events.NewKubeRecorderWithOptions(clientset.CoreV1().Events(c.secretNamespace), options, "operator", &corev1.ObjectReference{Name: controllerName, Namespace: c.secretNamespace})
+				recorder := events.NewKubeRecorderWithOptions(clientset.CoreV1().Events(c.namespace), options, "operator", &corev1.ObjectReference{Name: controllerName, Namespace: c.namespace})
 				wrapped := &secretwrapped{SecretInterface: client, name: controllerName, t: t, d: d}
 				getter := &secretgetter{w: wrapped}
 				tracker := clientset.Tracker()
-				c.prepareSecretControllerFn(t, c.secretNamespace, c.secretName, controllerName, getter, d, &tracker, &recorder)
+				c.prepareSecretControllerFn(t, c.namespace, c.name, controllerName, getter, d, &tracker, &recorder)
 			}(controllerName)
 		}
 
 		wg.Wait()
 		t.Log("controllers done")
 		// controllers are done, we don't expect the signer to change
-		secretGot, err := client.Get(context.TODO(), c.secretName, metav1.GetOptions{})
+		secretGot, err := client.Get(context.TODO(), c.name, metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
@@ -345,10 +447,78 @@ func verifySecret(t *testing.T, secretWant, secretGot *corev1.Secret) {
 	t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
 }
 
+type ConfigMapControllerFuzzer struct {
+	namespace, name              string
+	prepareConfigMapFn           func(f *testing.F, namespace, name string) *corev1.ConfigMap
+	prepareConfigMapControllerFn func(t *testing.T, namespace, cmName string, controllerName string, getter *configmapgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder)
+	verifyConfigMapFn            func(t *testing.T, want, got *corev1.ConfigMap)
+}
+
+func NewConfigMapControllerFuzzer() ConfigMapControllerFuzzer {
+	return ConfigMapControllerFuzzer{
+		namespace: "ns",
+		name:      "test-cm",
+	}
+}
+
+func (c ConfigMapControllerFuzzer) Run(f *testing.F) {
+	existing := c.prepareConfigMapFn(f, c.namespace, c.name)
+	f.Fuzz(func(t *testing.T, choices []byte) {
+		if len(choices) == 0 || len(choices) > 10 {
+			t.Skip()
+		}
+		workers := len(choices)
+		t.Logf("choices: %v, workers: %d", choices, workers)
+		d := &dispatcher{
+			t:        t,
+			choices:  choices,
+			requests: make(chan request, workers),
+		}
+		go d.Run()
+		defer d.Stop()
+
+		want := existing.DeepCopy()
+
+		clientset := kubefake.NewSimpleClientset(existing)
+		options := events.RecommendedClusterSingletonCorrelatorOptions()
+		client := clientset.CoreV1().ConfigMaps(c.namespace)
+
+		var wg sync.WaitGroup
+		for i := 1; i <= workers; i++ {
+			controllerName := fmt.Sprintf("controller-fuzz-%d", i)
+			wg.Add(1)
+			d.Join(controllerName)
+
+			go func(controllerName string) {
+				defer func() {
+					d.Leave(controllerName)
+					wg.Done()
+				}()
+
+				recorder := events.NewKubeRecorderWithOptions(clientset.CoreV1().Events(c.namespace), options, "operator", &corev1.ObjectReference{Name: controllerName, Namespace: c.namespace})
+				wrapped := &configmapwrapped{ConfigMapInterface: client, name: controllerName, t: t, d: d}
+				getter := &configmapgetter{w: wrapped}
+				tracker := clientset.Tracker()
+				c.prepareConfigMapControllerFn(t, c.namespace, c.name, controllerName, getter, d, &tracker, &recorder)
+			}(controllerName)
+		}
+
+		wg.Wait()
+		t.Log("controllers done")
+		// controllers are done, we don't expect the signer to change
+		got, err := client.Get(context.TODO(), c.name, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+			return
+		}
+		c.verifyConfigMapFn(t, want, got)
+	})
+}
+
 func FuzzRotatedSigningCASecret(f *testing.F) {
 	f.Add([]byte{48, 48, 49, 48})
 
-	c := NewSecretControllerFuzzer("FuzzRotatedSigningCASecret")
+	c := NewSecretControllerFuzzer()
 	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
 		existing := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -413,7 +583,7 @@ func FuzzRotatedTargetSecret(f *testing.F) {
 		f.Fatal(err)
 	}
 
-	c := NewSecretControllerFuzzer("FuzzRotatedTargetSecretUseSecretUpdateOnly")
+	c := NewSecretControllerFuzzer()
 	c.prepareSecretFn = func(f *testing.F, secretNamespace, secretName string) *corev1.Secret {
 		existing := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -464,5 +634,69 @@ func FuzzRotatedTargetSecret(f *testing.F) {
 		}
 	}
 	c.verifySecretFn = verifySecret
+	c.Run(f)
+}
+
+func FuzzRotatedCABundle(f *testing.F) {
+	f.Add([]byte{48, 50, 48, 34, 48})
+	additionalAnnotations := AdditionalAnnotations{JiraComponent: "test"}
+
+	newCA, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+	if err != nil {
+		f.Fatal(err)
+	}
+
+	c := NewConfigMapControllerFuzzer()
+	c.prepareConfigMapFn = func(f *testing.F, namespace, name string) *corev1.ConfigMap {
+		existing := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       namespace,
+				Name:            name,
+				ResourceVersion: "10",
+			},
+			Data: map[string]string{"ca-bundle.crt": ""},
+		}
+		if _, err := manageCABundleConfigMap(existing, newCA.Config.Certs[0]); err != nil {
+			f.Fatal(err)
+		}
+		// ensure the secret has been processed initially
+		caCertWant, ok := existing.Data["ca-bundle.crt"]
+		if !ok || len(caCertWant) == 0 {
+			f.Fatalf("missing data in 'ca-bundle.crt' key of Data: %#v", existing.Data)
+		}
+		return existing
+	}
+	c.prepareConfigMapControllerFn = func(t *testing.T, namespace, caName string, controllerName string, getter *configmapgetter, d *dispatcher, tracker *clienttesting.ObjectTracker, recorder *events.Recorder) {
+		ctrl := &CABundleConfigMap{
+			Namespace: namespace,
+			Name:      caName,
+			Client:    getter,
+			Lister: &fakeConfigMapLister{
+				who:        controllerName,
+				dispatcher: d,
+				tracker:    *tracker,
+			},
+			AdditionalAnnotations: additionalAnnotations,
+			Owner:                 &metav1.OwnerReference{Name: "operator"},
+			EventRecorder:         *recorder,
+		}
+
+		d.Sequence(controllerName, "begin")
+		_, err := ctrl.EnsureConfigMapCABundle(context.TODO(), newCA)
+		if err != nil {
+			t.Logf("error from %s: %v", controllerName, err)
+		}
+	}
+	c.verifyConfigMapFn = func(t *testing.T, want, got *corev1.ConfigMap) {
+		caBundleWant, ok := want.Data["ca-bundle.crt"]
+		if !ok || len(caBundleWant) == 0 {
+			t.Fatalf("missing data in 'ca-bundle.crt' key of Data: %#v", want.Data)
+		}
+
+		if caBundleGot, ok := got.Data["ca-bundle.crt"]; !ok || caBundleWant != caBundleGot {
+			t.Errorf("the ca bundle has mutated unexpectedly")
+		}
+		t.Logf("diff: %s", cmp.Diff(want, got))
+	}
 	c.Run(f)
 }
