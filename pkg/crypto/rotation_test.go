@@ -3,8 +3,8 @@ package crypto
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -30,7 +30,7 @@ func TestValidateCertificates(t *testing.T) {
 }
 
 func TestValidateCertificatesExpired(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("./testfiles/tls-expired.crt")
+	certBytes, err := os.ReadFile("./testfiles/tls-expired.crt")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,14 +3,13 @@ package manifest
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
-	utilpointer "k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/davecgh/go-spew/spew"
 	configv1 "github.com/openshift/api/config/v1"
@@ -576,7 +575,7 @@ type dir struct {
 
 // setupTestFS returns path of the tmp d created and cleanup function.
 func setupTestFS(t *testing.T, d dir) (string, func() error) {
-	root, err := ioutil.TempDir("", "test")
+	root, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -586,7 +585,7 @@ func setupTestFS(t *testing.T, d dir) (string, func() error) {
 	}
 	for _, file := range d.files {
 		path := filepath.Join(dpath, file.name)
-		ioutil.WriteFile(path, []byte(file.contents), 0755)
+		os.WriteFile(path, []byte(file.contents), 0755)
 	}
 	cleanup := func() error {
 		return os.RemoveAll(root)
@@ -648,7 +647,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "unspecified manifest included if techpreview off",
-			requiredFeatureSet: utilpointer.String(""),
+			requiredFeatureSet: ptr.To(""),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -656,7 +655,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "unspecified manifest included if techpreview on",
-			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			requiredFeatureSet: ptr.To("TechPreviewNoUpgrade"),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -664,7 +663,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "correct techpreview value is excluded if techpreview off using feature-set",
-			requiredFeatureSet: utilpointer.String(""),
+			requiredFeatureSet: ptr.To(""),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -674,7 +673,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "correct techpreview value is included if techpreview on using feature-set",
-			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			requiredFeatureSet: ptr.To("TechPreviewNoUpgrade"),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -683,7 +682,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview off using feature-set",
-			requiredFeatureSet: utilpointer.String(""),
+			requiredFeatureSet: ptr.To(""),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",
@@ -693,7 +692,7 @@ func Test_include(t *testing.T) {
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview on using feature-set",
-			requiredFeatureSet: utilpointer.String("TechPreviewNoUpgrade"),
+			requiredFeatureSet: ptr.To("TechPreviewNoUpgrade"),
 			profile:            &defaultClusterProfile,
 			annotations: map[string]interface{}{
 				"include.release.openshift.io/self-managed-high-availability": "true",

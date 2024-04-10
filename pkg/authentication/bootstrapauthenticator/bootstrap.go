@@ -54,13 +54,13 @@ type Password interface {
 func New(getter BootstrapUserDataGetter) Password {
 	return &bootstrapPassword{
 		getter: getter,
-		names:  sets.NewString(BootstrapUser, bootstrapUserBasicAuth),
+		names:  sets.New(BootstrapUser, bootstrapUserBasicAuth),
 	}
 }
 
 type bootstrapPassword struct {
 	getter BootstrapUserDataGetter
-	names  sets.String
+	names  sets.Set[string]
 }
 
 func (b *bootstrapPassword) AuthenticatePassword(ctx context.Context, username, password string) (*authenticator.Response, bool, error) {

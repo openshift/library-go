@@ -255,7 +255,7 @@ func TestController(t *testing.T) {
 
 			test.sendEvents(eventRecorder)
 
-			recvKeys := sets.NewString()
+			recvKeys := sets.New[string]()
 			finish := false
 			for !finish {
 				select {
@@ -275,8 +275,8 @@ func TestController(t *testing.T) {
 				}
 			}
 
-			if !recvKeys.Equal(sets.NewString(test.expectedEventsKeys...)) {
-				t.Errorf("received keys (%#v) does not have all expected keys: %#v", recvKeys.List(), test.expectedEventsKeys)
+			if !recvKeys.Equal(sets.New(test.expectedEventsKeys...)) {
+				t.Errorf("received keys (%#v) does not have all expected keys: %#v", sets.List(recvKeys), test.expectedEventsKeys)
 			}
 
 			if test.evalActions != nil {

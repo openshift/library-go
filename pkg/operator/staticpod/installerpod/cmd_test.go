@@ -2,7 +2,6 @@ package installerpod
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
@@ -216,7 +215,7 @@ func TestCopyContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testDir, err := ioutil.TempDir("", "copy-content-test")
+			testDir, err := os.MkdirTemp("", "copy-content-test")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -260,7 +259,7 @@ func TestKubeletVersion(t *testing.T) {
 }
 
 func checkFileContent(t *testing.T, file, expected string) {
-	actual, err := ioutil.ReadFile(file)
+	actual, err := os.ReadFile(file)
 	if err != nil {
 		t.Error(err)
 		return
@@ -272,7 +271,7 @@ func checkFileContent(t *testing.T, file, expected string) {
 }
 
 func checkFileContentMatchesPod(t *testing.T, file, expected string) {
-	actual, err := ioutil.ReadFile(file)
+	actual, err := os.ReadFile(file)
 	if err != nil {
 		t.Error(err)
 		return

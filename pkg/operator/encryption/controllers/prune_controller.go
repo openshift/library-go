@@ -160,9 +160,9 @@ NextEncryptionSecret:
 
 		// remove our finalizer if it is present
 		secret := s.DeepCopy()
-		if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(secrets.EncryptionSecretFinalizer) {
+		if finalizers := sets.New(secret.Finalizers...); finalizers.Has(secrets.EncryptionSecretFinalizer) {
 			delete(finalizers, secrets.EncryptionSecretFinalizer)
-			secret.Finalizers = finalizers.List()
+			secret.Finalizers = sets.List(finalizers)
 			var updateErr error
 			secret, updateErr = c.secretClient.Secrets("openshift-config-managed").Update(ctx, secret, metav1.UpdateOptions{})
 			deleteErrs = append(deleteErrs, updateErr)

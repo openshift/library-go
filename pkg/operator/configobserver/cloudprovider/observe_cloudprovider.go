@@ -109,7 +109,7 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 	}
 
 	// we set cloudprovider configmap values only for some cloud providers.
-	validCloudProviders := sets.NewString("aws", "azure", "gce", "vsphere")
+	validCloudProviders := sets.New("aws", "azure", "gce", "vsphere")
 	if !validCloudProviders.Has(cloudProvider) {
 		sourceCloudConfigMap = ""
 	}

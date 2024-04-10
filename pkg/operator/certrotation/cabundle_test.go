@@ -7,8 +7,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
-	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -170,7 +170,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle"},
 					Data:       map[string]string{},
 				}
-				certBytes, err := ioutil.ReadFile("./testfiles/tls-expired.crt")
+				certBytes, err := os.ReadFile("./testfiles/tls-expired.crt")
 				if err != nil {
 					t.Fatal(err)
 				}

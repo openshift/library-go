@@ -175,8 +175,8 @@ func allMigrated(toBeEncrypted, migrated []schema.GroupResource) bool {
 	return true
 }
 
-func migratedSet(grs []schema.GroupResource) sets.String {
-	migrated := sets.NewString()
+func migratedSet(grs []schema.GroupResource) sets.Set[string] {
+	migrated := sets.New[string]()
 	for _, gr := range grs {
 		migrated.Insert(gr.String())
 	}
