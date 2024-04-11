@@ -20,9 +20,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/runc v1.1.10
 	github.com/opencontainers/selinux v1.11.0
-	github.com/openshift/api v0.0.0-20240405191225-abd990ce290b
-	github.com/openshift/build-machinery-go v0.0.0-20231128094528-1e9b1b0595c8
-	github.com/openshift/client-go v0.0.0-20240405120947-c67c8325cdd8
+	github.com/openshift/api v0.0.0-20240521185306-0314f31e7774
+	github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52
+	github.com/openshift/client-go v0.0.0-20240521210225-1a8f9bfc8107
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.3.0
 	github.com/prometheus/client_golang v1.16.0
