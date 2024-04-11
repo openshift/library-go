@@ -3,6 +3,7 @@ package apiservice
 import (
 	"context"
 	"fmt"
+	kubeinformers "k8s.io/client-go/informers"
 	"net/http"
 	"sync"
 	"time"
@@ -15,6 +16,13 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )
+
+func preconditionsForEnabledAPIServices(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
+	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+		return checkEndpointsPresence(endpointsLister, apiServices)
+	}
+}
 
 func checkEndpointsPresence(endpointsLister corev1listers.EndpointsLister, apiServices []*apiregistrationv1.APIService) (bool, error) {
 	type coordinate struct {
