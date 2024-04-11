@@ -174,21 +174,22 @@ func (cs *APIServerControllerSet) WithoutClusterOperatorStatusController() *APIS
 }
 
 func (cs *APIServerControllerSet) WithAPIServiceController(
-	controllerName string,
+	controllerName, targetNamespace string,
 	getAPIServicesToManageFn apiservice.GetAPIServicesToMangeFunc,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
-	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	informers ...factory.Informer,
 ) *APIServerControllerSet {
 	cs.apiServiceController.controller = apiservice.NewAPIServiceController(
 		controllerName,
+		targetNamespace,
 		getAPIServicesToManageFn,
 		cs.operatorClient,
 		apiregistrationInformers,
 		apiregistrationv1Client,
-		kubeInformersForTargetNamesace,
+		kubeInformersForNamespaces,
 		kubeClient,
 		cs.eventRecorder,
 		informers...,

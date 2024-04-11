@@ -9,18 +9,21 @@ import (
 
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
+	"github.com/openshift/library-go/pkg/operator/bootstrap"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-func preconditionsForEnabledAPIServices(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
+func preconditionsForEnabledAPIServices(endpointsListerForTargetNs corev1listers.EndpointsLister, configmapListerForKubeSystemNs corev1listers.ConfigMapLister) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
 	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-		return checkEndpointsPresence(endpointsLister, apiServices)
+		areEndpointsPresent, err := checkEndpointsPresence(endpointsListerForTargetNs, apiServices)
+		if !areEndpointsPresent || err != nil {
+			return false, err
+		}
+		return bootstrap.IsBootstrapComplete(configmapListerForKubeSystemNs)
 	}
 }
 
