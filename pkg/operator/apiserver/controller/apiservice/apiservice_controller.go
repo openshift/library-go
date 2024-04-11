@@ -34,8 +34,8 @@ type apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool
 
 type APIServiceController struct {
 	getAPIServicesToManageFn GetAPIServicesToMangeFunc
-	// preconditionForEnabledAPIServices must return true before the apiservices will be created
-	preconditionForEnabledAPIServices apiServicesPreconditionFuncType
+	// preconditionsForEnabledAPIServices must return true before the apiservices will be created
+	preconditionsForEnabledAPIServices apiServicesPreconditionFuncType
 
 	operatorClient          v1helpers.OperatorClient
 	kubeClient              kubernetes.Interface
@@ -55,8 +55,8 @@ func NewAPIServiceController(
 	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
-		preconditionForEnabledAPIServices: preconditionsForEnabledAPIServices(kubeInformersForOperandNamespace),
-		getAPIServicesToManageFn:          getAPIServicesToManageFunc,
+		preconditionsForEnabledAPIServices: preconditionsForEnabledAPIServices(kubeInformersForOperandNamespace),
+		getAPIServicesToManageFn:           getAPIServicesToManageFunc,
 
 		operatorClient:          operatorClient,
 		apiregistrationv1Client: apiregistrationv1Client,
@@ -182,13 +182,13 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var syncEnabledAPIServicesErr error
 
 	syncDisabledAPIServicesErr := c.syncDisabledAPIServices(ctx, disabledApiServices)
-	preconditionReady, preconditionErr := c.preconditionForEnabledAPIServices(enabledApiServices)
+	preconditionsReady, preconditionsErr := c.preconditionsForEnabledAPIServices(enabledApiServices)
 
-	if preconditionErr == nil && preconditionReady {
+	if preconditionsErr == nil && preconditionsReady {
 		syncEnabledAPIServicesErr = c.syncEnabledAPIServices(ctx, enabledApiServices, syncCtx.Recorder())
 	}
 
-	return c.updateOperatorStatus(ctx, syncDisabledAPIServicesErr, preconditionErr, preconditionReady, syncEnabledAPIServicesErr)
+	return c.updateOperatorStatus(ctx, syncDisabledAPIServicesErr, preconditionsErr, preconditionsReady, syncEnabledAPIServicesErr)
 }
 
 func (c *APIServiceController) syncDisabledAPIServices(ctx context.Context, apiServices []*apiregistrationv1.APIService) error {

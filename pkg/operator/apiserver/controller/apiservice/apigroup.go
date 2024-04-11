@@ -3,13 +3,13 @@ package apiservice
 import (
 	"context"
 	"fmt"
-	kubeinformers "k8s.io/client-go/informers"
 	"net/http"
 	"sync"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	kubeinformers "k8s.io/client-go/informers"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
