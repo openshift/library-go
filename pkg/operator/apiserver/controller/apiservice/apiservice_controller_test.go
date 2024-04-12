@@ -175,10 +175,10 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 			operator := &APIServiceController{
-				preconditionForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
-				kubeClient:                        kubeClient,
-				operatorClient:                    fakeOperatorClient,
-				apiregistrationv1Client:           kubeAggregatorClient.ApiregistrationV1(),
+				preconditionsForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
+				kubeClient:                         kubeClient,
+				operatorClient:                     fakeOperatorClient,
+				apiregistrationv1Client:            kubeAggregatorClient.ApiregistrationV1(),
 				getAPIServicesToManageFn: func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
 					return []*apiregistrationv1.APIService{
 						{
@@ -265,11 +265,11 @@ func TestDisabledAPIService(t *testing.T) {
 	informerFactory := externalversions.NewSharedInformerFactory(kubeAggregatorClient, 10*time.Minute)
 
 	operator := &APIServiceController{
-		preconditionForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
-		kubeClient:                        kubeClient,
-		operatorClient:                    fakeOperatorClient,
-		apiregistrationv1Client:           kubeAggregatorClient.ApiregistrationV1(),
-		apiservicelister:                  informerFactory.Apiregistration().V1().APIServices().Lister(),
+		preconditionsForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) { return true, nil },
+		kubeClient:                         kubeClient,
+		operatorClient:                     fakeOperatorClient,
+		apiregistrationv1Client:            kubeAggregatorClient.ApiregistrationV1(),
+		apiservicelister:                   informerFactory.Apiregistration().V1().APIServices().Lister(),
 	}
 
 	stopCh := make(chan struct{})

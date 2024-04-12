@@ -10,61 +10,63 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-func newEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-	// this is outside the func so it always registers before the informers start
+func preconditionsForEnabledAPIServices(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
 	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
+	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+		return checkEndpointsPresence(endpointsLister, apiServices)
+	}
+}
 
+func checkEndpointsPresence(endpointsLister corev1listers.EndpointsLister, apiServices []*apiregistrationv1.APIService) (bool, error) {
 	type coordinate struct {
 		namespace string
 		name      string
 	}
 
-	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
-
-		coordinates := []coordinate{}
-		for _, apiService := range apiServices {
-			curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
-			exists := false
-			for _, j := range coordinates {
-				if j == curr {
-					exists = true
-					break
-				}
-			}
-			if !exists {
-				coordinates = append(coordinates, curr)
+	coordinates := []coordinate{}
+	for _, apiService := range apiServices {
+		curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
+		exists := false
+		for _, j := range coordinates {
+			if j == curr {
+				exists = true
+				break
 			}
 		}
-
-		for _, curr := range coordinates {
-			endpoints, err := endpointsLister.Endpoints(curr.namespace).Get(curr.name)
-			if err != nil {
-				return false, err
-			}
-			if len(endpoints.Subsets) == 0 {
-				return false, nil
-			}
-
-			exists := false
-			for _, subset := range endpoints.Subsets {
-				if len(subset.Addresses) > 0 {
-					exists = true
-					break
-				}
-			}
-			if !exists {
-				return false, nil
-			}
+		if !exists {
+			coordinates = append(coordinates, curr)
 		}
-
-		return true, nil
 	}
+
+	for _, curr := range coordinates {
+		endpoints, err := endpointsLister.Endpoints(curr.namespace).Get(curr.name)
+		if err != nil {
+			return false, err
+		}
+		if len(endpoints.Subsets) == 0 {
+			return false, nil
+		}
+
+		exists := false
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func checkDiscoveryForByAPIServices(ctx context.Context, recorder events.Recorder, restclient rest.Interface, apiServices []*apiregistrationv1.APIService) []string {
