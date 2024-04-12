@@ -8,6 +8,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -370,6 +371,120 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 
 				if test.checkUpdated != nil {
 					if err = test.checkUpdated(updatedHook); err != nil {
+						t.Errorf("Expected modification: %v", err)
+					}
+				}
+			}
+
+			testApply(test.expectModified)
+			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
+		})
+	}
+}
+
+func TestApplyValidatingAdmissionPolicyConfiguration(t *testing.T) {
+	defaultPolicy := &admissionregistrationv1beta1.ValidatingAdmissionPolicy{}
+	defaultPolicy.SetName("test")
+	createEvent := "ValidatingAdmissionPolicyCreated"
+	updateEvent := "ValidatingAdmissionPolicyUpdated"
+
+	injectGeneration := func(generation int64) ktesting.ReactionFunc {
+		return func(action ktesting.Action) (bool, runtime.Object, error) {
+			actual, _ := action.(ktesting.CreateAction)
+			policy, _ := actual.GetObject().(*admissionregistrationv1beta1.ValidatingAdmissionPolicy)
+			policy.SetGeneration(generation)
+			return false, policy, nil
+		}
+	}
+
+	tests := []struct {
+		name           string
+		expectModified bool
+		existing       func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
+		input          func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
+		checkUpdated   func(*admissionregistrationv1beta1.ValidatingAdmissionPolicy) error
+		expectedEvents []string
+	}{
+		{
+			name:           "Should successfully create policy",
+			expectModified: true,
+			input: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				return defaultPolicy.DeepCopy()
+			},
+			expectedEvents: []string{createEvent},
+		},
+		{
+			name:           "Should update policy when annotation changed",
+			expectModified: true,
+			input: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				policy.Annotations = map[string]string{"updated-annotation": "updated-annotation"}
+				return policy
+			},
+			existing: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				return policy
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should update policy when changed",
+			expectModified: true,
+			input: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				return policy
+			},
+			existing: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				policy.Spec.MatchConditions = append(policy.Spec.MatchConditions, admissionregistrationv1beta1.MatchCondition{
+					Name:       "unexpected",
+					Expression: "unexpected",
+				})
+				return policy
+			},
+			expectedEvents: []string{updateEvent},
+		},
+		{
+			name:           "Should not update policy when is unchanged",
+			expectModified: false,
+			input: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				return defaultPolicy.DeepCopy()
+			},
+			existing: func() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+				return defaultPolicy.DeepCopy()
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			existingHooks := []runtime.Object{}
+			if test.existing != nil {
+				existingHooks = append(existingHooks, test.existing())
+			}
+			client := fake.NewSimpleClientset(existingHooks...)
+
+			// Simulate server-side generation increase
+			client.PrependReactor("create", "*", injectGeneration(1))
+			if test.existing != nil {
+				client.PrependReactor("update", "*", injectGeneration(test.existing().GetGeneration()+1))
+			}
+			recorder := events.NewInMemoryRecorder("test")
+
+			testApply := func(expectModify bool) {
+				updatedPolicy, modified, err := ApplyValidatingAdmissionPolicyV1beta1(
+					context.TODO(),
+					client.AdmissionregistrationV1beta1(),
+					recorder, test.input(), noCache)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if expectModify != modified {
+					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedPolicy)
+				}
+
+				if test.checkUpdated != nil {
+					if err = test.checkUpdated(updatedPolicy); err != nil {
 						t.Errorf("Expected modification: %v", err)
 					}
 				}
