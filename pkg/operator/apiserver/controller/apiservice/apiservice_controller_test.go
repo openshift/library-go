@@ -9,12 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -29,13 +31,14 @@ import (
 
 func TestAvailableStatus(t *testing.T) {
 	testCases := []struct {
-		name                string
-		expectedStatus      operatorv1.ConditionStatus
-		expectedReasons     []string
-		expectedMessages    []string
-		existingAPIServices []runtime.Object
-		apiServiceReactor   kubetesting.ReactionFunc
-		daemonReactor       kubetesting.ReactionFunc
+		name                               string
+		expectedStatus                     operatorv1.ConditionStatus
+		expectedReasons                    []string
+		expectedMessages                   []string
+		existingAPIServices                []runtime.Object
+		apiServiceReactor                  kubetesting.ReactionFunc
+		daemonReactor                      kubetesting.ReactionFunc
+		preconditionsForEnabledAPIServices apiServicesPreconditionFuncType
 	}{
 		{
 			name:           "Default",
@@ -147,6 +150,36 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "PreconditionsError",
+			preconditionsForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) {
+				return false, fmt.Errorf("dummy error")
+			},
+			expectedStatus:  operatorv1.ConditionFalse,
+			expectedReasons: []string{"ErrorCheckingPrecondition"},
+			expectedMessages: []string{
+				"dummy error",
+			},
+		},
+		{
+			name: "PreconditionsErrorEvenWhenStatusTrue",
+			preconditionsForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) {
+				return true, fmt.Errorf("dummy error")
+			},
+			expectedStatus:  operatorv1.ConditionFalse,
+			expectedReasons: []string{"ErrorCheckingPrecondition"},
+			expectedMessages: []string{
+				"dummy error",
+			},
+		},
+		{
+			name: "PreconditionsNotReady",
+			preconditionsForEnabledAPIServices: func([]*apiregistrationv1.APIService) (bool, error) {
+				return false, nil
+			},
+			expectedStatus:  operatorv1.ConditionFalse,
+			expectedReasons: []string{"PreconditionNotReady"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -191,6 +224,9 @@ func TestAvailableStatus(t *testing.T) {
 						},
 					}, nil, nil
 				},
+			}
+			if tc.preconditionsForEnabledAPIServices != nil {
+				operator.preconditionsForEnabledAPIServices = tc.preconditionsForEnabledAPIServices
 			}
 
 			_ = operator.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
@@ -410,6 +446,95 @@ func TestDisabledAPIService(t *testing.T) {
 		t.Error(diff.ObjectGoPrintSideBySide(condition.Status, operatorv1.ConditionTrue))
 	}
 
+}
+
+func TestPreconditionsForEnabledAPIServices(t *testing.T) {
+	var (
+		bootstrapComplete = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "bootstrap", Namespace: "kube-system"},
+			Data:       map[string]string{"status": "complete"},
+		}
+	)
+
+	scenarios := []struct {
+		name                       string
+		existingBootstrapConfigMap *corev1.ConfigMap
+		existingAPIServices        []*apiregistrationv1.APIService
+		existingEndpoints          []*corev1.Endpoints
+
+		expectedStatus bool
+	}{
+		{
+			name: "EmptyAPIServices, NoBootstrapConfigMap",
+		},
+		{
+			name: "EmptyAPIServices, NoStatusInBootstrapConfigMap",
+			existingBootstrapConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "bootstrap", Namespace: "kube-system"},
+				Data:       map[string]string{"noStatus": "complete"},
+			},
+		},
+		{
+			name: "EmptyAPIServices, StatusNotCompleteBootstrapConfigMap",
+			existingBootstrapConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "bootstrap", Namespace: "kube-system"},
+				Data:       map[string]string{"status": "progressing"},
+			},
+		},
+		{
+			name:                       "EmptyAPIServices, CompleteBootstrapConfigMap",
+			existingBootstrapConfigMap: bootstrapComplete,
+			expectedStatus:             true,
+		},
+		{
+			name:                       "UnreadyAPIServices, CompleteBootstrapConfigMap",
+			existingBootstrapConfigMap: bootstrapComplete,
+			existingAPIServices: []*apiregistrationv1.APIService{
+				newAPIService("build.openshift.io", "v1"),
+			},
+			existingEndpoints: []*corev1.Endpoints{
+				func() *corev1.Endpoints {
+					s := newAPIService("build.openshift.io", "v1")
+					e := &corev1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      s.Spec.Service.Name,
+							Namespace: s.Spec.Service.Namespace,
+						},
+					}
+					return e
+				}(),
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			configMapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			if scenario.existingBootstrapConfigMap != nil {
+				if err := configMapIndexer.Add(scenario.existingBootstrapConfigMap); err != nil {
+					t.Fatal(err)
+				}
+			}
+			configMapLister := corev1listers.NewConfigMapLister(configMapIndexer)
+			endpointIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			for _, endpoint := range scenario.existingEndpoints {
+				if err := endpointIndexer.Add(endpoint); err != nil {
+					t.Fatal(err)
+				}
+			}
+			endpointLister := corev1listers.NewEndpointsLister(endpointIndexer)
+
+			target := preconditionsForEnabledAPIServices(endpointLister, configMapLister)
+
+			actualStatus, actualError := target(scenario.existingAPIServices)
+			if actualStatus != scenario.expectedStatus {
+				t.Fatalf("unexpected status = %v, expected = %v", actualStatus, scenario.expectedStatus)
+			}
+			if actualError != nil {
+				t.Fatalf("unexpected err =%v", actualError)
+			}
+		})
+	}
 }
 
 func newAPIService(group, version string) *apiregistrationv1.APIService {
