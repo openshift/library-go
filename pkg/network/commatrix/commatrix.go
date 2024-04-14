@@ -19,11 +19,6 @@ const (
 	AWS
 )
 
-var EnvMap = map[string]Env{
-	"baremetal": Baremetal,
-	"aws":       AWS,
-}
-
 // New initializes a ComMatrix using Kubernetes cluster data.
 // It takes kubeconfigPath for cluster access to  fetch EndpointSlice objects,
 // detailing open ports for ingress traffic.

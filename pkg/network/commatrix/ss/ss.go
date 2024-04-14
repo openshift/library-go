@@ -3,6 +3,7 @@ package ss
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ var (
 	}
 )
 
-func CreateComDetailsFromNode(cs *client.ClientSet, node *corev1.Node) ([]types.ComDetails, error) {
+func CreateComDetailsFromNode(cs *client.ClientSet, node *corev1.Node, tcpFile, udpFile *os.File) ([]types.ComDetails, error) {
 	debugPod, err := debug.New(cs, node.Name, consts.DefaultDebugNamespace, consts.DefaultDebugPodImage)
 	if err != nil {
 		return nil, err
@@ -59,6 +60,15 @@ func CreateComDetailsFromNode(cs *client.ClientSet, node *corev1.Node) ([]types.
 
 	ssOutFilteredTCP := filterStrings(tcpSSFilterFn, splitByLines(ssOutTCP))
 	ssOutFilteredUDP := filterStrings(udpSSFilterFn, splitByLines(ssOutUDP))
+
+	_, err = tcpFile.Write([]byte(fmt.Sprintf("node: %s\n%s", node.Name, strings.Join(ssOutFilteredTCP, "\n"))))
+	if err != nil {
+		return nil, fmt.Errorf("failed writing to file: %s", err)
+	}
+	_, err = udpFile.Write([]byte(fmt.Sprintf("node: %s\n%s", node.Name, strings.Join(ssOutFilteredUDP, "\n"))))
+	if err != nil {
+		return nil, fmt.Errorf("failed writing to file: %s", err)
+	}
 
 	tcpComDetails, err := toComDetails(ssOutFilteredTCP, "TCP", node)
 	if err != nil {

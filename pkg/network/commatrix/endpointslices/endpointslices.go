@@ -19,7 +19,7 @@ import (
 
 type EndpointSlicesInfo struct {
 	EndpointSlice discoveryv1.EndpointSlice
-	Serivce       corev1.Service
+	Service       corev1.Service
 	Pods          []corev1.Pod
 }
 
@@ -52,7 +52,7 @@ func GetIngressEndpointSlicesInfo(cs *client.ClientSet) ([]EndpointSlicesInfo, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to bundle resources: %w", err)
 	}
-	log.Debug("length of the creaed epsliceInfos slice: ", len(epsliceInfos))
+	log.Debug("length of the created epsliceInfos slice: ", len(epsliceInfos))
 	res := FilterForIngressTraffic(epsliceInfos)
 
 	log.Debug("length of the slice after filter: ", len(res))
@@ -120,7 +120,7 @@ func createEPSliceInfos(epSlicesList *discoveryv1.EndpointSliceList, servicesLis
 			log.Debugf("Added a new endpointSliceInfo with pods len: %d", len(pods))
 			res = append(res, EndpointSlicesInfo{
 				EndpointSlice: epSlice,
-				Serivce:       *service,
+				Service:       *service,
 				Pods:          pods,
 			})
 		}
@@ -211,7 +211,7 @@ func (epSliceinfo *EndpointSlicesInfo) toComDetails(nodes []corev1.Node) ([]type
 	res := make([]types.ComDetails, 0)
 
 	// Get the Namespace and Pod's name from the service.
-	namespace := epSliceinfo.Serivce.Namespace
+	namespace := epSliceinfo.Service.Namespace
 	name := epSliceinfo.EndpointSlice.OwnerReferences[0].Name
 
 	// Get the node roles of this endpointslice. (master or worker or both).

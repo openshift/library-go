@@ -26,7 +26,7 @@ type ComDetails struct {
 	Optional  bool   `json:"optional"`
 }
 
-func (m *ComMatrix) ToCSV() ([]byte, error) {
+func ToCSV(m *ComMatrix) ([]byte, error) {
 	var header = "direction,protocol,port,namespace,service,pod,container,nodeRole,optional"
 
 	out := make([]byte, 0)
@@ -47,7 +47,7 @@ func (m *ComMatrix) ToCSV() ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func (m *ComMatrix) ToJSON() ([]byte, error) {
+func ToJSON(m *ComMatrix) ([]byte, error) {
 	out, err := json.Marshal(m.Matrix)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (m *ComMatrix) ToJSON() ([]byte, error) {
 	return out, nil
 }
 
-func (m *ComMatrix) ToYAML() ([]byte, error) {
+func ToYAML(m *ComMatrix) ([]byte, error) {
 	out, err := yaml.Marshal(m)
 	if err != nil {
 		return nil, err
@@ -92,15 +92,20 @@ func RemoveDups(outPuts []ComDetails) []ComDetails {
 	return res
 }
 
+func (cd ComDetails) Equals(other ComDetails) bool {
+	strComDetail1 := fmt.Sprintf("%s-%s-%s", cd.NodeRole, cd.Port, cd.Protocol)
+	strComDetail2 := fmt.Sprintf("%s-%s-%s", other.NodeRole, other.Port, other.Protocol)
+
+	return strComDetail1 == strComDetail2
+}
+
 // Diff returns the diff ComMatrix.
 func (m ComMatrix) Diff(other ComMatrix) ComMatrix {
 	diff := []ComDetails{}
 	for _, cd1 := range m.Matrix {
 		found := false
-		strComDetail1 := fmt.Sprintf("%s-%s-%s", cd1.NodeRole, cd1.Port, cd1.Protocol)
 		for _, cd2 := range other.Matrix {
-			strComDetail2 := fmt.Sprintf("%s-%s-%s", cd2.NodeRole, cd2.Port, cd2.Protocol)
-			if strComDetail1 == strComDetail2 {
+			if cd1.Equals(cd2) {
 				found = true
 				break
 			}

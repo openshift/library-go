@@ -11,7 +11,7 @@ func TestFilterHostNetwork(t *testing.T) {
 	epInfo := EndpointSlicesInfo{
 		EndpointSlice: discoveryv1.EndpointSlice{},
 		Pods:          []corev1.Pod{{}},
-		Serivce:       corev1.Service{},
+		Service:       corev1.Service{},
 	}
 	tests := []struct {
 		desc          string
@@ -42,7 +42,7 @@ func TestFilterServiceTypes(t *testing.T) {
 	epInfo := EndpointSlicesInfo{
 		EndpointSlice: discoveryv1.EndpointSlice{},
 		Pods:          []corev1.Pod{},
-		Serivce:       corev1.Service{},
+		Service:       corev1.Service{},
 	}
 	tests := []struct {
 		desc        string
@@ -71,7 +71,7 @@ func TestFilterServiceTypes(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		epInfo.Serivce.Spec.Type = test.serviceType
+		epInfo.Service.Spec.Type = test.serviceType
 		res := FilterServiceTypes(epInfo)
 		if res != test.expected {
 			t.Fatalf("test %s failed. expected %v got %v", test.desc, test.expected, res)

@@ -45,12 +45,12 @@ func FilterForIngressTraffic(epslicesInfo []EndpointSlicesInfo) []EndpointSlices
 // FilterHostNetwork checks if the pods behind the endpointSlice are host network.
 func FilterHostNetwork(epInfo EndpointSlicesInfo) bool {
 	if len(epInfo.Pods) == 0 {
-		log.Debugf("EndpointSliceInfo %s, got no pods", epInfo.Serivce.Name)
+		log.Debugf("EndpointSliceInfo %s, got no pods", epInfo.Service.Name)
 		return false
 	}
 	// Assuming all pods in an EndpointSlice are uniformly on host network or not, we only check the first one.
 	if !epInfo.Pods[0].Spec.HostNetwork {
-		log.Debugf("EndpointSliceInfo %s, is not hostNetwork", epInfo.Serivce.Name)
+		log.Debugf("EndpointSliceInfo %s, is not hostNetwork", epInfo.Service.Name)
 		return false
 	}
 
@@ -59,9 +59,9 @@ func FilterHostNetwork(epInfo EndpointSlicesInfo) bool {
 
 // FilterServiceTypes checks if the service behind the endpointSlice is of type LoadBalancer or NodePort.
 func FilterServiceTypes(epInfo EndpointSlicesInfo) bool {
-	if epInfo.Serivce.Spec.Type != corev1.ServiceTypeLoadBalancer &&
-		epInfo.Serivce.Spec.Type != corev1.ServiceTypeNodePort {
-		log.Debugf("EndpointSliceInfo %s, is not Loadbalancer not NodePort ", epInfo.Serivce.Name)
+	if epInfo.Service.Spec.Type != corev1.ServiceTypeLoadBalancer &&
+		epInfo.Service.Spec.Type != corev1.ServiceTypeNodePort {
+		log.Debugf("EndpointSliceInfo %s, is not Loadbalancer not NodePort ", epInfo.Service.Name)
 		return false
 	}
 

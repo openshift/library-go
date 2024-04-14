@@ -138,11 +138,7 @@ func waitPodPhase(cs *client.ClientSet, interval time.Duration, timeout time.Dur
 }
 
 func createPod(cs *client.ClientSet, node string, namespace string, image string) (*corev1.Pod, error) {
-	defaultDockerCfgServiceName, err := getSecret(cs, namespace, "default-dockercfg")
-	if err != nil {
-		return nil, err
-	}
-	podDef := getPodDefinition(node, namespace, defaultDockerCfgServiceName.Name, image)
+	podDef := getPodDefinition(node, namespace, image)
 	pod, err := cs.Pods(namespace).Create(context.TODO(), podDef, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
@@ -151,7 +147,7 @@ func createPod(cs *client.ClientSet, node string, namespace string, image string
 	return pod, nil
 }
 
-func getPodDefinition(node string, namespace string, secret string, image string) *corev1.Pod {
+func getPodDefinition(node string, namespace string, image string) *corev1.Pod {
 	podName := fmt.Sprintf("%s-debug-", strings.ReplaceAll(node, ".", "-"))
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -196,16 +192,11 @@ func getPodDefinition(node string, namespace string, secret string, image string
 					},
 				},
 			},
-			DNSPolicy:          corev1.DNSClusterFirst,
-			EnableServiceLinks: ptr.To[bool](true),
-			HostIPC:            true,
-			HostNetwork:        true,
-			HostPID:            true,
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{
-					Name: secret,
-				},
-			},
+			DNSPolicy:                     corev1.DNSClusterFirst,
+			EnableServiceLinks:            ptr.To[bool](true),
+			HostIPC:                       true,
+			HostNetwork:                   true,
+			HostPID:                       true,
 			NodeName:                      node,
 			PreemptionPolicy:              ptr.To[corev1.PreemptionPolicy](corev1.PreemptLowerPriority),
 			Priority:                      ptr.To[int32](1000000000),
