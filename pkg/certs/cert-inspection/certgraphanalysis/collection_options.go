@@ -56,6 +56,19 @@ var (
 	}
 )
 
+func SkipBootstrapCerts(bootstrapIP string) *resourceFilteringOptions {
+	if bootstrapIP == "" {
+		return &resourceFilteringOptions{}
+	} else {
+		return &resourceFilteringOptions{
+			rejectSecretFn: func(secret *corev1.Secret) bool {
+				certHostNames, ok := secret.Annotations["auth.openshift.io/certificate-hostnames"]
+				return ok && strings.Contains(certHostNames, bootstrapIP)
+			},
+		}
+	}
+}
+
 type annotationOptions struct {
 	annotationKeys []string
 }
