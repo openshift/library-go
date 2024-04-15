@@ -13,6 +13,9 @@ spec:
   priorityClassName: "system-cluster-critical"
   terminationGracePeriodSeconds: 3
   tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      effect: NoExecute
+      operator: Exists
     - key: node-role.kubernetes.io/master
       effect: NoSchedule
       operator: Exists
