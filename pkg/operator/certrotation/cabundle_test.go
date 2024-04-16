@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -387,4 +388,133 @@ func signCertificate(template *x509.Certificate, requestKey gcrypto.PublicKey, i
 		return nil, errors.New("Expected a single certificate")
 	}
 	return certs[0], nil
+}
+
+func TestConfigMapHotloop(t *testing.T) {
+	t.Run("TestConfigMapHotloop", func(t *testing.T) {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+		startingObj := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "ns", Name: "trust-bundle",
+				ResourceVersion: "10",
+			},
+			Data: map[string]string{},
+		}
+		indexer.Add(startingObj)
+		client := kubefake.NewSimpleClientset(startingObj)
+
+		c1 := &CABundleConfigMap{
+			Namespace: "ns",
+			Name:      "trust-bundle",
+
+			Client:                client.CoreV1(),
+			Lister:                corev1listers.NewConfigMapLister(indexer),
+			EventRecorder:         events.NewInMemoryRecorder("test"),
+			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test_1"},
+			Owner:                 &metav1.OwnerReference{Name: "operator_1"},
+		}
+
+		newCA, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = c1.EnsureConfigMapCABundle(context.TODO(), newCA)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		actions := client.Actions()
+		if len(actions) != 4 {
+			t.Fatal(spew.Sdump(actions))
+		}
+
+		if !actions[0].Matches("get", "configmaps") {
+			t.Error(actions[0])
+		}
+		if !actions[1].Matches("update", "configmaps") {
+			t.Error(actions[1])
+		}
+		if !actions[2].Matches("get", "configmaps") {
+			t.Error(actions[2])
+		}
+		if !actions[3].Matches("update", "configmaps") {
+			t.Error(actions[3])
+		}
+
+		actual_1 := actions[3].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+		if certType, _ := CertificateTypeFromObject(actual_1); certType != CertificateTypeCABundle {
+			t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
+		}
+		if len(actual_1.Data["ca-bundle.crt"]) == 0 {
+			t.Error(actual_1.Data)
+		}
+		if len(actual_1.OwnerReferences) != 1 {
+			t.Errorf("expected to have exactly one owner reference")
+		}
+		if actual_1.OwnerReferences[0].Name != "operator_1" {
+			t.Errorf("expected owner reference to be 'operator_1', got %v", actual_1.OwnerReferences[0].Name)
+		}
+		if got, exists := actual_1.Annotations["openshift.io/owning-component"]; !exists || got != "test_1" {
+			t.Errorf("expected owner annotation to be 'test_1', got: %#v", actual_1.Annotations)
+		}
+
+		// Run another cycle and make sure updates are no longer issued
+		err = indexer.Update(actual_1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.ClearActions()
+
+		c2 := &CABundleConfigMap{
+			Namespace: "ns",
+			Name:      "trust-bundle",
+
+			Client:                client.CoreV1(),
+			Lister:                corev1listers.NewConfigMapLister(indexer),
+			EventRecorder:         events.NewInMemoryRecorder("test"),
+			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test_2"},
+			Owner:                 &metav1.OwnerReference{Name: "operator_2"},
+		}
+		_, err = c2.EnsureConfigMapCABundle(context.TODO(), newCA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actions = client.Actions()
+		if len(actions) != 2 {
+			t.Fatal(spew.Sdump(actions))
+		}
+		if !actions[0].Matches("get", "configmaps") {
+			t.Error(actions[0])
+		}
+		if !actions[1].Matches("update", "configmaps") {
+			t.Error(actions[1])
+		}
+
+		actual_2 := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+		if certType, _ := CertificateTypeFromObject(actual_1); certType != CertificateTypeCABundle {
+			t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
+		}
+		if len(actual_2.Data["ca-bundle.crt"]) == 0 {
+			t.Error(actual_2.Data)
+		}
+		if len(actual_2.OwnerReferences) != 2 {
+			t.Errorf("expected to have exactly two owner references")
+		}
+		if actual_2.OwnerReferences[0].Name != "operator_1" {
+			t.Errorf("expected first owner reference to be 'operator_1', got %v", actual_2.OwnerReferences[0].Name)
+		}
+		if actual_2.OwnerReferences[1].Name != "operator_2" {
+			t.Errorf("expected second owner reference to be 'operator_2', got %v", actual_2.OwnerReferences[0].Name)
+		}
+		if got, exists := actual_2.Annotations["openshift.io/owning-component"]; !exists || got != "test_1" {
+			t.Errorf("unexpected owner annotation: %#v", actual_2.Annotations)
+		}
+
+		// Ensure that the second controller didn't cause the contents to change
+		diff := cmp.Diff(actual_1.Data["ca-bundle.crt"], actual_2.Data["ca-bundle.crt"])
+		if len(diff) != 0 {
+			t.Errorf("second controller caused content change: %v", diff)
+		}
+	})
 }

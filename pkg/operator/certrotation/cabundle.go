@@ -58,11 +58,19 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		)}
 	}
 
+	isPrimaryOwner := false
 	needsMetadataUpdate := false
 	if c.Owner != nil {
 		needsMetadataUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
+		if caBundleConfigMap.ObjectMeta.OwnerReferences[0] == *c.Owner {
+			isPrimaryOwner = true
+		}
 	}
-	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta) || needsMetadataUpdate
+	// Don't update metadata if its not primary CM owner
+	if isPrimaryOwner {
+		needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta) || needsMetadataUpdate
+	}
+
 	if needsMetadataUpdate && len(caBundleConfigMap.ResourceVersion) > 0 {
 		actualCABundleConfigMap, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {

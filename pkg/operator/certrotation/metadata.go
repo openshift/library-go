@@ -7,12 +7,20 @@ import (
 
 func ensureMetadataUpdate(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
 	needsMetadataUpdate := false
+	isPrimaryOwner := owner == nil
 	// no ownerReference set
 	if owner != nil {
 		needsMetadataUpdate = ensureOwnerReference(&secret.ObjectMeta, owner)
+		if secret.ObjectMeta.OwnerReferences[0] == *owner {
+			isPrimaryOwner = true
+		}
 	}
-	// ownership annotations not set
-	return additionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta) || needsMetadataUpdate
+	// skip metadata updates if current controller is not the primary owner
+	if isPrimaryOwner {
+		// ownership annotations not set
+		return additionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta) || needsMetadataUpdate
+	}
+	return needsMetadataUpdate
 }
 
 func ensureSecretTLSTypeSet(secret *corev1.Secret) bool {

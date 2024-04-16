@@ -568,3 +568,145 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		}
 	}
 }
+
+func TestSignerSecretHotloop(t *testing.T) {
+	t.Run("TestSignerSecretHotloop", func(t *testing.T) {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+		startingObj := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer", ResourceVersion: "10"},
+			Type:       corev1.SecretTypeTLS,
+			Data:       map[string][]byte{"tls.crt": {}, "tls.key": {}},
+		}
+		indexer.Add(startingObj)
+		client := kubefake.NewSimpleClientset(startingObj)
+
+		c1 := &RotatedSigningCASecret{
+			Namespace:     "ns",
+			Name:          "signer",
+			Validity:      24 * time.Hour,
+			Refresh:       12 * time.Hour,
+			Client:        client.CoreV1(),
+			Lister:        corev1listers.NewSecretLister(indexer),
+			EventRecorder: events.NewInMemoryRecorder("test"),
+			AdditionalAnnotations: AdditionalAnnotations{
+				JiraComponent: "test_1",
+			},
+			Owner: &metav1.OwnerReference{
+				Name: "operator_1",
+			},
+		}
+
+		_, updated_1, err := c1.EnsureSigningCertKeyPair(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Helper()
+		actions := client.Actions()
+		if len(actions) != 4 {
+			t.Fatal(spew.Sdump(actions))
+		}
+
+		if !actions[0].Matches("get", "secrets") {
+			t.Error(actions[0])
+		}
+		if !actions[1].Matches("update", "secrets") {
+			t.Error(actions[1])
+		}
+		if !actions[2].Matches("get", "secrets") {
+			t.Error(actions[2])
+		}
+		if !actions[3].Matches("update", "secrets") {
+			t.Error(actions[3])
+		}
+		if !updated_1 {
+			t.Errorf("expected controller to update secret")
+		}
+
+		actual_1 := actions[3].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+		if certType, _ := CertificateTypeFromObject(actual_1); certType != CertificateTypeSigner {
+			t.Errorf("expected certificate type 'signer', got: %v", certType)
+		}
+		if len(actual_1.Data["tls.crt"]) == 0 || len(actual_1.Data["tls.key"]) == 0 {
+			t.Error(actual_1.Data)
+		}
+		if len(actual_1.OwnerReferences) != 1 {
+			t.Errorf("expected to have exactly one owner reference")
+		}
+		if actual_1.OwnerReferences[0].Name != "operator_1" {
+			t.Errorf("expected owner reference to be 'operator_1', got %v", actual_1.OwnerReferences[0].Name)
+		}
+		if got, exists := actual_1.Annotations["openshift.io/owning-component"]; !exists || got != "test_1" {
+			t.Errorf("expected owner annotation to be 'test_1', got: %#v", actual_1.Annotations)
+		}
+
+		// Run another cycle and make sure updates are no longer issued
+		err = indexer.Update(actual_1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.ClearActions()
+
+		c2 := &RotatedSigningCASecret{
+			Namespace:     "ns",
+			Name:          "signer",
+			Validity:      24 * time.Hour,
+			Refresh:       12 * time.Hour,
+			Client:        client.CoreV1(),
+			Lister:        corev1listers.NewSecretLister(indexer),
+			EventRecorder: events.NewInMemoryRecorder("test"),
+			AdditionalAnnotations: AdditionalAnnotations{
+				JiraComponent: "test_2",
+			},
+			Owner: &metav1.OwnerReference{
+				Name: "operator_2",
+			},
+		}
+		_, updated_2, err := c2.EnsureSigningCertKeyPair(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		actions = client.Actions()
+		if len(actions) != 2 {
+			t.Fatal(spew.Sdump(actions))
+		}
+		if !actions[0].Matches("get", "secrets") {
+			t.Error(actions[0])
+		}
+		if !actions[1].Matches("update", "secrets") {
+			t.Error(actions[1])
+		}
+		if updated_2 {
+			t.Errorf("second controller update is not expected")
+		}
+
+		actual_2 := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+		if certType, _ := CertificateTypeFromObject(actual_1); certType != CertificateTypeSigner {
+			t.Errorf("expected certificate type 'signer', got: %v", certType)
+		}
+		if len(actual_2.Data["tls.crt"]) == 0 || len(actual_2.Data["tls.key"]) == 0 {
+			t.Error(actual_2.Data)
+		}
+		if len(actual_2.OwnerReferences) != 2 {
+			t.Errorf("expected to have exactly two owner references")
+		}
+		if actual_2.OwnerReferences[0].Name != "operator_1" {
+			t.Errorf("expected first owner reference to be 'operator_1', got %v", actual_2.OwnerReferences[0].Name)
+		}
+		if actual_2.OwnerReferences[1].Name != "operator_2" {
+			t.Errorf("expected second owner reference to be 'operator_2', got %v", actual_2.OwnerReferences[0].Name)
+		}
+		if got, exists := actual_2.Annotations["openshift.io/owning-component"]; !exists || got != "test_1" {
+			t.Errorf("unexpected owner annotation: %#v", actual_2.Annotations)
+		}
+
+		// Ensure that the second controller didn't cause the contents to change
+		for _, key := range []string{"tls.crt", "tls.key"} {
+			diff := cmp.Diff(actual_1.Data[key], actual_2.Data[key])
+			if len(diff) != 0 {
+				t.Errorf("second controller caused content change in %s: %v", key, diff)
+			}
+		}
+	})
+}
