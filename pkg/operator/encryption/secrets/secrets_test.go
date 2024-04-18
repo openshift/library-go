@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	v1 "k8s.io/apiserver/pkg/apis/config/v1"
+	v1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/state"

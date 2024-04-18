@@ -279,7 +279,7 @@ func TestErrEntryNotFound(t *testing.T) {
 		TimeLimit:    DefaultTimeLimit,
 		TypesOnly:    DefaultTypesOnly,
 		Filter:       "(objectClass=*)",
-		Attributes:   append(DefaultAttributes),
+		Attributes:   DefaultAttributes,
 		Controls:     DefaultControls,
 	}
 
@@ -316,7 +316,7 @@ func TestQueryWithPaging(t *testing.T) {
 		TimeLimit:    DefaultTimeLimit,
 		TypesOnly:    DefaultTypesOnly,
 		Filter:       "(objectClass=*)",
-		Attributes:   append(DefaultAttributes),
+		Attributes:   DefaultAttributes,
 		Controls:     []ldap.Control{ldap.NewControlPaging(5)},
 	}
 
