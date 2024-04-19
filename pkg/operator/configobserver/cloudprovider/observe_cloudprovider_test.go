@@ -87,7 +87,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		},
 		skipCloudProviderExternal: true,
 		expected:                  "",
-		cloudProviderCount:        1,
+		cloudProviderCount:        0,
 	}, {
 		name: "AWS platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -97,7 +97,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "AlibabaCloud Platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -107,7 +107,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "Nutanix Platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -117,7 +117,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "Azure platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -127,7 +127,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "Azure Stack Hub defaulting to external configuration",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -140,7 +140,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "BareMetal platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -168,7 +168,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "GCP platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -178,7 +178,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "IBM Cloud platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -188,7 +188,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "Power VS platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -198,7 +198,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "Kubevirt platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -208,7 +208,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "None platform",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -232,7 +232,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 			},
 		},
 		expected:           "external",
-		cloudProviderCount: 1,
+		cloudProviderCount: 0,
 	}, {
 		name: "External platform, CloudControllerManager.State = None",
 		infrastructureStatus: configv1.InfrastructureStatus{
@@ -261,7 +261,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 		infrastructureStatus: configv1.InfrastructureStatus{},
 		expected:             "",
 		cloudProviderCount:   0,
-		expectErrors:         true,
+		expectErrors:         false,
 	}}
 	for _, c := range cases {
 		t.Run(string(c.name), func(t *testing.T) {
@@ -281,9 +281,7 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				ResourceSync:          &FakeResourceSyncer{},
 				ConfigMapLister_:      &FakeConfigMapLister{},
 			}
-			cloudProvidersPath := []string{"extendedArguments", "cloud-provider"}
-			cloudProviderConfPath := []string{"extendedArguments", "cloud-config"}
-			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal, cloudProvidersPath, cloudProviderConfPath)
+			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal)
 			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
 			if errorsOccured := len(errs) > 0; c.expectErrors != errorsOccured {
 				t.Fatalf("expected errors: %v, got: %v", c.expectErrors, errs)
