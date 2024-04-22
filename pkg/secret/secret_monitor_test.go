@@ -268,7 +268,7 @@ func TestGetSecret(t *testing.T) {
 
 			gotSec, gotErr := sm.GetSecret(context.TODO(), h)
 			if (gotErr != nil) != s.expectErr {
-				t.Fatalf("expected errors to be %t, but got %t", s.expectErr, err != nil)
+				t.Fatalf("expected errors to be %t, but got %t", s.expectErr, gotErr != nil)
 			}
 			if !s.expectErr {
 				if !reflect.DeepEqual(&s.secret, gotSec) {

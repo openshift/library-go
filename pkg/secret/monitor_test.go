@@ -15,7 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func fakeMonitor(ctx context.Context, fakeKubeClient *fake.Clientset, key ObjectKey) *singleItemMonitor {
+func newMonitor(ctx context.Context, fakeKubeClient *fake.Clientset, key ObjectKey) *singleItemMonitor {
 	sharedInformer := fakeSecretInformer(ctx, fakeKubeClient, key.Namespace, key.Name)
 	return newSingleItemMonitor(key, sharedInformer)
 }
@@ -24,16 +24,17 @@ func fakeMonitor(ctx context.Context, fakeKubeClient *fake.Clientset, key Object
 func fakeSecretInformer(ctx context.Context, fakeKubeClient *fake.Clientset, namespace, name string) cache.SharedInformer {
 	fieldSelector := fields.OneTermEqualSelector("metadata.name", name).String()
 	klog.Info(fieldSelector)
-	return cache.NewSharedInformer(&cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.FieldSelector = fieldSelector
-			return fakeKubeClient.CoreV1().Secrets(namespace).List(ctx, options)
+	return cache.NewSharedInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector = fieldSelector
+				return fakeKubeClient.CoreV1().Secrets(namespace).List(ctx, options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector = fieldSelector
+				return fakeKubeClient.CoreV1().Secrets(namespace).Watch(ctx, options)
+			},
 		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.FieldSelector = fieldSelector
-			return fakeKubeClient.CoreV1().Secrets(namespace).Watch(ctx, options)
-		},
-	},
 		&corev1.Secret{},
 		0,
 	)
@@ -77,7 +78,7 @@ func TestStartInformer(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
-			monitor := fakeMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
+			monitor := newMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
 			if s.isClosed {
 				close(monitor.stopCh)
 			}
@@ -133,7 +134,7 @@ func TestStopInformer(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
-			monitor := fakeMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
+			monitor := newMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
 
 			if s.withStart {
 				go monitor.StartInformer(context.TODO())
@@ -169,7 +170,7 @@ func TestStopInformer(t *testing.T) {
 func TestStopWithContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	fakeKubeClient := fake.NewSimpleClientset()
-	monitor := fakeMonitor(ctx, fakeKubeClient, ObjectKey{})
+	monitor := newMonitor(ctx, fakeKubeClient, ObjectKey{})
 	stopCh := make(chan bool)
 
 	go func() {
@@ -214,7 +215,7 @@ func TestAddEventHandler(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
-			monitor := fakeMonitor(context.TODO(), fakeKubeClient, s.key)
+			monitor := newMonitor(context.TODO(), fakeKubeClient, s.key)
 
 			go monitor.StartInformer(context.TODO())
 			// wait for the informer to start
@@ -234,7 +235,7 @@ func TestAddEventHandler(t *testing.T) {
 				t.Fatalf("expecting an error, got nil")
 			}
 
-			if !s.isStop { // for handling nil pointer dereference
+			if gotErr == nil {
 				if !reflect.DeepEqual(handlerRegistration.GetKey(), s.key) {
 					t.Fatalf("expected key %v got key %v", s.key, handlerRegistration.GetKey())
 				}
@@ -271,7 +272,7 @@ func TestRemoveEventHandler(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
-			monitor := fakeMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
+			monitor := newMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
 			go monitor.StartInformer(context.TODO())
 			// wait for the informer to start
 			if !cache.WaitForCacheSync(context.TODO().Done(), monitor.HasSynced) {
@@ -286,13 +287,6 @@ func TestRemoveEventHandler(t *testing.T) {
 			if s.isStop {
 				monitor.StopInformer()
 			}
-
-			// for handling nil pointer dereference
-			defer func() {
-				if err := recover(); err != nil && !s.expectErr {
-					t.Errorf("unexpected error %v", err)
-				}
-			}()
 
 			gotErr := monitor.RemoveEventHandler(handlerRegistration)
 			if gotErr != nil && !s.expectErr {
@@ -330,7 +324,7 @@ func TestGetItem(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset(s.secret)
 
-			monitor := fakeMonitor(context.TODO(), fakeKubeClient, s.objectKey)
+			monitor := newMonitor(context.TODO(), fakeKubeClient, s.objectKey)
 
 			go monitor.StartInformer(context.TODO())
 			// wait for the informer to start
