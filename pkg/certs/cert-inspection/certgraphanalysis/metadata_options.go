@@ -199,6 +199,41 @@ func RewriteNodeIPs(nodeList []*corev1.Node) *metadataOptions {
 	}
 }
 
+func RewriteBootstrapIP(bootstrapIP string) *metadataOptions {
+	return rewriteString(bootstrapIP, "<bootstrap-ip>")
+}
+
+// TODO decide if this is a good idea to expose when we actually need it.  I bet we're better off naming them explicitly.
+func rewriteString(original, replacement string) *metadataOptions {
+	return &metadataOptions{
+		rewriteSecretFn: func(secret *corev1.Secret) {
+			name := strings.ReplaceAll(secret.Name, original, replacement)
+			if secret.Name != name {
+				secret.Name = name
+				if len(secret.Annotations) == 0 {
+					secret.Annotations = map[string]string{}
+				}
+				// Replace node name from annotation value
+				for key, value := range secret.Annotations {
+					newValue := strings.ReplaceAll(value, original, replacement)
+					if value != newValue {
+						secret.Annotations[key] = newValue
+					}
+				}
+				secret.Annotations[rewritePrefix+original] = original
+			}
+		},
+		rewritePathFn: func(path string) string {
+			newPath := strings.ReplaceAll(path, original, replacement)
+			if newPath != path {
+				fmt.Fprintf(os.Stdout, "Rewrote %s as %s\n", path, newPath)
+				return newPath
+			}
+			return path
+		},
+	}
+}
+
 func StripRootFSMountPoint(rootfsMount string) *metadataOptions {
 	return &metadataOptions{
 		rewritePathFn: func(path string) string {
