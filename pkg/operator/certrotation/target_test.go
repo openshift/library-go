@@ -246,9 +246,9 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				return caBundleSecret
 			},
 			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 5
+				lengthWant := 3
 				if updateOnly {
-					lengthWant = 4
+					lengthWant = 2
 				}
 				actions := client.Actions()
 				if len(actions) != lengthWant {
@@ -258,21 +258,15 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				var idx int
 				switch updateOnly {
 				case true:
-					idx = 3
+					idx = 1
 					if !actions[0].Matches("get", "secrets") {
 						t.Error(actions[0])
 					}
 					if !actions[1].Matches("update", "secrets") {
 						t.Error(actions[1])
 					}
-					if !actions[2].Matches("get", "secrets") {
-						t.Error(actions[2])
-					}
-					if !actions[3].Matches("update", "secrets") {
-						t.Error(actions[3])
-					}
 				default:
-					idx = 4
+					idx = 2
 					if !actions[0].Matches("get", "secrets") {
 						t.Error(actions[0])
 					}
@@ -281,12 +275,6 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 					}
 					if !actions[2].Matches("create", "secrets") {
 						t.Error(actions[2])
-					}
-					if !actions[3].Matches("get", "secrets") {
-						t.Error(actions[3])
-					}
-					if !actions[4].Matches("update", "secrets") {
-						t.Error(actions[4])
 					}
 				}
 
@@ -332,9 +320,9 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				return caBundleSecret
 			},
 			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 5
+				lengthWant := 3
 				if updateOnly {
-					lengthWant = 4
+					lengthWant = 2
 				}
 
 				actions := client.Actions()
@@ -345,21 +333,15 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				var idx int
 				switch updateOnly {
 				case true:
-					idx = 3
+					idx = 1
 					if !actions[0].Matches("get", "secrets") {
 						t.Error(actions[0])
 					}
 					if !actions[1].Matches("update", "secrets") {
 						t.Error(actions[1])
 					}
-					if !actions[2].Matches("get", "secrets") {
-						t.Error(actions[2])
-					}
-					if !actions[3].Matches("update", "secrets") {
-						t.Error(actions[3])
-					}
 				default:
-					idx = 4
+					idx = 2
 					if !actions[0].Matches("get", "secrets") {
 						t.Error(actions[0])
 					}
@@ -368,12 +350,6 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 					}
 					if !actions[2].Matches("create", "secrets") {
 						t.Error(actions[2])
-					}
-					if !actions[3].Matches("get", "secrets") {
-						t.Error(actions[3])
-					}
-					if !actions[4].Matches("update", "secrets") {
-						t.Error(actions[4])
 					}
 				}
 
