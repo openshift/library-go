@@ -79,12 +79,12 @@ func TestInstallerFeatureSet(t *testing.T) {
 		{
 			name:         "NoAnnotation",
 			NoAnnotation: true,
-			shouldMatch:  []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive},
+			shouldMatch:  []configv1.FeatureSet{configv1.Default, configv1.DevPreviewNoUpgrade, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade},
 		},
 		{
 			name:        "EmptyAnnotation",
 			Annotation:  "",
-			shouldMatch: []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive},
+			shouldMatch: []configv1.FeatureSet{configv1.Default, configv1.DevPreviewNoUpgrade, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade},
 		},
 		{
 			name:        "Default",
@@ -102,9 +102,9 @@ func TestInstallerFeatureSet(t *testing.T) {
 			shouldMatch: []configv1.FeatureSet{configv1.CustomNoUpgrade},
 		},
 		{
-			name:        "LatencySensitive",
-			Annotation:  "LatencySensitive",
-			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive},
+			name:        "DevPreviewNoUpgrade",
+			Annotation:  "DevPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.DevPreviewNoUpgrade},
 		},
 		{
 			name:        "UnknownFeatureSet",
@@ -113,13 +113,13 @@ func TestInstallerFeatureSet(t *testing.T) {
 		},
 		{
 			name:        "Multiple",
-			Annotation:  "LatencySensitive,TechPreviewNoUpgrade",
-			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive, configv1.TechPreviewNoUpgrade},
+			Annotation:  "DevPreviewNoUpgrade,TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.DevPreviewNoUpgrade, configv1.TechPreviewNoUpgrade},
 		},
 		{
 			name:        "MultipleWithEmpty",
-			Annotation:  "LatencySensitive,,TechPreviewNoUpgrade",
-			shouldMatch: []configv1.FeatureSet{configv1.LatencySensitive, configv1.TechPreviewNoUpgrade},
+			Annotation:  "DevPreviewNoUpgrade,,TechPreviewNoUpgrade",
+			shouldMatch: []configv1.FeatureSet{configv1.DevPreviewNoUpgrade, configv1.TechPreviewNoUpgrade},
 		},
 		{
 			name:        "MultipleWithUnknown",
@@ -149,7 +149,7 @@ func TestInstallerFeatureSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, fs := range []configv1.FeatureSet{configv1.Default, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade, configv1.LatencySensitive} {
+			for _, fs := range []configv1.FeatureSet{configv1.Default, configv1.DevPreviewNoUpgrade, configv1.TechPreviewNoUpgrade, configv1.CustomNoUpgrade} {
 
 				var shouldMatch bool
 				for _, i := range tc.shouldMatch {
