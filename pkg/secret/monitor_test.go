@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +83,7 @@ func TestStartInformer(t *testing.T) {
 			if s.isClosed {
 				close(monitor.stopCh)
 			}
-			go monitor.StartInformer(context.TODO())
+			monitor.StartInformer(context.TODO())
 
 			select {
 			// this case will execute if stopCh is closed
@@ -137,7 +138,7 @@ func TestStopInformer(t *testing.T) {
 			monitor := newMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
 
 			if s.withStart {
-				go monitor.StartInformer(context.TODO())
+				monitor.StartInformer(context.TODO())
 				// wait for the informer to start
 				if !cache.WaitForCacheSync(context.TODO().Done(), monitor.HasSynced) {
 					t.Fatal("cache not synced yet")
@@ -171,24 +172,22 @@ func TestStopWithContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	fakeKubeClient := fake.NewSimpleClientset()
 	monitor := newMonitor(ctx, fakeKubeClient, ObjectKey{})
-	stopCh := make(chan bool)
+	monitor.StartInformer(ctx)
 
-	go func() {
-		monitor.StartInformer(ctx)
-		close(stopCh)
-	}()
 	// wait for the informer to start
 	if !cache.WaitForCacheSync(ctx.Done(), monitor.HasSynced) {
 		t.Fatal("cache not synced yet")
 	}
 
-	// cancel the context to stop the informer
+	// cancel the context, which should stop the informer
 	cancel()
-	<-stopCh
 
-	// again stopping should deny
-	if monitor.StopInformer() != false {
-		t.Fatal("context cancellation did not work properly")
+	// ensure that the informer has stopped
+	select {
+	case <-monitor.stopCh:
+		t.Log("informer has stopped")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for informer to stop")
 	}
 }
 
@@ -217,7 +216,7 @@ func TestAddEventHandler(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
 			monitor := newMonitor(context.TODO(), fakeKubeClient, s.key)
 
-			go monitor.StartInformer(context.TODO())
+			monitor.StartInformer(context.TODO())
 			// wait for the informer to start
 			if !cache.WaitForCacheSync(context.TODO().Done(), monitor.HasSynced) {
 				t.Fatal("cache not synced yet")
@@ -273,7 +272,7 @@ func TestRemoveEventHandler(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset()
 			monitor := newMonitor(context.TODO(), fakeKubeClient, ObjectKey{})
-			go monitor.StartInformer(context.TODO())
+			monitor.StartInformer(context.TODO())
 			// wait for the informer to start
 			if !cache.WaitForCacheSync(context.TODO().Done(), monitor.HasSynced) {
 				t.Fatal("cache not synced yet")
@@ -326,7 +325,7 @@ func TestGetItem(t *testing.T) {
 
 			monitor := newMonitor(context.TODO(), fakeKubeClient, s.objectKey)
 
-			go monitor.StartInformer(context.TODO())
+			monitor.StartInformer(context.TODO())
 			// wait for the informer to start
 			if !cache.WaitForCacheSync(context.TODO().Done(), monitor.HasSynced) {
 				t.Fatal("cache not synced yet")

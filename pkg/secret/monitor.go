@@ -50,13 +50,13 @@ func (i *singleItemMonitor) HasSynced() bool {
 }
 
 // StartInformer starts and runs the informer until the provided context is canceled,
-// or StopInformer() is called. It will block, so call via goroutine.
+// or StopInformer() is called.
 func (i *singleItemMonitor) StartInformer(ctx context.Context) {
 	i.lock.Lock()
+	defer i.lock.Unlock()
 
 	if !i.stopped {
 		klog.Warning("informer is already running")
-		i.lock.Unlock()
 		return
 	}
 
@@ -75,9 +75,8 @@ func (i *singleItemMonitor) StartInformer(ctx context.Context) {
 
 	klog.Info("starting informer")
 	i.stopped = false
-	i.lock.Unlock()
 
-	i.informer.Run(i.stopCh)
+	go i.informer.Run(i.stopCh)
 }
 
 // StopInformer stops the informer.

@@ -109,7 +109,7 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 	if !exists {
 		m = &monitoredItem{}
 		m.itemMonitor = newSingleItemMonitor(key, secretInformer)
-		go m.itemMonitor.StartInformer(ctx)
+		m.itemMonitor.StartInformer(ctx)
 
 		// wait for first sync
 		if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
