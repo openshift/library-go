@@ -8,6 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -161,40 +162,69 @@ func skipRevisionedInOnDiskLocation(location certgraphapi.OnDiskLocation) bool {
 	return false
 }
 
-func RewriteNodeIPs(nodeList []*corev1.Node) *metadataOptions {
-	nodes := map[string]int{}
+func rewriteSecretDetails(secret *corev1.Secret, original, replacement string) {
+	name := strings.ReplaceAll(secret.Name, original, replacement)
+	if secret.Name != name {
+		secret.Name = name
+		if len(secret.Annotations) == 0 {
+			secret.Annotations = map[string]string{}
+		}
+		// Replace node name from annotation value
+		for key, value := range secret.Annotations {
+			newValue := strings.ReplaceAll(value, original, replacement)
+			if value != newValue {
+				secret.Annotations[key] = newValue
+			}
+		}
+		secret.Annotations[rewritePrefix+"RewriteNodeNames"] = original
+	}
+}
+
+func RewriteNodeNames(nodeList []*corev1.Node) *metadataOptions {
+	nodes := map[string]string{}
 	for i, node := range nodeList {
-		nodes[node.Name] = i
+		nodes[node.Name] = fmt.Sprintf("<master-%d>", i)
 	}
 	return &metadataOptions{
 		rewriteSecretFn: func(secret *corev1.Secret) {
-			for nodeName, masterID := range nodes {
-				name := strings.ReplaceAll(secret.Name, nodeName, fmt.Sprintf("<master-%d>", masterID))
-				if secret.Name != name {
-					secret.Name = name
-					if len(secret.Annotations) == 0 {
-						secret.Annotations = map[string]string{}
-					}
-					// Replace node name from annotation value
-					for key, value := range secret.Annotations {
-						newValue := strings.ReplaceAll(value, nodeName, fmt.Sprintf("<master-%d>", masterID))
-						if value != newValue {
-							secret.Annotations[key] = newValue
-						}
-					}
-					secret.Annotations[rewritePrefix+"RewriteNodeIPs"] = nodeName
-				}
+			for nodeName, replacement := range nodes {
+				rewriteSecretDetails(secret, nodeName, replacement)
 			}
 		},
 		rewritePathFn: func(path string) string {
-			for nodeName, masterID := range nodes {
-				newPath := strings.ReplaceAll(path, nodeName, fmt.Sprintf("<master-%d>", masterID))
+			for nodeName, replacement := range nodes {
+				newPath := strings.ReplaceAll(path, nodeName, replacement)
 				if newPath != path {
 					fmt.Fprintf(os.Stdout, "Rewrote %s as %s\n", path, newPath)
 					return newPath
 				}
 			}
 			return path
+		},
+	}
+}
+
+func RewriteBootstrapIPs(bootstrapIP string) *metadataOptions {
+	return &metadataOptions{
+		rewriteSecretFn: func(secret *corev1.Secret) {
+			if secret.Namespace != "openshift-etcd" {
+				return
+			}
+
+			certHostNames, ok := secret.Annotations["auth.openshift.io/certificate-hostnames"]
+			if !ok || !strings.Contains(certHostNames, bootstrapIP) {
+				return
+			}
+			// Determine the node name - this can be derived from description annotation
+			description, ok := secret.Annotations[annotations.OpenShiftDescription]
+			if !ok {
+				return
+			}
+			descriptionWords := strings.Split(description, " ")
+			if len(descriptionWords) < 1 {
+				return
+			}
+			rewriteSecretDetails(secret, descriptionWords[len(descriptionWords)-1], "<bootstrap>")
 		},
 	}
 }
