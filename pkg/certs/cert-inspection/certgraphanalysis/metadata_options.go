@@ -8,7 +8,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -180,10 +179,13 @@ func rewriteSecretDetails(secret *corev1.Secret, original, replacement string) {
 	}
 }
 
-func RewriteNodeNames(nodeList []*corev1.Node) *metadataOptions {
+func RewriteNodeNames(nodeList []*corev1.Node, bootstrapHostname string) *metadataOptions {
 	nodes := map[string]string{}
 	for i, node := range nodeList {
 		nodes[node.Name] = fmt.Sprintf("<master-%d>", i)
+	}
+	if len(bootstrapHostname) != 0 {
+		nodes[bootstrapHostname] = "<bootstrap>"
 	}
 	return &metadataOptions{
 		rewriteSecretFn: func(secret *corev1.Secret) {
@@ -200,31 +202,6 @@ func RewriteNodeNames(nodeList []*corev1.Node) *metadataOptions {
 				}
 			}
 			return path
-		},
-	}
-}
-
-func RewriteBootstrapIPs(bootstrapIP string) *metadataOptions {
-	return &metadataOptions{
-		rewriteSecretFn: func(secret *corev1.Secret) {
-			if secret.Namespace != "openshift-etcd" {
-				return
-			}
-
-			certHostNames, ok := secret.Annotations["auth.openshift.io/certificate-hostnames"]
-			if !ok || !strings.Contains(certHostNames, bootstrapIP) {
-				return
-			}
-			// Determine the node name - this can be derived from description annotation
-			description, ok := secret.Annotations[annotations.OpenShiftDescription]
-			if !ok {
-				return
-			}
-			descriptionWords := strings.Split(description, " ")
-			if len(descriptionWords) < 1 {
-				return
-			}
-			rewriteSecretDetails(secret, descriptionWords[len(descriptionWords)-1], "<bootstrap>")
 		},
 	}
 }

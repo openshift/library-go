@@ -257,3 +257,45 @@ func MergePKILists(ctx context.Context, first, second *certgraphapi.PKIList) *ce
 		OnDiskResourceData:          onDiskResourceData,
 	}
 }
+
+func GetBootstrapHostname(ctx context.Context, kubeClient kubernetes.Interface) (string, error) {
+	bootstrapIP := ""
+	etcdConfigMaps, err := kubeClient.CoreV1().ConfigMaps("openshift-etcd").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, cm := range etcdConfigMaps.Items {
+		annotation, ok := cm.Annotations["alpha.installer.openshift.io/etcd-bootstrap"]
+		if ok {
+			bootstrapIP = annotation
+			break
+		}
+	}
+
+	bootstrapHostname := ""
+	secretList, err := kubeClient.CoreV1().Secrets("openshift-etcd").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, secret := range secretList.Items {
+		certHostNames, ok := secret.Annotations["auth.openshift.io/certificate-hostnames"]
+		if !ok || !strings.Contains(certHostNames, bootstrapIP) {
+			continue
+		}
+		// Node name is stored as last word in the secret description
+		description, ok := secret.Annotations[annotations.OpenShiftDescription]
+		if !ok {
+			continue
+		}
+		descriptionWords := strings.Split(description, " ")
+		if len(descriptionWords) < 1 {
+			continue
+		}
+		bootstrapHostname = descriptionWords[len(descriptionWords)-1]
+		break
+	}
+
+	// Return found bootstrap hostname
+	// If no bootstrap secret found return empty string
+	return bootstrapHostname, nil
+}
