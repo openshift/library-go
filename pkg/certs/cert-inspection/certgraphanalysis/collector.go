@@ -258,11 +258,14 @@ func MergePKILists(ctx context.Context, first, second *certgraphapi.PKIList) *ce
 	}
 }
 
-func GetBootstrapHostname(ctx context.Context, kubeClient kubernetes.Interface) (string, error) {
+// GetBootstrapIPAndHostname finds bootstrap IP and hostname in openshift-etcd namespace
+// configmaps and secrets
+// Either IP or hostname may be empty
+func GetBootstrapIPAndHostname(ctx context.Context, kubeClient kubernetes.Interface) (string, string, error) {
 	bootstrapIP := ""
 	etcdConfigMaps, err := kubeClient.CoreV1().ConfigMaps("openshift-etcd").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	for _, cm := range etcdConfigMaps.Items {
 		annotation, ok := cm.Annotations["alpha.installer.openshift.io/etcd-bootstrap"]
@@ -271,11 +274,15 @@ func GetBootstrapHostname(ctx context.Context, kubeClient kubernetes.Interface) 
 			break
 		}
 	}
+	// Return empty hostname if bootstrap IP is not found
+	if len(bootstrapIP) == 0 {
+		return "", "", nil
+	}
 
 	bootstrapHostname := ""
 	secretList, err := kubeClient.CoreV1().Secrets("openshift-etcd").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return "", err
+		return bootstrapIP, "", err
 	}
 	for _, secret := range secretList.Items {
 		certHostNames, ok := secret.Annotations["auth.openshift.io/certificate-hostnames"]
@@ -295,7 +302,5 @@ func GetBootstrapHostname(ctx context.Context, kubeClient kubernetes.Interface) 
 		break
 	}
 
-	// Return found bootstrap hostname
-	// If no bootstrap secret found return empty string
-	return bootstrapHostname, nil
+	return bootstrapIP, bootstrapHostname, nil
 }

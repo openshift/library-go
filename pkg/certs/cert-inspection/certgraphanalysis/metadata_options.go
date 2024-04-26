@@ -168,8 +168,10 @@ func rewriteSecretDetails(secret *corev1.Secret, original, replacement string) {
 		if len(secret.Annotations) == 0 {
 			secret.Annotations = map[string]string{}
 		}
-		// Replace node name from annotation value
 		for key, value := range secret.Annotations {
+			// Replace key values too
+			key := strings.ReplaceAll(key, original, replacement)
+			// Replace node name from annotation value
 			newValue := strings.ReplaceAll(value, original, replacement)
 			if value != newValue {
 				secret.Annotations[key] = newValue
