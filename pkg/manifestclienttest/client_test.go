@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	configv1 "github.com/openshift/api/config/v1"
@@ -22,29 +23,6 @@ import (
 var mustGather01 embed.FS
 
 func TestSimpleChecks(t *testing.T) {
-	mustGatherRoundTripper, err := manifestclient.NewRoundTripper("testdata/must-gather-01")
-	if err != nil {
-		t.Fatal(err)
-	}
-	testRoundTripper, err := manifestclient.NewTestingRoundTripper(mustGather01, "testdata/must-gather-01")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	roundTrippers := []struct {
-		name         string
-		roundTripper http.RoundTripper
-	}{
-		{
-			name:         "directory read",
-			roundTripper: mustGatherRoundTripper,
-		},
-		{
-			name:         "embed read",
-			roundTripper: testRoundTripper,
-		},
-	}
-
 	tests := []struct {
 		name   string
 		testFn func(*testing.T, *http.Client)
@@ -178,15 +156,91 @@ func TestSimpleChecks(t *testing.T) {
 			},
 		},
 	}
-	for _, roundTripperTest := range roundTrippers {
-		httpClient := &http.Client{
-			Transport: roundTripperTest.roundTripper,
-		}
 
+	for _, roundTripperTest := range defaultRoundTrippers(t) {
 		t.Run(roundTripperTest.name, func(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
-					test.testFn(t, httpClient)
+					test.testFn(t, roundTripperTest.getClient())
+				})
+			}
+		})
+	}
+}
+
+func defaultRoundTrippers(t *testing.T) []*testRoundTrippers {
+	t.Helper()
+
+	mustGatherRoundTripper, err := manifestclient.NewRoundTripper("testdata/must-gather-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testRoundTripper, err := manifestclient.NewTestingRoundTripper(mustGather01, "testdata/must-gather-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return []*testRoundTrippers{
+		{
+			name:         "directory read",
+			roundTripper: mustGatherRoundTripper,
+		},
+		{
+			name:         "embed read",
+			roundTripper: testRoundTripper,
+		},
+	}
+}
+
+type testRoundTrippers struct {
+	name         string
+	roundTripper http.RoundTripper
+}
+
+func (r *testRoundTrippers) getClient() *http.Client {
+	return &http.Client{
+		Transport: r.roundTripper,
+	}
+}
+
+func TestWatchChecks(t *testing.T) {
+	tests := []struct {
+		name   string
+		testFn func(*testing.T, *http.Client)
+	}{
+		{
+			name: "WATCH-from-individual-file-success-server-close",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				timeout := int64(4)
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				watcher, err := configClient.ConfigV1().FeatureGates().Watch(context.TODO(), metav1.ListOptions{
+					TimeoutSeconds: &timeout,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-watcher.ResultChan():
+					t.Fatal("closed early!")
+				case <-time.After(500 * time.Millisecond):
+				}
+
+				select {
+				case <-watcher.ResultChan():
+				case <-time.After(5 * time.Second):
+					t.Fatal("closed late!")
+				}
+			},
+		},
+	}
+	for _, roundTripperTest := range defaultRoundTrippers(t) {
+		t.Run(roundTripperTest.name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					test.testFn(t, roundTripperTest.getClient())
 				})
 			}
 		})

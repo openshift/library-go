@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -122,6 +124,24 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	case "list":
 		// TODO handle label and field selectors
 		returnBody, returnErr = mrt.list(requestInfo)
+
+	case "watch":
+		// our watches do nothing.  We keep the connection alive (I  think), but nothing else.
+		timeoutSecondsString := req.URL.Query().Get("timeoutSeconds")
+		timeoutDuration := 10 * time.Minute
+		if len(timeoutSecondsString) > 0 {
+			currSeconds, err := strconv.ParseInt(timeoutSecondsString, 10, 32)
+			if err != nil {
+				returnErr = err
+				break
+			}
+			timeoutDuration = time.Duration(currSeconds) * time.Second
+		}
+		resp := &http.Response{}
+		resp.StatusCode = http.StatusOK
+		resp.Status = http.StatusText(resp.StatusCode)
+		resp.Body = newDelayedNothingReader(timeoutDuration)
+		return resp, nil
 
 	default:
 		return nil, fmt.Errorf("verb %v is not supported by this implementation", requestInfo.Verb)
