@@ -50,7 +50,7 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				obj, err := kubeClient.CoreV1().Secrets("openshift-config").Get(context.TODO(), "deployer-dockercfg-7xzx7", metav1.GetOptions{})
+				obj, err := kubeClient.CoreV1().Secrets("openshift-apiserver").Get(context.TODO(), "default-dockercfg-nrrk8", metav1.GetOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -66,7 +66,7 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				obj, err := kubeClient.CoreV1().Secrets("openshift-config").Get(context.TODO(), "pull-secret", metav1.GetOptions{})
+				obj, err := kubeClient.CoreV1().Secrets("openshift-apiserver").Get(context.TODO(), "pull-secret", metav1.GetOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -118,7 +118,7 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if len(obj.Items) != 120 {
+				if len(obj.Items) != 2 {
 					t.Fatal(len(obj.Items))
 				}
 			},
@@ -130,11 +130,11 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				obj, err := kubeClient.AppsV1().DaemonSets("").List(context.TODO(), metav1.ListOptions{})
+				obj, err := kubeClient.AppsV1().Deployments("").List(context.TODO(), metav1.ListOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
-				if len(obj.Items) != 16 {
+				if len(obj.Items) != 3 {
 					t.Fatal(len(obj.Items))
 				}
 			},
@@ -146,11 +146,11 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				obj, err := kubeClient.CoreV1().Secrets("openshift-config").List(context.TODO(), metav1.ListOptions{})
+				obj, err := kubeClient.CoreV1().Secrets("openshift-apiserver").List(context.TODO(), metav1.ListOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
-				if len(obj.Items) != 13 {
+				if len(obj.Items) != 10 {
 					t.Fatal(len(obj.Items))
 				}
 			},
