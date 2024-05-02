@@ -63,6 +63,9 @@ type DeploymentController struct {
 	optionalDeploymentHooks []DeploymentHookFunc
 }
 
+// NewDeploymentController creates a new instance of DeploymentController,
+// returning it as a factory.Controller interface. Under the hood it uses
+// the NewDeploymentControllerBuilder to construct the controller.
 func NewDeploymentController(
 	name string,
 	manifest []byte,
@@ -95,6 +98,8 @@ func NewDeploymentController(
 	return c.ToController()
 }
 
+// NewDeploymentControllerBuilder initializes and returns a pointer to a
+// minimal DeploymentController.
 func NewDeploymentControllerBuilder(
 	name string,
 	manifest []byte,
@@ -113,26 +118,35 @@ func NewDeploymentControllerBuilder(
 	}
 }
 
+// WithExtraInformers appends additional informers to the DeploymentController.
+// These informers are used to watch for additional resources that might affect the Deployment's state.
 func (c *DeploymentController) WithExtraInformers(informers ...factory.Informer) *DeploymentController {
 	c.optionalInformers = informers
 	return c
 }
 
+// WithManifestHooks adds custom hook functions that are called during the handling of the Deployment manifest.
+// These hooks can manipulate the manifest or perform specific checks before its convertion into a Deployment object.
 func (c *DeploymentController) WithManifestHooks(hooks ...ManifestHookFunc) *DeploymentController {
 	c.optionalManifestHooks = hooks
 	return c
 }
 
+// WithDeploymentHooks adds custom hook functions that are called during the sync.
+// These hooks can perform operations or modifications at specific points in the Deployment.
 func (c *DeploymentController) WithDeploymentHooks(hooks ...DeploymentHookFunc) *DeploymentController {
 	c.optionalDeploymentHooks = hooks
 	return c
 }
 
+// WithConditions sets the operational conditions under which the DeploymentController will operate.
+// Only 'Available', 'Progressing' and 'Degraded' are valid conditions; other values are ignored.
 func (c *DeploymentController) WithConditions(conditions ...string) *DeploymentController {
 	c.conditions = conditions
 	return c
 }
 
+// ToController converts the DeploymentController into a factory.Controller.
 func (c *DeploymentController) ToController() factory.Controller {
 	informers := append(
 		c.optionalInformers,
@@ -155,6 +169,7 @@ func (c *DeploymentController) ToController() factory.Controller {
 	)
 }
 
+// Name returns the name of the DeploymentController.
 func (c *DeploymentController) Name() string {
 	return c.name
 }
