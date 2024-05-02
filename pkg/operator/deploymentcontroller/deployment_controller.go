@@ -11,6 +11,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -61,6 +63,9 @@ type DeploymentController struct {
 	// fails indicating the ordinal position of the failed function.
 	// Also, in that scenario the Degraded status is set to True.
 	optionalDeploymentHooks []DeploymentHookFunc
+	// errors contains any errors that occur during the configuration
+	// and setup of the DeploymentController.
+	errors []error
 }
 
 // NewDeploymentController creates a new instance of DeploymentController,
@@ -95,7 +100,12 @@ func NewDeploymentController(
 	).WithDeploymentHooks(
 		optionalDeploymentHooks...,
 	)
-	return c.ToController()
+
+	controller, err := c.ToController()
+	if err != nil {
+		panic(err)
+	}
+	return controller
 }
 
 // NewDeploymentControllerBuilder initializes and returns a pointer to a
@@ -142,12 +152,28 @@ func (c *DeploymentController) WithDeploymentHooks(hooks ...DeploymentHookFunc) 
 // WithConditions sets the operational conditions under which the DeploymentController will operate.
 // Only 'Available', 'Progressing' and 'Degraded' are valid conditions; other values are ignored.
 func (c *DeploymentController) WithConditions(conditions ...string) *DeploymentController {
-	c.conditions = conditions
+	validConditions := sets.New[string]()
+	validConditions.Insert(
+		opv1.OperatorStatusTypeAvailable,
+		opv1.OperatorStatusTypeProgressing,
+		opv1.OperatorStatusTypeDegraded,
+	)
+	for _, condition := range conditions {
+		if validConditions.Has(condition) {
+			if !slices.Contains(c.conditions, condition) {
+				c.conditions = append(c.conditions, condition)
+			}
+		} else {
+			err := fmt.Errorf("invalid condition %q. Valid conditions include %v", condition, validConditions.UnsortedList())
+			c.errors = append(c.errors, err)
+		}
+	}
 	return c
 }
 
 // ToController converts the DeploymentController into a factory.Controller.
-func (c *DeploymentController) ToController() factory.Controller {
+// It aggregates and returns all errors reported during the builder phase.
+func (c *DeploymentController) ToController() (factory.Controller, error) {
 	informers := append(
 		c.optionalInformers,
 		c.operatorClient.Informer(),
@@ -166,7 +192,7 @@ func (c *DeploymentController) ToController() factory.Controller {
 	return controller.ToController(
 		c.name,
 		c.recorder.WithComponentSuffix(strings.ToLower(c.name)+"-deployment-controller-"),
-	)
+	), errors.NewAggregate(c.errors)
 }
 
 // Name returns the name of the DeploymentController.
