@@ -277,12 +277,6 @@ func (a *saOAuthClientAdapter) Get(ctx context.Context, name string, options met
 	if err != nil {
 		return nil, err
 	}
-	if len(tokens) == 0 {
-		err = fmt.Errorf("%v has no tokens", name)
-		failReason = "NoSAOAuthTokens"
-		saErrors = append(saErrors, err)
-		return nil, err
-	}
 
 	saWantsChallenges, _ := strconv.ParseBool(sa.Annotations[OAuthWantChallengesAnnotationPrefix])
 
