@@ -118,22 +118,25 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 		return nil, false, err
 	}
 
-	// Check if the metadata objects differ.
-	modifiedPtr := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modifiedPtr, &existingObjectMetaTyped, requiredObjectMetaTyped)
-	if !*modifiedPtr {
-		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
-		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
-		cache.UpdateCachedResourceMetadata(required, existingCopy)
-		return existingCopy, false, nil
-	}
-
 	// Deep-check the spec objects for equality, and update the cache in either case.
 	existingCopy, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
 	if err != nil {
 		return nil, false, err
 	}
 	if !modified {
+		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
+		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
+		cache.UpdateCachedResourceMetadata(required, existingCopy)
+		return existingCopy, false, nil
+	}
+
+	// Check if the metadata objects differ.
+	// NOTE: This is done after the spec check to detect obvious spec changes first (return early), and the fact that
+	// resourcemerge.EnsureObjectMeta compares a subset of metadata fields (which is why we update the cache even if no
+	// metadata modifications are detected).
+	modifiedPtr := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modifiedPtr, &existingObjectMetaTyped, requiredObjectMetaTyped)
+	if !*modifiedPtr {
 		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
 		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
