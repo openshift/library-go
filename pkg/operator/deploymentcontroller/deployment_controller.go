@@ -3,6 +3,7 @@ package deploymentcontroller
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -34,16 +37,19 @@ type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 //
 // This controller supports removable operands, as configured in pkg/operator/management.
 //
-// This controller produces the following conditions:
+// This controller optionally produces the following conditions:
 // <name>Available: indicates that the deployment controller  was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the Deployment is in progress.
 // <name>Degraded: produced when the sync() method returns an error.
 type DeploymentController struct {
-	name           string
-	manifest       []byte
-	operatorClient v1helpers.OperatorClientWithFinalizers
-	kubeClient     kubernetes.Interface
-	deployInformer appsinformersv1.DeploymentInformer
+	name              string
+	manifest          []byte
+	operatorClient    v1helpers.OperatorClientWithFinalizers
+	kubeClient        kubernetes.Interface
+	deployInformer    appsinformersv1.DeploymentInformer
+	optionalInformers []factory.Informer
+	recorder          events.Recorder
+	conditions        []string
 	// Optional hook functions to modify the deployment manifest.
 	// This helps in modifying the manifests before it deployment
 	// is created from the manifest.
@@ -57,8 +63,14 @@ type DeploymentController struct {
 	// fails indicating the ordinal position of the failed function.
 	// Also, in that scenario the Degraded status is set to True.
 	optionalDeploymentHooks []DeploymentHookFunc
+	// errors contains any errors that occur during the configuration
+	// and setup of the DeploymentController.
+	errors []error
 }
 
+// NewDeploymentController creates a new instance of DeploymentController,
+// returning it as a factory.Controller interface. Under the hood it uses
+// the NewDeploymentControllerBuilder to construct the controller.
 func NewDeploymentController(
 	name string,
 	manifest []byte,
@@ -70,36 +82,120 @@ func NewDeploymentController(
 	optionalManifestHooks []ManifestHookFunc,
 	optionalDeploymentHooks ...DeploymentHookFunc,
 ) factory.Controller {
-	c := &DeploymentController{
-		name:                    name,
-		manifest:                manifest,
-		operatorClient:          operatorClient,
-		kubeClient:              kubeClient,
-		deployInformer:          deployInformer,
-		optionalManifestHooks:   optionalManifestHooks,
-		optionalDeploymentHooks: optionalDeploymentHooks,
-	}
-
-	informers := append(
-		optionalInformers,
-		operatorClient.Informer(),
-		deployInformer.Informer(),
+	c := NewDeploymentControllerBuilder(
+		name,
+		manifest,
+		recorder,
+		operatorClient,
+		kubeClient,
+		deployInformer,
+	).WithConditions(
+		opv1.OperatorStatusTypeAvailable,
+		opv1.OperatorStatusTypeProgressing,
+		opv1.OperatorStatusTypeDegraded,
+	).WithExtraInformers(
+		optionalInformers...,
+	).WithManifestHooks(
+		optionalManifestHooks...,
+	).WithDeploymentHooks(
+		optionalDeploymentHooks...,
 	)
 
-	return factory.New().WithInformers(
+	controller, err := c.ToController()
+	if err != nil {
+		panic(err)
+	}
+	return controller
+}
+
+// NewDeploymentControllerBuilder initializes and returns a pointer to a
+// minimal DeploymentController.
+func NewDeploymentControllerBuilder(
+	name string,
+	manifest []byte,
+	recorder events.Recorder,
+	operatorClient v1helpers.OperatorClientWithFinalizers,
+	kubeClient kubernetes.Interface,
+	deployInformer appsinformersv1.DeploymentInformer,
+) *DeploymentController {
+	return &DeploymentController{
+		name:           name,
+		manifest:       manifest,
+		operatorClient: operatorClient,
+		kubeClient:     kubeClient,
+		deployInformer: deployInformer,
+		recorder:       recorder,
+	}
+}
+
+// WithExtraInformers appends additional informers to the DeploymentController.
+// These informers are used to watch for additional resources that might affect the Deployment's state.
+func (c *DeploymentController) WithExtraInformers(informers ...factory.Informer) *DeploymentController {
+	c.optionalInformers = informers
+	return c
+}
+
+// WithManifestHooks adds custom hook functions that are called during the handling of the Deployment manifest.
+// These hooks can manipulate the manifest or perform specific checks before its convertion into a Deployment object.
+func (c *DeploymentController) WithManifestHooks(hooks ...ManifestHookFunc) *DeploymentController {
+	c.optionalManifestHooks = hooks
+	return c
+}
+
+// WithDeploymentHooks adds custom hook functions that are called during the sync.
+// These hooks can perform operations or modifications at specific points in the Deployment.
+func (c *DeploymentController) WithDeploymentHooks(hooks ...DeploymentHookFunc) *DeploymentController {
+	c.optionalDeploymentHooks = hooks
+	return c
+}
+
+// WithConditions sets the operational conditions under which the DeploymentController will operate.
+// Only 'Available', 'Progressing' and 'Degraded' are valid conditions; other values are ignored.
+func (c *DeploymentController) WithConditions(conditions ...string) *DeploymentController {
+	validConditions := sets.New[string]()
+	validConditions.Insert(
+		opv1.OperatorStatusTypeAvailable,
+		opv1.OperatorStatusTypeProgressing,
+		opv1.OperatorStatusTypeDegraded,
+	)
+	for _, condition := range conditions {
+		if validConditions.Has(condition) {
+			if !slices.Contains(c.conditions, condition) {
+				c.conditions = append(c.conditions, condition)
+			}
+		} else {
+			err := fmt.Errorf("invalid condition %q. Valid conditions include %v", condition, validConditions.UnsortedList())
+			c.errors = append(c.errors, err)
+		}
+	}
+	return c
+}
+
+// ToController converts the DeploymentController into a factory.Controller.
+// It aggregates and returns all errors reported during the builder phase.
+func (c *DeploymentController) ToController() (factory.Controller, error) {
+	informers := append(
+		c.optionalInformers,
+		c.operatorClient.Informer(),
+		c.deployInformer.Informer(),
+	)
+	controller := factory.New().WithInformers(
 		informers...,
 	).WithSync(
 		c.sync,
 	).ResyncEvery(
 		time.Minute,
-	).WithSyncDegradedOnError(
-		operatorClient,
-	).ToController(
-		c.name,
-		recorder.WithComponentSuffix(strings.ToLower(name)+"-deployment-controller-"),
 	)
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
+		controller = controller.WithSyncDegradedOnError(c.operatorClient)
+	}
+	return controller.ToController(
+		c.name,
+		c.recorder.WithComponentSuffix(strings.ToLower(c.name)+"-deployment-controller-"),
+	), errors.NewAggregate(c.errors)
 }
 
+// Name returns the name of the DeploymentController.
 func (c *DeploymentController) Name() string {
 	return c.name
 }
@@ -151,42 +247,48 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		return err
 	}
 
-	availableCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeAvailable,
-		Status: opv1.ConditionTrue,
+	updateStatusFuncs := []v1helpers.UpdateStatusFunc{
+		func(newStatus *opv1.OperatorStatus) error {
+			// TODO: set ObservedGeneration (the last stable generation change we dealt with)
+			resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
+			return nil
+		},
 	}
 
-	if deployment.Status.AvailableReplicas > 0 {
-		availableCondition.Status = opv1.ConditionTrue
-	} else {
-		availableCondition.Status = opv1.ConditionFalse
-		availableCondition.Message = "Waiting for Deployment"
-		availableCondition.Reason = "Deploying"
+	// Set Available Condition
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
+		availableCondition := opv1.OperatorCondition{
+			Type:   c.name + opv1.OperatorStatusTypeAvailable,
+			Status: opv1.ConditionTrue,
+		}
+		if deployment.Status.AvailableReplicas > 0 {
+			availableCondition.Status = opv1.ConditionTrue
+		} else {
+			availableCondition.Status = opv1.ConditionFalse
+			availableCondition.Message = "Waiting for Deployment"
+			availableCondition.Reason = "Deploying"
+		}
+		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(availableCondition))
 	}
 
-	progressingCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeProgressing,
-		Status: opv1.ConditionFalse,
-	}
-
-	if ok, msg := isProgressing(deployment); ok {
-		progressingCondition.Status = opv1.ConditionTrue
-		progressingCondition.Message = msg
-		progressingCondition.Reason = "Deploying"
-	}
-
-	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {
-		// TODO: set ObservedGeneration (the last stable generation change we dealt with)
-		resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
-		return nil
+	// Set Progressing Condition
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
+		progressingCondition := opv1.OperatorCondition{
+			Type:   c.name + opv1.OperatorStatusTypeProgressing,
+			Status: opv1.ConditionFalse,
+		}
+		if ok, msg := isProgressing(deployment); ok {
+			progressingCondition.Status = opv1.ConditionTrue
+			progressingCondition.Message = msg
+			progressingCondition.Reason = "Deploying"
+		}
+		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(progressingCondition))
 	}
 
 	_, _, err = v1helpers.UpdateStatus(
 		ctx,
 		c.operatorClient,
-		updateStatusFn,
-		v1helpers.UpdateConditionFn(availableCondition),
-		v1helpers.UpdateConditionFn(progressingCondition),
+		updateStatusFuncs...,
 	)
 
 	return err
