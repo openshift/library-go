@@ -262,6 +262,21 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		desiredReplicas = *(workload.Spec.Replicas)
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(workload.Spec.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to construct label selector: %v", err)
+	}
+	matchingPods, err := c.podsLister.List(selector)
+	if err != nil {
+		return err
+	}
+	// Terminatig pods don't account for any of the other status fields but
+	// still can exist in a state when they are accepting connections and would
+	// contribute to unexpected behavior if we report Progressing=False.
+	// The case of too many pods might occur for example if `TerminationGracePeriodSeconds`
+	// is set.
+	tooManyMatchingPods := int32(len(matchingPods)) > desiredReplicas
+
 	// If the workload is up to date, then we are no longer progressing
 	workloadAtHighestGeneration := workload.ObjectMeta.Generation == workload.Status.ObservedGeneration
 	workloadIsBeingUpdated := workload.Status.UpdatedReplicas < desiredReplicas
@@ -274,6 +289,10 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
 		deploymentProgressingCondition.Reason = "PodsUpdating"
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas)
+	} else if tooManyMatchingPods {
+		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
+		deploymentProgressingCondition.Reason = "PreviousGenPodsPresent"
+		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: %d pod(s) from the previous generation are still present", workload.Name, c.targetNamespace, len(matchingPods)-int(desiredReplicas))
 	} else {
 		deploymentProgressingCondition.Status = operatorv1.ConditionFalse
 		deploymentProgressingCondition.Reason = "AsExpected"
