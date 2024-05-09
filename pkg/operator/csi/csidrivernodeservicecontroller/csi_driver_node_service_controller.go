@@ -221,6 +221,8 @@ func isProgressing(status *opv1.OperatorStatus, daemonSet *appsv1.DaemonSet) (bo
 	switch {
 	case daemonSet.Generation != daemonSet.Status.ObservedGeneration:
 		return true, "Waiting for DaemonSet to act on changes"
+	case daemonSet.Status.UpdatedNumberScheduled < daemonSet.Status.DesiredNumberScheduled:
+		return true, fmt.Sprintf("Waiting for DaemonSet to update %d node pods", daemonSet.Status.DesiredNumberScheduled)
 	case daemonSet.Status.NumberUnavailable > 0:
 		return true, "Waiting for DaemonSet to deploy node pods"
 	}
