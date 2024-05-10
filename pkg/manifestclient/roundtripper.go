@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -107,20 +108,29 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	if err != nil {
 		return nil, fmt.Errorf("failed reading requestInfo: %w", err)
 	}
-	if !requestInfo.IsResourceRequest {
+
+	isDiscovery := isServerGroupResourceDiscovery(requestInfo.Path)
+	if !requestInfo.IsResourceRequest && !isDiscovery {
 		return nil, fmt.Errorf("non-resource requests are not supported by this implementation")
 	}
 	if len(requestInfo.Subresource) != 0 {
 		return nil, fmt.Errorf("subresource %v is not supported by this implementation", requestInfo.Subresource)
+	}
+	if isDiscovery && requestInfo.Verb != "get" {
+		// TODO handle group resource discovery
+		return nil, fmt.Errorf("group resource discovery is not supported unless it is a GET request")
 	}
 
 	var returnBody []byte
 	var returnErr error
 	switch requestInfo.Verb {
 	case "get":
-		// TODO handle label and field selectors because single item lists are GETs
-		returnBody, returnErr = mrt.get(requestInfo)
-
+		if isDiscovery {
+			returnBody, returnErr = mrt.getGroupResourceDiscovery(requestInfo)
+		} else {
+			// TODO handle label and field selectors because single item lists are GETs
+			returnBody, returnErr = mrt.get(requestInfo)
+		}
 	case "list":
 		// TODO handle label and field selectors
 		returnBody, returnErr = mrt.list(requestInfo)
@@ -161,6 +171,9 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		resp.StatusCode = http.StatusOK
 		resp.Status = http.StatusText(resp.StatusCode)
 		resp.Body = io.NopCloser(bytes.NewReader(returnBody))
+		// We always return application/json. Avoid clients expecting proto for built-ins.
+		resp.Header = make(http.Header)
+		resp.Header.Set("Content-Type", "application/json")
 	}
 
 	return resp, nil
@@ -171,4 +184,19 @@ func newNotFound(requestInfo *apirequest.RequestInfo) error {
 		Group:    requestInfo.APIGroup,
 		Resource: requestInfo.Resource,
 	}, requestInfo.Name)
+}
+
+// checking for /apis/<group>/<version>
+// In this case we will return the list of resources for the group.
+func isServerGroupResourceDiscovery(path string) bool {
+	// Corev1 is a special case.
+	if path == "/api/v1" {
+		return true
+	}
+
+	parts := strings.Split(path, "/")
+	if len(parts) != 4 {
+		return false
+	}
+	return parts[0] == "" && parts[1] == "apis"
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -72,6 +73,14 @@ func serializeIndividualObjToJSON(obj *unstructured.Unstructured) (string, error
 }
 
 func serializeListObjToJSON(obj *unstructured.UnstructuredList) (string, error) {
+	ret, err := json.MarshalIndent(obj, "", "    ")
+	if err != nil {
+		return "", err
+	}
+	return string(ret) + "\n", nil
+}
+
+func serializeAPIResourceListToJSON(obj *metav1.APIResourceList) (string, error) {
 	ret, err := json.MarshalIndent(obj, "", "    ")
 	if err != nil {
 		return "", err
