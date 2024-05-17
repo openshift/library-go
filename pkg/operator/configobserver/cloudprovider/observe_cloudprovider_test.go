@@ -282,15 +282,26 @@ func TestObserveCloudProviderNames(t *testing.T) {
 				ConfigMapLister_:      &FakeConfigMapLister{},
 			}
 			observerFunc := NewCloudProviderObserver("kube-controller-manager", c.skipCloudProviderExternal)
-			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{})
+			result, errs := observerFunc(listers, events.NewInMemoryRecorder("cloud"), map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"cloud-provider": []interface{}{"previous"}, // This should be overwritten by whatever the observer sets.
+					"additional":     []interface{}{"value"},    // This should be pruned.
+				},
+				"additional": []interface{}{"value"}, // This should be pruned.
+			})
 			if errorsOccured := len(errs) > 0; c.expectErrors != errorsOccured {
 				t.Fatalf("expected errors: %v, got: %v", c.expectErrors, errs)
 			}
+
 			cloudProvider, _, err := unstructured.NestedSlice(result, "extendedArguments", "cloud-provider")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if c.skipCloudProviderExternal && len(cloudProvider) == 0 {
+				if len(result) > 0 {
+					t.Fatalf("expected no cloud-provider in result, got %v", result)
+				}
+
 				return
 			}
 			if e, a := c.cloudProviderCount, len(cloudProvider); e != a {
