@@ -62,6 +62,7 @@ type images struct {
 
 type testCase struct {
 	name            string
+	manifestFunc    func() []byte
 	images          images
 	removable       bool
 	initialObjects  testObjects
@@ -109,7 +110,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	)
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
-		makeFakeManifest(),
+		test.manifestFunc(),
 		events.NewInMemoryRecorder(operandName),
 		fakeOperatorClient,
 		coreClient,
@@ -229,6 +230,16 @@ func withDeletionTimestamp() driverModifier {
 	}
 }
 
+func withObservedTLSConfig() driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		i.Spec.ObservedConfig = runtime.RawExtension{
+			Raw: []byte(`{"targetcsiconfig": {"servingInfo": { "cipherSuites": ["TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"], "minTLSVersion": "TLS21"}}}`),
+		}
+		return i
+	}
+
+}
+
 func getIndex(containers []v1.Container, name string) int {
 	for i := range containers {
 		if containers[i].Name == name {
@@ -297,6 +308,27 @@ func withDaemonSetGeneration(generations ...int64) daemonSetModifier {
 		if len(generations) > 1 {
 			instance.Status.ObservedGeneration = generations[1]
 		}
+		return instance
+	}
+}
+
+func withDaemonSetTLSConfig() daemonSetModifier {
+	return func(instance *appsv1.DaemonSet) *appsv1.DaemonSet {
+		proxyContainer := v1.Container{
+			Name: "kube-rbac-proxy",
+			Args: []string{
+				"--secure-listen-address=0.0.0.0:1234",
+				"--upstream=http://127.0.0.1:4567",
+				"--tls-cert-file=/etc/tls/private/tls.crt",
+				"--tls-private-key-file=/etc/tls/private/tls.key",
+				"--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				"--tls-min-version=TLS21",
+				"--logtostderr=true",
+			},
+			Image:           "kube-rbac-proxy",
+			ImagePullPolicy: v1.PullIfNotPresent,
+		}
+		instance.Spec.Template.Spec.Containers = append(instance.Spec.Template.Spec.Containers, proxyContainer)
 		return instance
 	}
 }
@@ -377,8 +409,9 @@ func TestSync(t *testing.T) {
 	testCases := []testCase{
 		{
 			// Only CR exists, everything else is created
-			name:   "initial sync",
-			images: defaultImages(),
+			name:         "initial sync",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				driver: makeFakeDriverInstance(),
 			},
@@ -396,7 +429,8 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// DaemonSet is fully deployed and its status is synced to CR
-			images: defaultImages(),
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -420,8 +454,9 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// DaemonSet gets degraded for some reason
-			name:   "daemonSet degraded",
-			images: defaultImages(),
+			name:         "daemonSet degraded",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -451,8 +486,9 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// DaemonSet is updating pods
-			name:   "update",
-			images: defaultImages(),
+			name:         "update",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -481,8 +517,9 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// User changes log level and it's projected into the DaemonSet
-			name:   "log level change",
-			images: defaultImages(),
+			name:         "log level change",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -510,8 +547,9 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// DaemonSet updates images
-			name:   "image change",
-			images: defaultImages(),
+			name:         "image change",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -539,9 +577,10 @@ func TestSync(t *testing.T) {
 		{
 			// Finalizer is added to removable CR
 			// (and DaemonSet is created)
-			name:      "add finalizer",
-			images:    defaultImages(),
-			removable: true,
+			name:         "add finalizer",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
+			removable:    true,
 			initialObjects: testObjects{
 				driver: makeFakeDriverInstance(),
 			},
@@ -560,9 +599,10 @@ func TestSync(t *testing.T) {
 		},
 		{
 			// DaemonSet and finalizer are deleted on DeletionTimestamp
-			name:      "remove daemonset",
-			images:    defaultImages(),
-			removable: true,
+			name:         "remove daemonset",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
+			removable:    true,
 			initialObjects: testObjects{
 				daemonSet: getDaemonSet(
 					argsLevel2,
@@ -580,6 +620,28 @@ func TestSync(t *testing.T) {
 					// No conditions are updated!
 					// (only Degraded condition might be set on error)
 					withDeletionTimestamp()),
+			},
+		},
+		{
+			// DaemonSet updates TLS config
+			name:         "TLS config",
+			manifestFunc: makeFakeManifestWithTLS,
+			images:       defaultImages(),
+			initialObjects: testObjects{
+				driver: makeFakeDriverInstance(withObservedTLSConfig()),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 0),
+					withDaemonSetTLSConfig()),
+				driver: makeFakeDriverInstance(
+					// withStatus(replica0),
+					withObservedTLSConfig(),
+					withGenerations(1),
+					withTrueConditions(conditionProgressing),
+					withFalseConditions(conditionAvailable)), // Degraded is set later on
 			},
 		},
 	}
@@ -781,6 +843,107 @@ spec:
           volumeMounts:
             - name: plugin-dir
               mountPath: /csi
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/test.csi.openshift.io/
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+            type: Directory
+`)
+}
+
+func makeFakeManifestWithTLS() []byte {
+	return []byte(`
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: test-csi-driver-node
+  namespace: openshift-test-csi-driver
+spec:
+  selector:
+    matchLabels:
+      app: test-csi-driver-node
+  template:
+    metadata:
+      labels:
+        app: test-csi-driver-node
+    spec:
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=${LOG_LEVEL}
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: plugin-dir
+              mountPath: /csi
+            - name: device-dir
+              mountPath: /dev
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+        - name: csi-node-driver-registrar
+          image: ${NODE_DRIVER_REGISTRAR_IMAGE}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=${LOG_LEVEL}
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/test.csi.openshift.io/csi.sock
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+        - name: csi-liveness-probe
+          image: ${LIVENESS_PROBE_IMAGE}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+        - name: kube-rbac-proxy
+          args:
+          - --secure-listen-address=0.0.0.0:1234
+          - --upstream=http://127.0.0.1:4567
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+          - --tls-min-version=${TLS_MIN_VERSION}
+          - --logtostderr=true
+          image: kube-rbac-proxy
+          imagePullPolicy: IfNotPresent
       volumes:
         - name: kubelet-dir
           hostPath:

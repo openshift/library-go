@@ -10,6 +10,8 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
+	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -77,6 +79,7 @@ type CSIDriverNodeServiceController struct {
 	// fails indicating the ordinal position of the failed function.
 	// Also, in that scenario the Degraded status is set to True.
 	optionalDaemonSetHooks []DaemonSetHookFunc
+	optionalManifestHooks  []dc.ManifestHookFunc
 }
 
 func NewCSIDriverNodeServiceController(
@@ -96,6 +99,9 @@ func NewCSIDriverNodeServiceController(
 		kubeClient:             kubeClient,
 		dsInformer:             dsInformer,
 		optionalDaemonSetHooks: optionalDaemonSetHooks,
+		optionalManifestHooks: []dc.ManifestHookFunc{
+			csidrivercontrollerservicecontroller.WithServingInfo(),
+		},
 	}
 	informers := append(optionalInformers, operatorClient.Informer(), dsInformer.Informer())
 	return factory.New().WithInformers(
@@ -206,6 +212,14 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 
 func (c *CSIDriverNodeServiceController) getDaemonSet(opSpec *opv1.OperatorSpec) (*appsv1.DaemonSet, error) {
 	manifest := replacePlaceholders(c.manifest, opSpec)
+
+	for i, hook := range c.optionalManifestHooks {
+		var err error
+		manifest, err = hook(opSpec, manifest)
+		if err != nil {
+			return nil, fmt.Errorf("error running manifest hook (index=%d): %w", i, err)
+		}
+	}
 	required := resourceread.ReadDaemonSetV1OrDie(manifest)
 
 	for i := range c.optionalDaemonSetHooks {
