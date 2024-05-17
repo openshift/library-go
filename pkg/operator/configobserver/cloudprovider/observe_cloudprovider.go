@@ -40,10 +40,6 @@ type cloudProviderObserver struct {
 
 // ObserveCloudProviderNames observes the cloud provider from the global cluster infrastructure resource.
 func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
-	defer func() {
-		ret = configobserver.Pruned(ret)
-	}()
-
 	listers := genericListers.(InfrastructureLister)
 	var errs []error
 
@@ -55,5 +51,5 @@ func (c *cloudProviderObserver) ObserveCloudProviderNames(genericListers configo
 		},
 		resourcesynccontroller.ResourceLocation{})
 
-	return existingConfig, errs
+	return map[string]interface{}{}, errs
 }
