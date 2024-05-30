@@ -3,6 +3,8 @@ package installer
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -2598,6 +2600,75 @@ func TestTimeToWait(t *testing.T) {
 				t.Fatal(actual)
 			}
 		})
+	}
+}
+
+func TestControllerBackoff(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	kubeInformers := informers.NewSharedInformerFactoryWithOptions(client, 1*time.Second, informers.WithNamespace("ns"))
+	fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{
+			OperatorSpec: operatorv1.OperatorSpec{
+				ManagementState: operatorv1.Managed,
+			},
+		},
+		&operatorv1.StaticPodOperatorStatus{
+			LatestAvailableRevision: 5,
+			NodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 5,
+					TargetRevision:  5,
+				},
+			},
+		},
+		nil,
+		nil,
+	)
+	recorder := events.NewInMemoryRecorder("component")
+	c := NewInstallerController(
+		"ns",
+		"static-pod-name",
+		[]revision.RevisionResource{{Name: "foo-cm"}},
+		[]revision.RevisionResource{{Name: "foo-s"}},
+		[]string{"a", "command"},
+		kubeInformers,
+		fakeStaticPodOperatorClient,
+		client.CoreV1(),
+		client.CoreV1(),
+		client.CoreV1(),
+		recorder,
+	)
+
+	c.factory = c.factory.ResyncEvery(time.Minute)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
+	kubeInformers.Start(ctx.Done())
+	go c.Run(ctx, 1)
+
+	go func() {
+		var lastContent = ""
+		for {
+			select {
+			case <-ctx.Done():
+				break
+			default:
+				resourceapply.ApplySecret(ctx, client.CoreV1(), eventstesting.NewTestingEventRecorder(t),
+					&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-s"},
+						Data: map[string][]byte{"x": []byte(lastContent)}})
+				time.Sleep(1 * time.Second)
+				lastContent = lastContent + "."
+			}
+		}
+	}()
+
+	<-ctx.Done()
+
+	// expect the event to be emitted about 5 times in one minute, despite the secret being updated once a second
+	require.InDelta(t, 5, len(recorder.Events()), 2)
+	for _, event := range recorder.Events() {
+		require.Equal(t, "RequiredInstallerResourcesMissing", event.Reason)
 	}
 }
 

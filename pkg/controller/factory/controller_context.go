@@ -32,6 +32,14 @@ func NewSyncContext(name string, recorder events.Recorder) SyncContext {
 	}
 }
 
+// NewSyncContextQueue allows to customize the underlying work queue.
+func NewSyncContextQueue(name string, recorder events.Recorder, q workqueue.RateLimitingInterface) SyncContext {
+	return syncContext{
+		queue:         q,
+		eventRecorder: recorder.WithComponentSuffix(strings.ToLower(name)),
+	}
+}
+
 func (c syncContext) Queue() workqueue.RateLimitingInterface {
 	return c.queue
 }
@@ -88,11 +96,11 @@ func (c syncContext) eventHandler(queueKeysFunc ObjectQueueKeysFunc, filter Even
 
 func (c syncContext) enqueueKeys(keys ...string) {
 	for _, qKey := range keys {
-		c.queue.Add(qKey)
+		c.queue.AddRateLimited(qKey)
 	}
 }
 
-// namespaceChecker returns a function which returns true if an inpuut obj
+// namespaceChecker returns a function which returns true if an input obj
 // (or its tombstone) is a namespace  and it matches a name of any namespaces
 // that we are interested in
 func namespaceChecker(interestingNamespaces []string) func(obj interface{}) bool {

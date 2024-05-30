@@ -4,6 +4,8 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"golang.org/x/time/rate"
+	"k8s.io/client-go/util/workqueue"
 	"math"
 	"os"
 	"path/filepath"
@@ -189,13 +191,26 @@ func NewInstallerController(
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
-	c.factory = factory.New().WithInformers(operatorClient.Informer(), kubeInformersForTargetNamespace.Core().V1().Pods().Informer())
+	c.factory = factory.New().WithInformers(
+		operatorClient.Informer(),
+		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
+		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
+		kubeInformersForTargetNamespace.Core().V1().Secrets().Informer())
 
 	return c
 }
 
 func (c *InstallerController) Run(ctx context.Context, workers int) {
-	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
+	rateLimiter := workqueue.NewRateLimitingQueueWithConfig(workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(time.Second, 1*time.Minute),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(2), 10)},
+	), workqueue.RateLimitingQueueConfig{Name: c.Name()})
+
+	c.factory.
+		WithSync(c.Sync).
+		WithSyncContext(factory.NewSyncContextQueue(c.Name(), c.eventRecorder, rateLimiter)).
+		ToController(c.Name(), c.eventRecorder).
+		Run(ctx, workers)
 }
 
 func (c InstallerController) Name() string {
