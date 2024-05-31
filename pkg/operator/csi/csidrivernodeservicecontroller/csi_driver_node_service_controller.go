@@ -131,6 +131,10 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 		return err
 	}
 
+	if opSpec.ManagementState == opv1.Removed && management.IsOperatorRemovable() {
+		return c.syncDeleting(ctx, opSpec, opStatus, syncContext)
+	}
+
 	if opSpec.ManagementState != opv1.Managed {
 		return nil
 	}
