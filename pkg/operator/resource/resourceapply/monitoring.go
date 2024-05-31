@@ -4,8 +4,8 @@ import (
 	"context"
 	errorsstdlib "errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/equality"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -118,25 +118,16 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 		return nil, false, err
 	}
 
+	// Check if the metadata objects differ.
+	didMetadataModify := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(didMetadataModify, &existingObjectMetaTyped, requiredObjectMetaTyped)
+
 	// Deep-check the spec objects for equality, and update the cache in either case.
-	existingCopy, modified, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
+	existingCopy, didSpecModify, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
 	if err != nil {
 		return nil, false, err
 	}
-	if !modified {
-		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
-		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
-		cache.UpdateCachedResourceMetadata(required, existingCopy)
-		return existingCopy, false, nil
-	}
-
-	// Check if the metadata objects differ.
-	// NOTE: This is done after the spec check to detect obvious spec changes first (return early), and the fact that
-	// resourcemerge.EnsureObjectMeta compares a subset of metadata fields (which is why we update the cache even if no
-	// metadata modifications are detected).
-	modifiedPtr := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modifiedPtr, &existingObjectMetaTyped, requiredObjectMetaTyped)
-	if !*modifiedPtr {
+	if !didSpecModify && !*didMetadataModify {
 		// Update cache even if certain fields are not modified, in order to maintain a consistent cache based on the
 		// resource hash. The resource hash depends on the entire metadata, not just the fields that were checked above,
 		cache.UpdateCachedResourceMetadata(required, existingCopy)
@@ -148,7 +139,7 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 	}
 
 	// Perform update if resource exists but different from the required (desired) one.
-	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, required, metav1.UpdateOptions{})
 	reportUpdateEvent(recorder, required, err)
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
