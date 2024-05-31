@@ -9,9 +9,10 @@ import (
 )
 
 type SecretManager struct {
-	Err          error
-	Secret       *corev1.Secret
-	IsRegistered bool
+	Err        error
+	Secret     *corev1.Secret
+	IsPresent  bool
+	SecretName string
 }
 
 func (m *SecretManager) RegisterRoute(ctx context.Context, namespace string, routeName string, secretName string, handler cache.ResourceEventHandlerFuncs) error {
@@ -24,8 +25,9 @@ func (m *SecretManager) UnregisterRoute(namespace string, routeName string) erro
 func (m *SecretManager) GetSecret(ctx context.Context, namespace string, routeName string) (*corev1.Secret, error) {
 	return m.Secret, m.Err
 }
-func (m *SecretManager) IsRouteRegistered(namespace string, routeName string) bool {
-	return m.IsRegistered
+
+func (m *SecretManager) LookupRouteSecret(namespace string, routeName string) (string, bool) {
+	return m.SecretName, m.IsPresent
 }
 
 func (m *SecretManager) Queue() workqueue.RateLimitingInterface {
