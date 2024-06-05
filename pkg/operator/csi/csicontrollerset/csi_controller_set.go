@@ -32,16 +32,16 @@ var defaultCacheSyncTimeout = 10 * time.Minute
 
 // CSIControllerSet contains a set of controllers that are usually used to deploy CSI Drivers.
 type CSIControllerSet struct {
-	logLevelController                   factory.Controller
-	managementStateController            factory.Controller
-	staticResourcesController            factory.Controller
-	conditionalStaticResourcesController factory.Controller
-	credentialsRequestController         factory.Controller
-	csiConfigObserverController          factory.Controller
-	csiDriverControllerServiceController factory.Controller
-	csiDriverNodeServiceController       factory.Controller
-	serviceMonitorController             factory.Controller
-	csiStorageclassController            factory.Controller
+	logLevelController                    factory.Controller
+	managementStateController             factory.Controller
+	staticResourcesController             factory.Controller
+	conditionalStaticResourcesControllers []factory.Controller
+	credentialsRequestController          factory.Controller
+	csiConfigObserverController           factory.Controller
+	csiDriverControllerServiceController  factory.Controller
+	csiDriverNodeServiceController        factory.Controller
+	serviceMonitorController              factory.Controller
+	csiStorageclassController             factory.Controller
 
 	operatorClient v1helpers.OperatorClientWithFinalizers
 	eventRecorder  events.Recorder
@@ -49,18 +49,17 @@ type CSIControllerSet struct {
 
 // Run starts all controllers initialized in the set.
 func (c *CSIControllerSet) Run(ctx context.Context, workers int) {
-	for _, ctrl := range []factory.Controller{
+	for _, ctrl := range append([]factory.Controller{
 		c.logLevelController,
 		c.managementStateController,
 		c.staticResourcesController,
-		c.conditionalStaticResourcesController,
 		c.credentialsRequestController,
 		c.csiConfigObserverController,
 		c.csiDriverControllerServiceController,
 		c.csiDriverNodeServiceController,
 		c.serviceMonitorController,
 		c.csiStorageclassController,
-	} {
+	}, c.conditionalStaticResourcesControllers...) {
 		if ctrl == nil {
 			continue
 		}
@@ -87,6 +86,7 @@ func (c *CSIControllerSet) WithManagementStateController(operandName string, sup
 }
 
 // WithConditionalStaticResourcesController returns a *ControllerSet with a conditional static resources controller initialized.
+// The func can be called multiple times to setup multiple controllers. The calls do not replace any existing controllers.
 func (c *CSIControllerSet) WithConditionalStaticResourcesController(
 	name string,
 	kubeClient kubernetes.Interface,
@@ -96,7 +96,7 @@ func (c *CSIControllerSet) WithConditionalStaticResourcesController(
 	files []string,
 	shouldCreateFnArg, shouldDeleteFnArg resourceapply.ConditionalFunction,
 ) *CSIControllerSet {
-	c.conditionalStaticResourcesController = staticresourcecontroller.NewStaticResourceController(
+	c.conditionalStaticResourcesControllers = append(c.conditionalStaticResourcesControllers, staticresourcecontroller.NewStaticResourceController(
 		name,
 		manifests,
 		[]string{},
@@ -108,7 +108,7 @@ func (c *CSIControllerSet) WithConditionalStaticResourcesController(
 		files,
 		shouldCreateFnArg,
 		shouldDeleteFnArg,
-	).AddKubeInformers(kubeInformersForNamespace)
+	).AddKubeInformers(kubeInformersForNamespace))
 	return c
 }
 
@@ -272,7 +272,8 @@ func (c *CSIControllerSet) WithStorageClassController(
 // New returns a basic *ControllerSet without any controller.
 func NewCSIControllerSet(operatorClient v1helpers.OperatorClientWithFinalizers, eventRecorder events.Recorder) *CSIControllerSet {
 	return &CSIControllerSet{
-		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder,
+		operatorClient:                        operatorClient,
+		eventRecorder:                         eventRecorder,
+		conditionalStaticResourcesControllers: []factory.Controller{},
 	}
 }
