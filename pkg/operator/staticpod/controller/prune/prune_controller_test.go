@@ -313,7 +313,6 @@ func TestSync(t *testing.T) {
 				podResourcePrefix: "test-pod",
 				command:           []string{"/bin/true"},
 				configMapGetter:   kubeClient.CoreV1(),
-				secretGetter:      kubeClient.CoreV1(),
 				podGetter:         kubeClient.CoreV1(),
 				operatorClient:    fakeStaticPodOperatorClient,
 			}
