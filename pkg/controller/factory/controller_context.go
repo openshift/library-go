@@ -17,9 +17,10 @@ import (
 // syncContext implements SyncContext and provide user access to queue and object that caused
 // the sync to be triggered.
 type syncContext struct {
-	eventRecorder events.Recorder
-	queue         workqueue.RateLimitingInterface
-	queueKey      string
+	eventRecorder          events.Recorder
+	queue                  workqueue.RateLimitingInterface
+	queueKey               string
+	rateLimitEventsEnabled bool
 }
 
 var _ SyncContext = syncContext{}
@@ -29,6 +30,19 @@ func NewSyncContext(name string, recorder events.Recorder) SyncContext {
 	return syncContext{
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
 		eventRecorder: recorder.WithComponentSuffix(strings.ToLower(name)),
+	}
+}
+
+// NewSyncContextQueueRateLimit allows to customize the underlying work queue and event rate limiting behavior.
+func NewSyncContextQueueRateLimit(
+	name string,
+	recorder events.Recorder,
+	q workqueue.RateLimitingInterface,
+	enableEventsRateLimit bool) SyncContext {
+	return syncContext{
+		queue:                  q,
+		eventRecorder:          recorder.WithComponentSuffix(strings.ToLower(name)),
+		rateLimitEventsEnabled: enableEventsRateLimit,
 	}
 }
 
@@ -88,7 +102,11 @@ func (c syncContext) eventHandler(queueKeysFunc ObjectQueueKeysFunc, filter Even
 
 func (c syncContext) enqueueKeys(keys ...string) {
 	for _, qKey := range keys {
-		c.queue.Add(qKey)
+		if c.rateLimitEventsEnabled {
+			c.queue.AddRateLimited(qKey)
+		} else {
+			c.queue.Add(qKey)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package staticpod
 
 import (
 	"fmt"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -33,6 +34,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// SyncContextFactoryFunc should create a new factory.SyncContext, honoring the given event recorder
+type SyncContextFactoryFunc func(recorder events.Recorder) factory.SyncContext
+
 type staticPodOperatorControllerBuilder struct {
 	// clients and related
 	staticPodOperatorClient v1helpers.StaticPodOperatorClient
@@ -60,6 +64,7 @@ type staticPodOperatorControllerBuilder struct {
 	// installer information
 	installCommand           []string
 	installerPodMutationFunc installer.InstallerPodMutationFunc
+	installerSyncContextFunc SyncContextFactoryFunc
 	minReadyDuration         time.Duration
 	enableStartMonitor       func() (bool, error)
 
@@ -105,6 +110,8 @@ type Builder interface {
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
+	// WithCustomInstallerSyncContext allows to inject a different sync context into the installer controller
+	WithCustomInstallerSyncContext(syncCtxFactory SyncContextFactoryFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
 
 	// WithPodDisruptionBudgetGuard manages guard pods and high available pod disruption budget
@@ -174,6 +181,11 @@ func (b *staticPodOperatorControllerBuilder) WithCustomInstaller(command []strin
 	return b
 }
 
+func (b *staticPodOperatorControllerBuilder) WithCustomInstallerSyncContext(syncCtxFactory SyncContextFactoryFunc) Builder {
+	b.installerSyncContextFunc = syncCtxFactory
+	return b
+}
+
 func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, staticPodPrefix string) Builder {
 	b.pruneCommand = command
 	b.staticPodPrefix = staticPodPrefix
@@ -235,6 +247,12 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	}
 
 	if len(b.installCommand) > 0 {
+		installEventRecorder := eventRecorder.WithComponentSuffix("installer-controller")
+		syncContext := factory.NewSyncContext("InstallerController", installEventRecorder)
+		if b.installerSyncContextFunc != nil {
+			syncContext = b.installerSyncContextFunc(installEventRecorder)
+		}
+
 		manager.WithController(installer.NewInstallerController(
 			b.operandNamespace,
 			b.staticPodName,
@@ -246,7 +264,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			configMapClient,
 			secretClient,
 			podClient,
-			eventRecorder,
+			syncContext,
 		).WithCerts(
 			b.certDir,
 			b.certConfigMaps,

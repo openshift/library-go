@@ -556,7 +556,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
-				eventRecorder,
+				factory.NewSyncContext("test", eventRecorder.WithComponentSuffix("installer-controller")),
 			)
 			c.now = func() time.Time { return now.Time }
 			c.startupMonitorEnabled = func() (bool, error) {
@@ -689,7 +689,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
-		eventRecorder,
+		factory.NewSyncContext("test", eventRecorder.WithComponentSuffix("installer-controller")),
 	)
 	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
@@ -1096,7 +1096,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
-		eventRecorder,
+		factory.NewSyncContext("test", eventRecorder.WithComponentSuffix("installer-controller")),
 	)
 	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 		return []metav1.OwnerReference{}, nil
@@ -1263,7 +1263,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
-				eventRecorder,
+				factory.NewSyncContext("test", eventRecorder.WithComponentSuffix("installer-controller")),
 			)
 			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
@@ -2004,7 +2004,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
-				eventRecorder,
+				factory.NewSyncContext("test", eventRecorder.WithComponentSuffix("installer-controller")),
 			)
 			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil

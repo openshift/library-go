@@ -163,7 +163,7 @@ func NewInstallerController(
 	configMapsGetter corev1client.ConfigMapsGetter,
 	secretsGetter corev1client.SecretsGetter,
 	podsGetter corev1client.PodsGetter,
-	eventRecorder events.Recorder,
+	syncContext factory.SyncContext,
 ) *InstallerController {
 	c := &InstallerController{
 		targetNamespace: targetNamespace,
@@ -176,7 +176,7 @@ func NewInstallerController(
 		configMapsGetter: configMapsGetter,
 		secretsGetter:    secretsGetter,
 		podsGetter:       podsGetter,
-		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
+		eventRecorder:    syncContext.Recorder(),
 		now:              time.Now,
 		startupMonitorEnabled: func() (bool, error) {
 			return false, nil
@@ -189,13 +189,17 @@ func NewInstallerController(
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
-	c.factory = factory.New().WithInformers(operatorClient.Informer(), kubeInformersForTargetNamespace.Core().V1().Pods().Informer())
+	c.factory = factory.New().
+		WithSyncContext(syncContext).
+		WithInformers(
+			operatorClient.Informer(),
+			kubeInformersForTargetNamespace.Core().V1().Pods().Informer())
 
 	return c
 }
 
 func (c *InstallerController) Run(ctx context.Context, workers int) {
-	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
+	c.factory.WithSync(c.Sync).ToController(c.Name(), nil).Run(ctx, workers)
 }
 
 func (c InstallerController) Name() string {
