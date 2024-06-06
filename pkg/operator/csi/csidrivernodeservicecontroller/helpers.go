@@ -74,6 +74,26 @@ func WithCABundleDaemonSetHook(
 	}
 }
 
+// WithConfigMapHashAnnotationHook creates a DaemonSet hook that annotates a DaemonSet with a config map's hash.
+func WithConfigMapHashAnnotationHook(
+	namespace string,
+	configMapName string,
+	configMapInformer corev1.ConfigMapInformer,
+) DaemonSetHookFunc {
+	return func(_ *opv1.OperatorSpec, ds *appsv1.DaemonSet) error {
+		inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferenceFromLister(
+			configMapInformer.Lister(),
+			nil,
+			resourcehash.NewObjectRef().ForConfigMap().InNamespace(namespace).Named(configMapName),
+		)
+		if err != nil {
+			return fmt.Errorf("invalid dependency reference: %w", err)
+		}
+
+		return addObjectHash(ds, inputHashes)
+	}
+}
+
 // WithSecretHashAnnotationHook creates a DaemonSet hook that annotates a DaemonSet with a secret's hash.
 func WithSecretHashAnnotationHook(
 	namespace string,
