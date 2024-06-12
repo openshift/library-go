@@ -27,7 +27,7 @@ var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.co
 
 // ApplyAlertmanager applies the Alertmanager.
 func ApplyAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, alertmanagerGVR)
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, alertmanagerGVR, nil, nil)
 }
 
 // DeleteAlertmanager deletes the Alertmanager.
@@ -37,7 +37,7 @@ func DeleteAlertmanager(ctx context.Context, client dynamic.Interface, recorder 
 
 // ApplyPrometheus applies the Prometheus.
 func ApplyPrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusGVR)
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusGVR, nil, nil)
 }
 
 // DeletePrometheus deletes the Prometheus.
@@ -47,7 +47,7 @@ func DeletePrometheus(ctx context.Context, client dynamic.Interface, recorder ev
 
 // ApplyPrometheusRule applies the PrometheusRule.
 func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusRuleGVR)
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusRuleGVR, nil, nil)
 }
 
 // DeletePrometheusRule deletes the PrometheusRule.
@@ -57,7 +57,7 @@ func DeletePrometheusRule(ctx context.Context, client dynamic.Interface, recorde
 
 // ApplyServiceMonitor applies the ServiceMonitor.
 func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, serviceMonitorGVR)
+	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, serviceMonitorGVR, nil, nil)
 }
 
 // DeleteServiceMonitor deletes the ServiceMonitor.
@@ -66,16 +66,24 @@ func DeleteServiceMonitor(ctx context.Context, client dynamic.Interface, recorde
 }
 
 // ApplyUnstructuredResourceImproved can utilize the cache to reconcile the existing resource to the desired state.
-func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured, cache ResourceCache, resourceGVR schema.GroupVersionResource) (*unstructured.Unstructured, bool, error) {
+func ApplyUnstructuredResourceImproved(
+	ctx context.Context,
+	client dynamic.Interface,
+	recorder events.Recorder,
+	required *unstructured.Unstructured,
+	cache ResourceCache,
+	resourceGVR schema.GroupVersionResource,
+	defaultingFunc mimicDefaultingFunc,
+	equalityChecker equalityChecker,
+) (*unstructured.Unstructured, bool, error) {
 	name := required.GetName()
 	namespace := required.GetNamespace()
 
 	// Create if resource does not exist, and update cache with new metadata.
 	existing, err := client.Resource(resourceGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		requiredCopy := required.DeepCopy()
 		want, err := client.Resource(resourceGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
-		reportCreateEvent(recorder, requiredCopy, err)
+		reportCreateEvent(recorder, required, err)
 		cache.UpdateCachedResourceMetadata(required, want)
 		return want, true, err
 	}
@@ -123,7 +131,13 @@ func ApplyUnstructuredResourceImproved(ctx context.Context, client dynamic.Inter
 	resourcemerge.EnsureObjectMeta(didMetadataModify, &existingObjectMetaTyped, requiredObjectMetaTyped)
 
 	// Deep-check the spec objects for equality, and update the cache in either case.
-	existingCopy, didSpecModify, err := ensureGenericSpec(required, existingCopy, noDefaulting, equality.Semantic)
+	if defaultingFunc == nil {
+		defaultingFunc = noDefaulting
+	}
+	if equalityChecker == nil {
+		equalityChecker = equality.Semantic
+	}
+	existingCopy, didSpecModify, err := ensureGenericSpec(required, existingCopy, defaultingFunc, equalityChecker)
 	if err != nil {
 		return nil, false, err
 	}
