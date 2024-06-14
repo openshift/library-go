@@ -1268,7 +1268,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
 				return []metav1.OwnerReference{}, nil
 			}
-			err := c.ensureInstallerPod(context.TODO(), &operatorv1.StaticPodOperatorSpec{}, &operatorv1.NodeStatus{
+			_, err := c.ensureInstallerPod(context.TODO(), &operatorv1.StaticPodOperatorSpec{}, &operatorv1.NodeStatus{
 				NodeName:       "test-node-1",
 				TargetRevision: 1,
 			})
@@ -2062,15 +2062,16 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 func TestInstallerController_manageInstallationPods(t *testing.T) {
 	type fields struct {
-		targetNamespace      string
-		staticPodName        string
-		configMaps           []revision.RevisionResource
-		secrets              []revision.RevisionResource
-		command              []string
-		operatorConfigClient v1helpers.StaticPodOperatorClient
-		kubeClient           kubernetes.Interface
-		eventRecorder        events.Recorder
-		installerPodImageFn  func() string
+		targetNamespace       string
+		staticPodName         string
+		configMaps            []revision.RevisionResource
+		secrets               []revision.RevisionResource
+		command               []string
+		operatorConfigClient  v1helpers.StaticPodOperatorClient
+		kubeClient            kubernetes.Interface
+		eventRecorder         events.Recorder
+		installerPodImageFn   func() string
+		installerPrecondition StaticPodInstallerPreconditionsFuncType
 	}
 	type args struct {
 		operatorSpec           *operatorv1.StaticPodOperatorSpec
@@ -2084,7 +2085,114 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "if the revision shouldn't install and a new revision is to be rolled out, requeue the creation of installer pod",
+			fields: fields{
+				targetNamespace: "test-namespace",
+				staticPodName:   "test-pod",
+				command:         []string{},
+				kubeClient:      fake.NewSimpleClientset(),
+				eventRecorder:   eventstesting.NewTestingEventRecorder(t),
+				installerPrecondition: func(ctx context.Context) (bool, error) {
+					return false, nil
+				},
+			},
+			args: args{
+				operatorSpec: &operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{},
+				},
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 4,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-0",
+							CurrentRevision: 4,
+						},
+						{
+							NodeName:        "test-node-1",
+							CurrentRevision: 3,
+							TargetRevision:  4,
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "if the revision shouldn't install and no new revision is to be rolled out, then no requeue of the installer pod",
+			fields: fields{
+				targetNamespace: "test-namespace",
+				staticPodName:   "test-pod",
+				command:         []string{},
+				kubeClient:      fake.NewSimpleClientset(),
+				installerPrecondition: func(ctx context.Context) (bool, error) {
+					return false, nil
+				},
+			},
+			args: args{
+				operatorSpec: &operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{},
+				},
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 3,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-0",
+							CurrentRevision: 3,
+						},
+						{
+							NodeName:        "test-node-1",
+							CurrentRevision: 3,
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "if the revision should install and a new revision is to be rolled out, no requeue of the installer pod",
+			fields: fields{
+				targetNamespace: "test-namespace",
+				staticPodName:   "test-pod",
+				configMaps:      []revision.RevisionResource{{Name: "test-config"}},
+				command:         []string{},
+				kubeClient:      fake.NewSimpleClientset(),
+				eventRecorder:   eventstesting.NewTestingEventRecorder(t),
+				installerPodImageFn: func() string {
+					return "docker.io/foo/bar"
+				},
+				installerPrecondition: func(ctx context.Context) (bool, error) {
+					return true, nil
+				},
+			},
+			args: args{
+				operatorSpec: &operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{},
+				},
+				originalOperatorStatus: &operatorv1.StaticPodOperatorStatus{
+					LatestAvailableRevision: 4,
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-0",
+							CurrentRevision: 3,
+							TargetRevision:  4,
+						},
+						{
+							NodeName:        "test-node-0",
+							CurrentRevision: 3,
+						},
+						{
+							NodeName:        "test-node-0",
+							CurrentRevision: 3,
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2099,7 +2207,15 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 				podsGetter:          tt.fields.kubeClient.CoreV1(),
 				eventRecorder:       tt.fields.eventRecorder,
 				installerPodImageFn: tt.fields.installerPodImageFn,
+				installPrecondition: tt.fields.installerPrecondition,
 			}
+			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
+			c.startupMonitorEnabled = func() (bool, error) {
+				return false, nil
+			}
+
 			got, _, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
