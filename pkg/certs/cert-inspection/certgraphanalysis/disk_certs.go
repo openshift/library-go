@@ -14,7 +14,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 )
@@ -185,18 +184,24 @@ func parseFileAsCertKeyPair(path string) ([]*certgraphapi.CertKeyPair, error) {
 	}
 	// Parse as kubeconfig
 	if kubeConfig, err := parseFileAsKubeConfig(path); err == nil {
-		if detail, err := GetCertKeyPairFromKubeConfig(kubeConfig, "", ""); err == nil {
-			fmt.Fprintf(os.Stdout, "Found a valid kubeconfig\n")
-			detail.Spec.OnDiskLocations = []certgraphapi.OnDiskCertKeyPairLocation{
-				{
-					Cert: certgraphapi.OnDiskLocation{
-						Path: path,
-					},
-					Key: certgraphapi.OnDiskLocation{
-						Path: path,
-					},
-				}}
-			details = append(details, detail)
+		details := []*certgraphapi.CertKeyPair{}
+		if rawConfig, err := kubeConfig.RawConfig(); err == nil {
+			for _, authInfo := range rawConfig.AuthInfos {
+				if certKeyPairs, err := GetCertKeyPairsFromKubeConfig(authInfo, nil); err == nil {
+					for i := range certKeyPairs {
+						certKeyPairs[i].Spec.OnDiskLocations = []certgraphapi.OnDiskCertKeyPairLocation{
+							{
+								Cert: certgraphapi.OnDiskLocation{
+									Path: path,
+								},
+								Key: certgraphapi.OnDiskLocation{
+									Path: path,
+								},
+							}}
+					}
+					details = append(details, certKeyPairs...)
+				}
+			}
 			return details, nil
 		}
 	}
@@ -226,15 +231,18 @@ func parseFileAsCA(path string) (*certgraphapi.CertificateAuthorityBundle, error
 	}
 	// Parse as kubeconfig
 	if kubeConfig, err := parseFileAsKubeConfig(path); err == nil {
-		fmt.Fprintf(os.Stdout, "Found a valid kubeconfig\n")
-		if detail, err := GetCAFromKubeConfig(kubeConfig, "", ""); err == nil {
-			detail.Spec.OnDiskLocations = []certgraphapi.OnDiskLocation{
-				{
-					Path: path,
-				},
+		if clientConfig, err := kubeConfig.ClientConfig(); err == nil {
+			fmt.Fprintf(os.Stdout, "Found a valid kubeconfig\n")
+			if detail, err := GetCAFromKubeConfig(clientConfig, "", ""); err == nil {
+				detail.Spec.OnDiskLocations = []certgraphapi.OnDiskLocation{
+					{
+						Path: path,
+					},
+				}
+				return detail, nil
 			}
-			return detail, nil
 		}
+
 	}
 	certificates, err := cert.ParseCertsPEM(bytes)
 	if err != nil {
@@ -259,16 +267,12 @@ func parseFileAsCA(path string) (*certgraphapi.CertificateAuthorityBundle, error
 	return detail, nil
 }
 
-func parseFileAsKubeConfig(path string) (*rest.Config, error) {
+func parseFileAsKubeConfig(path string) (clientcmd.OverridingClientConfig, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	kubeConfig, err := clientcmd.NewClientConfigFromBytes(bytes)
-	if err != nil {
-		return nil, err
-	}
-	return kubeConfig.ClientConfig()
+	return clientcmd.NewClientConfigFromBytes(bytes)
 }
 
 func gatherCABundlesFromDisk(ctx context.Context, dir string, options certGenerationOptionList) ([]*certgraphapi.CertificateAuthorityBundle, []*certgraphapi.OnDiskLocationWithMetadata, error) {
