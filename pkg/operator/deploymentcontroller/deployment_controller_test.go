@@ -349,6 +349,13 @@ func withDeletionTimestamp() operatorModifier {
 	}
 }
 
+func withStateRemoved() operatorModifier {
+	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
+		i.Spec.ManagementState = opv1.Removed
+		return i
+	}
+}
+
 // This reactor is always enabled and bumps Deployment generation when it gets updated.
 func addGenerationReactor(client *fakecore.Clientset) {
 	client.PrependReactor("*", "deployments", func(action core.Action) (handled bool, ret runtime.Object, err error) {
@@ -495,6 +502,24 @@ func TestSync(t *testing.T) {
 					withGenerations(1),
 					// finalizer is removed,
 					withDeletionTimestamp()),
+			},
+		},
+		{
+			// Deployment and finalizer are deleted if ManagementState is Removed
+			name:      "ManagementState Removed",
+			removable: true,
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica1, replica1, replica1)),
+				operator: makeFakeOperatorInstance(
+					withGenerations(1),
+					withFinalizers(finalizerName),
+					withStateRemoved()),
+			},
+			expectedObjects: testObjects{
+				operator: makeFakeOperatorInstance(
+					withGenerations(1)),
 			},
 		},
 		{

@@ -230,6 +230,13 @@ func withDeletionTimestamp() driverModifier {
 	}
 }
 
+func withStateRemoved() driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		i.Spec.ManagementState = opv1.Removed
+		return i
+	}
+}
+
 func withObservedTLSConfig() driverModifier {
 	return func(i *fakeDriverInstance) *fakeDriverInstance {
 		i.Spec.ObservedConfig = runtime.RawExtension{
@@ -620,6 +627,28 @@ func TestSync(t *testing.T) {
 					// No conditions are updated!
 					// (only Degraded condition might be set on error)
 					withDeletionTimestamp()),
+			},
+		},
+		{
+			// DaemonSet and finalizer are deleted if ManagementState is Removed
+			name:         "ManagementState Removed",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
+			removable:    true,
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+				driver: makeFakeDriverInstance(
+					withGenerations(1),
+					withFinalizers(finalizerName),
+					withStateRemoved()),
+			},
+			expectedObjects: testObjects{
+				driver: makeFakeDriverInstance(
+					withGenerations(1)),
 			},
 		},
 		{

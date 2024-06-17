@@ -209,6 +209,10 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 		return err
 	}
 
+	if opSpec.ManagementState == opv1.Removed && management.IsOperatorRemovable() {
+		return c.syncDeleting(ctx, opSpec, opStatus, syncContext)
+	}
+
 	if opSpec.ManagementState != opv1.Managed {
 		return nil
 	}
