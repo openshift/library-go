@@ -256,7 +256,7 @@ func operation(t *testing.T, options interface{}) string {
 	case metav1.GetOptions:
 		return "get"
 	case metav1.PatchOptions:
-		return "get"
+		return "patch"
 	}
 	t.Fatalf("wrong test setup: we shouldn't be here for this test")
 	return ""
@@ -371,7 +371,11 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
 						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
 						annotations.OpenShiftComponent:             "test",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						Name: "operator",
 					}},
+				},
 				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
