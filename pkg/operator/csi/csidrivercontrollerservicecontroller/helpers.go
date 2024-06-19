@@ -102,6 +102,25 @@ func WithCABundleDeploymentHook(
 	}
 }
 
+// WithConfigMapHashAnnotationHook creates a deployment hook that annotates a Deployment with a config map's hash.
+func WithConfigMapHashAnnotationHook(
+	namespace string,
+	configMapName string,
+	configMapInformer corev1.ConfigMapInformer,
+) dc.DeploymentHookFunc {
+	return func(opSpec *opv1.OperatorSpec, deployment *appsv1.Deployment) error {
+		inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferenceFromLister(
+			configMapInformer.Lister(),
+			nil,
+			resourcehash.NewObjectRef().ForConfigMap().InNamespace(namespace).Named(configMapName),
+		)
+		if err != nil {
+			return fmt.Errorf("invalid dependency reference: %w", err)
+		}
+		return addObjectHash(deployment, inputHashes)
+	}
+}
+
 // WithSecretHashAnnotationHook creates a deployment hook that annotates a Deployment with a secret's hash.
 func WithSecretHashAnnotationHook(
 	namespace string,
