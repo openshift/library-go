@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	goruntime "runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,6 +25,7 @@ import (
 
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/testing/linearizer"
 )
 
 func TestRotatedSigningCASecretShouldNotUseDelete(t *testing.T) {
@@ -109,7 +113,7 @@ func TestRotatedSigningCASecretShouldNotUseDelete(t *testing.T) {
 			Name:                  name,
 			Validity:              24 * time.Hour,
 			Refresh:               12 * time.Hour,
-			Client:                &getter{w: wrapped},
+			Client:                &getter{SecretInterface: wrapped},
 			Lister:                corev1listers.NewSecretLister(indexer),
 			AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
 			Owner:                 &metav1.OwnerReference{Name: "operator"},
@@ -203,12 +207,153 @@ func TestRotatedSigningCASecretShouldNotUseDelete(t *testing.T) {
 	t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
 }
 
+func TestRotatedSigningCASecretWithLinearization(t *testing.T) {
+	count := 2
+	exhaustive := &linearizer.Exhaustive{}
+	d := linearizer.NewIterationCoordinator(t, count, exhaustive)
+
+	for d.More() {
+		t.Run("", func(t *testing.T) {
+			run := d.NewIteration(t)
+			defer run.Done()
+
+			ns, name := "ns", "test-signer"
+			// represents a secret that was created before 4.7 and
+			// hasn't been updated until now (upgrade to 4.15)
+			existing := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       ns,
+					Name:            name,
+					ResourceVersion: "10",
+				},
+				Type: "SecretTypeTLS",
+				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+			}
+			// not-after and not-before annotations are filled when new signer is generated
+			if err := setSigningCertKeyPairSecret(existing, 24*time.Hour); err != nil {
+				t.Fatal(err)
+			}
+
+			// get the original crt and key bytes to compare later
+			tlsCertWant, ok := existing.Data["tls.crt"]
+			if !ok || len(tlsCertWant) == 0 {
+				t.Fatalf("missing data in 'tls.crt' key of Data: %#v", existing.Data)
+			}
+			tlsKeyWant, ok := existing.Data["tls.key"]
+			if !ok || len(tlsKeyWant) == 0 {
+				t.Fatalf("missing data in 'tls.key' key of Data: %#v", existing.Data)
+			}
+
+			storage := kubefake.NewObjectTracker(existing)
+			newControllerFn := func(ctrlName string) *RotatedSigningCASecret {
+				clientset := kubefake.NewSimpleClientsetWithTracker(storage)
+				clientset.PrependReactor("*", "*", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+					if actor := run.GetMyActor(); actor != nil {
+						op := fmt.Sprintf("%s/%s", action.GetVerb(), action.GetResource().Resource)
+						<-actor.Wait(op)
+					}
+					return false, nil, nil
+				})
+
+				return &RotatedSigningCASecret{
+					Namespace:             ns,
+					Name:                  name,
+					Validity:              24 * time.Hour,
+					Refresh:               12 * time.Hour,
+					Client:                clientset.CoreV1(),
+					Lister:                linearizer.NewFakeSecretLister(storage),
+					AdditionalAnnotations: AdditionalAnnotations{JiraComponent: "test"},
+					Owner:                 &metav1.OwnerReference{Name: "operator"},
+					EventRecorder:         events.NewInMemoryRecorder("test"),
+					UseSecretUpdateOnly:   false,
+				}
+			}
+
+			var wg sync.WaitGroup
+			wg.Add(count)
+			for i := 0; i < count; i++ {
+				go func() {
+					defer wg.Done()
+
+					actor := run.GetMyActor()
+					defer actor.Exit()
+
+					<-actor.Wait("Start")
+
+					ctrl := newControllerFn(fmt.Sprintf("controller-%d", actor.ID()))
+					ctrl.EnsureSigningCertKeyPair(context.TODO())
+				}()
+			}
+
+			wg.Wait()
+			t.Logf("sequence: %s", run.Sequence())
+
+			// controllers are done, we don't expect the signer to change
+			clientset := kubefake.NewSimpleClientsetWithTracker(storage)
+			secretGot, err := clientset.CoreV1().Secrets(ns).Get(context.TODO(), name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tlsCertGot, ok := secretGot.Data["tls.crt"]; !ok || !bytes.Equal(tlsCertWant, tlsCertGot) {
+				t.Errorf("the signer cert has mutated unexpectedly")
+			}
+			if tlsKeyGot, ok := secretGot.Data["tls.key"]; !ok || !bytes.Equal(tlsKeyWant, tlsKeyGot) {
+				t.Errorf("the signer key has mutated unexpectedly")
+			}
+			if got, exists := secretGot.Annotations["openshift.io/owning-component"]; !exists || got != "test" {
+				t.Errorf("owner annotation is missing: %#v", secretGot.Annotations)
+			}
+			if secretGot.Type != corev1.SecretTypeTLS {
+				t.Errorf("expected the secret type to be: %q, but got: %q", corev1.SecretTypeTLS, secretGot.Type)
+			}
+
+			// t.Logf("diff: %s", cmp.Diff(secretWant, secretGot))
+		})
+	}
+
+	exhaustive.Report()
+}
+
+func goroutineid(t *testing.T) int {
+	var buf [64]byte
+	n := goruntime.Stack(buf[:], false)
+	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
+	id, err := strconv.Atoi(idField)
+	if err != nil {
+		t.Fatalf("cannot get goroutine id: %v", err)
+	}
+	return id
+}
+
+type holder struct {
+	corev1client.SecretInterface
+	actor linearizer.Actor
+}
+
+func (h holder) Create(ctx context.Context, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+	<-h.actor.Wait("create")
+	return h.SecretInterface.Create(ctx, secret, opts)
+}
+func (h holder) Update(ctx context.Context, secret *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
+	<-h.actor.Wait("update")
+	return h.SecretInterface.Update(ctx, secret, opts)
+}
+func (h holder) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	<-h.actor.Wait("delete")
+	return h.SecretInterface.Delete(ctx, name, opts)
+}
+func (h holder) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
+	<-h.actor.Wait("get")
+	return h.SecretInterface.Get(ctx, name, opts)
+}
+
 type getter struct {
-	w *wrapped
+	corev1client.SecretInterface
+	// w *wrapped
 }
 
 func (g *getter) Secrets(string) corev1client.SecretInterface {
-	return g.w
+	return g.SecretInterface
 }
 
 type wrapped struct {
