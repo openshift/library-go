@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+imagePullSecrets:
+- name: cloud-network-config-controller-dockercfg-vk2zk
+kind: ServiceAccount
+metadata:
+  creationTimestamp: "2023-12-06T09:19:56Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:19:56Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:imagePullSecrets: {}
+      f:secrets:
+        .: {}
+        k:{"name":"cloud-network-config-controller-dockercfg-vk2zk"}: {}
+    manager: openshift-controller-manager
+    operation: Update
+    time: "2023-12-06T09:23:35Z"
+  name: cloud-network-config-controller
+  namespace: openshift-cloud-network-config-controller
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "14290"
+  uid: 1b124145-bb50-4082-a1c8-48e22ec6a75c
+secrets:
+- name: cloud-network-config-controller-dockercfg-vk2zk

@@ -1,0 +1,59 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:18:07Z"
+  generation: 1
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:exclude.release.openshift.io/internal-openshift-hosted: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:groups:
+          .: {}
+          k:{"name":"cluster-version"}:
+            .: {}
+            f:name: {}
+            f:rules: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:07Z"
+  name: kube-apiserver-operator
+  namespace: openshift-kube-apiserver-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "1610"
+  uid: 0d98f7e1-282a-4798-9ba2-119be0c19f3b
+spec:
+  groups:
+  - name: cluster-version
+    rules:
+    - alert: TechPreviewNoUpgrade
+      annotations:
+        description: Cluster has enabled Technology Preview features that cannot be
+          undone and will prevent upgrades. The TechPreviewNoUpgrade feature set is
+          not recommended on production clusters.
+        summary: Cluster has enabled tech preview features that will prevent upgrades.
+      expr: |
+        cluster_feature_set{name!="", namespace="openshift-kube-apiserver-operator"} == 0
+      for: 10m
+      labels:
+        severity: warning

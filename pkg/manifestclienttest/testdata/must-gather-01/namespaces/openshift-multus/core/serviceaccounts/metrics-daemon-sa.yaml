@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+imagePullSecrets:
+- name: metrics-daemon-sa-dockercfg-t2bt7
+kind: ServiceAccount
+metadata:
+  creationTimestamp: "2023-12-06T09:20:01Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:01Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:imagePullSecrets: {}
+      f:secrets:
+        .: {}
+        k:{"name":"metrics-daemon-sa-dockercfg-t2bt7"}: {}
+    manager: openshift-controller-manager
+    operation: Update
+    time: "2023-12-06T09:23:48Z"
+  name: metrics-daemon-sa
+  namespace: openshift-multus
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "15322"
+  uid: 35f3c34e-a69b-4b78-b807-3459befdc5f8
+secrets:
+- name: metrics-daemon-sa-dockercfg-t2bt7

@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:13Z"
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    labels:
+      prometheus: kube-scheduler
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:prometheus: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: scheduler
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5941"
+    uid: 1d7be84d-8c5f-409a-9abe-12e5f7890618
+kind: EndpointsList
+metadata:
+  resourceVersion: "47899"

@@ -1,0 +1,25 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: CloudCredential
+metadata:
+  creationTimestamp: "2023-12-06T09:17:36Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:credentialsMode: {}
+        f:logLevel: {}
+        f:operatorLogLevel: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:17:36Z"
+  name: cluster
+  resourceVersion: "514"
+  uid: 8c7933ff-91cf-42b0-88c3-08cd7451bbd0
+spec:
+  credentialsMode: ""
+  logLevel: Normal
+  operatorLogLevel: Normal

@@ -1,0 +1,262 @@
+---
+apiVersion: machine.openshift.io/v1
+kind: ControlPlaneMachineSet
+metadata:
+  creationTimestamp: "2023-12-06T09:18:19Z"
+  finalizers:
+  - controlplanemachineset.machine.openshift.io
+  generation: 1
+  labels:
+    machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+  managedFields:
+  - apiVersion: machine.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:machine.openshift.io/cluster-api-cluster: {}
+      f:spec:
+        .: {}
+        f:replicas: {}
+        f:selector: {}
+        f:state: {}
+        f:strategy:
+          .: {}
+          f:type: {}
+        f:template:
+          .: {}
+          f:machineType: {}
+          f:machines_v1beta1_machine_openshift_io:
+            .: {}
+            f:failureDomains:
+              .: {}
+              f:aws: {}
+              f:platform: {}
+            f:metadata:
+              .: {}
+              f:labels:
+                .: {}
+                f:machine.openshift.io/cluster-api-cluster: {}
+                f:machine.openshift.io/cluster-api-machine-role: {}
+                f:machine.openshift.io/cluster-api-machine-type: {}
+            f:spec:
+              .: {}
+              f:lifecycleHooks: {}
+              f:metadata: {}
+              f:providerSpec:
+                .: {}
+                f:value:
+                  .: {}
+                  f:ami:
+                    .: {}
+                    f:id: {}
+                  f:apiVersion: {}
+                  f:blockDevices: {}
+                  f:credentialsSecret:
+                    .: {}
+                    f:name: {}
+                  f:deviceIndex: {}
+                  f:iamInstanceProfile:
+                    .: {}
+                    f:id: {}
+                  f:instanceType: {}
+                  f:kind: {}
+                  f:loadBalancers: {}
+                  f:metadata:
+                    .: {}
+                    f:creationTimestamp: {}
+                  f:metadataServiceOptions: {}
+                  f:placement:
+                    .: {}
+                    f:region: {}
+                  f:securityGroups: {}
+                  f:subnet: {}
+                  f:tags: {}
+                  f:userDataSecret:
+                    .: {}
+                    f:name: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: machine.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status: {}
+    manager: cluster-bootstrap
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: machine.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"controlplanemachineset.machine.openshift.io": {}
+    manager: manager
+    operation: Update
+    time: "2023-12-06T09:21:43Z"
+  - apiVersion: machine.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Degraded"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Error"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Progressing"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:observedGeneration: {}
+        f:readyReplicas: {}
+        f:replicas: {}
+        f:updatedReplicas: {}
+    manager: manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:24:34Z"
+  name: cluster
+  namespace: openshift-machine-api
+  resourceVersion: "16093"
+  uid: 0db7379e-ae68-405e-b574-994f792da7fb
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+      machine.openshift.io/cluster-api-machine-role: master
+      machine.openshift.io/cluster-api-machine-type: master
+  state: Active
+  strategy:
+    type: RollingUpdate
+  template:
+    machineType: machines_v1beta1_machine_openshift_io
+    machines_v1beta1_machine_openshift_io:
+      failureDomains:
+        aws:
+        - placement:
+            availabilityZone: us-west-1b
+          subnet:
+            filters:
+            - name: tag:Name
+              values:
+              - ci-op-2j285qtr-234c7-w84r8-private-us-west-1b
+            type: Filters
+        - placement:
+            availabilityZone: us-west-1a
+          subnet:
+            filters:
+            - name: tag:Name
+              values:
+              - ci-op-2j285qtr-234c7-w84r8-private-us-west-1a
+            type: Filters
+        platform: AWS
+      metadata:
+        labels:
+          machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+          machine.openshift.io/cluster-api-machine-role: master
+          machine.openshift.io/cluster-api-machine-type: master
+      spec:
+        lifecycleHooks: {}
+        metadata: {}
+        providerSpec:
+          value:
+            ami:
+              id: ami-0a4eb15533efba35b
+            apiVersion: machine.openshift.io/v1beta1
+            blockDevices:
+            - ebs:
+                encrypted: true
+                iops: 0
+                kmsKey:
+                  arn: ""
+                volumeSize: 120
+                volumeType: gp3
+            credentialsSecret:
+              name: aws-cloud-credentials
+            deviceIndex: 0
+            iamInstanceProfile:
+              id: ci-op-2j285qtr-234c7-w84r8-master-profile
+            instanceType: m6a.xlarge
+            kind: AWSMachineProviderConfig
+            loadBalancers:
+            - name: ci-op-2j285qtr-234c7-w84r8-int
+              type: network
+            - name: ci-op-2j285qtr-234c7-w84r8-ext
+              type: network
+            metadata:
+              creationTimestamp: null
+            metadataServiceOptions: {}
+            placement:
+              region: us-west-1
+            securityGroups:
+            - filters:
+              - name: tag:Name
+                values:
+                - ci-op-2j285qtr-234c7-w84r8-master-sg
+            subnet: {}
+            tags:
+            - name: kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8
+              value: owned
+            - name: expirationDate
+              value: 2023-12-06T17:08+0000
+            userDataSecret:
+              name: master-user-data
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:43Z"
+    message: ""
+    observedGeneration: 1
+    reason: AsExpected
+    status: "False"
+    type: Error
+  - lastTransitionTime: "2023-12-06T09:24:34Z"
+    message: ""
+    observedGeneration: 1
+    reason: AllReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:22:53Z"
+    message: ""
+    observedGeneration: 1
+    reason: AsExpected
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:24:34Z"
+    message: ""
+    observedGeneration: 1
+    reason: AllReplicasUpdated
+    status: "False"
+    type: Progressing
+  observedGeneration: 1
+  readyReplicas: 3
+  replicas: 3
+  updatedReplicas: 3

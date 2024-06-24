@@ -1,0 +1,251 @@
+---
+apiVersion: apiserver.openshift.io/v1
+kind: APIRequestCount
+metadata:
+  creationTimestamp: "2023-12-06T09:42:00Z"
+  generation: 1
+  managedFields:
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:numberOfUsersToReport: {}
+    manager: kube-apiserver
+    operation: Update
+    time: "2023-12-06T09:42:00Z"
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:currentHour:
+          .: {}
+          f:byNode: {}
+          f:requestCount: {}
+        f:last24h: {}
+        f:requestCount: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:49:29Z"
+  name: brokertemplateinstances.v1.template.openshift.io
+  resourceVersion: "41732"
+  uid: bb25d6c2-b317-4c84-a2c2-1b29eed35f18
+spec:
+  numberOfUsersToReport: 10
+status:
+  currentHour:
+    byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 5
+    requestCount: 5
+  last24h:
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 5
+    requestCount: 5
+  - requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  requestCount: 5

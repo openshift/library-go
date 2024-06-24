@@ -1,0 +1,78 @@
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  annotations:
+    capability.openshift.io/name: MachineAPI
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+  creationTimestamp: "2023-12-06T09:27:39Z"
+  generation: 1
+  labels:
+    api: clusterapi
+    k8s-app: termination-handler
+  managedFields:
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:exclude.release.openshift.io/internal-openshift-hosted: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:labels:
+          .: {}
+          f:api: {}
+          f:k8s-app: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:maxUnhealthy: {}
+        f:nodeStartupTimeout: {}
+        f:selector: {}
+        f:unhealthyConditions: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:27:39Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:currentHealthy: {}
+        f:expectedMachines: {}
+    manager: machine-healthcheck
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:27:39Z"
+  name: machine-api-termination-handler
+  namespace: openshift-machine-api
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "21314"
+  uid: 789f36ab-d898-476a-9294-2fb5b8150539
+spec:
+  maxUnhealthy: 100%
+  nodeStartupTimeout: "0"
+  selector:
+    matchLabels:
+      machine.openshift.io/interruptible-instance: ""
+  unhealthyConditions:
+  - status: "True"
+    timeout: 0s
+    type: Terminating
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:27:39Z"
+    status: "True"
+    type: RemediationAllowed
+  currentHealthy: 0
+  expectedMachines: 0

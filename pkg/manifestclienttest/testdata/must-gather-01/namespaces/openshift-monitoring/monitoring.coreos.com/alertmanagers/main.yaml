@@ -1,0 +1,330 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  creationTimestamp: "2023-12-06T09:39:14Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/component: alert-router
+    app.kubernetes.io/instance: main
+    app.kubernetes.io/managed-by: cluster-monitoring-operator
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/part-of: openshift-monitoring
+    app.kubernetes.io/version: 0.26.0
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:availableReplicas: {}
+        f:conditions:
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Reconciled"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:paused: {}
+        f:replicas: {}
+        f:unavailableReplicas: {}
+        f:updatedReplicas: {}
+    manager: PrometheusOperator
+    operation: Apply
+    subresource: status
+    time: "2023-12-06T09:41:22Z"
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/managed-by: {}
+          f:app.kubernetes.io/name: {}
+          f:app.kubernetes.io/part-of: {}
+          f:app.kubernetes.io/version: {}
+      f:spec:
+        .: {}
+        f:affinity:
+          .: {}
+          f:podAntiAffinity:
+            .: {}
+            f:requiredDuringSchedulingIgnoredDuringExecution: {}
+        f:alertmanagerConfigMatcherStrategy:
+          .: {}
+          f:type: {}
+        f:automountServiceAccountToken: {}
+        f:containers: {}
+        f:externalUrl: {}
+        f:image: {}
+        f:listenLocal: {}
+        f:nodeSelector:
+          .: {}
+          f:kubernetes.io/os: {}
+        f:podMetadata:
+          .: {}
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:portName: {}
+        f:priorityClassName: {}
+        f:replicas: {}
+        f:resources:
+          .: {}
+          f:requests:
+            .: {}
+            f:cpu: {}
+            f:memory: {}
+        f:retention: {}
+        f:secrets: {}
+        f:securityContext:
+          .: {}
+          f:fsGroup: {}
+          f:runAsNonRoot: {}
+          f:runAsUser: {}
+        f:serviceAccountName: {}
+        f:version: {}
+        f:volumeMounts: {}
+        f:volumes: {}
+        f:web:
+          .: {}
+          f:httpConfig:
+            .: {}
+            f:headers:
+              .: {}
+              f:contentSecurityPolicy: {}
+    manager: operator
+    operation: Update
+    time: "2023-12-06T09:40:19Z"
+  name: main
+  namespace: openshift-monitoring
+  resourceVersion: "35734"
+  uid: d24f1e4b-f056-4a9d-adc5-bd25ee7cad7f
+spec:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: alert-router
+            app.kubernetes.io/instance: main
+            app.kubernetes.io/name: alertmanager
+            app.kubernetes.io/part-of: openshift-monitoring
+        namespaces:
+        - openshift-monitoring
+        topologyKey: kubernetes.io/hostname
+  alertmanagerConfigMatcherStrategy:
+    type: OnNamespace
+  automountServiceAccountToken: true
+  containers:
+  - args:
+    - -provider=openshift
+    - -https-address=:9095
+    - -http-address=
+    - -email-domain=*
+    - -upstream=http://localhost:9093
+    - '-openshift-sar=[{"resource": "namespaces", "verb": "get"}, {"resource": "alertmanagers",
+      "resourceAPIGroup": "monitoring.coreos.com", "namespace": "openshift-monitoring",
+      "verb": "patch", "resourceName": "non-existant"}]'
+    - '-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}, "/":
+      {"resource":"alertmanagers", "group": "monitoring.coreos.com", "namespace":
+      "openshift-monitoring", "verb": "patch", "name": "non-existant"}}'
+    - -tls-cert=/etc/tls/private/tls.crt
+    - -tls-key=/etc/tls/private/tls.key
+    - -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+    - -cookie-secret-file=/etc/proxy/secrets/session_secret
+    - -openshift-service-account=alertmanager-main
+    - -openshift-ca=/etc/pki/tls/cert.pem
+    - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    env:
+    - name: HTTP_PROXY
+    - name: HTTPS_PROXY
+    - name: NO_PROXY
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:756d1459b9fb34dd133d5519bea858188a2371ddba77079e24b4938060359a30
+    name: alertmanager-proxy
+    ports:
+    - containerPort: 9095
+      name: web
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 20Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: secret-alertmanager-main-tls
+    - mountPath: /etc/proxy/secrets
+      name: secret-alertmanager-main-proxy
+    - mountPath: /etc/pki/ca-trust/extracted/pem/
+      name: alertmanager-trusted-ca-bundle
+      readOnly: true
+  - args:
+    - --secure-listen-address=0.0.0.0:9092
+    - --upstream=http://127.0.0.1:9096
+    - --config-file=/etc/kube-rbac-proxy/config.yaml
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - --tls-min-version=VersionTLS12
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
+    name: kube-rbac-proxy
+    ports:
+    - containerPort: 9092
+      name: tenancy
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 15Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/kube-rbac-proxy
+      name: secret-alertmanager-kube-rbac-proxy
+    - mountPath: /etc/tls/private
+      name: secret-alertmanager-main-tls
+  - args:
+    - --secure-listen-address=0.0.0.0:9097
+    - --upstream=http://127.0.0.1:9093
+    - --config-file=/etc/kube-rbac-proxy/config.yaml
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - --client-ca-file=/etc/tls/client/client-ca.crt
+    - --logtostderr=true
+    - --allow-paths=/metrics
+    - --tls-min-version=VersionTLS12
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
+    name: kube-rbac-proxy-metric
+    ports:
+    - containerPort: 9097
+      name: metrics
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 15Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/kube-rbac-proxy
+      name: secret-alertmanager-kube-rbac-proxy-metric
+      readOnly: true
+    - mountPath: /etc/tls/private
+      name: secret-alertmanager-main-tls
+      readOnly: true
+    - mountPath: /etc/tls/client
+      name: metrics-client-ca
+      readOnly: true
+  - args:
+    - --insecure-listen-address=127.0.0.1:9096
+    - --upstream=http://127.0.0.1:9093
+    - --label=namespace
+    - --error-on-replace
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8a88b154d5c78fa5ff1f3cc052e50e6941baec22008b9bd2b3a5b5e5b55af180
+    name: prom-label-proxy
+    resources:
+      requests:
+        cpu: 1m
+        memory: 20Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+  - name: alertmanager
+    resources: {}
+    startupProbe:
+      exec:
+        command:
+        - sh
+        - -c
+        - exec curl --fail http://localhost:9093/-/ready
+      failureThreshold: 40
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 3
+  externalUrl: https://console-openshift-console.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com/monitoring
+  image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8ab06e66bcd1e624fbce3e7c34217ca11a887793a64a6d130b55df36def17af4
+  listenLocal: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  podMetadata:
+    annotations:
+      target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+    labels:
+      app.kubernetes.io/component: alert-router
+      app.kubernetes.io/instance: main
+      app.kubernetes.io/name: alertmanager
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.26.0
+  portName: web
+  priorityClassName: system-cluster-critical
+  replicas: 2
+  resources:
+    requests:
+      cpu: 4m
+      memory: 40Mi
+  retention: 120h
+  secrets:
+  - alertmanager-main-tls
+  - alertmanager-main-proxy
+  - alertmanager-kube-rbac-proxy
+  - alertmanager-kube-rbac-proxy-metric
+  securityContext:
+    fsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+  serviceAccountName: alertmanager-main
+  version: 0.26.0
+  volumeMounts:
+  - mountPath: /etc/pki/ca-trust/extracted/pem/
+    name: alertmanager-trusted-ca-bundle
+    readOnly: true
+  volumes:
+  - configMap:
+      name: metrics-client-ca
+    name: metrics-client-ca
+  - configMap:
+      items:
+      - key: ca-bundle.crt
+        path: tls-ca-bundle.pem
+      name: alertmanager-trusted-ca-bundle-2ua4n9ob5qr8o
+      optional: true
+    name: alertmanager-trusted-ca-bundle
+  web:
+    httpConfig:
+      headers:
+        contentSecurityPolicy: frame-ancestors 'none'
+status:
+  availableReplicas: 2
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:41:22Z"
+    message: ""
+    observedGeneration: 2
+    reason: ""
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:39:14Z"
+    message: ""
+    observedGeneration: 2
+    reason: ""
+    status: "True"
+    type: Reconciled
+  paused: false
+  replicas: 2
+  unavailableReplicas: 0
+  updatedReplicas: 2

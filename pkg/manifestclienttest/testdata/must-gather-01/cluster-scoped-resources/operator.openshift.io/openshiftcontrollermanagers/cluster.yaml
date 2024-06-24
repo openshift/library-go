@@ -1,0 +1,165 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: OpenShiftControllerManager
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  generation: 3
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:observedConfig:
+          .: {}
+          f:build:
+            .: {}
+            f:buildDefaults:
+              .: {}
+              f:resources: {}
+            f:imageTemplateFormat:
+              .: {}
+              f:format: {}
+          f:controllers: {}
+          f:deployer:
+            .: {}
+            f:imageTemplateFormat:
+              .: {}
+              f:format: {}
+          f:dockerPullSecret:
+            .: {}
+            f:internalRegistryHostname: {}
+          f:featureGates: {}
+          f:ingress:
+            .: {}
+            f:ingressIPNetworkCIDR: {}
+        f:unsupportedConfigOverrides: {}
+    manager: cluster-openshift-controller-manager-operator
+    operation: Update
+    time: "2023-12-06T09:38:34Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:observedGeneration: {}
+        f:readyReplicas: {}
+        f:version: {}
+    manager: cluster-openshift-controller-manager-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:39:14Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "32964"
+  uid: d5aaf9fa-6288-454b-b4ff-d1d603b9b86c
+spec:
+  logLevel: Normal
+  managementState: Managed
+  observedConfig:
+    build:
+      buildDefaults:
+        resources: {}
+      imageTemplateFormat:
+        format: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f7611f9041b28807ec5c1fa8a94a46f402d04f26be22d1427d3be39b9ae1e2ea
+    controllers:
+    - openshift.io/build
+    - openshift.io/build-config-change
+    - openshift.io/builder-serviceaccount
+    - openshift.io/default-rolebindings
+    - openshift.io/deployer
+    - openshift.io/deployer-serviceaccount
+    - openshift.io/deploymentconfig
+    - openshift.io/image-import
+    - openshift.io/image-signature-import
+    - openshift.io/image-trigger
+    - openshift.io/ingress-ip
+    - openshift.io/ingress-to-route
+    - openshift.io/origin-namespace
+    - openshift.io/serviceaccount
+    - openshift.io/serviceaccount-pull-secrets
+    - openshift.io/templateinstance
+    - openshift.io/templateinstancefinalizer
+    - openshift.io/unidling
+    deployer:
+      imageTemplateFormat:
+        format: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ff8bf687833bd714e13dfdb5af53300cb59170b0c79ff90a466c4f9e07da7fe8
+    dockerPullSecret:
+      internalRegistryHostname: image-registry.openshift-image-registry.svc:5000
+    featureGates:
+    - BuildCSIVolumes=true
+    ingress:
+      ingressIPNetworkCIDR: ""
+  operatorLogLevel: Normal
+  unsupportedConfigOverrides: null
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    status: "False"
+    type: ConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:21:49Z"
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:39:14Z"
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    status: "True"
+    type: Upgradeable
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    status: "False"
+    type: WorkloadDegraded
+  - lastTransitionTime: "2023-12-06T09:21:11Z"
+    reason: AsExpected
+    status: "False"
+    type: OpenshiftControllerManagerStaticResourcesDegraded
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 8
+    name: controller-manager
+    namespace: openshift-controller-manager
+    resource: deployments
+  - group: apps
+    hash: ""
+    lastGeneration: 6
+    name: route-controller-manager
+    namespace: openshift-route-controller-manager
+    resource: deployments
+  observedGeneration: 3
+  readyReplicas: 0
+  version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

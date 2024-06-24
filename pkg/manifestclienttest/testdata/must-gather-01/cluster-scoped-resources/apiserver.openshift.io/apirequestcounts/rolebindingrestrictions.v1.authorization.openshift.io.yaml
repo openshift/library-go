@@ -1,0 +1,421 @@
+---
+apiVersion: apiserver.openshift.io/v1
+kind: APIRequestCount
+metadata:
+  creationTimestamp: "2023-12-06T09:24:03Z"
+  generation: 1
+  managedFields:
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:numberOfUsersToReport: {}
+    manager: kube-apiserver
+    operation: Update
+    time: "2023-12-06T09:24:03Z"
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:currentHour:
+          .: {}
+          f:byNode: {}
+          f:requestCount: {}
+        f:last24h: {}
+        f:requestCount: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:57:00Z"
+  name: rolebindingrestrictions.v1.authorization.openshift.io
+  resourceVersion: "46596"
+  uid: 1b443374-5a3a-4fe3-8be9-c57824138c62
+spec:
+  numberOfUsersToReport: 10
+status:
+  currentHour:
+    byNode:
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      nodeName: 10.0.106.212
+      requestCount: 3
+    - byUser:
+      - byVerb:
+        - requestCount: 400
+          verb: list
+        requestCount: 400
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 5
+          verb: watch
+        requestCount: 7
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      nodeName: 10.0.154.98
+      requestCount: 416
+    - byUser:
+      - byVerb:
+        - requestCount: 12
+          verb: list
+        requestCount: 12
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      nodeName: 10.0.21.63
+      requestCount: 17
+    - byUser:
+      - byVerb:
+        - requestCount: 7
+          verb: list
+        requestCount: 7
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 12
+    requestCount: 448
+  last24h:
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      nodeName: 10.0.106.212
+      requestCount: 3
+    - byUser:
+      - byVerb:
+        - requestCount: 400
+          verb: list
+        requestCount: 400
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 5
+          verb: watch
+        requestCount: 7
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      nodeName: 10.0.154.98
+      requestCount: 416
+    - byUser:
+      - byVerb:
+        - requestCount: 12
+          verb: list
+        requestCount: 12
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: cluster-policy-controller/v0.0.0
+        username: system:kube-controller-manager
+      nodeName: 10.0.21.63
+      requestCount: 17
+    - byUser:
+      - byVerb:
+        - requestCount: 7
+          verb: list
+        requestCount: 7
+        userAgent: kube-apiserver/v1.28.2
+        username: system:apiserver
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 12
+    requestCount: 448
+  - requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  requestCount: 448

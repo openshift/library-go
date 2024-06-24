@@ -1,0 +1,371 @@
+---
+apiVersion: apiserver.openshift.io/v1
+kind: APIRequestCount
+metadata:
+  creationTimestamp: "2023-12-06T09:25:41Z"
+  generation: 1
+  managedFields:
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:numberOfUsersToReport: {}
+    manager: kube-apiserver
+    operation: Update
+    time: "2023-12-06T09:25:41Z"
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:currentHour:
+          .: {}
+          f:byNode: {}
+          f:requestCount: {}
+        f:last24h: {}
+        f:requestCount: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:56:06Z"
+  name: imagepruners.v1.imageregistry.operator.openshift.io
+  resourceVersion: "45940"
+  uid: dd1bbe49-dcce-4111-877d-733dbfe5975e
+spec:
+  numberOfUsersToReport: 10
+status:
+  currentHour:
+    byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 5
+          verb: watch
+        requestCount: 7
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: create
+        - requestCount: 1
+          verb: list
+        - requestCount: 1
+          verb: update
+        - requestCount: 3
+          verb: watch
+        requestCount: 7
+        userAgent: cluster-image-registry-operator/v0.0.0
+        username: system:serviceaccount:openshift-image-registry:cluster-image-registry-operator
+      nodeName: 10.0.154.98
+      requestCount: 14
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: cluster-image-registry-operator/v0.0.0
+        username: system:serviceaccount:openshift-image-registry:cluster-image-registry-operator
+      - byVerb:
+        - requestCount: 2
+          verb: get
+        requestCount: 2
+        userAgent: insights-operator/v0.0.0
+        username: system:serviceaccount:openshift-insights:gather
+      nodeName: 10.0.21.63
+      requestCount: 5
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 4
+    requestCount: 23
+  last24h:
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 5
+          verb: watch
+        requestCount: 7
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: create
+        - requestCount: 1
+          verb: list
+        - requestCount: 1
+          verb: update
+        - requestCount: 3
+          verb: watch
+        requestCount: 7
+        userAgent: cluster-image-registry-operator/v0.0.0
+        username: system:serviceaccount:openshift-image-registry:cluster-image-registry-operator
+      nodeName: 10.0.154.98
+      requestCount: 14
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: cluster-image-registry-operator/v0.0.0
+        username: system:serviceaccount:openshift-image-registry:cluster-image-registry-operator
+      - byVerb:
+        - requestCount: 2
+          verb: get
+        requestCount: 2
+        userAgent: insights-operator/v0.0.0
+        username: system:serviceaccount:openshift-insights:gather
+      nodeName: 10.0.21.63
+      requestCount: 5
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      nodeName: 10.0.94.160
+      requestCount: 4
+    requestCount: 23
+  - requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  requestCount: 23

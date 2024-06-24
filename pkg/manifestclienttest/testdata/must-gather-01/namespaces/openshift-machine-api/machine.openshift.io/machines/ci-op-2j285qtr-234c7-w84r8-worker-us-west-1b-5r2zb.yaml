@@ -1,0 +1,212 @@
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: Machine
+metadata:
+  annotations:
+    machine.openshift.io/instance-state: running
+  creationTimestamp: "2023-12-06T09:22:27Z"
+  finalizers:
+  - machine.machine.openshift.io
+  generateName: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-
+  generation: 2
+  labels:
+    machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+    machine.openshift.io/cluster-api-machine-role: worker
+    machine.openshift.io/cluster-api-machine-type: worker
+    machine.openshift.io/cluster-api-machineset: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b
+    machine.openshift.io/instance-type: m6a.xlarge
+    machine.openshift.io/region: us-west-1
+    machine.openshift.io/zone: us-west-1b
+  managedFields:
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:machine.openshift.io/cluster-api-cluster: {}
+          f:machine.openshift.io/cluster-api-machine-role: {}
+          f:machine.openshift.io/cluster-api-machine-type: {}
+          f:machine.openshift.io/cluster-api-machineset: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"73255218-cc07-4cff-8e37-419c62b3db2a"}: {}
+      f:spec:
+        .: {}
+        f:lifecycleHooks: {}
+        f:metadata: {}
+        f:providerSpec:
+          .: {}
+          f:value:
+            .: {}
+            f:ami:
+              .: {}
+              f:id: {}
+            f:apiVersion: {}
+            f:blockDevices: {}
+            f:credentialsSecret:
+              .: {}
+              f:name: {}
+            f:deviceIndex: {}
+            f:iamInstanceProfile:
+              .: {}
+              f:id: {}
+            f:instanceType: {}
+            f:kind: {}
+            f:metadata:
+              .: {}
+              f:creationTimestamp: {}
+            f:metadataServiceOptions: {}
+            f:placement:
+              .: {}
+              f:availabilityZone: {}
+              f:region: {}
+            f:securityGroups: {}
+            f:subnet:
+              .: {}
+              f:filters: {}
+            f:tags: {}
+            f:userDataSecret:
+              .: {}
+              f:name: {}
+    manager: machineset-controller
+    operation: Update
+    time: "2023-12-06T09:22:27Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:machine.openshift.io/instance-state: {}
+        f:finalizers:
+          .: {}
+          v:"machine.machine.openshift.io": {}
+        f:labels:
+          f:machine.openshift.io/instance-type: {}
+          f:machine.openshift.io/region: {}
+          f:machine.openshift.io/zone: {}
+      f:spec:
+        f:providerID: {}
+    manager: machine-controller-manager
+    operation: Update
+    time: "2023-12-06T09:23:11Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:addresses: {}
+        f:conditions: {}
+        f:phase: {}
+        f:providerStatus:
+          .: {}
+          f:conditions: {}
+          f:instanceId: {}
+          f:instanceState: {}
+    manager: machine-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:25:24Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:lastUpdated: {}
+        f:nodeRef: {}
+    manager: nodelink-controller
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:21Z"
+  name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb
+  namespace: openshift-machine-api
+  ownerReferences:
+  - apiVersion: machine.openshift.io/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: MachineSet
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b
+    uid: 73255218-cc07-4cff-8e37-419c62b3db2a
+  resourceVersion: "19524"
+  uid: 5c8ee725-fc54-4a23-99be-24e0e9a4fe52
+spec:
+  lifecycleHooks: {}
+  metadata: {}
+  providerID: aws:///us-west-1b/i-07d42a379e59ad826
+  providerSpec:
+    value:
+      ami:
+        id: ami-0a4eb15533efba35b
+      apiVersion: machine.openshift.io/v1beta1
+      blockDevices:
+      - ebs:
+          encrypted: true
+          iops: 0
+          kmsKey:
+            arn: ""
+          volumeSize: 120
+          volumeType: gp3
+      credentialsSecret:
+        name: aws-cloud-credentials
+      deviceIndex: 0
+      iamInstanceProfile:
+        id: ci-op-2j285qtr-234c7-w84r8-worker-profile
+      instanceType: m6a.xlarge
+      kind: AWSMachineProviderConfig
+      metadata:
+        creationTimestamp: null
+      metadataServiceOptions: {}
+      placement:
+        availabilityZone: us-west-1b
+        region: us-west-1
+      securityGroups:
+      - filters:
+        - name: tag:Name
+          values:
+          - ci-op-2j285qtr-234c7-w84r8-worker-sg
+      subnet:
+        filters:
+        - name: tag:Name
+          values:
+          - ci-op-2j285qtr-234c7-w84r8-private-us-west-1b
+      tags:
+      - name: kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8
+        value: owned
+      - name: expirationDate
+        value: 2023-12-06T17:08+0000
+      userDataSecret:
+        name: worker-user-data
+status:
+  addresses:
+  - address: 10.0.81.189
+    type: InternalIP
+  - address: ip-10-0-81-189.us-west-1.compute.internal
+    type: InternalDNS
+  - address: ip-10-0-81-189.us-west-1.compute.internal
+    type: Hostname
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:22:52Z"
+    status: "True"
+    type: Drainable
+  - lastTransitionTime: "2023-12-06T09:23:21Z"
+    status: "True"
+    type: InstanceExists
+  - lastTransitionTime: "2023-12-06T09:22:52Z"
+    status: "True"
+    type: Terminable
+  lastUpdated: "2023-12-06T09:26:21Z"
+  nodeRef:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  phase: Running
+  providerStatus:
+    conditions:
+    - lastTransitionTime: "2023-12-06T09:22:57Z"
+      message: Machine successfully created
+      reason: MachineCreationSucceeded
+      status: "True"
+      type: MachineCreation
+    instanceId: i-07d42a379e59ad826
+    instanceState: running

@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      operator.openshift.io/spec-hash: 2787a90499aeabb4cf7acbefa3d43f6c763431fdc60904fdfa1fe74cd04203ee
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/spec-hash: {}
+        f:spec:
+          f:internalTrafficPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":443,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:selector: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: cluster-kube-apiserver-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: apiserver
+    namespace: openshift-kube-apiserver
+    resourceVersion: "6662"
+    uid: fcfda9c8-0b66-45f9-99f8-5f6f55167e70
+  spec:
+    clusterIP: 172.30.53.17
+    clusterIPs:
+    - 172.30.53.17
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 6443
+    selector:
+      apiserver: "true"
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+kind: ServiceList
+metadata:
+  resourceVersion: "47825"

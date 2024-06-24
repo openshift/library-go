@@ -1,0 +1,75 @@
+apiVersion: config.openshift.io/v1
+kind: FeatureGate
+metadata:
+  creationTimestamp: "2023-12-06T09:18:01Z"
+  generation: 1
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:18:01Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:featureGates:
+          .: {}
+          k:{"version":"4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"}:
+            .: {}
+            f:disabled: {}
+            f:enabled: {}
+            f:version: {}
+    manager: cluster-bootstrap
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:18:02Z"
+  name: cluster
+  resourceVersion: "1276"
+  uid: 28ab65e3-c0c5-45ac-8df3-079fd1e35f20
+spec: {}
+status:
+  featureGates:
+  - disabled:
+    - name: AdminNetworkPolicy
+    - name: AutomatedEtcdBackup
+    - name: CSIDriverSharedResource
+    - name: ClusterAPIInstall
+    - name: DNSNameResolver
+    - name: DisableKubeletCloudCredentialProviders
+    - name: DynamicResourceAllocation
+    - name: EventedPLEG
+    - name: GCPClusterHostedDNS
+    - name: GCPLabelsTags
+    - name: GatewayAPI
+    - name: InsightsConfigAPI
+    - name: InstallAlternateInfrastructureAWS
+    - name: MachineAPIOperatorDisableMachineHealthCheckController
+    - name: MachineAPIProviderOpenStack
+    - name: MachineConfigNodes
+    - name: ManagedBootImages
+    - name: MaxUnavailableStatefulSet
+    - name: MetricsServer
+    - name: MixedCPUsAllocation
+    - name: NetworkLiveMigration
+    - name: NodeSwap
+    - name: RouteExternalCertificate
+    - name: SigstoreImageVerification
+    - name: VSphereControlPlaneMachineSet
+    - name: VSphereStaticIPs
+    - name: ValidatingAdmissionPolicy
+    enabled:
+    - name: AlibabaPlatform
+    - name: AzureWorkloadIdentity
+    - name: BuildCSIVolumes
+    - name: CloudDualStackNodeIPs
+    - name: ExternalCloudProvider
+    - name: ExternalCloudProviderAzure
+    - name: ExternalCloudProviderExternal
+    - name: ExternalCloudProviderGCP
+    - name: OpenShiftPodSecurityAdmission
+    - name: PrivateHostedZoneAWS
+    version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

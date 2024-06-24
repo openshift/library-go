@@ -1,0 +1,70 @@
+---
+apiVersion: monitoring.coreos.com/v1
+items:
+- apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  metadata:
+    annotations:
+      exclude.release.openshift.io/internal-openshift-hosted: "true"
+      include.release.openshift.io/self-managed-high-availability: "true"
+      kubernetes.io/description: Configure Prometheus to monitor cluster-version operator
+        metrics.
+    creationTimestamp: "2023-12-06T09:18:04Z"
+    generation: 1
+    labels:
+      k8s-app: cluster-version-operator
+    managedFields:
+    - apiVersion: monitoring.coreos.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:exclude.release.openshift.io/internal-openshift-hosted: {}
+            f:include.release.openshift.io/self-managed-high-availability: {}
+            f:kubernetes.io/description: {}
+          f:labels:
+            .: {}
+            f:k8s-app: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+        f:spec:
+          .: {}
+          f:endpoints: {}
+          f:namespaceSelector:
+            .: {}
+            f:matchNames: {}
+          f:selector: {}
+      manager: cluster-version-operator
+      operation: Update
+      time: "2023-12-06T09:18:04Z"
+    name: cluster-version-operator
+    namespace: openshift-cluster-version
+    ownerReferences:
+    - apiVersion: config.openshift.io/v1
+      controller: true
+      kind: ClusterVersion
+      name: version
+      uid: a7216904-f9ea-48f0-a63e-5356267ade74
+    resourceVersion: "1363"
+    uid: 6da8f49f-fdc8-4293-8f85-cc5804d17b06
+  spec:
+    endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      port: metrics
+      scheme: https
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        serverName: cluster-version-operator.openshift-cluster-version.svc
+    namespaceSelector:
+      matchNames:
+      - openshift-cluster-version
+    selector:
+      matchLabels:
+        k8s-app: cluster-version-operator
+kind: ServiceMonitorList
+metadata:
+  continue: ""
+  resourceVersion: "47512"

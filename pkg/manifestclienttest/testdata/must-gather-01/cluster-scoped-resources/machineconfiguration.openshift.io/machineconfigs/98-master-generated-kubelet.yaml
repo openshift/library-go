@@ -1,0 +1,59 @@
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  annotations:
+    machineconfiguration.openshift.io/generated-by-controller-version: f691dcd2599659cb36f96a3df12d8dc336ab47d1
+  creationTimestamp: "2023-12-06T09:22:17Z"
+  generation: 1
+  labels:
+    machineconfiguration.openshift.io/role: master
+  managedFields:
+  - apiVersion: machineconfiguration.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:machineconfiguration.openshift.io/generated-by-controller-version: {}
+        f:labels:
+          .: {}
+          f:machineconfiguration.openshift.io/role: {}
+      f:spec:
+        .: {}
+        f:baseOSExtensionsContainerImage: {}
+        f:config:
+          .: {}
+          f:ignition:
+            .: {}
+            f:version: {}
+          f:storage:
+            .: {}
+            f:files: {}
+        f:fips: {}
+        f:kernelArguments: {}
+        f:kernelType: {}
+        f:osImageURL: {}
+    manager: machine-config-controller
+    operation: Update
+    time: "2023-12-06T09:22:17Z"
+  name: 98-master-generated-kubelet
+  resourceVersion: "10230"
+  uid: fbcc7c10-b5ae-4763-8870-5a74e87e8990
+spec:
+  baseOSExtensionsContainerImage: ""
+  config:
+    ignition:
+      version: 3.4.0
+    storage:
+      files:
+      - contents:
+          compression: ""
+          source: data:text/plain;charset=utf-8;base64,ewogICJraW5kIjogIkt1YmVsZXRDb25maWd1cmF0aW9uIiwKICAiYXBpVmVyc2lvbiI6ICJrdWJlbGV0LmNvbmZpZy5rOHMuaW8vdjFiZXRhMSIsCiAgInN0YXRpY1BvZFBhdGgiOiAiL2V0Yy9rdWJlcm5ldGVzL21hbmlmZXN0cyIsCiAgInN5bmNGcmVxdWVuY3kiOiAiMHMiLAogICJmaWxlQ2hlY2tGcmVxdWVuY3kiOiAiMHMiLAogICJodHRwQ2hlY2tGcmVxdWVuY3kiOiAiMHMiLAogICJ0bHNDaXBoZXJTdWl0ZXMiOiBbCiAgICAiVExTX0VDREhFX0VDRFNBX1dJVEhfQUVTXzEyOF9HQ01fU0hBMjU2IiwKICAgICJUTFNfRUNESEVfUlNBX1dJVEhfQUVTXzEyOF9HQ01fU0hBMjU2IiwKICAgICJUTFNfRUNESEVfRUNEU0FfV0lUSF9BRVNfMjU2X0dDTV9TSEEzODQiLAogICAgIlRMU19FQ0RIRV9SU0FfV0lUSF9BRVNfMjU2X0dDTV9TSEEzODQiLAogICAgIlRMU19FQ0RIRV9FQ0RTQV9XSVRIX0NIQUNIQTIwX1BPTFkxMzA1X1NIQTI1NiIsCiAgICAiVExTX0VDREhFX1JTQV9XSVRIX0NIQUNIQTIwX1BPTFkxMzA1X1NIQTI1NiIKICBdLAogICJ0bHNNaW5WZXJzaW9uIjogIlZlcnNpb25UTFMxMiIsCiAgInJvdGF0ZUNlcnRpZmljYXRlcyI6IHRydWUsCiAgInNlcnZlclRMU0Jvb3RzdHJhcCI6IHRydWUsCiAgImF1dGhlbnRpY2F0aW9uIjogewogICAgIng1MDkiOiB7CiAgICAgICJjbGllbnRDQUZpbGUiOiAiL2V0Yy9rdWJlcm5ldGVzL2t1YmVsZXQtY2EuY3J0IgogICAgfSwKICAgICJ3ZWJob29rIjogewogICAgICAiY2FjaGVUVEwiOiAiMHMiCiAgICB9LAogICAgImFub255bW91cyI6IHsKICAgICAgImVuYWJsZWQiOiBmYWxzZQogICAgfQogIH0sCiAgImF1dGhvcml6YXRpb24iOiB7CiAgICAid2ViaG9vayI6IHsKICAgICAgImNhY2hlQXV0aG9yaXplZFRUTCI6ICIwcyIsCiAgICAgICJjYWNoZVVuYXV0aG9yaXplZFRUTCI6ICIwcyIKICAgIH0KICB9LAogICJjbHVzdGVyRG9tYWluIjogImNsdXN0ZXIubG9jYWwiLAogICJjbHVzdGVyRE5TIjogWwogICAgIjE3Mi4zMC4wLjEwIgogIF0sCiAgInN0cmVhbWluZ0Nvbm5lY3Rpb25JZGxlVGltZW91dCI6ICIwcyIsCiAgIm5vZGVTdGF0dXNVcGRhdGVGcmVxdWVuY3kiOiAiMTBzIiwKICAibm9kZVN0YXR1c1JlcG9ydEZyZXF1ZW5jeSI6ICIwcyIsCiAgImltYWdlTWluaW11bUdDQWdlIjogIjBzIiwKICAidm9sdW1lU3RhdHNBZ2dQZXJpb2QiOiAiMHMiLAogICJzeXN0ZW1DZ3JvdXBzIjogIi9zeXN0ZW0uc2xpY2UiLAogICJjZ3JvdXBSb290IjogIi8iLAogICJjZ3JvdXBEcml2ZXIiOiAic3lzdGVtZCIsCiAgImNwdU1hbmFnZXJSZWNvbmNpbGVQZXJpb2QiOiAiMHMiLAogICJydW50aW1lUmVxdWVzdFRpbWVvdXQiOiAiMHMiLAogICJtYXhQb2RzIjogMjUwLAogICJwb2RQaWRzTGltaXQiOiA0MDk2LAogICJrdWJlQVBJUVBTIjogNTAsCiAgImt1YmVBUElCdXJzdCI6IDEwMCwKICAic2VyaWFsaXplSW1hZ2VQdWxscyI6IGZhbHNlLAogICJldmljdGlvblByZXNzdXJlVHJhbnNpdGlvblBlcmlvZCI6ICIwcyIsCiAgInByb3RlY3RLZXJuZWxEZWZhdWx0cyI6IHRydWUsCiAgImZlYXR1cmVHYXRlcyI6IHsKICAgICJBZG1pbk5ldHdvcmtQb2xpY3kiOiBmYWxzZSwKICAgICJBbGliYWJhUGxhdGZvcm0iOiB0cnVlLAogICAgIkF1dG9tYXRlZEV0Y2RCYWNrdXAiOiBmYWxzZSwKICAgICJBenVyZVdvcmtsb2FkSWRlbnRpdHkiOiB0cnVlLAogICAgIkJ1aWxkQ1NJVm9sdW1lcyI6IHRydWUsCiAgICAiQ1NJRHJpdmVyU2hhcmVkUmVzb3VyY2UiOiBmYWxzZSwKICAgICJDbG91ZER1YWxTdGFja05vZGVJUHMiOiB0cnVlLAogICAgIkNsdXN0ZXJBUElJbnN0YWxsIjogZmFsc2UsCiAgICAiRE5TTmFtZVJlc29sdmVyIjogZmFsc2UsCiAgICAiRGlzYWJsZUt1YmVsZXRDbG91ZENyZWRlbnRpYWxQcm92aWRlcnMiOiBmYWxzZSwKICAgICJEeW5hbWljUmVzb3VyY2VBbGxvY2F0aW9uIjogZmFsc2UsCiAgICAiRXZlbnRlZFBMRUciOiBmYWxzZSwKICAgICJFeHRlcm5hbENsb3VkUHJvdmlkZXIiOiB0cnVlLAogICAgIkV4dGVybmFsQ2xvdWRQcm92aWRlckF6dXJlIjogdHJ1ZSwKICAgICJFeHRlcm5hbENsb3VkUHJvdmlkZXJFeHRlcm5hbCI6IHRydWUsCiAgICAiRXh0ZXJuYWxDbG91ZFByb3ZpZGVyR0NQIjogdHJ1ZSwKICAgICJHQ1BDbHVzdGVySG9zdGVkRE5TIjogZmFsc2UsCiAgICAiR0NQTGFiZWxzVGFncyI6IGZhbHNlLAogICAgIkdhdGV3YXlBUEkiOiBmYWxzZSwKICAgICJJbnNpZ2h0c0NvbmZpZ0FQSSI6IGZhbHNlLAogICAgIkluc3RhbGxBbHRlcm5hdGVJbmZyYXN0cnVjdHVyZUFXUyI6IGZhbHNlLAogICAgIk1hY2hpbmVBUElPcGVyYXRvckRpc2FibGVNYWNoaW5lSGVhbHRoQ2hlY2tDb250cm9sbGVyIjogZmFsc2UsCiAgICAiTWFjaGluZUFQSVByb3ZpZGVyT3BlblN0YWNrIjogZmFsc2UsCiAgICAiTWFjaGluZUNvbmZpZ05vZGVzIjogZmFsc2UsCiAgICAiTWFuYWdlZEJvb3RJbWFnZXMiOiBmYWxzZSwKICAgICJNYXhVbmF2YWlsYWJsZVN0YXRlZnVsU2V0IjogZmFsc2UsCiAgICAiTWV0cmljc1NlcnZlciI6IGZhbHNlLAogICAgIk1peGVkQ1BVc0FsbG9jYXRpb24iOiBmYWxzZSwKICAgICJOZXR3b3JrTGl2ZU1pZ3JhdGlvbiI6IGZhbHNlLAogICAgIk5vZGVTd2FwIjogZmFsc2UsCiAgICAiT3BlblNoaWZ0UG9kU2VjdXJpdHlBZG1pc3Npb24iOiB0cnVlLAogICAgIlByaXZhdGVIb3N0ZWRab25lQVdTIjogdHJ1ZSwKICAgICJSb3V0ZUV4dGVybmFsQ2VydGlmaWNhdGUiOiBmYWxzZSwKICAgICJTaWdzdG9yZUltYWdlVmVyaWZpY2F0aW9uIjogZmFsc2UsCiAgICAiVlNwaGVyZUNvbnRyb2xQbGFuZU1hY2hpbmVTZXQiOiBmYWxzZSwKICAgICJWU3BoZXJlU3RhdGljSVBzIjogZmFsc2UsCiAgICAiVmFsaWRhdGluZ0FkbWlzc2lvblBvbGljeSI6IGZhbHNlCiAgfSwKICAibWVtb3J5U3dhcCI6IHt9LAogICJjb250YWluZXJMb2dNYXhTaXplIjogIjUwTWkiLAogICJsb2dnaW5nIjogewogICAgImZsdXNoRnJlcXVlbmN5IjogMCwKICAgICJ2ZXJib3NpdHkiOiAwLAogICAgIm9wdGlvbnMiOiB7CiAgICAgICJqc29uIjogewogICAgICAgICJpbmZvQnVmZmVyU2l6ZSI6ICIwIgogICAgICB9CiAgICB9CiAgfSwKICAiZW5hYmxlU3lzdGVtTG9nUXVlcnkiOiB0cnVlLAogICJzaHV0ZG93bkdyYWNlUGVyaW9kIjogIjBzIiwKICAic2h1dGRvd25HcmFjZVBlcmlvZENyaXRpY2FsUG9kcyI6ICIwcyIsCiAgImNvbnRhaW5lclJ1bnRpbWVFbmRwb2ludCI6ICIiCn0K
+        mode: 420
+        overwrite: true
+        path: /etc/kubernetes/kubelet.conf
+  fips: false
+  kernelArguments: null
+  kernelType: ""
+  osImageURL: ""

@@ -1,0 +1,77 @@
+---
+apiVersion: samples.operator.openshift.io/v1
+kind: Config
+metadata:
+  creationTimestamp: "2023-12-06T09:39:00Z"
+  finalizers:
+  - samples.operator.openshift.io/finalizer
+  generation: 1
+  managedFields:
+  - apiVersion: samples.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"samples.operator.openshift.io/finalizer": {}
+      f:spec:
+        .: {}
+        f:architectures: {}
+        f:managementState: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:00Z"
+  - apiVersion: samples.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:architectures: {}
+        f:conditions: {}
+        f:managementState: {}
+        f:version: {}
+    manager: cluster-samples-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:39:11Z"
+  name: cluster
+  resourceVersion: "32673"
+  uid: bb6bf3b2-5f1c-47ea-bbfc-66d2b4207896
+spec:
+  architectures:
+  - x86_64
+  managementState: Managed
+status:
+  architectures:
+  - x86_64
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "True"
+    type: SamplesExist
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "False"
+    type: ImageChangesInProgress
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "True"
+    type: ImportCredentialsExist
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "True"
+    type: ConfigurationValid
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "False"
+    type: RemovePending
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "False"
+    type: MigrationInProgress
+  - lastTransitionTime: "2023-12-06T09:39:08Z"
+    lastUpdateTime: "2023-12-06T09:39:08Z"
+    status: "False"
+    type: ImportImageErrorsExist
+  managementState: Managed
+  version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

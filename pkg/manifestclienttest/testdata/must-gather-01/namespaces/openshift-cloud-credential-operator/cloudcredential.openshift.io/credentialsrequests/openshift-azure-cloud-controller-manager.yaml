@@ -1,0 +1,91 @@
+---
+apiVersion: cloudcredential.openshift.io/v1
+kind: CredentialsRequest
+metadata:
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:19:38Z"
+  generation: 1
+  managedFields:
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:providerSpec:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:permissions: {}
+        f:secretRef:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+        f:serviceAccountNames: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:19:38Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:lastSyncGeneration: {}
+        f:provisioned: {}
+    manager: Go-http-client
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:51Z"
+  name: openshift-azure-cloud-controller-manager
+  namespace: openshift-cloud-credential-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3253"
+  uid: d8a22823-f599-4768-aec4-e264a3e3f5c3
+spec:
+  providerSpec:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AzureProviderSpec
+    permissions:
+    - Microsoft.Compute/virtualMachines/read
+    - Microsoft.Network/loadBalancers/backendAddressPools/join/action
+    - Microsoft.Network/loadBalancers/read
+    - Microsoft.Network/loadBalancers/write
+    - Microsoft.Network/networkInterfaces/read
+    - Microsoft.Network/networkInterfaces/write
+    - Microsoft.Network/networkSecurityGroups/read
+    - Microsoft.Network/networkSecurityGroups/write
+    - Microsoft.Network/publicIPAddresses/join/action
+    - Microsoft.Network/publicIPAddresses/read
+    - Microsoft.Network/publicIPAddresses/write
+    - Microsoft.Network/virtualNetworks/subnets/join/action
+    - Microsoft.Network/virtualNetworks/subnets/read
+  secretRef:
+    name: azure-cloud-credentials
+    namespace: openshift-cloud-controller-manager
+  serviceAccountNames:
+  - cloud-controller-manager
+status:
+  conditions:
+  - lastProbeTime: "2023-12-06T09:19:50Z"
+    lastTransitionTime: "2023-12-06T09:19:50Z"
+    message: CredentialsRequest is not for platform AWS
+    reason: InfrastructureMismatch
+    status: "True"
+    type: Ignored
+  lastSyncGeneration: 0
+  provisioned: false

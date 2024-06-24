@@ -1,0 +1,188 @@
+---
+apiVersion: discovery.k8s.io/v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.128.0.52
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-rxkv8
+      namespace: openshift-apiserver
+      uid: 4820c7a3-d541-43c3-ad68-ac769c76fb55
+    zone: us-west-1b
+  - addresses:
+    - 10.129.0.86
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-f5w7s
+      namespace: openshift-apiserver
+      uid: daa003a7-6baf-4cf1-99df-f468ecfb304b
+    zone: us-west-1a
+  - addresses:
+    - 10.130.0.47
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-5p2sz
+      namespace: openshift-apiserver
+      uid: fc5b396c-de90-4f8b-9f36-04b0eda38edd
+    zone: us-west-1b
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:42:43Z"
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    generateName: api-
+    generation: 52
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: api
+      prometheus: openshift-apiserver
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+            f:prometheus: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"62eb29f4-a902-4aba-8b6d-92749e258ea2"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:42:43Z"
+    name: api-rb4qv
+    namespace: openshift-apiserver
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: api
+      uid: 62eb29f4-a902-4aba-8b6d-92749e258ea2
+    resourceVersion: "37346"
+    uid: d4b906b0-1450-4e33-8a05-7fb022b38ff0
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.128.0.52
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-rxkv8
+      namespace: openshift-apiserver
+      uid: 4820c7a3-d541-43c3-ad68-ac769c76fb55
+    zone: us-west-1b
+  - addresses:
+    - 10.129.0.86
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-f5w7s
+      namespace: openshift-apiserver
+      uid: daa003a7-6baf-4cf1-99df-f468ecfb304b
+    zone: us-west-1a
+  - addresses:
+    - 10.130.0.47
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: apiserver-78488f8b7f-5p2sz
+      namespace: openshift-apiserver
+      uid: fc5b396c-de90-4f8b-9f36-04b0eda38edd
+    zone: us-west-1b
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:42:43Z"
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    generateName: check-endpoints-
+    generation: 52
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: check-endpoints
+      prometheus: openshift-apiserver-check-endpoints
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+            f:prometheus: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"61d3ac85-96e6-4eb6-a736-4fedb9ec55f6"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:42:43Z"
+    name: check-endpoints-wl455
+    namespace: openshift-apiserver
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: check-endpoints
+      uid: 61d3ac85-96e6-4eb6-a736-4fedb9ec55f6
+    resourceVersion: "37350"
+    uid: 50bbc106-042b-44c6-a6c7-da01b7926c6b
+  ports:
+  - name: check-endpoints
+    port: 17698
+    protocol: TCP
+kind: EndpointSliceList
+metadata:
+  resourceVersion: "48039"

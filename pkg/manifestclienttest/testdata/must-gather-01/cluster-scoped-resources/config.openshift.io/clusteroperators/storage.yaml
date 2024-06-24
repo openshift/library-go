@@ -1,0 +1,136 @@
+---
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  annotations:
+    capability.openshift.io/name: Storage
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:48Z"
+  generation: 1
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:48Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:extension: {}
+    manager: cluster-version-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:17:49Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions: {}
+        f:relatedObjects: {}
+        f:versions: {}
+    manager: cluster-storage-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:25Z"
+  name: storage
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "19730"
+  uid: c08d3b3d-0c35-439f-a1ad-657da91f23a8
+spec: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    message: 'AWSEBSCSIDriverOperatorCRDegraded: All is well'
+    reason: AsExpected
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:26:25Z"
+    message: 'AWSEBSCSIDriverOperatorCRProgressing: All is well'
+    reason: AsExpected
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:21:55Z"
+    message: |-
+      AWSEBSCSIDriverOperatorCRAvailable: All is well
+      DefaultStorageClassControllerAvailable: StorageClass provided by supplied CSI Driver instead of the cluster-storage-operator
+    reason: AsExpected
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    message: All is well
+    reason: AsExpected
+    status: "True"
+    type: Upgradeable
+  extension: null
+  relatedObjects:
+  - group: ""
+    name: aws-ebs-csi-driver-operator
+    namespace: openshift-cluster-csi-drivers
+    resource: serviceaccounts
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-role
+    namespace: openshift-cluster-csi-drivers
+    resource: roles
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-rolebinding
+    namespace: openshift-cluster-csi-drivers
+    resource: rolebindings
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-clusterrole
+    resource: clusterroles
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-clusterrolebinding
+    resource: clusterrolebindings
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-aws-config-role
+    namespace: openshift-config-managed
+    resource: roles
+  - group: rbac.authorization.k8s.io
+    name: aws-ebs-csi-driver-operator-aws-config-clusterrolebinding
+    namespace: openshift-config-managed
+    resource: rolebindings
+  - group: operator.openshift.io
+    name: ebs.csi.aws.com
+    resource: clustercsidrivers
+  - group: ""
+    name: openshift-cluster-storage-operator
+    resource: namespaces
+  - group: ""
+    name: openshift-cluster-csi-drivers
+    resource: namespaces
+  - group: operator.openshift.io
+    name: cluster
+    resource: storages
+  - group: rbac.authorization.k8s.io
+    name: cluster-storage-operator-role
+    resource: clusterrolebindings
+  - group: sharedresource.openshift.io
+    name: ""
+    resource: sharedconfigmaps
+  - group: sharedresource.openshift.io
+    name: ""
+    resource: sharedsecrets
+  versions:
+  - name: operator
+    version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

@@ -1,0 +1,268 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Jenkins
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:08Z"
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:06Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"2"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"ocp-upgrade-redeploy"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"scheduled-upgrade-redeploy"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+              f:scheduled: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"user-maintained-upgrade-redeploy"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:06Z"
+  name: jenkins
+  namespace: openshift
+  resourceVersion: "32281"
+  uid: 0b97301f-f92e-45ed-b5cc-60da2406dd3b
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Provides a Jenkins 2.X server from registry.redhat.io. For more
+        information about using this container image, including OpenShift considerations,
+        see https://github.com/openshift/jenkins/blob/master/README.md. This tag will
+        will redeploy the Jenkins DeploymentConfig on an upgrade in OCP versions if
+        the Jenkins image reference has changed.
+      iconClass: icon-jenkins
+      openshift.io/display-name: Jenkins 2.X
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: jenkins
+      version: 2.x
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ocp-tools-4/jenkins-rhel8:v4.13.0-1686682222
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "2"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: |-
+        Provides a Jenkins server from registry.redhat.io. For more information about using this container image, including OpenShift considerations, see https://github.com/openshift/jenkins/blob/master/README.md.
+
+        WARNING: By selecting this tag, your application will automatically update to use the latest version of Jenkins available on OpenShift, including major versions updates.
+      iconClass: icon-jenkins
+      openshift.io/display-name: Jenkins (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: jenkins
+    from:
+      kind: ImageStreamTag
+      name: "2"
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: latest
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Jenkins 2.X server from registry.redhat.io. For more
+        information about using this container image, including OpenShift considerations,
+        see https://github.com/openshift/jenkins/blob/master/README.md. This tag will
+        will redeploy the Jenkins DeploymentConfig on an upgrade in OCP versions if
+        the Jenkins image reference has changed.
+      iconClass: icon-jenkins
+      openshift.io/display-name: Jenkins (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: jenkins
+    from:
+      kind: ImageStreamTag
+      name: "2"
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: ocp-upgrade-redeploy
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Jenkins 2.X server from registry.redhat.io. For more
+        information about using this container image, including OpenShift considerations,
+        see https://github.com/openshift/jenkins/blob/master/README.md. This tag will
+        will redeploy the Jenkins DeploymentConfig on an upgrade in OCP versions if
+        the Jenkins image reference has changed. OpenShift will periodically check
+        to ensure that the latest digest for this image tag is imported. If an update
+        occurs, any running Jenkins DeploymentConfig will redeploy.
+      iconClass: icon-jenkins
+      openshift.io/display-name: Jenkins 2.X
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: jenkins
+      version: 2.x
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ocp-tools-4/jenkins-rhel8:v4.13.0
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+      scheduled: true
+    name: scheduled-upgrade-redeploy
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Jenkins 2.X server from registry.redhat.io. For more
+        information about using this container image, including OpenShift considerations,
+        see https://github.com/openshift/jenkins/blob/master/README.md. This tag will
+        will redeploy the Jenkins DeploymentConfig on an upgrade in OCP versions if
+        the Jenkins image reference has changed. A user must invoke 'oc import-image
+        jenkins:user-maintained-upgrade-redeploy -n openshift' in order for the ImageStream
+        controller to pull the latest digest for the image tag, and if a new digest
+        exists, any running Jenkins DeploymentConfig will redeploy.
+      iconClass: icon-jenkins
+      openshift.io/display-name: Jenkins 2.X
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: jenkins
+      version: 2.x
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ocp-tools-4/jenkins-rhel8:v4.13.0
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: user-maintained-upgrade-redeploy
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/jenkins
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ocp-tools-4/jenkins-rhel8@sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+      generation: 2
+      image: sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+    tag: "2"
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ocp-tools-4/jenkins-rhel8@sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+      generation: 2
+      image: sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+    tag: latest
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ocp-tools-4/jenkins-rhel8@sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+      generation: 2
+      image: sha256:eab456afb39ed4607b2ee61c8c7635ab1c5ff8f8bddf7640c557e792504d545f
+    tag: ocp-upgrade-redeploy
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ocp-tools-4/jenkins-rhel8@sha256:c7df52c086fa1d197aee9ae2590753a049fb8dc7306bba6a748b0430e1fd4a88
+      generation: 2
+      image: sha256:c7df52c086fa1d197aee9ae2590753a049fb8dc7306bba6a748b0430e1fd4a88
+    tag: scheduled-upgrade-redeploy
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ocp-tools-4/jenkins-rhel8@sha256:c7df52c086fa1d197aee9ae2590753a049fb8dc7306bba6a748b0430e1fd4a88
+      generation: 2
+      image: sha256:c7df52c086fa1d197aee9ae2590753a049fb8dc7306bba6a748b0430e1fd4a88
+    tag: user-maintained-upgrade-redeploy

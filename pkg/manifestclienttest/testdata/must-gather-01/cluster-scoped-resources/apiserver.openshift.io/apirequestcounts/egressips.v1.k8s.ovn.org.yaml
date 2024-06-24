@@ -1,0 +1,597 @@
+---
+apiVersion: apiserver.openshift.io/v1
+kind: APIRequestCount
+metadata:
+  creationTimestamp: "2023-12-06T09:24:16Z"
+  generation: 1
+  managedFields:
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:numberOfUsersToReport: {}
+    manager: kube-apiserver
+    operation: Update
+    time: "2023-12-06T09:24:16Z"
+  - apiVersion: apiserver.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:currentHour:
+          .: {}
+          f:byNode: {}
+          f:requestCount: {}
+        f:last24h: {}
+        f:requestCount: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:57:05Z"
+  name: egressips.v1.k8s.ovn.org
+  resourceVersion: "46634"
+  uid: 9ff5435a-ad3c-4e48-a5c7-32e0addf0bc9
+spec:
+  numberOfUsersToReport: 10
+status:
+  currentHour:
+    byNode:
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      nodeName: 10.0.106.212
+      requestCount: 6
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 6
+          verb: watch
+        requestCount: 8
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 6
+        userAgent: ip-10-0-21-63/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-21-63.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 6
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:serviceaccount:openshift-ovn-kubernetes:ovn-kubernetes-control-plane
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-7-104/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-7-104.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 1
+          verb: watch
+        requestCount: 2
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      nodeName: 10.0.154.98
+      requestCount: 37
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      nodeName: 10.0.21.63
+      requestCount: 6
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:serviceaccount:openshift-ovn-kubernetes:ovn-kubernetes-control-plane
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-7-104/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-7-104.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-21-63/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-21-63.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      nodeName: 10.0.94.160
+      requestCount: 27
+    requestCount: 76
+  last24h:
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      nodeName: 10.0.106.212
+      requestCount: 6
+    - byUser:
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 6
+          verb: watch
+        requestCount: 8
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:admin
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 6
+        userAgent: ip-10-0-21-63/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-21-63.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 6
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:serviceaccount:openshift-ovn-kubernetes:ovn-kubernetes-control-plane
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-7-104/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-7-104.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 1
+          verb: watch
+        requestCount: 2
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      nodeName: 10.0.154.98
+      requestCount: 37
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-94-160.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 3
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      nodeName: 10.0.21.63
+      requestCount: 6
+    - byUser:
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-94-160/ovnkube@b8f65b42a31a
+        username: system:serviceaccount:openshift-ovn-kubernetes:ovn-kubernetes-control-plane
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 4
+          verb: watch
+        requestCount: 5
+        userAgent: ip-10-0-81-189/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-81-189.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-122-108/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-122-108.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-7-104/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-7-104.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 1
+          verb: list
+        - requestCount: 3
+          verb: watch
+        requestCount: 4
+        userAgent: ip-10-0-21-63/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-21-63.us-west-1.compute.internal
+      - byVerb:
+        - requestCount: 2
+          verb: list
+        - requestCount: 2
+          verb: watch
+        requestCount: 4
+        userAgent: kube-controller-manager/v1.28.2
+        username: system:kube-controller-manager
+      - byVerb:
+        - requestCount: 1
+          verb: watch
+        requestCount: 1
+        userAgent: ip-10-0-106-212/ovnkube@b8f65b42a31a
+        username: system:ovn-node:ip-10-0-106-212.us-west-1.compute.internal
+      nodeName: 10.0.94.160
+      requestCount: 27
+    requestCount: 76
+  - requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  - byNode:
+    - nodeName: 10.0.106.212
+      requestCount: 0
+    - nodeName: 10.0.154.98
+      requestCount: 0
+    - nodeName: 10.0.21.63
+      requestCount: 0
+    - nodeName: 10.0.94.160
+      requestCount: 0
+    requestCount: 0
+  requestCount: 76

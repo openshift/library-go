@@ -1,0 +1,363 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Perl
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:09Z"
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:04Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"5.26-ubi8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"5.30"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"5.30-el7"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"5.30-ubi8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"5.32-ubi8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"5.32-ubi9"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:04Z"
+  name: perl
+  namespace: openshift
+  resourceVersion: "32518"
+  uid: 1bc30fe2-d0bf-4bf2-a03b-528332485d44
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Build and run Perl 5.26 applications on UBI 8. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.26-mod_fcgid/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.26 (UBI 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.26,perl
+      tags: builder,perl
+      version: "5.26"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi8/perl-526:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 5.26-ubi8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Perl 5.30 applications on RHEL 7. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.30/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.30
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.30,perl
+      tags: builder,perl,hidden
+      version: "5.30"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhscl/perl-530-rhel7:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "5.30"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Perl 5.30 applications on RHEL 7. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.30/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.30 (RHEL 7)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.30,perl
+      tags: builder,perl
+      version: "5.30"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhscl/perl-530-rhel7:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 5.30-el7
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Perl 5.30 applications on UBI 8. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.30-mod_fcgid/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.30 (UBI 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.30,perl
+      tags: builder,perl
+      version: "5.30"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi8/perl-530:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 5.30-ubi8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Perl 5.32 applications on UBI 8. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.32/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.32 (UBI 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.32,perl
+      tags: builder,perl
+      version: "5.32"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi8/perl-532:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 5.32-ubi8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Perl 5.32 applications on UBI 9. For more information
+        about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.32/README.md.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl 5.32 (UBI 9)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl:5.32,perl
+      tags: builder,perl
+      version: "5.32"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi9/perl-532:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 5.32-ubi9
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: |-
+        Build and run Perl applications on UBI. For more information about using this builder image, including OpenShift considerations, see https://github.com/sclorg/s2i-perl-container/blob/master/5.32/README.md.
+
+        WARNING: By selecting this tag, your application will automatically update to use the latest version of Perl available on OpenShift, including major version updates.
+      iconClass: icon-perl
+      openshift.io/display-name: Perl (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/dancer-ex.git
+      supports: perl
+      tags: builder,perl
+    from:
+      kind: ImageStreamTag
+      name: 5.32-ubi8
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: latest
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/perl
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/ubi8/perl-526@sha256:55d7a2229fd14a1528aba38ff54af0b23791acf5b5d83ca4660cd5769f7a3ac4
+      generation: 2
+      image: sha256:55d7a2229fd14a1528aba38ff54af0b23791acf5b5d83ca4660cd5769f7a3ac4
+    tag: 5.26-ubi8
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/rhscl/perl-530-rhel7@sha256:242c35c078bddcc557a2312fd11c4110b18058e033539850e7dc859b0664321d
+      generation: 2
+      image: sha256:242c35c078bddcc557a2312fd11c4110b18058e033539850e7dc859b0664321d
+    tag: "5.30"
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/rhscl/perl-530-rhel7@sha256:242c35c078bddcc557a2312fd11c4110b18058e033539850e7dc859b0664321d
+      generation: 2
+      image: sha256:242c35c078bddcc557a2312fd11c4110b18058e033539850e7dc859b0664321d
+    tag: 5.30-el7
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/ubi8/perl-530@sha256:2a104e6d178bbc8be775e998cce0110d4f1e074fd8e72e89c267e17ddad2c2c5
+      generation: 2
+      image: sha256:2a104e6d178bbc8be775e998cce0110d4f1e074fd8e72e89c267e17ddad2c2c5
+    tag: 5.30-ubi8
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/ubi8/perl-532@sha256:be0e778a034c3a0c4fbf54905ad4670ee7f528544da077e097cc89253f96244b
+      generation: 2
+      image: sha256:be0e778a034c3a0c4fbf54905ad4670ee7f528544da077e097cc89253f96244b
+    tag: 5.32-ubi8
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/ubi9/perl-532@sha256:0994e9f7ea3340f20b928cc3fad5f559be4782133327faf68cfd584e192aea26
+      generation: 2
+      image: sha256:0994e9f7ea3340f20b928cc3fad5f559be4782133327faf68cfd584e192aea26
+    tag: 5.32-ubi9
+  - items:
+    - created: "2023-12-06T09:39:09Z"
+      dockerImageReference: registry.redhat.io/ubi8/perl-532@sha256:be0e778a034c3a0c4fbf54905ad4670ee7f528544da077e097cc89253f96244b
+      generation: 2
+      image: sha256:be0e778a034c3a0c4fbf54905ad4670ee7f528544da077e097cc89253f96244b
+    tag: latest

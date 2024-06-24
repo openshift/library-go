@@ -1,0 +1,126 @@
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  annotations:
+    machineconfiguration.openshift.io/generated-by-controller-version: f691dcd2599659cb36f96a3df12d8dc336ab47d1
+  creationTimestamp: "2023-12-06T09:22:18Z"
+  generation: 1
+  labels:
+    machineconfiguration.openshift.io/role: worker
+  managedFields:
+  - apiVersion: machineconfiguration.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:machineconfiguration.openshift.io/generated-by-controller-version: {}
+        f:labels:
+          .: {}
+          f:machineconfiguration.openshift.io/role: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"b69521b9-2398-4054-a6ba-5fafbe54eaad"}: {}
+      f:spec:
+        .: {}
+        f:baseOSExtensionsContainerImage: {}
+        f:config:
+          .: {}
+          f:ignition:
+            .: {}
+            f:version: {}
+          f:storage:
+            .: {}
+            f:files: {}
+          f:systemd:
+            .: {}
+            f:units: {}
+        f:fips: {}
+        f:kernelArguments: {}
+        f:kernelType: {}
+        f:osImageURL: {}
+    manager: machine-config-controller
+    operation: Update
+    time: "2023-12-06T09:22:18Z"
+  name: 01-worker-kubelet
+  ownerReferences:
+  - apiVersion: machineconfiguration.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ControllerConfig
+    name: machine-config-controller
+    uid: b69521b9-2398-4054-a6ba-5fafbe54eaad
+  resourceVersion: "10255"
+  uid: 8c339203-d605-46e0-b5fe-a78d8176f6ab
+spec:
+  baseOSExtensionsContainerImage: ""
+  config:
+    ignition:
+      version: 3.4.0
+    storage:
+      files:
+      - contents:
+          source: data:,%5BGlobal%5D
+        mode: 420
+        overwrite: true
+        path: /etc/kubernetes/cloud.conf
+      - contents:
+          source: data:,kind%3A%20KubeletConfiguration%0AapiVersion%3A%20kubelet.config.k8s.io%2Fv1beta1%0Aauthentication%3A%0A%20%20x509%3A%0A%20%20%20%20clientCAFile%3A%20%2Fetc%2Fkubernetes%2Fkubelet-ca.crt%0A%20%20anonymous%3A%0A%20%20%20%20enabled%3A%20false%0AcgroupDriver%3A%20systemd%0AcgroupRoot%3A%20%2F%0AclusterDNS%3A%0A%20%20-%20172.30.0.10%0AclusterDomain%3A%20cluster.local%0AcontainerLogMaxSize%3A%2050Mi%0AenableSystemLogQuery%3A%20true%0AmaxPods%3A%20250%0AkubeAPIQPS%3A%2050%0AkubeAPIBurst%3A%20100%0ApodPidsLimit%3A%204096%0AprotectKernelDefaults%3A%20true%0ArotateCertificates%3A%20true%0AserializeImagePulls%3A%20false%0AstaticPodPath%3A%20%2Fetc%2Fkubernetes%2Fmanifests%0AsystemCgroups%3A%20%2Fsystem.slice%0AnodeStatusUpdateFrequency%3A%2010s%0AfeatureGates%3A%0A%20%20AlibabaPlatform%3A%20true%0A%20%20AzureWorkloadIdentity%3A%20true%0A%20%20BuildCSIVolumes%3A%20true%0A%20%20CloudDualStackNodeIPs%3A%20true%0A%20%20ExternalCloudProvider%3A%20true%0A%20%20ExternalCloudProviderAzure%3A%20true%0A%20%20ExternalCloudProviderGCP%3A%20true%0A%20%20ExternalCloudProviderExternal%3A%20true%0A%20%20OpenShiftPodSecurityAdmission%3A%20true%0A%20%20PrivateHostedZoneAWS%3A%20true%0AserverTLSBootstrap%3A%20true%0AtlsMinVersion%3A%20VersionTLS12%0AtlsCipherSuites%3A%0A%20%20-%20TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256%0A%20%20-%20TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256%0A%20%20-%20TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384%0A%20%20-%20TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384%0A%20%20-%20TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256%0A%20%20-%20TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256%0A
+        mode: 420
+        overwrite: true
+        path: /etc/kubernetes/kubelet.conf
+      - contents:
+          source: data:,%23!%2Fbin%2Fsh%0Aif%20%5B%20-x%20%2Fusr%2Fbin%2Fkubensenter%20%5D%3B%20then%0A%20%20exec%20%2Fusr%2Fbin%2Fkubensenter%20%22%24%40%22%0Aelse%0A%20%20exec%20%22%24%40%22%0Afi%0A
+        mode: 493
+        overwrite: true
+        path: /usr/local/bin/kubenswrapper
+    systemd:
+      units:
+      - contents: |
+          [Unit]
+          Description=Kubernetes Kubelet
+          Requires=crio.service kubelet-dependencies.target
+          After=kubelet-dependencies.target
+          After=ostree-finalize-staged.service
+
+          [Service]
+          Type=notify
+          ExecStartPre=/bin/mkdir --parents /etc/kubernetes/manifests
+          ExecStartPre=/bin/rm -f /var/lib/kubelet/cpu_manager_state
+          ExecStartPre=/bin/rm -f /var/lib/kubelet/memory_manager_state
+          EnvironmentFile=/etc/os-release
+          EnvironmentFile=-/etc/kubernetes/kubelet-workaround
+          EnvironmentFile=-/etc/kubernetes/kubelet-env
+          EnvironmentFile=/etc/node-sizing.env
+
+          ExecStart=/usr/local/bin/kubenswrapper \
+              /usr/bin/kubelet \
+                --config=/etc/kubernetes/kubelet.conf \
+                --bootstrap-kubeconfig=/etc/kubernetes/kubeconfig \
+                --kubeconfig=/var/lib/kubelet/kubeconfig \
+                --container-runtime-endpoint=/var/run/crio/crio.sock \
+                --runtime-cgroups=/system.slice/crio.service \
+                --node-labels=node-role.kubernetes.io/worker,node.openshift.io/os_id=${ID} \
+                --node-ip=${KUBELET_NODE_IP} \
+                --minimum-container-ttl-duration=6m0s \
+                --volume-plugin-dir=/etc/kubernetes/kubelet-plugins/volume/exec \
+                --cloud-provider=external \
+                 \
+                --hostname-override=${KUBELET_NODE_NAME} \
+                --provider-id=${KUBELET_PROVIDERID} \
+                --pod-infra-container-image=registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2dbaa7105413f534c3b9a243d4c6092831d398cc6e6a641fb4a1b4fb453ff2b1 \
+                --system-reserved=cpu=${SYSTEM_RESERVED_CPU},memory=${SYSTEM_RESERVED_MEMORY},ephemeral-storage=${SYSTEM_RESERVED_ES} \
+                --v=${KUBELET_LOG_LEVEL}
+
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+        enabled: true
+        name: kubelet.service
+  fips: false
+  kernelArguments: null
+  kernelType: ""
+  osImageURL: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:242f55d6e4349e5188e5eefd65fcf5d434601e63068b46104a2d690cce57744e

@@ -1,0 +1,65 @@
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-12-06T09:18:23Z"
+  generateName: csr-
+  managedFields:
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:generateName: {}
+    manager: kubelet
+    operation: Update
+    time: "2023-12-06T09:18:23Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:certificate: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:18:36Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Approved"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: oc
+    operation: Update
+    subresource: approval
+    time: "2023-12-06T09:18:36Z"
+  name: csr-klbsj
+  resourceVersion: "2320"
+  uid: dc43d077-e041-4a26-9d15-7927a3296096
+spec:
+  groups:
+  - system:serviceaccounts
+  - system:serviceaccounts:openshift-machine-config-operator
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkVqQ0J1QUlCQURCV01SVXdFd1lEVlFRS0V3eHplWE4wWlcwNmJtOWtaWE14UFRBN0JnTlZCQU1UTkhONQpjM1JsYlRwdWIyUmxPbWx3TFRFd0xUQXRNakV0TmpNdWRYTXRkMlZ6ZEMweExtTnZiWEIxZEdVdWFXNTBaWEp1CllXd3dXVEFUQmdjcWhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBU0VIQlFqNmdiekliMGdaYXB4cFhVbCtEQWkKdWJrS2kwa2xXc3l4M3Nsb3RBOXNYeGlLckY4VXo1WGJvdmR5VGZsNllscEd2TGJkS01zVW1MVGhVaS9Hb0FBdwpDZ1lJS29aSXpqMEVBd0lEU1FBd1JnSWhBTzl1ODdzVm1LUEFZcGhPTGowSlVCeHhRNUhIZkxseHZOU1E3Rkg3CjlDRW1BaUVBM2xLc2s3ODQ2OTB5K1NLdlEvdEhqQ3cxM0RIKzZSUmtQL1BWYzluV1pZUT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==
+  signerName: kubernetes.io/kube-apiserver-client-kubelet
+  usages:
+  - digital signature
+  - client auth
+  username: system:serviceaccount:openshift-machine-config-operator:node-bootstrapper
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNtVENDQVlHZ0F3SUJBZ0lSQU1uR3JNeHYyNU50YXB6NFZhVjVFcVl3RFFZSktvWklodmNOQVFFTEJRQXcKTFRFU01CQUdBMVVFQ3hNSmIzQmxibk5vYVdaME1SY3dGUVlEVlFRREV3NXJkV0psYkdWMExYTnBaMjVsY2pBZQpGdzB5TXpFeU1EWXdPVEV6TXpaYUZ3MHlNekV5TURjd09UQTVNRGhhTUZZeEZUQVRCZ05WQkFvVERITjVjM1JsCmJUcHViMlJsY3pFOU1Ec0dBMVVFQXhNMGMzbHpkR1Z0T201dlpHVTZhWEF0TVRBdE1DMHlNUzAyTXk1MWN5MTMKWlhOMExURXVZMjl0Y0hWMFpTNXBiblJsY201aGJEQlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDlBd0VIQTBJQQpCSVFjRkNQcUJ2TWh2U0JscW5HbGRTWDRNQ0s1dVFxTFNTVmF6TEhleVdpMEQyeGZHSXFzWHhUUGxkdWk5M0pOCitYcGlXa2E4dHQwb3l4U1l0T0ZTTDhhalZqQlVNQTRHQTFVZER3RUIvd1FFQXdJSGdEQVRCZ05WSFNVRUREQUsKQmdnckJnRUZCUWNEQWpBTUJnTlZIUk1CQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRkYwcHROTXJxVGFrMGVUNQpaeU5IVlZ3VExmZVpNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUJCcFBWSFdrZ3RNUkZCdlJTTm4ybjlOVEx0CmpjSzZiMWs1N0w5SnBpNS92a0pqR1M5cWNCV21hMWsyL0puUWdsVC9SdzZvbUdHQkMzRkFsWkJUcUVGeHgzZkIKSllSUUd6VTlvVlpYaTVNR2hqY2srVGF6UUJsZmZLaFdzakZhNm5uTVg2SXBGeGw0OVc3azBWSjJKekJCU24wOAo0bS9JMnhjS2M0NzlUQU9KdmZBS1daYzFhY25SNndBSDZBYWIxdzdZRk1td2RianJmMXpTUUJBMHNvUFBxWC9PCldFZmlnWjBvM0lhaFdURlMzWEdwK3hrcHJjSGljVk9zUEV3UmdDWEF5cWJidFI0Q09hdVRKQ2E2Rm9QWUpjYWoKRVkraU44WGpTK2J6UXRxTEJiSEkveGRPWFZGclV1RytaZ2ZXWmdNTFF0cVpUZk5CK05YTkFNejBZNzBzCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:18:36Z"
+    lastUpdateTime: "2023-12-06T09:18:36Z"
+    message: This CSR was approved by kubectl certificate approve.
+    reason: KubectlApprove
+    status: "True"
+    type: Approved

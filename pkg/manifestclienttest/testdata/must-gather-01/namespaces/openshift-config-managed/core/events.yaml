@@ -1,0 +1,92 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:44Z"
+  involvedObject:
+    apiVersion: v1
+    kind: ConfigMap
+    name: default-ingress-cert
+    namespace: openshift-config-managed
+    resourceVersion: "8207"
+    uid: 5ad54f2a-6832-4ea3-a344-a688476d2d3e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:44Z"
+  message: Published "default-ingress-cert" in "openshift-config-managed"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ingress-operator
+      operation: Update
+      time: "2023-12-06T09:21:44Z"
+    name: default-ingress-cert.179e33a7cd808df8
+    namespace: openshift-config-managed
+    resourceVersion: "8208"
+    uid: 2e45f578-c8df-4150-b7e0-01a2fed45f0b
+  reason: PublishedRouterCA
+  reportingComponent: certificate_publisher_controller
+  reportingInstance: ""
+  source:
+    component: certificate_publisher_controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:44Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Secret
+    name: router-certs
+    namespace: openshift-config-managed
+    resourceVersion: "8204"
+    uid: bedfac05-60cc-4ec3-a154-2b97bf0424e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:44Z"
+  message: Published router certificates
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ingress-operator
+      operation: Update
+      time: "2023-12-06T09:21:44Z"
+    name: router-certs.179e33a7ccfa32aa
+    namespace: openshift-config-managed
+    resourceVersion: "8206"
+    uid: 2bf7c1bb-a06c-4e73-977d-d60726cb80c8
+  reason: PublishedRouterCertificates
+  reportingComponent: certificate_publisher_controller
+  reportingInstance: ""
+  source:
+    component: certificate_publisher_controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47592"

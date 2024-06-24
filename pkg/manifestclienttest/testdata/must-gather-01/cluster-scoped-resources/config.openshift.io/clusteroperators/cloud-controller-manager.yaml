@@ -1,0 +1,124 @@
+---
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:48Z"
+  generation: 1
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:exclude.release.openshift.io/internal-openshift-hosted: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:48Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:extension: {}
+    manager: cluster-version-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:17:48Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions: {}
+    manager: cluster-controller-manager-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:21Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:relatedObjects: {}
+        f:versions: {}
+    manager: config-sync-controllers
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:21Z"
+  name: cloud-controller-manager
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3002"
+  uid: 3027b0d8-aa5e-4ee1-8ef2-fb1372f4a02d
+spec: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Trusted CA Bundle Controller works as expected
+    reason: AsExpected
+    status: "True"
+    type: TrustedCABundleControllerControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Trusted CA Bundle Controller works as expected
+    reason: AsExpected
+    status: "False"
+    type: TrustedCABundleControllerControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Cloud Config Controller works as expected
+    reason: AsExpected
+    status: "True"
+    type: CloudConfigControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Cloud Config Controller works as expected
+    reason: AsExpected
+    status: "False"
+    type: CloudConfigControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    reason: AsExpected
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    reason: AsExpected
+    status: "True"
+    type: Upgradeable
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Cluster Cloud Controller Manager Operator is available at 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    reason: AsExpected
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    reason: AsExpected
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:19:21Z"
+    message: Cluster Cloud Controller Manager Operator owns cloud controllers at 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    reason: AsExpected
+    status: "True"
+    type: CloudControllerOwner
+  extension: null
+  relatedObjects:
+  - group: ""
+    name: openshift-cloud-controller-manager-operator
+    resource: namespaces
+  - group: config.openshift.io
+    name: cloud-controller-manager
+    resource: clusteroperators
+  - group: ""
+    name: openshift-cloud-controller-manager
+    resource: namespaces
+  versions:
+  - name: operator
+    version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

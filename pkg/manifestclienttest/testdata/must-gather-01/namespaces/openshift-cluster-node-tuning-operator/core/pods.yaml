@@ -1,0 +1,3474 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.129.0.32/23"],"mac_address":"0a:58:0a:81:00:20","gateway_ips":["10.129.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.129.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.129.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.129.0.1"}],"ip_address":"10.129.0.32/23","gateway_ip":"10.129.0.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.129.0.32"
+            ],
+            "mac": "0a:58:0a:81:00:20",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: anyuid
+    creationTimestamp: "2023-12-06T09:18:56Z"
+    generateName: cluster-node-tuning-operator-65c486c489-
+    labels:
+      name: cluster-node-tuning-operator
+      pod-template-hash: 65c486c489
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:name: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"a1d980e6-1524-458a-8f99-7bea1355a17b"}: {}
+        f:spec:
+          f:containers:
+            k:{"name":"cluster-node-tuning-operator"}:
+              .: {}
+              f:args: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"CLUSTER_NODE_TUNED_IMAGE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"POD_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":60000,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:name: {}
+                  f:protocol: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/apiserver.local.config/certificates"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/secrets"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/trusted-ca/"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext:
+            .: {}
+            f:runAsNonRoot: {}
+            f:runAsUser: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"apiservice-cert"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:secretName: {}
+            k:{"name":"node-tuning-operator-tls"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"trusted-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:56Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:18:56Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-21-63
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:20:49Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:21Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.129.0.32"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-node-tuning-operator-65c486c489-p7fdr
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: cluster-node-tuning-operator-65c486c489
+      uid: a1d980e6-1524-458a-8f99-7bea1355a17b
+    resourceVersion: "7834"
+    uid: 6a737470-3f38-4a2c-8545-451aab7ee870
+  spec:
+    containers:
+    - args:
+      - -v=0
+      command:
+      - cluster-node-tuning-operator
+      env:
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: CLUSTER_NODE_TUNED_IMAGE
+        value: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: cluster-node-tuning-operator
+      ports:
+      - containerPort: 60000
+        name: metrics
+        protocol: TCP
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      securityContext:
+        capabilities:
+          drop:
+          - MKNOD
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /etc/secrets
+        name: node-tuning-operator-tls
+      - mountPath: /var/run/configmaps/trusted-ca/
+        name: trusted-ca
+      - mountPath: /apiserver.local.config/certificates
+        name: apiservice-cert
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-hrmt8
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 499
+      seLinuxOptions:
+        level: s0:c16,c0
+    serviceAccount: cluster-node-tuning-operator
+    serviceAccountName: cluster-node-tuning-operator
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    volumes:
+    - name: node-tuning-operator-tls
+      secret:
+        defaultMode: 420
+        secretName: node-tuning-operator-tls
+    - name: apiservice-cert
+      secret:
+        defaultMode: 420
+        items:
+        - key: tls.crt
+          path: apiserver.crt
+        - key: tls.key
+          path: apiserver.key
+        secretName: performance-addon-operator-webhook-cert
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: tls-ca-bundle.pem
+        name: trusted-ca
+        optional: true
+      name: trusted-ca
+    - name: kube-api-access-hrmt8
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:20:49Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:20:49Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://18f8a709304c3d049b86ffb2eb51c781396a055c2f22db6fe29a3a76eb16d36f
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: cluster-node-tuning-operator
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:21:42Z"
+    hostIP: 10.0.21.63
+    phase: Running
+    podIP: 10.129.0.32
+    podIPs:
+    - ip: 10.129.0.32
+    qosClass: Burstable
+    startTime: "2023-12-06T09:20:49Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.81.189"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:13Z"
+    name: tuned-6fs2l
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "19239"
+    uid: 7328c60c-c87c-42b2-8bab-249337616c4c
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-81-189.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-srqmf
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    imagePullSecrets:
+    - name: tuned-dockercfg-ll6ps
+    nodeName: ip-10-0-81-189.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-srqmf
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:24Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:13Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:13Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:23Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://e347b78463b5205b5ef2f38247ff82dff9f8ef96c36698bb776d139280ff7feb
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:26:12Z"
+    hostIP: 10.0.81.189
+    phase: Running
+    podIP: 10.0.81.189
+    podIPs:
+    - ip: 10.0.81.189
+    qosClass: Burstable
+    startTime: "2023-12-06T09:25:24Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.94.160"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:52Z"
+    name: tuned-cvdwp
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "8473"
+    uid: af833401-9016-4814-9226-a1b96340df16
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-94-160.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-r8ct6
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-r8ct6
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:52Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:52Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://05c7ecda2ce7127d637a254ba5129d507f5fc28af25177fd0ba9652715c89264
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:21:51Z"
+    hostIP: 10.0.94.160
+    phase: Running
+    podIP: 10.0.94.160
+    podIPs:
+    - ip: 10.0.94.160
+    qosClass: Burstable
+    startTime: "2023-12-06T09:21:42Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.122.108"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:08Z"
+    name: tuned-jqnd9
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "19079"
+    uid: 22c75c4c-196b-4754-a2f0-aa7a691149ec
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-122-108.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-d95tn
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    imagePullSecrets:
+    - name: tuned-dockercfg-ll6ps
+    nodeName: ip-10-0-122-108.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-d95tn
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:18Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:08Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:08Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:16Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://3638123578e07f570d6dccdacb0c958a7cd7907d8d813b64f251cba641d71383
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:26:08Z"
+    hostIP: 10.0.122.108
+    phase: Running
+    podIP: 10.0.122.108
+    podIPs:
+    - ip: 10.0.122.108
+    qosClass: Burstable
+    startTime: "2023-12-06T09:25:18Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.21.63"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:43Z"
+    name: tuned-jzthw
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "7982"
+    uid: 93991cab-be62-401c-9c5d-b469a4097c8b
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-21-63.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-hlfft
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-hlfft
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:43Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:43Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://badaf7006e9318de6141ad4aaa5a9b89ebbc4c010f53205ad66df4d6e07f632e
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:21:43Z"
+    hostIP: 10.0.21.63
+    phase: Running
+    podIP: 10.0.21.63
+    podIPs:
+    - ip: 10.0.21.63
+    qosClass: Burstable
+    startTime: "2023-12-06T09:21:42Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.106.212"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:52Z"
+    name: tuned-vwq8q
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "8499"
+    uid: 56c01729-a94b-46e5-ae89-1234ef272c19
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-106-212.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-wm754
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-wm754
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:52Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:52Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:42Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://98be8addf30b06d528a03436123a51c65e7dce3973e692a53e2792462740b9c4
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:21:52Z"
+    hostIP: 10.0.106.212
+    phase: Running
+    podIP: 10.0.106.212
+    podIPs:
+    - ip: 10.0.106.212
+    qosClass: Burstable
+    startTime: "2023-12-06T09:21:42Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    generateName: tuned-
+    labels:
+      controller-revision-hash: 6b9776467c
+      openshift-app: tuned
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:openshift-app: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"aa0fee70-3797-4c00-adfd-44af33c04eaf"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"tuned"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"OCP_NODE_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"RESYNC_PERIOD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/kubernetes"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/modprobe.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysconfig"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/sysctl.conf"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/sysctl.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/etc/systemd"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/host"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/lib/modules"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/run"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/sys"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/lib/tuned/profiles-data"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:mountPropagation: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostIPC: {}
+          f:hostNetwork: {}
+          f:hostPID: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"etc-kubernetes"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-modprobe-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysconfig"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-conf"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-sysctl-d"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"etc-systemd"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"lib-modules"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"run"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"sys"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-kubelet"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"var-lib-tuned-profiles-data"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.7.104"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:03Z"
+    name: tuned-zhlkz
+    namespace: openshift-cluster-node-tuning-operator
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: tuned
+      uid: aa0fee70-3797-4c00-adfd-44af33c04eaf
+    resourceVersion: "18881"
+    uid: 4b0b8e67-6dea-4c13-a9fc-b0a5ee8ed98e
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-7-104.us-west-1.compute.internal
+    containers:
+    - command:
+      - /var/lib/tuned/bin/run
+      - start
+      env:
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: OCP_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+      - name: RESYNC_PERIOD
+        value: "600"
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imagePullPolicy: IfNotPresent
+      name: tuned
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/lib/tuned/profiles-data
+        mountPropagation: HostToContainer
+        name: var-lib-tuned-profiles-data
+      - mountPath: /etc/modprobe.d
+        mountPropagation: HostToContainer
+        name: etc-modprobe-d
+      - mountPath: /etc/sysconfig
+        mountPropagation: HostToContainer
+        name: etc-sysconfig
+      - mountPath: /etc/kubernetes
+        mountPropagation: HostToContainer
+        name: etc-kubernetes
+        readOnly: true
+      - mountPath: /etc/sysctl.d
+        mountPropagation: HostToContainer
+        name: etc-sysctl-d
+        readOnly: true
+      - mountPath: /etc/sysctl.conf
+        mountPropagation: HostToContainer
+        name: etc-sysctl-conf
+        readOnly: true
+      - mountPath: /etc/systemd
+        mountPropagation: HostToContainer
+        name: etc-systemd
+      - mountPath: /run
+        mountPropagation: HostToContainer
+        name: run
+      - mountPath: /sys
+        mountPropagation: HostToContainer
+        name: sys
+      - mountPath: /lib/modules
+        mountPropagation: HostToContainer
+        name: lib-modules
+        readOnly: true
+      - mountPath: /var/lib/kubelet
+        mountPropagation: HostToContainer
+        name: var-lib-kubelet
+        readOnly: true
+      - mountPath: /host
+        mountPropagation: HostToContainer
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-zq792
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostIPC: true
+    hostNetwork: true
+    hostPID: true
+    imagePullSecrets:
+    - name: tuned-dockercfg-ll6ps
+    nodeName: ip-10-0-7-104.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: tuned
+    serviceAccountName: tuned
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/modprobe.d
+        type: Directory
+      name: etc-modprobe-d
+    - hostPath:
+        path: /etc/sysconfig
+        type: Directory
+      name: etc-sysconfig
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: etc-kubernetes
+    - hostPath:
+        path: /etc/sysctl.d
+        type: Directory
+      name: etc-sysctl-d
+    - hostPath:
+        path: /etc/sysctl.conf
+        type: File
+      name: etc-sysctl-conf
+    - hostPath:
+        path: /etc/systemd
+        type: Directory
+      name: etc-systemd
+    - hostPath:
+        path: /run
+        type: Directory
+      name: run
+    - hostPath:
+        path: /sys
+        type: Directory
+      name: sys
+    - hostPath:
+        path: /lib/modules
+        type: Directory
+      name: lib-modules
+    - hostPath:
+        path: /var/lib/kubelet
+        type: Directory
+      name: var-lib-kubelet
+    - hostPath:
+        path: /
+        type: Directory
+      name: host
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: tuned-profiles-data
+          path: tuned-profiles.yaml
+        name: tuned-profiles
+        optional: true
+      name: var-lib-tuned-profiles-data
+    - name: kube-api-access-zq792
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:17Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:03Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:03Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:25:16Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://60acbaa32db15b414906969651f2ed09d825a887b28b0878ce494d54b4a1f194
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+      imageID: 366c2c1cd13e3fc0f3248cc2b457509e8614fe7b58023075784c6ec8297dbbaa
+      lastState: {}
+      name: tuned
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:26:03Z"
+    hostIP: 10.0.7.104
+    phase: Running
+    podIP: 10.0.7.104
+    podIPs:
+    - ip: 10.0.7.104
+    qosClass: Burstable
+    startTime: "2023-12-06T09:25:17Z"
+kind: PodList
+metadata:
+  resourceVersion: "47789"

@@ -1,0 +1,1411 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: config-operator-lock
+    namespace: openshift-config-operator
+    resourceVersion: "5675"
+    uid: f3f17f29-60e3-4314-81ef-5dc4b5b0155d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: openshift-config-operator-698d8c7c89-zsbs4_3d022ca0-f30e-4530-bafa-2a476cdad6ef
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: config-operator-lock.179e33a01a8760c1
+    namespace: openshift-config-operator
+    resourceVersion: "5676"
+    uid: 930c545d-3359-44b4-92b4-a3bbf96c67a9
+  reason: LeaderElection
+  reportingComponent: config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: config-operator-lock
+    namespace: openshift-config-operator
+    resourceVersion: "6476"
+    uid: f3f17f29-60e3-4314-81ef-5dc4b5b0155d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: openshift-config-operator-698d8c7c89-zsbs4_41d7be80-6db7-4caf-8e8e-e4d2653a6ae3
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: config-operator-lock.179e33a183adc2ab
+    namespace: openshift-config-operator
+    resourceVersion: "6477"
+    uid: e012fab1-fbc3-493c-99c0-f18c54b272d7
+  reason: LeaderElection
+  reportingComponent: config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "2401"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e337c898fd30a
+    namespace: openshift-config-operator
+    resourceVersion: "2403"
+    uid: a74c7207-b404-46d8-a945-d345c99b6dc9
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "2405"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-config-operator/openshift-config-operator-698d8c7c89-zsbs4
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339ae021eb93
+    namespace: openshift-config-operator
+    resourceVersion: "4438"
+    uid: 5f283a16-3025-44b1-bd2a-b7891e7142da
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4407"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Add eth0 [10.129.0.19/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339b0cb4aa3b
+    namespace: openshift-config-operator
+    resourceVersion: "4492"
+    uid: eaca8659-1407-4052-8937-4b2ece663f7a
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.initContainers{openshift-api}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:d15f821f0f8fb204d9a3abc94b147651a56e39ed555a8878dcce8818f767ab00"
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339b0e086414
+    namespace: openshift-config-operator
+    resourceVersion: "4503"
+    uid: 03390d36-382e-4cf0-a2c6-70989ebc03db
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:03Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.initContainers{openshift-api}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:03Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:d15f821f0f8fb204d9a3abc94b147651a56e39ed555a8878dcce8818f767ab00"
+    in 12.97s (12.97s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:03Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339e132296d4
+    namespace: openshift-config-operator
+    resourceVersion: "4724"
+    uid: 1e8224cd-853e-4c31-a26c-e1286beb30d8
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.initContainers{openshift-api}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: Created container openshift-api
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339eb3c237e7
+    namespace: openshift-config-operator
+    resourceVersion: "4861"
+    uid: 42aa2122-26be-4881-9690-e2d2decb8035
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.initContainers{openshift-api}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:06Z"
+  message: Started container openshift-api
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:06Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339ec695a32d
+    namespace: openshift-config-operator
+    resourceVersion: "4882"
+    uid: e668bf4a-7e0c-480c-8ea7-f71396e7c961
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:06Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ad369e0b0c5c437525bc1c04e5627a05281cf26a4b616fc78a70e1b8bd39780a"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:06Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339ece4925bf
+    namespace: openshift-config-operator
+    resourceVersion: "4892"
+    uid: 8fbfb541-e461-46d6-9ee1-5aded1fe28a8
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4517"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'failed to add remote pod openshift-config-operator/openshift-config-operator-698d8c7c89-zsbs4
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-config-operator:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.19]}}] Timeout:<nil>
+    Where:[where column _uuid == {5c92917d-7935-4108-aabc-8805d718da03}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339f17d18e89
+    namespace: openshift-config-operator
+    resourceVersion: "4977"
+    uid: bb498b84-450b-49a1-9aa0-82b11bc86f91
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ad369e0b0c5c437525bc1c04e5627a05281cf26a4b616fc78a70e1b8bd39780a"
+    in 4.757s (4.757s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339fe9d9372c
+    namespace: openshift-config-operator
+    resourceVersion: "5574"
+    uid: b09e108a-5b95-49b7-ac10-7ec128e29f10
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: Created container openshift-config-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339ff938b1c3
+    namespace: openshift-config-operator
+    resourceVersion: "6445"
+    uid: e0265c87-d63d-454c-a648-7d09f8406284
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: Started container openshift-config-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e339ffac3ca95
+    namespace: openshift-config-operator
+    resourceVersion: "6448"
+    uid: 5251227f-1b20-406e-8552-824e38eafdd7
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: "Readiness probe error: Get \"https://10.129.0.19:8443/healthz\": dial
+    tcp 10.129.0.19:8443: connect: connection refused\nbody: \n"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e33a14e1bf9f5
+    namespace: openshift-config-operator
+    resourceVersion: "6347"
+    uid: 08613fa9-38e0-417d-a050-5f305c382523
+  reason: ProbeError
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: 'Readiness probe failed: Get "https://10.129.0.19:8443/healthz": dial tcp
+    10.129.0.19:8443: connect: connection refused'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e33a14e1ca2ac
+    namespace: openshift-config-operator
+    resourceVersion: "6349"
+    uid: 82301016-c261-426e-968b-65fb63736690
+  reason: Unhealthy
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: "Liveness probe error: Get \"https://10.129.0.19:8443/healthz\": dial tcp
+    10.129.0.19:8443: connect: connection refused\nbody: \n"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e33a14e2d315f
+    namespace: openshift-config-operator
+    resourceVersion: "6354"
+    uid: 9c3ca45f-ae27-4fda-b3ab-9d13ed7ed17e
+  reason: ProbeError
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: 'Liveness probe failed: Get "https://10.129.0.19:8443/healthz": dial tcp
+    10.129.0.19:8443: connect: connection refused'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e33a14e2ed364
+    namespace: openshift-config-operator
+    resourceVersion: "6358"
+    uid: 856b43ec-7219-4ef6-a704-fbf773530762
+  reason: Unhealthy
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-config-operator}
+    kind: Pod
+    name: openshift-config-operator-698d8c7c89-zsbs4
+    namespace: openshift-config-operator
+    resourceVersion: "4367"
+    uid: 41cb0bee-eb0e-4dea-b151-f592f00f9590
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ad369e0b0c5c437525bc1c04e5627a05281cf26a4b616fc78a70e1b8bd39780a"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator-698d8c7c89-zsbs4.179e33a16354323e
+    namespace: openshift-config-operator
+    resourceVersion: "6407"
+    uid: 29e4abae-808f-43c6-9595-dc106477f9ed
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: openshift-config-operator-698d8c7c89
+    namespace: openshift-config-operator
+    resourceVersion: "2052"
+    uid: 39a986bd-a802-4c71-8146-3a1f6dd8066a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:28Z"
+  message: 'Error creating: pods "openshift-config-operator-698d8c7c89-" is forbidden:
+    autoscaling.openshift.io/ManagementCPUsOverride the cluster does not have any
+    nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:28Z"
+    name: openshift-config-operator-698d8c7c89.179e3377c327700e
+    namespace: openshift-config-operator
+    resourceVersion: "2296"
+    uid: 0c9f3133-efca-42a6-bf20-cd524a120887
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: openshift-config-operator-698d8c7c89
+    namespace: openshift-config-operator
+    resourceVersion: "2056"
+    uid: 39a986bd-a802-4c71-8146-3a1f6dd8066a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: 'Created pod: openshift-config-operator-698d8c7c89-zsbs4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: openshift-config-operator-698d8c7c89.179e337c899083c5
+    namespace: openshift-config-operator
+    resourceVersion: "2402"
+    uid: 06eb2d45-ff67-463b-b0ed-e7341539c00e
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    resourceVersion: "2051"
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:18Z"
+  message: Scaled up replica set openshift-config-operator-698d8c7c89 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:18Z"
+    name: openshift-config-operator.179e3377c2f21617
+    namespace: openshift-config-operator
+    resourceVersion: "2053"
+    uid: 7a4aaec8-a6f9-4ed2-afa0-a5f084bc2eab
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Controller "ConfigOperatorController" resync interval is set to 10s which
+    might lead to client request throttling
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-config-operator.179e33a01acd9202
+    namespace: openshift-config-operator
+    resourceVersion: "5678"
+    uid: 4be7fdea-6311-4711-9365-896f3707b0e6
+  reason: FastControllerResync
+  reportingComponent: config-operator-configoperatorcontroller
+  reportingInstance: ""
+  source:
+    component: config-operator-configoperatorcontroller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: 'Operator conditions defaulted: [{OperatorAvailable True 2023-12-06 09:21:11
+    +0000 UTC AsExpected } {OperatorProgressing False 2023-12-06 09:21:11 +0000 UTC
+    AsExpected } {OperatorUpgradeable True 2023-12-06 09:21:11 +0000 UTC AsExpected
+    }]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-config-operator.179e33a01badf977
+    namespace: openshift-config-operator
+    resourceVersion: "5681"
+    uid: c98b88db-ce39-4c5f-92a3-c7e3953487ac
+  reason: ConfigOperatorStatusChanged
+  reportingComponent: config-operator-configoperatorcontroller
+  reportingInstance: ""
+  source:
+    component: config-operator-configoperatorcontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: clusteroperator/config-operator version "feature-gates" changed from ""
+    to "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a020d7c9ee
+    namespace: openshift-config-operator
+    resourceVersion: "5689"
+    uid: 01584bfe-8826-41ac-afbe-16b46c8496e9
+  reason: OperatorVersionChanged
+  reportingComponent: config-operator-status-controller-statussyncer_config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator-status-controller-statussyncer_config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: clusteroperator/config-operator version "operator" changed from "" to "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a020d7f356
+    namespace: openshift-config-operator
+    resourceVersion: "5692"
+    uid: d9222e42-bd11-4ed7-8e33-10f45808d5de
+  reason: OperatorVersionChanged
+  reportingComponent: config-operator-status-controller-statussyncer_config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator-status-controller-statussyncer_config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: Created ConfigMap/kube-cloud-config -n openshift-config-managed because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a021026d30
+    namespace: openshift-config-operator
+    resourceVersion: "5691"
+    uid: ba846666-2316-4848-acff-e77423854a55
+  reason: ConfigMapCreated
+  reportingComponent: config-operator-kubecloudconfigcontroller
+  reportingInstance: ""
+  source:
+    component: config-operator-kubecloudconfigcontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: openshift-config-managed/kube-cloud-config ConfigMap was updated
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a0210294ae
+    namespace: openshift-config-operator
+    resourceVersion: "5693"
+    uid: fac2056e-4e44-4eee-af0f-3ffbae54ba8b
+  reason: KubeCloudConfigController
+  reportingComponent: config-operator-kubecloudconfigcontroller
+  reportingInstance: ""
+  source:
+    component: config-operator-kubecloudconfigcontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: 'Status for clusteroperator/config-operator changed: Degraded set to Unknown
+    (""),Progressing set to False ("All is well"),Available set to True ("All is well"),Upgradeable
+    set to True ("All is well"),status.versions changed from [] to [{"feature-gates"
+    "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"} {"operator" "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"}]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a0217f6906
+    namespace: openshift-config-operator
+    resourceVersion: "5694"
+    uid: 12411dca-25bf-4be4-b34f-22448ea3ceef
+  reason: OperatorStatusChanged
+  reportingComponent: config-operator-status-controller-statussyncer_config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator-status-controller-statussyncer_config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: 'Status for clusteroperator/config-operator changed: Degraded changed from
+    Unknown to False ("All is well")'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-config-operator.179e33a02268d1a7
+    namespace: openshift-config-operator
+    resourceVersion: "5697"
+    uid: d238c6b8-708e-4ca2-90c3-6158be69417a
+  reason: OperatorStatusChanged
+  reportingComponent: config-operator-status-controller-statussyncer_config-operator
+  reportingInstance: ""
+  source:
+    component: config-operator-status-controller-statussyncer_config-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-config-operator
+    namespace: openshift-config-operator
+    uid: ead31f78-0e4b-4430-873e-fb28449c31c0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: Controller "ConfigOperatorController" resync interval is set to 10s which
+    might lead to client request throttling
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-config-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-config-operator.179e33a1840163f1
+    namespace: openshift-config-operator
+    resourceVersion: "6479"
+    uid: cdea7ce5-5b60-4d79-8fb7-da9783f49d6a
+  reason: FastControllerResync
+  reportingComponent: config-operator-configoperatorcontroller
+  reportingInstance: ""
+  source:
+    component: config-operator-configoperatorcontroller
+  type: Warning
+kind: EventList
+metadata:
+  resourceVersion: "47676"

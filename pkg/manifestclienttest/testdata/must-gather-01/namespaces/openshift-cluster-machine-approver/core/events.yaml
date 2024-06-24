@@ -1,0 +1,860 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-machine-approver-leader
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "7939"
+    uid: 6e745d81-bb94-41f6-94bb-e2b3f93f762a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: ip-10-0-21-63_4b4f1500-d923-4181-a1a0-f9f3cae0feb1 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-approver
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-machine-approver-leader.179e33a76671a716
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "7941"
+    uid: 30018b77-e699-4641-804e-d8f8c41c4b9d
+  reason: LeaderElection
+  reportingComponent: ip-10-0-21-63_4b4f1500-d923-4181-a1a0-f9f3cae0feb1
+  reportingInstance: ""
+  source:
+    component: ip-10-0-21-63_4b4f1500-d923-4181-a1a0-f9f3cae0feb1
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:04Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-approver-7497dc766f-6t8rl
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2818"
+    uid: 90b149cc-1cc9-4d4a-b152-6955f87605e1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:04Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:04Z"
+    name: machine-approver-7497dc766f-6t8rl.179e338289f6481d
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2820"
+    uid: 5526f145-d2c5-49b3-b6ac-423af9413587
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-approver-7497dc766f-6t8rl
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3062"
+    uid: 90b149cc-1cc9-4d4a-b152-6955f87605e1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: 'skip schedule deleting pod: openshift-cluster-machine-approver/machine-approver-7497dc766f-6t8rl'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver-7497dc766f-6t8rl.179e338900f0cd87
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3065"
+    uid: d31ed1de-67f1-43b7-a6fa-e4c8eea2747e
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:04Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-approver-7497dc766f
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2815"
+    uid: e398a853-eb38-4a7d-b382-65fec045918e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:04Z"
+  message: 'Created pod: machine-approver-7497dc766f-6t8rl'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:04Z"
+    name: machine-approver-7497dc766f.179e338289fe9308
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2819"
+    uid: e7e74798-9488-41d8-b908-3ae1ca9613bd
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-approver-7497dc766f
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3059"
+    uid: e398a853-eb38-4a7d-b382-65fec045918e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: 'Deleted pod: machine-approver-7497dc766f-6t8rl'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver-7497dc766f.179e3389014116e4
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3066"
+    uid: 987bfc55-0aed-495d-a5b8-c6f2c4d8f31d
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3071"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.kubernetes.io/not-ready:
+    }. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver-84d497786b-pzpvg.179e338902d79f73
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3075"
+    uid: 2cc758b9-deef-43e5-8f3a-1c48215052ff
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3076"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-cluster-machine-approver/machine-approver-84d497786b-pzpvg
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: machine-approver-84d497786b-pzpvg.179e339ae1bc6a33
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4462"
+    uid: 302aa020-1cab-4648-a79d-c4937632e1f6
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "machine-approver-tls" : secret "machine-approver-tls"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: machine-approver-84d497786b-pzpvg.179e339af306ed79
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4851"
+    uid: 018d5494-7030-4b1c-86fa-2d6a48189d71
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a256b46f9c
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "6846"
+    uid: d5d2d8c6-2f4a-48a8-9035-b808163a22b6
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Created container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a265fdeba9
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "6862"
+    uid: 0a4d1a0d-94c6-4cd1-a534-cacc4781d338
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Started container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a26eb9e447
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "6896"
+    uid: 06b15c5f-0a5c-4b5a-ba43-024a95a8f60a
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-approver-controller}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b06c130b08424ed5ad0596843bbd0a3cf7b2a29fe0bb0956762578b1e6cd488b"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a26ec826f4
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "6899"
+    uid: 29a429fa-d05e-4f49-871e-a615c8c8e6f8
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-approver-controller}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b06c130b08424ed5ad0596843bbd0a3cf7b2a29fe0bb0956762578b1e6cd488b"
+    in 20.623s (20.623s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a73c0346df
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "7844"
+    uid: 89b886b7-f7d1-49f8-8e6a-e37344f024c1
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-approver-controller}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Created container machine-approver-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a757b8c3a2
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "7914"
+    uid: 918ae7bc-5b25-48cf-a2b8-a2c30294a495
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-approver-controller}
+    kind: Pod
+    name: machine-approver-84d497786b-pzpvg
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "4394"
+    uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Started container machine-approver-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: machine-approver-84d497786b-pzpvg.179e33a760674c0d
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "7930"
+    uid: 20df7c98-4323-4e3c-a16c-f47cac4136b3
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-approver-84d497786b
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3069"
+    uid: 0c0cc4fe-3283-442f-8486-1ce7f4652d5b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: 'Created pod: machine-approver-84d497786b-pzpvg'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver-84d497786b.179e338902c4248c
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3073"
+    uid: bc3b03e3-cb8b-454f-a0c1-f49393a81d71
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:04Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-approver
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2814"
+    uid: 2964548c-b2b3-4e4f-8f8d-1b3fc2bc10a0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:04Z"
+  message: Scaled up replica set machine-approver-7497dc766f to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:04Z"
+    name: machine-approver.179e3382899082d8
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "2816"
+    uid: 2644d313-9df3-48b7-a716-e39e37cb5efa
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-approver
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3058"
+    uid: 2964548c-b2b3-4e4f-8f8d-1b3fc2bc10a0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: Scaled down replica set machine-approver-7497dc766f to 0 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver.179e3389005f4792
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3060"
+    uid: 8a834e0b-63bc-4af0-bce4-c1dbd2c50e67
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:32Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-approver
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3063"
+    uid: 2964548c-b2b3-4e4f-8f8d-1b3fc2bc10a0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:32Z"
+  message: Scaled up replica set machine-approver-84d497786b to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:32Z"
+    name: machine-approver.179e3389026d4842
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "3070"
+    uid: 104e4844-be88-4c12-a2bd-4d2f8638d112
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47914"

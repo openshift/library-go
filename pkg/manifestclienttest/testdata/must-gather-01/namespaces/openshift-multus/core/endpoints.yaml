@@ -1,0 +1,128 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:03Z"
+    labels:
+      app: multus-admission-controller
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:07Z"
+    name: multus-admission-controller
+    namespace: openshift-multus
+    resourceVersion: "9318"
+    uid: 18a30b10-a81e-4d97-9907-fcae3ad3305a
+  subsets:
+  - addresses:
+    - ip: 10.128.0.9
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: multus-admission-controller-66cc74c65d-8ksgd
+        namespace: openshift-multus
+        uid: 06d66e90-4108-4279-b2d4-358942871736
+    - ip: 10.129.0.57
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: multus-admission-controller-66cc74c65d-7cjf5
+        namespace: openshift-multus
+        uid: fb6ff31a-3b4d-4b77-a083-a92b71225d19
+    ports:
+    - name: metrics
+      port: 8443
+      protocol: TCP
+    - name: webhook
+      port: 6443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:27:32Z"
+    creationTimestamp: "2023-12-06T09:20:02Z"
+    labels:
+      service: network-metrics-service
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:service: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:27:32Z"
+    name: network-metrics-service
+    namespace: openshift-multus
+    resourceVersion: "21184"
+    uid: 54f5032a-4403-468c-8cff-98c56672677a
+  subsets:
+  - addresses:
+    - ip: 10.128.0.3
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-fv5tt
+        namespace: openshift-multus
+        uid: c7c8b1ce-5e98-4bcf-8681-63ff65f3d2c8
+    - ip: 10.128.2.4
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-9mwgf
+        namespace: openshift-multus
+        uid: 22bfb020-eda3-454d-aebe-9a02ba0a401b
+    - ip: 10.129.0.3
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-8mhtp
+        namespace: openshift-multus
+        uid: 8d9ec11f-1f5b-41d3-8641-df40b31c79b3
+    - ip: 10.129.2.3
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-5tdgt
+        namespace: openshift-multus
+        uid: 70915699-ec24-45f7-a59d-8c2785d56565
+    - ip: 10.130.0.3
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-7g8n7
+        namespace: openshift-multus
+        uid: 2c0e9181-f019-4f0e-bf84-a5ae97d5f733
+    - ip: 10.131.0.3
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-metrics-daemon-m45jw
+        namespace: openshift-multus
+        uid: 1e31aa99-4cc3-4b86-abbd-2631e70b3d70
+    ports:
+    - name: metrics
+      port: 8443
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47851"

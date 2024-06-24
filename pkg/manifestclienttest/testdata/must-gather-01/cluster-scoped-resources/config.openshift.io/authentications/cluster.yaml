@@ -1,0 +1,77 @@
+---
+apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:17:56Z"
+  generation: 2
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:56Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:oauthMetadata:
+          .: {}
+          f:name: {}
+        f:serviceAccountIssuer: {}
+        f:type: {}
+        f:webhookTokenAuthenticator:
+          .: {}
+          f:kubeConfig:
+            .: {}
+            f:name: {}
+    manager: authentication-operator
+    operation: Update
+    time: "2023-12-06T09:22:22Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:integratedOAuthMetadata:
+          .: {}
+          f:name: {}
+    manager: authentication-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:34:58Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "27246"
+  uid: 37771780-5fd0-4498-8283-b6db1f15cd57
+spec:
+  oauthMetadata:
+    name: ""
+  serviceAccountIssuer: ""
+  type: ""
+  webhookTokenAuthenticator:
+    kubeConfig:
+      name: webhook-authentication-integrated-oauth
+status:
+  integratedOAuthMetadata:
+    name: oauth-openshift

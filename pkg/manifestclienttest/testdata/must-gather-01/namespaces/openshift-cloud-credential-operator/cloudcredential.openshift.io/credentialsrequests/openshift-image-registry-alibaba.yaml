@@ -1,0 +1,145 @@
+---
+apiVersion: cloudcredential.openshift.io/v1
+kind: CredentialsRequest
+metadata:
+  annotations:
+    capability.openshift.io/name: ImageRegistry
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  generation: 1
+  labels:
+    controller-tools.k8s.io: "1.0"
+  managedFields:
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:labels:
+          .: {}
+          f:controller-tools.k8s.io: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:providerSpec:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:statementEntries: {}
+        f:secretRef:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+        f:serviceAccountNames: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:lastSyncGeneration: {}
+        f:provisioned: {}
+    manager: Go-http-client
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:46Z"
+  name: openshift-image-registry-alibaba
+  namespace: openshift-cloud-credential-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3212"
+  uid: c53ec1ad-f063-4d76-803a-1d9acde0806d
+spec:
+  providerSpec:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AlibabaCloudProviderSpec
+    statementEntries:
+    - action:
+      - oss:PutBucket
+      - oss:CreateBucket
+      - oss:DeleteBucket
+      - oss:PutBucketTagging
+      - oss:GetBucketTagging
+      - oss:DeleteBucketTagging
+      - oss:PutBucketAcl
+      - oss:GetBucketAcl
+      - oss:PutBucketEncryption
+      - oss:GetBucketEncryption
+      - oss:DeleteBucketEncryption
+      - oss:PutBucketLifecycle
+      - oss:GetBucketLifecycle
+      - oss:DeleteBucketLifecycle
+      - oss:PutBucketPolicy
+      - oss:GetBucketPolicy
+      - oss:DeleteBucketPolicy
+      - oss:GetBucketLocation
+      - oss:PutBucketVersioning
+      - oss:GetBucketVersioning
+      - oss:GetBucketVersions
+      - oss:ListObjectVersions
+      - oss:PutBucketCors
+      - oss:GetBucketCors
+      - oss:DeleteBucketCors
+      - oss:PutBucketReferer
+      - oss:GetBucketReferer
+      - oss:GetBucketInfo
+      - oss:GetBucket
+      - oss:GetBucketV2
+      - oss:ListBucket
+      - oss:ListBuckets
+      - oss:ListObjects
+      - oss:ListObjectsV2
+      - oss:GetObject
+      - oss:PutObject
+      - oss:DeleteObject
+      - oss:DeleteMultipleObjects
+      - oss:HeadObject
+      - oss:PostObject
+      - oss:GetObjectMeta
+      - oss:InitiateMultipartUpload
+      - oss:ListMultipartUploads
+      - oss:AbortMultipartUpload
+      - oss:CompleteMultipartUpload
+      - oss:UploadPart
+      - oss:UploadPartCopy
+      - oss:ListParts
+      - kms:GenerateDataKey
+      - kms:ListKeys
+      - kms:ListAlias
+      - kms:ListAliasByKeyId
+      - kms:DescribeKey
+      - kms:Decrypt
+      effect: Allow
+      resource: '*'
+  secretRef:
+    name: installer-cloud-credentials
+    namespace: openshift-image-registry
+  serviceAccountNames:
+  - cluster-image-registry-operator
+  - registry
+status:
+  conditions:
+  - lastProbeTime: "2023-12-06T09:19:46Z"
+    lastTransitionTime: "2023-12-06T09:19:46Z"
+    message: CredentialsRequest is not for platform AWS
+    reason: InfrastructureMismatch
+    status: "True"
+    type: Ignored
+  lastSyncGeneration: 0
+  provisioned: false

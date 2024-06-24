@@ -1,0 +1,85 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:06Z"
+    labels:
+      component: apiserver
+      provider: kubernetes
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:component: {}
+            f:provider: {}
+        f:spec:
+          f:clusterIP: {}
+          f:internalTrafficPolicy: {}
+          f:ipFamilyPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":443,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: kube-apiserver
+      operation: Update
+      time: "2023-12-06T09:17:06Z"
+    name: kubernetes
+    namespace: default
+    resourceVersion: "238"
+    uid: 9a8b8817-8564-406e-8b87-8440b68f8e19
+  spec:
+    clusterIP: 172.30.0.1
+    clusterIPs:
+    - 172.30.0.1
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 6443
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:spec:
+          f:externalName: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: dns-operator
+      operation: Update
+      time: "2023-12-06T09:21:44Z"
+    name: openshift
+    namespace: default
+    resourceVersion: "8096"
+    uid: 543140b4-3c63-45d8-a859-8c6fcf41fb71
+  spec:
+    externalName: kubernetes.default.svc.cluster.local
+    sessionAffinity: None
+    type: ExternalName
+  status:
+    loadBalancer: {}
+kind: ServiceList
+metadata:
+  resourceVersion: "47528"

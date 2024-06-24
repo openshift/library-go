@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      operator.openshift.io/spec-hash: a480352ea60c2dcd2b3870bf0c3650528ef9b51aaa3fe6baa1e3711da18fffa3
+      service.alpha.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+      service.beta.openshift.io/serving-cert-secret-name: serving-cert
+      service.beta.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    labels:
+      prometheus: route-controller-manager
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/spec-hash: {}
+            f:service.beta.openshift.io/serving-cert-secret-name: {}
+          f:labels:
+            .: {}
+            f:prometheus: {}
+        f:spec:
+          f:internalTrafficPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":443,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:selector: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:service.alpha.openshift.io/serving-cert-signed-by: {}
+            f:service.beta.openshift.io/serving-cert-signed-by: {}
+      manager: service-ca-operator
+      operation: Update
+      time: "2023-12-06T09:21:29Z"
+    name: route-controller-manager
+    namespace: openshift-route-controller-manager
+    resourceVersion: "7238"
+    uid: fb96acd1-9472-4dd3-b997-07d8abd4794a
+  spec:
+    clusterIP: 172.30.228.47
+    clusterIPs:
+    - 172.30.228.47
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8443
+    selector:
+      route-controller-manager: "true"
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+kind: ServiceList
+metadata:
+  resourceVersion: "48046"

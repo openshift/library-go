@@ -1,0 +1,179 @@
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  annotations:
+    capacity.cluster-autoscaler.kubernetes.io/labels: kubernetes.io/arch=amd64
+    machine.openshift.io/GPU: "0"
+    machine.openshift.io/memoryMb: "16384"
+    machine.openshift.io/vCPU: "4"
+  creationTimestamp: "2023-12-06T09:18:19Z"
+  generation: 1
+  labels:
+    machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+  managedFields:
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:machine.openshift.io/cluster-api-cluster: {}
+      f:spec:
+        .: {}
+        f:replicas: {}
+        f:selector: {}
+        f:template:
+          .: {}
+          f:metadata:
+            .: {}
+            f:labels:
+              .: {}
+              f:machine.openshift.io/cluster-api-cluster: {}
+              f:machine.openshift.io/cluster-api-machine-role: {}
+              f:machine.openshift.io/cluster-api-machine-type: {}
+              f:machine.openshift.io/cluster-api-machineset: {}
+          f:spec:
+            .: {}
+            f:lifecycleHooks: {}
+            f:metadata: {}
+            f:providerSpec:
+              .: {}
+              f:value:
+                .: {}
+                f:ami:
+                  .: {}
+                  f:id: {}
+                f:apiVersion: {}
+                f:blockDevices: {}
+                f:credentialsSecret:
+                  .: {}
+                  f:name: {}
+                f:deviceIndex: {}
+                f:iamInstanceProfile:
+                  .: {}
+                  f:id: {}
+                f:instanceType: {}
+                f:kind: {}
+                f:metadata:
+                  .: {}
+                  f:creationTimestamp: {}
+                f:metadataServiceOptions: {}
+                f:placement:
+                  .: {}
+                  f:availabilityZone: {}
+                  f:region: {}
+                f:securityGroups: {}
+                f:subnet:
+                  .: {}
+                  f:filters: {}
+                f:tags: {}
+                f:userDataSecret:
+                  .: {}
+                  f:name: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status: {}
+    manager: cluster-bootstrap
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capacity.cluster-autoscaler.kubernetes.io/labels: {}
+          f:machine.openshift.io/GPU: {}
+          f:machine.openshift.io/memoryMb: {}
+          f:machine.openshift.io/vCPU: {}
+    manager: machine-controller-manager
+    operation: Update
+    time: "2023-12-06T09:22:50Z"
+  - apiVersion: machine.openshift.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:availableReplicas: {}
+        f:fullyLabeledReplicas: {}
+        f:observedGeneration: {}
+        f:readyReplicas: {}
+        f:replicas: {}
+    manager: machineset-controller
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:21Z"
+  name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b
+  namespace: openshift-machine-api
+  resourceVersion: "19527"
+  uid: 73255218-cc07-4cff-8e37-419c62b3db2a
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+      machine.openshift.io/cluster-api-machineset: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: ci-op-2j285qtr-234c7-w84r8
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: worker
+        machine.openshift.io/cluster-api-machineset: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b
+    spec:
+      lifecycleHooks: {}
+      metadata: {}
+      providerSpec:
+        value:
+          ami:
+            id: ami-0a4eb15533efba35b
+          apiVersion: machine.openshift.io/v1beta1
+          blockDevices:
+          - ebs:
+              encrypted: true
+              iops: 0
+              kmsKey:
+                arn: ""
+              volumeSize: 120
+              volumeType: gp3
+          credentialsSecret:
+            name: aws-cloud-credentials
+          deviceIndex: 0
+          iamInstanceProfile:
+            id: ci-op-2j285qtr-234c7-w84r8-worker-profile
+          instanceType: m6a.xlarge
+          kind: AWSMachineProviderConfig
+          metadata:
+            creationTimestamp: null
+          metadataServiceOptions: {}
+          placement:
+            availabilityZone: us-west-1b
+            region: us-west-1
+          securityGroups:
+          - filters:
+            - name: tag:Name
+              values:
+              - ci-op-2j285qtr-234c7-w84r8-worker-sg
+          subnet:
+            filters:
+            - name: tag:Name
+              values:
+              - ci-op-2j285qtr-234c7-w84r8-private-us-west-1b
+          tags:
+          - name: kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8
+            value: owned
+          - name: expirationDate
+            value: 2023-12-06T17:08+0000
+          userDataSecret:
+            name: worker-user-data
+status:
+  availableReplicas: 2
+  fullyLabeledReplicas: 2
+  observedGeneration: 1
+  readyReplicas: 2
+  replicas: 2

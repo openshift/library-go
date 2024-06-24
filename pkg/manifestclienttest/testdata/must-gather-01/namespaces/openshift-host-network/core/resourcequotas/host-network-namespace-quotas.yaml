@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  creationTimestamp: "2023-12-06T09:20:12Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+      f:spec:
+        f:hard:
+          f:count/daemonsets.apps: {}
+          f:count/deployments.apps: {}
+          f:limits.cpu: {}
+          f:limits.memory: {}
+          f:pods: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:12Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:hard:
+          .: {}
+          f:count/daemonsets.apps: {}
+          f:count/deployments.apps: {}
+          f:limits.cpu: {}
+          f:limits.memory: {}
+          f:pods: {}
+        f:used:
+          .: {}
+          f:count/daemonsets.apps: {}
+          f:count/deployments.apps: {}
+          f:limits.cpu: {}
+          f:limits.memory: {}
+          f:pods: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:20:12Z"
+  name: host-network-namespace-quotas
+  namespace: openshift-host-network
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "3651"
+  uid: 14c4876e-28f5-4847-a561-21773be697d4
+spec:
+  hard:
+    count/daemonsets.apps: "0"
+    count/deployments.apps: "0"
+    limits.cpu: "0"
+    limits.memory: "0"
+    pods: "0"
+status:
+  hard:
+    count/daemonsets.apps: "0"
+    count/deployments.apps: "0"
+    limits.cpu: "0"
+    limits.memory: "0"
+    pods: "0"
+  used:
+    count/daemonsets.apps: "0"
+    count/deployments.apps: "0"
+    limits.cpu: "0"
+    limits.memory: "0"
+    pods: "0"

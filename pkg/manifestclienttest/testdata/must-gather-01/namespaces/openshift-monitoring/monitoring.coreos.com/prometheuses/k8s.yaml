@@ -1,0 +1,468 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  creationTimestamp: "2023-12-06T09:39:20Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/managed-by: cluster-monitoring-operator
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: openshift-monitoring
+    app.kubernetes.io/version: 2.48.0
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:availableReplicas: {}
+        f:conditions:
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Reconciled"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:observedGeneration: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:paused: {}
+        f:replicas: {}
+        f:shardStatuses:
+          k:{"shardID":"0"}:
+            .: {}
+            f:availableReplicas: {}
+            f:replicas: {}
+            f:shardID: {}
+            f:unavailableReplicas: {}
+            f:updatedReplicas: {}
+        f:unavailableReplicas: {}
+        f:updatedReplicas: {}
+    manager: PrometheusOperator
+    operation: Apply
+    subresource: status
+    time: "2023-12-06T09:57:27Z"
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/managed-by: {}
+          f:app.kubernetes.io/name: {}
+          f:app.kubernetes.io/part-of: {}
+          f:app.kubernetes.io/version: {}
+      f:spec:
+        .: {}
+        f:additionalAlertRelabelConfigs: {}
+        f:affinity:
+          .: {}
+          f:podAntiAffinity:
+            .: {}
+            f:requiredDuringSchedulingIgnoredDuringExecution: {}
+        f:alerting:
+          .: {}
+          f:alertmanagers: {}
+        f:arbitraryFSAccessThroughSMs: {}
+        f:configMaps: {}
+        f:containers: {}
+        f:evaluationInterval: {}
+        f:externalUrl: {}
+        f:image: {}
+        f:listenLocal: {}
+        f:nodeSelector:
+          .: {}
+          f:kubernetes.io/os: {}
+        f:podMetadata:
+          .: {}
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:podMonitorNamespaceSelector: {}
+        f:podMonitorSelector: {}
+        f:portName: {}
+        f:priorityClassName: {}
+        f:probeNamespaceSelector: {}
+        f:probeSelector: {}
+        f:replicas: {}
+        f:resources:
+          .: {}
+          f:requests:
+            .: {}
+            f:cpu: {}
+            f:memory: {}
+        f:retention: {}
+        f:ruleNamespaceSelector: {}
+        f:ruleSelector: {}
+        f:rules:
+          .: {}
+          f:alert: {}
+        f:scrapeInterval: {}
+        f:secrets: {}
+        f:securityContext:
+          .: {}
+          f:fsGroup: {}
+          f:runAsNonRoot: {}
+          f:runAsUser: {}
+        f:serviceAccountName: {}
+        f:serviceMonitorNamespaceSelector: {}
+        f:serviceMonitorSelector: {}
+        f:storage:
+          .: {}
+          f:volumeClaimTemplate:
+            .: {}
+            f:metadata:
+              .: {}
+              f:annotations:
+                .: {}
+                f:openshift.io/cluster-monitoring-drop-pvc: {}
+              f:name: {}
+            f:spec:
+              .: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:storage: {}
+            f:status: {}
+        f:thanos:
+          .: {}
+          f:blockSize: {}
+          f:image: {}
+          f:resources:
+            .: {}
+            f:requests:
+              .: {}
+              f:cpu: {}
+              f:memory: {}
+          f:version: {}
+        f:tsdb: {}
+        f:version: {}
+        f:volumes: {}
+        f:web:
+          .: {}
+          f:httpConfig:
+            .: {}
+            f:headers:
+              .: {}
+              f:contentSecurityPolicy: {}
+    manager: operator
+    operation: Update
+    time: "2023-12-06T09:40:23Z"
+  name: k8s
+  namespace: openshift-monitoring
+  resourceVersion: "47273"
+  uid: b1b00a27-a6a6-4dc9-9fe9-e0edd1d3f046
+spec:
+  additionalAlertRelabelConfigs:
+    key: config.yaml
+    name: alert-relabel-configs
+    optional: true
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: prometheus
+            app.kubernetes.io/instance: k8s
+            app.kubernetes.io/name: prometheus
+            app.kubernetes.io/part-of: openshift-monitoring
+        namespaces:
+        - openshift-monitoring
+        topologyKey: kubernetes.io/hostname
+  alerting:
+    alertmanagers:
+    - apiVersion: v2
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      name: alertmanager-main
+      namespace: openshift-monitoring
+      port: web
+      scheme: https
+      tlsConfig:
+        ca: {}
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        cert: {}
+        serverName: alertmanager-main.openshift-monitoring.svc
+  arbitraryFSAccessThroughSMs: {}
+  configMaps:
+  - serving-certs-ca-bundle
+  - kubelet-serving-ca-bundle
+  - metrics-client-ca
+  containers:
+  - args:
+    - -provider=openshift
+    - -https-address=:9091
+    - -http-address=
+    - -email-domain=*
+    - -upstream=http://localhost:9090
+    - -openshift-service-account=prometheus-k8s
+    - '-openshift-sar={"resource": "namespaces", "verb": "get"}'
+    - '-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}'
+    - -tls-cert=/etc/tls/private/tls.crt
+    - -tls-key=/etc/tls/private/tls.key
+    - -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+    - -cookie-secret-file=/etc/proxy/secrets/session_secret
+    - -openshift-ca=/etc/pki/tls/cert.pem
+    - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    env:
+    - name: HTTP_PROXY
+    - name: HTTPS_PROXY
+    - name: NO_PROXY
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:756d1459b9fb34dd133d5519bea858188a2371ddba77079e24b4938060359a30
+    name: prometheus-proxy
+    ports:
+    - containerPort: 9091
+      name: web
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 20Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: secret-prometheus-k8s-tls
+    - mountPath: /etc/proxy/secrets
+      name: secret-prometheus-k8s-proxy
+    - mountPath: /etc/pki/ca-trust/extracted/pem/
+      name: prometheus-trusted-ca-bundle
+      readOnly: true
+  - args:
+    - --secure-listen-address=0.0.0.0:9092
+    - --upstream=http://127.0.0.1:9090
+    - --allow-paths=/metrics,/federate
+    - --config-file=/etc/kube-rbac-proxy/config.yaml
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --client-ca-file=/etc/tls/client/client-ca.crt
+    - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - --tls-min-version=VersionTLS12
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
+    name: kube-rbac-proxy
+    ports:
+    - containerPort: 9092
+      name: metrics
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 15Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: secret-prometheus-k8s-tls
+    - mountPath: /etc/tls/client
+      name: configmap-metrics-client-ca
+      readOnly: true
+    - mountPath: /etc/kube-rbac-proxy
+      name: secret-kube-rbac-proxy
+  - args:
+    - --secure-listen-address=[$(POD_IP)]:10903
+    - --upstream=http://127.0.0.1:10902
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --client-ca-file=/etc/tls/client/client-ca.crt
+    - --config-file=/etc/kube-rbac-proxy/config.yaml
+    - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    - --allow-paths=/metrics
+    - --logtostderr=true
+    - --tls-min-version=VersionTLS12
+    - --client-ca-file=/etc/tls/client/client-ca.crt
+    env:
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
+    name: kube-rbac-proxy-thanos
+    ports:
+    - containerPort: 10903
+      name: thanos-proxy
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 1m
+        memory: 10Mi
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: secret-prometheus-k8s-thanos-sidecar-tls
+    - mountPath: /etc/kube-rbac-proxy
+      name: secret-kube-rbac-proxy
+    - mountPath: /etc/tls/client
+      name: metrics-client-ca
+      readOnly: true
+  - args:
+    - sidecar
+    - --prometheus.url=http://localhost:9090/
+    - --tsdb.path=/prometheus
+    - --http-address=127.0.0.1:10902
+    - --grpc-server-tls-cert=/etc/tls/grpc/server.crt
+    - --grpc-server-tls-key=/etc/tls/grpc/server.key
+    - --grpc-server-tls-client-ca=/etc/tls/grpc/ca.crt
+    name: thanos-sidecar
+    resources:
+      requests:
+        cpu: 1m
+        memory: 25Mi
+    volumeMounts:
+    - mountPath: /etc/tls/grpc
+      name: secret-grpc-tls
+  - name: prometheus
+    resources: {}
+    startupProbe:
+      failureThreshold: 240
+      periodSeconds: 15
+    volumeMounts:
+    - mountPath: /etc/pki/ca-trust/extracted/pem/
+      name: prometheus-trusted-ca-bundle
+      readOnly: true
+  evaluationInterval: 30s
+  externalUrl: https://console-openshift-console.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com/monitoring
+  image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8a0f3d43f645ceace3e380bc30a23258f34e6a5b7329a2ed970092861fd1ff1d
+  listenLocal: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  podMetadata:
+    annotations:
+      target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+    labels:
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/instance: k8s
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 2.48.0
+  podMonitorNamespaceSelector:
+    matchLabels:
+      openshift.io/cluster-monitoring: "true"
+  podMonitorSelector:
+    matchExpressions:
+    - key: monitoring.openshift.io/collection-profile
+      operator: NotIn
+      values:
+      - minimal
+  portName: web
+  priorityClassName: system-cluster-critical
+  probeNamespaceSelector:
+    matchLabels:
+      openshift.io/cluster-monitoring: "true"
+  probeSelector:
+    matchExpressions:
+    - key: monitoring.openshift.io/collection-profile
+      operator: NotIn
+      values:
+      - minimal
+  replicas: 2
+  resources:
+    requests:
+      cpu: 70m
+      memory: 1Gi
+  retention: 15d
+  ruleNamespaceSelector:
+    matchLabels:
+      openshift.io/cluster-monitoring: "true"
+  ruleSelector: {}
+  rules:
+    alert: {}
+  scrapeInterval: 30s
+  secrets:
+  - prometheus-k8s-tls
+  - prometheus-k8s-proxy
+  - prometheus-k8s-thanos-sidecar-tls
+  - kube-rbac-proxy
+  - metrics-client-certs
+  securityContext:
+    fsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+  serviceAccountName: prometheus-k8s
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      openshift.io/cluster-monitoring: "true"
+  serviceMonitorSelector:
+    matchExpressions:
+    - key: monitoring.openshift.io/collection-profile
+      operator: NotIn
+      values:
+      - minimal
+  storage:
+    volumeClaimTemplate:
+      metadata:
+        annotations:
+          openshift.io/cluster-monitoring-drop-pvc: "yes"
+        name: prometheus-data
+      spec:
+        resources:
+          requests:
+            storage: 20Gi
+      status: {}
+  thanos:
+    blockSize: 2h
+    image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:add663ad3a5fba4072e0727a68a03540e0861966c9d4ab06551305deb5e57c97
+    resources:
+      requests:
+        cpu: 1m
+        memory: 100Mi
+    version: 0.32.5
+  tsdb: {}
+  version: 2.48.0
+  volumes:
+  - configMap:
+      name: metrics-client-ca
+    name: metrics-client-ca
+  - name: secret-grpc-tls
+    secret:
+      secretName: prometheus-k8s-grpc-tls-lkttln0jijtv
+  - configMap:
+      items:
+      - key: ca-bundle.crt
+        path: tls-ca-bundle.pem
+      name: prometheus-trusted-ca-bundle-2ua4n9ob5qr8o
+      optional: true
+    name: prometheus-trusted-ca-bundle
+  web:
+    httpConfig:
+      headers:
+        contentSecurityPolicy: frame-ancestors 'none'
+status:
+  availableReplicas: 2
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:57:27Z"
+    message: ""
+    observedGeneration: 2
+    reason: ""
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:57:27Z"
+    message: ""
+    observedGeneration: 2
+    reason: ""
+    status: "True"
+    type: Reconciled
+  paused: false
+  replicas: 2
+  shardStatuses:
+  - availableReplicas: 2
+    replicas: 2
+    shardID: "0"
+    unavailableReplicas: 0
+    updatedReplicas: 2
+  unavailableReplicas: 0
+  updatedReplicas: 2

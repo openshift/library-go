@@ -1,0 +1,228 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Nginx HTTP server and a reverse proxy (nginx)
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:08Z"
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:04Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"1.20-ubi7"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.20-ubi8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.20-ubi9"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:04Z"
+  name: nginx
+  namespace: openshift
+  resourceVersion: "32291"
+  uid: 5b02f45e-679e-4ece-9a09-c0caca86e1da
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Build and serve static content via Nginx HTTP server and a reverse
+        proxy (nginx) on RHEL 7. For more information about using this builder image,
+        including OpenShift considerations, see https://github.com/sclorg/nginx-container/blob/master/1.20/README.md.
+      iconClass: icon-nginx
+      openshift.io/display-name: Nginx HTTP server and a reverse proxy 1.20 (UBI 7)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/nginx-ex.git
+      supports: nginx
+      tags: builder,nginx
+      version: "1.20"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi7/nginx-120:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 1.20-ubi7
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Nginx HTTP server and a reverse
+        proxy (nginx) on RHEL 8. For more information about using this builder image,
+        including OpenShift considerations, see https://github.com/sclorg/nginx-container/blob/master/1.20/README.md.
+      iconClass: icon-nginx
+      openshift.io/display-name: Nginx HTTP server and a reverse proxy 1.20 (UBI 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/nginx-ex.git
+      supports: nginx
+      tags: builder,nginx
+      version: "1.20"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi8/nginx-120:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 1.20-ubi8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Nginx HTTP server and a reverse
+        proxy (nginx) on RHEL 8. For more information about using this builder image,
+        including OpenShift considerations, see https://github.com/sclorg/nginx-container/blob/master/1.20/README.md.
+      iconClass: icon-nginx
+      openshift.io/display-name: Nginx HTTP server and a reverse proxy 1.20 (UBI 9)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/nginx-ex.git
+      supports: nginx
+      tags: builder,nginx
+      version: "1.20"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi9/nginx-120:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 1.20-ubi9
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: |-
+        Build and serve static content via Nginx HTTP server and a reverse proxy (nginx) on RHEL. For more information about using this builder image, including OpenShift considerations, see https://github.com/sclorg/nginx-container/blob/master/1.20/README.md.
+
+        WARNING: By selecting this tag, your application will automatically update to use the latest version of Nginx available on OpenShift, including major version updates.
+      iconClass: icon-nginx
+      openshift.io/display-name: Nginx HTTP server and a reverse proxy (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/nginx-ex.git
+      supports: nginx
+      tags: builder,nginx
+    from:
+      kind: ImageStreamTag
+      name: 1.20-ubi8
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: latest
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/nginx
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi7/nginx-120@sha256:608c4b97a936745494f698b2b45f347f3b8ee241fa1f2b52d5dfd8b205ff7783
+      generation: 2
+      image: sha256:608c4b97a936745494f698b2b45f347f3b8ee241fa1f2b52d5dfd8b205ff7783
+    tag: 1.20-ubi7
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi8/nginx-120@sha256:77076b4757a344ccc3d133de9c44d7d2af0935e19d4e9cefbd1b42815d08df84
+      generation: 2
+      image: sha256:77076b4757a344ccc3d133de9c44d7d2af0935e19d4e9cefbd1b42815d08df84
+    tag: 1.20-ubi8
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi9/nginx-120@sha256:66d0fc66e59b22892977d054e311403e2294b1bed00f87ada9744990f5bc29b6
+      generation: 2
+      image: sha256:66d0fc66e59b22892977d054e311403e2294b1bed00f87ada9744990f5bc29b6
+    tag: 1.20-ubi9
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi8/nginx-120@sha256:77076b4757a344ccc3d133de9c44d7d2af0935e19d4e9cefbd1b42815d08df84
+      generation: 2
+      image: sha256:77076b4757a344ccc3d133de9c44d7d2af0935e19d4e9cefbd1b42815d08df84
+    tag: latest

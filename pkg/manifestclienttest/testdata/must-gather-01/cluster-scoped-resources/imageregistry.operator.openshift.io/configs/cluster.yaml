@@ -1,0 +1,198 @@
+---
+apiVersion: imageregistry.operator.openshift.io/v1
+kind: Config
+metadata:
+  creationTimestamp: "2023-12-06T09:38:25Z"
+  finalizers:
+  - imageregistry.operator.openshift.io/finalizer
+  generation: 2
+  managedFields:
+  - apiVersion: imageregistry.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"imageregistry.operator.openshift.io/finalizer": {}
+      f:spec:
+        .: {}
+        f:httpSecret: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:observedConfig: {}
+        f:operatorLogLevel: {}
+        f:proxy: {}
+        f:replicas: {}
+        f:requests:
+          .: {}
+          f:read:
+            .: {}
+            f:maxWaitInQueue: {}
+          f:write:
+            .: {}
+            f:maxWaitInQueue: {}
+        f:rolloutStrategy: {}
+        f:storage:
+          .: {}
+          f:managementState: {}
+          f:s3:
+            .: {}
+            f:bucket: {}
+            f:encrypt: {}
+            f:region: {}
+            f:trustedCA:
+              .: {}
+              f:name: {}
+            f:virtualHostedStyle: {}
+        f:unsupportedConfigOverrides: {}
+    manager: cluster-image-registry-operator
+    operation: Update
+    time: "2023-12-06T09:38:27Z"
+  - apiVersion: imageregistry.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:observedGeneration: {}
+        f:readyReplicas: {}
+        f:storage:
+          .: {}
+          f:managementState: {}
+          f:s3:
+            .: {}
+            f:bucket: {}
+            f:encrypt: {}
+            f:region: {}
+            f:trustedCA:
+              .: {}
+              f:name: {}
+            f:virtualHostedStyle: {}
+        f:storageManaged: {}
+    manager: cluster-image-registry-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:41:41Z"
+  name: cluster
+  resourceVersion: "36197"
+  uid: c8f8d152-9294-4c2b-a582-30a9dc27547e
+spec:
+  httpSecret: 3eddec752c9cc1b13624b8cf53e2b33d35618347cff88d3ad537a617f1d2e13acb3b9162177842315c5bcea8818ec08a8ecb7bccafb299aa135527239b277e78
+  logLevel: Normal
+  managementState: Managed
+  observedConfig: null
+  operatorLogLevel: Normal
+  proxy: {}
+  replicas: 2
+  requests:
+    read:
+      maxWaitInQueue: 0s
+    write:
+      maxWaitInQueue: 0s
+  rolloutStrategy: RollingUpdate
+  storage:
+    managementState: Managed
+    s3:
+      bucket: ci-op-2j285qtr-234c7-w84r8-image-registry-us-west-1-dsvibyhbrf
+      encrypt: true
+      region: us-west-1
+      trustedCA:
+        name: ""
+      virtualHostedStyle: false
+  unsupportedConfigOverrides: null
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:38:25Z"
+    reason: AsExpected
+    status: "False"
+    type: ImageConfigControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:38:27Z"
+    reason: AsExpected
+    status: "False"
+    type: ImageRegistryCertificatesControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:39:05Z"
+    message: The daemon set node-ca has available replicas
+    reason: AsExpected
+    status: "True"
+    type: NodeCADaemonAvailable
+  - lastTransitionTime: "2023-12-06T09:39:06Z"
+    message: The daemon set node-ca is deployed
+    reason: AsExpected
+    status: "False"
+    type: NodeCADaemonProgressing
+  - lastTransitionTime: "2023-12-06T09:38:27Z"
+    reason: AsExpected
+    status: "False"
+    type: NodeCADaemonControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    reason: S3 Bucket Exists
+    status: "True"
+    type: StorageExists
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    message: Public access to the S3 bucket and its contents have been successfully
+      blocked.
+    reason: Public Access Block Successful
+    status: "True"
+    type: StoragePublicAccessBlocked
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    message: Tags were successfully applied to the S3 bucket
+    reason: Tagging Successful
+    status: "True"
+    type: StorageTagged
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    message: Default AES256 encryption was successfully enabled on the S3 bucket
+    reason: Encryption Successful
+    status: "True"
+    type: StorageEncrypted
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    message: Default cleanup of incomplete multipart uploads after one (1) day was
+      successfully enabled
+    reason: Enable Cleanup Successful
+    status: "True"
+    type: StorageIncompleteUploadCleanupEnabled
+  - lastTransitionTime: "2023-12-06T09:39:21Z"
+    message: The registry is ready
+    reason: Ready
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:39:23Z"
+    message: The registry is ready
+    reason: Ready
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:38:29Z"
+    status: "False"
+    type: Removed
+  - lastTransitionTime: "2023-12-06T09:41:41Z"
+    reason: AsExpected
+    status: "False"
+    type: AzureStackCloudControllerDegraded
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 1
+    name: node-ca
+    namespace: openshift-image-registry
+    resource: daemonsets
+  - group: apps
+    hash: ""
+    lastGeneration: 2
+    name: image-registry
+    namespace: openshift-image-registry
+    resource: deployments
+  observedGeneration: 2
+  readyReplicas: 2
+  storage:
+    managementState: Managed
+    s3:
+      bucket: ci-op-2j285qtr-234c7-w84r8-image-registry-us-west-1-dsvibyhbrf
+      encrypt: true
+      region: us-west-1
+      trustedCA:
+        name: ""
+      virtualHostedStyle: false
+  storageManaged: true

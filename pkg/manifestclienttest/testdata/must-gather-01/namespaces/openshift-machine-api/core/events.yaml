@@ -1,0 +1,4586 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-master-0
+    namespace: openshift-machine-api
+    resourceVersion: "11439"
+    uid: 67ebbb93-862e-4f81-9d68-ca25030cc0ec
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-master-0
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: ci-op-2j285qtr-234c7-w84r8-master-0.179e33b714ae25e7
+    namespace: openshift-machine-api
+    resourceVersion: "11441"
+    uid: b02b6f7b-2a01-44d0-ac12-6aca1c435066
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:53Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-master-1
+    namespace: openshift-machine-api
+    resourceVersion: "11554"
+    uid: 12c5f70d-4f99-4b4a-a993-d5bd70b10c09
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:53Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-master-1
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:53Z"
+    name: ci-op-2j285qtr-234c7-w84r8-master-1.179e33b7dbf5efb5
+    namespace: openshift-machine-api
+    resourceVersion: "11564"
+    uid: 030ca3bf-5e3e-4361-a0a0-1631b59123ca
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:52Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-master-2
+    namespace: openshift-machine-api
+    resourceVersion: "11507"
+    uid: 6d4682b2-11e6-480b-af3e-a23556e04824
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:52Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-master-2
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:52Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:52Z"
+    name: ci-op-2j285qtr-234c7-w84r8-master-2.179e33b7792bbe7b
+    namespace: openshift-machine-api
+    resourceVersion: "11511"
+    uid: 3a72a992-eeca-4b8d-942a-fd80b478a9e2
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:56Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9
+    namespace: openshift-machine-api
+    resourceVersion: "11519"
+    uid: 9bd8bf74-71d9-426f-9c29-9cedabcd85ee
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:56Z"
+  message: Created Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:56Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9.179e33b86007914b
+    namespace: openshift-machine-api
+    resourceVersion: "11603"
+    uid: 3503a542-4c25-4391-b9c7-901587c84fab
+  reason: Create
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:11Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9
+    namespace: openshift-machine-api
+    resourceVersion: "11969"
+    uid: 9bd8bf74-71d9-426f-9c29-9cedabcd85ee
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:11Z"
+  message: 'ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9: reconciler failed
+    to Update machine: requeue in: 20s'
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:23:11Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9.179e33bbfb7c9ef9
+    namespace: openshift-machine-api
+    resourceVersion: "11970"
+    uid: d88b5620-2a8a-470c-a8b6-a51dcc3d3638
+  reason: FailedUpdate
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:43Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9
+    namespace: openshift-machine-api
+    resourceVersion: "14909"
+    uid: 9bd8bf74-71d9-426f-9c29-9cedabcd85ee
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:43Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:23:43Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1a-pw4r9.179e33c354b4a40b
+    namespace: openshift-machine-api
+    resourceVersion: "14911"
+    uid: 006a8886-9d5a-41f2-8879-e74415851b3b
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:57Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb
+    namespace: openshift-machine-api
+    resourceVersion: "11524"
+    uid: 5c8ee725-fc54-4a23-99be-24e0e9a4fe52
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:57Z"
+  message: Created Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:57Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb.179e33b8b5bfe5fa
+    namespace: openshift-machine-api
+    resourceVersion: "11644"
+    uid: 8cdd26a0-7ef3-44ce-bbb5-9ba0f6414b37
+  reason: Create
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:21Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb
+    namespace: openshift-machine-api
+    resourceVersion: "12338"
+    uid: 5c8ee725-fc54-4a23-99be-24e0e9a4fe52
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:21Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:23:21Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-5r2zb.179e33be5fd67352
+    namespace: openshift-machine-api
+    resourceVersion: "12339"
+    uid: a8918dc1-17c0-41f4-bba0-d20bc427e706
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:59Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4
+    namespace: openshift-machine-api
+    resourceVersion: "11525"
+    uid: a338abbf-b592-48dc-a487-84ecb0ba57da
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:59Z"
+  message: Created Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:59Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4.179e33b913d99b46
+    namespace: openshift-machine-api
+    resourceVersion: "11662"
+    uid: 8a33ff8a-d529-49a8-b871-693e01f2aadc
+  reason: Create
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:32Z"
+  involvedObject:
+    apiVersion: machine.openshift.io/v1beta1
+    kind: Machine
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4
+    namespace: openshift-machine-api
+    resourceVersion: "13721"
+    uid: a338abbf-b592-48dc-a487-84ecb0ba57da
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:32Z"
+  message: Updated Machine ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:23:32Z"
+    name: ci-op-2j285qtr-234c7-w84r8-worker-us-west-1b-8fls4.179e33c0c590b870
+    namespace: openshift-machine-api
+    resourceVersion: "13723"
+    uid: 3af8e441-58f7-4c8d-bf09-6e315053b4ca
+  reason: Update
+  reportingComponent: awscontroller
+  reportingInstance: ""
+  source:
+    component: awscontroller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:49Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-api-provider-aws-leader
+    namespace: openshift-machine-api
+    resourceVersion: "11380"
+    uid: 1855d032-817e-4f4a-b6dd-c89cde7573d7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:49Z"
+  message: machine-api-controllers-5cff48c79b-x8gt2_22861d7b-3505-48c7-8e69-a9fc5e5b3d00
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:49Z"
+    name: cluster-api-provider-aws-leader.179e33b6d092743e
+    namespace: openshift-machine-api
+    resourceVersion: "11381"
+    uid: a10309f7-f666-46bf-b473-f9cd9e26871c
+  reason: LeaderElection
+  reportingComponent: machine-api-controllers-5cff48c79b-x8gt2_22861d7b-3505-48c7-8e69-a9fc5e5b3d00
+  reportingInstance: ""
+  source:
+    component: machine-api-controllers-5cff48c79b-x8gt2_22861d7b-3505-48c7-8e69-a9fc5e5b3d00
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-api-provider-healthcheck-leader
+    namespace: openshift-machine-api
+    resourceVersion: "11426"
+    uid: 6ac596ce-d3fd-4bd1-9ca0-47031419f868
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: machine-api-controllers-5cff48c79b-x8gt2_e11fdc1c-26bd-4631-ade3-dd7b52d3aeee
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-healthcheck
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: cluster-api-provider-healthcheck-leader.179e33b70bab337c
+    namespace: openshift-machine-api
+    resourceVersion: "11427"
+    uid: a1f7ce09-ea37-4893-bb12-36c65e213cca
+  reason: LeaderElection
+  reportingComponent: machine-api-controllers-5cff48c79b-x8gt2_e11fdc1c-26bd-4631-ade3-dd7b52d3aeee
+  reportingInstance: ""
+  source:
+    component: machine-api-controllers-5cff48c79b-x8gt2_e11fdc1c-26bd-4631-ade3-dd7b52d3aeee
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-api-provider-machineset-leader
+    namespace: openshift-machine-api
+    resourceVersion: "10611"
+    uid: 2ee6a3bb-c982-4809-80a2-3265b47505c7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: machine-api-controllers-5cff48c79b-x8gt2_8622b4cf-6c47-4101-afa5-40cefb3f2e6a
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machineset-controller
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: cluster-api-provider-machineset-leader.179e33b1b84ea506
+    namespace: openshift-machine-api
+    resourceVersion: "10612"
+    uid: c264511b-1bb7-4c5d-8a6a-b0adb36e1ccf
+  reason: LeaderElection
+  reportingComponent: machine-api-controllers-5cff48c79b-x8gt2_8622b4cf-6c47-4101-afa5-40cefb3f2e6a
+  reportingInstance: ""
+  source:
+    component: machine-api-controllers-5cff48c79b-x8gt2_8622b4cf-6c47-4101-afa5-40cefb3f2e6a
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-api-provider-nodelink-leader
+    namespace: openshift-machine-api
+    resourceVersion: "11414"
+    uid: 58c9b1e1-f40e-44cb-9e58-003711e53bbe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: machine-api-controllers-5cff48c79b-x8gt2_dd191920-0976-49ae-918d-fe888fc904a9
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: nodelink-controller
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: cluster-api-provider-nodelink-leader.179e33b6fe080833
+    namespace: openshift-machine-api
+    resourceVersion: "11415"
+    uid: 8c84be75-3e40-44e6-8da9-c69dedeb14db
+  reason: LeaderElection
+  reportingComponent: machine-api-controllers-5cff48c79b-x8gt2_dd191920-0976-49ae-918d-fe888fc904a9
+  reportingInstance: ""
+  source:
+    component: machine-api-controllers-5cff48c79b-x8gt2_dd191920-0976-49ae-918d-fe888fc904a9
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "2886"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e3383699b9a39
+    namespace: openshift-machine-api
+    resourceVersion: "2889"
+    uid: 643bd6b0-776b-4a57-8f3b-ddce7652605a
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "2891"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-machine-api/cluster-autoscaler-operator-669cd9cddb-l45n4
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e339adf798064
+    namespace: openshift-machine-api
+    resourceVersion: "4397"
+    uid: 70f66b85-3aca-4a23-91c4-1d2f176ccd58
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "cert" : secret "cluster-autoscaler-operator-cert"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e339ae68b1efc
+    namespace: openshift-machine-api
+    resourceVersion: "4824"
+    uid: 4eb4c547-2f1c-4438-b09e-9ba57305aa0b
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4384"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-machine-api/cluster-autoscaler-operator-669cd9cddb-l45n4
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-machine-api:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.7]}}] Timeout:<nil>
+    Where:[where column _uuid == {40676651-8509-40e0-b6f7-241adc39a0eb}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e339d35f283db
+    namespace: openshift-machine-api
+    resourceVersion: "4688"
+    uid: ba4e0baa-f026-4df2-8a46-42b0780e88f7
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4415"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Add eth0 [10.129.0.7/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a26683bf9a
+    namespace: openshift-machine-api
+    resourceVersion: "6863"
+    uid: 79a46326-a484-4a26-93ab-34939a5d9727
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a26906d13b
+    namespace: openshift-machine-api
+    resourceVersion: "6866"
+    uid: af0b6496-4c1b-4cbd-9211-6e72d52cd6ec
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Created container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a275dcaac4
+    namespace: openshift-machine-api
+    resourceVersion: "6924"
+    uid: e9c625a1-a2b4-47ab-b833-7a4216dafda1
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Started container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a277ef01cd
+    namespace: openshift-machine-api
+    resourceVersion: "6930"
+    uid: 87536de5-2929-428f-adb6-0779cc2b3c1e
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-autoscaler-operator}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:15baca6ffe2097f5695acaaf872e45be0321ed11d22c01b9393f4cade49b1ea1"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a2780bb12f
+    namespace: openshift-machine-api
+    resourceVersion: "6931"
+    uid: 4c681e66-b223-4b4d-a1a5-d35b1f9a0591
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-autoscaler-operator}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:15baca6ffe2097f5695acaaf872e45be0321ed11d22c01b9393f4cade49b1ea1"
+    in 20.47s (20.47s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a73c2fc204
+    namespace: openshift-machine-api
+    resourceVersion: "7845"
+    uid: 401c84ca-dcd9-44fa-b36e-b6339ec13207
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-autoscaler-operator}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Created container cluster-autoscaler-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a7513a39bf
+    namespace: openshift-machine-api
+    resourceVersion: "7898"
+    uid: 138c4a42-4f3d-48c5-b836-87050051ec9c
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-autoscaler-operator}
+    kind: Pod
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4
+    namespace: openshift-machine-api
+    resourceVersion: "4363"
+    uid: 9932bc09-674c-4e3d-baf3-1089a446f1ae
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Started container cluster-autoscaler-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-autoscaler-operator-669cd9cddb-l45n4.179e33a758fb217c
+    namespace: openshift-machine-api
+    resourceVersion: "7916"
+    uid: b2786049-71ee-47a8-8931-f30117844b20
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cluster-autoscaler-operator-669cd9cddb
+    namespace: openshift-machine-api
+    resourceVersion: "2883"
+    uid: 6728d4b1-30b7-4f47-a5cc-8af9a4730004
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: 'Created pod: cluster-autoscaler-operator-669cd9cddb-l45n4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-autoscaler-operator-669cd9cddb.179e3383697dfddd
+    namespace: openshift-machine-api
+    resourceVersion: "2887"
+    uid: 3ae3ab7b-d29d-4076-8cc3-bf630b7ee96a
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-autoscaler-operator-leader
+    namespace: openshift-machine-api
+    resourceVersion: "7913"
+    uid: 0bd10a8b-f722-439f-90bb-84a8db3e7303
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: cluster-autoscaler-operator-669cd9cddb-l45n4_eff470ce-3e46-43cc-bcdb-b8b2d77ca846
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-autoscaler-operator
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-autoscaler-operator-leader.179e33a7585a37bd
+    namespace: openshift-machine-api
+    resourceVersion: "7915"
+    uid: 0e46448b-a0b1-44fb-a4a6-7d00195413f7
+  reason: LeaderElection
+  reportingComponent: cluster-autoscaler-operator-669cd9cddb-l45n4_eff470ce-3e46-43cc-bcdb-b8b2d77ca846
+  reportingInstance: ""
+  source:
+    component: cluster-autoscaler-operator-669cd9cddb-l45n4_eff470ce-3e46-43cc-bcdb-b8b2d77ca846
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-autoscaler-operator
+    namespace: openshift-machine-api
+    resourceVersion: "2882"
+    uid: 1c1c9258-6f46-4ebd-98a9-6d1a9fa6b78a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: Scaled up replica set cluster-autoscaler-operator-669cd9cddb to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-autoscaler-operator.179e33836910fff3
+    namespace: openshift-machine-api
+    resourceVersion: "2884"
+    uid: d8123e66-306f-4bcd-bd04-52e5235be84c
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "2899"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e338370fd892f
+    namespace: openshift-machine-api
+    resourceVersion: "2902"
+    uid: 42e870db-d05f-4f65-ac71-2d02bf6c2fa3
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "2904"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-machine-api/cluster-baremetal-operator-5475d5fbf8-hl28q
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e339ae01dc104
+    namespace: openshift-machine-api
+    resourceVersion: "4427"
+    uid: 52d3818d-46ad-4eee-862c-81e04f588331
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "cert" : secret "cluster-baremetal-webhook-server-cert"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e339aec98b63e
+    namespace: openshift-machine-api
+    resourceVersion: "4840"
+    uid: 49d9609e-109d-48bc-99ed-98935b0d493f
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "cluster-baremetal-operator-tls" :
+    secret "cluster-baremetal-operator-tls" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e339aed599260
+    namespace: openshift-machine-api
+    resourceVersion: "4832"
+    uid: a816f92a-596d-4fed-9288-7a4d542cdf80
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4530"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'failed to add remote pod openshift-machine-api/cluster-baremetal-operator-5475d5fbf8-hl28q
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-machine-api:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.9]}}] Timeout:<nil>
+    Where:[where column _uuid == {40676651-8509-40e0-b6f7-241adc39a0eb}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e339f178f1fb4
+    namespace: openshift-machine-api
+    resourceVersion: "4969"
+    uid: 2e3bf004-bc16-4726-9268-91f59bded583
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4530"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'failed to add remote pod openshift-machine-api/cluster-baremetal-operator-5475d5fbf8-hl28q
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-machine-api:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.9]}}] Timeout:<nil>
+    Where:[where column _uuid == {4a6f4d43-9efe-4fac-81c9-60d4cdc24740}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e339f17e686ae
+    namespace: openshift-machine-api
+    resourceVersion: "4982"
+    uid: 38c821a3-08f5-4733-b53c-1ad3ebbcb659
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4530"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Add eth0 [10.129.0.9/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a268d85d25
+    namespace: openshift-machine-api
+    resourceVersion: "6865"
+    uid: 23ac94ae-0285-49b8-b622-a680d0ab1a7f
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-baremetal-operator}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e0cdf262e817581d0cee3a9df15db50bd6d09b68f91bd4a56950b741c5fd87a1"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a26e4480ff
+    namespace: openshift-machine-api
+    resourceVersion: "6892"
+    uid: 85f829ad-c61f-4c69-be7d-c13bafafd551
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:41Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-baremetal-operator}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:41Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e0cdf262e817581d0cee3a9df15db50bd6d09b68f91bd4a56950b741c5fd87a1"
+    in 19.205s (19.205s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:41Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a6e7016efb
+    namespace: openshift-machine-api
+    resourceVersion: "7745"
+    uid: e5acca1b-e316-4045-b8ad-e043a0c6a807
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-baremetal-operator}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Created container cluster-baremetal-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a74a0e7dd3
+    namespace: openshift-machine-api
+    resourceVersion: "7888"
+    uid: 79c5b94c-2614-44dc-8e40-f0b9c98cde6a
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-baremetal-operator}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Started container cluster-baremetal-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a7503e63f2
+    namespace: openshift-machine-api
+    resourceVersion: "7895"
+    uid: a984ce08-fd42-4779-b437-950b7b4c22c5
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{baremetal-kube-rbac-proxy}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a750555c51
+    namespace: openshift-machine-api
+    resourceVersion: "7897"
+    uid: 0f6a08fa-b7a1-459b-88bd-bb02f1b896bf
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{baremetal-kube-rbac-proxy}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Created container baremetal-kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a76214d93a
+    namespace: openshift-machine-api
+    resourceVersion: "7933"
+    uid: 73e32e0e-a4e7-4da1-b432-ced3e14aaf26
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{baremetal-kube-rbac-proxy}
+    kind: Pod
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q
+    namespace: openshift-machine-api
+    resourceVersion: "4365"
+    uid: a6a2f29a-2509-412b-be60-43d429c30c03
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Started container baremetal-kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-baremetal-operator-5475d5fbf8-hl28q.179e33a76c04e6d0
+    namespace: openshift-machine-api
+    resourceVersion: "7952"
+    uid: 0e3dd6ef-1969-4823-9c3d-5d9a575049d0
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cluster-baremetal-operator-5475d5fbf8
+    namespace: openshift-machine-api
+    resourceVersion: "2896"
+    uid: befea03d-e5d1-4975-9bf5-bef3a269b669
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: 'Created pod: cluster-baremetal-operator-5475d5fbf8-hl28q'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-baremetal-operator-5475d5fbf8.179e338370e974df
+    namespace: openshift-machine-api
+    resourceVersion: "2900"
+    uid: dface9c2-9156-4dde-80c4-58379890d5cb
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:08Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-baremetal-operator
+    namespace: openshift-machine-api
+    resourceVersion: "2895"
+    uid: fb8c4e99-6672-45dd-8e35-870bfdec3f9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:08Z"
+  message: Scaled up replica set cluster-baremetal-operator-5475d5fbf8 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:08Z"
+    name: cluster-baremetal-operator.179e338370787a93
+    namespace: openshift-machine-api
+    resourceVersion: "2897"
+    uid: 8713001b-5d48-4e17-a456-6a1575b9cc11
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: control-plane-machine-set-leader
+    namespace: openshift-machine-api
+    resourceVersion: "7900"
+    uid: 4d59c225-e2c0-43e0-9c81-2904a6fb2d71
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: control-plane-machine-set-operator-6cf7d74d79-xlvkc_ae4e611c-4c96-4143-b562-ad930d54648f
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: control-plane-machine-set-leader.179e33a755082f8f
+    namespace: openshift-machine-api
+    resourceVersion: "7901"
+    uid: f1937550-3515-4ab8-b5f1-31d5fab2336b
+  reason: LeaderElection
+  reportingComponent: control-plane-machine-set-operator-6cf7d74d79-xlvkc_ae4e611c-4c96-4143-b562-ad930d54648f
+  reportingInstance: ""
+  source:
+    component: control-plane-machine-set-operator-6cf7d74d79-xlvkc_ae4e611c-4c96-4143-b562-ad930d54648f
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "2783"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:03Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:03Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33823223489e
+    namespace: openshift-machine-api
+    resourceVersion: "2785"
+    uid: 34a09d43-c540-4239-a9aa-1b513c30c229
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "2788"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-machine-api/control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e339ae18494d5
+    namespace: openshift-machine-api
+    resourceVersion: "4457"
+    uid: 64ced6ec-ab4a-4292-85b2-4aa083cbffba
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4392"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "control-plane-machine-set-operator-tls"
+    : secret "control-plane-machine-set-operator-tls" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e339af2f10091
+    namespace: openshift-machine-api
+    resourceVersion: "4850"
+    uid: 40ade7d7-70a7-40ae-89a6-a16ed1f9ea4a
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4596"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Add eth0 [10.129.0.37/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33a278ce131a
+    namespace: openshift-machine-api
+    resourceVersion: "6933"
+    uid: 649aab73-c195-4df3-a173-75cfa09cae41
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{control-plane-machine-set-operator}
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4392"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8fa22ff3e740639181ac8f21d6a18e13d68dfe4278011686fd7a2a2891cec53e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33a27a6d9b75
+    namespace: openshift-machine-api
+    resourceVersion: "6935"
+    uid: e102bece-fff2-4511-9874-0b9276752277
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:40Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{control-plane-machine-set-operator}
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4392"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:40Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8fa22ff3e740639181ac8f21d6a18e13d68dfe4278011686fd7a2a2891cec53e"
+    in 17.925s (17.925s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:40Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:40Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33a6a6d8202e
+    namespace: openshift-machine-api
+    resourceVersion: "7712"
+    uid: b2bd40cd-8054-4abd-b373-295b09b86e9f
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{control-plane-machine-set-operator}
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4392"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Created container control-plane-machine-set-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33a74ef31cde
+    namespace: openshift-machine-api
+    resourceVersion: "7892"
+    uid: 1e9dbecc-9e3a-42bd-97db-c20028a59e0c
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{control-plane-machine-set-operator}
+    kind: Pod
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc
+    namespace: openshift-machine-api
+    resourceVersion: "4392"
+    uid: 21c4c1d7-5aa0-43f2-9bef-866c1f53baf8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Started container control-plane-machine-set-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: control-plane-machine-set-operator-6cf7d74d79-xlvkc.179e33a755173adc
+    namespace: openshift-machine-api
+    resourceVersion: "7902"
+    uid: 2548ffee-f74b-4493-8f3b-975f819c6443
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: control-plane-machine-set-operator-6cf7d74d79
+    namespace: openshift-machine-api
+    resourceVersion: "2780"
+    uid: ea266f75-a026-45e7-b6d2-1e942726980e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:03Z"
+  message: 'Created pod: control-plane-machine-set-operator-6cf7d74d79-xlvkc'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:03Z"
+    name: control-plane-machine-set-operator-6cf7d74d79.179e3382321f6911
+    namespace: openshift-machine-api
+    resourceVersion: "2784"
+    uid: 407626c7-ca84-4c77-9e82-a37c082532e4
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: control-plane-machine-set-operator
+    namespace: openshift-machine-api
+    resourceVersion: "2779"
+    uid: ffeba25a-f7b2-4176-af8b-3143802da80d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:03Z"
+  message: Scaled up replica set control-plane-machine-set-operator-6cf7d74d79 to
+    1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:03Z"
+    name: control-plane-machine-set-operator.179e338231a639f7
+    namespace: openshift-machine-api
+    resourceVersion: "2781"
+    uid: 54fca888-3154-4f0b-8c1a-79f8bd10aa21
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9735"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Successfully assigned openshift-machine-api/machine-api-controllers-5cff48c79b-x8gt2
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33ae763de7f6
+    namespace: openshift-machine-api
+    resourceVersion: "9745"
+    uid: 37cba61f-dad3-4803-afdf-881fad2ece2b
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9749"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Add eth0 [10.130.0.13/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33ae8dd8dd9c
+    namespace: openshift-machine-api
+    resourceVersion: "9782"
+    uid: 1ca4a364-8d9f-4ce9-be82-bb4ca833da1e
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:14Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machineset-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:14Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:14Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33ae8fb24fb1
+    namespace: openshift-machine-api
+    resourceVersion: "9794"
+    uid: 33898f4c-23b3-47ec-b3c6-3131a0d025d5
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machineset-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+    in 13.348s (13.348s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b1ab57d642
+    namespace: openshift-machine-api
+    resourceVersion: "10591"
+    uid: 8f5efd7b-b773-47e1-950c-bdfc41af18d7
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machineset-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Created container machineset-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b1b2de0746
+    namespace: openshift-machine-api
+    resourceVersion: "10601"
+    uid: 77927dbd-5a8e-4b04-ab6b-52a084bbb531
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machineset-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Started container machineset-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b1b63ccc9c
+    namespace: openshift-machine-api
+    resourceVersion: "10606"
+    uid: 16c27ce7-7f9c-4bf2-8885-2bb479dbb693
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b5782a3d9c78a8fdbbcb91904d8b1178202a22c7bf0e3486f82a041a88ddd759"
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b1b651a0d3
+    namespace: openshift-machine-api
+    resourceVersion: "10608"
+    uid: d583148d-9397-414c-8d9d-fa2950608be7
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:49Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:49Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b5782a3d9c78a8fdbbcb91904d8b1178202a22c7bf0e3486f82a041a88ddd759"
+    in 21.699s (21.699s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:49Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6c3b69c32
+    namespace: openshift-machine-api
+    resourceVersion: "11373"
+    uid: c8553cc6-0403-4553-998e-0f4c0f349f1c
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:49Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:49Z"
+  message: Created container machine-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:49Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6ce05e06a
+    namespace: openshift-machine-api
+    resourceVersion: "11379"
+    uid: ea516ca2-221b-4df3-b24f-9805d881e04b
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:49Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:49Z"
+  message: Started container machine-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:49Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6d1a6afa9
+    namespace: openshift-machine-api
+    resourceVersion: "11383"
+    uid: 3a0a2e88-70e5-45c8-8959-fe87b51cac7f
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:49Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{nodelink-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:49Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:49Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6daed69c8
+    namespace: openshift-machine-api
+    resourceVersion: "11393"
+    uid: 34b6f6db-79c4-4906-9cbc-cf51f9588fdf
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{nodelink-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Created container nodelink-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6f4348c95
+    namespace: openshift-machine-api
+    resourceVersion: "11405"
+    uid: 2359f3c9-867f-4940-b60e-1c4c7a6dba1d
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{nodelink-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Started container nodelink-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6f89c7d9d
+    namespace: openshift-machine-api
+    resourceVersion: "11409"
+    uid: 56739aba-b437-4c04-b2d4-4f256db931a4
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-healthcheck-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b6f8a8310b
+    namespace: openshift-machine-api
+    resourceVersion: "11410"
+    uid: 25383a98-a175-40a7-a92c-fc10b6ba3c65
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-healthcheck-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Created container machine-healthcheck-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b701ff8497
+    namespace: openshift-machine-api
+    resourceVersion: "11417"
+    uid: 8cd26ee3-a4a3-4126-8c81-7a5011b95d9f
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-healthcheck-controller}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Started container machine-healthcheck-controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b704feb6b3
+    namespace: openshift-machine-api
+    resourceVersion: "11418"
+    uid: 76820f40-ab02-4fa6-a307-901f11655c2b
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machineset-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b7050a15b6
+    namespace: openshift-machine-api
+    resourceVersion: "11419"
+    uid: 58690821-32c2-4686-b112-b295922f1de6
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machineset-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Created container kube-rbac-proxy-machineset-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b70dbe5141
+    namespace: openshift-machine-api
+    resourceVersion: "11429"
+    uid: 04ed67eb-ab1b-4fb9-ad34-52e883a03c49
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machineset-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Started container kube-rbac-proxy-machineset-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b7128c2865
+    namespace: openshift-machine-api
+    resourceVersion: "11433"
+    uid: b80443c4-f017-4237-aa4f-2455bb43679e
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machine-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b712973f88
+    namespace: openshift-machine-api
+    resourceVersion: "11434"
+    uid: 1a681fde-1c7f-42c4-9588-6c9da31002be
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machine-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Created container kube-rbac-proxy-machine-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b71aeb4ed7
+    namespace: openshift-machine-api
+    resourceVersion: "11446"
+    uid: 904bd6cf-fa64-40da-ae41-883a1adc2f2d
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-machine-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Started container kube-rbac-proxy-machine-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b71d47b243
+    namespace: openshift-machine-api
+    resourceVersion: "11447"
+    uid: 23e57715-5ba2-470a-9add-e40b2a04f881
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-mhc-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b71d54a382
+    namespace: openshift-machine-api
+    resourceVersion: "11448"
+    uid: 40e4f240-0365-4292-b74d-9b0590956204
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-mhc-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Created container kube-rbac-proxy-mhc-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b725dd21c3
+    namespace: openshift-machine-api
+    resourceVersion: "11452"
+    uid: 71aba025-8fe5-4e86-b69c-5e8b8a9a23db
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy-mhc-mtrc}
+    kind: Pod
+    name: machine-api-controllers-5cff48c79b-x8gt2
+    namespace: openshift-machine-api
+    resourceVersion: "9740"
+    uid: 672868bf-f779-4995-af64-a5c6fd1a67ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:50Z"
+  message: Started container kube-rbac-proxy-mhc-mtrc
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:50Z"
+    name: machine-api-controllers-5cff48c79b-x8gt2.179e33b728538d5e
+    namespace: openshift-machine-api
+    resourceVersion: "11456"
+    uid: 4bde1b13-7228-47cc-a711-0bac48afa5a0
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-api-controllers-5cff48c79b
+    namespace: openshift-machine-api
+    resourceVersion: "9729"
+    uid: 70ba49a2-c842-4589-b90d-d2a5b5238e40
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: 'Created pod: machine-api-controllers-5cff48c79b-x8gt2'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: machine-api-controllers-5cff48c79b.179e33ae758f0e9e
+    namespace: openshift-machine-api
+    resourceVersion: "9739"
+    uid: 421f04f6-aa03-4d8b-88ff-77a46b8c74b7
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-api-controllers
+    namespace: openshift-machine-api
+    resourceVersion: "9728"
+    uid: 6d1912c0-e838-4551-893e-c361cfc1b466
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Scaled up replica set machine-api-controllers-5cff48c79b to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: machine-api-controllers.179e33ae7491b91e
+    namespace: openshift-machine-api
+    resourceVersion: "9731"
+    uid: 8a63ca10-d360-496a-8889-17db7617f820
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "2443"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:41Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:41Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e337d22cc0ecc
+    namespace: openshift-machine-api
+    resourceVersion: "2445"
+    uid: c20501da-a518-4481-a30e-11def53bd3f5
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "2447"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-machine-api/machine-api-operator-67c6f688c8-d4xqq
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e339ae08da20b
+    namespace: openshift-machine-api
+    resourceVersion: "4451"
+    uid: feea5e95-7129-41e4-ac36-22be40f47b13
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: 'MountVolume.SetUp failed for volume "machine-api-operator-tls" : secret
+    "machine-api-operator-tls" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e339ae691ae2a
+    namespace: openshift-machine-api
+    resourceVersion: "6828"
+    uid: 48c124f0-b598-4997-9749-b4659cf94293
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4396"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-machine-api/machine-api-operator-67c6f688c8-d4xqq
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-machine-api:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.8]}}] Timeout:<nil>
+    Where:[where column _uuid == {40676651-8509-40e0-b6f7-241adc39a0eb}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e339d3801b9fd
+    namespace: openshift-machine-api
+    resourceVersion: "4689"
+    uid: c9e8fe63-8792-4792-b5ec-a6391a9a4733
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4431"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'failed to add remote pod openshift-machine-api/machine-api-operator-67c6f688c8-d4xqq
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-machine-api:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.8]}}] Timeout:<nil>
+    Where:[where column _uuid == {4a6f4d43-9efe-4fac-81c9-60d4cdc24740}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e339f17ca412a
+    namespace: openshift-machine-api
+    resourceVersion: "4974"
+    uid: 705ccade-e02e-4bb5-8b41-79ec3a81b565
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:53Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4431"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:53Z"
+  message: Add eth0 [10.129.0.8/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:53Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33a9cb1f8d83
+    namespace: openshift-machine-api
+    resourceVersion: "8515"
+    uid: e23406b5-c697-4763-a739-5e249c8ddad5
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:53Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:53Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:53Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33a9cd5e64cd
+    namespace: openshift-machine-api
+    resourceVersion: "8517"
+    uid: 00aa9d3b-1689-408d-aaf2-7c8aca007098
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:53Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:53Z"
+  message: Created container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:53Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33a9de8b7c8b
+    namespace: openshift-machine-api
+    resourceVersion: "8552"
+    uid: 93637a0e-f029-413f-9ffe-3d596fa559a7
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Started container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33a9e6fd984e
+    namespace: openshift-machine-api
+    resourceVersion: "8563"
+    uid: d8a71a8c-b73a-4f68-81d1-0987a2db4979
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-api-operator}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33a9e86e2fc8
+    namespace: openshift-machine-api
+    resourceVersion: "8567"
+    uid: 2ba41757-b9aa-4a63-bba5-1fd9718c78ce
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-api-operator}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4"
+    in 18.237s (18.237s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33ae277f4dff
+    namespace: openshift-machine-api
+    resourceVersion: "9496"
+    uid: af7d0588-af0f-46cf-a911-4392a71cdc23
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-api-operator}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Created container machine-api-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33ae47bd4651
+    namespace: openshift-machine-api
+    resourceVersion: "9553"
+    uid: 2a438b79-6a38-4560-8e2c-7c7815bc987a
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{machine-api-operator}
+    kind: Pod
+    name: machine-api-operator-67c6f688c8-d4xqq
+    namespace: openshift-machine-api
+    resourceVersion: "4364"
+    uid: 796f165d-37eb-43c0-8913-74333c0c23b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Started container machine-api-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: machine-api-operator-67c6f688c8-d4xqq.179e33ae4a0331bb
+    namespace: openshift-machine-api
+    resourceVersion: "9556"
+    uid: 36bc82d0-167f-4507-98c6-791be87c04c3
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-api-operator-67c6f688c8
+    namespace: openshift-machine-api
+    resourceVersion: "2187"
+    uid: a0e3e307-2db8-45da-b258-4f1269a9b46e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:31Z"
+  message: 'Error creating: pods "machine-api-operator-67c6f688c8-" is forbidden:
+    autoscaling.openshift.io/ManagementCPUsOverride the cluster does not have any
+    nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:31Z"
+    name: machine-api-operator-67c6f688c8.179e33785c9b7991
+    namespace: openshift-machine-api
+    resourceVersion: "2301"
+    uid: d3e5895e-ae0c-4a19-bdcc-5793d2deb71b
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:41Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: machine-api-operator-67c6f688c8
+    namespace: openshift-machine-api
+    resourceVersion: "2192"
+    uid: a0e3e307-2db8-45da-b258-4f1269a9b46e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:41Z"
+  message: 'Created pod: machine-api-operator-67c6f688c8-d4xqq'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:41Z"
+    name: machine-api-operator-67c6f688c8.179e337d22ca4288
+    namespace: openshift-machine-api
+    resourceVersion: "2444"
+    uid: cdd8959d-bff6-4074-874c-648c9d1f380d
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-api-operator
+    namespace: openshift-machine-api
+    resourceVersion: "2185"
+    uid: ce339e88-6b07-4cda-b22f-055814ff78ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:21Z"
+  message: Scaled up replica set machine-api-operator-67c6f688c8 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:21Z"
+    name: machine-api-operator.179e33785c7055cd
+    namespace: openshift-machine-api
+    resourceVersion: "2189"
+    uid: 3c8f4693-428b-416c-be31-ea3c2cebd0c4
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: machine-api-operator
+    namespace: openshift-machine-api
+    uid: ce339e88-6b07-4cda-b22f-055814ff78ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: FeatureGates updated to featuregates.Features{Enabled:[]v1.FeatureGateName{"AlibabaPlatform",
+    "AzureWorkloadIdentity", "BuildCSIVolumes", "CloudDualStackNodeIPs", "ExternalCloudProvider",
+    "ExternalCloudProviderAzure", "ExternalCloudProviderExternal", "ExternalCloudProviderGCP",
+    "OpenShiftPodSecurityAdmission", "PrivateHostedZoneAWS"}, Disabled:[]v1.FeatureGateName{"AdminNetworkPolicy",
+    "AutomatedEtcdBackup", "CSIDriverSharedResource", "ClusterAPIInstall", "DNSNameResolver",
+    "DisableKubeletCloudCredentialProviders", "DynamicResourceAllocation", "EventedPLEG",
+    "GCPClusterHostedDNS", "GCPLabelsTags", "GatewayAPI", "InsightsConfigAPI", "InstallAlternateInfrastructureAWS",
+    "MachineAPIOperatorDisableMachineHealthCheckController", "MachineAPIProviderOpenStack",
+    "MachineConfigNodes", "ManagedBootImages", "MaxUnavailableStatefulSet", "MetricsServer",
+    "MixedCPUsAllocation", "NetworkLiveMigration", "NodeSwap", "RouteExternalCertificate",
+    "SigstoreImageVerification", "VSphereControlPlaneMachineSet", "VSphereStaticIPs",
+    "ValidatingAdmissionPolicy"}}
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-api-operator
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: machine-api-operator.179e33ae6caf8502
+    namespace: openshift-machine-api
+    resourceVersion: "9691"
+    uid: 6683dafe-dd0c-4e6d-a7c2-89c7e78a6863
+  reason: FeatureGatesInitialized
+  reportingComponent: machineapioperator
+  reportingInstance: ""
+  source:
+    component: machineapioperator
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47623"

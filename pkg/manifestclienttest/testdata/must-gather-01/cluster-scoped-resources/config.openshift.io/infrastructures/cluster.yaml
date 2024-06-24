@@ -1,0 +1,69 @@
+---
+apiVersion: config.openshift.io/v1
+kind: Infrastructure
+metadata:
+  creationTimestamp: "2023-12-06T09:17:36Z"
+  generation: 1
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:cloudConfig:
+          .: {}
+          f:key: {}
+          f:name: {}
+        f:platformSpec:
+          .: {}
+          f:aws: {}
+          f:type: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:17:36Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:apiServerInternalURI: {}
+        f:apiServerURL: {}
+        f:controlPlaneTopology: {}
+        f:cpuPartitioning: {}
+        f:etcdDiscoveryDomain: {}
+        f:infrastructureName: {}
+        f:infrastructureTopology: {}
+        f:platform: {}
+        f:platformStatus:
+          .: {}
+          f:aws:
+            .: {}
+            f:region: {}
+          f:type: {}
+    manager: cluster-bootstrap
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:17:36Z"
+  name: cluster
+  resourceVersion: "519"
+  uid: e9eabf6c-4de9-42bd-8147-7dc5fab9912e
+spec:
+  cloudConfig:
+    key: config
+    name: cloud-provider-config
+  platformSpec:
+    aws: {}
+    type: AWS
+status:
+  apiServerInternalURI: https://api-int.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443
+  apiServerURL: https://api.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443
+  controlPlaneTopology: HighlyAvailable
+  cpuPartitioning: None
+  etcdDiscoveryDomain: ""
+  infrastructureName: ci-op-2j285qtr-234c7-w84r8
+  infrastructureTopology: HighlyAvailable
+  platform: AWS
+  platformStatus:
+    aws:
+      region: us-west-1
+    type: AWS

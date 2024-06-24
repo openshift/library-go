@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    capability.openshift.io/name: OperatorLifecycleManager
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    openshift.io/node-selector: ""
+    openshift.io/sa.scc.mcs: s0:c20,c5
+    openshift.io/sa.scc.supplemental-groups: 1000390000/10000
+    openshift.io/sa.scc.uid-range: 1000390000/10000
+    workload.openshift.io/allowed: management
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  labels:
+    kubernetes.io/metadata.name: openshift-operator-lifecycle-manager
+    olm.operatorgroup.uid/49a76548-2d7b-4cff-9706-1db3f268c6ac: ""
+    olm.operatorgroup.uid/e5b8abbd-46d6-4082-a9ab-11ea0a3332ed: ""
+    openshift.io/cluster-monitoring: "true"
+    openshift.io/scc: ""
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.24
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:openshift.io/sa.scc.mcs: {}
+          f:openshift.io/sa.scc.supplemental-groups: {}
+          f:openshift.io/sa.scc.uid-range: {}
+    manager: cluster-policy-controller
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:openshift.io/node-selector: {}
+          f:workload.openshift.io/allowed: {}
+        f:labels:
+          .: {}
+          f:kubernetes.io/metadata.name: {}
+          f:openshift.io/cluster-monitoring: {}
+          f:openshift.io/scc: {}
+          f:pod-security.kubernetes.io/enforce: {}
+          f:pod-security.kubernetes.io/enforce-version: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          f:olm.operatorgroup.uid/49a76548-2d7b-4cff-9706-1db3f268c6ac: {}
+          f:olm.operatorgroup.uid/e5b8abbd-46d6-4082-a9ab-11ea0a3332ed: {}
+    manager: olm
+    operation: Update
+    time: "2023-12-06T09:22:16Z"
+  name: openshift-operator-lifecycle-manager
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "10151"
+  uid: 3e25a320-47ac-4153-88c2-8bb55140cac1
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

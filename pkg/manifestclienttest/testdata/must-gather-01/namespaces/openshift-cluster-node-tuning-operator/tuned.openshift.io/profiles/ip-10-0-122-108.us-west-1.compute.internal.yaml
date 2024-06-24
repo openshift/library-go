@@ -1,0 +1,66 @@
+---
+apiVersion: tuned.openshift.io/v1
+kind: Profile
+metadata:
+  creationTimestamp: "2023-12-06T09:25:16Z"
+  generation: 2
+  managedFields:
+  - apiVersion: tuned.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"d327642b-7432-4d31-8316-f3ad1c00e4ed"}: {}
+      f:spec:
+        .: {}
+        f:config:
+          .: {}
+          f:debug: {}
+          f:providerName: {}
+          f:tunedConfig: {}
+          f:tunedProfile: {}
+    manager: cluster-node-tuning-operator
+    operation: Update
+    time: "2023-12-06T09:25:16Z"
+  - apiVersion: tuned.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:tunedProfile: {}
+    manager: openshift-tuned
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:40Z"
+  name: ip-10-0-122-108.us-west-1.compute.internal
+  namespace: openshift-cluster-node-tuning-operator
+  ownerReferences:
+  - apiVersion: tuned.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Tuned
+    name: default
+    uid: d327642b-7432-4d31-8316-f3ad1c00e4ed
+  resourceVersion: "20221"
+  uid: 835fb924-0319-47ea-8bc1-2563ca4eb992
+spec:
+  config:
+    debug: false
+    providerName: aws
+    tunedConfig: {}
+    tunedProfile: openshift-node
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:26:40Z"
+    message: TuneD profile applied.
+    reason: AsExpected
+    status: "True"
+    type: Applied
+  - lastTransitionTime: "2023-12-06T09:26:40Z"
+    message: No warning or error messages observed applying the TuneD daemon profile.
+    reason: AsExpected
+    status: "False"
+    type: Degraded
+  tunedProfile: openshift-node

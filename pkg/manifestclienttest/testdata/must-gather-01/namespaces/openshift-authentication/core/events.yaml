@@ -1,0 +1,4363 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27570"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e34637e7b3d11
+    namespace: openshift-authentication
+    resourceVersion: "27572"
+    uid: 54ff100e-c152-41fd-a45e-10b526e67bf9
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:33Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27573"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:33Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-5bf7bdfdbf-ngcww
+    to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:33Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e3468c1660fcf
+    namespace: openshift-authentication
+    resourceVersion: "27839"
+    uid: 3b7d1c18-1cf2-4f6f-b820-24fc568f3687
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:34Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27841"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:34Z"
+  message: Add eth0 [10.128.0.41/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:35:34Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e3468d93f74a1
+    namespace: openshift-authentication
+    resourceVersion: "27845"
+    uid: 40904e72-5668-4f05-a4d9-a330cea3d0d6
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27837"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:34Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:34Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e3468dabbe0a7
+    namespace: openshift-authentication
+    resourceVersion: "27847"
+    uid: a1a97a09-ef04-443e-b5e9-61d63e239905
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27837"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:34Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:34Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e3468e13cd200
+    namespace: openshift-authentication
+    resourceVersion: "27849"
+    uid: 0f9defa1-8d9f-4162-8d49-6e8ad61d4806
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27837"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:34Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:34Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e3468e1fa4476
+    namespace: openshift-authentication
+    resourceVersion: "27851"
+    uid: e421552f-65ee-4042-bd48-3a2bc1e49919
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-ngcww
+    namespace: openshift-authentication
+    resourceVersion: "27837"
+    uid: 7fd2556e-1047-4427-9b87-46c0bbc8b55e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:18Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:18Z"
+    name: oauth-openshift-5bf7bdfdbf-ngcww.179e349cffefa55f
+    namespace: openshift-authentication
+    resourceVersion: "33116"
+    uid: 498b751f-e8e7-444c-a0e6-828ee00b0568
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28231"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:13Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:36:13Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e346f78ef28bc
+    namespace: openshift-authentication
+    resourceVersion: "28347"
+    uid: 7b20e6e2-0467-4c73-a69a-6e643e551521
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:27Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28236"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:27Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-5bf7bdfdbf-p77v4
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:36:27Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e34755966630e
+    namespace: openshift-authentication
+    resourceVersion: "28473"
+    uid: 25919d36-8cd6-4d6b-b529-4b542e95ae8c
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:28Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28477"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:28Z"
+  message: Add eth0 [10.130.0.40/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:36:28Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e3475720afaf4
+    namespace: openshift-authentication
+    resourceVersion: "28485"
+    uid: 9607e6f2-cdce-4eea-9333-e45eecf95557
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28471"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:28Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:28Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e347573d21b28
+    namespace: openshift-authentication
+    resourceVersion: "28487"
+    uid: 04a3ddeb-7963-49da-a1d8-bfe86dfeceb9
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28471"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:28Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:28Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e34757b5d8a7f
+    namespace: openshift-authentication
+    resourceVersion: "28491"
+    uid: b1bf8093-87ba-4225-a5ac-c074b7858819
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28471"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:28Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:28Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e34757c1572d0
+    namespace: openshift-authentication
+    resourceVersion: "28492"
+    uid: 82f460ee-dff3-452e-aa1d-8999f3131081
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-p77v4
+    namespace: openshift-authentication
+    resourceVersion: "28471"
+    uid: d7f6c8e6-7969-4ba2-b2eb-2a1326d7c9d6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:13Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:13Z"
+    name: oauth-openshift-5bf7bdfdbf-p77v4.179e34a9f1ce14d1
+    namespace: openshift-authentication
+    resourceVersion: "34497"
+    uid: 47399a67-0e95-4673-a35d-b6e2efc27f5e
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "27910"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:39Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:39Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346935a484c2
+    namespace: openshift-authentication
+    resourceVersion: "27964"
+    uid: edce33c2-984b-43eb-87d4-75f0464b7765
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "27915"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:00Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-5bf7bdfdbf-x5tvn
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:36:00Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346f1874fc17
+    namespace: openshift-authentication
+    resourceVersion: "28177"
+    uid: e2197905-6fbb-4056-afc1-d40fcb07e084
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "28179"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:01Z"
+  message: Add eth0 [10.129.0.80/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:36:01Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346f372c922f
+    namespace: openshift-authentication
+    resourceVersion: "28193"
+    uid: 070f3495-8bfd-49a7-9102-501bc05b84ad
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "28175"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:01Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:01Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346f38d52797
+    namespace: openshift-authentication
+    resourceVersion: "28195"
+    uid: c51f7c1d-1f59-4eb6-abb8-381414141cd5
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "28175"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:01Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:01Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346f423e4752
+    namespace: openshift-authentication
+    resourceVersion: "28200"
+    uid: 3ecd3c0e-8249-474e-8c88-1fba451e55fe
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "28175"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:01Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:01Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e346f433f0a28
+    namespace: openshift-authentication
+    resourceVersion: "28201"
+    uid: 0bf6c6ed-d96d-48fe-8611-d4d4fa219df0
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-5bf7bdfdbf-x5tvn
+    namespace: openshift-authentication
+    resourceVersion: "28175"
+    uid: c7348346-aefc-4e55-a5dd-f54e89ab8a21
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift-5bf7bdfdbf-x5tvn.179e34a331aa4b0a
+    namespace: openshift-authentication
+    resourceVersion: "33909"
+    uid: cff31e2b-3fcf-4b66-a38d-1350bb4f8c7b
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "27564"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: 'Created pod: oauth-openshift-5bf7bdfdbf-ngcww'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift-5bf7bdfdbf.179e34637e7f98f7
+    namespace: openshift-authentication
+    resourceVersion: "27571"
+    uid: df68008b-3d03-4570-bc2a-9d33791cafd3
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "27900"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:35Z"
+  message: 'Created pod: oauth-openshift-5bf7bdfdbf-x5tvn'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:35Z"
+    name: oauth-openshift-5bf7bdfdbf.179e346935a1256b
+    namespace: openshift-authentication
+    resourceVersion: "27913"
+    uid: 3952af1d-3719-40d5-ba82-4fbd5b9a51fb
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "28225"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:02Z"
+  message: 'Created pod: oauth-openshift-5bf7bdfdbf-p77v4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:36:02Z"
+    name: oauth-openshift-5bf7bdfdbf.179e346f78e70df2
+    namespace: openshift-authentication
+    resourceVersion: "28234"
+    uid: 2af2eb54-d992-4dda-add1-3ab1c918af7f
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "33108"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:18Z"
+  message: 'Deleted pod: oauth-openshift-5bf7bdfdbf-ngcww'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:18Z"
+    name: oauth-openshift-5bf7bdfdbf.179e349cff9614be
+    namespace: openshift-authentication
+    resourceVersion: "33112"
+    uid: ace97eac-d5da-4ae9-9d37-f53cf9cce511
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "33900"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: 'Deleted pod: oauth-openshift-5bf7bdfdbf-x5tvn'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift-5bf7bdfdbf.179e34a331728f30
+    namespace: openshift-authentication
+    resourceVersion: "33904"
+    uid: a50c9e6e-a052-4caa-a0dc-b82cde4a621b
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-5bf7bdfdbf
+    namespace: openshift-authentication
+    resourceVersion: "34490"
+    uid: 4b05024b-02c4-4e5a-a1ca-bba2ef89fdb6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:13Z"
+  message: 'Deleted pod: oauth-openshift-5bf7bdfdbf-p77v4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:40:13Z"
+    name: oauth-openshift-5bf7bdfdbf.179e34a9f17ef4b6
+    namespace: openshift-authentication
+    resourceVersion: "34496"
+    uid: fa23e6c2-ac45-4b4f-935a-4b35f482ee6f
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 4
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "33915"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:03Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:40:03Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a33d04223f
+    namespace: openshift-authentication
+    resourceVersion: "34337"
+    uid: 043a2f59-af72-4540-9862-002ee4112d22
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:11Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "33917"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:11Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-64f785f76-5cxk4
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:40:11Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a9787fa645
+    namespace: openshift-authentication
+    resourceVersion: "34453"
+    uid: 48c17977-b5ad-4a3e-8359-3d1c524f95c3
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:12Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "34456"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:12Z"
+  message: Add eth0 [10.129.0.85/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:40:12Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a9929a77b0
+    namespace: openshift-authentication
+    resourceVersion: "34460"
+    uid: 105b4ca6-8a3e-4aa2-bf38-fd47a81a79a3
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "34452"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:12Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:12Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a996101f18
+    namespace: openshift-authentication
+    resourceVersion: "34464"
+    uid: 56bb4be6-4545-4a56-8dcc-575b88c8f4cd
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "34452"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:12Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:12Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a99fbc6839
+    namespace: openshift-authentication
+    resourceVersion: "34466"
+    uid: 10ca22ac-21cb-4542-89e9-b883f79789cc
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-5cxk4
+    namespace: openshift-authentication
+    resourceVersion: "34452"
+    uid: 2075d147-bcd3-4b49-9aed-e09c12ffa8ba
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:12Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:12Z"
+    name: oauth-openshift-64f785f76-5cxk4.179e34a9a0ffc3f5
+    namespace: openshift-authentication
+    resourceVersion: "34467"
+    uid: 0bf32ed3-8d71-4855-b0af-36b5937cef0e
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33121"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:33Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:33Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e349d018d4c90
+    namespace: openshift-authentication
+    resourceVersion: "33654"
+    uid: b57af2c6-9eda-4883-a9fb-5c5362afaa84
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:43Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33123"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:43Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-64f785f76-6vvgk
+    to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:43Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e34a2e4db3a20
+    namespace: openshift-authentication
+    resourceVersion: "33864"
+    uid: eab2b6dc-7d0d-491b-bdc7-c195baacf991
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:43Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33866"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:43Z"
+  message: Add eth0 [10.128.0.50/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:39:43Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e34a2fce3c0b3
+    namespace: openshift-authentication
+    resourceVersion: "33870"
+    uid: bde4ad30-4d87-461c-af5c-979fa6f56f42
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33861"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:43Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:43Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e34a2ffb5815b
+    namespace: openshift-authentication
+    resourceVersion: "33872"
+    uid: 8284bab7-74ef-4ab5-8f1a-87a0e829fd89
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33861"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e34a30bc3cf1a
+    namespace: openshift-authentication
+    resourceVersion: "33873"
+    uid: 7d5e6ade-cb0b-41ec-8536-951daad70cd8
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-6vvgk
+    namespace: openshift-authentication
+    resourceVersion: "33861"
+    uid: 352923b0-11d9-41e2-8e47-c9f8b1e25f18
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift-64f785f76-6vvgk.179e34a30e957e42
+    namespace: openshift-authentication
+    resourceVersion: "33874"
+    uid: 655cb240-df75-447e-9de4-026c3bb79bcd
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "34502"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:25Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:40:25Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34a9f489a0d7
+    namespace: openshift-authentication
+    resourceVersion: "34774"
+    uid: b1ab769c-7e7f-4e89-af5c-3ac7a38ea79f
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "34504"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:39Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-64f785f76-tspzq
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:40:39Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34afd6a4027c
+    namespace: openshift-authentication
+    resourceVersion: "35011"
+    uid: 1852d0e9-dc25-41bf-92b2-dd268440d319
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "35013"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:39Z"
+  message: Add eth0 [10.130.0.45/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:40:39Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34affa5eacd0
+    namespace: openshift-authentication
+    resourceVersion: "35017"
+    uid: 3c803d89-57af-4194-8af4-2857ca1a5f2a
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:39Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "35005"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:39Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:39Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34affc4e2758
+    namespace: openshift-authentication
+    resourceVersion: "35022"
+    uid: f2c42e81-f024-4d8b-ac98-cb6ef54b2009
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:39Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "35005"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:39Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:39Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34b00342abf3
+    namespace: openshift-authentication
+    resourceVersion: "35024"
+    uid: f8dfd888-a28e-4710-a02d-03664b31bec3
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:39Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-64f785f76-tspzq
+    namespace: openshift-authentication
+    resourceVersion: "35005"
+    uid: 3f378d71-070a-4eaf-a885-158ac0804921
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:39Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:40:39Z"
+    name: oauth-openshift-64f785f76-tspzq.179e34b004142428
+    namespace: openshift-authentication
+    resourceVersion: "35025"
+    uid: 8907812e-8906-41e9-acc0-df5cdbe1fa6d
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-64f785f76
+    namespace: openshift-authentication
+    resourceVersion: "33113"
+    uid: 18cd8e98-e9fe-4b68-9dd4-0906207c56e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:18Z"
+  message: 'Created pod: oauth-openshift-64f785f76-6vvgk'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:18Z"
+    name: oauth-openshift-64f785f76.179e349d01a3cdf7
+    namespace: openshift-authentication
+    resourceVersion: "33124"
+    uid: 551e4f04-85f1-4942-a2cc-41b044f8ed16
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-64f785f76
+    namespace: openshift-authentication
+    resourceVersion: "33912"
+    uid: 18cd8e98-e9fe-4b68-9dd4-0906207c56e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: 'Created pod: oauth-openshift-64f785f76-5cxk4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift-64f785f76.179e34a33d347666
+    namespace: openshift-authentication
+    resourceVersion: "33918"
+    uid: 56254776-ed59-4333-b990-40a60726672c
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-64f785f76
+    namespace: openshift-authentication
+    resourceVersion: "34498"
+    uid: 18cd8e98-e9fe-4b68-9dd4-0906207c56e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:13Z"
+  message: 'Created pod: oauth-openshift-64f785f76-tspzq'
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:40:13Z"
+    name: oauth-openshift-64f785f76.179e34a9f4c824d3
+    namespace: openshift-authentication
+    resourceVersion: "34507"
+    uid: ccf77387-508c-41cc-8e2b-1e5432fea084
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-664578fdb5-8xh5f
+    namespace: openshift-authentication
+    resourceVersion: "27435"
+    uid: bbf27522-5846-466b-9325-095be1818f25
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: '0/6 nodes are available: 3 node(s) didn''t match Pod''s node affinity/selector,
+    3 node(s) didn''t match pod anti-affinity rules. preemption: 0/6 nodes are available:
+    3 Preemption is not helpful for scheduling, 3 node(s) didn''t match pod anti-affinity
+    rules..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-664578fdb5-8xh5f.179e3462b3d47917
+    namespace: openshift-authentication
+    resourceVersion: "27439"
+    uid: cecf4783-1f29-4ac8-8756-44a427460382
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-664578fdb5-8xh5f
+    namespace: openshift-authentication
+    resourceVersion: "27562"
+    uid: bbf27522-5846-466b-9325-095be1818f25
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: 'skip schedule deleting pod: openshift-authentication/oauth-openshift-664578fdb5-8xh5f'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift-664578fdb5-8xh5f.179e34637cfaea47
+    namespace: openshift-authentication
+    resourceVersion: "27563"
+    uid: be8a08d0-0e5d-4d84-9def-3773c89fcf87
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-664578fdb5
+    namespace: openshift-authentication
+    resourceVersion: "27430"
+    uid: 5e67af01-57d9-42c5-8113-53f0e2fc203d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: 'Created pod: oauth-openshift-664578fdb5-8xh5f'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-664578fdb5.179e3462b3912183
+    namespace: openshift-authentication
+    resourceVersion: "27437"
+    uid: 5cde1694-fefe-4335-b0e3-50dc77fee540
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-664578fdb5
+    namespace: openshift-authentication
+    resourceVersion: "27560"
+    uid: 5e67af01-57d9-42c5-8113-53f0e2fc203d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: 'Deleted pod: oauth-openshift-664578fdb5-8xh5f'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift-664578fdb5.179e34637daf5f92
+    namespace: openshift-authentication
+    resourceVersion: "27567"
+    uid: d38e7dad-ac24-4897-b8a8-1910fe28a9d4
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27348"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-7667d9fc7d-jlckc
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e3461c62e031e
+    namespace: openshift-authentication
+    resourceVersion: "27361"
+    uid: d3bbdff6-5b58-4947-853f-a272bdd20619
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: 'MountVolume.SetUp failed for volume "v4-0-config-system-cliconfig" : configmap
+    "v4-0-config-system-cliconfig" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e3461d7971090
+    namespace: openshift-authentication
+    resourceVersion: "27369"
+    uid: a96ac8b1-5a92-4918-bdca-27710a5c4aab
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27363"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Add eth0 [10.130.0.39/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e346201587b31
+    namespace: openshift-authentication
+    resourceVersion: "27381"
+    uid: d854b883-e3f7-4b04-865e-a74239c8f79c
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e346202e89da6
+    namespace: openshift-authentication
+    resourceVersion: "27383"
+    uid: 4a4e33e9-5ca6-4f7c-a8f0-89f50b01ab88
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    in 3.553s (3.553s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e3462d6bcbd68
+    namespace: openshift-authentication
+    resourceVersion: "27458"
+    uid: 7d6e1ad0-cb46-4b04-a32c-972668bf8282
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e3462ddcad70c
+    namespace: openshift-authentication
+    resourceVersion: "27463"
+    uid: 59298ec3-1051-466d-833e-d1de186a575e
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e3462df8cbb5b
+    namespace: openshift-authentication
+    resourceVersion: "27464"
+    uid: b04774a8-4372-473d-b040-7f304a8de693
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-jlckc
+    namespace: openshift-authentication
+    resourceVersion: "27353"
+    uid: ed83eb4b-0a79-46d5-bcb1-889e9b4eb8e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:02Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:36:02Z"
+    name: oauth-openshift-7667d9fc7d-jlckc.179e346f77f1bb67
+    namespace: openshift-authentication
+    resourceVersion: "28229"
+    uid: 11939744-5c4e-4456-93bc-3e5bab3ff4d1
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27346"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-7667d9fc7d-kc8l4
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e3461c60fd692
+    namespace: openshift-authentication
+    resourceVersion: "27357"
+    uid: fe24195a-419f-4ac1-ab46-c8dabb439d71
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: 'MountVolume.SetUp failed for volume "v4-0-config-system-cliconfig" : configmap
+    "v4-0-config-system-cliconfig" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e3461cd6cc29d
+    namespace: openshift-authentication
+    resourceVersion: "27366"
+    uid: 829f2c54-b05d-4272-b20f-dac6d37ff2d6
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27362"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Add eth0 [10.129.0.79/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e346203513611
+    namespace: openshift-authentication
+    resourceVersion: "27384"
+    uid: 9fb072b6-471e-4d85-86cf-8dac75db2f36
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e346204cd9e44
+    namespace: openshift-authentication
+    resourceVersion: "27387"
+    uid: c3099d87-1abb-4b83-9c00-b01fc2650526
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    in 3.108s (3.108s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e3462be17fb22
+    namespace: openshift-authentication
+    resourceVersion: "27447"
+    uid: b761660c-5b11-4499-a421-88a45978fe3c
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e3462c71c6a49
+    namespace: openshift-authentication
+    resourceVersion: "27450"
+    uid: fabbea17-4b62-46e4-8333-2167ea3a960d
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e3462c824bd1b
+    namespace: openshift-authentication
+    resourceVersion: "27451"
+    uid: 83890e7a-08b8-4f85-840c-d680da14403b
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-kc8l4
+    namespace: openshift-authentication
+    resourceVersion: "27352"
+    uid: 7997eb23-6fc9-44e7-a1a7-89359bcbd852
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:35Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:35Z"
+    name: oauth-openshift-7667d9fc7d-kc8l4.179e346934b58714
+    namespace: openshift-authentication
+    resourceVersion: "27909"
+    uid: 0c630830-6ea3-4156-ab36-0a56490ab1c8
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27342"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: Successfully assigned openshift-authentication/oauth-openshift-7667d9fc7d-tfb82
+    to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3461c46eb890
+    namespace: openshift-authentication
+    resourceVersion: "27349"
+    uid: 16d09081-8058-45be-99a1-d277c0bd6ad2
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: 'MountVolume.SetUp failed for volume "v4-0-config-system-cliconfig" : configmap
+    "v4-0-config-system-cliconfig" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3461d3e2df11
+    namespace: openshift-authentication
+    resourceVersion: "27367"
+    uid: 3e80010b-51c3-48b7-9663-4bc1198f55e2
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27358"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Add eth0 [10.128.0.39/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3461ff6ae9ef
+    namespace: openshift-authentication
+    resourceVersion: "27378"
+    uid: 31aa2e92-e917-4545-b844-03a74585d36a
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:04Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:04Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e346200ebfae1
+    namespace: openshift-authentication
+    resourceVersion: "27380"
+    uid: d1be19d8-fe02-4f84-9287-2585faff71d2
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57"
+    in 2.946s (2.946s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3462b0891010
+    namespace: openshift-authentication
+    resourceVersion: "27421"
+    uid: 1d76442d-23fe-4c45-99a0-5b4e1a707c6c
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Created container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3462b8562550
+    namespace: openshift-authentication
+    resourceVersion: "27445"
+    uid: ca989029-d706-40d3-86b6-5e8e6fa8f570
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Started container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3462b9413ffd
+    namespace: openshift-authentication
+    resourceVersion: "27446"
+    uid: d2141abc-78d1-4c0d-8faf-f86fc47ef247
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:08Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{oauth-openshift}
+    kind: Pod
+    name: oauth-openshift-7667d9fc7d-tfb82
+    namespace: openshift-authentication
+    resourceVersion: "27344"
+    uid: ff598f39-5d96-41bf-b30c-e315f260decf
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:08Z"
+  message: Stopping container oauth-openshift
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:35:08Z"
+    name: oauth-openshift-7667d9fc7d-tfb82.179e3462e0db732c
+    namespace: openshift-authentication
+    resourceVersion: "27466"
+    uid: 4b6f7091-44f9-42fc-a274-d01f0930c832
+  reason: Killing
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "27338"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: 'Created pod: oauth-openshift-7667d9fc7d-tfb82'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d.179e3461c3f7f340
+    namespace: openshift-authentication
+    resourceVersion: "27343"
+    uid: aebc3aa0-cb90-47e0-b129-9f97bff3531c
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "27338"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: 'Created pod: oauth-openshift-7667d9fc7d-kc8l4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d.179e3461c4bec72a
+    namespace: openshift-authentication
+    resourceVersion: "27350"
+    uid: 76afe5f8-6722-40ed-879f-31f1fc3a3b60
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "27338"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: 'Created pod: oauth-openshift-7667d9fc7d-jlckc'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift-7667d9fc7d.179e3461c56b4694
+    namespace: openshift-authentication
+    resourceVersion: "27354"
+    uid: 678835c7-b818-42e6-9474-d60b0bbc4dc9
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "27425"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: 'Deleted pod: oauth-openshift-7667d9fc7d-tfb82'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift-7667d9fc7d.179e3462b25d66a0
+    namespace: openshift-authentication
+    resourceVersion: "27429"
+    uid: 06cb2503-c76f-4007-85f7-deaa4dcd9a45
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "27895"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:35Z"
+  message: 'Deleted pod: oauth-openshift-7667d9fc7d-kc8l4'
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:35Z"
+    name: oauth-openshift-7667d9fc7d.179e346933dbbd03
+    namespace: openshift-authentication
+    resourceVersion: "27902"
+    uid: fed39ee9-5325-4edf-b90c-c8afe28de1c6
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: oauth-openshift-7667d9fc7d
+    namespace: openshift-authentication
+    resourceVersion: "28220"
+    uid: 5c648bbe-e844-4085-8ae9-fbcea7af009d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:02Z"
+  message: 'Deleted pod: oauth-openshift-7667d9fc7d-jlckc'
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:36:02Z"
+    name: oauth-openshift-7667d9fc7d.179e346f77a0fa91
+    namespace: openshift-authentication
+    resourceVersion: "28224"
+    uid: 863dbf54-901c-4b38-8740-078d5fcef15a
+  reason: SuccessfulDelete
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:03Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27336"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:03Z"
+  message: Scaled up replica set oauth-openshift-7667d9fc7d to 3
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:03Z"
+    name: oauth-openshift.179e3461c2e6f4ba
+    namespace: openshift-authentication
+    resourceVersion: "27339"
+    uid: 6f28543f-0725-46e5-9989-ec64742bdb02
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27418"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Scaled down replica set oauth-openshift-7667d9fc7d to 2 from 3
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift.179e3462b1c78fb9
+    namespace: openshift-authentication
+    resourceVersion: "27427"
+    uid: f5fc4f1b-c189-4056-9d25-f06d2584bfad
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27424"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:07Z"
+  message: Scaled up replica set oauth-openshift-664578fdb5 to 1 from 0
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:07Z"
+    name: oauth-openshift.179e3462b2e8da8f
+    namespace: openshift-authentication
+    resourceVersion: "27432"
+    uid: 402bb080-a6a4-4300-ad21-591609ddb70a
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27554"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: Scaled down replica set oauth-openshift-664578fdb5 to 0 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift.179e34637c55c1ef
+    namespace: openshift-authentication
+    resourceVersion: "27561"
+    uid: 10c3421f-b077-4b13-95ca-1c46580b1ff4
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27558"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:11Z"
+  message: Scaled up replica set oauth-openshift-5bf7bdfdbf to 1 from 0
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:11Z"
+    name: oauth-openshift.179e34637d6f7098
+    namespace: openshift-authentication
+    resourceVersion: "27566"
+    uid: 5b10334b-e067-42bb-93f7-14d655abb545
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27578"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:35Z"
+  message: Scaled down replica set oauth-openshift-7667d9fc7d to 1 from 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:35Z"
+    name: oauth-openshift.179e346932d82062
+    namespace: openshift-authentication
+    resourceVersion: "27897"
+    uid: 98e88be4-69ea-47af-ab55-fbe422d510ad
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:35:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27578"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:35:35Z"
+  message: Scaled up replica set oauth-openshift-5bf7bdfdbf to 2 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:35:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:35:35Z"
+    name: oauth-openshift.179e3469340a2fd2
+    namespace: openshift-authentication
+    resourceVersion: "27906"
+    uid: 4a5dfb16-a8b6-4710-8133-0daf9de3ecc3
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "27918"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:02Z"
+  message: Scaled down replica set oauth-openshift-7667d9fc7d to 0 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:36:02Z"
+    name: oauth-openshift.179e346f771505da
+    namespace: openshift-authentication
+    resourceVersion: "28221"
+    uid: 34d0ce46-bc49-46dc-811f-939afde3c27c
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:36:02Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "28222"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:36:02Z"
+  message: Scaled up replica set oauth-openshift-5bf7bdfdbf to 3 from 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:36:02Z"
+    name: oauth-openshift.179e346f7831bb05
+    namespace: openshift-authentication
+    resourceVersion: "28230"
+    uid: 60be03bb-6eed-49e7-a982-e163e3b93de9
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "33101"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:18Z"
+  message: Scaled down replica set oauth-openshift-5bf7bdfdbf to 2 from 3
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:18Z"
+    name: oauth-openshift.179e349cfeb6337f
+    namespace: openshift-authentication
+    resourceVersion: "33109"
+    uid: ba8c7f99-b199-4bdd-baf5-c63a08f9c96c
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "33106"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:18Z"
+  message: Scaled up replica set oauth-openshift-64f785f76 to 1 from 0
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:18Z"
+    name: oauth-openshift.179e349d00982391
+    namespace: openshift-authentication
+    resourceVersion: "33118"
+    uid: 7c4fc2c4-31c3-4c8e-8730-fe983919c7a0
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "33128"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: Scaled down replica set oauth-openshift-5bf7bdfdbf to 1 from 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift.179e34a32fb4b728
+    namespace: openshift-authentication
+    resourceVersion: "33901"
+    uid: a4da8054-9c0c-448b-ab8d-0ca7ae8affbc
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:44Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "33902"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:44Z"
+  message: Scaled up replica set oauth-openshift-64f785f76 to 2 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:44Z"
+    name: oauth-openshift.179e34a338113384
+    namespace: openshift-authentication
+    resourceVersion: "33913"
+    uid: db280cfa-241b-4dc6-8771-1f243bd8ebea
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "33922"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:13Z"
+  message: Scaled down replica set oauth-openshift-5bf7bdfdbf to 0 from 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:40:13Z"
+    name: oauth-openshift.179e34a9f08cfaed
+    namespace: openshift-authentication
+    resourceVersion: "34492"
+    uid: fb651c0b-e810-44f8-b878-523c02b2b5d6
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:40:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resourceVersion: "34493"
+    uid: 37f2343e-221f-4487-af20-08cc0a911557
+  kind: Event
+  lastTimestamp: "2023-12-06T09:40:13Z"
+  message: Scaled up replica set oauth-openshift-64f785f76 to 3 from 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:40:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:40:13Z"
+    name: oauth-openshift.179e34a9f2c68fd7
+    namespace: openshift-authentication
+    resourceVersion: "34501"
+    uid: cc68958e-e08c-4740-a3c6-e3f3f6076079
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47595"

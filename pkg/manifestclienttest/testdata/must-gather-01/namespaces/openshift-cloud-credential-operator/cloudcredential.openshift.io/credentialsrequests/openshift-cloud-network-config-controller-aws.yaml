@@ -1,0 +1,111 @@
+---
+apiVersion: cloudcredential.openshift.io/v1
+kind: CredentialsRequest
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:56Z"
+  finalizers:
+  - cloudcredential.openshift.io/deprovision
+  generation: 1
+  managedFields:
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:providerSpec:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:statementEntries: {}
+        f:secretRef:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+        f:serviceAccountNames: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:56Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"cloudcredential.openshift.io/deprovision": {}
+    manager: Go-http-client
+    operation: Update
+    time: "2023-12-06T09:19:49Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:lastSyncCloudCredsSecretResourceVersion: {}
+        f:lastSyncGeneration: {}
+        f:lastSyncTimestamp: {}
+        f:providerStatus:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:policy: {}
+          f:user: {}
+        f:provisioned: {}
+    manager: Go-http-client
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:53Z"
+  name: openshift-cloud-network-config-controller-aws
+  namespace: openshift-cloud-credential-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3275"
+  uid: 94f7ff5e-4729-47ca-ab46-49f4c4115c45
+spec:
+  providerSpec:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AWSProviderSpec
+    statementEntries:
+    - action:
+      - ec2:DescribeInstances
+      - ec2:DescribeInstanceStatus
+      - ec2:DescribeInstanceTypes
+      - ec2:UnassignPrivateIpAddresses
+      - ec2:AssignPrivateIpAddresses
+      - ec2:UnassignIpv6Addresses
+      - ec2:AssignIpv6Addresses
+      - ec2:DescribeSubnets
+      - ec2:DescribeNetworkInterfaces
+      effect: Allow
+      resource: '*'
+  secretRef:
+    name: cloud-credentials
+    namespace: openshift-cloud-network-config-controller
+  serviceAccountNames:
+  - cloud-network-config-controller
+status:
+  lastSyncCloudCredsSecretResourceVersion: "3198"
+  lastSyncGeneration: 1
+  lastSyncTimestamp: "2023-12-06T09:19:53Z"
+  providerStatus:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AWSProviderStatus
+    policy: ci-op-2j285qtr-234c7-openshift-cloud-network-config-contro-npsnz-policy
+    user: ci-op-2j285qtr-234c7-openshift-cloud-network-config-contro-npsnz
+  provisioned: true

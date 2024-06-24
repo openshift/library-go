@@ -1,0 +1,221 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:09Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: openshift-kube-scheduler-guard-pdb
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5127"
+    uid: a7a7f820-7442-4841-b2e2-90db028018f1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:07Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:27:07Z"
+    name: openshift-kube-scheduler-guard-pdb.179e339f79660298
+    namespace: openshift-kube-scheduler
+    resourceVersion: "20717"
+    uid: 89ad8ebe-eaad-480b-9edd-4c557591c3ee
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:16Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: openshift-kube-scheduler-guard-pdb
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5130"
+    uid: a7a7f820-7442-4841-b2e2-90db028018f1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:16Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: openshift-kube-scheduler-guard-pdb.179e348092cc1548
+    namespace: openshift-kube-scheduler
+    resourceVersion: "29097"
+    uid: c3d84163-5c14-41c5-9a37-dab26f5c62d2
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: openshift-kube-scheduler-guard-pdb
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5130"
+    uid: a7a7f820-7442-4841-b2e2-90db028018f1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: openshift-kube-scheduler-guard-pdb.179e3491e1ae5f89
+    namespace: openshift-kube-scheduler
+    resourceVersion: "30988"
+    uid: 49f68233-2190-4856-8aac-6c555c27f267
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: openshift-kube-scheduler-guard-pdb
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5130"
+    uid: a7a7f820-7442-4841-b2e2-90db028018f1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:51:41Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:51:41Z"
+    name: openshift-kube-scheduler-guard-pdb.179e34be6f07a524
+    namespace: openshift-kube-scheduler
+    resourceVersion: "43070"
+    uid: e360f347-01e9-4c8a-b5c3-09fc75ac4977
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: openshift-kube-scheduler-guard-pdb
+    namespace: openshift-kube-scheduler
+    resourceVersion: "5130"
+    uid: a7a7f820-7442-4841-b2e2-90db028018f1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: openshift-kube-scheduler-guard-pdb.179e359a2a2b1f1a
+    namespace: openshift-kube-scheduler
+    resourceVersion: "46964"
+    uid: d086979f-b681-4173-94ca-d4b3aa7f1dcc
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47899"

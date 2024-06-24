@@ -1,0 +1,805 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:41:21Z"
+    creationTimestamp: "2023-12-06T09:39:09Z"
+    labels:
+      app.kubernetes.io/component: alert-router
+      app.kubernetes.io/instance: main
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: alertmanager
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.26.0
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:21Z"
+    name: alertmanager-main
+    namespace: openshift-monitoring
+    resourceVersion: "35729"
+    uid: 28179097-77e0-49af-81d2-cd1733619193
+  subsets:
+  - addresses:
+    - ip: 10.128.2.17
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: alertmanager-main-1
+        namespace: openshift-monitoring
+        uid: cc75d952-e296-40a2-a42b-99bb703e8bdf
+    - ip: 10.131.0.13
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: alertmanager-main-0
+        namespace: openshift-monitoring
+        uid: 4bb01a1c-7d35-4089-b66c-f4a04ae0d363
+    ports:
+    - name: web
+      port: 9095
+      protocol: TCP
+    - name: metrics
+      port: 9097
+      protocol: TCP
+    - name: tenancy
+      port: 9092
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:41:21Z"
+    creationTimestamp: "2023-12-06T09:39:14Z"
+    labels:
+      operated-alertmanager: "true"
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:operated-alertmanager: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:21Z"
+    name: alertmanager-operated
+    namespace: openshift-monitoring
+    resourceVersion: "35728"
+    uid: f0a36624-7104-4027-ab41-214f1d2e8884
+  subsets:
+  - addresses:
+    - hostname: alertmanager-main-1
+      ip: 10.128.2.17
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: alertmanager-main-1
+        namespace: openshift-monitoring
+        uid: cc75d952-e296-40a2-a42b-99bb703e8bdf
+    - hostname: alertmanager-main-0
+      ip: 10.131.0.13
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: alertmanager-main-0
+        namespace: openshift-monitoring
+        uid: 4bb01a1c-7d35-4089-b66c-f4a04ae0d363
+    ports:
+    - name: web
+      port: 9095
+      protocol: TCP
+    - name: udp-mesh
+      port: 9094
+      protocol: UDP
+    - name: tcp-mesh
+      port: 9094
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:22:12Z"
+    creationTimestamp: "2023-12-06T09:18:14Z"
+    labels:
+      app.kubernetes.io/name: cluster-monitoring-operator
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/name: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: cluster-monitoring-operator
+    namespace: openshift-monitoring
+    resourceVersion: "9575"
+    uid: 096cf39e-68ea-40ad-8212-25f16c78b134
+  subsets:
+  - addresses:
+    - ip: 10.129.0.28
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: cluster-monitoring-operator-79475dbdb6-9lrhk
+        namespace: openshift-monitoring
+        uid: b1bd3eac-145d-4d83-8e48-e5499319488e
+    ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:13Z"
+    creationTimestamp: "2023-12-06T09:39:08Z"
+    labels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: kube-state-metrics
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 2.9.2
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:14Z"
+    name: kube-state-metrics
+    namespace: openshift-monitoring
+    resourceVersion: "32907"
+    uid: bd142bc5-6126-4081-a942-cbbbb99c50df
+  subsets:
+  - addresses:
+    - ip: 10.131.0.11
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: kube-state-metrics-5ff75675fc-kbf57
+        namespace: openshift-monitoring
+        uid: 4dbbca48-d4c9-4b8e-b405-c86412d718fd
+    ports:
+    - name: https-main
+      port: 8443
+      protocol: TCP
+    - name: https-self
+      port: 9443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:27Z"
+    creationTimestamp: "2023-12-06T09:39:07Z"
+    labels:
+      app.kubernetes.io/component: monitoring-plugin
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: monitoring-plugin
+      app.kubernetes.io/part-of: openshift-monitoring
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:27Z"
+    name: monitoring-plugin
+    namespace: openshift-monitoring
+    resourceVersion: "33486"
+    uid: c9e32533-214e-41bf-b2e1-7f0e44a59bfe
+  subsets:
+  - addresses:
+    - ip: 10.128.2.12
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: monitoring-plugin-75446ccfc7-zjk7f
+        namespace: openshift-monitoring
+        uid: 8f35e439-c940-4b87-a536-6440c467615a
+    - ip: 10.129.2.11
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: monitoring-plugin-75446ccfc7-v25m8
+        namespace: openshift-monitoring
+        uid: 9001f800-ce2d-422e-bd1b-1906b13d0780
+    ports:
+    - name: https
+      port: 9443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:28Z"
+    creationTimestamp: "2023-12-06T09:39:08Z"
+    labels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 1.7.0
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:28Z"
+    name: node-exporter
+    namespace: openshift-monitoring
+    resourceVersion: "33505"
+    uid: 73ee54ae-58d6-4a1b-858b-e3f4ba5ceeca
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-gwfgp
+        namespace: openshift-monitoring
+        uid: 2cbe3445-3aee-4633-8e10-72c99d63b22f
+    - ip: 10.0.122.108
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-kjksd
+        namespace: openshift-monitoring
+        uid: bab5ca05-355b-4da7-a396-8ecaf13a491b
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-w5gdn
+        namespace: openshift-monitoring
+        uid: 22e09149-8015-401c-9bad-7c8c84e8a0c8
+    - ip: 10.0.7.104
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-vlgfk
+        namespace: openshift-monitoring
+        uid: 636ff6bf-6617-490a-bb74-4b78c76b380a
+    - ip: 10.0.81.189
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-gksh8
+        namespace: openshift-monitoring
+        uid: 174759d3-bf88-438c-8008-431443329dd8
+    - ip: 10.0.94.160
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: node-exporter-47dfj
+        namespace: openshift-monitoring
+        uid: 1dc0d4fb-d57b-479a-862f-deecaacb0a9c
+    ports:
+    - name: https
+      port: 9100
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:24Z"
+    creationTimestamp: "2023-12-06T09:39:08Z"
+    labels:
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/part-of: openshift-monitoring
+      k8s-app: openshift-state-metrics
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/part-of: {}
+            f:k8s-app: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:24Z"
+    name: openshift-state-metrics
+    namespace: openshift-monitoring
+    resourceVersion: "33330"
+    uid: 14a1c707-5bb6-466a-842d-9e968b805fdd
+  subsets:
+  - addresses:
+    - ip: 10.129.2.12
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: openshift-state-metrics-696fc7996c-p8fnw
+        namespace: openshift-monitoring
+        uid: f52693bd-8a1a-4dc4-8ae2-c9b9553a6347
+    ports:
+    - name: https-main
+      port: 8443
+      protocol: TCP
+    - name: https-self
+      port: 9443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:32Z"
+    creationTimestamp: "2023-12-06T09:39:08Z"
+    labels:
+      app.kubernetes.io/component: metrics-adapter
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: prometheus-adapter
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.11.2
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:32Z"
+    name: prometheus-adapter
+    namespace: openshift-monitoring
+    resourceVersion: "33610"
+    uid: 02f7841f-4924-46ed-8314-0013436d786a
+  subsets:
+  - addresses:
+    - ip: 10.128.2.13
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-adapter-57c4cf467f-4mltf
+        namespace: openshift-monitoring
+        uid: 052d6a9a-bc3f-4133-b9c0-917c293a5bd0
+    - ip: 10.129.2.13
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-adapter-57c4cf467f-vcvt4
+        namespace: openshift-monitoring
+        uid: bb41a429-17fb-4a02-a022-398001daf7b5
+    ports:
+    - name: https
+      port: 6443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:41:09Z"
+    creationTimestamp: "2023-12-06T09:39:12Z"
+    labels:
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/instance: k8s
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 2.48.0
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:09Z"
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+    resourceVersion: "35552"
+    uid: ccc30289-bb49-48fb-a91b-19496c2aceb5
+  subsets:
+  - addresses:
+    - ip: 10.128.2.18
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-1
+        namespace: openshift-monitoring
+        uid: 09fa5f50-a8ff-4e2b-9891-990f6790c583
+    - ip: 10.129.2.16
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-0
+        namespace: openshift-monitoring
+        uid: 8c73df67-d753-4461-bfd0-8062e730b6d4
+    ports:
+    - name: metrics
+      port: 9092
+      protocol: TCP
+    - name: web
+      port: 9091
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:41:09Z"
+    creationTimestamp: "2023-12-06T09:39:12Z"
+    labels:
+      app.kubernetes.io/component: thanos-sidecar
+      app.kubernetes.io/instance: k8s
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 2.48.0
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:09Z"
+    name: prometheus-k8s-thanos-sidecar
+    namespace: openshift-monitoring
+    resourceVersion: "35555"
+    uid: 7f654f76-0c67-4e8a-9a51-e18cd97a8e3b
+  subsets:
+  - addresses:
+    - ip: 10.128.2.18
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-1
+        namespace: openshift-monitoring
+        uid: 09fa5f50-a8ff-4e2b-9891-990f6790c583
+    - ip: 10.129.2.16
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-0
+        namespace: openshift-monitoring
+        uid: 8c73df67-d753-4461-bfd0-8062e730b6d4
+    ports:
+    - name: thanos-proxy
+      port: 10903
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:41:09Z"
+    creationTimestamp: "2023-12-06T09:39:21Z"
+    labels:
+      operated-prometheus: "true"
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:operated-prometheus: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:09Z"
+    name: prometheus-operated
+    namespace: openshift-monitoring
+    resourceVersion: "35551"
+    uid: 11cbf394-619b-4a3c-bc3a-409befceb70f
+  subsets:
+  - addresses:
+    - hostname: prometheus-k8s-1
+      ip: 10.128.2.18
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-1
+        namespace: openshift-monitoring
+        uid: 09fa5f50-a8ff-4e2b-9891-990f6790c583
+    - hostname: prometheus-k8s-0
+      ip: 10.129.2.16
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-k8s-0
+        namespace: openshift-monitoring
+        uid: 8c73df67-d753-4461-bfd0-8062e730b6d4
+    ports:
+    - name: web
+      port: 9091
+      protocol: TCP
+    - name: grpc
+      port: 10901
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:06Z"
+    creationTimestamp: "2023-12-06T09:26:31Z"
+    labels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: prometheus-operator
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.70.0
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:06Z"
+    name: prometheus-operator
+    namespace: openshift-monitoring
+    resourceVersion: "31928"
+    uid: f4cce8a6-be2f-47d0-a68c-3e4e00371464
+  subsets:
+  - addresses:
+    - ip: 10.128.0.46
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-operator-645d5ddfd7-vqp57
+        namespace: openshift-monitoring
+        uid: 2c8cc681-8cbd-4d6d-a921-1ecd4b611426
+    ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:26:30Z"
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    labels:
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: prometheus-operator-admission-webhook
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.70.0
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:30Z"
+    name: prometheus-operator-admission-webhook
+    namespace: openshift-monitoring
+    resourceVersion: "20001"
+    uid: 7829ad2a-f6a3-45aa-984b-816c289c6761
+  subsets:
+  - addresses:
+    - ip: 10.128.2.9
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-operator-admission-webhook-68658679d8-49lrb
+        namespace: openshift-monitoring
+        uid: d166e319-7e62-434d-917d-d4bcfb6028f2
+    - ip: 10.131.0.7
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: prometheus-operator-admission-webhook-68658679d8-5dglc
+        namespace: openshift-monitoring
+        uid: 3f1c8475-ccca-41d5-86f5-bd93844e858e
+    ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:45Z"
+    creationTimestamp: "2023-12-06T09:39:07Z"
+    labels:
+      app.kubernetes.io/component: query-layer
+      app.kubernetes.io/instance: thanos-querier
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.32.5
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:45Z"
+    name: thanos-querier
+    namespace: openshift-monitoring
+    resourceVersion: "33927"
+    uid: 48ada713-7596-46bb-ab56-025150f4b04a
+  subsets:
+  - addresses:
+    - ip: 10.128.2.15
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: thanos-querier-6866dd858c-tbxn8
+        namespace: openshift-monitoring
+        uid: c3a6846f-4a05-4581-84c1-a08dcb51e27f
+    - ip: 10.131.0.12
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: thanos-querier-6866dd858c-dsrfd
+        namespace: openshift-monitoring
+        uid: 235cab90-a34c-479c-914c-2b10513ba36c
+    ports:
+    - name: tenancy-rules
+      port: 9093
+      protocol: TCP
+    - name: tenancy
+      port: 9092
+      protocol: TCP
+    - name: metrics
+      port: 9094
+      protocol: TCP
+    - name: web
+      port: 9091
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47788"

@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    labels:
+      app.kubernetes.io/managed-by: prometheus-operator
+      app.kubernetes.io/name: kubelet
+      k8s-app: kubelet
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:k8s-app: {}
+        f:subsets: {}
+      manager: PrometheusOperator
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: kubelet
+    namespace: kube-system
+    resourceVersion: "31840"
+    uid: 02beb1bc-2ef5-462a-aa2a-92e909b3ddac
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      targetRef:
+        kind: Node
+        name: ip-10-0-106-212.us-west-1.compute.internal
+        uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+    - ip: 10.0.122.108
+      targetRef:
+        kind: Node
+        name: ip-10-0-122-108.us-west-1.compute.internal
+        uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+    - ip: 10.0.21.63
+      targetRef:
+        kind: Node
+        name: ip-10-0-21-63.us-west-1.compute.internal
+        uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+    - ip: 10.0.7.104
+      targetRef:
+        kind: Node
+        name: ip-10-0-7-104.us-west-1.compute.internal
+        uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+    - ip: 10.0.81.189
+      targetRef:
+        kind: Node
+        name: ip-10-0-81-189.us-west-1.compute.internal
+        uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+    - ip: 10.0.94.160
+      targetRef:
+        kind: Node
+        name: ip-10-0-94-160.us-west-1.compute.internal
+        uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+    ports:
+    - name: https-metrics
+      port: 10250
+      protocol: TCP
+    - name: http-metrics
+      port: 10255
+      protocol: TCP
+    - name: cadvisor
+      port: 4194
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47895"

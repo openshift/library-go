@@ -1,0 +1,97 @@
+---
+apiVersion: discovery.k8s.io/v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.128.0.44
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: route-controller-manager-7b5fc4f9bc-b6svn
+      namespace: openshift-route-controller-manager
+      uid: f21ec615-9771-4543-9235-2e23e365278e
+    zone: us-west-1b
+  - addresses:
+    - 10.129.0.83
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: route-controller-manager-7b5fc4f9bc-2qd2w
+      namespace: openshift-route-controller-manager
+      uid: 2369042b-437b-45a7-94de-747515e0862b
+    zone: us-west-1a
+  - addresses:
+    - 10.130.0.43
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: route-controller-manager-7b5fc4f9bc-x64mv
+      namespace: openshift-route-controller-manager
+      uid: 41d181ff-152f-49e0-9249-2528e029fc19
+    zone: us-west-1b
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:10Z"
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    generateName: route-controller-manager-
+    generation: 54
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: route-controller-manager
+      prometheus: route-controller-manager
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+            f:prometheus: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"fb96acd1-9472-4dd3-b997-07d8abd4794a"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:10Z"
+    name: route-controller-manager-mw6nz
+    namespace: openshift-route-controller-manager
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: route-controller-manager
+      uid: fb96acd1-9472-4dd3-b997-07d8abd4794a
+    resourceVersion: "32626"
+    uid: 00f2936b-ff9f-4f7e-ab75-bfeeea5c8a05
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+kind: EndpointSliceList
+metadata:
+  resourceVersion: "48047"

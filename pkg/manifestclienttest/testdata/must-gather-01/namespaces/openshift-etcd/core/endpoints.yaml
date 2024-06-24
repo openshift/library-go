@@ -1,0 +1,63 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:31:32Z"
+    creationTimestamp: "2023-12-06T09:17:54Z"
+    labels:
+      k8s-app: etcd
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:k8s-app: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:31:32Z"
+    name: etcd
+    namespace: openshift-etcd
+    resourceVersion: "24822"
+    uid: 1e981dda-bcf5-499a-a87d-b442aca161a4
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: etcd-ip-10-0-106-212.us-west-1.compute.internal
+        namespace: openshift-etcd
+        uid: e6c22a6f-b959-4384-adae-3a334a5e082c
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: etcd-ip-10-0-21-63.us-west-1.compute.internal
+        namespace: openshift-etcd
+        uid: 9ee9249c-7cff-482f-8503-76a4c45b99fc
+    - ip: 10.0.94.160
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: etcd-ip-10-0-94-160.us-west-1.compute.internal
+        namespace: openshift-etcd
+        uid: b5dab5b6-34bf-42e4-9c95-f8d0014ebf2a
+    ports:
+    - name: etcd
+      port: 2379
+      protocol: TCP
+    - name: etcd-metrics
+      port: 9979
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47728"

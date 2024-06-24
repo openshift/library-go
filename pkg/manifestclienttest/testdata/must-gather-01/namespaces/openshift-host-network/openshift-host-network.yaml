@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/description: Namespace for enabling network policy specification
+      for host network traffic. Can be used to allow access to or from host network
+      components
+    openshift.io/sa.scc.mcs: s0:c23,c2
+    openshift.io/sa.scc.supplemental-groups: 1000510000/10000
+    openshift.io/sa.scc.uid-range: 1000510000/10000
+    workload.openshift.io/allowed: management
+  creationTimestamp: "2023-12-06T09:20:12Z"
+  labels:
+    kubernetes.io/metadata.name: openshift-host-network
+    policy-group.network.openshift.io/host-network: ""
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:openshift.io/description: {}
+          f:workload.openshift.io/allowed: {}
+        f:labels:
+          f:policy-group.network.openshift.io/host-network: {}
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:12Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:openshift.io/sa.scc.mcs: {}
+          f:openshift.io/sa.scc.supplemental-groups: {}
+          f:openshift.io/sa.scc.uid-range: {}
+    manager: cluster-policy-controller
+    operation: Update
+    time: "2023-12-06T09:20:12Z"
+  name: openshift-host-network
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "3648"
+  uid: 6d3a067e-0ab0-48b0-a609-7ca56f165a6d
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

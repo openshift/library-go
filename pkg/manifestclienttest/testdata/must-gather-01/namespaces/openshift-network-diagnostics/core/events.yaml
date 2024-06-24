@@ -1,0 +1,1981 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:14Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3750"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:14Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node-role.kubernetes.io/master:
+    }. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:14Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e3392d1d8f8ea
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3754"
+    uid: 0235ebf2-4f20-49b1-ba7e-c7e6eaa44718
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3755"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:25Z"
+  message: '0/6 nodes are available: 3 node(s) had untolerated taint {node-role.kubernetes.io/master:
+    }, 3 node(s) had untolerated taint {node.kubernetes.io/not-ready: }. preemption:
+    0/6 nodes are available: 6 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:25:25Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33db2f791846
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17766"
+    uid: 3fbe6bd2-399a-4f19-ac38-20ae6c3fc1bb
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:20Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17767"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:20Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-source-5db5bf7b85-s5zcp
+    to ip-10-0-122-108.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:26:20Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e7fc8ea33e
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19487"
+    uid: 0c3e1bad-fa32-4c58-957a-109d77169c73
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19492"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: Add eth0 [10.131.0.10/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e81f5afe57
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19517"
+    uid: f11f18b8-cadf-43e8-94f0-13c388024c55
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{check-endpoints}
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19479"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e821a1f29d
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19521"
+    uid: 070cb20a-9f7b-4665-b7dd-1659f959f76c
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Cancelling deletion of Pod openshift-network-diagnostics/network-check-source-5db5bf7b85-s5zcp
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e885e8ee60
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19634"
+    uid: cab895da-22c3-492b-8214-b32ee7eb4089
+  reason: TaintManagerEviction
+  reportingComponent: taint-controller
+  reportingInstance: ""
+  source:
+    component: taint-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{check-endpoints}
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19479"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:28Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+    in 7.543s (7.543s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:28Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e9e3425fd1
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19876"
+    uid: 7b16cedf-35cc-4a64-b526-f89a374e36ba
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:29Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{check-endpoints}
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19479"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:29Z"
+  message: Created container check-endpoints
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e9f1f1df66
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19895"
+    uid: a602bece-a47b-42a9-9dfb-14a8f1c157d9
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:29Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{check-endpoints}
+    kind: Pod
+    name: network-check-source-5db5bf7b85-s5zcp
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19479"
+    uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:29Z"
+  message: Started container check-endpoints
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: network-check-source-5db5bf7b85-s5zcp.179e33e9f9f51706
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19910"
+    uid: 911ae11e-f687-42be-b975-381c89e4e8c2
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:14Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: network-check-source-5db5bf7b85
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3747"
+    uid: de9af20c-e768-4d6f-9de2-da9bfdb55f64
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:14Z"
+  message: 'Created pod: network-check-source-5db5bf7b85-s5zcp'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:14Z"
+    name: network-check-source-5db5bf7b85.179e3392d1d2b3c4
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3753"
+    uid: 4ef3c2ca-9e21-4959-ac39-19423bd39dfc
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:14Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: network-check-source
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3746"
+    uid: bdafbbd7-c9df-45d9-bb8b-81e6bcd6f9d2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:14Z"
+  message: Scaled up replica set network-check-source-5db5bf7b85 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:14Z"
+    name: network-check-source.179e3392d131e51d
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3748"
+    uid: b3e6b308-79f5-443d-87f8-b0f1c235b7fc
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3779"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: network-check-target-5fkgb.179e33930de9a89e
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4359"
+    uid: dd1f2868-af77-4596-90e9-5774ed2e3c6c
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3774"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-5fkgb
+    to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target-5fkgb.179e33930ded890c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3786"
+    uid: 68c25a94-30e6-4ca1-aaf8-c23d06c159a9
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3779"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-hbdsg" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: network-check-target-5fkgb.179e33931a2bf1a4
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4352"
+    uid: 31f5a4e6-efd6-41ab-beb4-4eeb143c411d
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:57Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4347"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:57Z"
+  message: 'failed to add remote pod openshift-network-diagnostics/network-check-target-5fkgb
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-network-diagnostics:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.128.0.4]}}] Timeout:<nil>
+    Where:[where column _uuid == {02971fb8-f464-45d5-ba9a-50b356f53125}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:57Z"
+    name: network-check-target-5fkgb.179e339cc37ca5db
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4663"
+    uid: e7a77938-2b0f-4bdb-befb-0ad176982917
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:57Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3788"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:57Z"
+  message: 'addLogicalPort failed for openshift-network-diagnostics/network-check-target-5fkgb:
+    error transacting operations [{Op:insert Table:Logical_Switch_Port Row:map[addresses:{GoSet:[0a:58:0a:80:00:04
+    10.128.0.4]} external_ids:{GoMap:map[namespace:openshift-network-diagnostics pod:true]}
+    name:openshift-network-diagnostics_network-check-target-5fkgb options:{GoMap:map[iface-id-ver:6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+    requested-chassis:ip-10-0-106-212.us-west-1.compute.internal]} port_security:{GoSet:[0a:58:0a:80:00:04
+    10.128.0.4]}] Rows:[] Columns:[] Mutations:[] Timeout:<nil> Where:[] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:u4073508524} {Op:mutate Table:Logical_Switch
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:ports Mutator:insert Value:{GoSet:[{GoUUID:u4073508524}]}}]
+    Timeout:<nil> Where:[where column _uuid == {a326ae11-636c-455b-9faf-f30e285212d7}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Address_Set
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.128.0.4]}}]
+    Timeout:<nil> Where:[where column _uuid == {c50671ce-360e-4d46-af62-6f8b0a696d7b}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Port_Group
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:ports Mutator:insert Value:{GoSet:[{GoUUID:u4073508524}]}}]
+    Timeout:<nil> Where:[where column _uuid == {f7858c22-1a17-415e-841c-85f9044fec26}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:insert Table:NAT
+    Row:map[external_ip:10.0.106.212 logical_ip:10.128.0.4 options:{GoMap:map[stateless:false]}
+    type:snat] Rows:[] Columns:[] Mutations:[] Timeout:<nil> Where:[] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:u4073508525} {Op:mutate Table:Logical_Router
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:nat Mutator:insert Value:{GoSet:[{GoUUID:u4073508525}]}}]
+    Timeout:<nil> Where:[where column _uuid == {8095738c-8b8f-4ddb-90ae-4bdfd8f0104d}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:}]: error in transact
+    with ops [{Op:insert Table:Logical_Switch_Port Row:map[addresses:{GoSet:[0a:58:0a:80:00:04
+    10.128.0.4]} external_ids:{GoMap:map[namespace:openshift-network-diagnostics pod:true]}
+    name:openshift-network-diagnostics_network-check-target-5fkgb options:{GoMap:map[iface-id-ver:6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+    requested-chassis:ip-10-0-106-212.us-west-1.compute.internal]} port_security:{GoSet:[0a:58:0a:80:00:04
+    10.128.0.4]}] Rows:[] Columns:[] Mutations:[] Timeout:<nil> Where:[] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:u4073508524} {Op:mutate Table:Logical_Switch
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:ports Mutator:insert Value:{GoSet:[{GoUUID:u4073508524}]}}]
+    Timeout:<nil> Where:[where column _uuid == {a326ae11-636c-455b-9faf-f30e285212d7}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Address_Set
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.128.0.4]}}]
+    Timeout:<nil> Where:[where column _uuid == {c50671ce-360e-4d46-af62-6f8b0a696d7b}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Port_Group
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:ports Mutator:insert Value:{GoSet:[{GoUUID:u4073508524}]}}]
+    Timeout:<nil> Where:[where column _uuid == {f7858c22-1a17-415e-841c-85f9044fec26}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:insert Table:NAT
+    Row:map[external_ip:10.0.106.212 logical_ip:10.128.0.4 options:{GoMap:map[stateless:false]}
+    type:snat] Rows:[] Columns:[] Mutations:[] Timeout:<nil> Where:[] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:u4073508525} {Op:mutate Table:Logical_Router
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:nat Mutator:insert Value:{GoSet:[{GoUUID:u4073508525}]}}]
+    Timeout:<nil> Where:[where column _uuid == {8095738c-8b8f-4ddb-90ae-4bdfd8f0104d}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline
+    exceeded: while awaiting reconnection'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:20:57Z"
+    name: network-check-target-5fkgb.179e339cc386b7ba
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4664"
+    uid: c029187c-90c8-4a54-9515-3bc383f3f169
+  reason: ErrorAddingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:24Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-5fkgb
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4347"
+    uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:24Z"
+  message: Add eth0 [10.128.0.4/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:22:24Z"
+    name: network-check-target-5fkgb.179e33b0eb9a25cd
+    namespace: openshift-network-diagnostics
+    resourceVersion: "10440"
+    uid: ec552ee8-de45-43b3-a3f6-6d81b1438889
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-6wk9c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17131"
+    uid: 913601c7-ead7-4ba5-9193-9f6711afa83d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-6wk9c
+    to ip-10-0-122-108.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: network-check-target-6wk9c.179e33d91a7bc9d3
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17149"
+    uid: 3a19baf6-9fe9-4d29-a8c9-ee4ffae553ea
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:18Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-6wk9c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17138"
+    uid: 913601c7-ead7-4ba5-9193-9f6711afa83d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:52Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:52Z"
+    name: network-check-target-6wk9c.179e33d985b33041
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18533"
+    uid: e82684f6-f1fd-4d96-b102-a15d2bb71e79
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:18Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-6wk9c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17138"
+    uid: 913601c7-ead7-4ba5-9193-9f6711afa83d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:50Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-lvz2w" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:50Z"
+    name: network-check-target-6wk9c.179e33d99424ed68
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18490"
+    uid: 82112792-54c0-490a-aa16-8223b17b09bc
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:23Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-6wk9c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19275"
+    uid: 913601c7-ead7-4ba5-9193-9f6711afa83d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:23Z"
+  message: Add eth0 [10.131.0.4/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:23Z"
+    name: network-check-target-6wk9c.179e33e8a0cb8710
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19662"
+    uid: 958455f7-c09f-453c-a8d5-b1c19457f0ae
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-9vjsx
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17141"
+    uid: 1b486523-502f-44f2-9675-a2dab005bef2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-9vjsx
+    to ip-10-0-7-104.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: network-check-target-9vjsx.179e33d91b8e1a2b
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17155"
+    uid: e64932de-1e14-47cd-80ee-9b9d4201bc8e
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:17Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-9vjsx
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17146"
+    uid: 1b486523-502f-44f2-9675-a2dab005bef2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:51Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:51Z"
+    name: network-check-target-9vjsx.179e33d94b12c41f
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18520"
+    uid: f71b05ad-0f04-49df-a954-56655512e51f
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:17Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-9vjsx
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17146"
+    uid: 1b486523-502f-44f2-9675-a2dab005bef2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:49Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-w6xvv" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:49Z"
+    name: network-check-target-9vjsx.179e33d9598431f9
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18454"
+    uid: 23a21bd1-748f-4ac4-b097-9da6462c789c
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:27:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-9vjsx
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19313"
+    uid: 1b486523-502f-44f2-9675-a2dab005bef2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:25Z"
+  message: Add eth0 [10.128.2.5/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:27:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:27:25Z"
+    name: network-check-target-9vjsx.179e33f730f3192e
+    namespace: openshift-network-diagnostics
+    resourceVersion: "21062"
+    uid: abb1161a-3462-487d-9c94-2e50be7cc12e
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-gmsbq
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3773"
+    uid: d091726d-4cdc-443a-9d19-efb4ecda994b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-gmsbq
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target-gmsbq.179e33930dbf14d4
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3781"
+    uid: 6986736d-497d-4717-beda-bfb5bad0a9ce
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-gmsbq
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3776"
+    uid: d091726d-4cdc-443a-9d19-efb4ecda994b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: network-check-target-gmsbq.179e33930dcec66a
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4350"
+    uid: 33b0fb15-9dca-4937-8507-556a2c6ea29c
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-gmsbq
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3776"
+    uid: d091726d-4cdc-443a-9d19-efb4ecda994b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-7nl8c" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: network-check-target-gmsbq.179e339316dc3baf
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4351"
+    uid: 1ef974b8-4f93-47b2-bacd-a0b41f8806d1
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-gmsbq
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4158"
+    uid: d091726d-4cdc-443a-9d19-efb4ecda994b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Add eth0 [10.130.0.4/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: network-check-target-gmsbq.179e33b1a7dd2901
+    namespace: openshift-network-diagnostics
+    resourceVersion: "10589"
+    uid: e6941c8c-650a-46df-bd6d-997bdf2b8468
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-k6tf2
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17618"
+    uid: 31d8fdb1-188a-41ef-b774-8774654b86f5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-k6tf2
+    to ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: network-check-target-k6tf2.179e33dac9d4533e
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17628"
+    uid: 88c3e7c5-4cd9-4988-bb5f-56a8f1d003d1
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:24Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-k6tf2
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17623"
+    uid: 31d8fdb1-188a-41ef-b774-8774654b86f5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:58Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:58Z"
+    name: network-check-target-k6tf2.179e33dae24a7ffa
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18733"
+    uid: c1f57f2e-ef2a-4955-8531-f9cfd2af26e0
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:24Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-k6tf2
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17623"
+    uid: 31d8fdb1-188a-41ef-b774-8774654b86f5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:56Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-zh928" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:56Z"
+    name: network-check-target-k6tf2.179e33daf686c2d0
+    namespace: openshift-network-diagnostics
+    resourceVersion: "18618"
+    uid: 69efecad-ebdd-4aef-9dde-d27936d5a14e
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:29Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-k6tf2
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19378"
+    uid: 31d8fdb1-188a-41ef-b774-8774654b86f5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:29Z"
+  message: Add eth0 [10.129.2.5/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: network-check-target-k6tf2.179e33e9ef8f67e8
+    namespace: openshift-network-diagnostics
+    resourceVersion: "19889"
+    uid: d0f45801-d095-4efd-9b79-c7cfbee87967
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-mxbfn
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3770"
+    uid: bcd79a96-8dfa-4c88-8b9e-85b81b1565b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: Successfully assigned openshift-network-diagnostics/network-check-target-mxbfn
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target-mxbfn.179e33930d596bfe
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3775"
+    uid: 0b728422-fd3d-45d8-a1ca-b50f45ffa927
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 18
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-mxbfn
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3772"
+    uid: bcd79a96-8dfa-4c88-8b9e-85b81b1565b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:48Z"
+  message: 'network is not ready: container runtime network not ready: NetworkReady=false
+    reason:NetworkPluginNotReady message:Network plugin returns error: No CNI configuration
+    file in /etc/kubernetes/cni/net.d/. Has your network provider started?'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:48Z"
+    name: network-check-target-mxbfn.179e33930d6c870c
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4354"
+    uid: d51ef5bb-0175-4ad1-bac8-adb900d89f97
+  reason: NetworkNotReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-mxbfn
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3772"
+    uid: bcd79a96-8dfa-4c88-8b9e-85b81b1565b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-rlk9j" : [object
+    "openshift-network-diagnostics"/"kube-root-ca.crt" not registered, object "openshift-network-diagnostics"/"openshift-service-ca.crt"
+    not registered]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: network-check-target-mxbfn.179e33931cc30bb2
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4353"
+    uid: 88db9c2a-01d7-4191-a40d-ce2f046dbb70
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:20Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-check-target-mxbfn
+    namespace: openshift-network-diagnostics
+    resourceVersion: "4212"
+    uid: bcd79a96-8dfa-4c88-8b9e-85b81b1565b4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:20Z"
+  message: Add eth0 [10.129.0.5/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:20Z"
+    name: network-check-target-mxbfn.179e33a20841478d
+    namespace: openshift-network-diagnostics
+    resourceVersion: "6737"
+    uid: 1da30f3a-b06e-452c-b799-f4b6341f3378
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3768"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: 'Created pod: network-check-target-mxbfn'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target.179e33930d061d1a
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3771"
+    uid: 4b6cb9ad-c4cb-4dce-a946-660a57fdc15e
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3768"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: 'Created pod: network-check-target-5fkgb'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target.179e33930d6ee445
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3778"
+    uid: 58aa421d-c243-4ca0-ba7b-25136a1c4f4d
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3768"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:15Z"
+  message: 'Created pod: network-check-target-gmsbq'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:15Z"
+    name: network-check-target.179e33930d780bac
+    namespace: openshift-network-diagnostics
+    resourceVersion: "3784"
+    uid: ace7bbac-4f1e-402a-a4d7-c1cc7fdc51dd
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "12419"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Created pod: network-check-target-6wk9c'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: network-check-target.179e33d91987f249
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17140"
+    uid: c07360c3-d8f0-4a67-8f12-ab7bf4754c6e
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "12419"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Created pod: network-check-target-9vjsx'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: network-check-target.179e33d91a6b6ee7
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17148"
+    uid: 09be618c-f641-4a40-98de-9085ed7688f1
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: network-check-target
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17266"
+    uid: b0384ac1-96f5-4f04-99b7-28be6e9f305c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: 'Created pod: network-check-target-k6tf2'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: network-check-target.179e33dac907ea7d
+    namespace: openshift-network-diagnostics
+    resourceVersion: "17621"
+    uid: 15666e9a-5b4c-4635-bcf9-727441836623
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "48005"

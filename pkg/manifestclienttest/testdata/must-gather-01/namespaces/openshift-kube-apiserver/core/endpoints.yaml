@@ -1,0 +1,55 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:53:27Z"
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:53:27Z"
+    name: apiserver
+    namespace: openshift-kube-apiserver
+    resourceVersion: "44170"
+    uid: c12c3853-d7cc-41db-989e-e0bb2b2d3586
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: kube-apiserver-ip-10-0-106-212.us-west-1.compute.internal
+        namespace: openshift-kube-apiserver
+        uid: 32bbf6b6-b72b-4f2d-83bc-a63914a11c9a
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: kube-apiserver-ip-10-0-21-63.us-west-1.compute.internal
+        namespace: openshift-kube-apiserver
+        uid: a751079a-d760-40fd-a3fe-3aaedb4ae3dd
+    - ip: 10.0.94.160
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: kube-apiserver-ip-10-0-94-160.us-west-1.compute.internal
+        namespace: openshift-kube-apiserver
+        uid: 30524abb-4f69-47b4-bc29-af4d33b1c40b
+    ports:
+    - name: https
+      port: 6443
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47830"

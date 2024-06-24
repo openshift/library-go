@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/sa.scc.mcs: s0:c6,c0
+    openshift.io/sa.scc.supplemental-groups: 1000030000/10000
+    openshift.io/sa.scc.uid-range: 1000030000/10000
+  creationTimestamp: "2023-12-06T09:16:55Z"
+  labels:
+    kubernetes.io/metadata.name: kube-system
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          f:pod-security.kubernetes.io/audit: {}
+          f:pod-security.kubernetes.io/enforce: {}
+          f:pod-security.kubernetes.io/warn: {}
+    manager: privileged-namespaces-psa-label-syncer
+    operation: Apply
+    time: "2023-12-06T09:17:33Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:kubernetes.io/metadata.name: {}
+    manager: kube-apiserver
+    operation: Update
+    time: "2023-12-06T09:16:55Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/sa.scc.mcs: {}
+          f:openshift.io/sa.scc.supplemental-groups: {}
+          f:openshift.io/sa.scc.uid-range: {}
+    manager: cluster-policy-controller
+    operation: Update
+    time: "2023-12-06T09:17:33Z"
+  name: kube-system
+  resourceVersion: "466"
+  uid: 27233a67-b755-449e-b210-3f6807f0a9c5
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:43Z"
+    creationTimestamp: "2023-12-06T09:19:03Z"
+    labels:
+      app: machine-approver
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: machine-approver
+    namespace: openshift-cluster-machine-approver
+    resourceVersion: "8003"
+    uid: c7ddb6dc-696b-4908-bc1c-7b95f1b5ba5c
+  subsets:
+  - addresses:
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: machine-approver-84d497786b-pzpvg
+        namespace: openshift-cluster-machine-approver
+        uid: 3f372b14-2cd6-4512-a09c-b831924a5cde
+    ports:
+    - name: https
+      port: 9192
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47914"

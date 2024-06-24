@@ -1,0 +1,77 @@
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-12-06T09:22:13Z"
+  generateName: system:openshift:openshift-monitoring-
+  labels:
+    metrics.openshift.io/csr.subject: prometheus
+  managedFields:
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Approved"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: cluster-policy-controller
+    operation: Update
+    subresource: approval
+    time: "2023-12-06T09:22:13Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:certificate: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:22:13Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:metrics.openshift.io/csr.subject: {}
+    manager: operator
+    operation: Update
+    time: "2023-12-06T09:22:13Z"
+  name: system:openshift:openshift-monitoring-qtkzn
+  resourceVersion: "9641"
+  uid: 5c46d8f5-51ad-4d20-a75b-4421dc18cf82
+spec:
+  extra:
+    authentication.kubernetes.io/pod-name:
+    - cluster-monitoring-operator-79475dbdb6-9lrhk
+    authentication.kubernetes.io/pod-uid:
+    - b1bd3eac-145d-4d83-8e48-e5499319488e
+  groups:
+  - system:serviceaccounts
+  - system:serviceaccounts:openshift-monitoring
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlIL01JR21BZ0VBTUVReFFqQkFCZ05WQkFNVE9YTjVjM1JsYlRwelpYSjJhV05sWVdOamIzVnVkRHB2Y0dWdQpjMmhwWm5RdGJXOXVhWFJ2Y21sdVp6cHdjbTl0WlhSb1pYVnpMV3M0Y3pCWk1CTUdCeXFHU000OUFnRUdDQ3FHClNNNDlBd0VIQTBJQUJPbzVkK2VxNDVFMDBob1pTWkVITjlWQlhqczhOZ0IwOXJTSDBnVmsvRjRpYklwT0NXaE8KeDRQMkxnUTZCS3R0c2NJRFU4NlBjMDB1dlhkMEUxMHpBUDJnQURBS0JnZ3Foa2pPUFFRREFnTklBREJGQWlCeQptbnUxekMrR25BMGpEanJ6ODhVWE42VThZM1laRi9qcVNKTkNVbEVwZ1FJaEFJZ0pYalJtYVV6WXpPcG1ML2liCkhQazNFUUNYT09DRjZaQXZ0aTlFallqMgotLS0tLUVORCBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0K
+  signerName: kubernetes.io/kube-apiserver-client
+  uid: b2cd3347-a461-43a8-8ba6-2305f5ac2772
+  usages:
+  - digital signature
+  - key encipherment
+  - client auth
+  username: system:serviceaccount:openshift-monitoring:cluster-monitoring-operator
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNoekNDQVcrZ0F3SUJBZ0lSQUs4V01TRzBnVXlXK3p0dXU3azZQMVF3RFFZSktvWklodmNOQVFFTEJRQXcKTFRFU01CQUdBMVVFQ3hNSmIzQmxibk5vYVdaME1SY3dGUVlEVlFRREV3NXJkV0psYkdWMExYTnBaMjVsY2pBZQpGdzB5TXpFeU1EWXdPVEUzTVROYUZ3MHlNekV5TURjd09UQTVNRGhhTUVReFFqQkFCZ05WQkFNVE9YTjVjM1JsCmJUcHpaWEoyYVdObFlXTmpiM1Z1ZERwdmNHVnVjMmhwWm5RdGJXOXVhWFJ2Y21sdVp6cHdjbTl0WlhSb1pYVnoKTFdzNGN6QlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDlBd0VIQTBJQUJPbzVkK2VxNDVFMDBob1pTWkVITjlWQgpYanM4TmdCMDlyU0gwZ1ZrL0Y0aWJJcE9DV2hPeDRQMkxnUTZCS3R0c2NJRFU4NlBjMDB1dlhkMEUxMHpBUDJqClZqQlVNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WSFNVRUREQUtCZ2dyQmdFRkJRY0RBakFNQmdOVkhSTUIKQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRkYwcHROTXJxVGFrMGVUNVp5TkhWVndUTGZlWk1BMEdDU3FHU0liMwpEUUVCQ3dVQUE0SUJBUUFpcGVLRFZLbWtuWmFqN0VVdzZ2TGFFeGcwc1JabThqNmhQWkFPeFVuVG5NcFptMlBSCldUY1JIbkU3NFdCWm5lMTBEVzZrcHNzZEpoUStBOEJKMDdRZmpVS0h5eGt2ajVHUndvOTlLd1VMR0dFK0ZwQysKOEpRakJKb1FFZW1POW55MnozVG9wU0RMVHNXNFVpYm5ydGRESGR2Kzh6SGduZVFlbTdZNEhUeTlsNUtnNTBvMApTN3Vtd2NNSElWNjhQdS9uWTFFL3J2L3RYN3NhY29RYWVmQkpBdWpnTXo0dHpDZTFiM3lGSHNDSEFyK1dvdkRnCmIyOTdxZjdqUkYzeWhzZmQ5M1FvNkpqK3czMTExK3NJRlB0YTJRY1hBOThEYUlnc2M3aWVIRjVPR1czQzZvNFEKSkpDSlArbzNmcHBGTHY3UUh4NUJjaUdWNzcxQjEyQlJ2OVlDCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:22:13Z"
+    lastUpdateTime: "2023-12-06T09:22:13Z"
+    message: Auto-approved CSR "system:openshift:openshift-monitoring-qtkzn"
+    reason: AutoApproved
+    status: "True"
+    type: Approved

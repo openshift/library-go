@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/node-selector: ""
+    openshift.io/sa.scc.mcs: s0:c23,c7
+    openshift.io/sa.scc.supplemental-groups: 1000520000/10000
+    openshift.io/sa.scc.uid-range: 1000520000/10000
+    workload.openshift.io/allowed: management
+  creationTimestamp: "2023-12-06T09:20:13Z"
+  labels:
+    kubernetes.io/metadata.name: openshift-network-diagnostics
+    olm.operatorgroup.uid/49a76548-2d7b-4cff-9706-1db3f268c6ac: ""
+    openshift.io/cluster-monitoring: "true"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:openshift.io/node-selector: {}
+          f:workload.openshift.io/allowed: {}
+        f:labels:
+          f:openshift.io/cluster-monitoring: {}
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:13Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:openshift.io/sa.scc.mcs: {}
+          f:openshift.io/sa.scc.supplemental-groups: {}
+          f:openshift.io/sa.scc.uid-range: {}
+    manager: cluster-policy-controller
+    operation: Update
+    time: "2023-12-06T09:20:13Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          f:olm.operatorgroup.uid/49a76548-2d7b-4cff-9706-1db3f268c6ac: {}
+    manager: olm
+    operation: Update
+    time: "2023-12-06T09:22:16Z"
+  name: openshift-network-diagnostics
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "10115"
+  uid: 2cd1efef-31fe-4f3a-b21c-233f044e5838
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

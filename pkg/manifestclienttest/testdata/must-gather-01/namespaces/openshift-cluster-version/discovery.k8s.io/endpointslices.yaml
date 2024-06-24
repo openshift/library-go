@@ -1,0 +1,71 @@
+---
+apiVersion: discovery.k8s.io/v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.0.106.212
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: cluster-version-operator-6cdc78cccf-mm22w
+      namespace: openshift-cluster-version
+      uid: 3e151d56-d389-40fc-8c4f-3a5a5f32393c
+    zone: us-west-1b
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:53Z"
+    creationTimestamp: "2023-12-06T09:17:22Z"
+    generateName: cluster-version-operator-
+    generation: 3
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      k8s-app: cluster-version-operator
+      kubernetes.io/service-name: cluster-version-operator
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:k8s-app: {}
+            f:kubernetes.io/service-name: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"7b9c3d3b-6587-4a09-a497-280283c6d8a7"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:53Z"
+    name: cluster-version-operator-gfvv5
+    namespace: openshift-cluster-version
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: cluster-version-operator
+      uid: 7b9c3d3b-6587-4a09-a497-280283c6d8a7
+    resourceVersion: "8521"
+    uid: 2f997939-bbe7-4e22-8ce3-04aa80b5a5e3
+  ports:
+  - name: metrics
+    port: 9099
+    protocol: TCP
+kind: EndpointSliceList
+metadata:
+  resourceVersion: "47501"

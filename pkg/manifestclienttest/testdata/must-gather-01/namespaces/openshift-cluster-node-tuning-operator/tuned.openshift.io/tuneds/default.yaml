@@ -1,0 +1,41 @@
+apiVersion: tuned.openshift.io/v1
+kind: Tuned
+metadata:
+  creationTimestamp: "2023-12-06T09:21:42Z"
+  generation: 1
+  managedFields:
+  - apiVersion: tuned.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:profile: {}
+        f:recommend: {}
+      f:status: {}
+    manager: cluster-node-tuning-operator
+    operation: Update
+    time: "2023-12-06T09:21:42Z"
+  name: default
+  namespace: openshift-cluster-node-tuning-operator
+  resourceVersion: "7851"
+  uid: d327642b-7432-4d31-8316-f3ad1c00e4ed
+spec:
+  profile:
+  - data: |
+      [main]
+      summary=Optimize systems running OpenShift (provider specific parent profile)
+      include=-provider-${f:exec:cat:/var/lib/tuned/provider},openshift
+    name: openshift
+  recommend:
+  - match:
+    - label: node-role.kubernetes.io/master
+    - label: node-role.kubernetes.io/infra
+    operand:
+      tunedConfig: {}
+    priority: 30
+    profile: openshift-control-plane
+  - operand:
+      tunedConfig: {}
+    priority: 40
+    profile: openshift-node
+status: {}

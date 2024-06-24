@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+data:
+  service-ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDUTCCAjmgAwIBAgIIT1Ee7AjXMkcwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UE
+    Awwrb3BlbnNoaWZ0LXNlcnZpY2Utc2VydmluZy1zaWduZXJAMTcwMTg1NDQ2OTAe
+    Fw0yMzEyMDYwOTIxMDlaFw0yNjAyMDMwOTIxMTBaMDYxNDAyBgNVBAMMK29wZW5z
+    aGlmdC1zZXJ2aWNlLXNlcnZpbmctc2lnbmVyQDE3MDE4NTQ0NjkwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQCr0FmPFP6vo2uwzdnTi42yTm9MdUiABx6/
+    uiXKYrojW1b7Ojc+3+3KOHxIYDW3V1cLyE0JVfhQaKFKHGNPeWQ9EsQmjNZfszfz
+    YTKljs1W5qOkwVHIfnNsUojco+cxsPKF1xd0Oj/hVohEUlO9yd3FpfnYY7ls5vkY
+    myf4Jr9qTd/mQsPdcxMTViIF804IZ+wYuKpmOFOlXzK/qgN2Qo+NnSUElFb6s8s8
+    ocqIKJ/8uYehza5E1gAeiGqVe9PSHUyH8fSyzc2roYAktJHYV2HfRJLPrUsvvp3v
+    KFyM/M9vBJ1W6VvhyWFxjL+I3pRYKlWehzsYx3DySi1jD0iARps9AgMBAAGjYzBh
+    MA4GA1UdDwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQOv1ld
+    GuwnAYb16cL8xuS6fzsuGzAfBgNVHSMEGDAWgBQOv1ldGuwnAYb16cL8xuS6fzsu
+    GzANBgkqhkiG9w0BAQsFAAOCAQEAoM5S/rgKaJUNVCSggwhWUWnsrRPnhvWZpmxR
+    oe2S9kdenJl+9wgzQbOXmJSZEjuqHzjuy4/hVe38jTGSSXdzKdwSF1e0RH3YB7RX
+    4mmV23ICrVrGpndGe+SFxFH+Btc4zTAjHvSn3bwpVvQRNbYQOLAhHM9VKWHpoFB0
+    6GZTkhlafE+lPg1akGldqaP0Y9R1njSrE+OBLtRuix9alJ3XIWgkf3GJR/FNi5uK
+    RaII1bimiKNcRM9/tb1u22siAG2cxc5Vc491pZB2lW9et//TpzVe2JTZ9R9iDj9s
+    B7ZviXTvwKWlkbhjz+l7zADSMkuL7g9y8CA/RwM8LEbqufyRTw==
+    -----END CERTIFICATE-----
+kind: ConfigMap
+metadata:
+  annotations:
+    capability.openshift.io/name: Insights
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    openshift.io/description: Configmap is added/updated with a data item containing
+      the CA signing bundle that can be used to verify service-serving certificates
+    openshift.io/owning-component: service-ca
+    release.openshift.io/create-only: "true"
+    service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: "2023-12-06T09:18:21Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+          f:service.beta.openshift.io/inject-cabundle: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:21Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:data:
+        .: {}
+        f:service-ca.crt: {}
+      f:metadata:
+        f:annotations:
+          f:openshift.io/description: {}
+          f:openshift.io/owning-component: {}
+    manager: service-ca-operator
+    operation: Update
+    time: "2023-12-06T09:21:17Z"
+  name: service-ca-bundle
+  namespace: openshift-insights
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "6416"
+  uid: 1f5e60d2-5a2a-4121-9e98-f66c0d50bdb0

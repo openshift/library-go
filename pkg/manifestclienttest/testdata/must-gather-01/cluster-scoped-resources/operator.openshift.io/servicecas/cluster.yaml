@@ -1,0 +1,87 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: ServiceCA
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:18:00Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:00Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:readyReplicas: {}
+    manager: service-ca-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:21:12Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "5785"
+  uid: e45f03ce-d523-4562-899a-837d42b5bde3
+spec:
+  logLevel: Normal
+  managementState: Managed
+  operatorLogLevel: Normal
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    reason: OperatorSyncLoopComplete
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:21:12Z"
+    message: All service-ca-operator deployments updated
+    reason: ManagedDeploymentsCompleteAndUpdated
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    reason: ManagedDeploymentsCompleteAndUpdated
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    reason: AsExpected
+    status: "True"
+    type: Upgradeable
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 1
+    name: service-ca
+    namespace: openshift-service-ca
+    resource: deployments
+  readyReplicas: 0

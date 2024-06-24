@@ -1,0 +1,87 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:42Z"
+    creationTimestamp: "2023-12-06T09:17:59Z"
+    labels:
+      name: node-tuning-operator
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:name: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: node-tuning-operator
+    namespace: openshift-cluster-node-tuning-operator
+    resourceVersion: "7836"
+    uid: 0de254d4-225a-4b30-9cbe-34c9f80133fe
+  subsets:
+  - addresses:
+    - ip: 10.129.0.32
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: cluster-node-tuning-operator-65c486c489-p7fdr
+        namespace: openshift-cluster-node-tuning-operator
+        uid: 6a737470-3f38-4a2c-8545-451aab7ee870
+    ports:
+    - port: 60000
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:42Z"
+    creationTimestamp: "2023-12-06T09:18:14Z"
+    labels:
+      name: performance-addon-operator-service
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:name: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: performance-addon-operator-service
+    namespace: openshift-cluster-node-tuning-operator
+    resourceVersion: "7837"
+    uid: 0e7815bf-5c7b-4fda-9ba7-dcdd6e944895
+  subsets:
+  - addresses:
+    - ip: 10.129.0.32
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: cluster-node-tuning-operator-65c486c489-p7fdr
+        namespace: openshift-cluster-node-tuning-operator
+        uid: 6a737470-3f38-4a2c-8545-451aab7ee870
+    ports:
+    - name: "443"
+      port: 4343
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47791"

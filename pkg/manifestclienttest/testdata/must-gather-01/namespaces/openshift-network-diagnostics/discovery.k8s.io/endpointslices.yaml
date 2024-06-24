@@ -1,0 +1,201 @@
+---
+apiVersion: discovery.k8s.io/v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.131.0.10
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-122-108.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-source-5db5bf7b85-s5zcp
+      namespace: openshift-network-diagnostics
+      uid: c717ded4-7f72-4a1d-831b-3f47180e96e6
+    zone: us-west-1b
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:26:29Z"
+    creationTimestamp: "2023-12-06T09:20:15Z"
+    generateName: network-check-source-
+    generation: 2
+    labels:
+      app: network-check-source
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: network-check-source
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+            f:service.kubernetes.io/headless: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"f3c4bf48-cfaa-41c0-a85d-aa2275c876d4"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: network-check-source-zl7q7
+    namespace: openshift-network-diagnostics
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: network-check-source
+      uid: f3c4bf48-cfaa-41c0-a85d-aa2275c876d4
+    resourceVersion: "19931"
+    uid: 9871527b-8ec3-45f7-8e3f-0a441b8818aa
+  ports:
+  - name: check-endpoints
+    port: 17698
+    protocol: TCP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.129.0.5
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-mxbfn
+      namespace: openshift-network-diagnostics
+      uid: bcd79a96-8dfa-4c88-8b9e-85b81b1565b4
+    zone: us-west-1a
+  - addresses:
+    - 10.128.0.4
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-5fkgb
+      namespace: openshift-network-diagnostics
+      uid: 6005484e-bc5c-4b6c-9932-ef5cd235ccfe
+    zone: us-west-1b
+  - addresses:
+    - 10.130.0.4
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-gmsbq
+      namespace: openshift-network-diagnostics
+      uid: d091726d-4cdc-443a-9d19-efb4ecda994b
+    zone: us-west-1b
+  - addresses:
+    - 10.131.0.4
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-122-108.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-6wk9c
+      namespace: openshift-network-diagnostics
+      uid: 913601c7-ead7-4ba5-9193-9f6711afa83d
+    zone: us-west-1b
+  - addresses:
+    - 10.129.2.5
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-81-189.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-k6tf2
+      namespace: openshift-network-diagnostics
+      uid: 31d8fdb1-188a-41ef-b774-8774654b86f5
+    zone: us-west-1b
+  - addresses:
+    - 10.128.2.5
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-7-104.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: network-check-target-9vjsx
+      namespace: openshift-network-diagnostics
+      uid: 1b486523-502f-44f2-9675-a2dab005bef2
+    zone: us-west-1a
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:28:05Z"
+    creationTimestamp: "2023-12-06T09:20:16Z"
+    generateName: network-check-target-
+    generation: 13
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: network-check-target
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"29589a72-d521-4fde-8ac6-43028ab01006"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:28:05Z"
+    name: network-check-target-p6hl6
+    namespace: openshift-network-diagnostics
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: network-check-target
+      uid: 29589a72-d521-4fde-8ac6-43028ab01006
+    resourceVersion: "21999"
+    uid: c6eed182-0fb1-4705-9f21-343b414c4f8f
+  ports:
+  - name: ""
+    port: 8080
+    protocol: TCP
+kind: EndpointSliceList
+metadata:
+  resourceVersion: "48005"

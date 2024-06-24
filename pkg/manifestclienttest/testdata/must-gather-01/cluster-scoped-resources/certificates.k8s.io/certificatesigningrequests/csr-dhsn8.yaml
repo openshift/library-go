@@ -1,0 +1,65 @@
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-12-06T09:26:19Z"
+  generateName: csr-
+  managedFields:
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:certificate: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:19Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:generateName: {}
+    manager: multus-daemon
+    operation: Update
+    time: "2023-12-06T09:26:19Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Approved"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: ovnkube-identity
+    operation: Update
+    subresource: approval
+    time: "2023-12-06T09:26:19Z"
+  name: csr-dhsn8
+  resourceVersion: "19422"
+  uid: 9dc4f31a-7a73-4f30-bda3-16c651ca8f24
+spec:
+  expirationSeconds: 86400
+  groups:
+  - system:nodes
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkZqQ0J2UUlCQURCYk1SWXdGQVlEVlFRS0V3MXplWE4wWlcwNmJYVnNkSFZ6TVVFd1B3WURWUVFERXpoegplWE4wWlcwNmJYVnNkSFZ6T21sd0xURXdMVEF0TVRJeUxURXdPQzUxY3kxM1pYTjBMVEV1WTI5dGNIVjBaUzVwCmJuUmxjbTVoYkRCWk1CTUdCeXFHU000OUFnRUdDQ3FHU000OUF3RUhBMElBQk5rK3hIcE5MdWg0OVVTWk9GSU0KcEFzYlBWalM4S0tJWDIyVVpXNjZ0S1ZmSDR2RHpMSWlTc3BnSWVQY2NjVm5PVUdxK2VlU3lzeW96TkZveUFoTAp1S09nQURBS0JnZ3Foa2pPUFFRREFnTklBREJGQWlCUjFYMWpPZUdkK1QwamhWMUVNQWtmWW16RDA5MGhaNzJyCkVDZkdxUDZrZ1FJaEFMSFMwZnJJNGJVMzVwbVljNUxWQVVodDhsU0xSL2trcTdzcWVha0JFMXRNCi0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - digital signature
+  - client auth
+  username: system:node:ip-10-0-122-108.us-west-1.compute.internal
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNuVENDQVlXZ0F3SUJBZ0lRYXgyaGM4bzE1bk9ISGpnb0U2R2xvekFOQmdrcWhraUc5dzBCQVFzRkFEQXQKTVJJd0VBWURWUVFMRXdsdmNHVnVjMmhwWm5ReEZ6QVZCZ05WQkFNVERtdDFZbVZzWlhRdGMybG5ibVZ5TUI0WApEVEl6TVRJd05qQTVNakV4T1ZvWERUSXpNVEl3TnpBNU1Ea3dPRm93V3pFV01CUUdBMVVFQ2hNTmMzbHpkR1Z0Ck9tMTFiSFIxY3pGQk1EOEdBMVVFQXhNNGMzbHpkR1Z0T20xMWJIUjFjenBwY0MweE1DMHdMVEV5TWkweE1EZ3UKZFhNdGQyVnpkQzB4TG1OdmJYQjFkR1V1YVc1MFpYSnVZV3d3V1RBVEJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQgpCd05DQUFUWlBzUjZUUzdvZVBWRW1UaFNES1FMR3oxWTB2Q2lpRjl0bEdWdXVyU2xYeCtMdzh5eUlrcktZQ0hqCjNISEZaemxCcXZubmtzck1xTXpSYU1nSVM3aWpvMVl3VkRBT0JnTlZIUThCQWY4RUJBTUNCNEF3RXdZRFZSMGwKQkF3d0NnWUlLd1lCQlFVSEF3SXdEQVlEVlIwVEFRSC9CQUl3QURBZkJnTlZIU01FR0RBV2dCUmRLYlRUSzZrMgpwTkhrK1djalIxVmNFeTMzbVRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUYyR1RFYmd1anhoQ1FYVVhEQnBSCkdGdlR6UmJSYi9kcVh6TENLWWExemFacDYzZEtFR0lWTVEvUE9iNE9GcVhIODM0MmlKUm92MnpjaXZsVXk0cEkKZEpyUGo5UVNGRGw5QjBielJ4M0J4RE9GK2VvVDVzeGNubThIamVJTHFQM3dMTnJFbnFqaU1LcGRqYW9UMzl2RwpFTVZPWEVpY29CV1lMSEIxUmhWYW9lSjdSbWFjTlZiNXhHMzZlYlBOWVd3TzB5R0RzWlRqTmI1N28xUVNEdC9xClFBNWdqRzdIK3dYcW1DSVZqdzllem9QeGdsMFo4TkJiamwrRkJ6Wko5T1VYMDhKZjB1ekNKUW5OdUR1TjJPUzkKdXZhWWxscW02VjBSbEdMYk1BTjBhWnF1b2FMZ1Q4L2U3VmRKSjAxTUkxRGNsYkVzMXZrTTlZUGM2MTdEcGdnZQo5UT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:26:19Z"
+    lastUpdateTime: "2023-12-06T09:26:19Z"
+    message: Auto-approved CSR "csr-dhsn8"
+    reason: AutoApproved
+    status: "True"
+    type: Approved

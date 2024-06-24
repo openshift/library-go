@@ -1,0 +1,92 @@
+---
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+kind: FlowSchema
+metadata:
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+  creationTimestamp: "2023-12-06T09:20:10Z"
+  generation: 1
+  managedFields:
+  - apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"Dangling"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: api-priority-and-fairness-config-consumer-v1
+    operation: Apply
+    subresource: status
+    time: "2023-12-06T09:20:10Z"
+  - apiVersion: flowcontrol.apiserver.k8s.io/v1beta3
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+      f:spec:
+        f:distinguisherMethod:
+          f:type: {}
+        f:matchingPrecedence: {}
+        f:priorityLevelConfiguration:
+          f:name: {}
+        f:rules: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:10Z"
+  name: openshift-ovn-kubernetes
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "3613"
+  uid: 1052017b-2145-4f14-9f7f-253a7f19d8da
+spec:
+  distinguisherMethod:
+    type: ByUser
+  matchingPrecedence: 500
+  priorityLevelConfiguration:
+    name: system
+  rules:
+  - nonResourceRules:
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
+    resourceRules:
+    - apiGroups:
+      - '*'
+      clusterScope: true
+      namespaces:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: ovn-kubernetes-controller
+        namespace: openshift-ovn-kubernetes
+    - kind: ServiceAccount
+      serviceAccount:
+        name: ovn-kubernetes-node
+        namespace: openshift-ovn-kubernetes
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:20:10Z"
+    message: This FlowSchema references the PriorityLevelConfiguration object named
+      "system" and it exists
+    reason: Found
+    status: "False"
+    type: Dangling

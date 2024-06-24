@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+imagePullSecrets:
+- name: multus-ancillary-tools-dockercfg-m2bw4
+kind: ServiceAccount
+metadata:
+  creationTimestamp: "2023-12-06T09:19:58Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:19:58Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:imagePullSecrets: {}
+      f:secrets:
+        .: {}
+        k:{"name":"multus-ancillary-tools-dockercfg-m2bw4"}: {}
+    manager: openshift-controller-manager
+    operation: Update
+    time: "2023-12-06T09:23:27Z"
+  name: multus-ancillary-tools
+  namespace: openshift-multus
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "12680"
+  uid: 3b8e6346-cdcb-48d1-a955-2db0f98145c5
+secrets:
+- name: multus-ancillary-tools-dockercfg-m2bw4

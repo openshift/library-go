@@ -1,0 +1,133 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: Storage
+metadata:
+  annotations:
+    capability.openshift.io/name: Storage
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:18:19Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:readyReplicas: {}
+    manager: cluster-storage-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:25Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "19729"
+  uid: 1c512997-b710-4648-8c9d-1b4eaccac487
+spec:
+  logLevel: Normal
+  managementState: Managed
+  operatorLogLevel: Normal
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: AsExpected
+    status: "False"
+    type: VSphereProblemDetectorStarterDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    status: "False"
+    type: ManagementStateDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: AsExpected
+    status: "False"
+    type: CSIDriverStarterDegraded
+  - lastTransitionTime: "2023-12-06T09:21:55Z"
+    message: All is well
+    reason: AsExpected
+    status: "True"
+    type: AWSEBSCSIDriverOperatorCRAvailable
+  - lastTransitionTime: "2023-12-06T09:26:25Z"
+    message: All is well
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSCSIDriverOperatorCRProgressing
+  - lastTransitionTime: "2023-12-06T09:21:28Z"
+    message: All is well
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSCSIDriverOperatorCRDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    status: "True"
+    type: AWSEBSCSIDriverOperatorCRUpgradeable
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSCSIDriverOperatorDegraded
+  - lastTransitionTime: "2023-12-06T09:21:11Z"
+    status: "False"
+    type: ConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:21:18Z"
+    reason: AsExpected
+    status: "False"
+    type: DefaultStorageClassControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:13Z"
+    message: StorageClass provided by supplied CSI Driver instead of the cluster-storage-operator
+    status: "True"
+    type: DefaultStorageClassControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:21:13Z"
+    status: "False"
+    type: DefaultStorageClassControllerProgressing
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSCSIDriverOperatorDeploymentDegraded
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    status: "False"
+    type: AWSEBSProgressing
+  - lastTransitionTime: "2023-12-06T09:21:17Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSCSIDriverOperatorStaticControllerDegraded
+  generations:
+  - group: operator.openshift.io
+    hash: ""
+    lastGeneration: 2
+    name: ebs.csi.aws.com
+    namespace: ""
+    resource: clustercsidrivers
+  - group: apps
+    hash: ""
+    lastGeneration: 1
+    name: aws-ebs-csi-driver-operator
+    namespace: openshift-cluster-csi-drivers
+    resource: deployments
+  readyReplicas: 0

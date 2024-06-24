@@ -1,0 +1,86 @@
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: "2023-12-06T09:39:33Z"
+  labels:
+    app.kubernetes.io/component: metrics-adapter
+    app.kubernetes.io/managed-by: cluster-monitoring-operator
+    app.kubernetes.io/name: prometheus-adapter
+    app.kubernetes.io/part-of: openshift-monitoring
+    app.kubernetes.io/version: 0.11.2
+  managedFields:
+  - apiVersion: apiregistration.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:service.beta.openshift.io/inject-cabundle: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/managed-by: {}
+          f:app.kubernetes.io/name: {}
+          f:app.kubernetes.io/part-of: {}
+          f:app.kubernetes.io/version: {}
+      f:spec:
+        f:group: {}
+        f:groupPriorityMinimum: {}
+        f:service:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+          f:port: {}
+        f:version: {}
+        f:versionPriority: {}
+    manager: operator
+    operation: Update
+    time: "2023-12-06T09:39:33Z"
+  - apiVersion: apiregistration.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:caBundle: {}
+    manager: service-ca-operator
+    operation: Update
+    time: "2023-12-06T09:39:33Z"
+  - apiVersion: apiregistration.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:57:32Z"
+  name: v1beta1.metrics.k8s.io
+  resourceVersion: "47437"
+  uid: da27a8bf-2f0c-4d3c-b778-89089053e66a
+spec:
+  caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURVVENDQWptZ0F3SUJBZ0lJVDFFZTdBalhNa2N3RFFZSktvWklodmNOQVFFTEJRQXdOakUwTURJR0ExVUUKQXd3cmIzQmxibk5vYVdaMExYTmxjblpwWTJVdGMyVnlkbWx1WnkxemFXZHVaWEpBTVRjd01UZzFORFEyT1RBZQpGdzB5TXpFeU1EWXdPVEl4TURsYUZ3MHlOakF5TURNd09USXhNVEJhTURZeE5EQXlCZ05WQkFNTUsyOXdaVzV6CmFHbG1kQzF6WlhKMmFXTmxMWE5sY25acGJtY3RjMmxuYm1WeVFERTNNREU0TlRRME5qa3dnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ3IwRm1QRlA2dm8ydXd6ZG5UaTQyeVRtOU1kVWlBQng2Lwp1aVhLWXJvalcxYjdPamMrMyszS09IeElZRFczVjFjTHlFMEpWZmhRYUtGS0hHTlBlV1E5RXNRbWpOWmZzemZ6CllUS2xqczFXNXFPa3dWSElmbk5zVW9qY28rY3hzUEtGMXhkME9qL2hWb2hFVWxPOXlkM0ZwZm5ZWTdsczV2a1kKbXlmNEpyOXFUZC9tUXNQZGN4TVRWaUlGODA0SVord1l1S3BtT0ZPbFh6Sy9xZ04yUW8rTm5TVUVsRmI2czhzOApvY3FJS0ovOHVZZWh6YTVFMWdBZWlHcVZlOVBTSFV5SDhmU3l6YzJyb1lBa3RKSFlWMkhmUkpMUHJVc3Z2cDN2CktGeU0vTTl2QkoxVzZWdmh5V0Z4akwrSTNwUllLbFdlaHpzWXgzRHlTaTFqRDBpQVJwczlBZ01CQUFHall6QmgKTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlFPdjFsZApHdXduQVliMTZjTDh4dVM2ZnpzdUd6QWZCZ05WSFNNRUdEQVdnQlFPdjFsZEd1d25BWWIxNmNMOHh1UzZmenN1Ckd6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFvTTVTL3JnS2FKVU5WQ1NnZ3doV1VXbnNyUlBuaHZXWnBteFIKb2UyUzlrZGVuSmwrOXdnelFiT1htSlNaRWp1cUh6anV5NC9oVmUzOGpUR1NTWGR6S2R3U0YxZTBSSDNZQjdSWAo0bW1WMjNJQ3JWckdwbmRHZStTRnhGSCtCdGM0elRBakh2U24zYndwVnZRUk5iWVFPTEFoSE05VktXSHBvRkIwCjZHWlRraGxhZkUrbFBnMWFrR2xkcWFQMFk5UjFualNyRStPQkx0UnVpeDlhbEozWElXZ2tmM0dKUi9GTmk1dUsKUmFJSTFiaW1pS05jUk05L3RiMXUyMnNpQUcyY3hjNVZjNDkxcFpCMmxXOWV0Ly9UcHpWZTJKVFo5UjlpRGo5cwpCN1p2aVhUdndLV2xrYmhqeitsN3pBRFNNa3VMN2c5eThDQS9Sd004TEVicXVmeVJUdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  group: metrics.k8s.io
+  groupPriorityMinimum: 100
+  service:
+    name: prometheus-adapter
+    namespace: openshift-monitoring
+    port: 443
+  version: v1beta1
+  versionPriority: 100
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:57:32Z"
+    message: all checks passed
+    reason: Passed
+    status: "True"
+    type: Available

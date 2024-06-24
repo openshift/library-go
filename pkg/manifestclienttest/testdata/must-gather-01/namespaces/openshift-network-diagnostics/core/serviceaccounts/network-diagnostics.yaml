@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+imagePullSecrets:
+- name: network-diagnostics-dockercfg-s44lz
+kind: ServiceAccount
+metadata:
+  creationTimestamp: "2023-12-06T09:20:13Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:13Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:imagePullSecrets: {}
+      f:secrets:
+        .: {}
+        k:{"name":"network-diagnostics-dockercfg-s44lz"}: {}
+    manager: openshift-controller-manager
+    operation: Update
+    time: "2023-12-06T09:23:28Z"
+  name: network-diagnostics
+  namespace: openshift-network-diagnostics
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "12793"
+  uid: 6436ccd7-12b9-4068-b756-f80e29644251
+secrets:
+- name: network-diagnostics-dockercfg-s44lz

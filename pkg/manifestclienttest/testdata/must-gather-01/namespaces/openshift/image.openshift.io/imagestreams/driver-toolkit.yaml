@@ -1,0 +1,107 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:07Z"
+  creationTimestamp: "2023-12-06T09:37:28Z"
+  generation: 2
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"415.92.202312060031-0"}:
+            .: {}
+            f:annotations: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+              f:scheduled: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+              f:scheduled: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:37:28Z"
+  name: driver-toolkit
+  namespace: openshift
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "32034"
+  uid: 39502778-3556-42cb-9874-7e311e0fbabf
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:93756a6249542f017cd268719f5090dc301145f6a9c4eb163bd45f8083e9cba8
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+      scheduled: true
+    name: 415.92.202312060031-0
+    referencePolicy:
+      type: Source
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:93756a6249542f017cd268719f5090dc301145f6a9c4eb163bd45f8083e9cba8
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+      scheduled: true
+    name: latest
+    referencePolicy:
+      type: Source
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/driver-toolkit
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:07Z"
+      dockerImageReference: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:28045ffa241a00e8c24991f83656f8a114c14a5da4f0739a368c372669c5b4b9
+      generation: 2
+      image: sha256:28045ffa241a00e8c24991f83656f8a114c14a5da4f0739a368c372669c5b4b9
+    tag: 415.92.202312060031-0
+  - items:
+    - created: "2023-12-06T09:39:07Z"
+      dockerImageReference: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:28045ffa241a00e8c24991f83656f8a114c14a5da4f0739a368c372669c5b4b9
+      generation: 2
+      image: sha256:28045ffa241a00e8c24991f83656f8a114c14a5da4f0739a368c372669c5b4b9
+    tag: latest

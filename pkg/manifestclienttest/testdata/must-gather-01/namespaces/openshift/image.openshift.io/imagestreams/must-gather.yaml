@@ -1,0 +1,75 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:18Z"
+  creationTimestamp: "2023-12-06T09:39:17Z"
+  generation: 2
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+              f:scheduled: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:39:17Z"
+  name: must-gather
+  namespace: openshift
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "33141"
+  uid: 49bac772-0f2e-453a-980e-cba761d45806
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:81393f80c3e0f1e62094a5ed6141c2e265b16776a24055cfe2046f6c95b66d9f
+    generation: 2
+    importPolicy:
+      importMode: PreserveOriginal
+      scheduled: true
+    name: latest
+    referencePolicy:
+      type: Source
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/must-gather
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:18Z"
+      dockerImageReference: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:81393f80c3e0f1e62094a5ed6141c2e265b16776a24055cfe2046f6c95b66d9f
+      generation: 2
+      image: sha256:81393f80c3e0f1e62094a5ed6141c2e265b16776a24055cfe2046f6c95b66d9f
+    tag: latest

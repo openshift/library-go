@@ -1,0 +1,3332 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "2393"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e337c848fffb0
+    namespace: openshift-image-registry
+    resourceVersion: "2395"
+    uid: e1644111-7b4e-4a66-9f40-ae46f812cef7
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "2397"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-image-registry/cluster-image-registry-operator-797bf89d95-krhc6
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e339adf9410e5
+    namespace: openshift-image-registry
+    resourceVersion: "4422"
+    uid: 10b429f3-8dd0-4b5d-99cb-de1f2c3d00c3
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4371"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "image-registry-operator-tls" : secret
+    "image-registry-operator-tls" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e339aec86c049
+    namespace: openshift-image-registry
+    resourceVersion: "4836"
+    uid: 2a82eeac-9c30-4e36-8f6e-849d76ff6a29
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4401"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-image-registry/cluster-image-registry-operator-797bf89d95-krhc6
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-image-registry:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.14]}}] Timeout:<nil>
+    Where:[where column _uuid == {8fa31922-b42a-4156-9b5d-0beb9d4603a7}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e339d385b8965
+    namespace: openshift-image-registry
+    resourceVersion: "4692"
+    uid: ae3dd556-b724-40ab-b721-06d1ab5535df
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4601"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Add eth0 [10.129.0.14/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e33a26ee64498
+    namespace: openshift-image-registry
+    resourceVersion: "6898"
+    uid: 0e08cced-b3dd-41b2-829e-3462fda515d3
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-image-registry-operator}
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4371"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2df6053b764c909ae50fbcbb08bb3609f5b10deb62566124d93c686ad3e80cee"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e33a271847b9d
+    namespace: openshift-image-registry
+    resourceVersion: "6916"
+    uid: c90aa901-a9fe-49c6-a01d-656dbd757fc3
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:40Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-image-registry-operator}
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4371"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:40Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2df6053b764c909ae50fbcbb08bb3609f5b10deb62566124d93c686ad3e80cee"
+    in 18.675s (18.675s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:40Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:40Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e33a6cab19e38
+    namespace: openshift-image-registry
+    resourceVersion: "7729"
+    uid: e877015d-47f3-48db-87bc-a9f50f40cb33
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-image-registry-operator}
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4371"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Created container cluster-image-registry-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e33a74fbd43f8
+    namespace: openshift-image-registry
+    resourceVersion: "7894"
+    uid: 9fefbd00-4817-4816-b01f-7ace5081cd97
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cluster-image-registry-operator}
+    kind: Pod
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    resourceVersion: "4371"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Started container cluster-image-registry-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6.179e33a757b6990c
+    namespace: openshift-image-registry
+    resourceVersion: "7912"
+    uid: 122f8a58-8caa-46c8-9c9a-cce16172b254
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cluster-image-registry-operator-797bf89d95
+    namespace: openshift-image-registry
+    resourceVersion: "2042"
+    uid: 59291aa9-a0a3-49db-a157-477f0a70a61f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:28Z"
+  message: 'Error creating: pods "cluster-image-registry-operator-797bf89d95-" is
+    forbidden: autoscaling.openshift.io/ManagementCPUsOverride the cluster does not
+    have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:28Z"
+    name: cluster-image-registry-operator-797bf89d95.179e3377be9c8d3a
+    namespace: openshift-image-registry
+    resourceVersion: "2295"
+    uid: caef5404-05be-4f81-84ba-cb1accbca5bb
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cluster-image-registry-operator-797bf89d95
+    namespace: openshift-image-registry
+    resourceVersion: "2046"
+    uid: 59291aa9-a0a3-49db-a157-477f0a70a61f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: 'Created pod: cluster-image-registry-operator-797bf89d95-krhc6'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: cluster-image-registry-operator-797bf89d95.179e337c848b1084
+    namespace: openshift-image-registry
+    resourceVersion: "2394"
+    uid: 1cc69708-e8d2-478f-8135-6cf7acd0618c
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-image-registry-operator
+    namespace: openshift-image-registry
+    resourceVersion: "2041"
+    uid: b1d05a5b-43a0-4ad2-8630-a1d42fedd0b3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:18Z"
+  message: Scaled up replica set cluster-image-registry-operator-797bf89d95 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:18Z"
+    name: cluster-image-registry-operator.179e3377be693867
+    namespace: openshift-image-registry
+    resourceVersion: "2043"
+    uid: f9b6fd72-506a-49bf-9df8-8bb60464c428
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:27Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-image-registry-operator
+    namespace: openshift-image-registry
+    uid: b1d05a5b-43a0-4ad2-8630-a1d42fedd0b3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:27Z"
+  message: Created DaemonSet.apps/node-ca -n openshift-image-registry because it was
+    missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-image-registry-operator
+      operation: Update
+      time: "2023-12-06T09:38:27Z"
+    name: cluster-image-registry-operator.179e34913917d241
+    namespace: openshift-image-registry
+    resourceVersion: "30596"
+    uid: 98a9352f-705f-4db1-96b3-9e4325659e15
+  reason: DaemonSetCreated
+  reportingComponent: image-registry-operator
+  reportingInstance: ""
+  source:
+    component: image-registry-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:27Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-image-registry-operator
+    namespace: openshift-image-registry
+    uid: b1d05a5b-43a0-4ad2-8630-a1d42fedd0b3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:27Z"
+  message: Created Deployment.apps/image-registry -n openshift-image-registry because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-image-registry-operator
+      operation: Update
+      time: "2023-12-06T09:38:27Z"
+    name: cluster-image-registry-operator.179e34914040b161
+    namespace: openshift-image-registry
+    resourceVersion: "30641"
+    uid: d6e6b49d-5117-47fa-83e8-0f4fc01225aa
+  reason: DeploymentCreated
+  reportingComponent: image-registry-operator
+  reportingInstance: ""
+  source:
+    component: image-registry-operator
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-image-registry-operator
+    namespace: openshift-image-registry
+    uid: b1d05a5b-43a0-4ad2-8630-a1d42fedd0b3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:29Z"
+  message: Updated Deployment.apps/image-registry -n openshift-image-registry because
+    it changed
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-image-registry-operator
+      operation: Update
+      time: "2023-12-06T09:38:29Z"
+    name: cluster-image-registry-operator.179e3491957c3768
+    namespace: openshift-image-registry
+    resourceVersion: "30943"
+    uid: f263590e-b754-4ac9-b6e5-e153f900cc50
+  reason: DeploymentUpdated
+  reportingComponent: image-registry-operator
+  reportingInstance: ""
+  source:
+    component: image-registry-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "30992"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/image-registry-84cc678fbb-qswbr
+    to ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: image-registry-84cc678fbb-qswbr.179e3498efc96ed7
+    namespace: openshift-image-registry
+    resourceVersion: "31507"
+    uid: dda1112c-9142-4e49-9887-d5abf38f17e4
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "31513"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: Add eth0 [10.129.2.9/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: image-registry-84cc678fbb-qswbr.179e3499188827bb
+    namespace: openshift-image-registry
+    resourceVersion: "31545"
+    uid: c323ec6a-3089-4ccb-913d-f6b906de0688
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "31486"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: image-registry-84cc678fbb-qswbr.179e34991a594b02
+    namespace: openshift-image-registry
+    resourceVersion: "31550"
+    uid: 260e19bf-a21d-4aac-bc88-f2f917bbb607
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "31486"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.668s (2.668s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: image-registry-84cc678fbb-qswbr.179e3499b960ac70
+    namespace: openshift-image-registry
+    resourceVersion: "31681"
+    uid: 12cfe946-749e-43b4-82fb-c6248163367a
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "31486"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Created container registry
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: image-registry-84cc678fbb-qswbr.179e3499be6f862e
+    namespace: openshift-image-registry
+    resourceVersion: "31693"
+    uid: 3bc09a33-d89f-4881-8374-ac1dae03966c
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    resourceVersion: "31486"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Started container registry
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: image-registry-84cc678fbb-qswbr.179e3499bfa386f2
+    namespace: openshift-image-registry
+    resourceVersion: "31697"
+    uid: 6aa22681-1941-4be0-a758-255200fe5e7f
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "30980"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/image-registry-84cc678fbb-rz84t
+    to ip-10-0-7-104.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: image-registry-84cc678fbb-rz84t.179e3498efc49e4b
+    namespace: openshift-image-registry
+    resourceVersion: "31495"
+    uid: 18cd7ccb-980b-457a-97aa-d021c1d207d7
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: 'MountVolume.SetUp failed for volume "trusted-ca" : failed to sync configmap
+    cache: timed out waiting for the condition'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: image-registry-84cc678fbb-rz84t.179e34993a498723
+    namespace: openshift-image-registry
+    resourceVersion: "31564"
+    uid: f2a5670b-5d90-447d-9130-eb2212c2d172
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: 'MountVolume.SetUp failed for volume "installation-pull-secrets" : failed
+    to sync secret cache: timed out waiting for the condition'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: image-registry-84cc678fbb-rz84t.179e34993a4c508d
+    namespace: openshift-image-registry
+    resourceVersion: "31565"
+    uid: 4ba73306-000f-4117-a69d-1728bc3181c6
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-5pdr5" : failed to
+    sync configmap cache: timed out waiting for the condition'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: image-registry-84cc678fbb-rz84t.179e34993c0d34da
+    namespace: openshift-image-registry
+    resourceVersion: "31569"
+    uid: a25f6e04-f2e1-48d7-a738-549763ed15cd
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:02Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31520"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:02Z"
+  message: Add eth0 [10.128.2.10/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:39:02Z"
+    name: image-registry-84cc678fbb-rz84t.179e349974761ce6
+    namespace: openshift-image-registry
+    resourceVersion: "31588"
+    uid: 3b9b571a-dd3d-4b12-bf2d-fac960155a55
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:02Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:02Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:02Z"
+    name: image-registry-84cc678fbb-rz84t.179e349976335bd2
+    namespace: openshift-image-registry
+    resourceVersion: "31590"
+    uid: 4e76e329-cee7-48ef-83ef-ea81d4dd7b02
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.647s (2.647s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: image-registry-84cc678fbb-rz84t.179e349a1401f696
+    namespace: openshift-image-registry
+    resourceVersion: "31843"
+    uid: 78ee2efe-2371-480e-a1ae-df82c5377ff1
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container registry
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: image-registry-84cc678fbb-rz84t.179e349a19756406
+    namespace: openshift-image-registry
+    resourceVersion: "31849"
+    uid: 1c7ba38a-bcbe-44e4-9227-5f13cf9d6402
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{registry}
+    kind: Pod
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    resourceVersion: "31487"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container registry
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: image-registry-84cc678fbb-rz84t.179e349a1aa37127
+    namespace: openshift-image-registry
+    resourceVersion: "31855"
+    uid: 4342bd79-4146-4afc-a510-ea0a7954d22d
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: image-registry-84cc678fbb
+    namespace: openshift-image-registry
+    resourceVersion: "30949"
+    uid: c168877e-d310-4f6f-bab5-bb02a685e2f2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: image-registry-84cc678fbb-rz84t'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: image-registry-84cc678fbb.179e3491e25f757f
+    namespace: openshift-image-registry
+    resourceVersion: "30990"
+    uid: 851a67f5-2727-4097-8282-a42dce8d92f2
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: image-registry-84cc678fbb
+    namespace: openshift-image-registry
+    resourceVersion: "30949"
+    uid: c168877e-d310-4f6f-bab5-bb02a685e2f2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: image-registry-84cc678fbb-qswbr'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: image-registry-84cc678fbb.179e3491e3a359f4
+    namespace: openshift-image-registry
+    resourceVersion: "31005"
+    uid: 9e882cb1-25e3-4d6a-a600-1a5a7faac5a9
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: image-registry
+    namespace: openshift-image-registry
+    resourceVersion: "30649"
+    uid: 0c398276-d886-47a4-a45b-31b0f150c119
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: image-registry.179e3491dbb1e202
+    namespace: openshift-image-registry
+    resourceVersion: "31011"
+    uid: 38b59913-fcd5-4af9-ac8c-d27ac45761bf
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: image-registry
+    namespace: openshift-image-registry
+    resourceVersion: "30925"
+    uid: 450b7b1d-59d7-40dc-b306-5e47b501cc4d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: Scaled up replica set image-registry-84cc678fbb to 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: image-registry.179e3491dca340a0
+    namespace: openshift-image-registry
+    resourceVersion: "30966"
+    uid: cf89cc05-d388-4212-9d65-aae4d8b43de1
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "30987"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-c4fwc to ip-10-0-7-104.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-c4fwc.179e3498efc9e25b
+    namespace: openshift-image-registry
+    resourceVersion: "31508"
+    uid: cd656dfc-cf6d-4e5f-955d-64986cd97559
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "31488"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-b78lt" : failed to
+    sync configmap cache: timed out waiting for the condition'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: node-ca-c4fwc.179e34993bbbbdb0
+    namespace: openshift-image-registry
+    resourceVersion: "31567"
+    uid: 3b0c6fc2-9dae-4153-8c4b-f870a3b332a7
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:02Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "31488"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:02Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:02Z"
+    name: node-ca-c4fwc.179e34997064e0c1
+    namespace: openshift-image-registry
+    resourceVersion: "31586"
+    uid: 1b4885ab-449a-4ac9-9a4d-b3470bb9a5aa
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "31488"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.744s (2.744s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-c4fwc.179e349a13f445ca
+    namespace: openshift-image-registry
+    resourceVersion: "31841"
+    uid: c8700e41-9e2f-49c2-9592-017ba469fad4
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "31488"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-c4fwc.179e349a1b092db8
+    namespace: openshift-image-registry
+    resourceVersion: "31856"
+    uid: 0631ef8c-8910-45a8-ab1e-0cb787b027ba
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    resourceVersion: "31488"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-c4fwc.179e349a1c0a4dab
+    namespace: openshift-image-registry
+    resourceVersion: "31858"
+    uid: 16272ec4-6a87-448d-9335-c8818307ebea
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    resourceVersion: "30997"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-cp4jz to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-cp4jz.179e3498efcd902d
+    namespace: openshift-image-registry
+    resourceVersion: "31510"
+    uid: 66665901-e7c1-4375-9025-cdda6ab2097e
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    resourceVersion: "31489"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: node-ca-cp4jz.179e349905608b68
+    namespace: openshift-image-registry
+    resourceVersion: "31527"
+    uid: bfc917af-162c-4c59-90b2-c9c6d5e24767
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    resourceVersion: "31489"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 4.155s (4.155s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-cp4jz.179e3499fd0d73f2
+    namespace: openshift-image-registry
+    resourceVersion: "31794"
+    uid: c2173432-583d-45b7-80e6-62424dfd7ecc
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    resourceVersion: "31489"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-cp4jz.179e349a0823e989
+    namespace: openshift-image-registry
+    resourceVersion: "31816"
+    uid: 6b900431-2f56-4e94-bb94-502924ecc136
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    resourceVersion: "31489"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-cp4jz.179e349a0ae34e9a
+    namespace: openshift-image-registry
+    resourceVersion: "31825"
+    uid: 6866474c-1864-4f48-a3d5-97535f69549d
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "30999"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-fhbsd to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-fhbsd.179e3498efd4905f
+    namespace: openshift-image-registry
+    resourceVersion: "31512"
+    uid: 453b16d6-af64-44a7-8632-6ef36261a39f
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "31490"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: 'MountVolume.SetUp failed for volume "kube-api-access-ftb2x" : failed to
+    sync configmap cache: timed out waiting for the condition'
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: node-ca-fhbsd.179e34993b10ee37
+    namespace: openshift-image-registry
+    resourceVersion: "31566"
+    uid: 6555e026-241d-4c3e-90f9-63b265d91048
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:02Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "31490"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:02Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:02Z"
+    name: node-ca-fhbsd.179e349960c0f4a6
+    namespace: openshift-image-registry
+    resourceVersion: "31583"
+    uid: 4a473bb8-cecb-4a84-86c4-1bbe9ab9bc4c
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "31490"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.919s (2.919s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-fhbsd.179e349a0ec2a17b
+    namespace: openshift-image-registry
+    resourceVersion: "31830"
+    uid: de07e4bf-ad33-4787-b0e0-57f014cea80b
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "31490"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-fhbsd.179e349a20ce81b8
+    namespace: openshift-image-registry
+    resourceVersion: "31869"
+    uid: 75d1cc2e-6f7f-487a-8ecb-c01300cd8874
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    resourceVersion: "31490"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-fhbsd.179e349a21c98060
+    namespace: openshift-image-registry
+    resourceVersion: "31872"
+    uid: 8042c84c-4b82-48f3-ab94-c5a81fd6d55a
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    resourceVersion: "30986"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-kmpcs to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-kmpcs.179e3498efc84e94
+    namespace: openshift-image-registry
+    resourceVersion: "31503"
+    uid: edc5aa1f-cb7b-41b8-97c1-3e95b1577b04
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    resourceVersion: "31485"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: node-ca-kmpcs.179e34993beb265a
+    namespace: openshift-image-registry
+    resourceVersion: "31568"
+    uid: c21fb17f-7e35-4821-99c3-4a8f8d60fd6b
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    resourceVersion: "31485"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.893s (2.893s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: node-ca-kmpcs.179e3499e862c450
+    namespace: openshift-image-registry
+    resourceVersion: "31765"
+    uid: 5dc6827f-2cd4-4d75-ba5f-d871a3a98463
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    resourceVersion: "31485"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-kmpcs.179e3499f6c4df5e
+    namespace: openshift-image-registry
+    resourceVersion: "31780"
+    uid: 2364b814-f823-47da-9772-e58b3fdc4ae0
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    resourceVersion: "31485"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-kmpcs.179e3499f93bb6da
+    namespace: openshift-image-registry
+    resourceVersion: "31787"
+    uid: d9eee458-2fc9-4548-85a4-5c080e5576e0
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    resourceVersion: "31001"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-lnf44 to ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-lnf44.179e3498efb29d8b
+    namespace: openshift-image-registry
+    resourceVersion: "31494"
+    uid: 2ba22963-7c84-4529-9d46-97fdbb63c276
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:01Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    resourceVersion: "31492"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:01Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:01Z"
+    name: node-ca-lnf44.179e349936ef681e
+    namespace: openshift-image-registry
+    resourceVersion: "31561"
+    uid: a95cbe78-c5f5-494e-9ade-af2d67c04303
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    resourceVersion: "31492"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 2.356s (2.356s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: node-ca-lnf44.179e3499c36bc501
+    namespace: openshift-image-registry
+    resourceVersion: "31706"
+    uid: ff9c264e-726b-4743-a2f2-e788a69ec40a
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    resourceVersion: "31492"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: node-ca-lnf44.179e3499c9f4760d
+    namespace: openshift-image-registry
+    resourceVersion: "31720"
+    uid: e52faac2-e6e9-48db-82ed-d70e80f39b9e
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:04Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    resourceVersion: "31492"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:04Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:04Z"
+    name: node-ca-lnf44.179e3499cab2f0b8
+    namespace: openshift-image-registry
+    resourceVersion: "31721"
+    uid: 1ade741a-7e5a-41a8-8b6b-a98045b940af
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    resourceVersion: "30975"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: Successfully assigned openshift-image-registry/node-ca-z4fb9 to ip-10-0-122-108.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: node-ca-z4fb9.179e3498efc8d49c
+    namespace: openshift-image-registry
+    resourceVersion: "31505"
+    uid: 292969b5-bd95-4228-94e4-20a37ed49824
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:02Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    resourceVersion: "31491"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:02Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:02Z"
+    name: node-ca-z4fb9.179e3499400a76c3
+    namespace: openshift-image-registry
+    resourceVersion: "31571"
+    uid: c2ab2bf7-34ae-4143-b34d-b1cd7c232d38
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    resourceVersion: "31491"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48"
+    in 3.563s (3.563s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-z4fb9.179e349a14730d39
+    namespace: openshift-image-registry
+    resourceVersion: "31842"
+    uid: 55adf6bc-5a10-48c4-9f30-1b94710fa977
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    resourceVersion: "31491"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Created container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-z4fb9.179e349a19a2d6ba
+    namespace: openshift-image-registry
+    resourceVersion: "31851"
+    uid: 476d0ac4-fb7d-44b3-b0de-a5e2428b361b
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{node-ca}
+    kind: Pod
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    resourceVersion: "31491"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:05Z"
+  message: Started container node-ca
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-z4fb9.179e349a1a589549
+    namespace: openshift-image-registry
+    resourceVersion: "31854"
+    uid: f0a10379-185e-468c-9129-a72438f9aaa9
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-z4fb9'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e1b292c9
+    namespace: openshift-image-registry
+    resourceVersion: "30982"
+    uid: 620cf257-f3dd-4897-9b77-102842635149
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-c4fwc'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e3441840
+    namespace: openshift-image-registry
+    resourceVersion: "31000"
+    uid: 0bb2d380-3a9f-428b-bca8-15771063d76c
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-kmpcs'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e35d0db3
+    namespace: openshift-image-registry
+    resourceVersion: "31014"
+    uid: e4f4fe19-dda2-450d-bdfb-3c2ebb9165fc
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-fhbsd'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e439c56e
+    namespace: openshift-image-registry
+    resourceVersion: "31028"
+    uid: c1d9b71b-576f-4cf4-924e-0ef826776120
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-cp4jz'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e444d762
+    namespace: openshift-image-registry
+    resourceVersion: "31036"
+    uid: 11612425-0a9c-45b7-9851-2908e964aa61
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: node-ca
+    namespace: openshift-image-registry
+    resourceVersion: "30579"
+    uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Created pod: node-ca-lnf44'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: node-ca.179e3491e47217e3
+    namespace: openshift-image-registry
+    resourceVersion: "31038"
+    uid: 5c979f6e-e0e2-433c-8bac-2b46474b3c5e
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: openshift-master-controllers
+    namespace: openshift-image-registry
+    resourceVersion: "7921"
+    uid: edf9af55-f6a0-486a-b59b-a8abd580ca6d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: cluster-image-registry-operator-797bf89d95-krhc6_ab2e6b25-9436-424f-8af2-4c40b05dd6be
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-image-registry-operator
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: openshift-master-controllers.179e33a75ca79a16
+    namespace: openshift-image-registry
+    resourceVersion: "7923"
+    uid: 8628363b-898c-4302-be6e-eebb541f705c
+  reason: LeaderElection
+  reportingComponent: image-registry-operator
+  reportingInstance: ""
+  source:
+    component: image-registry-operator
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47737"

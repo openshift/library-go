@@ -1,0 +1,1869 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.128.0.32/23"],"mac_address":"0a:58:0a:80:00:20","gateway_ips":["10.128.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.128.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.128.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.128.0.1"}],"ip_address":"10.128.0.32/23","gateway_ip":"10.128.0.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.128.0.32"
+            ],
+            "mac": "0a:58:0a:80:00:20",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: privileged
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: sC2nRg==
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: q5Xbiw==
+    creationTimestamp: "2023-12-06T09:25:56Z"
+    generateName: apiserver-798f88d8d6-
+    labels:
+      apiserver: "true"
+      app: openshift-oauth-apiserver
+      oauth-apiserver-anti-affinity: "true"
+      pod-template-hash: 798f88d8d6
+      revision: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:apiserver: {}
+            f:app: {}
+            f:oauth-apiserver-anti-affinity: {}
+            f:pod-template-hash: {}
+            f:revision: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"feaa645f-2f79-47ec-b23e-68cd75eacfc7"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:podAntiAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"oauth-apiserver"}:
+              .: {}
+              f:args: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"POD_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"POD_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8443,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:startupProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/audit"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/etcd-serving-ca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/trusted-ca-bundle"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/encryption-config"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/etcd-client"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/serving-cert"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:initContainers:
+            .: {}
+            k:{"name":"fix-audit-permissions"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"audit-dir"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"audit-policies"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"encryption-config"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"etcd-client"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"etcd-serving-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"serving-cert"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"trusted-ca-bundle"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:56Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:34Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:26:57Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:initContainerStatuses: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.128.0.32"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:03Z"
+    name: apiserver-798f88d8d6-jfgbp
+    namespace: openshift-oauth-apiserver
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: apiserver-798f88d8d6
+      uid: feaa645f-2f79-47ec-b23e-68cd75eacfc7
+    resourceVersion: "20634"
+    uid: 695738a3-4a64-455c-9aa0-467fc917fb81
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              apiserver: "true"
+              app: openshift-oauth-apiserver
+              oauth-apiserver-anti-affinity: "true"
+          topologyKey: kubernetes.io/hostname
+    containers:
+    - args:
+      - |
+        if [ -s /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
+          echo "Copying system trust bundle"
+          cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+        fi
+        exec oauth-apiserver start \
+          --secure-port=8443 \
+          --audit-log-path=/var/log/oauth-apiserver/audit.log \
+          --audit-log-format=json \
+          --audit-log-maxsize=100 \
+          --audit-log-maxbackup=10 \
+          --audit-policy-file=/var/run/configmaps/audit/policy.yaml \
+          --etcd-cafile=/var/run/configmaps/etcd-serving-ca/ca-bundle.crt \
+          --etcd-keyfile=/var/run/secrets/etcd-client/tls.key \
+          --etcd-certfile=/var/run/secrets/etcd-client/tls.crt \
+          --shutdown-delay-duration=15s \
+          --tls-private-key-file=/var/run/secrets/serving-cert/tls.key \
+          --tls-cert-file=/var/run/secrets/serving-cert/tls.crt \
+          --api-audiences=https://kubernetes.default.svc \
+          --cors-allowed-origins='//127\.0\.0\.1(:|$)' \
+          --cors-allowed-origins='//localhost(:|$)' \
+          --etcd-servers=https://10.0.106.212:2379 \
+          --etcd-servers=https://10.0.21.63:2379 \
+          --etcd-servers=https://10.0.94.160:2379 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-min-version=VersionTLS12 \
+          --v=2
+      command:
+      - /bin/bash
+      - -ec
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 10
+      name: oauth-apiserver
+      ports:
+      - containerPort: 8443
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 1
+        httpGet:
+          path: readyz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      resources:
+        requests:
+          cpu: 150m
+          memory: 200Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      startupProbe:
+        failureThreshold: 30
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/run/configmaps/audit
+        name: audit-policies
+      - mountPath: /var/run/secrets/etcd-client
+        name: etcd-client
+      - mountPath: /var/run/configmaps/etcd-serving-ca
+        name: etcd-serving-ca
+      - mountPath: /var/run/configmaps/trusted-ca-bundle
+        name: trusted-ca-bundle
+      - mountPath: /var/run/secrets/serving-cert
+        name: serving-cert
+      - mountPath: /var/run/secrets/encryption-config
+        name: encryption-config
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-54brd
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: oauth-apiserver-sa-dockercfg-d5n57
+    initContainers:
+    - command:
+      - sh
+      - -c
+      - chmod 0700 /var/log/oauth-apiserver && touch /var/log/oauth-apiserver/audit.log
+        && chmod 0600 /var/log/oauth-apiserver/*
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      name: fix-audit-permissions
+      resources:
+        requests:
+          cpu: 15m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-54brd
+        readOnly: true
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: oauth-apiserver-sa
+    serviceAccountName: oauth-apiserver-sa
+    terminationGracePeriodSeconds: 90
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: audit-1
+      name: audit-policies
+    - name: etcd-client
+      secret:
+        defaultMode: 420
+        secretName: etcd-client
+    - configMap:
+        defaultMode: 420
+        name: etcd-serving-ca
+      name: etcd-serving-ca
+    - name: serving-cert
+      secret:
+        defaultMode: 420
+        secretName: serving-cert
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: tls-ca-bundle.pem
+        name: trusted-ca-bundle
+        optional: true
+      name: trusted-ca-bundle
+    - name: encryption-config
+      secret:
+        defaultMode: 420
+        optional: true
+        secretName: encryption-config-1
+    - hostPath:
+        path: /var/log/oauth-apiserver
+        type: ""
+      name: audit-dir
+    - name: kube-api-access-54brd
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:58Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:03Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:03Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:26:57Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://e3a77fc60bf747561951aabcab08a740fbcac7cc174840d7cd10d5279619de4d
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: oauth-apiserver
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:26:58Z"
+    hostIP: 10.0.106.212
+    initContainerStatuses:
+    - containerID: cri-o://937e6032b62ad4cb7f9d566db3825fa92f2e1323b28d725e4f4f21fd4b45e3db
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: fix-audit-permissions
+      ready: true
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: cri-o://937e6032b62ad4cb7f9d566db3825fa92f2e1323b28d725e4f4f21fd4b45e3db
+          exitCode: 0
+          finishedAt: "2023-12-06T09:26:57Z"
+          reason: Completed
+          startedAt: "2023-12-06T09:26:57Z"
+    phase: Running
+    podIP: 10.128.0.32
+    podIPs:
+    - ip: 10.128.0.32
+    qosClass: Burstable
+    startTime: "2023-12-06T09:26:57Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.130.0.33/23"],"mac_address":"0a:58:0a:82:00:21","gateway_ips":["10.130.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.130.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.130.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.130.0.1"}],"ip_address":"10.130.0.33/23","gateway_ip":"10.130.0.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.130.0.33"
+            ],
+            "mac": "0a:58:0a:82:00:21",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: privileged
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: sC2nRg==
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: q5Xbiw==
+    creationTimestamp: "2023-12-06T09:27:03Z"
+    generateName: apiserver-798f88d8d6-
+    labels:
+      apiserver: "true"
+      app: openshift-oauth-apiserver
+      oauth-apiserver-anti-affinity: "true"
+      pod-template-hash: 798f88d8d6
+      revision: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:apiserver: {}
+            f:app: {}
+            f:oauth-apiserver-anti-affinity: {}
+            f:pod-template-hash: {}
+            f:revision: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"feaa645f-2f79-47ec-b23e-68cd75eacfc7"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:podAntiAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"oauth-apiserver"}:
+              .: {}
+              f:args: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"POD_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"POD_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8443,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:startupProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/audit"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/etcd-serving-ca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/trusted-ca-bundle"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/encryption-config"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/etcd-client"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/serving-cert"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:initContainers:
+            .: {}
+            k:{"name":"fix-audit-permissions"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"audit-dir"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"audit-policies"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"encryption-config"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"etcd-client"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"etcd-serving-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"serving-cert"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"trusted-ca-bundle"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:27:03Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:03Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:47Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:47Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:initContainerStatuses: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.130.0.33"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:53Z"
+    name: apiserver-798f88d8d6-m54mn
+    namespace: openshift-oauth-apiserver
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: apiserver-798f88d8d6
+      uid: feaa645f-2f79-47ec-b23e-68cd75eacfc7
+    resourceVersion: "21687"
+    uid: e19ca351-5a2b-4fb7-85b9-6357daca1bc1
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              apiserver: "true"
+              app: openshift-oauth-apiserver
+              oauth-apiserver-anti-affinity: "true"
+          topologyKey: kubernetes.io/hostname
+    containers:
+    - args:
+      - |
+        if [ -s /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
+          echo "Copying system trust bundle"
+          cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+        fi
+        exec oauth-apiserver start \
+          --secure-port=8443 \
+          --audit-log-path=/var/log/oauth-apiserver/audit.log \
+          --audit-log-format=json \
+          --audit-log-maxsize=100 \
+          --audit-log-maxbackup=10 \
+          --audit-policy-file=/var/run/configmaps/audit/policy.yaml \
+          --etcd-cafile=/var/run/configmaps/etcd-serving-ca/ca-bundle.crt \
+          --etcd-keyfile=/var/run/secrets/etcd-client/tls.key \
+          --etcd-certfile=/var/run/secrets/etcd-client/tls.crt \
+          --shutdown-delay-duration=15s \
+          --tls-private-key-file=/var/run/secrets/serving-cert/tls.key \
+          --tls-cert-file=/var/run/secrets/serving-cert/tls.crt \
+          --api-audiences=https://kubernetes.default.svc \
+          --cors-allowed-origins='//127\.0\.0\.1(:|$)' \
+          --cors-allowed-origins='//localhost(:|$)' \
+          --etcd-servers=https://10.0.106.212:2379 \
+          --etcd-servers=https://10.0.21.63:2379 \
+          --etcd-servers=https://10.0.94.160:2379 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-min-version=VersionTLS12 \
+          --v=2
+      command:
+      - /bin/bash
+      - -ec
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 10
+      name: oauth-apiserver
+      ports:
+      - containerPort: 8443
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 1
+        httpGet:
+          path: readyz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      resources:
+        requests:
+          cpu: 150m
+          memory: 200Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      startupProbe:
+        failureThreshold: 30
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/run/configmaps/audit
+        name: audit-policies
+      - mountPath: /var/run/secrets/etcd-client
+        name: etcd-client
+      - mountPath: /var/run/configmaps/etcd-serving-ca
+        name: etcd-serving-ca
+      - mountPath: /var/run/configmaps/trusted-ca-bundle
+        name: trusted-ca-bundle
+      - mountPath: /var/run/secrets/serving-cert
+        name: serving-cert
+      - mountPath: /var/run/secrets/encryption-config
+        name: encryption-config
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-s8vx4
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: oauth-apiserver-sa-dockercfg-d5n57
+    initContainers:
+    - command:
+      - sh
+      - -c
+      - chmod 0700 /var/log/oauth-apiserver && touch /var/log/oauth-apiserver/audit.log
+        && chmod 0600 /var/log/oauth-apiserver/*
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      name: fix-audit-permissions
+      resources:
+        requests:
+          cpu: 15m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-s8vx4
+        readOnly: true
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: oauth-apiserver-sa
+    serviceAccountName: oauth-apiserver-sa
+    terminationGracePeriodSeconds: 90
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: audit-1
+      name: audit-policies
+    - name: etcd-client
+      secret:
+        defaultMode: 420
+        secretName: etcd-client
+    - configMap:
+        defaultMode: 420
+        name: etcd-serving-ca
+      name: etcd-serving-ca
+    - name: serving-cert
+      secret:
+        defaultMode: 420
+        secretName: serving-cert
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: tls-ca-bundle.pem
+        name: trusted-ca-bundle
+        optional: true
+      name: trusted-ca-bundle
+    - name: encryption-config
+      secret:
+        defaultMode: 420
+        optional: true
+        secretName: encryption-config-1
+    - hostPath:
+        path: /var/log/oauth-apiserver
+        type: ""
+      name: audit-dir
+    - name: kube-api-access-s8vx4
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:49Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:53Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:53Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:27:47Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://9422c6c9902ab3dd3969973a1f5d76b4460957238d12109e681ff70e50783d01
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: oauth-apiserver
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:27:49Z"
+    hostIP: 10.0.94.160
+    initContainerStatuses:
+    - containerID: cri-o://1ea7a598716f03c92ca3a254fa15e98ae3459e7a52e077ddc7cc1530069efbdc
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: fix-audit-permissions
+      ready: true
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: cri-o://1ea7a598716f03c92ca3a254fa15e98ae3459e7a52e077ddc7cc1530069efbdc
+          exitCode: 0
+          finishedAt: "2023-12-06T09:27:49Z"
+          reason: Completed
+          startedAt: "2023-12-06T09:27:49Z"
+    phase: Running
+    podIP: 10.130.0.33
+    podIPs:
+    - ip: 10.130.0.33
+    qosClass: Burstable
+    startTime: "2023-12-06T09:27:47Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.129.0.77/23"],"mac_address":"0a:58:0a:81:00:4d","gateway_ips":["10.129.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.129.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.129.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.129.0.1"}],"ip_address":"10.129.0.77/23","gateway_ip":"10.129.0.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.129.0.77"
+            ],
+            "mac": "0a:58:0a:81:00:4d",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: privileged
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: sC2nRg==
+      operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: q5Xbiw==
+    creationTimestamp: "2023-12-06T09:27:53Z"
+    generateName: apiserver-798f88d8d6-
+    labels:
+      apiserver: "true"
+      app: openshift-oauth-apiserver
+      oauth-apiserver-anti-affinity: "true"
+      pod-template-hash: 798f88d8d6
+      revision: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-client.secret: {}
+            f:operator.openshift.io/dep-openshift-oauth-apiserver.etcd-serving-ca.configmap: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:apiserver: {}
+            f:app: {}
+            f:oauth-apiserver-anti-affinity: {}
+            f:pod-template-hash: {}
+            f:revision: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"feaa645f-2f79-47ec-b23e-68cd75eacfc7"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:podAntiAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"oauth-apiserver"}:
+              .: {}
+              f:args: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"POD_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"POD_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":8443,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:startupProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/audit"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/etcd-serving-ca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/trusted-ca-bundle"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/encryption-config"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/etcd-client"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/serving-cert"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:initContainers:
+            .: {}
+            k:{"name":"fix-audit-permissions"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/var/log/oauth-apiserver"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"audit-dir"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"audit-policies"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"encryption-config"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"etcd-client"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"etcd-serving-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"serving-cert"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"trusted-ca-bundle"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:27:53Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:27:53Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-21-63
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:28:53Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:28:54Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:initContainerStatuses: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.129.0.77"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:28:59Z"
+    name: apiserver-798f88d8d6-vrnw5
+    namespace: openshift-oauth-apiserver
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: apiserver-798f88d8d6
+      uid: feaa645f-2f79-47ec-b23e-68cd75eacfc7
+    resourceVersion: "22758"
+    uid: 9b3c3122-a63b-401d-8689-54e0b56e07a8
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              apiserver: "true"
+              app: openshift-oauth-apiserver
+              oauth-apiserver-anti-affinity: "true"
+          topologyKey: kubernetes.io/hostname
+    containers:
+    - args:
+      - |
+        if [ -s /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
+          echo "Copying system trust bundle"
+          cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+        fi
+        exec oauth-apiserver start \
+          --secure-port=8443 \
+          --audit-log-path=/var/log/oauth-apiserver/audit.log \
+          --audit-log-format=json \
+          --audit-log-maxsize=100 \
+          --audit-log-maxbackup=10 \
+          --audit-policy-file=/var/run/configmaps/audit/policy.yaml \
+          --etcd-cafile=/var/run/configmaps/etcd-serving-ca/ca-bundle.crt \
+          --etcd-keyfile=/var/run/secrets/etcd-client/tls.key \
+          --etcd-certfile=/var/run/secrets/etcd-client/tls.crt \
+          --shutdown-delay-duration=15s \
+          --tls-private-key-file=/var/run/secrets/serving-cert/tls.key \
+          --tls-cert-file=/var/run/secrets/serving-cert/tls.crt \
+          --api-audiences=https://kubernetes.default.svc \
+          --cors-allowed-origins='//127\.0\.0\.1(:|$)' \
+          --cors-allowed-origins='//localhost(:|$)' \
+          --etcd-servers=https://10.0.106.212:2379 \
+          --etcd-servers=https://10.0.21.63:2379 \
+          --etcd-servers=https://10.0.94.160:2379 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 \
+          --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 \
+          --tls-min-version=VersionTLS12 \
+          --v=2
+      command:
+      - /bin/bash
+      - -ec
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 10
+      name: oauth-apiserver
+      ports:
+      - containerPort: 8443
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 1
+        httpGet:
+          path: readyz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      resources:
+        requests:
+          cpu: 150m
+          memory: 200Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      startupProbe:
+        failureThreshold: 30
+        httpGet:
+          path: healthz
+          port: 8443
+          scheme: HTTPS
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/run/configmaps/audit
+        name: audit-policies
+      - mountPath: /var/run/secrets/etcd-client
+        name: etcd-client
+      - mountPath: /var/run/configmaps/etcd-serving-ca
+        name: etcd-serving-ca
+      - mountPath: /var/run/configmaps/trusted-ca-bundle
+        name: trusted-ca-bundle
+      - mountPath: /var/run/secrets/serving-cert
+        name: serving-cert
+      - mountPath: /var/run/secrets/encryption-config
+        name: encryption-config
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-7tshx
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: oauth-apiserver-sa-dockercfg-d5n57
+    initContainers:
+    - command:
+      - sh
+      - -c
+      - chmod 0700 /var/log/oauth-apiserver && touch /var/log/oauth-apiserver/audit.log
+        && chmod 0600 /var/log/oauth-apiserver/*
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imagePullPolicy: IfNotPresent
+      name: fix-audit-permissions
+      resources:
+        requests:
+          cpu: 15m
+          memory: 50Mi
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/log/oauth-apiserver
+        name: audit-dir
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-7tshx
+        readOnly: true
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000001000
+    priorityClassName: system-node-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: oauth-apiserver-sa
+    serviceAccountName: oauth-apiserver-sa
+    terminationGracePeriodSeconds: 90
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: audit-1
+      name: audit-policies
+    - name: etcd-client
+      secret:
+        defaultMode: 420
+        secretName: etcd-client
+    - configMap:
+        defaultMode: 420
+        name: etcd-serving-ca
+      name: etcd-serving-ca
+    - name: serving-cert
+      secret:
+        defaultMode: 420
+        secretName: serving-cert
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: tls-ca-bundle.pem
+        name: trusted-ca-bundle
+        optional: true
+      name: trusted-ca-bundle
+    - name: encryption-config
+      secret:
+        defaultMode: 420
+        optional: true
+        secretName: encryption-config-1
+    - hostPath:
+        path: /var/log/oauth-apiserver
+        type: ""
+      name: audit-dir
+    - name: kube-api-access-7tshx
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:28:54Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:28:59Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:28:59Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:28:53Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://809806cc5990c4f4a58345a05234d8965e7d5546c9880704c1ebf856b8f9d218
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: oauth-apiserver
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:28:55Z"
+    hostIP: 10.0.21.63
+    initContainerStatuses:
+    - containerID: cri-o://f6c9dd860e5bc9bc66fd0189313e69cae4604eb9fcd4e45eabd71f60bd1e6f61
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+      imageID: a9b226b42f02564150a4116bc8a80f26aa723ccffe6ac6ed3b028b4351989141
+      lastState: {}
+      name: fix-audit-permissions
+      ready: true
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: cri-o://f6c9dd860e5bc9bc66fd0189313e69cae4604eb9fcd4e45eabd71f60bd1e6f61
+          exitCode: 0
+          finishedAt: "2023-12-06T09:28:54Z"
+          reason: Completed
+          startedAt: "2023-12-06T09:28:54Z"
+    phase: Running
+    podIP: 10.129.0.77
+    podIPs:
+    - ip: 10.129.0.77
+    qosClass: Burstable
+    startTime: "2023-12-06T09:28:53Z"
+kind: PodList
+metadata:
+  resourceVersion: "47609"

@@ -1,0 +1,24 @@
+---
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageContentSourcePolicy
+metadata:
+  creationTimestamp: "2023-12-06T09:18:11Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operator.openshift.io/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        .: {}
+        f:repositoryDigestMirrors: {}
+    manager: cluster-bootstrap
+    operation: Update
+    time: "2023-12-06T09:18:11Z"
+  name: image-policy
+  resourceVersion: "1699"
+  uid: ce709bee-9e33-4ef3-88f5-3c1c9fc38148
+spec:
+  repositoryDigestMirrors:
+  - mirrors:
+    - quayio-pull-through-cache-us-west-1-ci.apps.ci.l2s4.p1.openshiftapps.com
+    source: quay.io

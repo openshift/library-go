@@ -1,0 +1,161 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:59Z"
+  generation: 1
+  managedFields:
+  - apiVersion: apiextensions.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:controller-gen.kubebuilder.io/version: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        f:conversion:
+          .: {}
+          f:strategy: {}
+        f:group: {}
+        f:names:
+          f:kind: {}
+          f:listKind: {}
+          f:plural: {}
+          f:singular: {}
+        f:scope: {}
+        f:versions: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:59Z"
+  - apiVersion: apiextensions.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:acceptedNames:
+          f:kind: {}
+          f:listKind: {}
+          f:plural: {}
+          f:singular: {}
+        f:conditions:
+          k:{"type":"Established"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"NamesAccepted"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: kube-apiserver
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:17:59Z"
+  name: operatorpkis.network.operator.openshift.io
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "1204"
+  uid: 2581d22f-2e41-4fd2-b448-4e4e2dc1be94
+spec:
+  conversion:
+    strategy: None
+  group: network.operator.openshift.io
+  names:
+    kind: OperatorPKI
+    listKind: OperatorPKIList
+    plural: operatorpkis
+    singular: operatorpki
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: "OperatorPKI is a simple certificate authority. It is not intended
+          for external use - rather, it is internal to the network operator. The CNO
+          creates a CA and a certificate signed by that CA. The certificate has both
+          ClientAuth and ServerAuth extended usages enabled. \n More specifically,
+          given an OperatorPKI with <name>, the CNO will manage: \n - A Secret called
+          <name>-ca with two data keys: - tls.key - the private key - tls.crt - the
+          CA certificate \n - A ConfigMap called <name>-ca with a single data key:
+          - cabundle.crt - the CA certificate(s) \n - A Secret called <name>-cert
+          with two data keys: - tls.key - the private key - tls.crt - the certificate,
+          signed by the CA \n The CA certificate will have a validity of 10 years,
+          rotated after 9. The target certificate will have a validity of 6 months,
+          rotated after 3 \n The CA certificate will have a CommonName of \"<namespace>_<name>-ca@<timestamp>\",
+          where <timestamp> is the last rotation time."
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: OperatorPKISpec is the PKI configuration.
+            properties:
+              targetCert:
+                description: targetCert configures the certificate signed by the CA.
+                  It will have both ClientAuth and ServerAuth enabled
+                properties:
+                  commonName:
+                    description: commonName is the value in the certificate's CN
+                    minLength: 1
+                    type: string
+                required:
+                - commonName
+                type: object
+            required:
+            - targetCert
+            type: object
+          status:
+            description: OperatorPKIStatus is not implemented.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: OperatorPKI
+    listKind: OperatorPKIList
+    plural: operatorpkis
+    singular: operatorpki
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:17:59Z"
+    message: no conflicts found
+    reason: NoConflicts
+    status: "True"
+    type: NamesAccepted
+  - lastTransitionTime: "2023-12-06T09:17:59Z"
+    message: the initial names have been accepted
+    reason: InitialNamesAccepted
+    status: "True"
+    type: Established
+  storedVersions:
+  - v1

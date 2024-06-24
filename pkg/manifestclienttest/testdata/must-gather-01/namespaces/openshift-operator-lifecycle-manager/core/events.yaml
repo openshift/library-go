@@ -1,0 +1,3700 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2417"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e337c9652e194
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2419"
+    uid: 77b7dda4-c169-4481-9f8a-cd243cbe0fad
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2421"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/catalog-operator-c4fc57b68-v5fl5
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e339ae0253d98
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4442"
+    uid: 9ffe0298-6312-4be5-8219-4a5682b60bb0
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4372"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: 'MountVolume.SetUp failed for volume "srv-cert" : secret "catalog-operator-serving-cert"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e339aeceb3b3b
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "6834"
+    uid: c813d198-3fc9-4e3c-ab0a-45364b77c0bd
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4405"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-operator-lifecycle-manager/catalog-operator-c4fc57b68-v5fl5
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-operator-lifecycle-manager:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.13]}}] Timeout:<nil>
+    Where:[where column _uuid == {a5adcdcd-5a07-4a5d-b156-ab3239fb7623}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e339d39819edc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4693"
+    uid: e017cfaa-3c77-41a1-bd45-ee547374ade6
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4595"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Add eth0 [10.129.0.13/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e33a9f40b5199
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8580"
+    uid: 5383011d-41d7-4a53-8555-d106a5e5bfb4
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:55Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{catalog-operator}
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4372"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:55Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:56Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e33aa5d5aa8dd
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8688"
+    uid: d16ce638-0d6c-4ae2-9a36-52da963c1dcf
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{catalog-operator}
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4372"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    in 16.286s (16.286s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e33ae28214599
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9499"
+    uid: e3ba547a-7673-409f-94a4-1fffa55f0caf
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{catalog-operator}
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4372"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Created container catalog-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e33ae3d3ede1b
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9541"
+    uid: f6e1f1ed-1495-4d41-89e1-f266aa018f10
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{catalog-operator}
+    kind: Pod
+    name: catalog-operator-c4fc57b68-v5fl5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4372"
+    uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Started container catalog-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: catalog-operator-c4fc57b68-v5fl5.179e33ae4082289a
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9545"
+    uid: b39c1f7d-96e6-44eb-9575-8a6cf9167c80
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: catalog-operator-c4fc57b68
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2082"
+    uid: 661148bf-c691-4b38-886c-eceb5b4938b7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:29Z"
+  message: 'Error creating: pods "catalog-operator-c4fc57b68-" is forbidden: autoscaling.openshift.io/ManagementCPUsOverride
+    the cluster does not have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:29Z"
+    name: catalog-operator-c4fc57b68.179e3377d067af52
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2298"
+    uid: 9c6640f2-8478-40ed-94b2-cf7f90956bfc
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: catalog-operator-c4fc57b68
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2086"
+    uid: 661148bf-c691-4b38-886c-eceb5b4938b7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: 'Created pod: catalog-operator-c4fc57b68-v5fl5'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: catalog-operator-c4fc57b68.179e337c9644bcdc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2418"
+    uid: 266af207-b8f9-4ab7-90f6-621c1ab0ed05
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog-operator
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2081"
+    uid: 36ee19ec-47fb-4c9a-9b30-812860537421
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:18Z"
+  message: Scaled up replica set catalog-operator-c4fc57b68 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:18Z"
+    name: catalog-operator.179e3377d04d1e45
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2083"
+    uid: abe87e7e-eaed-42ff-beed-0887f88a7cbd
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23720"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:00Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/collect-profiles-28364250-bt8ch
+    to ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:30:00Z"
+    name: collect-profiles-28364250-bt8ch.179e341b17b15dcb
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23727"
+    uid: d4bfa91a-1e8e-4864-ae2d-e444ba1ac8c8
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23732"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:00Z"
+  message: Add eth0 [10.129.2.8/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:30:00Z"
+    name: collect-profiles-28364250-bt8ch.179e341b2dbc0221
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23736"
+    uid: 4de163b9-ac6e-4117-89d9-2c738bb46bbf
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:00Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23725"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:00Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:30:00Z"
+    name: collect-profiles-28364250-bt8ch.179e341b2f1406a5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23738"
+    uid: 93296212-fad0-44a9-9d48-766e596a381b
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23725"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:07Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    in 7.033s (7.033s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:30:07Z"
+    name: collect-profiles-28364250-bt8ch.179e341cd2511adf
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23829"
+    uid: 2ee82637-4bdb-411a-a626-ec4021c1de0f
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23725"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:07Z"
+  message: Created container collect-profiles
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:30:07Z"
+    name: collect-profiles-28364250-bt8ch.179e341cd62113f9
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23830"
+    uid: 8e4c147a-b5ef-4d86-be44-e9e9a17bc831
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:07Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364250-bt8ch
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23725"
+    uid: c8a040b2-1dfa-4962-b8ee-876bfe9c7772
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:07Z"
+  message: Started container collect-profiles
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:30:07Z"
+    name: collect-profiles-28364250-bt8ch.179e341cd6f801b1
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23831"
+    uid: b335fe12-a483-4af7-9d9f-d1c8842959f8
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:00Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: Job
+    name: collect-profiles-28364250
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23714"
+    uid: fbb3dad9-5f4b-444f-9006-62a8f6721c90
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:00Z"
+  message: 'Created pod: collect-profiles-28364250-bt8ch'
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:30:00Z"
+    name: collect-profiles-28364250.179e341b171dd371
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23724"
+    uid: fe571a05-8da7-4dcb-ade8-dcd42b3a2c50
+  reason: SuccessfulCreate
+  reportingComponent: job-controller
+  reportingInstance: ""
+  source:
+    component: job-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:11Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: Job
+    name: collect-profiles-28364250
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23870"
+    uid: fbb3dad9-5f4b-444f-9006-62a8f6721c90
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:11Z"
+  message: Job completed
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:30:11Z"
+    name: collect-profiles-28364250.179e341da1c76107
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23873"
+    uid: dd77eae3-d2ea-4de1-9809-cec5328a9023
+  reason: Completed
+  reportingComponent: job-controller
+  reportingInstance: ""
+  source:
+    component: job-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: collect-profiles-28364265-gkjgx
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38913"
+    uid: 3da0f48e-3a4f-4229-b6fc-6e0435d2b6a1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/collect-profiles-28364265-gkjgx
+    to ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265-gkjgx.179e34eca47818db
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38917"
+    uid: 6717a573-65e9-48b0-8368-496cd70af93e
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: collect-profiles-28364265-gkjgx
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38919"
+    uid: 3da0f48e-3a4f-4229-b6fc-6e0435d2b6a1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Add eth0 [10.129.2.17/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265-gkjgx.179e34ecbad9d78b
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38921"
+    uid: bbcdfa72-baee-460b-b650-e0ec99defb3c
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364265-gkjgx
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38916"
+    uid: 3da0f48e-3a4f-4229-b6fc-6e0435d2b6a1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265-gkjgx.179e34ecbc45a3cb
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38923"
+    uid: e2ad9bab-76e0-415e-ab49-191644e67499
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364265-gkjgx
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38916"
+    uid: 3da0f48e-3a4f-4229-b6fc-6e0435d2b6a1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Created container collect-profiles
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265-gkjgx.179e34ecbff1f499
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38924"
+    uid: 5a240a49-f9ca-4993-aac7-91059c94d143
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{collect-profiles}
+    kind: Pod
+    name: collect-profiles-28364265-gkjgx
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38916"
+    uid: 3da0f48e-3a4f-4229-b6fc-6e0435d2b6a1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Started container collect-profiles
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265-gkjgx.179e34ecc0f049b7
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38925"
+    uid: 9674ef06-a296-422c-97f7-dc03951d6150
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: Job
+    name: collect-profiles-28364265
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38910"
+    uid: a53548a0-2e7f-4dbb-bb3b-65992c63284b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: 'Created pod: collect-profiles-28364265-gkjgx'
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles-28364265.179e34eca3fd511c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38914"
+    uid: 593d6b22-ad7b-423b-8bfc-33e6c8651a2c
+  reason: SuccessfulCreate
+  reportingComponent: job-controller
+  reportingInstance: ""
+  source:
+    component: job-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:03Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: Job
+    name: collect-profiles-28364265
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38970"
+    uid: a53548a0-2e7f-4dbb-bb3b-65992c63284b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:03Z"
+  message: Job completed
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:45:03Z"
+    name: collect-profiles-28364265.179e34ed59f1a77e
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38973"
+    uid: 0b3be421-35fc-48f8-af64-6faca4d43de3
+  reason: Completed
+  reportingComponent: job-controller
+  reportingInstance: ""
+  source:
+    component: job-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:00Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: collect-profiles
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2878"
+    uid: 99c59db5-7b09-4ce5-a901-3c683ed2b97d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:00Z"
+  message: Created job collect-profiles-28364250
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:30:00Z"
+    name: collect-profiles.179e341b162f997c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23717"
+    uid: ff2574ca-371a-4ac5-af0b-c893fe752aad
+  reason: SuccessfulCreate
+  reportingComponent: cronjob-controller
+  reportingInstance: ""
+  source:
+    component: cronjob-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:30:11Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: collect-profiles
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23718"
+    uid: 99c59db5-7b09-4ce5-a901-3c683ed2b97d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:30:11Z"
+  message: 'Saw completed job: collect-profiles-28364250, status: Complete'
+  metadata:
+    creationTimestamp: "2023-12-06T09:30:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:30:11Z"
+    name: collect-profiles.179e341da1c9a791
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23874"
+    uid: 7535f1a8-4076-473c-abad-5ef844757049
+  reason: SawCompletedJob
+  reportingComponent: cronjob-controller
+  reportingInstance: ""
+  source:
+    component: cronjob-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:00Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: collect-profiles
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "23876"
+    uid: 99c59db5-7b09-4ce5-a901-3c683ed2b97d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:00Z"
+  message: Created job collect-profiles-28364265
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:45:00Z"
+    name: collect-profiles.179e34eca249f65e
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38911"
+    uid: 0ac19e8c-bda4-4983-955b-bdce13dc44bc
+  reason: SuccessfulCreate
+  reportingComponent: cronjob-controller
+  reportingInstance: ""
+  source:
+    component: cronjob-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:45:03Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: collect-profiles
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38912"
+    uid: 99c59db5-7b09-4ce5-a901-3c683ed2b97d
+  kind: Event
+  lastTimestamp: "2023-12-06T09:45:03Z"
+  message: 'Saw completed job: collect-profiles-28364265, status: Complete'
+  metadata:
+    creationTimestamp: "2023-12-06T09:45:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:45:03Z"
+    name: collect-profiles.179e34ed59f0b0f4
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "38974"
+    uid: bc7f3e95-6d97-4c47-8627-70862f0c75f3
+  reason: SawCompletedJob
+  reportingComponent: cronjob-controller
+  reportingInstance: ""
+  source:
+    component: cronjob-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2409"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: olm-operator-695f576fc4-4kw7s.179e337c8ecfed27
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2411"
+    uid: 3121c859-7bc7-415f-850d-24a81792be84
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2413"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/olm-operator-695f576fc4-4kw7s
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: olm-operator-695f576fc4-4kw7s.179e339ae0242e0d
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4441"
+    uid: 17fbb38b-46ca-43a0-ad90-ee42a5d4d231
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4370"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: 'MountVolume.SetUp failed for volume "srv-cert" : secret "olm-operator-serving-cert"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: olm-operator-695f576fc4-4kw7s.179e339aed659e33
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "6837"
+    uid: ec4a3b7f-d7b1-4721-b967-fb562e988d99
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4400"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-operator-lifecycle-manager/olm-operator-695f576fc4-4kw7s
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-operator-lifecycle-manager:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.11]}}] Timeout:<nil>
+    Where:[where column _uuid == {a5adcdcd-5a07-4a5d-b156-ab3239fb7623}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: olm-operator-695f576fc4-4kw7s.179e339d3851a39e
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4691"
+    uid: fa305212-a839-4975-a971-b51c5004a2b0
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4582"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'failed to add remote pod openshift-operator-lifecycle-manager/olm-operator-695f576fc4-4kw7s
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-operator-lifecycle-manager:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.11]}}] Timeout:<nil>
+    Where:[where column _uuid == {e1673ba4-15ff-48d3-96d5-6d8850bf102d}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: olm-operator-695f576fc4-4kw7s.179e339f17c29e03
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4970"
+    uid: a6ec7019-b03e-4bb8-b203-96f9cd24ff74
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4582"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Add eth0 [10.129.0.11/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: olm-operator-695f576fc4-4kw7s.179e33a9ecb4c0ce
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8572"
+    uid: ff2154d3-84a1-4324-b09b-c62706f0a841
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:55Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{olm-operator}
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4370"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:55Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:55Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:55Z"
+    name: olm-operator-695f576fc4-4kw7s.179e33aa5d1d8637
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8686"
+    uid: 4702e69f-d6a8-450c-b7db-0d92fec19146
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{olm-operator}
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4370"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    in 16.772s (16.772s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: olm-operator-695f576fc4-4kw7s.179e33ae44d3c2f8
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9550"
+    uid: 280bd910-ccd8-4b65-b30c-52da82c0d270
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{olm-operator}
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4370"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Created container olm-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: olm-operator-695f576fc4-4kw7s.179e33ae5cc625f8
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9620"
+    uid: 7e267ad6-790e-4ca9-82f6-140194c0b411
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{olm-operator}
+    kind: Pod
+    name: olm-operator-695f576fc4-4kw7s
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4370"
+    uid: 8c256195-7225-40b5-96ce-36565487d9c1
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Started container olm-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: olm-operator-695f576fc4-4kw7s.179e33ae5f7d3222
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9623"
+    uid: 969a1512-2081-418a-a859-566a3c8c2de3
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: olm-operator-695f576fc4
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2067"
+    uid: 976e989b-df59-45c2-9133-abedff8ed7e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:29Z"
+  message: 'Error creating: pods "olm-operator-695f576fc4-" is forbidden: autoscaling.openshift.io/ManagementCPUsOverride
+    the cluster does not have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:29Z"
+    name: olm-operator-695f576fc4.179e3377c8f25631
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2297"
+    uid: 29957b5f-201b-4497-97f2-6e9ae5ae9e77
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:39Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: olm-operator-695f576fc4
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2071"
+    uid: 976e989b-df59-45c2-9133-abedff8ed7e8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:39Z"
+  message: 'Created pod: olm-operator-695f576fc4-4kw7s'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    name: olm-operator-695f576fc4.179e337c8ed38c35
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2410"
+    uid: e61054ff-5438-4f88-b104-2b55ea2524a4
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:18Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: olm-operator
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2066"
+    uid: 0daf4b66-eade-4367-bda9-6a4aede6f77b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:18Z"
+  message: Scaled up replica set olm-operator-695f576fc4 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:18Z"
+    name: olm-operator.179e3377c8dc3ea6
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2068"
+    uid: 1802120c-29f1-425a-98b7-c826469656f5
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:38Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2346"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:38Z"
+  message: '0/1 nodes are available: 1 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:38Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:38Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e337c494a1b6e
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2348"
+    uid: fd5fb15d-22d9-4699-88b4-3f0e4ccce099
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2349"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/package-server-manager-87f6899c8-hzmxc
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e339ae01f13d4
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4435"
+    uid: 14310305-a432-4828-b5ed-30d630cb1745
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:21Z"
+  message: 'MountVolume.SetUp failed for volume "package-server-manager-serving-cert"
+    : secret "package-server-manager-serving-cert" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:21Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e339aec8258ea
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "6832"
+    uid: 57902419-2aa0-49f3-b6ea-cc35bed23400
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:59Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4398"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:59Z"
+  message: 'failed to add remote pod openshift-operator-lifecycle-manager/package-server-manager-87f6899c8-hzmxc
+    to namespace: failed add ips to address set default-network-controller:Namespace:openshift-operator-lifecycle-manager:
+    (error in transact with ops [{Op:mutate Table:Address_Set Row:map[] Rows:[] Columns:[]
+    Mutations:[{Column:addresses Mutator:insert Value:{GoSet:[10.129.0.10]}}] Timeout:<nil>
+    Where:[where column _uuid == {a5adcdcd-5a07-4a5d-b156-ab3239fb7623}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-94-160
+      operation: Update
+      time: "2023-12-06T09:20:59Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e339d380e8863
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4690"
+    uid: 68c9a710-8302-46b2-ba02-d7d3e09a14e7
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4545"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Add eth0 [10.129.0.10/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33a9e6d6a43b
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8562"
+    uid: a3b11ee0-1cc3-45a7-82f1-dc9d15f40903
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:54Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:54Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:54Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33aa04eeccd5
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8606"
+    uid: 18ce5312-6d09-492f-b604-15dd51878406
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:56Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:56Z"
+  message: Created container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:56Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33aa7a707c17
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8705"
+    uid: 9bcd0046-1d7a-4c5c-9b0a-c412cc9cee41
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:56Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:56Z"
+  message: Started container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:56Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33aa7cde39af
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8707"
+    uid: 91775262-5e66-4be5-8320-445af6b1ccdf
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:56Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{package-server-manager}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:56Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:56Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33aa7e206872
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "8710"
+    uid: 9dd3bebb-4f15-41d1-8f2b-2cff0c1ab8a4
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{package-server-manager}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    in 15.725s (15.725s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33ae27717953
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9494"
+    uid: 40c7ec5b-398d-40fe-9acf-6c6a48fe0abe
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{package-server-manager}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Created container package-server-manager
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33ae5aea8711
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9616"
+    uid: 0b42a744-a35f-4585-8de4-05259744dbf8
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{package-server-manager}
+    kind: Pod
+    name: package-server-manager-87f6899c8-hzmxc
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "4366"
+    uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Started container package-server-manager
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: package-server-manager-87f6899c8-hzmxc.179e33ae5f780e48
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9622"
+    uid: 9acda219-4f00-4d2b-8aee-1080b61776e5
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:17Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: package-server-manager-87f6899c8
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1961"
+    uid: 1e87b3ef-946e-4748-b3b1-56300dc06378
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:27Z"
+  message: 'Error creating: pods "package-server-manager-87f6899c8-" is forbidden:
+    autoscaling.openshift.io/ManagementCPUsOverride the cluster does not have any
+    nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:27Z"
+    name: package-server-manager-87f6899c8.179e33778312f448
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2291"
+    uid: 7837b0e1-e396-4edd-adfb-8fd315324742
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:38Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: package-server-manager-87f6899c8
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1965"
+    uid: 1e87b3ef-946e-4748-b3b1-56300dc06378
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:38Z"
+  message: 'Created pod: package-server-manager-87f6899c8-hzmxc'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:38Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:38Z"
+    name: package-server-manager-87f6899c8.179e337c494a0c00
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "2347"
+    uid: 01ab6118-cf49-46c3-b0b8-0643fbc434f7
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:17Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: package-server-manager
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1960"
+    uid: fe1fe84f-cab0-4609-a67a-f8b2ea0be6fa
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:17Z"
+  message: Scaled up replica set package-server-manager-87f6899c8 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:17Z"
+    name: package-server-manager.179e337782eb27f7
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1962"
+    uid: 4330c327-5b36-44e4-b49f-0134f41e88ca
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: packageserver-6d5d6686c-c76gp
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10034"
+    uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:15Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/packageserver-6d5d6686c-c76gp
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:22:15Z"
+    name: packageserver-6d5d6686c-c76gp.179e33aef14bb454
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10046"
+    uid: c08b1b46-6ad6-4621-bb60-6a19d5172478
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: packageserver-6d5d6686c-c76gp
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10050"
+    uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:16Z"
+  message: Add eth0 [10.129.0.59/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:22:16Z"
+    name: packageserver-6d5d6686c-c76gp.179e33af10faa16c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10131"
+    uid: e2ad22c3-b0e7-4390-9808-b251f81def36
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:16Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-c76gp
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10041"
+    uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:16Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:16Z"
+    name: packageserver-6d5d6686c-c76gp.179e33af12e7387e
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10137"
+    uid: df8a5e48-76ab-429a-b082-0dde52da0018
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:24Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-c76gp
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10041"
+    uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:24Z"
+  message: Created container packageserver
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:24Z"
+    name: packageserver-6d5d6686c-c76gp.179e33b0eb1b659a
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10439"
+    uid: c35a29f5-6bab-4c48-b813-88b7f9367b97
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:24Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-c76gp
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10041"
+    uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:24Z"
+  message: Started container packageserver
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:24Z"
+    name: packageserver-6d5d6686c-c76gp.179e33b0f895f131
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10455"
+    uid: bef75dbe-0e61-446f-a92b-9d7b1461a3c9
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10031"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:15Z"
+  message: Successfully assigned openshift-operator-lifecycle-manager/packageserver-6d5d6686c-mr4pn
+    to ip-10-0-94-160.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:22:15Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33aef09175de
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10039"
+    uid: 406d8a0e-d01c-4b2c-96ce-d69d02f0d9d1
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10045"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:16Z"
+  message: Add eth0 [10.130.0.16/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:22:16Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33af0a0c7b03
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10116"
+    uid: 55299e17-01a3-487f-9312-f7fad1a03900
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:16Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10035"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:16Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:16Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33af0d7ed6b8
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10124"
+    uid: 901cc70a-8514-418f-845b-9f1237377211
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10035"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e"
+    in 11.239s (11.239s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33b1ab6f9911
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10592"
+    uid: a0acafb7-1137-4503-87f4-cf1c585da076
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10035"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Created container packageserver
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33b1b2e99899
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10602"
+    uid: ef4791fb-7e4d-43d8-8b75-3d88f555636f
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:27Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{packageserver}
+    kind: Pod
+    name: packageserver-6d5d6686c-mr4pn
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10035"
+    uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:27Z"
+  message: Started container packageserver
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:27Z"
+    name: packageserver-6d5d6686c-mr4pn.179e33b1b63d2070
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10607"
+    uid: a68f5881-3cef-4842-9a68-d10e62cca261
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: packageserver-6d5d6686c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10027"
+    uid: beeb5b64-bab4-407d-a962-17bbc9e18790
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:15Z"
+  message: 'Created pod: packageserver-6d5d6686c-mr4pn'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:15Z"
+    name: packageserver-6d5d6686c.179e33aeeffc14db
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10032"
+    uid: f351b046-bd7a-46a3-bc55-d015c596a623
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: packageserver-6d5d6686c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10027"
+    uid: beeb5b64-bab4-407d-a962-17bbc9e18790
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:15Z"
+  message: 'Created pod: packageserver-6d5d6686c-c76gp'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:15Z"
+    name: packageserver-6d5d6686c.179e33aef0885db4
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10038"
+    uid: d4e64d02-745b-4e5e-a468-b23de6ac98f6
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: packageserver-controller-lock
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9774"
+    uid: a6173c7e-5c1d-4876-b24d-30a420c27aa9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: package-server-manager-87f6899c8-hzmxc_387a836a-0d58-4ff8-a443-7f021a078c6b
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: Go-http-client
+      operation: Update
+      time: "2023-12-06T09:22:14Z"
+    name: packageserver-controller-lock.179e33ae8dbca8db
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9852"
+    uid: 2dbafb45-0f81-4d07-ae9e-8bb33cb658f4
+  reason: LeaderElection
+  reportingComponent: package-server-manager-87f6899c8-hzmxc_387a836a-0d58-4ff8-a443-7f021a078c6b
+  reportingInstance: ""
+  source:
+    component: package-server-manager-87f6899c8-hzmxc_387a836a-0d58-4ff8-a443-7f021a078c6b
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:07Z"
+  involvedObject:
+    apiVersion: policy/v1
+    kind: PodDisruptionBudget
+    name: packageserver-pdb
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1598"
+    uid: bc31d59c-a8d2-4736-aa90-bfc3b93959b5
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:07Z"
+  message: No matching pods found
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:07Z"
+    name: packageserver-pdb.179e33753bd5f7ab
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "1601"
+    uid: 2cb4ee9c-65d5-4810-9779-3d13106d3433
+  reason: NoPods
+  reportingComponent: controllermanager
+  reportingInstance: ""
+  source:
+    component: controllermanager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:14Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9919"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:14Z"
+  message: requirements not yet checked
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:22:14Z"
+    name: packageserver.179e33aebb08fa0f
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9942"
+    uid: 6c2c91a3-3735-432d-a7a4-dbe3be2ea68b
+  reason: RequirementsUnknown
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9921"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:16Z"
+  message: all requirements found, attempting install
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:27:16Z"
+    name: packageserver.179e33aeeb2f5f25
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20873"
+    uid: 149956cd-e821-4b51-b864-fd2b50693780
+  reason: AllRequirementsMet
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10024"
+    uid: dd411672-ee21-4312-a113-25e713b7746a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:15Z"
+  message: Scaled up replica set packageserver-6d5d6686c to 2
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:15Z"
+    name: packageserver.179e33aeef77ef96
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10029"
+    uid: 4be0884b-86f6-4db4-bfdf-f3df6821d219
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:15Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10006"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:16Z"
+  message: waiting for install components to report healthy
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:27:16Z"
+    name: packageserver.179e33aef0f46a57
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20901"
+    uid: 4153a457-19a6-47db-8f1e-d6645456162c
+  reason: InstallSucceeded
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:16Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10044"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:16Z"
+  message: apiServices not installed
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:27:16Z"
+    name: packageserver.179e33af0ef26c68
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20904"
+    uid: ace73761-7e86-4c05-9e7a-df8a8f700a4d
+  reason: InstallWaiting
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:27:15Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "10126"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:15Z"
+  message: install timeout
+  metadata:
+    creationTimestamp: "2023-12-06T09:27:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:27:15Z"
+    name: packageserver.179e33f4a44e9e3c
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20840"
+    uid: a246ee2c-32f3-40eb-a501-9e45cc6fdd71
+  reason: InstallCheckFailed
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Warning
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:27:15Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20834"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:27:15Z"
+  message: apiServices not installed
+  metadata:
+    creationTimestamp: "2023-12-06T09:27:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:27:15Z"
+    name: packageserver.179e33f4bf18b236
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20856"
+    uid: 3cceea85-8bfc-41b6-8761-a617232b8d48
+  reason: NeedsReinstall
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:11Z"
+  involvedObject:
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: packageserver
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20903"
+    uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:11Z"
+  message: install strategy completed with no errors
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: olm
+      operation: Update
+      time: "2023-12-06T09:38:11Z"
+    name: packageserver.179e348d7f5af9c3
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "30297"
+    uid: 3757c3e3-0698-4aa7-a4ab-6a726c08e910
+  reason: InstallSucceeded
+  reportingComponent: operator-lifecycle-manager
+  reportingInstance: ""
+  source:
+    component: operator-lifecycle-manager
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "48062"

@@ -1,0 +1,1008 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:39Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: mtu-prober-p2f2g
+    namespace: openshift-network-operator
+    resourceVersion: "3167"
+    uid: 992bba4f-fa8e-441c-a9bb-5930ff79d237
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:39Z"
+  message: Successfully assigned openshift-network-operator/mtu-prober-p2f2g to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:39Z"
+    name: mtu-prober-p2f2g.179e338a7a3abb49
+    namespace: openshift-network-operator
+    resourceVersion: "3171"
+    uid: 1fa3da41-c0cc-4868-ae5c-76b257e1f655
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:46Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{prober}
+    kind: Pod
+    name: mtu-prober-p2f2g
+    namespace: openshift-network-operator
+    resourceVersion: "3169"
+    uid: 992bba4f-fa8e-441c-a9bb-5930ff79d237
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:46Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:46Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:46Z"
+    name: mtu-prober-p2f2g.179e338c202c8686
+    namespace: openshift-network-operator
+    resourceVersion: "3205"
+    uid: 64636238-3c0b-4828-bc9b-9db496491068
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{prober}
+    kind: Pod
+    name: mtu-prober-p2f2g
+    namespace: openshift-network-operator
+    resourceVersion: "3169"
+    uid: 992bba4f-fa8e-441c-a9bb-5930ff79d237
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:50Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+    in 4.333s (4.333s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:50Z"
+    name: mtu-prober-p2f2g.179e338d2273651d
+    namespace: openshift-network-operator
+    resourceVersion: "3240"
+    uid: 7c474872-9c3a-4b0f-abaa-92aa7fed374a
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:51Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{prober}
+    kind: Pod
+    name: mtu-prober-p2f2g
+    namespace: openshift-network-operator
+    resourceVersion: "3169"
+    uid: 992bba4f-fa8e-441c-a9bb-5930ff79d237
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:51Z"
+  message: Created container prober
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:51Z"
+    name: mtu-prober-p2f2g.179e338d4b45559a
+    namespace: openshift-network-operator
+    resourceVersion: "3251"
+    uid: 23eaacb3-501b-4720-9729-bf83f05a0946
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:51Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{prober}
+    kind: Pod
+    name: mtu-prober-p2f2g
+    namespace: openshift-network-operator
+    resourceVersion: "3169"
+    uid: 992bba4f-fa8e-441c-a9bb-5930ff79d237
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:51Z"
+  message: Started container prober
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:51Z"
+    name: mtu-prober-p2f2g.179e338d4c2004a6
+    namespace: openshift-network-operator
+    resourceVersion: "3252"
+    uid: 29d170e6-df10-4287-9d8e-e21028412e75
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:39Z"
+  involvedObject:
+    apiVersion: batch/v1
+    kind: Job
+    name: mtu-prober
+    namespace: openshift-network-operator
+    resourceVersion: "3166"
+    uid: 1f4c0c6a-96eb-47d7-9bdd-58cfaa588057
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:39Z"
+  message: 'Created pod: mtu-prober-p2f2g'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:39Z"
+    name: mtu-prober.179e338a79f84238
+    namespace: openshift-network-operator
+    resourceVersion: "3168"
+    uid: a6ee0cd4-9491-46fd-9f48-2635a0ef8416
+  reason: SuccessfulCreate
+  reportingComponent: job-controller
+  reportingInstance: ""
+  source:
+    component: job-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:45Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "2543"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:45Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:45Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:45Z"
+    name: network-operator-689b99748f-bwppn.179e337e08c1f0d8
+    namespace: openshift-network-operator
+    resourceVersion: "2545"
+    uid: 7e478f69-c092-42a4-b0fc-99da7b66632e
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:29Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "2547"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:29Z"
+  message: Successfully assigned openshift-network-operator/network-operator-689b99748f-bwppn
+    to ip-10-0-106-212.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:29Z"
+    name: network-operator-689b99748f-bwppn.179e338858558065
+    namespace: openshift-network-operator
+    resourceVersion: "3037"
+    uid: 140db110-88e5-4357-ae65-5e69055ad99c
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:30Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{network-operator}
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "3033"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:30Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:30Z"
+    name: network-operator-689b99748f-bwppn.179e33886b5b6b7c
+    namespace: openshift-network-operator
+    resourceVersion: "3049"
+    uid: e2d70bec-2060-473e-b463-c22f6e78e73f
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{network-operator}
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "3033"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:34Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+    in 4.713s (4.713s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:34Z"
+    name: network-operator-689b99748f-bwppn.179e3389844f00ec
+    namespace: openshift-network-operator
+    resourceVersion: "3085"
+    uid: 1fbe6019-7ebe-4588-9d8b-1c1c13be9adc
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:35Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{network-operator}
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "3033"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:41Z"
+  message: Created container network-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:41Z"
+    name: network-operator-689b99748f-bwppn.179e3389a380ac69
+    namespace: openshift-network-operator
+    resourceVersion: "7786"
+    uid: 516f56a7-bcec-4c4f-bda0-41a0142fff2d
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:35Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{network-operator}
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "3033"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:41Z"
+  message: Started container network-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:41Z"
+    name: network-operator-689b99748f-bwppn.179e3389a4373b38
+    namespace: openshift-network-operator
+    resourceVersion: "7787"
+    uid: 5999fef9-951e-403a-a389-c2c1302f526d
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:32Z"
+  involvedObject:
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:32Z"
+  message: Cancelling deletion of Pod openshift-network-operator/network-operator-689b99748f-bwppn
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:32Z"
+    name: network-operator-689b99748f-bwppn.179e33a4fce05adf
+    namespace: openshift-network-operator
+    resourceVersion: "7438"
+    uid: 6fd4ee37-0573-4119-8d6c-f92b808952ed
+  reason: TaintManagerEviction
+  reportingComponent: taint-controller
+  reportingInstance: ""
+  source:
+    component: taint-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:41Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{network-operator}
+    kind: Pod
+    name: network-operator-689b99748f-bwppn
+    namespace: openshift-network-operator
+    resourceVersion: "3033"
+    uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:41Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:41Z"
+    name: network-operator-689b99748f-bwppn.179e33a7092db49a
+    namespace: openshift-network-operator
+    resourceVersion: "7773"
+    uid: e947d936-5fc9-486b-828c-c4d7222afe6e
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 13
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:04Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: network-operator-689b99748f
+    namespace: openshift-network-operator
+    resourceVersion: "1404"
+    uid: 2e7089b8-b5e7-40bb-a7c9-3ee14ba32a01
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:25Z"
+  message: 'Error creating: pods "network-operator-689b99748f-" is forbidden: autoscaling.openshift.io/ManagementCPUsOverride
+    the cluster does not have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:25Z"
+    name: network-operator-689b99748f.179e33747db1c9a1
+    namespace: openshift-network-operator
+    resourceVersion: "2272"
+    uid: 79c2e89e-7eea-4235-95cf-9faab9122cbb
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:45Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: network-operator-689b99748f
+    namespace: openshift-network-operator
+    resourceVersion: "1408"
+    uid: 2e7089b8-b5e7-40bb-a7c9-3ee14ba32a01
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:45Z"
+  message: 'Created pod: network-operator-689b99748f-bwppn'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:45Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:45Z"
+    name: network-operator-689b99748f.179e337e08b42690
+    namespace: openshift-network-operator
+    resourceVersion: "2544"
+    uid: b34ba31b-b0b9-4d0d-a707-61218093a747
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:35Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: network-operator-lock
+    namespace: openshift-network-operator
+    resourceVersion: "3091"
+    uid: 6871f713-39c8-4dd9-b298-1e363a850494
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:35Z"
+  message: ip-10-0-106-212_aa7298ed-58b1-4c78-89af-b707e3d7051e became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:19:35Z"
+    name: network-operator-lock.179e3389c3b16df8
+    namespace: openshift-network-operator
+    resourceVersion: "3092"
+    uid: 85a28c8c-ce36-4079-8257-8c056f017115
+  reason: LeaderElection
+  reportingComponent: network-operator
+  reportingInstance: ""
+  source:
+    component: network-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: network-operator-lock
+    namespace: openshift-network-operator
+    resourceVersion: "7801"
+    uid: 6871f713-39c8-4dd9-b298-1e363a850494
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: ip-10-0-106-212_7b884b25-ba7b-446b-b896-abe4d52b0114 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: network-operator-lock.179e33a7254ce3f7
+    namespace: openshift-network-operator
+    resourceVersion: "7802"
+    uid: e5ab1f4b-5cb9-4e1d-9b7d-156e37ee62c0
+  reason: LeaderElection
+  reportingComponent: network-operator
+  reportingInstance: ""
+  source:
+    component: network-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:04Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: network-operator
+    namespace: openshift-network-operator
+    resourceVersion: "1403"
+    uid: 0ad6e4b7-48b9-416c-94e2-6676a78d8006
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:04Z"
+  message: Scaled up replica set network-operator-689b99748f to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:04Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:04Z"
+    name: network-operator.179e33747d79d0a4
+    namespace: openshift-network-operator
+    resourceVersion: "1405"
+    uid: 28153c7c-d770-4c19-9a1b-90420c1be83c
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: network-operator
+    namespace: openshift-network-operator
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:35Z"
+  message: FeatureGates updated to featuregates.Features{Enabled:[]v1.FeatureGateName{"AlibabaPlatform",
+    "AzureWorkloadIdentity", "BuildCSIVolumes", "CloudDualStackNodeIPs", "ExternalCloudProvider",
+    "ExternalCloudProviderAzure", "ExternalCloudProviderExternal", "ExternalCloudProviderGCP",
+    "OpenShiftPodSecurityAdmission", "PrivateHostedZoneAWS"}, Disabled:[]v1.FeatureGateName{"AdminNetworkPolicy",
+    "AutomatedEtcdBackup", "CSIDriverSharedResource", "ClusterAPIInstall", "DNSNameResolver",
+    "DisableKubeletCloudCredentialProviders", "DynamicResourceAllocation", "EventedPLEG",
+    "GCPClusterHostedDNS", "GCPLabelsTags", "GatewayAPI", "InsightsConfigAPI", "InstallAlternateInfrastructureAWS",
+    "MachineAPIOperatorDisableMachineHealthCheckController", "MachineAPIProviderOpenStack",
+    "MachineConfigNodes", "ManagedBootImages", "MaxUnavailableStatefulSet", "MetricsServer",
+    "MixedCPUsAllocation", "NetworkLiveMigration", "NodeSwap", "RouteExternalCertificate",
+    "SigstoreImageVerification", "VSphereControlPlaneMachineSet", "VSphereStaticIPs",
+    "ValidatingAdmissionPolicy"}}
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:19:35Z"
+    name: network-operator.179e3389c443bd95
+    namespace: openshift-network-operator
+    resourceVersion: "3094"
+    uid: bfd83c7d-05df-4e46-8a2f-50d875263c4e
+  reason: FeatureGatesInitialized
+  reportingComponent: cluster-network-operator
+  reportingInstance: ""
+  source:
+    component: cluster-network-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:36Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: network-operator
+    namespace: openshift-network-operator
+    uid: 0ad6e4b7-48b9-416c-94e2-6676a78d8006
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:36Z"
+  message: Unable to determine current operator status for cluster-network-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:36Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:19:36Z"
+    name: network-operator.179e3389ca55aabb
+    namespace: openshift-network-operator
+    resourceVersion: "3095"
+    uid: 3a63c11f-43e8-40aa-8839-e461d9291ff4
+  reason: StatusNotFound
+  reportingComponent: network-operator-management-state-recorder-managementstatecontroller
+  reportingInstance: ""
+  source:
+    component: network-operator-management-state-recorder-managementstatecontroller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: network-operator
+    namespace: openshift-network-operator
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: FeatureGates updated to featuregates.Features{Enabled:[]v1.FeatureGateName{"AlibabaPlatform",
+    "AzureWorkloadIdentity", "BuildCSIVolumes", "CloudDualStackNodeIPs", "ExternalCloudProvider",
+    "ExternalCloudProviderAzure", "ExternalCloudProviderExternal", "ExternalCloudProviderGCP",
+    "OpenShiftPodSecurityAdmission", "PrivateHostedZoneAWS"}, Disabled:[]v1.FeatureGateName{"AdminNetworkPolicy",
+    "AutomatedEtcdBackup", "CSIDriverSharedResource", "ClusterAPIInstall", "DNSNameResolver",
+    "DisableKubeletCloudCredentialProviders", "DynamicResourceAllocation", "EventedPLEG",
+    "GCPClusterHostedDNS", "GCPLabelsTags", "GatewayAPI", "InsightsConfigAPI", "InstallAlternateInfrastructureAWS",
+    "MachineAPIOperatorDisableMachineHealthCheckController", "MachineAPIProviderOpenStack",
+    "MachineConfigNodes", "ManagedBootImages", "MaxUnavailableStatefulSet", "MetricsServer",
+    "MixedCPUsAllocation", "NetworkLiveMigration", "NodeSwap", "RouteExternalCertificate",
+    "SigstoreImageVerification", "VSphereControlPlaneMachineSet", "VSphereStaticIPs",
+    "ValidatingAdmissionPolicy"}}
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: network-operator.179e33a725e07bca
+    namespace: openshift-network-operator
+    resourceVersion: "7805"
+    uid: b103e361-32ab-4fe7-8368-ace1a679055f
+  reason: FeatureGatesInitialized
+  reportingComponent: cluster-network-operator
+  reportingInstance: ""
+  source:
+    component: cluster-network-operator
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "48028"

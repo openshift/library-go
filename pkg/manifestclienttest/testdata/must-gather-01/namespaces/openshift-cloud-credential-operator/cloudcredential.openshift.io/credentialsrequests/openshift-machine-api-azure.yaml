@@ -1,0 +1,120 @@
+---
+apiVersion: cloudcredential.openshift.io/v1
+kind: CredentialsRequest
+metadata:
+  annotations:
+    capability.openshift.io/name: MachineAPI
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  generation: 1
+  labels:
+    controller-tools.k8s.io: "1.0"
+  managedFields:
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:exclude.release.openshift.io/internal-openshift-hosted: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:labels:
+          .: {}
+          f:controller-tools.k8s.io: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:providerSpec:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:permissions: {}
+        f:secretRef:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+        f:serviceAccountNames: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:lastSyncGeneration: {}
+        f:provisioned: {}
+    manager: Go-http-client
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:47Z"
+  name: openshift-machine-api-azure
+  namespace: openshift-cloud-credential-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3215"
+  uid: b4b580a5-e336-458a-9c18-4eebeb1d5987
+spec:
+  providerSpec:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AzureProviderSpec
+    permissions:
+    - Microsoft.Compute/availabilitySets/delete
+    - Microsoft.Compute/availabilitySets/read
+    - Microsoft.Compute/availabilitySets/write
+    - Microsoft.Compute/diskEncryptionSets/read
+    - Microsoft.Compute/disks/delete
+    - Microsoft.Compute/galleries/images/versions/read
+    - Microsoft.Compute/skus/read
+    - Microsoft.Compute/virtualMachines/delete
+    - Microsoft.Compute/virtualMachines/extensions/delete
+    - Microsoft.Compute/virtualMachines/extensions/read
+    - Microsoft.Compute/virtualMachines/extensions/write
+    - Microsoft.Compute/virtualMachines/read
+    - Microsoft.Compute/virtualMachines/write
+    - Microsoft.ManagedIdentity/userAssignedIdentities/assign/action
+    - Microsoft.Network/applicationSecurityGroups/read
+    - Microsoft.Network/loadBalancers/backendAddressPools/join/action
+    - Microsoft.Network/loadBalancers/read
+    - Microsoft.Network/loadBalancers/write
+    - Microsoft.Network/networkInterfaces/delete
+    - Microsoft.Network/networkInterfaces/join/action
+    - Microsoft.Network/networkInterfaces/loadBalancers/read
+    - Microsoft.Network/networkInterfaces/read
+    - Microsoft.Network/networkInterfaces/write
+    - Microsoft.Network/networkSecurityGroups/read
+    - Microsoft.Network/networkSecurityGroups/write
+    - Microsoft.Network/publicIPAddresses/delete
+    - Microsoft.Network/publicIPAddresses/join/action
+    - Microsoft.Network/publicIPAddresses/read
+    - Microsoft.Network/publicIPAddresses/write
+    - Microsoft.Network/routeTables/read
+    - Microsoft.Network/virtualNetworks/delete
+    - Microsoft.Network/virtualNetworks/read
+    - Microsoft.Network/virtualNetworks/subnets/join/action
+    - Microsoft.Network/virtualNetworks/subnets/read
+    - Microsoft.Resources/subscriptions/resourceGroups/read
+  secretRef:
+    name: azure-cloud-credentials
+    namespace: openshift-machine-api
+  serviceAccountNames:
+  - machine-api-controllers
+status:
+  conditions:
+  - lastProbeTime: "2023-12-06T09:19:47Z"
+    lastTransitionTime: "2023-12-06T09:19:47Z"
+    message: CredentialsRequest is not for platform AWS
+    reason: InfrastructureMismatch
+    status: "True"
+    type: Ignored
+  lastSyncGeneration: 0
+  provisioned: false

@@ -1,0 +1,3483 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.129.0.14/23"],"mac_address":"0a:58:0a:81:00:0e","gateway_ips":["10.129.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.129.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.129.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.129.0.1"}],"ip_address":"10.129.0.14/23","gateway_ip":"10.129.0.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.129.0.14"
+            ],
+            "mac": "0a:58:0a:81:00:0e",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: restricted-v2
+      seccomp.security.alpha.kubernetes.io/pod: runtime/default
+    creationTimestamp: "2023-12-06T09:18:39Z"
+    generateName: cluster-image-registry-operator-797bf89d95-
+    labels:
+      name: cluster-image-registry-operator
+      pod-template-hash: 797bf89d95
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:name: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"59291aa9-a0a3-49db-a157-477f0a70a61f"}: {}
+        f:spec:
+          f:containers:
+            k:{"name":"cluster-image-registry-operator"}:
+              .: {}
+              f:args: {}
+              f:env:
+                .: {}
+                k:{"name":"AZURE_ENVIRONMENT_FILEPATH"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"IMAGE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"IMAGE_PRUNER"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"OPERATOR_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"POD_NAME"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+                k:{"name":"RELEASE_VERSION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"WATCH_NAMESPACE"}:
+                  .: {}
+                  f:name: {}
+                  f:valueFrom:
+                    .: {}
+                    f:fieldRef: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":60000,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:name: {}
+                  f:protocol: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/secrets"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/configmaps/trusted-ca/"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/openshift/serviceaccount"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                  f:readOnly: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:shareProcessNamespace: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"bound-sa-token"}:
+              .: {}
+              f:name: {}
+              f:projected:
+                .: {}
+                f:defaultMode: {}
+                f:sources: {}
+            k:{"name":"image-registry-operator-tls"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:secretName: {}
+            k:{"name":"trusted-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:39Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            .: {}
+            k:{"type":"PodScheduled"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:message: {}
+              f:reason: {}
+              f:status: {}
+              f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:18:39Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-21-63
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:20:49Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:21Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.129.0.14"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:21:43Z"
+    name: cluster-image-registry-operator-797bf89d95-krhc6
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: cluster-image-registry-operator-797bf89d95
+      uid: 59291aa9-a0a3-49db-a157-477f0a70a61f
+    resourceVersion: "8020"
+    uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+  spec:
+    containers:
+    - args:
+      - --files=/var/run/configmaps/trusted-ca/tls-ca-bundle.pem
+      - --files=/etc/secrets/tls.crt
+      - --files=/etc/secrets/tls.key
+      env:
+      - name: RELEASE_VERSION
+        value: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+      - name: WATCH_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: OPERATOR_NAME
+        value: cluster-image-registry-operator
+      - name: IMAGE
+        value: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      - name: IMAGE_PRUNER
+        value: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:a6ec4886c148ddb94a8a5469da65650cd7c6762a778b28593f69f257a260e05c
+      - name: AZURE_ENVIRONMENT_FILEPATH
+        value: /tmp/azurestackcloud.json
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2df6053b764c909ae50fbcbb08bb3609f5b10deb62566124d93c686ad3e80cee
+      imagePullPolicy: IfNotPresent
+      name: cluster-image-registry-operator
+      ports:
+      - containerPort: 60000
+        name: metrics
+        protocol: TCP
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+        runAsUser: 1000340000
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/configmaps/trusted-ca/
+        name: trusted-ca
+      - mountPath: /etc/secrets
+        name: image-registry-operator-tls
+      - mountPath: /var/run/secrets/openshift/serviceaccount
+        name: bound-sa-token
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-6vkdh
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000340000
+      seLinuxOptions:
+        level: s0:c18,c17
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: cluster-image-registry-operator
+    serviceAccountName: cluster-image-registry-operator
+    shareProcessNamespace: false
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 120
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    volumes:
+    - name: image-registry-operator-tls
+      secret:
+        defaultMode: 420
+        secretName: image-registry-operator-tls
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: tls-ca-bundle.pem
+        name: trusted-ca
+        optional: true
+      name: trusted-ca
+    - name: bound-sa-token
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            audience: openshift
+            expirationSeconds: 3600
+            path: token
+    - name: kube-api-access-6vkdh
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:20:49Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:43Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:21:43Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:20:49Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://bf3340d96805189a92b8eedd9dfc81664b52d0098455e1211e26143d5d85dc92
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2df6053b764c909ae50fbcbb08bb3609f5b10deb62566124d93c686ad3e80cee
+      imageID: 437bc9dfb32355aca95f1a39f64e808f65751e83995e4af2f26bf9a7abb000c2
+      lastState: {}
+      name: cluster-image-registry-operator
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:21:42Z"
+    hostIP: 10.0.21.63
+    phase: Running
+    podIP: 10.129.0.14
+    podIPs:
+    - ip: 10.129.0.14
+    qosClass: Burstable
+    startTime: "2023-12-06T09:20:49Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      imageregistry.operator.openshift.io/dependencies-checksum: sha256:f370096c734d353a2af6efa3a147d6314a3ca77f2a1c4c5bb33e00babfe21031
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.129.2.9/23"],"mac_address":"0a:58:0a:81:02:09","gateway_ips":["10.129.2.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.129.2.1"},{"dest":"172.30.0.0/16","nextHop":"10.129.2.1"},{"dest":"100.64.0.0/16","nextHop":"10.129.2.1"}],"ip_address":"10.129.2.9/23","gateway_ip":"10.129.2.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.129.2.9"
+            ],
+            "mac": "0a:58:0a:81:02:09",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: restricted-v2
+      seccomp.security.alpha.kubernetes.io/pod: runtime/default
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: image-registry-84cc678fbb-
+    labels:
+      docker-registry: default
+      pod-template-hash: 84cc678fbb
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:imageregistry.operator.openshift.io/dependencies-checksum: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:docker-registry: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"c168877e-d310-4f6f-bab5-bb02a685e2f2"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:podAntiAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"registry"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_INTERVAL"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_THRESHOLD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_NET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_SECRET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_TLS_CERTIFICATE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_TLS_KEY"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_LOG_LEVEL"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_METRICS_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_QUOTA_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_SERVER_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_DELETE_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_BUCKET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_CREDENTIALSCONFIGPATH"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_ENCRYPT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_REGION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_USEDUALSTACK"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_VIRTUALHOSTEDSTYLE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:lifecycle:
+                .: {}
+                f:preStop:
+                  .: {}
+                  f:exec:
+                    .: {}
+                    f:command: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":5000,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/pki/ca-trust/extracted"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/pki/ca-trust/source/anchors"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/secrets"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/usr/share/pki/ca-trust-source"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet/"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/cloud"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/run/secrets/openshift/serviceaccount"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                  f:readOnly: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext:
+            .: {}
+            f:fsGroup: {}
+            f:fsGroupChangePolicy: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:topologySpreadConstraints:
+            .: {}
+            k:{"topologyKey":"kubernetes.io/hostname","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+            k:{"topologyKey":"node-role.kubernetes.io/worker","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+            k:{"topologyKey":"topology.kubernetes.io/zone","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+          f:volumes:
+            .: {}
+            k:{"name":"bound-sa-token"}:
+              .: {}
+              f:name: {}
+              f:projected:
+                .: {}
+                f:defaultMode: {}
+                f:sources: {}
+            k:{"name":"ca-trust-extracted"}:
+              .: {}
+              f:emptyDir: {}
+              f:name: {}
+            k:{"name":"image-registry-private-configuration"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"installation-pull-secrets"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"registry-certificates"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"registry-tls"}:
+              .: {}
+              f:name: {}
+              f:projected:
+                .: {}
+                f:defaultMode: {}
+                f:sources: {}
+            k:{"name":"trusted-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-81-189
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:00Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:01Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.129.2.9"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:21Z"
+    name: image-registry-84cc678fbb-qswbr
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: image-registry-84cc678fbb
+      uid: c168877e-d310-4f6f-bab5-bb02a685e2f2
+    resourceVersion: "33221"
+    uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              docker-registry: default
+          namespaces:
+          - openshift-image-registry
+          topologyKey: kubernetes.io/hostname
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - mkdir -p /etc/pki/ca-trust/extracted/edk2 /etc/pki/ca-trust/extracted/java
+        /etc/pki/ca-trust/extracted/openssl /etc/pki/ca-trust/extracted/pem && update-ca-trust
+        extract && exec /usr/bin/dockerregistry
+      env:
+      - name: REGISTRY_STORAGE
+        value: s3
+      - name: REGISTRY_STORAGE_S3_BUCKET
+        value: ci-op-2j285qtr-234c7-w84r8-image-registry-us-west-1-dsvibyhbrf
+      - name: REGISTRY_STORAGE_S3_REGION
+        value: us-west-1
+      - name: REGISTRY_STORAGE_S3_ENCRYPT
+        value: "true"
+      - name: REGISTRY_STORAGE_S3_VIRTUALHOSTEDSTYLE
+        value: "false"
+      - name: REGISTRY_STORAGE_S3_CREDENTIALSCONFIGPATH
+        value: /var/run/secrets/cloud/credentials
+      - name: REGISTRY_STORAGE_S3_USEDUALSTACK
+        value: "true"
+      - name: REGISTRY_HTTP_ADDR
+        value: :5000
+      - name: REGISTRY_HTTP_NET
+        value: tcp
+      - name: REGISTRY_HTTP_SECRET
+        value: 3eddec752c9cc1b13624b8cf53e2b33d35618347cff88d3ad537a617f1d2e13acb3b9162177842315c5bcea8818ec08a8ecb7bccafb299aa135527239b277e78
+      - name: REGISTRY_LOG_LEVEL
+        value: info
+      - name: REGISTRY_OPENSHIFT_QUOTA_ENABLED
+        value: "true"
+      - name: REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR
+        value: inmemory
+      - name: REGISTRY_STORAGE_DELETE_ENABLED
+        value: "true"
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_ENABLED
+        value: "true"
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_INTERVAL
+        value: 10s
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_THRESHOLD
+        value: "1"
+      - name: REGISTRY_OPENSHIFT_METRICS_ENABLED
+        value: "true"
+      - name: REGISTRY_OPENSHIFT_SERVER_ADDR
+        value: image-registry.openshift-image-registry.svc:5000
+      - name: REGISTRY_HTTP_TLS_CERTIFICATE
+        value: /etc/secrets/tls.crt
+      - name: REGISTRY_HTTP_TLS_KEY
+        value: /etc/secrets/tls.key
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - sleep
+            - "25"
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 5000
+          scheme: HTTPS
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: registry
+      ports:
+      - containerPort: 5000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 5000
+          scheme: HTTPS
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+        runAsUser: 1000340000
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/cloud
+        name: image-registry-private-configuration
+        readOnly: true
+      - mountPath: /etc/secrets
+        name: registry-tls
+      - mountPath: /etc/pki/ca-trust/extracted
+        name: ca-trust-extracted
+      - mountPath: /etc/pki/ca-trust/source/anchors
+        name: registry-certificates
+      - mountPath: /usr/share/pki/ca-trust-source
+        name: trusted-ca
+      - mountPath: /var/lib/kubelet/
+        name: installation-pull-secrets
+      - mountPath: /var/run/secrets/openshift/serviceaccount
+        name: bound-sa-token
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-2wnsr
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: registry-dockercfg-d9bq5
+    nodeName: ip-10-0-81-189.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000340000
+      fsGroupChangePolicy: OnRootMismatch
+      seLinuxOptions:
+        level: s0:c18,c17
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: registry
+    serviceAccountName: registry
+    terminationGracePeriodSeconds: 55
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    topologySpreadConstraints:
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: node-role.kubernetes.io/worker
+      whenUnsatisfiable: DoNotSchedule
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+    volumes:
+    - name: image-registry-private-configuration
+      secret:
+        defaultMode: 420
+        optional: false
+        secretName: image-registry-private-configuration
+    - name: registry-tls
+      projected:
+        defaultMode: 420
+        sources:
+        - secret:
+            name: image-registry-tls
+    - emptyDir: {}
+      name: ca-trust-extracted
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: registry-certificates
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: anchors/ca-bundle.crt
+        name: trusted-ca
+        optional: true
+      name: trusted-ca
+    - name: installation-pull-secrets
+      secret:
+        defaultMode: 420
+        items:
+        - key: .dockerconfigjson
+          path: config.json
+        optional: true
+        secretName: installation-pull-secrets
+    - name: bound-sa-token
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            audience: openshift
+            expirationSeconds: 3600
+            path: token
+    - name: kube-api-access-2wnsr
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:21Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:21Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://6b50fcffb0bf3f964d4a3a48393accd46eaf5d51d78bef5e82a8c887d27b7cea
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: registry
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:04Z"
+    hostIP: 10.0.81.189
+    phase: Running
+    podIP: 10.129.2.9
+    podIPs:
+    - ip: 10.129.2.9
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      imageregistry.operator.openshift.io/dependencies-checksum: sha256:f370096c734d353a2af6efa3a147d6314a3ca77f2a1c4c5bb33e00babfe21031
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.128.2.10/23"],"mac_address":"0a:58:0a:80:02:0a","gateway_ips":["10.128.2.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.128.2.1"},{"dest":"172.30.0.0/16","nextHop":"10.128.2.1"},{"dest":"100.64.0.0/16","nextHop":"10.128.2.1"}],"ip_address":"10.128.2.10/23","gateway_ip":"10.128.2.1"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.128.2.10"
+            ],
+            "mac": "0a:58:0a:80:02:0a",
+            "default": true,
+            "dns": {}
+        }]
+      openshift.io/scc: restricted-v2
+      seccomp.security.alpha.kubernetes.io/pod: runtime/default
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: image-registry-84cc678fbb-
+    labels:
+      docker-registry: default
+      pod-template-hash: 84cc678fbb
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:imageregistry.operator.openshift.io/dependencies-checksum: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:docker-registry: {}
+            f:pod-template-hash: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"c168877e-d310-4f6f-bab5-bb02a685e2f2"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:podAntiAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"registry"}:
+              .: {}
+              f:command: {}
+              f:env:
+                .: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_INTERVAL"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HEALTH_STORAGEDRIVER_THRESHOLD"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_NET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_SECRET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_TLS_CERTIFICATE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_HTTP_TLS_KEY"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_LOG_LEVEL"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_METRICS_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_QUOTA_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_OPENSHIFT_SERVER_ADDR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_DELETE_ENABLED"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_BUCKET"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_CREDENTIALSCONFIGPATH"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_ENCRYPT"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_REGION"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_USEDUALSTACK"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+                k:{"name":"REGISTRY_STORAGE_S3_VIRTUALHOSTEDSTYLE"}:
+                  .: {}
+                  f:name: {}
+                  f:value: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:lifecycle:
+                .: {}
+                f:preStop:
+                  .: {}
+                  f:exec:
+                    .: {}
+                    f:command: {}
+              f:livenessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:name: {}
+              f:ports:
+                .: {}
+                k:{"containerPort":5000,"protocol":"TCP"}:
+                  .: {}
+                  f:containerPort: {}
+                  f:protocol: {}
+              f:readinessProbe:
+                .: {}
+                f:failureThreshold: {}
+                f:httpGet:
+                  .: {}
+                  f:path: {}
+                  f:port: {}
+                  f:scheme: {}
+                f:initialDelaySeconds: {}
+                f:periodSeconds: {}
+                f:successThreshold: {}
+                f:timeoutSeconds: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/pki/ca-trust/extracted"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/pki/ca-trust/source/anchors"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/etc/secrets"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/usr/share/pki/ca-trust-source"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/lib/kubelet/"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/var/run/secrets/cloud"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                  f:readOnly: {}
+                k:{"mountPath":"/var/run/secrets/openshift/serviceaccount"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                  f:readOnly: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext:
+            .: {}
+            f:fsGroup: {}
+            f:fsGroupChangePolicy: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:topologySpreadConstraints:
+            .: {}
+            k:{"topologyKey":"kubernetes.io/hostname","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+            k:{"topologyKey":"node-role.kubernetes.io/worker","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+            k:{"topologyKey":"topology.kubernetes.io/zone","whenUnsatisfiable":"DoNotSchedule"}:
+              .: {}
+              f:labelSelector: {}
+              f:maxSkew: {}
+              f:topologyKey: {}
+              f:whenUnsatisfiable: {}
+          f:volumes:
+            .: {}
+            k:{"name":"bound-sa-token"}:
+              .: {}
+              f:name: {}
+              f:projected:
+                .: {}
+                f:defaultMode: {}
+                f:sources: {}
+            k:{"name":"ca-trust-extracted"}:
+              .: {}
+              f:emptyDir: {}
+              f:name: {}
+            k:{"name":"image-registry-private-configuration"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"installation-pull-secrets"}:
+              .: {}
+              f:name: {}
+              f:secret:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:optional: {}
+                f:secretName: {}
+            k:{"name":"registry-certificates"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+            k:{"name":"registry-tls"}:
+              .: {}
+              f:name: {}
+              f:projected:
+                .: {}
+                f:defaultMode: {}
+                f:sources: {}
+            k:{"name":"trusted-ca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:items: {}
+                f:name: {}
+                f:optional: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.ovn.org/pod-networks: {}
+      manager: ip-10-0-7-104
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:00Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:k8s.v1.cni.cncf.io/network-status: {}
+      manager: multus-daemon
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:02Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.128.2.10"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:22Z"
+    name: image-registry-84cc678fbb-rz84t
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: image-registry-84cc678fbb
+      uid: c168877e-d310-4f6f-bab5-bb02a685e2f2
+    resourceVersion: "33260"
+    uid: add4f045-33ba-493d-b037-62f29a536c9a
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              docker-registry: default
+          namespaces:
+          - openshift-image-registry
+          topologyKey: kubernetes.io/hostname
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - mkdir -p /etc/pki/ca-trust/extracted/edk2 /etc/pki/ca-trust/extracted/java
+        /etc/pki/ca-trust/extracted/openssl /etc/pki/ca-trust/extracted/pem && update-ca-trust
+        extract && exec /usr/bin/dockerregistry
+      env:
+      - name: REGISTRY_STORAGE
+        value: s3
+      - name: REGISTRY_STORAGE_S3_BUCKET
+        value: ci-op-2j285qtr-234c7-w84r8-image-registry-us-west-1-dsvibyhbrf
+      - name: REGISTRY_STORAGE_S3_REGION
+        value: us-west-1
+      - name: REGISTRY_STORAGE_S3_ENCRYPT
+        value: "true"
+      - name: REGISTRY_STORAGE_S3_VIRTUALHOSTEDSTYLE
+        value: "false"
+      - name: REGISTRY_STORAGE_S3_CREDENTIALSCONFIGPATH
+        value: /var/run/secrets/cloud/credentials
+      - name: REGISTRY_STORAGE_S3_USEDUALSTACK
+        value: "true"
+      - name: REGISTRY_HTTP_ADDR
+        value: :5000
+      - name: REGISTRY_HTTP_NET
+        value: tcp
+      - name: REGISTRY_HTTP_SECRET
+        value: 3eddec752c9cc1b13624b8cf53e2b33d35618347cff88d3ad537a617f1d2e13acb3b9162177842315c5bcea8818ec08a8ecb7bccafb299aa135527239b277e78
+      - name: REGISTRY_LOG_LEVEL
+        value: info
+      - name: REGISTRY_OPENSHIFT_QUOTA_ENABLED
+        value: "true"
+      - name: REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR
+        value: inmemory
+      - name: REGISTRY_STORAGE_DELETE_ENABLED
+        value: "true"
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_ENABLED
+        value: "true"
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_INTERVAL
+        value: 10s
+      - name: REGISTRY_HEALTH_STORAGEDRIVER_THRESHOLD
+        value: "1"
+      - name: REGISTRY_OPENSHIFT_METRICS_ENABLED
+        value: "true"
+      - name: REGISTRY_OPENSHIFT_SERVER_ADDR
+        value: image-registry.openshift-image-registry.svc:5000
+      - name: REGISTRY_HTTP_TLS_CERTIFICATE
+        value: /etc/secrets/tls.crt
+      - name: REGISTRY_HTTP_TLS_KEY
+        value: /etc/secrets/tls.key
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - sleep
+            - "25"
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 5000
+          scheme: HTTPS
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: registry
+      ports:
+      - containerPort: 5000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 5000
+          scheme: HTTPS
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+        runAsUser: 1000340000
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/cloud
+        name: image-registry-private-configuration
+        readOnly: true
+      - mountPath: /etc/secrets
+        name: registry-tls
+      - mountPath: /etc/pki/ca-trust/extracted
+        name: ca-trust-extracted
+      - mountPath: /etc/pki/ca-trust/source/anchors
+        name: registry-certificates
+      - mountPath: /usr/share/pki/ca-trust-source
+        name: trusted-ca
+      - mountPath: /var/lib/kubelet/
+        name: installation-pull-secrets
+      - mountPath: /var/run/secrets/openshift/serviceaccount
+        name: bound-sa-token
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-5pdr5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: registry-dockercfg-d9bq5
+    nodeName: ip-10-0-7-104.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000340000
+      fsGroupChangePolicy: OnRootMismatch
+      seLinuxOptions:
+        level: s0:c18,c17
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: registry
+    serviceAccountName: registry
+    terminationGracePeriodSeconds: 55
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
+    topologySpreadConstraints:
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: node-role.kubernetes.io/worker
+      whenUnsatisfiable: DoNotSchedule
+    - labelSelector:
+        matchLabels:
+          docker-registry: default
+      maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+    volumes:
+    - name: image-registry-private-configuration
+      secret:
+        defaultMode: 420
+        optional: false
+        secretName: image-registry-private-configuration
+    - name: registry-tls
+      projected:
+        defaultMode: 420
+        sources:
+        - secret:
+            name: image-registry-tls
+    - emptyDir: {}
+      name: ca-trust-extracted
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: registry-certificates
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: ca-bundle.crt
+          path: anchors/ca-bundle.crt
+        name: trusted-ca
+        optional: true
+      name: trusted-ca
+    - name: installation-pull-secrets
+      secret:
+        defaultMode: 420
+        items:
+        - key: .dockerconfigjson
+          path: config.json
+        optional: true
+        secretName: installation-pull-secrets
+    - name: bound-sa-token
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            audience: openshift
+            expirationSeconds: 3600
+            path: token
+    - name: kube-api-access-5pdr5
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:22Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:22Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://390eb25eefeb78f19124231c5a1dbb0ca850bf52dff3f4d56c3f48e3d6b72212
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: registry
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.7.104
+    phase: Running
+    podIP: 10.128.2.10
+    podIPs:
+    - ip: 10.128.2.10
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.7.104"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-c4fwc
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31868"
+    uid: b3ee75ed-254b-4afb-84e1-90ab2a9cb3b9
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-7-104.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-b78lt
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-7-104.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-b78lt
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://4cb1c0921b8feb3e9d05b41d096e954b8e2c6c3b4eacd61d8497ce293421a4e8
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.7.104
+    phase: Running
+    podIP: 10.0.7.104
+    podIPs:
+    - ip: 10.0.7.104
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.106.212"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:06Z"
+    name: node-ca-cp4jz
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31933"
+    uid: 06cedf75-9462-4b28-a0f2-e0430b48b560
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-106-212.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-cxsp9
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-cxsp9
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:06Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:06Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://b3c13c1edfe2c1f38e0cca0e0112d3eb4e4f1c7fc30a47cd31ea0791f2060d30
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.106.212
+    phase: Running
+    podIP: 10.0.106.212
+    podIPs:
+    - ip: 10.0.106.212
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.94.160"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:06Z"
+    name: node-ca-fhbsd
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31949"
+    uid: 82cf801f-fc7c-4119-86d1-428010f40b46
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-94-160.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-ftb2x
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-ftb2x
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:06Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:06Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://e85234765d0b0ae839beaf4ea454177e41806b1e6e27504fee6a3ca7879605b6
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.94.160
+    phase: Running
+    podIP: 10.0.94.160
+    podIPs:
+    - ip: 10.0.94.160
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.21.63"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-kmpcs
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31806"
+    uid: fd61b8df-2225-494f-b71f-593dd0c67730
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-21-63.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-m78x8
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-m78x8
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://1c0a769b7b73a68d53bd1fc34a215db945d166fbb0d83b7c11948f4c08d46e4f
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.21.63
+    phase: Running
+    podIP: 10.0.21.63
+    podIPs:
+    - ip: 10.0.21.63
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.81.189"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-lnf44
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31777"
+    uid: 6fca2c74-4c5f-4488-bc9f-30150e99269d
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-81-189.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-6z8gv
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-81-189.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-6z8gv
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://c62ddac5479458b5b37253355f146dea573480a47406fa757fbd8189f0c5f297
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:04Z"
+    hostIP: 10.0.81.189
+    phase: Running
+    podIP: 10.0.81.189
+    podIPs:
+    - ip: 10.0.81.189
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      openshift.io/scc: privileged
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: node-ca-
+    labels:
+      controller-revision-hash: 565699f8fb
+      name: node-ca
+      pod-template-generation: "1"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:target.workload.openshift.io/management: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:controller-revision-hash: {}
+            f:name: {}
+            f:pod-template-generation: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8c6fcc94-a23b-40ba-a355-c545601bdd00"}: {}
+        f:spec:
+          f:affinity:
+            .: {}
+            f:nodeAffinity:
+              .: {}
+              f:requiredDuringSchedulingIgnoredDuringExecution: {}
+          f:containers:
+            k:{"name":"node-ca"}:
+              .: {}
+              f:command: {}
+              f:image: {}
+              f:imagePullPolicy: {}
+              f:name: {}
+              f:resources:
+                .: {}
+                f:requests:
+                  .: {}
+                  f:cpu: {}
+                  f:memory: {}
+              f:securityContext:
+                .: {}
+                f:privileged: {}
+                f:runAsGroup: {}
+                f:runAsUser: {}
+              f:terminationMessagePath: {}
+              f:terminationMessagePolicy: {}
+              f:volumeMounts:
+                .: {}
+                k:{"mountPath":"/etc/docker/certs.d"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+                k:{"mountPath":"/tmp/serviceca"}:
+                  .: {}
+                  f:mountPath: {}
+                  f:name: {}
+          f:dnsPolicy: {}
+          f:enableServiceLinks: {}
+          f:hostNetwork: {}
+          f:nodeSelector: {}
+          f:priorityClassName: {}
+          f:restartPolicy: {}
+          f:schedulerName: {}
+          f:securityContext: {}
+          f:serviceAccount: {}
+          f:serviceAccountName: {}
+          f:terminationGracePeriodSeconds: {}
+          f:tolerations: {}
+          f:volumes:
+            .: {}
+            k:{"name":"host"}:
+              .: {}
+              f:hostPath:
+                .: {}
+                f:path: {}
+                f:type: {}
+              f:name: {}
+            k:{"name":"serviceca"}:
+              .: {}
+              f:configMap:
+                .: {}
+                f:defaultMode: {}
+                f:name: {}
+              f:name: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          f:conditions:
+            k:{"type":"ContainersReady"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Initialized"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+            k:{"type":"Ready"}:
+              .: {}
+              f:lastProbeTime: {}
+              f:lastTransitionTime: {}
+              f:status: {}
+              f:type: {}
+          f:containerStatuses: {}
+          f:hostIP: {}
+          f:phase: {}
+          f:podIP: {}
+          f:podIPs:
+            .: {}
+            k:{"ip":"10.0.122.108"}:
+              .: {}
+              f:ip: {}
+          f:startTime: {}
+      manager: kubelet
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:39:05Z"
+    name: node-ca-z4fb9
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DaemonSet
+      name: node-ca
+      uid: 8c6fcc94-a23b-40ba-a355-c545601bdd00
+    resourceVersion: "31907"
+    uid: 072fea58-1cbe-4da7-af6b-82c32db1d959
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchFields:
+            - key: metadata.name
+              operator: In
+              values:
+              - ip-10-0-122-108.us-west-1.compute.internal
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        trap 'jobs -p | xargs -r kill; echo shutting down node-ca; exit 0' TERM
+        while [ true ];
+        do
+          for f in $(ls /tmp/serviceca); do
+              echo $f
+              ca_file_path="/tmp/serviceca/${f}"
+              f=$(echo $f | sed  -r 's/(.*)\.\./\1:/')
+              reg_dir_path="/etc/docker/certs.d/${f}"
+              if [ -e "${reg_dir_path}" ]; then
+                  cp -u $ca_file_path $reg_dir_path/ca.crt
+              else
+                  mkdir $reg_dir_path
+                  cp $ca_file_path $reg_dir_path/ca.crt
+              fi
+          done
+          for d in $(ls /etc/docker/certs.d); do
+              echo $d
+              dp=$(echo $d | sed  -r 's/(.*):/\1\.\./')
+              reg_conf_path="/tmp/serviceca/${dp}"
+              if [ ! -e "${reg_conf_path}" ]; then
+                  rm -rf /etc/docker/certs.d/$d
+              fi
+          done
+          sleep 60 & wait ${!}
+        done
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imagePullPolicy: IfNotPresent
+      name: node-ca
+      resources:
+        requests:
+          cpu: 10m
+          memory: 10Mi
+      securityContext:
+        privileged: true
+        runAsGroup: 0
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/serviceca
+        name: serviceca
+      - mountPath: /etc/docker/certs.d
+        name: host
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-kk995
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostNetwork: true
+    imagePullSecrets:
+    - name: node-ca-dockercfg-9wjsj
+    nodeName: ip-10-0-122-108.us-west-1.compute.internal
+    nodeSelector:
+      kubernetes.io/os: linux
+    preemptionPolicy: PreemptLowerPriority
+    priority: 2000000000
+    priorityClassName: system-cluster-critical
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: node-ca
+    serviceAccountName: node-ca
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - operator: Exists
+    volumes:
+    - hostPath:
+        path: /etc/docker/certs.d
+        type: ""
+      name: host
+    - configMap:
+        defaultMode: 420
+        name: image-registry-certificates
+      name: serviceca
+    - name: kube-api-access-kk995
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:05Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2023-12-06T09:39:00Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://351c7f1bfba3f05902f7f229234eec113c50f68dea5bf41dedd27716b16e69db
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+      imageID: 2e4fc42060b0c104f524d2df69e6737f93b48902defb6f4ac0cc1db25e6771da
+      lastState: {}
+      name: node-ca
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2023-12-06T09:39:05Z"
+    hostIP: 10.0.122.108
+    phase: Running
+    podIP: 10.0.122.108
+    podIPs:
+    - ip: 10.0.122.108
+    qosClass: Burstable
+    startTime: "2023-12-06T09:39:00Z"
+kind: PodList
+metadata:
+  resourceVersion: "47734"

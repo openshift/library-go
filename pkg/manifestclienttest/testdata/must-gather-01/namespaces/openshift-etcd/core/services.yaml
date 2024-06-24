@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      operator.openshift.io/spec-hash: 0685cfaa0976bfb7ba58513629369c20bf05f4fba36949e982bdb43af328f0e1
+      prometheus.io/scheme: https
+      prometheus.io/scrape: "true"
+      service.alpha.openshift.io/serving-cert-secret-name: serving-cert
+      service.alpha.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+      service.beta.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+    creationTimestamp: "2023-12-06T09:17:54Z"
+    labels:
+      k8s-app: etcd
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:k8s-app: {}
+        f:spec:
+          f:internalTrafficPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":2379,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+            k:{"port":9979,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: cluster-bootstrap
+      operation: Update
+      time: "2023-12-06T09:17:54Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:operator.openshift.io/spec-hash: {}
+            f:prometheus.io/scheme: {}
+            f:prometheus.io/scrape: {}
+            f:service.alpha.openshift.io/serving-cert-secret-name: {}
+        f:spec:
+          f:selector: {}
+      manager: cluster-etcd-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            f:service.alpha.openshift.io/serving-cert-signed-by: {}
+            f:service.beta.openshift.io/serving-cert-signed-by: {}
+      manager: service-ca-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: etcd
+    namespace: openshift-etcd
+    resourceVersion: "6507"
+    uid: 0d9b83d6-8f75-42f8-8e7f-a3c09ed7a36c
+  spec:
+    clusterIP: 172.30.180.190
+    clusterIPs:
+    - 172.30.180.190
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: etcd
+      port: 2379
+      protocol: TCP
+      targetPort: 2379
+    - name: etcd-metrics
+      port: 9979
+      protocol: TCP
+      targetPort: 9979
+    selector:
+      etcd: "true"
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+kind: ServiceList
+metadata:
+  resourceVersion: "47723"

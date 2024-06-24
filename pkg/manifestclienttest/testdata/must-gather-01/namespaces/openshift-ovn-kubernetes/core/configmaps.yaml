@@ -1,0 +1,1002 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    topology-version: "5"
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          f:topology-version: {}
+      manager: ovn-kubernetes
+      operation: Apply
+      time: "2023-12-06T09:20:34Z"
+    name: control-plane-status
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "4162"
+    uid: fb3bb598-75e3-4895-917e-674a03da0ab1
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDMjCCAhqgAwIBAgIIL1atO8GIllowDQYJKoZIhvcNAQELBQAwNzESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSEwHwYDVQQDExhrdWJlLWFwaXNlcnZlci1sYi1zaWduZXIw
+      HhcNMjMxMjA2MDkwOTA2WhcNMzMxMjAzMDkwOTA2WjA3MRIwEAYDVQQLEwlvcGVu
+      c2hpZnQxITAfBgNVBAMTGGt1YmUtYXBpc2VydmVyLWxiLXNpZ25lcjCCASIwDQYJ
+      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAKJrmd+L5meq79Z7Kj68Hly2ywdWjbFa
+      57dB7i+POd6AvzWXdzBGigklYVh5+qVms6zt35gbckKkFQ5FUZdgcMNTqDE6RBa7
+      AMz6jWQXaEQ9wdCMvgqrd3APdMoqZob5Elh8fHELK8nyqiraTG/sCmcwZfc3OX1v
+      NtzC2AUU2D/JJALw7nxJMz+HiWgXx4cQBfICd0Huxw6kLIqNWzV1IsUzeX9MuNFL
+      bkf9sPoU5Qggh0ZDGzEk+N8p3ksGKfxzYFWht30Pgm3teyV4BNrfgpjPdCTjG8eq
+      09U7garpYbGU4AVFntQAirjq9PO9szx5Vkt96//nYrUuOuq1snlWxL0CAwEAAaNC
+      MEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFA5K
+      kw/xJ9WY77BzffffGyTDMBbPMA0GCSqGSIb3DQEBCwUAA4IBAQCXkQ6lxP4cQcLf
+      Ey0IAsXrkcPUfGGBsPhAaAhnInvgeokwKqnD7vbejgjbUvIqK3tpFbo5z2QFYz4u
+      GIWtlS/0wv6f0IXNWg9SFztrryOA8T+0bhZOTprObUg7e0UEFBXZSQJo4iTYZvP9
+      r8JXy9xVbcBTpNUj8kMycPBDYldNzabXWJfsBX58zLC6gGNgfxvxM/GgCMn8CuHM
+      46xV2Fig+5BYxQSmjRqZgJqM0ua4xSlmicDLdI1iiCnAmTQw9+Kh7ODo8gKwPxhi
+      HC/xwtDUDLjIp/l7PQ5ngp1K3IeH/A6wNAP4UTBQ9fHEObCCjHxzWG5KDhVldZ9d
+      FxYyOQ5U
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDQDCCAiigAwIBAgIIDI8/bwZkywMwDQYJKoZIhvcNAQELBQAwPjESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSgwJgYDVQQDEx9rdWJlLWFwaXNlcnZlci1sb2NhbGhvc3Qt
+      c2lnbmVyMB4XDTIzMTIwNjA5MDkwNloXDTMzMTIwMzA5MDkwNlowPjESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSgwJgYDVQQDEx9rdWJlLWFwaXNlcnZlci1sb2NhbGhvc3Qt
+      c2lnbmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0APGIOlyNXh0
+      TNotf9ffTnxXItlba3l4IeTIjKTw4OJJAZ6tOij9rSnNfSIVJ0YxBfOQ91kQwHP0
+      s7S/hU5oja1SSPxKEWhBzJTilodIs8MKpqciTjCrCJa3MvqoRgTomZMtfibVUDVM
+      W+xTTIqC2nIOaWYV/sIWeeSBiddFUFiZI8UhL2/Dlj9Zmfi9afrYu1FgoCkiutNa
+      RS3b91lCowL/ZQtkYEYJnW5EcDR0KhkkJ1QINBqI4/RV8aMFWO2DBEptDLZdK4t4
+      bqipmzS8XAmRMSYKspin+OMU2l8lrD4YMFHGJTwdxemTlqaymCJusHcgl/WIYKpd
+      PwKoCKRzMQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB
+      /zAdBgNVHQ4EFgQUBoxa4WcpeP5PJvc93LCNlZWOQeUwDQYJKoZIhvcNAQELBQAD
+      ggEBAHjC9CSRSorbhjlV/T2GqTC0KEr68CF1w4Maj8J5YHSIacEmtoZFAyxChciG
+      kuk0J/1mN3vZvaUDM/FLSd8424J9lFlgSSW7ff9FU0hkgMlMz+BSAaPVfBfXX8ML
+      DrgoLuJsLbROpzOwSCKeal+GY36ZREG3T3k3piA3JGZrAmHYqbbRNwMSB4igOFVL
+      yGwSqSUmE8JE/L43jaBGK47K9OcfKYzHMzLsek8rbMCeZmh5ou66YFdE7rpcQuqk
+      jxLsDb2b5eYbMzno4FmaewPUPGk29nX5Lg+O5R3bmuOA0PsHFlKNScsuesZeG1IC
+      Xs7hJHpwaeXOalnLTMqBP9ktW2E=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDTDCCAjSgAwIBAgIIZiJpwezp6EIwDQYJKoZIhvcNAQELBQAwRDESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MS4wLAYDVQQDEyVrdWJlLWFwaXNlcnZlci1zZXJ2aWNlLW5l
+      dHdvcmstc2lnbmVyMB4XDTIzMTIwNjA5MDkwNloXDTMzMTIwMzA5MDkwNlowRDES
+      MBAGA1UECxMJb3BlbnNoaWZ0MS4wLAYDVQQDEyVrdWJlLWFwaXNlcnZlci1zZXJ2
+      aWNlLW5ldHdvcmstc2lnbmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+      AQEAyGX3d3W5NArHA9Jp69jsdl4se+QJ6YYv5e3ZH36mip9nDHwf2fMKdT0uQWLl
+      NKMOuMUeuNzNH/YbuCG3JyWwovMhkCszTZn9oZbp4u9evFrGVuKJth3rkVY1R5yp
+      Rugu5xN/4sB2BalqApP1K1Zt3IqVbV+xWywRXBFYqVZMdCM5EQoYSQU4DELFLnOq
+      oHfBinDmeMaOTvTnPkueIR4xT7toZ62qYqTjNqIbh10ScCM99/1zb8tKrqHcx4SH
+      UGZSjAdXbQKYPVxvA5NyA7dCqC9NCeB4KYRfI9hfN+p9khFQhJVt0GwlyJ13Tq/+
+      xggd68R4mkRlswOo7CHzMn2YOQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYD
+      VR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUUFOZixiVkMoQNLqot/NG9rPsMT4wDQYJ
+      KoZIhvcNAQELBQADggEBAMSDA1Ku4QDA6xGh3lWkTUwQZfKLykH4Sm3QiX1qeDwQ
+      Qa4FEOL4Z8L4dpNOjdFsqsh/lzxqeYnfuZMQyLSq2bkA2T6IqbQVa/CXL4zmlqBk
+      WuKprAAholo/qc3xfMmwz0l4MawYhXD5fieMxmYurGiWfnDjKCpPOuGq0vMr7xm+
+      FTjjfxgIONOouzH8dmWeL12zB78M+PXXleOpOcfjx1q2yxZgL5/6nc+pmkyMTQXs
+      eo8Q64Qw0wSwZPSWgbfDuSyE4LMRKFpVLWqrQqes2QEqOTgemCTauWlwSVMR2ozy
+      gar3cG7/2AvOt3BY2a3fSoeUR9Ooz5of+jHOvaCXyZ8=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDlzCCAn+gAwIBAgIIOTlW4jjPfFAwDQYJKoZIhvcNAQELBQAwWTFXMFUGA1UE
+      AwxOb3BlbnNoaWZ0LWt1YmUtYXBpc2VydmVyLW9wZXJhdG9yX2xvY2FsaG9zdC1y
+      ZWNvdmVyeS1zZXJ2aW5nLXNpZ25lckAxNzAxODU0NDcwMB4XDTIzMTIwNjA5MjEx
+      MFoXDTMzMTIwMzA5MjExMVowWTFXMFUGA1UEAwxOb3BlbnNoaWZ0LWt1YmUtYXBp
+      c2VydmVyLW9wZXJhdG9yX2xvY2FsaG9zdC1yZWNvdmVyeS1zZXJ2aW5nLXNpZ25l
+      ckAxNzAxODU0NDcwMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0F5x
+      VwVD8z1vns5ktYgMSrhLBc+r1KNi36t8NPnOkB/cCSMPU8rDPsArGyNyaxxrOfhn
+      P0VoR9bE3TCFIGulm8rGePzuZ2p0z6eVDmQeG4vLoMr+qFZYsQ5YsBfQrDY/5XOQ
+      t9qgGSEasdkAwtnqwu7nhML7PHT1F0wGZZk3XPqESwx/T8Puq8wqzMK6ApVPdsa9
+      Hok3PtPdOzdord+DB4fGty5O+iZzfbN0XGcWqP/hlwxs/pkFq/u9yVks6uh+3b5C
+      hOxVf5HO6gom6sk1GLlEPy0Wp9y6Y6diNtqvOJJViqzelnf2k9pIEMYJl3qywZgq
+      DAAht0U7iQvIWfOtKwIDAQABo2MwYTAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/
+      BAUwAwEB/zAdBgNVHQ4EFgQUqPnb/GMV4dPhxjl46mMlVuTJenowHwYDVR0jBBgw
+      FoAUqPnb/GMV4dPhxjl46mMlVuTJenowDQYJKoZIhvcNAQELBQADggEBALTFW0qk
+      FDrWVp/iuCCR7Zog6oI9gNr97+ZmCzyBggoQwNwYyGOUCTyIdPdqlLQ1nYK/jumd
+      JtANYtw/AphUQ5jOfN0E0+k7taPOqxt2b8a2UJEfy7FH5irk/sHbzDLd2mBgsnE2
+      yAOMcT6RViDXH0NU4U4jtRoNgE++DZxPx86N/yjezPhREDb1QdIsnrJjlbsfvuLz
+      38sjSo5Z47xMkiEBo7ZPyn4CgkGbjZE4GTywzPUPcI1QceDrA6W90AwGhe74Yo58
+      AXh7d76VtW2ZTigInqgCBzjuK6UgbvbDPmhRCKBRzp2dkAQf+wsJspKUL4tKfr56
+      CKNZDxg9pt4STX4=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDsTCCApmgAwIBAgIIf3r9hwb0H/YwDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
+      AwwbaW5ncmVzcy1vcGVyYXRvckAxNzAxODU0NTAzMB4XDTIzMTIwNjA5MjE0M1oX
+      DTI1MTIwNTA5MjE0NFowSDFGMEQGA1UEAww9Ki5hcHBzLmNpLW9wLTJqMjg1cXRy
+      LTIzNGM3Lm9yaWdpbi1jaS1pbnQtYXdzLmRldi5yaGNsb3VkLmNvbTCCASIwDQYJ
+      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAMaixxcG+GtCk49lso4i4m436LM9Jmg7
+      3jvJDLjFFe7lqLds62swlpYXzvCL293rZoUTnMMRwCg52NIVDWP17P8oTnS4ek3l
+      Wlr7e3xLd6Q41c4ZfJ8Tz6r/V+OOm1zNiJ1EDSjng7J+nrI2sYt5pxca2UmU0T+K
+      pOHDREgd7k177nAnSRNxFCTVz1WHYHyt2k2/iwJzxERYplVr8H7B5Cr4bASSeB5D
+      2hK7BNbtxpLksN6o3EMT5vSUUFjSbWFLzSCWp9qMg3dF9v5LFzdJzwNiQbtXYWUt
+      FfrjHRaWKxTyDKSLs8TmWH/33IMgsfktyDnXXz9aYgISYqnpFtXtKsMCAwEAAaOB
+      wDCBvTAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0T
+      AQH/BAIwADAdBgNVHQ4EFgQUDLbGtublZb+GAzhUi2I0ZDU5eSMwHwYDVR0jBBgw
+      FoAUxU/QaLMsy0r2FIw7wpp8L9F3FfcwSAYDVR0RBEEwP4I9Ki5hcHBzLmNpLW9w
+      LTJqMjg1cXRyLTIzNGM3Lm9yaWdpbi1jaS1pbnQtYXdzLmRldi5yaGNsb3VkLmNv
+      bTANBgkqhkiG9w0BAQsFAAOCAQEAbZ8LMZs6h2ZU6aq9gzJQ1xI3DZ8W9CKijXV9
+      ySpQDmFf1SKc8n3YrFAZjB51pnu76MfG9UHdeNd+YjPr2NK3olsCne3ANOAq8Tfr
+      12HOx3rE87kMSA6DZihUSgZWbrAIIsCTilfH4xtnipvzOzivqfbVYZPTeAmwh5Xz
+      yfTccEP0DH9qYdwgzoMjVlK7KFz5Fz6h1/aMNJTx9orxMC562PQwirlnXRstATmS
+      XRMw3FLHc2Gd1g0wVdHhWZIju2JcEgUhaevFKwsiNZ6NNRvat3zCwGZsOUscnDSU
+      JMmTnQCRjsszvxFUj+VyCZZpqlepnbSUTBe6q1jzoDLMo7x5ig==
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
+      ZXNzLW9wZXJhdG9yQDE3MDE4NTQ1MDMwHhcNMjMxMjA2MDkyMTQyWhcNMjUxMjA1
+      MDkyMTQzWjAmMSQwIgYDVQQDDBtpbmdyZXNzLW9wZXJhdG9yQDE3MDE4NTQ1MDMw
+      ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDXO4feyiXJQtSyn3pTeieZ
+      HzqoTei5tJjOwQcGpNvJOgQi5bpDeuCVp0oXYj6c4R/SOpehLnScaeQ0DZu8Ns+h
+      b3SSklkMq3K2jNDoegZnEhKn5u24mBubywHZwlwD+2NESyMx/HiOhSCD45NuMTMn
+      wumTbo6l1Y3qEFjOv6paIXSRo7t0duvSP5rCtuVwEXJWdKsjFzVp5uLYh6rFVx9G
+      wPJvH3WMNlBjq8Ruo9c1/kQsonsriq+8RJxbatHBMM4ZpLhIqYcNhlyy4zPVyjlr
+      HDRLXWLBI2XzMzBg2oXWTCG0CeEseg9Kh+wN1qq+wqOat9rZe9U7eL2ffjTFncCF
+      AgMBAAGjRTBDMA4GA1UdDwEB/wQEAwICpDASBgNVHRMBAf8ECDAGAQH/AgEAMB0G
+      A1UdDgQWBBTFT9BosyzLSvYUjDvCmnwv0XcV9zANBgkqhkiG9w0BAQsFAAOCAQEA
+      BX+yTuljBB46GXVm9apBcOVtPiJby3SOF8QJgl+6gVLreqW6wZqMIXykRyIAICj3
+      7OERtORnE3lLs68oNT1YUSpk/0Anl9cGMcaymA0IP9E11Y585YdA9QGfU5bjBCmQ
+      uOve2Yzp7v8wdyo5V5EATd10zTY3rpchJUQRoWBNlxTBAgl1BQHQ8pqcdqFsXVc0
+      2hI7IVt0xMVOaASwND0Jf6B/+YNXSxyP6y/GZNQPEj55DduxpnVJOElZvXmdRorf
+      qDEVNfGfKW+EMPioOUP6MY4/S77Ig5vG3l2YyWy9+/qhSMHq3hMCtTsTV7rZOtrT
+      fm7t7YsKjRxxfQctBFJ9zw==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2023-12-06T09:20:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:ca.crt: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:kubernetes.io/description: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:26Z"
+    name: kube-root-ca.crt
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "47117"
+    uid: 3ce455a3-8ed5-411c-beaf-faefbeb08e28
+- apiVersion: v1
+  data:
+    service-ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDUTCCAjmgAwIBAgIIT1Ee7AjXMkcwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UE
+      Awwrb3BlbnNoaWZ0LXNlcnZpY2Utc2VydmluZy1zaWduZXJAMTcwMTg1NDQ2OTAe
+      Fw0yMzEyMDYwOTIxMDlaFw0yNjAyMDMwOTIxMTBaMDYxNDAyBgNVBAMMK29wZW5z
+      aGlmdC1zZXJ2aWNlLXNlcnZpbmctc2lnbmVyQDE3MDE4NTQ0NjkwggEiMA0GCSqG
+      SIb3DQEBAQUAA4IBDwAwggEKAoIBAQCr0FmPFP6vo2uwzdnTi42yTm9MdUiABx6/
+      uiXKYrojW1b7Ojc+3+3KOHxIYDW3V1cLyE0JVfhQaKFKHGNPeWQ9EsQmjNZfszfz
+      YTKljs1W5qOkwVHIfnNsUojco+cxsPKF1xd0Oj/hVohEUlO9yd3FpfnYY7ls5vkY
+      myf4Jr9qTd/mQsPdcxMTViIF804IZ+wYuKpmOFOlXzK/qgN2Qo+NnSUElFb6s8s8
+      ocqIKJ/8uYehza5E1gAeiGqVe9PSHUyH8fSyzc2roYAktJHYV2HfRJLPrUsvvp3v
+      KFyM/M9vBJ1W6VvhyWFxjL+I3pRYKlWehzsYx3DySi1jD0iARps9AgMBAAGjYzBh
+      MA4GA1UdDwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQOv1ld
+      GuwnAYb16cL8xuS6fzsuGzAfBgNVHSMEGDAWgBQOv1ldGuwnAYb16cL8xuS6fzsu
+      GzANBgkqhkiG9w0BAQsFAAOCAQEAoM5S/rgKaJUNVCSggwhWUWnsrRPnhvWZpmxR
+      oe2S9kdenJl+9wgzQbOXmJSZEjuqHzjuy4/hVe38jTGSSXdzKdwSF1e0RH3YB7RX
+      4mmV23ICrVrGpndGe+SFxFH+Btc4zTAjHvSn3bwpVvQRNbYQOLAhHM9VKWHpoFB0
+      6GZTkhlafE+lPg1akGldqaP0Y9R1njSrE+OBLtRuix9alJ3XIWgkf3GJR/FNi5uK
+      RaII1bimiKNcRM9/tb1u22siAG2cxc5Vc491pZB2lW9et//TpzVe2JTZ9R9iDj9s
+      B7ZviXTvwKWlkbhjz+l7zADSMkuL7g9y8CA/RwM8LEbqufyRTw==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      service.beta.openshift.io/inject-cabundle: "true"
+    creationTimestamp: "2023-12-06T09:20:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:service.beta.openshift.io/inject-cabundle: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:05Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          f:service-ca.crt: {}
+      manager: service-ca-operator
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: openshift-service-ca.crt
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "6929"
+    uid: bb70fc21-c2a5-4c22-84d0-3efb154237df
+- apiVersion: v1
+  data:
+    ca-bundle.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDTzCCAjegAwIBAgIIbLpOfD4i8i0wDQYJKoZIhvcNAQELBQAwNTEzMDEGA1UE
+      Awwqb3BlbnNoaWZ0LW92bi1rdWJlcm5ldGVzX292bi1jYUAxNzAxODU0NDA5MB4X
+      DTIzMTIwNjA5MjAwOVoXDTMzMTIwMzA5MjAxMFowNTEzMDEGA1UEAwwqb3BlbnNo
+      aWZ0LW92bi1rdWJlcm5ldGVzX292bi1jYUAxNzAxODU0NDA5MIIBIjANBgkqhkiG
+      9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwL1nzCEbxSSwRIduAnDmQpuul5OjzLX4VRUy
+      pxp26Nvc+Cbd535aeWjyGt9j0iOy+Wj1H5nCiucG1fRETFCfJGSv5U1meJbKrSii
+      cYIeoTnVSTpQ6HUHyKgR7IDCA5ADNz6gCrmT5+KR/MF+Ptx6HR6QCrcazy3p3ztn
+      ZS45NNVuREZmZWUeyhWGvYJBHg0XNqulkTlOPfbGebdejgGRAFNHAKdtdu7YTtVY
+      BpP0/dm3dyIp3LRNWKlmh/hxneXN5/jEcloAD+Rg0Crqdu7J8a1sbz4r32aA8Gi1
+      pqjHzsUXUM4i/Jz3MLGHkIwjm6MnSF0qOHAp4ND90+wIArbqfQIDAQABo2MwYTAO
+      BgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUhu4f2Q10
+      Rf67xKdV+dOpq9VUarcwHwYDVR0jBBgwFoAUhu4f2Q10Rf67xKdV+dOpq9VUarcw
+      DQYJKoZIhvcNAQELBQADggEBAHN/f78dAzTvOA7zgbw5X/hNkDxSzeoh8E8S6e4D
+      b4MHtrxf0uz0KKfl8wFI1CyV1J0w1bg2z8h/sIABXsGjh3iVPAABADAsJkuOvxTC
+      zIDi16movkfddEYLXL+QrLQLGeRT5s4l4e47SRt8tUdLfiQS2zKh7eFZRqaZO783
+      i4rtQUP5guW3s1QR0D6Jodd20NaVdGJR0OvPcIN1BtD3I5GNDUoyJ5wREeIiTJbg
+      51GYtKzJWn43I6k1eo0N7e0k/3FBEvlzttGjiQ+vQPf4Yi0+Pru1dsWhsMKfGte/
+      xqSYz5+965Fq+MiRFK4wAAdAz+2npk2msIZKEbMZ82c16jM=
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:10Z"
+    labels:
+      auth.openshift.io/managed-certificate-type: ca-bundle
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:ca-bundle.crt: {}
+        f:metadata:
+          f:labels:
+            .: {}
+            f:auth.openshift.io/managed-certificate-type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:20:10Z"
+    name: ovn-ca
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "3610"
+    uid: 4af4ea2d-42dc-4e33-902f-ec739bce0595
+- apiVersion: v1
+  data:
+    ovnkube.conf: |-
+      [default]
+      mtu="8901"
+      cluster-subnets="10.128.0.0/14/23"
+      encap-port="6081"
+      enable-lflow-cache=true
+      lflow-cache-limit-kb=1048576
+      enable-udp-aggregation=true
+
+      [kubernetes]
+      service-cidrs="172.30.0.0/16"
+      ovn-config-namespace="openshift-ovn-kubernetes"
+      apiserver="https://api-int.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443"
+      host-network-namespace="openshift-host-network"
+      platform-type="AWS"
+      healthz-bind-address="0.0.0.0:10256"
+      dns-service-namespace="openshift-dns"
+      dns-service-name="dns-default"
+
+      [ovnkubernetesfeature]
+      enable-egress-ip=true
+      enable-egress-firewall=true
+      enable-egress-qos=true
+      enable-egress-service=true
+      egressip-node-healthcheck-port=9107
+      enable-multi-network=true
+
+      [gateway]
+      mode=shared
+      nodeport=true
+
+      [logging]
+      libovsdblogfile=/var/log/ovnkube/libovsdb.log
+      logfile-maxsize=100
+      logfile-maxbackups=5
+      logfile-maxage=0
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          f:ovnkube.conf: {}
+        f:metadata:
+          f:ownerReferences:
+            k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+      manager: cluster-network-operator/operconfig
+      operation: Apply
+      time: "2023-12-06T09:20:08Z"
+    name: ovnkube-config
+    namespace: openshift-ovn-kubernetes
+    ownerReferences:
+    - apiVersion: operator.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Network
+      name: cluster
+      uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+    resourceVersion: "3579"
+    uid: 5b06c9d4-8162-455d-a194-ef0e81a94c26
+- apiVersion: v1
+  data:
+    ovnkube-lib.sh: |-
+      #!/bin/bash
+      set -x
+
+      # Add node-specific overrides if the container has mounted any
+      K8S_NODE=${K8S_NODE:-}
+      if [[ -n "${K8S_NODE}" && -f "/env/${K8S_NODE}" ]]; then
+        set -o allexport
+        source "/env/${K8S_NODE}"
+        set +o allexport
+      fi
+
+      northd_pidfile="/var/run/ovn/ovn-northd.pid"
+      controller_pidfile="/var/run/ovn/ovn-controller.pid"
+      controller_logfile="/var/log/ovn/acl-audit-log.log"
+      vswitch_dbsock="/var/run/openvswitch/db.sock"
+      nbdb_pidfile="/var/run/ovn/ovnnb_db.pid"
+      nbdb_sock="/var/run/ovn/ovnnb_db.sock"
+      nbdb_ctl="/var/run/ovn/ovnnb_db.ctl"
+      sbdb_pidfile="/var/run/ovn/ovnsb_db.pid"
+      sbdb_sock="/var/run/ovn/ovnsb_db.sock"
+      sbdb_ctl="/var/run/ovn/ovnsb_db.ctl"
+
+      # start-ovn-controller() starts ovn-controller and does not return until
+      # ovn-controller exits
+      #
+      # Requires the following volume mounts:
+      #   /run/openvswitch
+      #   /run/ovn/
+      #   /etc/openvswitch
+      #   /etc/ovn/
+      #   /var/lib/openvswitch
+      #   /var/log/ovn/
+      #   /dev/log
+      start-ovn-controller()
+      {
+        local log_level=$1
+
+        if [[ $# -ne 1 ]]; then
+          echo "Expected one argument but got $#"
+          exit 1
+        fi
+
+        echo "$(date -Iseconds) - starting ovn-controller"
+        exec ovn-controller \
+          unix:${vswitch_dbsock} \
+          -vfile:off \
+          --no-chdir \
+          --pidfile=${controller_pidfile} \
+          --syslog-method="null" \
+          --log-file=${controller_logfile} \
+          -vFACILITY:"local0" \
+          -vconsole:"${log_level}" \
+          -vconsole:"acl_log:off" \
+          -vPATTERN:console:"%D{%Y-%m-%dT%H:%M:%S.###Z}|%05N|%c%T|%p|%m" \
+          -vsyslog:"acl_log:info" \
+          -vfile:"acl_log:info"
+      }
+
+      # quit-ovn-northd() will cleanly shut down ovn-northd. It is intended
+      # to be run from a bash 'trap' like so:
+      #
+      #    trap quit-ovn-northd TERM INT
+      quit-ovn-northd()
+      {
+        echo "$(date -Iseconds) - stopping ovn-northd"
+        OVN_MANAGE_OVSDB=no /usr/share/ovn/scripts/ovn-ctl stop_northd
+        echo "$(date -Iseconds) - ovn-northd stopped"
+        rm -f ${northd_pidfile}
+        exit 0
+      }
+
+      # run-ovn-northd() starts ovn-northd and does not return until
+      # northd exits.
+      #
+      # Requires the following volume mounts:
+      #   /etc/openvswitch/
+      #   /var/lib/openvswitch/
+      #   /run/openvswitch/
+      #   /run/ovn/
+      #   /var/log/ovn/
+      start-ovn-northd()
+      {
+        local log_level=$1
+
+        if [[ $# -ne 1 ]]; then
+          echo "Expected one argument but got $#"
+          exit 1
+        fi
+
+        echo "$(date -Iseconds) - starting ovn-northd"
+        exec ovn-northd \
+          --no-chdir \
+          -vconsole:"${log_level}" \
+          -vfile:off \
+          -vPATTERN:console:"%D{%Y-%m-%dT%H:%M:%S.###Z}|%05N|%c%T|%p|%m" \
+          --pidfile ${northd_pidfile} \
+          --n-threads=1 &
+        wait $!
+      }
+
+      # start-audit-log-rotation() continuously watches ovn-controller's audit
+      # log directory and deletes old logs to ensure the total size of the logs
+      # does not exceed a given threshold. This function does not return.
+      #
+      # Requires the following volume mounts:
+      #   /var/log/ovn/
+      #   /run/ovn/
+      start-audit-log-rotation()
+      {
+        # Rotate audit log files when then get to max size (in bytes)
+        MAXFILESIZE=$(( "50"*1000000 ))
+        MAXLOGFILES="5"
+        LOGDIR=$(dirname ${controller_logfile})
+
+        # wait a bit for ovn-controller to start
+        local retries=0
+        while [[ 30 -gt "${retries}" ]]; do
+          (( retries += 1 ))
+          CONTROLLERPID=$(cat ${controller_pidfile})
+          if [[ -n "${CONTROLLERPID}" ]]; then
+            break
+          fi
+          sleep 2
+        done
+        if [[ -z "${CONTROLLERPID}" ]]; then
+          echo "Timed out waiting for ${controller_pidfile}"
+          return 1
+        fi
+
+        # Redirect err to null so no messages are shown upon rotation
+        tail -F ${controller_logfile} 2> /dev/null &
+
+        while true
+        do
+          # Make sure ovn-controller's logfile exists, and get current size in bytes
+          if [ -f "${controller_logfile}" ]; then
+            file_size=`du -b ${controller_logfile} | tr -s '\t' ' ' | cut -d' ' -f1`
+          else
+            ovs-appctl -t /var/run/ovn/ovn-controller.${CONTROLLERPID}.ctl vlog/reopen
+            file_size=`du -b ${controller_logfile} | tr -s '\t' ' ' | cut -d' ' -f1`
+          fi
+
+          if [ $file_size -gt $MAXFILESIZE ];then
+            echo "Rotating OVN ACL Log File"
+            timestamp=`date '+%Y-%m-%dT%H-%M-%S'`
+            mv ${controller_logfile} ${LOGDIR}/acl-audit-log.$timestamp.log
+            ovs-appctl -t /run/ovn/ovn-controller.${CONTROLLERPID}.ctl vlog/reopen
+            CONTROLLERPID=$(cat ${controller_pidfile})
+          fi
+
+          # Ensure total number of log files does not exceed the maximum configured from OVNPolicyAuditMaxLogFiles
+          num_files=$(ls -1 ${LOGDIR}/acl-audit-log* 2>/dev/null | wc -l)
+          if [ "$num_files" -gt "$MAXLOGFILES" ]; then
+            num_to_delete=$(( num_files - ${MAXLOGFILES} ))
+            ls -1t ${LOGDIR}/acl-audit-log* 2>/dev/null | tail -$num_to_delete | xargs -I {} rm {}
+          fi
+
+          # sleep for 30 seconds to avoid wasting CPU
+          sleep 30
+        done
+      }
+
+      wait-for-certs()
+      {
+        local detail=$1
+        local privkey=$2
+        local clientcert=$3
+
+        if [[ $# -ne 3 ]]; then
+          echo "Expected three arguments but got $#"
+          exit 1
+        fi
+
+        retries=0
+        TS=$(date +%s)
+        WARN_TS=$(( ${TS} + $(( 20 * 60)) ))
+        HAS_LOGGED_INFO=0
+        while [[ ! -f "${privkey}" ||  ! -f "${clientcert}" ]] ; do
+          CUR_TS=$(date +%s)
+          if [[ "${CUR_TS}" -gt "WARN_TS"  ]]; then
+            echo "$(date -Iseconds) WARN: ${detail} certs not mounted after 20 minutes."
+          elif [[ "${HAS_LOGGED_INFO}" -eq 0 ]] ; then
+            echo "$(date -Iseconds) INFO: ${detail} certs not mounted. Waiting one hour."
+            HAS_LOGGED_INFO=1
+          fi
+          sleep 5
+        done
+      }
+
+      # start-rbac-proxy() starts the kube-rbac-proxy to expose ovnkube metrics to
+      # Prometheus on the given listen_port, proxying from upstream_port. This
+      # function does not return.
+      #
+      # Requires the following volume mounts:
+      #   /etc/pki/tls/metrics-cert
+      start-rbac-proxy-node()
+      {
+        local detail=$1
+        local listen_port=$2
+        local upstream_port=$3
+        local privkey=$4
+        local clientcert=$5
+
+        if [[ $# -ne 5 ]]; then
+          echo "Expected five arguments but got $#"
+          exit 1
+        fi
+
+        # As the secret mount is optional we must wait for the files to be present.
+        # The service is created in monitor.yaml and this is created in sdn.yaml.
+        # If it isn't created there is probably an issue so we want to crashloop.
+        echo "$(date -Iseconds) INFO: waiting for ${detail} certs to be mounted"
+        wait-for-certs "${detail}" "${privkey}" "${clientcert}"
+
+        echo "$(date -Iseconds) INFO: ${detail} certs mounted, starting kube-rbac-proxy"
+        exec /usr/bin/kube-rbac-proxy \
+          --logtostderr \
+          --secure-listen-address=:${listen_port} \
+          --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 \
+          --upstream=http://127.0.0.1:${upstream_port}/ \
+          --tls-private-key-file=${privkey} \
+          --tls-cert-file=${clientcert}
+      }
+
+      # quit-nbdb() will cleanly shut down the northbound dbserver. It is intended
+      # to be run from a bash 'trap' like so:
+      #
+      #    trap quit-nbdb TERM INT
+      quit-nbdb()
+      {
+        echo "$(date -Iseconds) - stopping nbdb"
+        /usr/share/ovn/scripts/ovn-ctl stop_nb_ovsdb
+        echo "$(date -Iseconds) - nbdb stopped"
+        rm -f ${nbdb_pidfile}
+        exit 0
+      }
+
+      # start-nbdb() starts the OVN northbound database. This function does not
+      # return.
+      #
+      # Requires the following volume mounts:
+      #   /etc/ovn
+      #   /var/log/ovn
+      #   /run/ovn/
+      start-nbdb()
+      {
+        local log_level=$1
+
+        if [[ $# -ne 1 ]]; then
+          echo "Expected one argument but got $#"
+          exit 1
+        fi
+
+        exec /usr/share/ovn/scripts/ovn-ctl \
+          --no-monitor \
+          --db-nb-sock=${nbdb_sock} \
+          --ovn-nb-log="-vconsole:${log_level} -vfile:off -vPATTERN:console:%D{%Y-%m-%dT%H:%M:%S.###Z}|%05N|%c%T|%p|%m" \
+          run_nb_ovsdb &
+        wait $!
+      }
+
+      # retry() an operation a number of times, sleeping 2 seconds between each try
+      retry() {
+        local tries=${1}
+        local desc=${2}
+        local cmd=${3}
+
+        local retries=0
+        while ! ${cmd}; do
+          (( retries += 1 ))
+          if [[ "${retries}" -gt ${tries} ]]; then
+            echo "$(date -Iseconds) - ERROR - ${desc} - too many failed attempts, giving up"
+            return 1
+          fi
+          echo "$(date -Iseconds) - WARN - ${desc} - failed try ${retries}, retrying..."
+          sleep 2
+        done
+        echo "$(date -Iseconds) - INFO - ${desc} - success"
+        return 0
+      }
+
+      # nbdb-post-start() tweaks nbdb database server settings and sets a number
+      # of options in NB_Globals to configure OVN global settings
+      nbdb-post-start()
+      {
+        local northd_probe_interval=${1:-10000}
+
+        rm -f ${nbdb_pidfile}
+
+        # set inactivity probe
+        if ! retry 60 "inactivity-probe" "ovn-nbctl -t 5 --inactivity-probe=60000 set-connection punix:${nbdb_sock}"; then
+          exit 1
+        fi
+        # set trim-on-compaction
+        if ! retry 60 "trim-on-compaction" "ovn-appctl -t ${nbdb_ctl} --timeout=5 ovsdb-server/memory-trim-on-compaction on"; then
+          exit 1
+        fi
+
+        # set IC zone
+        echo "Setting the IC zone to ${K8S_NODE}"
+        IC_OPTION="name=\"${K8S_NODE}\" options:name=\"${K8S_NODE}\""
+
+        # northd probe interval
+        echo "Setting northd probe interval to ${northd_probe_interval} ms"
+        NORTHD_PROBE_OPTION="options:northd_probe_interval=${northd_probe_interval}"
+
+        # let northd sleep so it takes less CPU
+        NORTHD_SLEEP_OPTION="options:northd-backoff-interval-ms=300"
+
+        local ipsec=false
+        local ipsec_encapsulation=false
+
+        IPSEC_OPTION="ipsec=${ipsec} options:ipsec_encapsulation=${ipsec_encapsulation}"
+
+        # set all the NB_GLOBAL options
+        if ! retry 20 "nb-global options" "ovn-nbctl -t 5 set nb_global . ${IC_OPTION} ${NORTHD_PROBE_OPTION} ${NORTHD_SLEEP_OPTION} ${IPSEC_OPTION}"; then
+          exit 1
+        fi
+      }
+
+      # ovndb-readiness-probe() checks if the the database is in the active state
+      # and if not, exits with an error code.
+      ovndb-readiness-probe()
+      {
+        # dbname should be 'sb' or 'nb'
+        local dbname=$1
+
+        if [[ $# -ne 1 ]]; then
+          echo "Expected one argument but got $#"
+          exit 1
+        fi
+
+        local ctlfile
+        if [[ "${dbname}" = "nb" ]]; then
+          ctlfile=${nbdb_ctl}
+        elif [[ "${dbname}" = "sb" ]]; then
+          ctlfile=${sbdb_ctl}
+        else
+          echo "unknown DB name ${dbname}"
+          exit 1
+        fi
+
+        status=$(/usr/bin/ovn-appctl -t ${ctlfile} --timeout=3 ovsdb-server/sync-status  2>/dev/null | { grep "state: active" || false; })
+        if [[ -z "${status}" ]]; then
+          echo "${dbname} DB is not running or active."
+          exit 1
+        fi
+      }
+
+      # quit-sbdb() will cleanly shut down the southbound dbserver. It is intended
+      # to be run from a bash 'trap' like so:
+      #
+      #    trap quit-sbdb TERM INT
+      quit-sbdb()
+      {
+        echo "$(date -Iseconds) - stopping sbdb"
+        /usr/share/ovn/scripts/ovn-ctl stop_sb_ovsdb
+        echo "$(date -Iseconds) - sbdb stopped"
+        rm -f ${sbdb_pidfile}
+        exit 0
+      }
+
+      # start-sbdb() starts the OVN southbound database. This function does not
+      # return.
+      #
+      # Requires the following volume mounts:
+      #   /etc/ovn
+      #   /var/log/ovn
+      #   /run/ovn/
+      start-sbdb()
+      {
+        local log_level=$1
+
+        if [[ $# -ne 1 ]]; then
+          echo "Expected one argument but got $#"
+          exit 1
+        fi
+
+        exec /usr/share/ovn/scripts/ovn-ctl \
+          --no-monitor \
+          --db-sb-sock=${sbdb_sock} \
+          --ovn-sb-log="-vconsole:${log_level} -vfile:off -vPATTERN:console:%D{%Y-%m-%dT%H:%M:%S.###Z}|%05N|%c%T|%p|%m" \
+          run_sb_ovsdb &
+        wait $!
+      }
+
+      # sbdb-post-start() tweaks sbdb database server settings
+      sbdb-post-start()
+      {
+        rm -f ${sbdb_pidfile}
+
+        # set inactivity probe
+        if ! retry 60 "inactivity-probe" "ovn-sbctl -t 5 --inactivity-probe=180000 set-connection punix:${sbdb_sock}"; then
+          exit 1
+        fi
+        # set trim-on-compaction
+        if ! retry 60 "trim-on-compaction" "ovn-appctl -t ${sbdb_ctl} --timeout=5 ovsdb-server/memory-trim-on-compaction on"; then
+          exit 1
+        fi
+      }
+
+      function log()
+      {
+          echo "$(date --iso-8601=seconds) [{$1}] ${2}"
+      }
+
+      # cni-bin-copy() detects the host OS and copies the correct shim binary to
+      # the CNI binary directory.
+      #
+      # Requires the following volume mounts:
+      #   /host
+      #   /cni-bin-dir
+      cni-bin-copy()
+      {
+        # collect host os information
+        . /host/etc/os-release
+        rhelmajor=
+        # detect which version we're using in order to copy the proper binaries
+        case "${ID}" in
+          rhcos|scos)
+            RHEL_VERSION=$(echo "${CPE_NAME}" | cut -f 5 -d :)
+            rhelmajor=$(echo $RHEL_VERSION | sed -E 's/([0-9]+)\.{1}[0-9]+(\.[0-9]+)?/\1/')
+          ;;
+          rhel) rhelmajor=$(echo "${VERSION_ID}" | cut -f 1 -d .)
+          ;;
+          fedora)
+            if [ "${VARIANT_ID}" == "coreos" ]; then
+              rhelmajor=8
+            else
+              log "cnibincopy" "FATAL ERROR: Unsupported Fedora variant=${VARIANT_ID}"
+              exit 1
+            fi
+          ;;
+          *) log "cnibincopy" "FATAL ERROR: Unsupported OS ID=${ID}"; exit 1
+          ;;
+        esac
+
+        # Set which directory we'll copy from, detect if it exists
+        sourcedir=/usr/libexec/cni/
+        case "${rhelmajor}" in
+          8)
+            sourcedir=/usr/libexec/cni/rhel8
+          ;;
+          9)
+            sourcedir=/usr/libexec/cni/rhel9
+          ;;
+          *)
+            log "cnibincopy" "ERROR: RHEL Major Version Unsupported, rhelmajor=${rhelmajor}"
+          ;;
+        esac
+
+        cp -f "$sourcedir/ovn-k8s-cni-overlay" /cni-bin-dir/
+      }
+
+      # start-ovnkube-node starts the ovnkube-node process. This function does not
+      # return.
+      start-ovnkube-node()
+      {
+        local log_level=$1
+        local metrics_port=$2
+        local ovn_metrics_port=$3
+
+        if [[ $# -ne 3 ]]; then
+          echo "Expected three arguments but got $#"
+          exit 1
+        fi
+
+        # copy the right CNI shim for the host OS
+        cni-bin-copy
+
+        echo "I$(date "+%m%d %H:%M:%S.%N") - disable conntrack on geneve port"
+        iptables -t raw -A PREROUTING -p udp --dport 6081 -j NOTRACK
+        iptables -t raw -A OUTPUT -p udp --dport 6081 -j NOTRACK
+        ip6tables -t raw -A PREROUTING -p udp --dport 6081 -j NOTRACK
+        ip6tables -t raw -A OUTPUT -p udp --dport 6081 -j NOTRACK
+
+        echo "I$(date "+%m%d %H:%M:%S.%N") - starting ovnkube-node"
+
+        if [ "shared" == "shared" ]; then
+          gateway_mode_flags="--gateway-mode shared --gateway-interface br-ex"
+        elif [ "shared" == "local" ]; then
+          gateway_mode_flags="--gateway-mode local --gateway-interface br-ex"
+        else
+          echo "Invalid OVN_GATEWAY_MODE: \"shared\". Must be \"local\" or \"shared\"."
+          exit 1
+        fi
+
+        export_network_flows_flags=
+        if [[ -n "${NETFLOW_COLLECTORS}" ]] ; then
+          export_network_flows_flags="--netflow-targets ${NETFLOW_COLLECTORS}"
+        fi
+        if [[ -n "${SFLOW_COLLECTORS}" ]] ; then
+          export_network_flows_flags="$export_network_flows_flags --sflow-targets ${SFLOW_COLLECTORS}"
+        fi
+        if [[ -n "${IPFIX_COLLECTORS}" ]] ; then
+          export_network_flows_flags="$export_network_flows_flags --ipfix-targets ${IPFIX_COLLECTORS}"
+        fi
+        if [[ -n "${IPFIX_CACHE_MAX_FLOWS}" ]] ; then
+          export_network_flows_flags="$export_network_flows_flags --ipfix-cache-max-flows ${IPFIX_CACHE_MAX_FLOWS}"
+        fi
+        if [[ -n "${IPFIX_CACHE_ACTIVE_TIMEOUT}" ]] ; then
+          export_network_flows_flags="$export_network_flows_flags --ipfix-cache-active-timeout ${IPFIX_CACHE_ACTIVE_TIMEOUT}"
+        fi
+        if [[ -n "${IPFIX_SAMPLING}" ]] ; then
+          export_network_flows_flags="$export_network_flows_flags --ipfix-sampling ${IPFIX_SAMPLING}"
+        fi
+        gw_interface_flag=
+        # if br-ex1 is configured on the node, we want to use it for external gateway traffic
+        if [ -d /sys/class/net/br-ex1 ]; then
+          gw_interface_flag="--exgw-interface=br-ex1"
+        fi
+
+        node_mgmt_port_netdev_flags=
+        if [[ -n "${OVNKUBE_NODE_MGMT_PORT_NETDEV}" ]] ; then
+          node_mgmt_port_netdev_flags="--ovnkube-node-mgmt-port-netdev ${OVNKUBE_NODE_MGMT_PORT_NETDEV}"
+        fi
+        if [[ -n "${OVNKUBE_NODE_MGMT_PORT_DP_RESOURCE_NAME}" ]] ; then
+          node_mgmt_port_netdev_flags="$node_mgmt_port_netdev_flags --ovnkube-node-mgmt-port-dp-resource-name ${OVNKUBE_NODE_MGMT_PORT_DP_RESOURCE_NAME}"
+        fi
+
+        multi_network_enabled_flag=
+        if [[ "true" == "true" ]]; then
+          multi_network_enabled_flag="--enable-multi-network"
+        fi
+
+        multi_network_policy_enabled_flag=
+        if [[ "false" == "true" ]]; then
+          multi_network_policy_enabled_flag="--enable-multi-networkpolicy"
+        fi
+
+        admin_network_policy_enabled_flag=
+        if [[ "false" == "true" ]]; then
+          admin_network_policy_enabled_flag="--enable-admin-network-policy"
+        fi
+
+        # If IP Forwarding mode is global set it in the host here.
+        ip_forwarding_flag=
+        if [ "" == "Global" ]; then
+          sysctl -w net.ipv4.ip_forward=1
+          sysctl -w net.ipv6.conf.all.forwarding=1
+        else
+          ip_forwarding_flag="--disable-forwarding"
+        fi
+
+        NETWORK_NODE_IDENTITY_ENABLE=
+        if [[ "true" == "true" ]]; then
+          NETWORK_NODE_IDENTITY_ENABLE="
+            --bootstrap-kubeconfig=/var/lib/kubelet/kubeconfig
+            --cert-dir=/etc/ovn/ovnkube-node-certs
+            --cert-duration=24h
+          "
+        fi
+
+        exec /usr/bin/ovnkube \
+          --init-ovnkube-controller "${K8S_NODE}" \
+          --init-node "${K8S_NODE}" \
+          --config-file=/run/ovnkube-config/ovnkube.conf \
+          --ovn-empty-lb-events \
+          --loglevel "${log_level}" \
+          --inactivity-probe="${OVN_CONTROLLER_INACTIVITY_PROBE}" \
+          ${gateway_mode_flags} \
+          ${node_mgmt_port_netdev_flags} \
+          --metrics-bind-address "127.0.0.1:${metrics_port}" \
+          --ovn-metrics-bind-address "127.0.0.1:${ovn_metrics_port}" \
+          --metrics-enable-pprof \
+          --metrics-enable-config-duration \
+          --export-ovs-metrics \
+          --disable-snat-multiple-gws \
+          ${export_network_flows_flags} \
+          ${multi_network_enabled_flag} \
+          ${multi_network_policy_enabled_flag} \
+          ${admin_network_policy_enabled_flag} \
+          --enable-multicast \
+          --zone ${K8S_NODE} \
+          --enable-interconnect \
+          --acl-logging-rate-limit "20" \
+          ${gw_interface_flag} \
+          --enable-multi-external-gateway=true \
+          ${ip_forwarding_flag} \
+          ${NETWORK_NODE_IDENTITY_ENABLE}
+      }
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: |
+        This is a script used by the ovn-kubernetes daemonset
+      release.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    creationTimestamp: "2023-12-06T09:20:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          f:ovnkube-lib.sh: {}
+        f:metadata:
+          f:annotations:
+            f:kubernetes.io/description: {}
+            f:release.openshift.io/version: {}
+          f:ownerReferences:
+            k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+      manager: cluster-network-operator/operconfig
+      operation: Apply
+      time: "2023-12-06T09:20:35Z"
+    name: ovnkube-script-lib
+    namespace: openshift-ovn-kubernetes
+    ownerReferences:
+    - apiVersion: operator.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Network
+      name: cluster
+      uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+    resourceVersion: "4176"
+    uid: 501d2d23-a60c-4a09-b739-987c7560efe1
+- apiVersion: v1
+  data:
+    ca-bundle.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDVTCCAj2gAwIBAgIISAKTNwY2I3kwDQYJKoZIhvcNAQELBQAwODE2MDQGA1UE
+      Awwtb3BlbnNoaWZ0LW92bi1rdWJlcm5ldGVzX3NpZ25lci1jYUAxNzAxODU0NDEw
+      MB4XDTIzMTIwNjA5MjAwOVoXDTMzMTIwMzA5MjAxMFowODE2MDQGA1UEAwwtb3Bl
+      bnNoaWZ0LW92bi1rdWJlcm5ldGVzX3NpZ25lci1jYUAxNzAxODU0NDEwMIIBIjAN
+      BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxOHn2jJGohmeOyzogAVGTvdPFKPD
+      7NQlFWKqSMjO3dd4p+4mbfkb4Nwf15AucqKp98ldc7BXNDayZuKcqzuhngwjHCrI
+      DVr9+giCmOfn1jbPgaNAVeB1YJ1JTIW1giOtS/+29pwpVXagHnGoch8qzcnVkdEN
+      SFvuwUEvvtQd5YSqnaORVzOci28N/9n4mjTvEl7+/GeapFSSVALzTyAT9ukr8UXX
+      OdIm68KiUKCvBOlB776yxutDjhOIKbZIc1PCsgOzsgvMpUKnjCHRkPmuxXsDw8Bf
+      Rm8vezrIEw54ZqTdBWpLdsqB08HcIDok7O+xX9JgoW41m8LRI9YBIHjfaQIDAQAB
+      o2MwYTAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU
+      2nY9tUPQ5BlxePNDH5N31llF7l8wHwYDVR0jBBgwFoAU2nY9tUPQ5BlxePNDH5N3
+      1llF7l8wDQYJKoZIhvcNAQELBQADggEBAHakf7DB8dOeMBjph8RwrK6/QRXDDRvl
+      OGWX8nZmlPTgga0AVBBPP0OoNyZuCQarBl/zItfodWV/+IOsN6qeqrZ+Z4IfUAAE
+      7Cg/r4oJkz2xdZKiumC7FC4mlB0s0nfVpajpl87IzZG/f6x9CLioNNsb/pE02bqj
+      bnfyvo5Mbyp/lysPGQlGEcgxImBnL5XjFdYgm+0FHvBTgBOoeq+hPxoxVwiDPkpK
+      O9+AOwFM8dFZ3Lsyo379FMZ+aSz3+3Pl+gk/8S63ilR62JDurZ+bnSeT5d7pu+Sv
+      Os4ao9gMTaSY4R+3Sl1P6e+tZvb0z4ETR5ocsE3gRzAx5aB9GfeWp8E=
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:10Z"
+    labels:
+      auth.openshift.io/managed-certificate-type: ca-bundle
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:ca-bundle.crt: {}
+        f:metadata:
+          f:labels:
+            .: {}
+            f:auth.openshift.io/managed-certificate-type: {}
+      manager: cluster-network-operator
+      operation: Update
+      time: "2023-12-06T09:20:10Z"
+    name: signer-ca
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "3623"
+    uid: 1407852b-8725-47c0-bec6-971208eca895
+kind: ConfigMapList
+metadata:
+  resourceVersion: "47998"

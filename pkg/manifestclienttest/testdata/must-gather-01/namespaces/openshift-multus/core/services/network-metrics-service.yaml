@@ -1,0 +1,77 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    service.alpha.openshift.io/serving-cert-secret-name: metrics-daemon-secret
+    service.alpha.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+    service.beta.openshift.io/serving-cert-signed-by: openshift-service-serving-signer@1701854469
+  creationTimestamp: "2023-12-06T09:20:02Z"
+  labels:
+    service: network-metrics-service
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:prometheus.io/scrape: {}
+          f:service.alpha.openshift.io/serving-cert-secret-name: {}
+        f:labels:
+          f:service: {}
+        f:ownerReferences:
+          k:{"uid":"d9e93da9-6756-4cb7-9352-95de1620eeea"}: {}
+      f:spec:
+        f:clusterIP: {}
+        f:ports:
+          k:{"port":8443,"protocol":"TCP"}:
+            .: {}
+            f:name: {}
+            f:port: {}
+            f:targetPort: {}
+        f:selector: {}
+        f:type: {}
+    manager: cluster-network-operator/operconfig
+    operation: Apply
+    time: "2023-12-06T09:20:02Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:service.alpha.openshift.io/serving-cert-signed-by: {}
+          f:service.beta.openshift.io/serving-cert-signed-by: {}
+    manager: service-ca-operator
+    operation: Update
+    time: "2023-12-06T09:21:27Z"
+  name: network-metrics-service
+  namespace: openshift-multus
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Network
+    name: cluster
+    uid: d9e93da9-6756-4cb7-9352-95de1620eeea
+  resourceVersion: "7134"
+  uid: 3025c04c-df07-4821-a106-6ddba831cca8
+spec:
+  clusterIP: None
+  clusterIPs:
+  - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: metrics
+    port: 8443
+    protocol: TCP
+    targetPort: https
+  selector:
+    app: network-metrics-daemon
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

@@ -1,0 +1,716 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    dotnet-runtime_6.0: registry.access.redhat.com/ubi8/dotnet-60-runtime:6.0
+    dotnet-runtime_6.0-ubi8: registry.access.redhat.com/ubi8/dotnet-60-runtime:6.0
+    dotnet-runtime_7.0: registry.access.redhat.com/ubi8/dotnet-70-runtime:7.0
+    dotnet-runtime_7.0-ubi8: registry.access.redhat.com/ubi8/dotnet-70-runtime:7.0
+    dotnet-runtime_8.0: registry.access.redhat.com/ubi8/dotnet-80-runtime:8.0
+    dotnet-runtime_8.0-ubi8: registry.access.redhat.com/ubi8/dotnet-80-runtime:8.0
+    dotnet_6.0: registry.access.redhat.com/ubi8/dotnet-60:6.0
+    dotnet_6.0-ubi8: registry.access.redhat.com/ubi8/dotnet-60:6.0
+    dotnet_7.0: registry.access.redhat.com/ubi8/dotnet-70:7.0
+    dotnet_7.0-ubi8: registry.access.redhat.com/ubi8/dotnet-70:7.0
+    dotnet_8.0: registry.access.redhat.com/ubi8/dotnet-80:8.0
+    dotnet_8.0-ubi8: registry.access.redhat.com/ubi8/dotnet-80:8.0
+    fuse7-eap-openshift-java11_1.11: registry.redhat.io/fuse7/fuse-eap-openshift-jdk11-rhel8:1.11
+    fuse7-eap-openshift-java11_1.12: registry.redhat.io/fuse7/fuse-eap-openshift-jdk11-rhel8:1.12
+    fuse7-eap-openshift_1.0: registry.redhat.io/fuse7/fuse-eap-openshift:1.0
+    fuse7-eap-openshift_1.1: registry.redhat.io/fuse7/fuse-eap-openshift:1.1
+    fuse7-eap-openshift_1.2: registry.redhat.io/fuse7/fuse-eap-openshift:1.2
+    fuse7-eap-openshift_1.3: registry.redhat.io/fuse7/fuse-eap-openshift:1.3
+    fuse7-eap-openshift_1.4: registry.redhat.io/fuse7/fuse-eap-openshift:1.4
+    fuse7-eap-openshift_1.5: registry.redhat.io/fuse7/fuse-eap-openshift:1.5
+    fuse7-eap-openshift_1.6: registry.redhat.io/fuse7/fuse-eap-openshift:1.6
+    fuse7-eap-openshift_1.7: registry.redhat.io/fuse7/fuse-eap-openshift:1.7
+    fuse7-eap-openshift_1.8: registry.redhat.io/fuse7/fuse-eap-openshift:1.8
+    fuse7-eap-openshift_1.10: registry.redhat.io/fuse7/fuse-eap-openshift-jdk8-rhel7:1.10
+    fuse7-eap-openshift_1.11: registry.redhat.io/fuse7/fuse-eap-openshift-jdk8-rhel7:1.11
+    fuse7-eap-openshift_1.12: registry.redhat.io/fuse7/fuse-eap-openshift-jdk8-rhel7:1.12
+    fuse7-java-openshift_1.0: registry.redhat.io/fuse7/fuse-java-openshift:1.0
+    fuse7-java-openshift_1.1: registry.redhat.io/fuse7/fuse-java-openshift:1.1
+    fuse7-java-openshift_1.2: registry.redhat.io/fuse7/fuse-java-openshift:1.2
+    fuse7-java-openshift_1.3: registry.redhat.io/fuse7/fuse-java-openshift:1.3
+    fuse7-java-openshift_1.4: registry.redhat.io/fuse7/fuse-java-openshift:1.4
+    fuse7-java-openshift_1.5: registry.redhat.io/fuse7/fuse-java-openshift:1.5
+    fuse7-java-openshift_1.6: registry.redhat.io/fuse7/fuse-java-openshift:1.6
+    fuse7-java-openshift_1.7: registry.redhat.io/fuse7/fuse-java-openshift:1.7
+    fuse7-java-openshift_1.8: registry.redhat.io/fuse7/fuse-java-openshift:1.8
+    fuse7-java-openshift_1.10: registry.redhat.io/fuse7/fuse-java-openshift-rhel8:1.10
+    fuse7-java-openshift_1.11: registry.redhat.io/fuse7/fuse-java-openshift-rhel8:1.11
+    fuse7-java-openshift_1.12: registry.redhat.io/fuse7/fuse-java-openshift-rhel8:1.12
+    fuse7-java11-openshift_1.11: registry.redhat.io/fuse7/fuse-java-openshift-jdk11-rhel8:1.11
+    fuse7-java11-openshift_1.12: registry.redhat.io/fuse7/fuse-java-openshift-jdk11-rhel8:1.12
+    fuse7-karaf-openshift-jdk11_1.12: registry.redhat.io/fuse7/fuse-karaf-openshift-jdk11-rhel8:1.12
+    fuse7-karaf-openshift_1.0: registry.redhat.io/fuse7/fuse-karaf-openshift:1.0
+    fuse7-karaf-openshift_1.1: registry.redhat.io/fuse7/fuse-karaf-openshift:1.1
+    fuse7-karaf-openshift_1.2: registry.redhat.io/fuse7/fuse-karaf-openshift:1.2
+    fuse7-karaf-openshift_1.3: registry.redhat.io/fuse7/fuse-karaf-openshift:1.3
+    fuse7-karaf-openshift_1.4: registry.redhat.io/fuse7/fuse-karaf-openshift:1.4
+    fuse7-karaf-openshift_1.5: registry.redhat.io/fuse7/fuse-karaf-openshift:1.5
+    fuse7-karaf-openshift_1.6: registry.redhat.io/fuse7/fuse-karaf-openshift:1.6
+    fuse7-karaf-openshift_1.7: registry.redhat.io/fuse7/fuse-karaf-openshift:1.7
+    fuse7-karaf-openshift_1.8: registry.redhat.io/fuse7/fuse-karaf-openshift:1.8
+    fuse7-karaf-openshift_1.10: registry.redhat.io/fuse7/fuse-karaf-openshift-rhel8:1.10
+    fuse7-karaf-openshift_1.11: registry.redhat.io/fuse7/fuse-karaf-openshift-rhel8:1.11
+    fuse7-karaf-openshift_1.12: registry.redhat.io/fuse7/fuse-karaf-openshift-rhel8:1.12
+    golang_1.18-ubi7: registry.redhat.io/ubi7/go-toolset:1.18
+    golang_1.18-ubi8: registry.redhat.io/ubi8/go-toolset:1.18
+    golang_1.18-ubi9: registry.redhat.io/ubi9/go-toolset:1.18
+    httpd_2.4: registry.redhat.io/rhscl/httpd-24-rhel7
+    httpd_2.4-el7: registry.redhat.io/rhscl/httpd-24-rhel7
+    httpd_2.4-el8: registry.redhat.io/rhel8/httpd-24
+    httpd_2.4-ubi8: registry.redhat.io/ubi8/httpd-24:latest
+    httpd_2.4-ubi9: registry.redhat.io/ubi9/httpd-24:latest
+    java-runtime_openjdk-8-ubi8: registry.access.redhat.com/ubi8/openjdk-8-runtime:latest
+    java-runtime_openjdk-11-ubi8: registry.access.redhat.com/ubi8/openjdk-11-runtime:latest
+    java-runtime_openjdk-17-ubi8: registry.access.redhat.com/ubi8/openjdk-17-runtime:latest
+    java_8: registry.redhat.io/redhat-openjdk-18/openjdk18-openshift:latest
+    java_11: registry.redhat.io/openjdk/openjdk-11-rhel7:latest
+    java_openjdk-8-el7: registry.redhat.io/redhat-openjdk-18/openjdk18-openshift:latest
+    java_openjdk-8-ubi8: registry.redhat.io/ubi8/openjdk-8:latest
+    java_openjdk-11-el7: registry.redhat.io/openjdk/openjdk-11-rhel7:latest
+    java_openjdk-11-ubi8: registry.redhat.io/ubi8/openjdk-11:latest
+    java_openjdk-17-ubi8: registry.redhat.io/ubi8/openjdk-17:latest
+    jboss-datagrid73-openshift_1.0: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.0
+    jboss-datagrid73-openshift_1.1: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.1
+    jboss-datagrid73-openshift_1.2: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.2
+    jboss-datagrid73-openshift_1.3: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.3
+    jboss-datagrid73-openshift_1.4: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.4
+    jboss-datagrid73-openshift_1.5: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.5
+    jboss-datagrid73-openshift_1.6: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.6
+    jboss-datagrid73-openshift_1.7: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.7
+    jboss-datagrid73-openshift_1.8: registry.redhat.io/jboss-datagrid-7/datagrid73-openshift:1.8
+    jboss-eap-xp3-openjdk11-openshift_3.0: registry.redhat.io/jboss-eap-7/eap-xp3-openjdk11-openshift-rhel8:3.0
+    jboss-eap-xp3-openjdk11-openshift_latest: registry.redhat.io/jboss-eap-7/eap-xp3-openjdk11-openshift-rhel8:latest
+    jboss-eap-xp3-openjdk11-runtime-openshift_3.0: registry.redhat.io/jboss-eap-7/eap-xp3-openjdk11-runtime-openshift-rhel8:3.0
+    jboss-eap-xp3-openjdk11-runtime-openshift_latest: registry.redhat.io/jboss-eap-7/eap-xp3-openjdk11-runtime-openshift-rhel8:latest
+    jboss-eap-xp4-openjdk11-openshift_4.0: registry.redhat.io/jboss-eap-7/eap-xp4-openjdk11-openshift-rhel8:4.0
+    jboss-eap-xp4-openjdk11-openshift_latest: registry.redhat.io/jboss-eap-7/eap-xp4-openjdk11-openshift-rhel8:latest
+    jboss-eap-xp4-openjdk11-runtime-openshift_4.0: registry.redhat.io/jboss-eap-7/eap-xp4-openjdk11-runtime-openshift-rhel8:4.0
+    jboss-eap-xp4-openjdk11-runtime-openshift_latest: registry.redhat.io/jboss-eap-7/eap-xp4-openjdk11-runtime-openshift-rhel8:latest
+    jboss-eap74-openjdk8-openshift_7.4.0: registry.redhat.io/jboss-eap-7/eap74-openjdk8-openshift-rhel7:latest
+    jboss-eap74-openjdk8-openshift_latest: registry.redhat.io/jboss-eap-7/eap74-openjdk8-openshift-rhel7:latest
+    jboss-eap74-openjdk8-runtime-openshift_7.4.0: registry.redhat.io/jboss-eap-7/eap74-openjdk8-runtime-openshift-rhel7:latest
+    jboss-eap74-openjdk8-runtime-openshift_latest: registry.redhat.io/jboss-eap-7/eap74-openjdk8-runtime-openshift-rhel7:latest
+    jboss-eap74-openjdk11-openshift_7.4.0: registry.redhat.io/jboss-eap-7/eap74-openjdk11-openshift-rhel8
+    jboss-eap74-openjdk11-openshift_latest: registry.redhat.io/jboss-eap-7/eap74-openjdk11-openshift-rhel8:latest
+    jboss-eap74-openjdk11-runtime-openshift_7.4.0: registry.redhat.io/jboss-eap-7/eap74-openjdk11-runtime-openshift-rhel8:latest
+    jboss-eap74-openjdk11-runtime-openshift_latest: registry.redhat.io/jboss-eap-7/eap74-openjdk11-runtime-openshift-rhel8:latest
+    jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.0: registry.redhat.io/jboss-webserver-5/jws57-openjdk8-openshift-rhel8:5.7.0
+    jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.1: registry.redhat.io/jboss-webserver-5/jws57-openjdk8-openshift-rhel8:5.7.1
+    jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.2: registry.redhat.io/jboss-webserver-5/jws57-openjdk8-openshift-rhel8:5.7.2
+    jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.3: registry.redhat.io/jboss-webserver-5/jws57-openjdk8-openshift-rhel8:5.7.3
+    jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_latest: registry.redhat.io/jboss-webserver-5/jws57-openjdk8-openshift-rhel8:latest
+    jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.0: registry.redhat.io/jboss-webserver-5/jws57-openjdk11-openshift-rhel8:5.7.0
+    jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.1: registry.redhat.io/jboss-webserver-5/jws57-openjdk11-openshift-rhel8:5.7.1
+    jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.2: registry.redhat.io/jboss-webserver-5/jws57-openjdk11-openshift-rhel8:5.7.2
+    jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.3: registry.redhat.io/jboss-webserver-5/jws57-openjdk11-openshift-rhel8:5.7.3
+    jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_latest: registry.redhat.io/jboss-webserver-5/jws57-openjdk11-openshift-rhel8:latest
+    mariadb_10.3: registry.redhat.io/rhscl/mariadb-103-rhel7:latest
+    mariadb_10.3-el7: registry.redhat.io/rhscl/mariadb-103-rhel7:latest
+    mariadb_10.3-el8: registry.redhat.io/rhel8/mariadb-103:latest
+    mariadb_10.5-el7: registry.redhat.io/rhscl/mariadb-105-rhel7:latest
+    mariadb_10.5-el8: registry.redhat.io/rhel8/mariadb-105:latest
+    mariadb_10.5-el9: registry.redhat.io/rhel9/mariadb-105:latest
+    mysql_8.0: registry.redhat.io/rhscl/mysql-80-rhel7:latest
+    mysql_8.0-el7: registry.redhat.io/rhscl/mysql-80-rhel7:latest
+    mysql_8.0-el8: registry.redhat.io/rhel8/mysql-80:latest
+    mysql_8.0-el9: registry.redhat.io/rhel9/mysql-80:latest
+    nginx_1.20-ubi7: registry.redhat.io/ubi7/nginx-120:latest
+    nginx_1.20-ubi8: registry.redhat.io/ubi8/nginx-120:latest
+    nginx_1.20-ubi9: registry.redhat.io/ubi9/nginx-120:latest
+    nodejs_14-ubi7: registry.redhat.io/ubi7/nodejs-14:latest
+    nodejs_16-ubi8: registry.redhat.io/ubi8/nodejs-16:latest
+    nodejs_16-ubi8-minimal: registry.redhat.io/ubi8/nodejs-16-minimal:latest
+    nodejs_16-ubi9: registry.redhat.io/ubi9/nodejs-16:latest
+    nodejs_16-ubi9-minimal: registry.redhat.io/ubi9/nodejs-16-minimal:latest
+    nodejs_18-ubi8: registry.redhat.io/ubi8/nodejs-18:latest
+    nodejs_18-ubi8-minimal: registry.redhat.io/ubi8/nodejs-18-minimal:latest
+    nodejs_18-ubi9: registry.redhat.io/ubi9/nodejs-18:latest
+    nodejs_18-ubi9-minimal: registry.redhat.io/ubi9/nodejs-18-minimal:latest
+    openjdk-11-rhel7_1.0: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.0
+    openjdk-11-rhel7_1.1: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.1
+    openjdk-11-rhel7_1.10: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.10
+    openjdk-11-rhel7_1.11: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.11
+    openjdk-11-rhel7_1.12: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.12
+    openjdk-11-rhel7_1.14: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.14
+    openjdk-11-rhel7_1.15: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.15
+    perl_5.26-ubi8: registry.redhat.io/ubi8/perl-526:latest
+    perl_5.30: registry.redhat.io/rhscl/perl-530-rhel7:latest
+    perl_5.30-el7: registry.redhat.io/rhscl/perl-530-rhel7:latest
+    perl_5.30-ubi8: registry.redhat.io/ubi8/perl-530:latest
+    perl_5.32-ubi8: registry.redhat.io/ubi8/perl-532:latest
+    perl_5.32-ubi9: registry.redhat.io/ubi9/perl-532:latest
+    php_7.3: registry.redhat.io/rhscl/php-73-rhel7:latest
+    php_7.3-ubi7: registry.redhat.io/ubi7/php-73:latest
+    php_7.4-ubi8: registry.redhat.io/ubi8/php-74:latest
+    php_8.0-ubi8: registry.redhat.io/ubi8/php-80:latest
+    php_8.0-ubi9: registry.redhat.io/ubi9/php-80:latest
+    postgresql_10: registry.redhat.io/rhscl/postgresql-10-rhel7:latest
+    postgresql_10-el7: registry.redhat.io/rhscl/postgresql-10-rhel7:latest
+    postgresql_10-el8: registry.redhat.io/rhel8/postgresql-10:latest
+    postgresql_12: registry.redhat.io/rhscl/postgresql-12-rhel7:latest
+    postgresql_12-el7: registry.redhat.io/rhscl/postgresql-12-rhel7:latest
+    postgresql_12-el8: registry.redhat.io/rhel8/postgresql-12:latest
+    postgresql_13-el7: registry.redhat.io/rhscl/postgresql-13-rhel7:latest
+    postgresql_13-el8: registry.redhat.io/rhel8/postgresql-13:latest
+    postgresql_13-el9: registry.redhat.io/rhel9/postgresql-13:latest
+    postgresql_15-el8: registry.redhat.io/rhel8/postgresql-15:latest
+    postgresql_15-el9: registry.redhat.io/rhel9/postgresql-15:latest
+    postgresql13-for-sso75-openshift-rhel8_13-el8: registry.redhat.io/rhel8/postgresql-13:latest
+    postgresql13-for-sso76-openshift-rhel8_13-el8: registry.redhat.io/rhel8/postgresql-13:latest
+    python_2.7-ubi8: registry.redhat.io/ubi8/python-27:latest
+    python_3.6-ubi8: registry.redhat.io/ubi8/python-36:latest
+    python_3.8: registry.redhat.io/rhscl/python-38-rhel7:latest
+    python_3.8-ubi7: registry.redhat.io/ubi7/python-38:latest
+    python_3.8-ubi8: registry.redhat.io/ubi8/python-38:latest
+    python_3.9-ubi8: registry.redhat.io/ubi8/python-39:latest
+    python_3.9-ubi9: registry.redhat.io/ubi9/python-39:latest
+    python_3.11-ubi8: registry.redhat.io/ubi8/python-311:latest
+    python_3.11-ubi9: registry.redhat.io/ubi9/python-311:latest
+    redhat-openjdk18-openshift_1.3: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.3
+    redhat-openjdk18-openshift_1.4: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.4
+    redhat-openjdk18-openshift_1.5: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.5
+    redhat-openjdk18-openshift_1.6: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.6
+    redhat-openjdk18-openshift_1.7: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.7
+    redhat-openjdk18-openshift_1.8: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.8
+    redhat-openjdk18-openshift_1.10: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.10
+    redhat-openjdk18-openshift_1.11: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.11
+    redhat-openjdk18-openshift_1.12: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.12
+    redhat-openjdk18-openshift_1.14: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.14
+    redhat-openjdk18-openshift_1.15: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.15
+    redis_6-el7: registry.redhat.io/rhscl/redis-6-rhel7:latest
+    redis_6-el8: registry.redhat.io/rhel8/redis-6:latest
+    redis_6-el9: registry.redhat.io/rhel9/redis-6:latest
+    redis_7-el9: registry.redhat.io/rhel9/redis-7:latest
+    ruby_2.5-ubi8: registry.redhat.io/ubi8/ruby-25:latest
+    ruby_3.0-ubi7: registry.redhat.io/ubi7/ruby-30:latest
+    ruby_3.0-ubi8: registry.redhat.io/ubi8/ruby-30:latest
+    ruby_3.0-ubi9: registry.redhat.io/ubi9/ruby-30:latest
+    ruby_3.1-ubi8: registry.redhat.io/ubi8/ruby-31:latest
+    ruby_3.1-ubi9: registry.redhat.io/ubi9/ruby-31:latest
+    sso75-openshift-rhel8_7.5: registry.redhat.io/rh-sso-7/sso75-openshift-rhel8:7.5
+    sso76-openshift-rhel8_7.6: registry.redhat.io/rh-sso-7/sso76-openshift-rhel8:7.6
+    ubi8-openjdk-8-runtime_1.9: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.9
+    ubi8-openjdk-8-runtime_1.10: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.10
+    ubi8-openjdk-8-runtime_1.11: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.11
+    ubi8-openjdk-8-runtime_1.12: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.12
+    ubi8-openjdk-8-runtime_1.13: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.13
+    ubi8-openjdk-8-runtime_1.14: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.14
+    ubi8-openjdk-8-runtime_1.15: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.15
+    ubi8-openjdk-8-runtime_1.16: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.16
+    ubi8-openjdk-8-runtime_1.17: registry.access.redhat.com/ubi8/openjdk-8-runtime:1.17
+    ubi8-openjdk-8_1.3: registry.access.redhat.com/ubi8/openjdk-8:1.3
+    ubi8-openjdk-8_1.10: registry.access.redhat.com/ubi8/openjdk-8:1.10
+    ubi8-openjdk-8_1.11: registry.access.redhat.com/ubi8/openjdk-8:1.11
+    ubi8-openjdk-8_1.12: registry.access.redhat.com/ubi8/openjdk-8:1.12
+    ubi8-openjdk-8_1.13: registry.access.redhat.com/ubi8/openjdk-8:1.13
+    ubi8-openjdk-8_1.14: registry.access.redhat.com/ubi8/openjdk-8:1.14
+    ubi8-openjdk-8_1.15: registry.access.redhat.com/ubi8/openjdk-8:1.15
+    ubi8-openjdk-8_1.16: registry.access.redhat.com/ubi8/openjdk-8:1.16
+    ubi8-openjdk-8_1.17: registry.access.redhat.com/ubi8/openjdk-8:1.17
+    ubi8-openjdk-11-runtime_1.9: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.9
+    ubi8-openjdk-11-runtime_1.10: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.10
+    ubi8-openjdk-11-runtime_1.11: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.11
+    ubi8-openjdk-11-runtime_1.12: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.12
+    ubi8-openjdk-11-runtime_1.13: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.13
+    ubi8-openjdk-11-runtime_1.14: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.14
+    ubi8-openjdk-11-runtime_1.15: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.15
+    ubi8-openjdk-11-runtime_1.16: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.16
+    ubi8-openjdk-11-runtime_1.17: registry.access.redhat.com/ubi8/openjdk-11-runtime:1.17
+    ubi8-openjdk-11_1.3: registry.access.redhat.com/ubi8/openjdk-11:1.3
+    ubi8-openjdk-11_1.10: registry.access.redhat.com/ubi8/openjdk-11:1.10
+    ubi8-openjdk-11_1.11: registry.access.redhat.com/ubi8/openjdk-11:1.11
+    ubi8-openjdk-11_1.12: registry.access.redhat.com/ubi8/openjdk-11:1.12
+    ubi8-openjdk-11_1.13: registry.access.redhat.com/ubi8/openjdk-11:1.13
+    ubi8-openjdk-11_1.14: registry.access.redhat.com/ubi8/openjdk-11:1.14
+    ubi8-openjdk-11_1.15: registry.access.redhat.com/ubi8/openjdk-11:1.15
+    ubi8-openjdk-11_1.16: registry.access.redhat.com/ubi8/openjdk-11:1.16
+    ubi8-openjdk-11_1.17: registry.access.redhat.com/ubi8/openjdk-11:1.17
+    ubi8-openjdk-17-runtime_1.11: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.11
+    ubi8-openjdk-17-runtime_1.12: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.12
+    ubi8-openjdk-17-runtime_1.13: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.13
+    ubi8-openjdk-17-runtime_1.14: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.14
+    ubi8-openjdk-17-runtime_1.15: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.15
+    ubi8-openjdk-17-runtime_1.16: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.16
+    ubi8-openjdk-17-runtime_1.17: registry.access.redhat.com/ubi8/openjdk-17-runtime:1.17
+    ubi8-openjdk-17_1.11: registry.access.redhat.com/ubi8/openjdk-17:1.11
+    ubi8-openjdk-17_1.12: registry.access.redhat.com/ubi8/openjdk-17:1.12
+    ubi8-openjdk-17_1.13: registry.access.redhat.com/ubi8/openjdk-17:1.13
+    ubi8-openjdk-17_1.14: registry.access.redhat.com/ubi8/openjdk-17:1.14
+    ubi8-openjdk-17_1.15: registry.access.redhat.com/ubi8/openjdk-17:1.15
+    ubi8-openjdk-17_1.16: registry.access.redhat.com/ubi8/openjdk-17:1.16
+    ubi8-openjdk-17_1.17: registry.access.redhat.com/ubi8/openjdk-17:1.17
+  kind: ConfigMap
+  metadata:
+    annotations:
+      samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    creationTimestamp: "2023-12-06T09:23:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:dotnet-runtime_6.0: {}
+          f:dotnet-runtime_6.0-ubi8: {}
+          f:dotnet-runtime_7.0: {}
+          f:dotnet-runtime_7.0-ubi8: {}
+          f:dotnet-runtime_8.0: {}
+          f:dotnet-runtime_8.0-ubi8: {}
+          f:dotnet_6.0: {}
+          f:dotnet_6.0-ubi8: {}
+          f:dotnet_7.0: {}
+          f:dotnet_7.0-ubi8: {}
+          f:dotnet_8.0: {}
+          f:dotnet_8.0-ubi8: {}
+          f:fuse7-eap-openshift-java11_1.11: {}
+          f:fuse7-eap-openshift-java11_1.12: {}
+          f:fuse7-eap-openshift_1.0: {}
+          f:fuse7-eap-openshift_1.1: {}
+          f:fuse7-eap-openshift_1.2: {}
+          f:fuse7-eap-openshift_1.3: {}
+          f:fuse7-eap-openshift_1.4: {}
+          f:fuse7-eap-openshift_1.5: {}
+          f:fuse7-eap-openshift_1.6: {}
+          f:fuse7-eap-openshift_1.7: {}
+          f:fuse7-eap-openshift_1.8: {}
+          f:fuse7-eap-openshift_1.10: {}
+          f:fuse7-eap-openshift_1.11: {}
+          f:fuse7-eap-openshift_1.12: {}
+          f:fuse7-java-openshift_1.0: {}
+          f:fuse7-java-openshift_1.1: {}
+          f:fuse7-java-openshift_1.2: {}
+          f:fuse7-java-openshift_1.3: {}
+          f:fuse7-java-openshift_1.4: {}
+          f:fuse7-java-openshift_1.5: {}
+          f:fuse7-java-openshift_1.6: {}
+          f:fuse7-java-openshift_1.7: {}
+          f:fuse7-java-openshift_1.8: {}
+          f:fuse7-java-openshift_1.10: {}
+          f:fuse7-java-openshift_1.11: {}
+          f:fuse7-java-openshift_1.12: {}
+          f:fuse7-java11-openshift_1.11: {}
+          f:fuse7-java11-openshift_1.12: {}
+          f:fuse7-karaf-openshift-jdk11_1.12: {}
+          f:fuse7-karaf-openshift_1.0: {}
+          f:fuse7-karaf-openshift_1.1: {}
+          f:fuse7-karaf-openshift_1.2: {}
+          f:fuse7-karaf-openshift_1.3: {}
+          f:fuse7-karaf-openshift_1.4: {}
+          f:fuse7-karaf-openshift_1.5: {}
+          f:fuse7-karaf-openshift_1.6: {}
+          f:fuse7-karaf-openshift_1.7: {}
+          f:fuse7-karaf-openshift_1.8: {}
+          f:fuse7-karaf-openshift_1.10: {}
+          f:fuse7-karaf-openshift_1.11: {}
+          f:fuse7-karaf-openshift_1.12: {}
+          f:golang_1.18-ubi7: {}
+          f:golang_1.18-ubi8: {}
+          f:golang_1.18-ubi9: {}
+          f:httpd_2.4: {}
+          f:httpd_2.4-el7: {}
+          f:httpd_2.4-el8: {}
+          f:httpd_2.4-ubi8: {}
+          f:httpd_2.4-ubi9: {}
+          f:java-runtime_openjdk-8-ubi8: {}
+          f:java-runtime_openjdk-11-ubi8: {}
+          f:java-runtime_openjdk-17-ubi8: {}
+          f:java_8: {}
+          f:java_11: {}
+          f:java_openjdk-8-el7: {}
+          f:java_openjdk-8-ubi8: {}
+          f:java_openjdk-11-el7: {}
+          f:java_openjdk-11-ubi8: {}
+          f:java_openjdk-17-ubi8: {}
+          f:jboss-datagrid73-openshift_1.0: {}
+          f:jboss-datagrid73-openshift_1.1: {}
+          f:jboss-datagrid73-openshift_1.2: {}
+          f:jboss-datagrid73-openshift_1.3: {}
+          f:jboss-datagrid73-openshift_1.4: {}
+          f:jboss-datagrid73-openshift_1.5: {}
+          f:jboss-datagrid73-openshift_1.6: {}
+          f:jboss-datagrid73-openshift_1.7: {}
+          f:jboss-datagrid73-openshift_1.8: {}
+          f:jboss-eap-xp3-openjdk11-openshift_3.0: {}
+          f:jboss-eap-xp3-openjdk11-openshift_latest: {}
+          f:jboss-eap-xp3-openjdk11-runtime-openshift_3.0: {}
+          f:jboss-eap-xp3-openjdk11-runtime-openshift_latest: {}
+          f:jboss-eap-xp4-openjdk11-openshift_4.0: {}
+          f:jboss-eap-xp4-openjdk11-openshift_latest: {}
+          f:jboss-eap-xp4-openjdk11-runtime-openshift_4.0: {}
+          f:jboss-eap-xp4-openjdk11-runtime-openshift_latest: {}
+          f:jboss-eap74-openjdk8-openshift_7.4.0: {}
+          f:jboss-eap74-openjdk8-openshift_latest: {}
+          f:jboss-eap74-openjdk8-runtime-openshift_7.4.0: {}
+          f:jboss-eap74-openjdk8-runtime-openshift_latest: {}
+          f:jboss-eap74-openjdk11-openshift_7.4.0: {}
+          f:jboss-eap74-openjdk11-openshift_latest: {}
+          f:jboss-eap74-openjdk11-runtime-openshift_7.4.0: {}
+          f:jboss-eap74-openjdk11-runtime-openshift_latest: {}
+          f:jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.0: {}
+          f:jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.1: {}
+          f:jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.2: {}
+          f:jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_5.7.3: {}
+          f:jboss-webserver57-openjdk8-tomcat9-openshift-ubi8_latest: {}
+          f:jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.0: {}
+          f:jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.1: {}
+          f:jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.2: {}
+          f:jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_5.7.3: {}
+          f:jboss-webserver57-openjdk11-tomcat9-openshift-ubi8_latest: {}
+          f:mariadb_10.3: {}
+          f:mariadb_10.3-el7: {}
+          f:mariadb_10.3-el8: {}
+          f:mariadb_10.5-el7: {}
+          f:mariadb_10.5-el8: {}
+          f:mariadb_10.5-el9: {}
+          f:mysql_8.0: {}
+          f:mysql_8.0-el7: {}
+          f:mysql_8.0-el8: {}
+          f:mysql_8.0-el9: {}
+          f:nginx_1.20-ubi7: {}
+          f:nginx_1.20-ubi8: {}
+          f:nginx_1.20-ubi9: {}
+          f:nodejs_14-ubi7: {}
+          f:nodejs_16-ubi8: {}
+          f:nodejs_16-ubi8-minimal: {}
+          f:nodejs_16-ubi9: {}
+          f:nodejs_16-ubi9-minimal: {}
+          f:nodejs_18-ubi8: {}
+          f:nodejs_18-ubi8-minimal: {}
+          f:nodejs_18-ubi9: {}
+          f:nodejs_18-ubi9-minimal: {}
+          f:openjdk-11-rhel7_1.0: {}
+          f:openjdk-11-rhel7_1.1: {}
+          f:openjdk-11-rhel7_1.10: {}
+          f:openjdk-11-rhel7_1.11: {}
+          f:openjdk-11-rhel7_1.12: {}
+          f:openjdk-11-rhel7_1.14: {}
+          f:openjdk-11-rhel7_1.15: {}
+          f:perl_5.26-ubi8: {}
+          f:perl_5.30: {}
+          f:perl_5.30-el7: {}
+          f:perl_5.30-ubi8: {}
+          f:perl_5.32-ubi8: {}
+          f:perl_5.32-ubi9: {}
+          f:php_7.3: {}
+          f:php_7.3-ubi7: {}
+          f:php_7.4-ubi8: {}
+          f:php_8.0-ubi8: {}
+          f:php_8.0-ubi9: {}
+          f:postgresql_10: {}
+          f:postgresql_10-el7: {}
+          f:postgresql_10-el8: {}
+          f:postgresql_12: {}
+          f:postgresql_12-el7: {}
+          f:postgresql_12-el8: {}
+          f:postgresql_13-el7: {}
+          f:postgresql_13-el8: {}
+          f:postgresql_13-el9: {}
+          f:postgresql_15-el8: {}
+          f:postgresql_15-el9: {}
+          f:postgresql13-for-sso75-openshift-rhel8_13-el8: {}
+          f:postgresql13-for-sso76-openshift-rhel8_13-el8: {}
+          f:python_2.7-ubi8: {}
+          f:python_3.6-ubi8: {}
+          f:python_3.8: {}
+          f:python_3.8-ubi7: {}
+          f:python_3.8-ubi8: {}
+          f:python_3.9-ubi8: {}
+          f:python_3.9-ubi9: {}
+          f:python_3.11-ubi8: {}
+          f:python_3.11-ubi9: {}
+          f:redhat-openjdk18-openshift_1.3: {}
+          f:redhat-openjdk18-openshift_1.4: {}
+          f:redhat-openjdk18-openshift_1.5: {}
+          f:redhat-openjdk18-openshift_1.6: {}
+          f:redhat-openjdk18-openshift_1.7: {}
+          f:redhat-openjdk18-openshift_1.8: {}
+          f:redhat-openjdk18-openshift_1.10: {}
+          f:redhat-openjdk18-openshift_1.11: {}
+          f:redhat-openjdk18-openshift_1.12: {}
+          f:redhat-openjdk18-openshift_1.14: {}
+          f:redhat-openjdk18-openshift_1.15: {}
+          f:redis_6-el7: {}
+          f:redis_6-el8: {}
+          f:redis_6-el9: {}
+          f:redis_7-el9: {}
+          f:ruby_2.5-ubi8: {}
+          f:ruby_3.0-ubi7: {}
+          f:ruby_3.0-ubi8: {}
+          f:ruby_3.0-ubi9: {}
+          f:ruby_3.1-ubi8: {}
+          f:ruby_3.1-ubi9: {}
+          f:sso75-openshift-rhel8_7.5: {}
+          f:sso76-openshift-rhel8_7.6: {}
+          f:ubi8-openjdk-8-runtime_1.9: {}
+          f:ubi8-openjdk-8-runtime_1.10: {}
+          f:ubi8-openjdk-8-runtime_1.11: {}
+          f:ubi8-openjdk-8-runtime_1.12: {}
+          f:ubi8-openjdk-8-runtime_1.13: {}
+          f:ubi8-openjdk-8-runtime_1.14: {}
+          f:ubi8-openjdk-8-runtime_1.15: {}
+          f:ubi8-openjdk-8-runtime_1.16: {}
+          f:ubi8-openjdk-8-runtime_1.17: {}
+          f:ubi8-openjdk-8_1.3: {}
+          f:ubi8-openjdk-8_1.10: {}
+          f:ubi8-openjdk-8_1.11: {}
+          f:ubi8-openjdk-8_1.12: {}
+          f:ubi8-openjdk-8_1.13: {}
+          f:ubi8-openjdk-8_1.14: {}
+          f:ubi8-openjdk-8_1.15: {}
+          f:ubi8-openjdk-8_1.16: {}
+          f:ubi8-openjdk-8_1.17: {}
+          f:ubi8-openjdk-11-runtime_1.9: {}
+          f:ubi8-openjdk-11-runtime_1.10: {}
+          f:ubi8-openjdk-11-runtime_1.11: {}
+          f:ubi8-openjdk-11-runtime_1.12: {}
+          f:ubi8-openjdk-11-runtime_1.13: {}
+          f:ubi8-openjdk-11-runtime_1.14: {}
+          f:ubi8-openjdk-11-runtime_1.15: {}
+          f:ubi8-openjdk-11-runtime_1.16: {}
+          f:ubi8-openjdk-11-runtime_1.17: {}
+          f:ubi8-openjdk-11_1.3: {}
+          f:ubi8-openjdk-11_1.10: {}
+          f:ubi8-openjdk-11_1.11: {}
+          f:ubi8-openjdk-11_1.12: {}
+          f:ubi8-openjdk-11_1.13: {}
+          f:ubi8-openjdk-11_1.14: {}
+          f:ubi8-openjdk-11_1.15: {}
+          f:ubi8-openjdk-11_1.16: {}
+          f:ubi8-openjdk-11_1.17: {}
+          f:ubi8-openjdk-17-runtime_1.11: {}
+          f:ubi8-openjdk-17-runtime_1.12: {}
+          f:ubi8-openjdk-17-runtime_1.13: {}
+          f:ubi8-openjdk-17-runtime_1.14: {}
+          f:ubi8-openjdk-17-runtime_1.15: {}
+          f:ubi8-openjdk-17-runtime_1.16: {}
+          f:ubi8-openjdk-17-runtime_1.17: {}
+          f:ubi8-openjdk-17_1.11: {}
+          f:ubi8-openjdk-17_1.12: {}
+          f:ubi8-openjdk-17_1.13: {}
+          f:ubi8-openjdk-17_1.14: {}
+          f:ubi8-openjdk-17_1.15: {}
+          f:ubi8-openjdk-17_1.16: {}
+          f:ubi8-openjdk-17_1.17: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:samples.operator.openshift.io/version: {}
+      manager: cluster-samples-operator
+      operation: Update
+      time: "2023-12-06T09:38:57Z"
+    name: imagestreamtag-to-image
+    namespace: openshift-cluster-samples-operator
+    resourceVersion: "31427"
+    uid: 7e9593df-f434-42f3-ab72-7a231e1b35e9
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDMjCCAhqgAwIBAgIIL1atO8GIllowDQYJKoZIhvcNAQELBQAwNzESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSEwHwYDVQQDExhrdWJlLWFwaXNlcnZlci1sYi1zaWduZXIw
+      HhcNMjMxMjA2MDkwOTA2WhcNMzMxMjAzMDkwOTA2WjA3MRIwEAYDVQQLEwlvcGVu
+      c2hpZnQxITAfBgNVBAMTGGt1YmUtYXBpc2VydmVyLWxiLXNpZ25lcjCCASIwDQYJ
+      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAKJrmd+L5meq79Z7Kj68Hly2ywdWjbFa
+      57dB7i+POd6AvzWXdzBGigklYVh5+qVms6zt35gbckKkFQ5FUZdgcMNTqDE6RBa7
+      AMz6jWQXaEQ9wdCMvgqrd3APdMoqZob5Elh8fHELK8nyqiraTG/sCmcwZfc3OX1v
+      NtzC2AUU2D/JJALw7nxJMz+HiWgXx4cQBfICd0Huxw6kLIqNWzV1IsUzeX9MuNFL
+      bkf9sPoU5Qggh0ZDGzEk+N8p3ksGKfxzYFWht30Pgm3teyV4BNrfgpjPdCTjG8eq
+      09U7garpYbGU4AVFntQAirjq9PO9szx5Vkt96//nYrUuOuq1snlWxL0CAwEAAaNC
+      MEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFA5K
+      kw/xJ9WY77BzffffGyTDMBbPMA0GCSqGSIb3DQEBCwUAA4IBAQCXkQ6lxP4cQcLf
+      Ey0IAsXrkcPUfGGBsPhAaAhnInvgeokwKqnD7vbejgjbUvIqK3tpFbo5z2QFYz4u
+      GIWtlS/0wv6f0IXNWg9SFztrryOA8T+0bhZOTprObUg7e0UEFBXZSQJo4iTYZvP9
+      r8JXy9xVbcBTpNUj8kMycPBDYldNzabXWJfsBX58zLC6gGNgfxvxM/GgCMn8CuHM
+      46xV2Fig+5BYxQSmjRqZgJqM0ua4xSlmicDLdI1iiCnAmTQw9+Kh7ODo8gKwPxhi
+      HC/xwtDUDLjIp/l7PQ5ngp1K3IeH/A6wNAP4UTBQ9fHEObCCjHxzWG5KDhVldZ9d
+      FxYyOQ5U
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDQDCCAiigAwIBAgIIDI8/bwZkywMwDQYJKoZIhvcNAQELBQAwPjESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSgwJgYDVQQDEx9rdWJlLWFwaXNlcnZlci1sb2NhbGhvc3Qt
+      c2lnbmVyMB4XDTIzMTIwNjA5MDkwNloXDTMzMTIwMzA5MDkwNlowPjESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MSgwJgYDVQQDEx9rdWJlLWFwaXNlcnZlci1sb2NhbGhvc3Qt
+      c2lnbmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0APGIOlyNXh0
+      TNotf9ffTnxXItlba3l4IeTIjKTw4OJJAZ6tOij9rSnNfSIVJ0YxBfOQ91kQwHP0
+      s7S/hU5oja1SSPxKEWhBzJTilodIs8MKpqciTjCrCJa3MvqoRgTomZMtfibVUDVM
+      W+xTTIqC2nIOaWYV/sIWeeSBiddFUFiZI8UhL2/Dlj9Zmfi9afrYu1FgoCkiutNa
+      RS3b91lCowL/ZQtkYEYJnW5EcDR0KhkkJ1QINBqI4/RV8aMFWO2DBEptDLZdK4t4
+      bqipmzS8XAmRMSYKspin+OMU2l8lrD4YMFHGJTwdxemTlqaymCJusHcgl/WIYKpd
+      PwKoCKRzMQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB
+      /zAdBgNVHQ4EFgQUBoxa4WcpeP5PJvc93LCNlZWOQeUwDQYJKoZIhvcNAQELBQAD
+      ggEBAHjC9CSRSorbhjlV/T2GqTC0KEr68CF1w4Maj8J5YHSIacEmtoZFAyxChciG
+      kuk0J/1mN3vZvaUDM/FLSd8424J9lFlgSSW7ff9FU0hkgMlMz+BSAaPVfBfXX8ML
+      DrgoLuJsLbROpzOwSCKeal+GY36ZREG3T3k3piA3JGZrAmHYqbbRNwMSB4igOFVL
+      yGwSqSUmE8JE/L43jaBGK47K9OcfKYzHMzLsek8rbMCeZmh5ou66YFdE7rpcQuqk
+      jxLsDb2b5eYbMzno4FmaewPUPGk29nX5Lg+O5R3bmuOA0PsHFlKNScsuesZeG1IC
+      Xs7hJHpwaeXOalnLTMqBP9ktW2E=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDTDCCAjSgAwIBAgIIZiJpwezp6EIwDQYJKoZIhvcNAQELBQAwRDESMBAGA1UE
+      CxMJb3BlbnNoaWZ0MS4wLAYDVQQDEyVrdWJlLWFwaXNlcnZlci1zZXJ2aWNlLW5l
+      dHdvcmstc2lnbmVyMB4XDTIzMTIwNjA5MDkwNloXDTMzMTIwMzA5MDkwNlowRDES
+      MBAGA1UECxMJb3BlbnNoaWZ0MS4wLAYDVQQDEyVrdWJlLWFwaXNlcnZlci1zZXJ2
+      aWNlLW5ldHdvcmstc2lnbmVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+      AQEAyGX3d3W5NArHA9Jp69jsdl4se+QJ6YYv5e3ZH36mip9nDHwf2fMKdT0uQWLl
+      NKMOuMUeuNzNH/YbuCG3JyWwovMhkCszTZn9oZbp4u9evFrGVuKJth3rkVY1R5yp
+      Rugu5xN/4sB2BalqApP1K1Zt3IqVbV+xWywRXBFYqVZMdCM5EQoYSQU4DELFLnOq
+      oHfBinDmeMaOTvTnPkueIR4xT7toZ62qYqTjNqIbh10ScCM99/1zb8tKrqHcx4SH
+      UGZSjAdXbQKYPVxvA5NyA7dCqC9NCeB4KYRfI9hfN+p9khFQhJVt0GwlyJ13Tq/+
+      xggd68R4mkRlswOo7CHzMn2YOQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYD
+      VR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUUFOZixiVkMoQNLqot/NG9rPsMT4wDQYJ
+      KoZIhvcNAQELBQADggEBAMSDA1Ku4QDA6xGh3lWkTUwQZfKLykH4Sm3QiX1qeDwQ
+      Qa4FEOL4Z8L4dpNOjdFsqsh/lzxqeYnfuZMQyLSq2bkA2T6IqbQVa/CXL4zmlqBk
+      WuKprAAholo/qc3xfMmwz0l4MawYhXD5fieMxmYurGiWfnDjKCpPOuGq0vMr7xm+
+      FTjjfxgIONOouzH8dmWeL12zB78M+PXXleOpOcfjx1q2yxZgL5/6nc+pmkyMTQXs
+      eo8Q64Qw0wSwZPSWgbfDuSyE4LMRKFpVLWqrQqes2QEqOTgemCTauWlwSVMR2ozy
+      gar3cG7/2AvOt3BY2a3fSoeUR9Ooz5of+jHOvaCXyZ8=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDlzCCAn+gAwIBAgIIOTlW4jjPfFAwDQYJKoZIhvcNAQELBQAwWTFXMFUGA1UE
+      AwxOb3BlbnNoaWZ0LWt1YmUtYXBpc2VydmVyLW9wZXJhdG9yX2xvY2FsaG9zdC1y
+      ZWNvdmVyeS1zZXJ2aW5nLXNpZ25lckAxNzAxODU0NDcwMB4XDTIzMTIwNjA5MjEx
+      MFoXDTMzMTIwMzA5MjExMVowWTFXMFUGA1UEAwxOb3BlbnNoaWZ0LWt1YmUtYXBp
+      c2VydmVyLW9wZXJhdG9yX2xvY2FsaG9zdC1yZWNvdmVyeS1zZXJ2aW5nLXNpZ25l
+      ckAxNzAxODU0NDcwMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0F5x
+      VwVD8z1vns5ktYgMSrhLBc+r1KNi36t8NPnOkB/cCSMPU8rDPsArGyNyaxxrOfhn
+      P0VoR9bE3TCFIGulm8rGePzuZ2p0z6eVDmQeG4vLoMr+qFZYsQ5YsBfQrDY/5XOQ
+      t9qgGSEasdkAwtnqwu7nhML7PHT1F0wGZZk3XPqESwx/T8Puq8wqzMK6ApVPdsa9
+      Hok3PtPdOzdord+DB4fGty5O+iZzfbN0XGcWqP/hlwxs/pkFq/u9yVks6uh+3b5C
+      hOxVf5HO6gom6sk1GLlEPy0Wp9y6Y6diNtqvOJJViqzelnf2k9pIEMYJl3qywZgq
+      DAAht0U7iQvIWfOtKwIDAQABo2MwYTAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/
+      BAUwAwEB/zAdBgNVHQ4EFgQUqPnb/GMV4dPhxjl46mMlVuTJenowHwYDVR0jBBgw
+      FoAUqPnb/GMV4dPhxjl46mMlVuTJenowDQYJKoZIhvcNAQELBQADggEBALTFW0qk
+      FDrWVp/iuCCR7Zog6oI9gNr97+ZmCzyBggoQwNwYyGOUCTyIdPdqlLQ1nYK/jumd
+      JtANYtw/AphUQ5jOfN0E0+k7taPOqxt2b8a2UJEfy7FH5irk/sHbzDLd2mBgsnE2
+      yAOMcT6RViDXH0NU4U4jtRoNgE++DZxPx86N/yjezPhREDb1QdIsnrJjlbsfvuLz
+      38sjSo5Z47xMkiEBo7ZPyn4CgkGbjZE4GTywzPUPcI1QceDrA6W90AwGhe74Yo58
+      AXh7d76VtW2ZTigInqgCBzjuK6UgbvbDPmhRCKBRzp2dkAQf+wsJspKUL4tKfr56
+      CKNZDxg9pt4STX4=
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDsTCCApmgAwIBAgIIf3r9hwb0H/YwDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UE
+      AwwbaW5ncmVzcy1vcGVyYXRvckAxNzAxODU0NTAzMB4XDTIzMTIwNjA5MjE0M1oX
+      DTI1MTIwNTA5MjE0NFowSDFGMEQGA1UEAww9Ki5hcHBzLmNpLW9wLTJqMjg1cXRy
+      LTIzNGM3Lm9yaWdpbi1jaS1pbnQtYXdzLmRldi5yaGNsb3VkLmNvbTCCASIwDQYJ
+      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAMaixxcG+GtCk49lso4i4m436LM9Jmg7
+      3jvJDLjFFe7lqLds62swlpYXzvCL293rZoUTnMMRwCg52NIVDWP17P8oTnS4ek3l
+      Wlr7e3xLd6Q41c4ZfJ8Tz6r/V+OOm1zNiJ1EDSjng7J+nrI2sYt5pxca2UmU0T+K
+      pOHDREgd7k177nAnSRNxFCTVz1WHYHyt2k2/iwJzxERYplVr8H7B5Cr4bASSeB5D
+      2hK7BNbtxpLksN6o3EMT5vSUUFjSbWFLzSCWp9qMg3dF9v5LFzdJzwNiQbtXYWUt
+      FfrjHRaWKxTyDKSLs8TmWH/33IMgsfktyDnXXz9aYgISYqnpFtXtKsMCAwEAAaOB
+      wDCBvTAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0T
+      AQH/BAIwADAdBgNVHQ4EFgQUDLbGtublZb+GAzhUi2I0ZDU5eSMwHwYDVR0jBBgw
+      FoAUxU/QaLMsy0r2FIw7wpp8L9F3FfcwSAYDVR0RBEEwP4I9Ki5hcHBzLmNpLW9w
+      LTJqMjg1cXRyLTIzNGM3Lm9yaWdpbi1jaS1pbnQtYXdzLmRldi5yaGNsb3VkLmNv
+      bTANBgkqhkiG9w0BAQsFAAOCAQEAbZ8LMZs6h2ZU6aq9gzJQ1xI3DZ8W9CKijXV9
+      ySpQDmFf1SKc8n3YrFAZjB51pnu76MfG9UHdeNd+YjPr2NK3olsCne3ANOAq8Tfr
+      12HOx3rE87kMSA6DZihUSgZWbrAIIsCTilfH4xtnipvzOzivqfbVYZPTeAmwh5Xz
+      yfTccEP0DH9qYdwgzoMjVlK7KFz5Fz6h1/aMNJTx9orxMC562PQwirlnXRstATmS
+      XRMw3FLHc2Gd1g0wVdHhWZIju2JcEgUhaevFKwsiNZ6NNRvat3zCwGZsOUscnDSU
+      JMmTnQCRjsszvxFUj+VyCZZpqlepnbSUTBe6q1jzoDLMo7x5ig==
+      -----END CERTIFICATE-----
+      -----BEGIN CERTIFICATE-----
+      MIIDDDCCAfSgAwIBAgIBATANBgkqhkiG9w0BAQsFADAmMSQwIgYDVQQDDBtpbmdy
+      ZXNzLW9wZXJhdG9yQDE3MDE4NTQ1MDMwHhcNMjMxMjA2MDkyMTQyWhcNMjUxMjA1
+      MDkyMTQzWjAmMSQwIgYDVQQDDBtpbmdyZXNzLW9wZXJhdG9yQDE3MDE4NTQ1MDMw
+      ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDXO4feyiXJQtSyn3pTeieZ
+      HzqoTei5tJjOwQcGpNvJOgQi5bpDeuCVp0oXYj6c4R/SOpehLnScaeQ0DZu8Ns+h
+      b3SSklkMq3K2jNDoegZnEhKn5u24mBubywHZwlwD+2NESyMx/HiOhSCD45NuMTMn
+      wumTbo6l1Y3qEFjOv6paIXSRo7t0duvSP5rCtuVwEXJWdKsjFzVp5uLYh6rFVx9G
+      wPJvH3WMNlBjq8Ruo9c1/kQsonsriq+8RJxbatHBMM4ZpLhIqYcNhlyy4zPVyjlr
+      HDRLXWLBI2XzMzBg2oXWTCG0CeEseg9Kh+wN1qq+wqOat9rZe9U7eL2ffjTFncCF
+      AgMBAAGjRTBDMA4GA1UdDwEB/wQEAwICpDASBgNVHRMBAf8ECDAGAQH/AgEAMB0G
+      A1UdDgQWBBTFT9BosyzLSvYUjDvCmnwv0XcV9zANBgkqhkiG9w0BAQsFAAOCAQEA
+      BX+yTuljBB46GXVm9apBcOVtPiJby3SOF8QJgl+6gVLreqW6wZqMIXykRyIAICj3
+      7OERtORnE3lLs68oNT1YUSpk/0Anl9cGMcaymA0IP9E11Y585YdA9QGfU5bjBCmQ
+      uOve2Yzp7v8wdyo5V5EATd10zTY3rpchJUQRoWBNlxTBAgl1BQHQ8pqcdqFsXVc0
+      2hI7IVt0xMVOaASwND0Jf6B/+YNXSxyP6y/GZNQPEj55DduxpnVJOElZvXmdRorf
+      qDEVNfGfKW+EMPioOUP6MY4/S77Ig5vG3l2YyWy9+/qhSMHq3hMCtTsTV7rZOtrT
+      fm7t7YsKjRxxfQctBFJ9zw==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2023-12-06T09:17:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          .: {}
+          f:ca.crt: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:kubernetes.io/description: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: kube-root-ca.crt
+    namespace: openshift-cluster-samples-operator
+    resourceVersion: "46989"
+    uid: c95c09d5-93f0-43c8-b85d-7e700a259be4
+- apiVersion: v1
+  data:
+    service-ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDUTCCAjmgAwIBAgIIT1Ee7AjXMkcwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UE
+      Awwrb3BlbnNoaWZ0LXNlcnZpY2Utc2VydmluZy1zaWduZXJAMTcwMTg1NDQ2OTAe
+      Fw0yMzEyMDYwOTIxMDlaFw0yNjAyMDMwOTIxMTBaMDYxNDAyBgNVBAMMK29wZW5z
+      aGlmdC1zZXJ2aWNlLXNlcnZpbmctc2lnbmVyQDE3MDE4NTQ0NjkwggEiMA0GCSqG
+      SIb3DQEBAQUAA4IBDwAwggEKAoIBAQCr0FmPFP6vo2uwzdnTi42yTm9MdUiABx6/
+      uiXKYrojW1b7Ojc+3+3KOHxIYDW3V1cLyE0JVfhQaKFKHGNPeWQ9EsQmjNZfszfz
+      YTKljs1W5qOkwVHIfnNsUojco+cxsPKF1xd0Oj/hVohEUlO9yd3FpfnYY7ls5vkY
+      myf4Jr9qTd/mQsPdcxMTViIF804IZ+wYuKpmOFOlXzK/qgN2Qo+NnSUElFb6s8s8
+      ocqIKJ/8uYehza5E1gAeiGqVe9PSHUyH8fSyzc2roYAktJHYV2HfRJLPrUsvvp3v
+      KFyM/M9vBJ1W6VvhyWFxjL+I3pRYKlWehzsYx3DySi1jD0iARps9AgMBAAGjYzBh
+      MA4GA1UdDwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQOv1ld
+      GuwnAYb16cL8xuS6fzsuGzAfBgNVHSMEGDAWgBQOv1ldGuwnAYb16cL8xuS6fzsu
+      GzANBgkqhkiG9w0BAQsFAAOCAQEAoM5S/rgKaJUNVCSggwhWUWnsrRPnhvWZpmxR
+      oe2S9kdenJl+9wgzQbOXmJSZEjuqHzjuy4/hVe38jTGSSXdzKdwSF1e0RH3YB7RX
+      4mmV23ICrVrGpndGe+SFxFH+Btc4zTAjHvSn3bwpVvQRNbYQOLAhHM9VKWHpoFB0
+      6GZTkhlafE+lPg1akGldqaP0Y9R1njSrE+OBLtRuix9alJ3XIWgkf3GJR/FNi5uK
+      RaII1bimiKNcRM9/tb1u22siAG2cxc5Vc491pZB2lW9et//TpzVe2JTZ9R9iDj9s
+      B7ZviXTvwKWlkbhjz+l7zADSMkuL7g9y8CA/RwM8LEbqufyRTw==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      service.beta.openshift.io/inject-cabundle: "true"
+    creationTimestamp: "2023-12-06T09:17:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:service.beta.openshift.io/inject-cabundle: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:17:53Z"
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:data:
+          f:service-ca.crt: {}
+      manager: service-ca-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-service-ca.crt
+    namespace: openshift-cluster-samples-operator
+    resourceVersion: "5919"
+    uid: d545f794-1fb3-4079-ba4c-2e02c84efa9d
+kind: ConfigMapList
+metadata:
+  resourceVersion: "48049"

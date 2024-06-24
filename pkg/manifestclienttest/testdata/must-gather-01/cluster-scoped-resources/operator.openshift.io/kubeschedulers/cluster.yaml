@@ -1,0 +1,168 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: KubeScheduler
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  generation: 2
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:observedConfig:
+          .: {}
+          f:servingInfo:
+            .: {}
+            f:cipherSuites: {}
+            f:minTLSVersion: {}
+        f:unsupportedConfigOverrides: {}
+    manager: cluster-kube-scheduler-operator
+    operation: Update
+    time: "2023-12-06T09:21:09Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:latestAvailableRevision: {}
+        f:nodeStatuses: {}
+        f:readyReplicas: {}
+    manager: cluster-kube-scheduler-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:58:04Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "47839"
+  uid: 985f09a0-87c9-45d3-b17d-4ef0de71adcf
+spec:
+  logLevel: Normal
+  managementState: Managed
+  observedConfig:
+    servingInfo:
+      cipherSuites:
+      - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+      - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+      minTLSVersion: VersionTLS12
+  operatorLogLevel: Normal
+  unsupportedConfigOverrides: null
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:32Z"
+    message: All master nodes are ready
+    reason: MasterNodesReady
+    status: "False"
+    type: NodeControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    status: "False"
+    type: ConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: AsExpected
+    status: "False"
+    type: MissingStaticPodControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    message: '[Missing operand on node ip-10-0-106-212.us-west-1.compute.internal,
+      Missing operand on node ip-10-0-21-63.us-west-1.compute.internal, Missing operand
+      on node ip-10-0-94-160.us-west-1.compute.internal]'
+    reason: SyncError
+    status: "True"
+    type: GuardControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: NoUnsupportedConfigOverrides
+    status: "True"
+    type: UnsupportedConfigOverridesUpgradeable
+  - lastTransitionTime: "2023-12-06T09:21:10Z"
+    message: 'ConfigMap "kube-scheduler-pod-2" is invalid: metadata.ownerReferences.uid:
+      Invalid value: "": uid must not be empty'
+    reason: ContentCreationError
+    status: "True"
+    type: RevisionControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:12Z"
+    reason: AsExpected
+    status: "False"
+    type: BackingResourceControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:12Z"
+    status: "False"
+    type: InstallerPodPendingDegraded
+  - lastTransitionTime: "2023-12-06T09:21:12Z"
+    status: "False"
+    type: InstallerPodContainerWaitingDegraded
+  - lastTransitionTime: "2023-12-06T09:21:12Z"
+    status: "False"
+    type: InstallerPodNetworkingDegraded
+  - lastTransitionTime: "2023-12-06T09:21:14Z"
+    status: "False"
+    type: StaticPodsDegraded
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    message: 'missing required resources: [configmaps: config-1,kube-scheduler-cert-syncer-kubeconfig-1,kube-scheduler-pod-1,scheduler-kubeconfig-1,serviceaccount-ca-1,
+      secrets: localhost-recovery-client-token-1]'
+    reason: Error
+    status: "True"
+    type: InstallerControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    message: 0 nodes are active; 3 nodes are at revision 0; 0 nodes have achieved
+      new revision 1
+    reason: ZeroNodesActive
+    status: "False"
+    type: StaticPodsAvailable
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    message: 3 nodes are at revision 0; 0 nodes have achieved new revision 1
+    status: "True"
+    type: NodeInstallerProgressing
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    status: "False"
+    type: NodeInstallerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:19Z"
+    reason: AsExpected
+    status: "False"
+    type: KubeControllerManagerStaticResourcesDegraded
+  - lastTransitionTime: "2023-12-06T09:21:27Z"
+    status: "False"
+    type: TargetConfigControllerDegraded
+  latestAvailableRevision: 1
+  nodeStatuses:
+  - currentRevision: 0
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+  - currentRevision: 0
+    nodeName: ip-10-0-94-160.us-west-1.compute.internal
+  - currentRevision: 0
+    nodeName: ip-10-0-106-212.us-west-1.compute.internal
+  readyReplicas: 0

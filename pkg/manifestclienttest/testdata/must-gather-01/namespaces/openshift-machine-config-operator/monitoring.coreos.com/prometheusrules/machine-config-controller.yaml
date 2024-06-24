@@ -1,0 +1,93 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:18:13Z"
+  generation: 1
+  labels:
+    k8s-app: machine-config-controller
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:labels:
+          .: {}
+          f:k8s-app: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:groups:
+          .: {}
+          k:{"name":"mcc-drain-error"}:
+            .: {}
+            f:name: {}
+            f:rules: {}
+          k:{"name":"mcc-pool-alert"}:
+            .: {}
+            f:name: {}
+            f:rules: {}
+          k:{"name":"os-image-override.rules"}:
+            .: {}
+            f:name: {}
+            f:rules: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:13Z"
+  name: machine-config-controller
+  namespace: openshift-machine-config-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "1753"
+  uid: 286b795d-d0b1-4f1c-a74a-a456b0e25169
+spec:
+  groups:
+  - name: os-image-override.rules
+    rules:
+    - expr: sum(os_image_url_override)
+      record: os_image_url_override:sum
+  - name: mcc-drain-error
+    rules:
+    - alert: MCCDrainError
+      annotations:
+        description: 'Drain failed on {{ $labels.exported_node }} , updates may be
+          blocked. For more details check MachineConfigController pod logs: oc logs
+          -f -n {{ $labels.namespace }} machine-config-controller-xxxxx -c machine-config-controller'
+        summary: Alerts the user to a failed node drain. Always triggers when the
+          failure happens one or more times.
+      expr: |
+        mcc_drain_err > 0
+      labels:
+        namespace: openshift-machine-config-operator
+        severity: warning
+  - name: mcc-pool-alert
+    rules:
+    - alert: MCCPoolAlert
+      annotations:
+        description: 'Node {{ $labels.exported_node }} has triggered a pool alert
+          due to a label change. For more details check MachineConfigController pod
+          logs: oc logs -f -n {{ $labels.namespace }} machine-config-controller-xxxxx
+          -c machine-config-controller'
+        summary: Triggers when nodes in a pool have overlapping labels such as master,
+          worker, and a custom label therefore a choice must be made as to which is
+          honored.
+      expr: |
+        mcc_pool_alert > 0
+      labels:
+        namespace: openshift-machine-config-operator
+        severity: warning

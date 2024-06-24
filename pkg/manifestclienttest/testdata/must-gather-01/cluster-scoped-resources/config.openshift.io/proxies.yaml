@@ -1,0 +1,39 @@
+---
+apiVersion: config.openshift.io/v1
+items:
+- apiVersion: config.openshift.io/v1
+  kind: Proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:39Z"
+    generation: 1
+    managedFields:
+    - apiVersion: config.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:spec:
+          .: {}
+          f:trustedCA:
+            .: {}
+            f:name: {}
+      manager: cluster-bootstrap
+      operation: Update
+      time: "2023-12-06T09:17:39Z"
+    - apiVersion: config.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status: {}
+      manager: cluster-bootstrap
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:17:39Z"
+    name: cluster
+    resourceVersion: "535"
+    uid: ccb5fa5b-4859-49b4-8ff5-c00d1d5234fb
+  spec:
+    trustedCA:
+      name: ""
+  status: {}
+kind: ProxyList
+metadata:
+  continue: ""
+  resourceVersion: "47576"

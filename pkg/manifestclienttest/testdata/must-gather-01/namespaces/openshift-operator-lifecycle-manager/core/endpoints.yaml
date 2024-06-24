@@ -1,0 +1,168 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:22:13Z"
+    creationTimestamp: "2023-12-06T09:18:17Z"
+    labels:
+      app: catalog-operator
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: catalog-operator-metrics
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9609"
+    uid: 418f5d6e-042e-4c0f-a0bd-70f30f7d367e
+  subsets:
+  - addresses:
+    - ip: 10.129.0.13
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: catalog-operator-c4fc57b68-v5fl5
+        namespace: openshift-operator-lifecycle-manager
+        uid: d623d6f0-3c8d-464d-adff-48b80f3941e6
+    ports:
+    - name: https-metrics
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:22:14Z"
+    creationTimestamp: "2023-12-06T09:18:16Z"
+    labels:
+      app: olm-operator
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:14Z"
+    name: olm-operator-metrics
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "9856"
+    uid: 33ef28d1-02df-4bc0-8ee4-89d62e2f973e
+  subsets:
+  - addresses:
+    - ip: 10.129.0.11
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: olm-operator-695f576fc4-4kw7s
+        namespace: openshift-operator-lifecycle-manager
+        uid: 8c256195-7225-40b5-96ce-36565487d9c1
+    ports:
+    - name: https-metrics
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:22:43Z"
+    creationTimestamp: "2023-12-06T09:18:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:22:43Z"
+    name: package-server-manager-metrics
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "11276"
+    uid: 30f82fb9-6c68-4ab5-81ff-b6a32451ea46
+  subsets:
+  - addresses:
+    - ip: 10.129.0.10
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: package-server-manager-87f6899c8-hzmxc
+        namespace: openshift-operator-lifecycle-manager
+        uid: b0a13dcb-7a15-4905-8ba3-be675e737f32
+    ports:
+    - name: metrics
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:27:16Z"
+    creationTimestamp: "2023-12-06T09:27:16Z"
+    labels:
+      olm.managed: "true"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:olm.managed: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:27:16Z"
+    name: packageserver-service
+    namespace: openshift-operator-lifecycle-manager
+    resourceVersion: "20892"
+    uid: e0afb012-e7c3-4932-9ae5-2a35db4986e4
+  subsets:
+  - addresses:
+    - ip: 10.129.0.59
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: packageserver-6d5d6686c-c76gp
+        namespace: openshift-operator-lifecycle-manager
+        uid: 490696cb-1fed-4721-a2d6-3391d946cd53
+    - ip: 10.130.0.16
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: packageserver-6d5d6686c-mr4pn
+        namespace: openshift-operator-lifecycle-manager
+        uid: 0f24c801-32c4-4cf5-902e-b98e5ff12ee5
+    ports:
+    - name: "5443"
+      port: 5443
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "48063"

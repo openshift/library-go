@@ -1,0 +1,465 @@
+---
+apiVersion: v1
+kind: Node
+metadata:
+  annotations:
+    cloud.network.openshift.io/egress-ipconfig: '[{"interface":"eni-09151b76ebe983b91","ifaddr":{"ipv4":"10.0.64.0/18"},"capacity":{"ipv4":14,"ipv6":15}}]'
+    csi.volume.kubernetes.io/nodeid: '{"ebs.csi.aws.com":"i-007b6867e27f7ba2d"}'
+    k8s.ovn.org/host-cidrs: '["10.0.94.160/18"]'
+    k8s.ovn.org/l3-gateway-config: '{"default":{"mode":"shared","interface-id":"br-ex_ip-10-0-94-160.us-west-1.compute.internal","mac-address":"02:1e:bc:91:3d:0b","ip-addresses":["10.0.94.160/18"],"ip-address":"10.0.94.160/18","next-hops":["10.0.64.1"],"next-hop":"10.0.64.1","node-port-enable":"true","vlan-id":"0"}}'
+    k8s.ovn.org/network-ids: '{"default":"0"}'
+    k8s.ovn.org/node-chassis-id: a684edec-39c2-409d-8208-59805a7b4943
+    k8s.ovn.org/node-gateway-router-lrp-ifaddr: '{"ipv4":"100.64.0.3/16"}'
+    k8s.ovn.org/node-id: "3"
+    k8s.ovn.org/node-mgmt-port-mac-address: 0a:39:8e:4a:2a:51
+    k8s.ovn.org/node-primary-ifaddr: '{"ipv4":"10.0.94.160/18"}'
+    k8s.ovn.org/node-subnets: '{"default":["10.130.0.0/23"]}'
+    k8s.ovn.org/node-transit-switch-port-ifaddr: '{"ipv4":"100.88.0.3/16"}'
+    k8s.ovn.org/remote-zone-migrated: ip-10-0-94-160.us-west-1.compute.internal
+    k8s.ovn.org/zone-name: ip-10-0-94-160.us-west-1.compute.internal
+    machine.openshift.io/machine: openshift-machine-api/ci-op-2j285qtr-234c7-w84r8-master-0
+    machineconfiguration.openshift.io/controlPlaneTopology: HighlyAvailable
+    machineconfiguration.openshift.io/currentConfig: rendered-master-7de7faec2aa929623102b918401d8434
+    machineconfiguration.openshift.io/desiredConfig: rendered-master-7de7faec2aa929623102b918401d8434
+    machineconfiguration.openshift.io/desiredDrain: uncordon-rendered-master-7de7faec2aa929623102b918401d8434
+    machineconfiguration.openshift.io/lastAppliedDrain: uncordon-rendered-master-7de7faec2aa929623102b918401d8434
+    machineconfiguration.openshift.io/lastSyncedControllerConfigResourceVersion: "31074"
+    machineconfiguration.openshift.io/reason: ""
+    machineconfiguration.openshift.io/state: Done
+    volumes.kubernetes.io/controller-managed-attach-detach: "true"
+  creationTimestamp: "2023-12-06T09:19:02Z"
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/instance-type: m6a.xlarge
+    beta.kubernetes.io/os: linux
+    failure-domain.beta.kubernetes.io/region: us-west-1
+    failure-domain.beta.kubernetes.io/zone: us-west-1b
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: ip-10-0-94-160.us-west-1.compute.internal
+    kubernetes.io/os: linux
+    node-role.kubernetes.io/control-plane: ""
+    node-role.kubernetes.io/master: ""
+    node.kubernetes.io/instance-type: m6a.xlarge
+    node.openshift.io/os_id: rhcos
+    topology.ebs.csi.aws.com/zone: us-west-1b
+    topology.kubernetes.io/region: us-west-1
+    topology.kubernetes.io/zone: us-west-1b
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:volumes.kubernetes.io/controller-managed-attach-detach: {}
+        f:labels:
+          .: {}
+          f:beta.kubernetes.io/arch: {}
+          f:beta.kubernetes.io/os: {}
+          f:kubernetes.io/arch: {}
+          f:kubernetes.io/hostname: {}
+          f:kubernetes.io/os: {}
+          f:node-role.kubernetes.io/control-plane: {}
+          f:node-role.kubernetes.io/master: {}
+          f:node.openshift.io/os_id: {}
+      f:spec:
+        f:providerID: {}
+    manager: kubelet
+    operation: Update
+    time: "2023-12-06T09:19:02Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          f:beta.kubernetes.io/instance-type: {}
+          f:failure-domain.beta.kubernetes.io/region: {}
+          f:failure-domain.beta.kubernetes.io/zone: {}
+          f:node.kubernetes.io/instance-type: {}
+          f:topology.kubernetes.io/region: {}
+          f:topology.kubernetes.io/zone: {}
+    manager: aws-cloud-controller-manager
+    operation: Update
+    time: "2023-12-06T09:19:30Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:addresses:
+          k:{"type":"InternalDNS"}:
+            .: {}
+            f:address: {}
+            f:type: {}
+    manager: aws-cloud-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:30Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:k8s.ovn.org/host-cidrs: {}
+          f:k8s.ovn.org/l3-gateway-config: {}
+          f:k8s.ovn.org/network-ids: {}
+          f:k8s.ovn.org/node-chassis-id: {}
+          f:k8s.ovn.org/node-gateway-router-lrp-ifaddr: {}
+          f:k8s.ovn.org/node-id: {}
+          f:k8s.ovn.org/node-mgmt-port-mac-address: {}
+          f:k8s.ovn.org/node-primary-ifaddr: {}
+          f:k8s.ovn.org/node-subnets: {}
+          f:k8s.ovn.org/node-transit-switch-port-ifaddr: {}
+          f:k8s.ovn.org/remote-zone-migrated: {}
+          f:k8s.ovn.org/zone-name: {}
+    manager: ip-10-0-94-160
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:21:14Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:taints: {}
+    manager: kube-controller-manager
+    operation: Update
+    time: "2023-12-06T09:21:27Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:cloud.network.openshift.io/egress-ipconfig: {}
+    manager: cloud-network-config-controller
+    operation: Update
+    time: "2023-12-06T09:22:00Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:machine.openshift.io/machine: {}
+    manager: nodelink-controller
+    operation: Update
+    time: "2023-12-06T09:22:50Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:machineconfiguration.openshift.io/controlPlaneTopology: {}
+          f:machineconfiguration.openshift.io/lastAppliedDrain: {}
+    manager: machine-config-controller
+    operation: Update
+    time: "2023-12-06T09:23:32Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:machineconfiguration.openshift.io/currentConfig: {}
+          f:machineconfiguration.openshift.io/desiredConfig: {}
+          f:machineconfiguration.openshift.io/desiredDrain: {}
+          f:machineconfiguration.openshift.io/lastSyncedControllerConfigResourceVersion: {}
+          f:machineconfiguration.openshift.io/reason: {}
+          f:machineconfiguration.openshift.io/state: {}
+    manager: machine-config-daemon
+    operation: Update
+    time: "2023-12-06T09:44:07Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:csi.volume.kubernetes.io/nodeid: {}
+        f:labels:
+          f:topology.ebs.csi.aws.com/zone: {}
+      f:status:
+        f:conditions:
+          k:{"type":"DiskPressure"}:
+            f:lastHeartbeatTime: {}
+          k:{"type":"MemoryPressure"}:
+            f:lastHeartbeatTime: {}
+          k:{"type":"PIDPressure"}:
+            f:lastHeartbeatTime: {}
+          k:{"type":"Ready"}:
+            f:lastHeartbeatTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+        f:images: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:59:05Z"
+  name: ip-10-0-94-160.us-west-1.compute.internal
+  resourceVersion: "48481"
+  uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+spec:
+  providerID: aws:///us-west-1b/i-007b6867e27f7ba2d
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+status:
+  addresses:
+  - address: 10.0.94.160
+    type: InternalIP
+  - address: ip-10-0-94-160.us-west-1.compute.internal
+    type: InternalDNS
+  - address: ip-10-0-94-160.us-west-1.compute.internal
+    type: Hostname
+  allocatable:
+    cpu: 3500m
+    ephemeral-storage: "114345831029"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    memory: 14853916Ki
+    pods: "250"
+  capacity:
+    cpu: "4"
+    ephemeral-storage: 125238252Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    memory: 16004892Ki
+    pods: "250"
+  conditions:
+  - lastHeartbeatTime: "2023-12-06T09:59:05Z"
+    lastTransitionTime: "2023-12-06T09:19:02Z"
+    message: kubelet has sufficient memory available
+    reason: KubeletHasSufficientMemory
+    status: "False"
+    type: MemoryPressure
+  - lastHeartbeatTime: "2023-12-06T09:59:05Z"
+    lastTransitionTime: "2023-12-06T09:19:02Z"
+    message: kubelet has no disk pressure
+    reason: KubeletHasNoDiskPressure
+    status: "False"
+    type: DiskPressure
+  - lastHeartbeatTime: "2023-12-06T09:59:05Z"
+    lastTransitionTime: "2023-12-06T09:19:02Z"
+    message: kubelet has sufficient PID available
+    reason: KubeletHasSufficientPID
+    status: "False"
+    type: PIDPressure
+  - lastHeartbeatTime: "2023-12-06T09:59:05Z"
+    lastTransitionTime: "2023-12-06T09:21:25Z"
+    message: kubelet is posting ready status
+    reason: KubeletReady
+    status: "True"
+    type: Ready
+  daemonEndpoints:
+    kubeletEndpoint:
+      Port: 10250
+  images:
+  - names:
+    - registry.redhat.io/redhat/redhat-operator-index@sha256:1b98c6e3cfa3389ca595834bda380822ce4561461d3f167d789694ec75a17f64
+    - registry.redhat.io/redhat/redhat-operator-index@sha256:d0c01833d67612cde4a57a7eaadef53cc26d1a3461d8ae6eec29ebf7cef0dbbf
+    - registry.redhat.io/redhat/redhat-operator-index:v4.15
+    sizeBytes: 1741115537
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b4bb1614b8b7cc9d9ccbf3e70fb4f1d6cfb730ab0f18a0f97685acabb9b328ae
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:dea3c139c277679b66b8ca4a950ebf132f50e29bc7861e656aef3188f668e02c
+    sizeBytes: 1315300806
+  - names:
+    - registry.redhat.io/redhat/community-operator-index@sha256:ec5bd6b6a1019717cbaff2ddda7afc0eb66aae3f1825cc84b4124309dc131997
+    - registry.redhat.io/redhat/community-operator-index@sha256:eea2758c016478d8b668b964ebb57a6f5143cd494f768dc631423febae53935b
+    - registry.redhat.io/redhat/community-operator-index:v4.15
+    sizeBytes: 1305726230
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:45cc607f92ebeac683d5cba52cc986b0096892e9c0ca3ec6245a792170f09ccd
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ee217337dd5bd79f87f42b9fdc9384bcc8a5690af16e73d0b0998748657e41ab
+    sizeBytes: 1251927199
+  - names:
+    - registry.redhat.io/redhat/certified-operator-index@sha256:91ab82b449084d2e3761c4b4b473b0c75b8de4ce28e96ff91aac4d9912b523a8
+    - registry.redhat.io/redhat/certified-operator-index@sha256:e52c307cbed8d3412047ef829e61b2c6173eac92f7b723646fdec5c7f9711e49
+    - registry.redhat.io/redhat/certified-operator-index:v4.15
+    sizeBytes: 1067798952
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8264e9fe76d1b9010d79ed7d44cb23598e4524ffad759e8bef62fac0d508f3aa
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c7976e17396681de12993cb44704f01b2fa08b0b24b5f651b4d69dd4b43873f9
+    sizeBytes: 1005998183
+  - names:
+    - registry.redhat.io/redhat/redhat-marketplace-index@sha256:54a8048c19c0444b6ec6ae166a38f0bd1050a2e78824cb60788d7e2450041aa7
+    - registry.redhat.io/redhat/redhat-marketplace-index@sha256:54f5a3916d3322a91f92282e69f3712f9ae1efde0b2457f7fdcdd32beb5d260e
+    - registry.redhat.io/redhat/redhat-marketplace-index:v4.15
+    sizeBytes: 945616801
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:360c81e1244653f4dd28acef460d7fab24a723eddda4c13dfed818bc9c0c3ec3
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ec7a6416dacd4b3499c95dfd6ed855f3a971253e0482486deadb6092581c5643
+    sizeBytes: 908815253
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:74eb458d49f9d8e882e9c4c46b324ed134db2a7f448e8364e96c8f7b111ef4c4
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:77911b0d1fe57797049634ec64d603a824ea07d6ffac941a8b179b39ca7878a2
+    sizeBytes: 868072927
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:38109eba2c5bb23c8254f5211f030f4b1685dd6c25653639e9a8abf52b0c5f0d
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e
+    sizeBytes: 861299977
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c74ff050d45f54dd73586f7e39a1201855374759b7f29ffc1e63a86f4e3bad02
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f736aedcb2e2a4c8cbdaaaff2eb1be02be1eac39d5056f780c8b3994fa506ac3
+    sizeBytes: 854517885
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:a5578512725a09c99e576f76d8a3d8ca6f02e8a539df0e14d1b480ee9300dd95
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bc1bc2b62552d4e6f569bf57884a296cf97a386f28d022d171e3704a3e1aa39b
+    sizeBytes: 731043002
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4fee0b72cbabe35e5ae2fd45a63cc8f04494079c9ba7aff376cba46b22140d24
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:60ceeddb3aab2941c7fa3a5f547ee1c55ba3987223e8b87af0ab9109a3a79e00
+    sizeBytes: 723134741
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:27592f55b1c1f0449360873702e574284e19e846214bfa0660accdb95c93655e
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:516ba259012c9625245d5f51dfd3f4b6d706041be0da9e4dde762b8088c223bf
+    sizeBytes: 715333983
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:1354f67edbdb62e646b464b85b9b77e1538e3829764c0c886ab691841cce3814
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51cfa83053931ea1c0a3b4c176b429d26aed609d267b3f0925d684c5887ced50
+    sizeBytes: 639947991
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8f106c0e83f707310fb2851244348636468ea524097f67c8a7ae8b4f0cb3a638
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b5782a3d9c78a8fdbbcb91904d8b1178202a22c7bf0e3486f82a041a88ddd759
+    sizeBytes: 612391158
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:554e9569cfa4e47cfc7a0db028247e9998a28de574ef375716a2aa56aa8f3818
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:81b750de737bd9558fe7ae655ac11764e54ca7d5713c7e994a492545ccbe278b
+    sizeBytes: 608454059
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:a6ec4886c148ddb94a8a5469da65650cd7c6762a778b28593f69f257a260e05c
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:d27d9b7ff66f489147b0ac9e788dad7bba764ace103c913ca003a18e275c9855
+    sizeBytes: 605381929
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:9f04178f5f50cab2862a39975fa2f7e9de36dbfbe842259411b9b403425a0ddb
+    sizeBytes: 602987440
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:785f6b4f213b59234f442adc16c037a0043b8d3c6161cb156d8ac25506bf6189
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:9f430520aa0a442ca20a67af76af7d1e851482c388f7df1a6288bfd9a9b343e1
+    sizeBytes: 582181249
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:074b1a94af44f0297fb03e7ac786a5f30d8efbb8bcea135c7905c16f5645cc63
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b46df4538e422d0454825143e39cbadd93c10ac9347b48f2e360385bf3baa33f
+    sizeBytes: 551832468
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:63cdaee34c1851e26f3fc73bd7c84095c745a3e9307e130f50c3f07289763240
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ae6e1c62c9475900e7abe01717f623bf9f1c27cc9903b09b773a57d43e613199
+    sizeBytes: 550744841
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:005273b5ab28b04d58398cd45cb3ddb260504cd82b5bb3ea2ba1e00cd3b6251b
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:02b9fb75323bd15877dd8ff476bd2cee7458220946cd0ec4886793641b1c2be0
+    sizeBytes: 543145308
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2c1d5ff409fee135bb000f8214940851131daca4f019ea01dc92b1c313c7a5a5
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:5c165f1eef194a8e47a526a0fc8ec5e476793e73faff0b1053839ba9708ad1c8
+    sizeBytes: 530126171
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:60b4a48be767d3c6db4dfb23d09f5dbe87e7204fd696f478c7e463eb6be5a29c
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:6c21e58f9615d61f07aa58619e6cd9511e5563bc28d54c80f13d70ccc606a4e9
+    sizeBytes: 529121841
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:5bc6f23d6ad113ecbc4989d18b81883fe1364f6088544143d11ffb9027f8f181
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8dce08eaab768e9d77735db5fa1ae210e110428d8f6bd316a0e3115a52051542
+    sizeBytes: 528220308
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:5abc803cee6027aa260f9e316217efd3fe1d0109b2d3c992ff190626b9cc9469
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:cd8d4d7c7fbc55ba88e1d7e0c5d51e8ec1acc2c3c4442c212c10463125c61d57
+    sizeBytes: 521228050
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:5c1e53398f5239eae685b984ba70ebc03d4a09a6b5cbeb08b3979bb92c00a776
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ecc450cc91a75632507271cd9392e25310c2000303d77398c9373f2b7ec13902
+    sizeBytes: 519636885
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8ab4810c159effe0e19f47d8af74e03cf8158f5ffd28528cffa554f64ab2cffd
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ac236c6adc5f4ae69b1860ccba45f8d0efabd9efda8b3a63e0376003f2aea407
+    sizeBytes: 516817720
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:1a9156c019cf087f71679d12ff3df4a1f24d59163d48c64c09fef2829c0b2466
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f050ec128c647460424fee92ef843d115a51c95497194de9959d74253e3bec52
+    sizeBytes: 512503432
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c30276a4d6ab888003a81164c0cd9ce4bc9de875034000b60dc4ccef73b2d7e9
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ee135d3d33f57e99859994d3a31c449aad9728a195f1e56179bc7312c7848e84
+    sizeBytes: 508663024
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8fb0435cb00b13006abf38f7e6c79c4fd12212d3ab5dd90776c43872b0a7bdf7
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:d8e36dfabdd2158261887e8f30dd8bb7222666f5a0a39238acdfe3590f8387a3
+    sizeBytes: 504213994
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:50ee01e04ab24b74e621b2cae0026c171341de4b3a5e7b3fda3b6dc7e7bf6a75
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:7874f39d9146a86e3e71a3ea4a2a52b90bba5b70518f7523dcecb410cf52dad8
+    sizeBytes: 501350554
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f98f0da4e25e330c31c460c7027680539000c298750e9bf0ac8bd6de5bb251ae
+    sizeBytes: 498322628
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c080b7901e1f54334684703bdee5bcaf99520e8c66f5770a5f4a6e40d953401c
+    sizeBytes: 498079618
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:306e1694000ca4b5f04f258cdedf8f725bff9bc37b58f28cbbf684e723ebe854
+    sizeBytes: 498064329
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:671ebe012263ba70ac54e8a67bdba863e1efd8a18e26bfaba8bed151141faeec
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bd4306a391958861c0a97b6d0dca1f4c27300274fa659762d9ea2fb2d51cf075
+    sizeBytes: 483989815
+  - names:
+    - registry.redhat.io/openshift4/ose-oauth-proxy@sha256:76cf66011466657bfd7a47368b88538c29936fdb5ffde42665fad0067fd0361d
+    - registry.redhat.io/openshift4/ose-oauth-proxy@sha256:b4d89810d0cd2cd0b24d2f6b1febbc68b8a2a18277a4362a2d2fa1a792c5abaf
+    - registry.redhat.io/openshift4/ose-oauth-proxy:latest
+    sizeBytes: 479810116
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0e0a74e0921cece84dcfb1fe2457876b39d4c6e7d91450cc3cb79da64b0d4bda
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c936b6297ca6b08bc72aa2b56c865ea18cb04838f10f843997c5f38745354be4
+    sizeBytes: 474614265
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8549f87a7d6bf9f4d37db5f1058c0b20ad797bfa3bfed9d232249b1c8e67ac67
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e506d4e889e2be9ccf30c1f18eac702563409901bd998513a8e5e1f1e5a1c6c5
+    sizeBytes: 471861315
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4ce8eea68d29df5aac6625ddab0569afc850782113f9867ec06622f5dc7e6736
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b7fb3a9ad1ba459ec1544645af2be2b15fdf6cc3bb84d80cd2dda5208173c8cd
+    sizeBytes: 467450643
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8dc9228fd52aa51452ee28b8b18abfef53fd2ffa59fbe1cdfcbd30309d89cd42
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ad49f1a8d97c64265b29f8b6afd83fa16d7c98680a707b30c40e5f3390d170a1
+    sizeBytes: 467218803
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4408c787fbe1581eed5a9efc487f76de0a6bacf13ed12d560fb295365fd673b1
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:881741f1a54ce8587a34f10fc7b6aee18bdbc22d5d4b1c35e0e79bbc279056ad
+    sizeBytes: 464378434
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:9efe359f46ed7f7dae09b3cb8f1524b125a00089ebb342d6046a332391edb5c1
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:fca82be92724c1ccab678f76e285cde22ab3cdd33e27e3171f10a1d3c83b8033
+    sizeBytes: 462147536
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:50553a0da144c32086d9630e37edadc9725abe26f3833b3a73a9193c4f1ae8ab
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:657677c80003e6adbed0c34a17935d25fbc5bb8a6716da9c6bae6e0ce6a5ab48
+    sizeBytes: 456503876
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:1cf14d7915921df28b6f9266455efc43fd9c7ccef475f36c4306221a92d67961
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:b84581f7db33f280abb0c1fe33b1c2d17123769517968cbd428f96a967fc81da
+    sizeBytes: 435295261
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:fc7633722fe865cea33b65a1893dd64b17ef3f1b9ee611dffd63a172cf27e59b
+    sizeBytes: 418933172
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:c91fb68e5b2a405ed805616ddc1f9fbfb815ae7c0187a72ce7066c53442c62d1
+    sizeBytes: 415598470
+  - names:
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2dbaa7105413f534c3b9a243d4c6092831d398cc6e6a641fb4a1b4fb453ff2b1
+    - registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:a9c47424e787c4ce14fa1690f279a12866ae0b59d8ec6cd4b016e644b7e14cf0
+    sizeBytes: 378195691
+  - names:
+    - quay.io/openshift-cr/promtail@sha256:017ed146dc93b2fbb355728e7f87f8a2570957814bb4a8e1c4df64f792147813
+    - quay.io/openshift-cr/promtail@sha256:154f3ef4ac55821a2f485091918712d093495681c6d09a078adbed0656f4e74b
+    - quay.io/openshift-cr/promtail:v2.4.1
+    sizeBytes: 178793906
+  nodeInfo:
+    architecture: amd64
+    bootID: e7834a37-9469-454f-b125-47a552d299e9
+    containerRuntimeVersion: cri-o://1.28.2-7.rhaos4.15.gitcc2248a.el9
+    kernelVersion: 5.14.0-284.43.1.el9_2.x86_64
+    kubeProxyVersion: v1.28.4+9f68be2
+    kubeletVersion: v1.28.4+9f68be2
+    machineID: ec2c87b6fc10f95e8d44e0d9671ad325
+    operatingSystem: linux
+    osImage: Red Hat Enterprise Linux CoreOS 415.92.202312060031-0 (Plow)
+    systemUUID: ec2c87b6-fc10-f95e-8d44-e0d9671ad325

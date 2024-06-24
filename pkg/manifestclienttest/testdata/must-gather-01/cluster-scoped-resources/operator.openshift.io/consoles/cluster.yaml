@@ -1,0 +1,241 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: Console
+metadata:
+  annotations:
+    capability.openshift.io/name: Console
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:37:59Z"
+  generation: 2
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:37:59Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:plugins: {}
+    manager: operator
+    operation: Update
+    time: "2023-12-06T09:39:07Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:observedGeneration: {}
+        f:readyReplicas: {}
+    manager: console
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:54:43Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "45120"
+  uid: 331ab2ec-3a43-43e0-9fff-6b68927ff6b6
+spec:
+  logLevel: Normal
+  managementState: Managed
+  operatorLogLevel: Normal
+  plugins:
+  - monitoring-plugin
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:39:05Z"
+    status: "False"
+    type: PDBSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:05Z"
+    status: "False"
+    type: PDBSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:05Z"
+    reason: NoUnsupportedConfigOverrides
+    status: "True"
+    type: UnsupportedConfigOverridesUpgradeable
+  - lastTransitionTime: "2023-12-06T09:39:07Z"
+    status: "False"
+    type: DownloadsDeploymentSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:07Z"
+    status: "False"
+    type: DownloadsDeploymentSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:09Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: SyncLoopRefreshDegraded
+  - lastTransitionTime: "2023-12-06T09:42:49Z"
+    status: "False"
+    type: SyncLoopRefreshProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ConfigMapSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ConfigMapSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ServiceCASyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ServiceCASyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: TrustedCASyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: TrustedCASyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: CustomLogoSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: CustomLogoSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: OAuthServingCertValidationDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: OAuthServingCertValidationProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: OAuthClientSecretSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: OAuthClientSecretSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:54:39Z"
+    status: "False"
+    type: OAuthClientSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: OAuthClientSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: DeploymentSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: DeploymentSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:30Z"
+    status: "True"
+    type: DeploymentAvailable
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ConsoleConfigDegraded
+  - lastTransitionTime: "2023-12-06T09:39:12Z"
+    status: "False"
+    type: ConsolePublicConfigMapDegraded
+  - lastTransitionTime: "2023-12-06T09:39:14Z"
+    status: "False"
+    type: ManagementStateDegraded
+  - lastTransitionTime: "2023-12-06T09:39:16Z"
+    status: "False"
+    type: ConsoleNotificationSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:16Z"
+    status: "False"
+    type: ConsoleNotificationSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:54:42Z"
+    status: "False"
+    type: RouteHealthDegraded
+  - lastTransitionTime: "2023-12-06T09:39:18Z"
+    status: "False"
+    type: RouteHealthProgressing
+  - lastTransitionTime: "2023-12-06T09:54:42Z"
+    status: "True"
+    type: RouteHealthAvailable
+  - lastTransitionTime: "2023-12-06T09:54:41Z"
+    status: "False"
+    type: ConsoleCustomRouteSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:20Z"
+    status: "False"
+    type: ConsoleCustomRouteSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:54:41Z"
+    status: "True"
+    type: ConsoleCustomRouteSyncUpgradeable
+  - lastTransitionTime: "2023-12-06T09:39:20Z"
+    status: "False"
+    type: ConsoleDefaultRouteSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:20Z"
+    status: "False"
+    type: ConsoleDefaultRouteSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:20Z"
+    status: "True"
+    type: ConsoleDefaultRouteSyncUpgradeable
+  - lastTransitionTime: "2023-12-06T09:39:22Z"
+    status: "False"
+    type: ServiceSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:22Z"
+    status: "False"
+    type: ServiceSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:22Z"
+    status: "False"
+    type: RedirectServiceSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:22Z"
+    status: "False"
+    type: RedirectServiceSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:26Z"
+    status: "False"
+    type: OCDownloadsSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:26Z"
+    status: "False"
+    type: ODODownloadsSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "False"
+    type: DownloadsCustomRouteSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "False"
+    type: DownloadsCustomRouteSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "True"
+    type: DownloadsCustomRouteSyncUpgradeable
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "False"
+    type: DownloadsDefaultRouteSyncDegraded
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "False"
+    type: DownloadsDefaultRouteSyncProgressing
+  - lastTransitionTime: "2023-12-06T09:39:35Z"
+    status: "True"
+    type: DownloadsDefaultRouteSyncUpgradeable
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 1
+    name: downloads
+    namespace: openshift-console
+    resource: deployments
+  - group: apps
+    hash: ""
+    lastGeneration: 3
+    name: console
+    namespace: openshift-console
+    resource: deployments
+  observedGeneration: 2
+  readyReplicas: 2

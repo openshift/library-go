@@ -1,0 +1,121 @@
+---
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:17:48Z"
+  generation: 1
+  managedFields:
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:exclude.release.openshift.io/internal-openshift-hosted: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:48Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status: {}
+    manager: cluster-version-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:17:48Z"
+  - apiVersion: config.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions: {}
+        f:extension:
+          .: {}
+          f:master: {}
+          f:worker: {}
+        f:relatedObjects: {}
+        f:versions: {}
+    manager: machine-config-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:53:13Z"
+  name: machine-config
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "44021"
+  uid: 896118a5-d113-467d-a013-3e5651ff3bd3
+spec: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:23:59Z"
+    message: Cluster version is 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2023-12-06T09:38:13Z"
+    reason: AsExpected
+    status: "True"
+    type: Upgradeable
+  - lastTransitionTime: "2023-12-06T09:23:58Z"
+    status: "False"
+    type: Degraded
+  - lastTransitionTime: "2023-12-06T09:23:58Z"
+    message: Cluster has deployed [{operator 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest}]
+    reason: AsExpected
+    status: "True"
+    type: Available
+  extension:
+    master: all 3 nodes are at latest configuration rendered-master-7de7faec2aa929623102b918401d8434
+    worker: all 3 nodes are at latest configuration rendered-worker-9649b4dd0fc8aba13881f2946f01382c
+  relatedObjects:
+  - group: ""
+    name: openshift-machine-config-operator
+    resource: namespaces
+  - group: machineconfiguration.openshift.io
+    name: ""
+    resource: machineconfigpools
+  - group: machineconfiguration.openshift.io
+    name: ""
+    resource: controllerconfigs
+  - group: machineconfiguration.openshift.io
+    name: ""
+    resource: kubeletconfigs
+  - group: machineconfiguration.openshift.io
+    name: ""
+    resource: containerruntimeconfigs
+  - group: machineconfiguration.openshift.io
+    name: ""
+    resource: machineconfigs
+  - group: ""
+    name: ""
+    resource: nodes
+  - group: ""
+    name: openshift-kni-infra
+    resource: namespaces
+  - group: ""
+    name: openshift-openstack-infra
+    resource: namespaces
+  - group: ""
+    name: openshift-ovirt-infra
+    resource: namespaces
+  - group: ""
+    name: openshift-vsphere-infra
+    resource: namespaces
+  - group: ""
+    name: openshift-nutanix-infra
+    resource: namespaces
+  versions:
+  - name: operator
+    version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest

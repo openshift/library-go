@@ -1,0 +1,340 @@
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: ControllerConfig
+metadata:
+  annotations:
+    machineconfiguration.openshift.io/generated-by-version: machine-config-daemon-4.6.0-202006240615.p0-2457-gf691dcd2-dirty
+    machineconfiguration.openshift.io/release-image-version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:22:17Z"
+  generation: 2
+  managedFields:
+  - apiVersion: machineconfiguration.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:machineconfiguration.openshift.io/generated-by-version: {}
+          f:machineconfiguration.openshift.io/release-image-version: {}
+      f:spec:
+        .: {}
+        f:additionalTrustBundle: {}
+        f:baseOSContainerImage: {}
+        f:baseOSExtensionsContainerImage: {}
+        f:cloudProviderCAData: {}
+        f:cloudProviderConfig: {}
+        f:clusterDNSIP: {}
+        f:dns:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:metadata:
+            .: {}
+            f:creationTimestamp: {}
+            f:generation: {}
+            f:managedFields: {}
+            f:name: {}
+            f:resourceVersion: {}
+            f:uid: {}
+          f:spec:
+            .: {}
+            f:baseDomain: {}
+            f:platform:
+              .: {}
+              f:type: {}
+            f:privateZone:
+              .: {}
+              f:tags:
+                .: {}
+                f:Name: {}
+                f:kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8: {}
+            f:publicZone:
+              .: {}
+              f:id: {}
+          f:status: {}
+        f:imageRegistryBundleData: {}
+        f:imageRegistryBundleUserData: {}
+        f:images:
+          .: {}
+          f:apiServerWatcherKey: {}
+          f:baremetalRuntimeCfgImage: {}
+          f:corednsImage: {}
+          f:haproxyImage: {}
+          f:infraImageKey: {}
+          f:keepalivedImage: {}
+          f:machineConfigOperator: {}
+        f:infra:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:metadata:
+            .: {}
+            f:creationTimestamp: {}
+            f:generation: {}
+            f:managedFields: {}
+            f:name: {}
+            f:resourceVersion: {}
+            f:uid: {}
+          f:spec:
+            .: {}
+            f:cloudConfig:
+              .: {}
+              f:key: {}
+              f:name: {}
+            f:platformSpec:
+              .: {}
+              f:aws: {}
+              f:type: {}
+          f:status:
+            .: {}
+            f:apiServerInternalURI: {}
+            f:apiServerURL: {}
+            f:controlPlaneTopology: {}
+            f:cpuPartitioning: {}
+            f:etcdDiscoveryDomain: {}
+            f:infrastructureName: {}
+            f:infrastructureTopology: {}
+            f:platform: {}
+            f:platformStatus:
+              .: {}
+              f:aws:
+                .: {}
+                f:region: {}
+              f:type: {}
+        f:internalRegistryPullSecret: {}
+        f:ipFamilies: {}
+        f:kubeAPIServerServingCAData: {}
+        f:network: {}
+        f:networkType: {}
+        f:osImageURL: {}
+        f:platform: {}
+        f:proxy: {}
+        f:pullSecret: {}
+        f:releaseImage: {}
+        f:rootCAData: {}
+    manager: machine-config-operator
+    operation: Update
+    time: "2023-12-06T09:38:30Z"
+  - apiVersion: machineconfiguration.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:controllerCertificates: {}
+        f:observedGeneration: {}
+    manager: machine-config-controller
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:38:31Z"
+  name: machine-config-controller
+  resourceVersion: "31074"
+  uid: b69521b9-2398-4054-a6ba-5fafbe54eaad
+spec:
+  additionalTrustBundle: null
+  baseOSContainerImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:242f55d6e4349e5188e5eefd65fcf5d434601e63068b46104a2d690cce57744e
+  baseOSExtensionsContainerImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:9f04178f5f50cab2862a39975fa2f7e9de36dbfbe842259411b9b403425a0ddb
+  cloudProviderCAData: null
+  cloudProviderConfig: |
+    [Global]
+  clusterDNSIP: 172.30.0.10
+  dns:
+    apiVersion: config.openshift.io/v1
+    kind: DNS
+    metadata:
+      creationTimestamp: "2023-12-06T09:17:36Z"
+      generation: 1
+      managedFields:
+      - apiVersion: config.openshift.io/v1
+        fieldsType: FieldsV1
+        fieldsV1:
+          f:spec:
+            .: {}
+            f:baseDomain: {}
+            f:platform:
+              .: {}
+              f:type: {}
+            f:privateZone:
+              .: {}
+              f:tags:
+                .: {}
+                f:Name: {}
+                f:kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8: {}
+            f:publicZone:
+              .: {}
+              f:id: {}
+        manager: cluster-bootstrap
+        operation: Update
+        time: "2023-12-06T09:17:36Z"
+      - apiVersion: config.openshift.io/v1
+        fieldsType: FieldsV1
+        fieldsV1:
+          f:status: {}
+        manager: cluster-bootstrap
+        operation: Update
+        subresource: status
+        time: "2023-12-06T09:17:36Z"
+      name: cluster
+      resourceVersion: "517"
+      uid: 96010cad-840f-44dc-ad7c-71d968898b33
+    spec:
+      baseDomain: ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      platform:
+        type: ""
+      privateZone:
+        tags:
+          Name: ci-op-2j285qtr-234c7-w84r8-int
+          kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8: owned
+      publicZone:
+        id: Z2GYOLTZHS5VK
+    status: {}
+  imageRegistryBundleData:
+  - data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURVVENDQWptZ0F3SUJBZ0lJVDFFZTdBalhNa2N3RFFZSktvWklodmNOQVFFTEJRQXdOakUwTURJR0ExVUUKQXd3cmIzQmxibk5vYVdaMExYTmxjblpwWTJVdGMyVnlkbWx1WnkxemFXZHVaWEpBTVRjd01UZzFORFEyT1RBZQpGdzB5TXpFeU1EWXdPVEl4TURsYUZ3MHlOakF5TURNd09USXhNVEJhTURZeE5EQXlCZ05WQkFNTUsyOXdaVzV6CmFHbG1kQzF6WlhKMmFXTmxMWE5sY25acGJtY3RjMmxuYm1WeVFERTNNREU0TlRRME5qa3dnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ3IwRm1QRlA2dm8ydXd6ZG5UaTQyeVRtOU1kVWlBQng2Lwp1aVhLWXJvalcxYjdPamMrMyszS09IeElZRFczVjFjTHlFMEpWZmhRYUtGS0hHTlBlV1E5RXNRbWpOWmZzemZ6CllUS2xqczFXNXFPa3dWSElmbk5zVW9qY28rY3hzUEtGMXhkME9qL2hWb2hFVWxPOXlkM0ZwZm5ZWTdsczV2a1kKbXlmNEpyOXFUZC9tUXNQZGN4TVRWaUlGODA0SVord1l1S3BtT0ZPbFh6Sy9xZ04yUW8rTm5TVUVsRmI2czhzOApvY3FJS0ovOHVZZWh6YTVFMWdBZWlHcVZlOVBTSFV5SDhmU3l6YzJyb1lBa3RKSFlWMkhmUkpMUHJVc3Z2cDN2CktGeU0vTTl2QkoxVzZWdmh5V0Z4akwrSTNwUllLbFdlaHpzWXgzRHlTaTFqRDBpQVJwczlBZ01CQUFHall6QmgKTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlFPdjFsZApHdXduQVliMTZjTDh4dVM2ZnpzdUd6QWZCZ05WSFNNRUdEQVdnQlFPdjFsZEd1d25BWWIxNmNMOHh1UzZmenN1Ckd6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFvTTVTL3JnS2FKVU5WQ1NnZ3doV1VXbnNyUlBuaHZXWnBteFIKb2UyUzlrZGVuSmwrOXdnelFiT1htSlNaRWp1cUh6anV5NC9oVmUzOGpUR1NTWGR6S2R3U0YxZTBSSDNZQjdSWAo0bW1WMjNJQ3JWckdwbmRHZStTRnhGSCtCdGM0elRBakh2U24zYndwVnZRUk5iWVFPTEFoSE05VktXSHBvRkIwCjZHWlRraGxhZkUrbFBnMWFrR2xkcWFQMFk5UjFualNyRStPQkx0UnVpeDlhbEozWElXZ2tmM0dKUi9GTmk1dUsKUmFJSTFiaW1pS05jUk05L3RiMXUyMnNpQUcyY3hjNVZjNDkxcFpCMmxXOWV0Ly9UcHpWZTJKVFo5UjlpRGo5cwpCN1p2aVhUdndLV2xrYmhqeitsN3pBRFNNa3VMN2c5eThDQS9Sd004TEVicXVmeVJUdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    file: image-registry.openshift-image-registry.svc..5000
+  - data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURVVENDQWptZ0F3SUJBZ0lJVDFFZTdBalhNa2N3RFFZSktvWklodmNOQVFFTEJRQXdOakUwTURJR0ExVUUKQXd3cmIzQmxibk5vYVdaMExYTmxjblpwWTJVdGMyVnlkbWx1WnkxemFXZHVaWEpBTVRjd01UZzFORFEyT1RBZQpGdzB5TXpFeU1EWXdPVEl4TURsYUZ3MHlOakF5TURNd09USXhNVEJhTURZeE5EQXlCZ05WQkFNTUsyOXdaVzV6CmFHbG1kQzF6WlhKMmFXTmxMWE5sY25acGJtY3RjMmxuYm1WeVFERTNNREU0TlRRME5qa3dnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ3IwRm1QRlA2dm8ydXd6ZG5UaTQyeVRtOU1kVWlBQng2Lwp1aVhLWXJvalcxYjdPamMrMyszS09IeElZRFczVjFjTHlFMEpWZmhRYUtGS0hHTlBlV1E5RXNRbWpOWmZzemZ6CllUS2xqczFXNXFPa3dWSElmbk5zVW9qY28rY3hzUEtGMXhkME9qL2hWb2hFVWxPOXlkM0ZwZm5ZWTdsczV2a1kKbXlmNEpyOXFUZC9tUXNQZGN4TVRWaUlGODA0SVord1l1S3BtT0ZPbFh6Sy9xZ04yUW8rTm5TVUVsRmI2czhzOApvY3FJS0ovOHVZZWh6YTVFMWdBZWlHcVZlOVBTSFV5SDhmU3l6YzJyb1lBa3RKSFlWMkhmUkpMUHJVc3Z2cDN2CktGeU0vTTl2QkoxVzZWdmh5V0Z4akwrSTNwUllLbFdlaHpzWXgzRHlTaTFqRDBpQVJwczlBZ01CQUFHall6QmgKTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlFPdjFsZApHdXduQVliMTZjTDh4dVM2ZnpzdUd6QWZCZ05WSFNNRUdEQVdnQlFPdjFsZEd1d25BWWIxNmNMOHh1UzZmenN1Ckd6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFvTTVTL3JnS2FKVU5WQ1NnZ3doV1VXbnNyUlBuaHZXWnBteFIKb2UyUzlrZGVuSmwrOXdnelFiT1htSlNaRWp1cUh6anV5NC9oVmUzOGpUR1NTWGR6S2R3U0YxZTBSSDNZQjdSWAo0bW1WMjNJQ3JWckdwbmRHZStTRnhGSCtCdGM0elRBakh2U24zYndwVnZRUk5iWVFPTEFoSE05VktXSHBvRkIwCjZHWlRraGxhZkUrbFBnMWFrR2xkcWFQMFk5UjFualNyRStPQkx0UnVpeDlhbEozWElXZ2tmM0dKUi9GTmk1dUsKUmFJSTFiaW1pS05jUk05L3RiMXUyMnNpQUcyY3hjNVZjNDkxcFpCMmxXOWV0Ly9UcHpWZTJKVFo5UjlpRGo5cwpCN1p2aVhUdndLV2xrYmhqeitsN3pBRFNNa3VMN2c5eThDQS9Sd004TEVicXVmeVJUdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    file: image-registry.openshift-image-registry.svc.cluster.local..5000
+  imageRegistryBundleUserData: []
+  images:
+    apiServerWatcherKey: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f736aedcb2e2a4c8cbdaaaff2eb1be02be1eac39d5056f780c8b3994fa506ac3
+    baremetalRuntimeCfgImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8cf533bb15746c60ad0759a7fe52e3d17eb748f0d688584fa03854d22c22b03d
+    corednsImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8dce08eaab768e9d77735db5fa1ae210e110428d8f6bd316a0e3115a52051542
+    haproxyImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:51dc8e392549fd017a3b9f7c3fb108eafd1efa88a3cdcb7a71bdb8be978e672d
+    infraImageKey: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:2dbaa7105413f534c3b9a243d4c6092831d398cc6e6a641fb4a1b4fb453ff2b1
+    keepalivedImage: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:8a2aa500a5f0adb2a77198d218dd4237951f8e62a7749c19e3668509f4587614
+    machineConfigOperator: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f736aedcb2e2a4c8cbdaaaff2eb1be02be1eac39d5056f780c8b3994fa506ac3
+  infra:
+    apiVersion: config.openshift.io/v1
+    kind: Infrastructure
+    metadata:
+      creationTimestamp: "2023-12-06T09:17:36Z"
+      generation: 1
+      managedFields:
+      - apiVersion: config.openshift.io/v1
+        fieldsType: FieldsV1
+        fieldsV1:
+          f:spec:
+            .: {}
+            f:cloudConfig:
+              .: {}
+              f:key: {}
+              f:name: {}
+            f:platformSpec:
+              .: {}
+              f:aws: {}
+              f:type: {}
+        manager: cluster-bootstrap
+        operation: Update
+        time: "2023-12-06T09:17:36Z"
+      - apiVersion: config.openshift.io/v1
+        fieldsType: FieldsV1
+        fieldsV1:
+          f:status:
+            .: {}
+            f:apiServerInternalURI: {}
+            f:apiServerURL: {}
+            f:controlPlaneTopology: {}
+            f:cpuPartitioning: {}
+            f:etcdDiscoveryDomain: {}
+            f:infrastructureName: {}
+            f:infrastructureTopology: {}
+            f:platform: {}
+            f:platformStatus:
+              .: {}
+              f:aws:
+                .: {}
+                f:region: {}
+              f:type: {}
+        manager: cluster-bootstrap
+        operation: Update
+        subresource: status
+        time: "2023-12-06T09:17:36Z"
+      name: cluster
+      resourceVersion: "519"
+      uid: e9eabf6c-4de9-42bd-8147-7dc5fab9912e
+    spec:
+      cloudConfig:
+        key: config
+        name: cloud-provider-config
+      platformSpec:
+        aws: {}
+        type: AWS
+    status:
+      apiServerInternalURI: https://api-int.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443
+      apiServerURL: https://api.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443
+      controlPlaneTopology: HighlyAvailable
+      cpuPartitioning: None
+      etcdDiscoveryDomain: ""
+      infrastructureName: ci-op-2j285qtr-234c7-w84r8
+      infrastructureTopology: HighlyAvailable
+      platform: AWS
+      platformStatus:
+        aws:
+          region: us-west-1
+        type: AWS
+  internalRegistryPullSecret: null
+  ipFamilies: IPv4
+  kubeAPIServerServingCAData: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNRENDQWhpZ0F3SUJBZ0lJQWtkTVNrY25iSVF3RFFZSktvWklodmNOQVFFTEJRQXdOakVTTUJBR0ExVUUKQ3hNSmIzQmxibk5vYVdaME1TQXdIZ1lEVlFRREV4ZGhaRzFwYmkxcmRXSmxZMjl1Wm1sbkxYTnBaMjVsY2pBZQpGdzB5TXpFeU1EWXdPVEE1TURaYUZ3MHpNekV5TURNd09UQTVNRFphTURZeEVqQVFCZ05WQkFzVENXOXdaVzV6CmFHbG1kREVnTUI0R0ExVUVBeE1YWVdSdGFXNHRhM1ZpWldOdmJtWnBaeTF6YVdkdVpYSXdnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ2s2WWVJZXRDY1ZzTVJ6blB6MklRWTAyTGZVeEZaSXp5ZQp1UEhTM0RTbms1UUR0VlJrVGdIZ2IyajNvbDB1dlgzRnJScUR6WmZwTVRnTWlBVmZhL0djZU9XS0FtWksraE80CkQ5RWMwR1ZzWTFTMzVEVzBZd2craTJoT0pOeXdINjVuZTJXTnR3V1RHSTdubDFZaHkxOWR3R0REa21WekJ2aTUKbDdjbTN5cnNtYTNRU2I5UWR4a24zNFR3Zm9YdHhFUG9ublJ6M2ZvMklNV0RYSjlUK0xwSEFRZnhTanlnbjdBWgpkWmdTT0lRTlZyNE1vZDRjdXBwRGFwZndwMERsMkk3dG03bm02U0swZWZ4ZHl2c3dUUnk3bTZhQmpjd01pRCsvCmc2czhDclhYVW9jQ1BPZ0lWNW9VbmRYRmxQcnZmZ1MvME5QaVNlYlVrSU9ocDZOTXRHZFhBZ01CQUFHalFqQkEKTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlRNVXZZRwo2VmxvTHN3ZHQ0eDBoa2E2aTh0RWhqQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFVU2E4U0pyaHhTQ1RyVVB0ClZMV2FqZjljbUVOcTNubWVMT2VvalFoYm5EVDVWZGRiMzFzd0Y3UzZnT2t6UzRKZlByNk5ha2s0SEdQb1RRZ1EKMm5kVDlxV1A3Z3F3ZjdhdDhaMlRmQTI2WnFGZkhKb3pmNWZnZGs5NHMwU1lKdUp6bkQ5RVN5RFkyKzdzemtkbQpKa2J2NVFTc3grRXlsaTNOQ21YamF6aW1aaTZpN1pnaDl5ZGM0WmhrdDVZVmd5NUtubkwwY3dJSU00Q0M2WGYzCm9RdFkzakZKRm45WjJReHJSZXVRNVRQVEJWRFpzT2dxTmdwNGtoY3g5TW41MWc2M1VFUGp4S2tXZTgvMGhSU0cKZWl0WDdsLzdxUEdGTG1aTHJUTjFseis2Tm1ZTklDcUorL3hiand2SEs3TW5OM1h1Y0Z0dEdpYitLcHh4OUgrRgp6Y24rbEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlESGpDQ0FnYWdBd0lCQWdJSUhSWXRUY25tV1pvd0RRWUpLb1pJaHZjTkFRRUxCUUF3TFRFU01CQUdBMVVFCkN4TUpiM0JsYm5Ob2FXWjBNUmN3RlFZRFZRUURFdzVyZFdKbGJHVjBMWE5wWjI1bGNqQWVGdzB5TXpFeU1EWXcKT1RBNU1EaGFGdzB5TXpFeU1EY3dPVEE1TURoYU1DMHhFakFRQmdOVkJBc1RDVzl3Wlc1emFHbG1kREVYTUJVRwpBMVVFQXhNT2EzVmlaV3hsZEMxemFXZHVaWEl3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUMvWTBvVnF5Y3ZGelR4UTRUY3VveDBhbmE2Zkh1bVBSR3J6MXZOWFVxUWt3Rlh4ZWtxTWgrWWxDcHgKb2pPUkxEV0l6bkM5cmdPc2tyUjFQV08vS2hmMFZVVnc3Ykd1SU5uNW5qeWpQNlNHd0F3V3VSUllJTE4yM3IvdwpzRFh3eXBpQTdLRTQzS1hiUGk3Ukd6R291VVgwdFhDUDIxN1lnYUE0TWxwZkhXaUR4TCtvSVE2emxjanhuL2NUCjZpbGRHc3pUZWl6bDE2SHlrcjZGaW9TdHhaVlFpQ2ExdDM5MTJYUXd6amVYQXd3VEcrKzZCVmJBb3JyRDBjMVIKUjhYUEk5UWR6RHVZM3BoZXZhaUlxK0lZS1V3VHFFUmJkZ3hkdVZ0VERLOWVDd0xpdUpIaDg3clE3dFk3b2x3SApRc091T0htbGwwcG5vcEgvSm1OSEV5elcxR2ZkQWdNQkFBR2pRakJBTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJSZEtiVFRLNmsycE5IaytXY2pSMVZjRXkzM21UQU4KQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBYXM0WXRRZHVQUnVPRldMMzZ1b2Q0MEkxUFNrYy96OXJNYThyZ1VqRAoybnNRUjdZdTVZZ3dsMDFDZ3dITDl6dDdIYWpFZHVjTDkvRXY4VllLVlFwVkdRSk5xNHpPTHliYjBRVHJkVy9QCnZkcm9NNDVHYXZCb1JXZUNtOU1BTkt4UHJ6QUdLK2E5MVdlSkRWdjB2Q0daaCtpUE10Q1JWZGI3dkMyS2grNkYKdHEyQ0FrTlhJYmE2Z3ZRM2JSWVMzbDgwczl2TG9GbGFoYStaeDBmSnBpRE5tM0JuNmM1aXJ2NEFkZ1JoWmdldgo3Q00rZXppa01adDIzeFZZOE81QU9tUTVNZUJOS0t5MTRRTUI3TVZMY0VNYXJXYkpEekc5T3lkb2hGY3NodFliCnVhTStVUWpHdFc5akxLUmdudU1uN0hjNk9xSHNaWEpqSk1RdDZ0QWd0TEtRVXc9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlETkRDQ0FoeWdBd0lCQWdJSUhDMXZIZmMzZk93d0RRWUpLb1pJaHZjTkFRRUxCUUF3T0RFU01CQUdBMVVFCkN4TUpiM0JsYm5Ob2FXWjBNU0l3SUFZRFZRUURFeGxyZFdKbExXTnZiblJ5YjJ3dGNHeGhibVV0YzJsbmJtVnkKTUI0WERUSXpNVEl3TmpBNU1Ea3dPRm9YRFRJME1USXdOVEE1TURrd09Gb3dPREVTTUJBR0ExVUVDeE1KYjNCbApibk5vYVdaME1TSXdJQVlEVlFRREV4bHJkV0psTFdOdmJuUnliMnd0Y0d4aGJtVXRjMmxuYm1WeU1JSUJJakFOCkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXFHVW5WY3hhVTZZN0tBZ3ZpdzJtMnc0ZVlNbWEKMkFzcTdrUU5WZlFnL3FwWUN2NHN6U3VzdlhMWVR3dmY4eHA4Y2tkWUp2aTVneEY1cUlzc2hiVTZ0N0p6NWVBagpIdU5LMUJ6WjFSc2JzbEQzQ1FBY09PMk9jam1BZTJvU0dLc08vWGdwR3lJTW1TLzBNbXNEdDlNVVNpWWp6QTlRCkw3R2dCUS9KQTB1N2dUcFE5Q0E0WHJPc2krWTJRWXV2cG5ycEtxZ0sxY1QyL09pQ3VtanJ4UE1STUw2b1ErQ1gKcVlEa3dWN2lYdTVXZldTZGhGTVExRXFqeWp5SFkzaGRDd1RBYkd2RGcvMHd4WTBNRUlqYzBBK0xuOE5QTkhFMgphVXZiZm94bXJCOVNJdi9tWERlQWJRdDVWQy91VEo2Qnhtck5rNERYU1VqMzlJR0JwbW9DNDAvcHlRSURBUUFCCm8wSXdRREFPQmdOVkhROEJBZjhFQkFNQ0FxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QWRCZ05WSFE0RUZnUVUKSy83QndHZUFFQ2dTMGNjeUpMYXpQSzB0VnRVd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGOE1DQzZFYjVjTgpCZHQyWmV3a2RraFNTRGNYdG5ObDVrNlpYQjdXSGFQY0Fod3Q1clY1NG45MWNyUGMxNW9KaHNsMUlsVkgrWU10CkJjb1d6OUZoMUNobGk2MFVTU1RCZG1MNWYyYURKUTJMK0tnTU95bzFCOW8zejF1WU1Ma0kwNzVGOThBd3pYay8KNGFwODBOMzZGVnBKSjJjZU9vdVFnYlpZOE9UOGZJQlg5QzJNQ09uM2R1WWM3VTRtckNjT1BrN3hBQlpSU0sveApXQUZoV1JsQTJoZXAvcXhwMkxtWGhJalpiVGpjdGp0Y3Z6TnMxQ25URSt4VG1iWHFJVU9IbVZRZjBvMEtIazFwClgxZk5lUTBPb1I5ZW55UGMxUUpZYWs1amkrNlo5eVgxSzE5NGlGWHBVOWtrMHR3N3hzZWh1T29FUmY1V3pOcmIKK0VUVmpVbXZKZEk9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURRakNDQWlxZ0F3SUJBZ0lJQVA5VVRnQWI4all3RFFZSktvWklodmNOQVFFTEJRQXdQekVTTUJBR0ExVUUKQ3hNSmIzQmxibk5vYVdaME1Ta3dKd1lEVlFRREV5QnJkV0psTFdGd2FYTmxjblpsY2kxMGJ5MXJkV0psYkdWMApMWE5wWjI1bGNqQWVGdzB5TXpFeU1EWXdPVEE1TURoYUZ3MHlOREV5TURVd09UQTVNRGhhTUQ4eEVqQVFCZ05WCkJBc1RDVzl3Wlc1emFHbG1kREVwTUNjR0ExVUVBeE1nYTNWaVpTMWhjR2x6WlhKMlpYSXRkRzh0YTNWaVpXeGwKZEMxemFXZHVaWEl3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ3dhVWpKdktPQgpXZmNSeUJKK3R0MDR4bTBlWFpYekhWbEFKNmRUaWlraGlrNkw0TUJGMnFCQ0oxWUsyQlB1RnlRL3h0dVJhcmpRCmhFcHNXUFVBRzhxd3JmMEt0YWVpZWlNNzRqNDliR2FFKzUwYlBKeHhsL1VZby9qazkrZng5M1NWbnh0TGRldlEKWWd4Yk44L09kU0F1Q0lSUkFHWGQ0R2Y5SGRDNmJNTGF0QjUyelhLVlJjTGVldHh6ZmdCa3AxdDdFcDhYVHRvRQpPb21mWHg1SmRldi9ZRWFmRGswRzZGZU5CZXMxRHZEbG5VblRXUVgwYzJWN1A0dDA0cllvZ2xCbmZ0a1B3bEtQClNRQ2ZJZkpKWXJHbnZyVGszSkFRQ3Buejd5WjJYd3hUYjQwTDQySExwSnV1UWxmNjcxWEpudytRcFBEcWdaeDAKQkk5c1FNcDRFSlBwQWdNQkFBR2pRakJBTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUJBZjhFQlRBRApBUUgvTUIwR0ExVWREZ1FXQkJRckZrZXV4QTZiSjdqcG4zNnU4VEdHdmxQUE9EQU5CZ2txaGtpRzl3MEJBUXNGCkFBT0NBUUVBU1F4OXZYNVYwYlFSK3BmdUpjMEljMU1WWFNFUUIwYktrck8reHZKbldLTVdabG9RY011TmVVWm4KZHpoU2Zrc0tNMVNZMFp6YUlncUFtdWFNVW05aHJmWEJoanRkcHY3QkdiT0I3RmFmV21UNmlSb1VkaEdDdzNiWApEQ3V2d0NIYVlJSTRWUXVrc0JjaUkrZ2JldGNsUDVTRUoxd0ltWHBXT2hXbHRaSFI5RHg0VjI1VmQ2UVYzWGRBClA1bnVvdTBlOEJ5SkJRcHI4em9mVWVNOWxsY1dOMGdtUHdtY0lQMWtqYitSTXhIT3k5RnFqbzIwazRJQjZqRjgKd2xkWXk3a1JrSE12MGdjRVdObndDa2V2NlZaMThnQTY0Mlc2bGZmaVF0NlpreWlZZFUvUC9ubEtjSFJaanF4awpKY3JCMHdGRjI5UGNPR2lKK3B1TnBJU0J3eTU1eWc9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlEU0RDQ0FqQ2dBd0lCQWdJSUF1YjFhakNzZC9Jd0RRWUpLb1pJaHZjTkFRRUxCUUF3UWpFU01CQUdBMVVFCkN4TUpiM0JsYm5Ob2FXWjBNU3d3S2dZRFZRUURFeU5yZFdKbGJHVjBMV0p2YjNSemRISmhjQzFyZFdKbFkyOXUKWm1sbkxYTnBaMjVsY2pBZUZ3MHlNekV5TURZd09UQTVNRFphRncwek16RXlNRE13T1RBNU1EWmFNRUl4RWpBUQpCZ05WQkFzVENXOXdaVzV6YUdsbWRERXNNQ29HQTFVRUF4TWphM1ZpWld4bGRDMWliMjkwYzNSeVlYQXRhM1ZpClpXTnZibVpwWnkxemFXZHVaWEl3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRGMKd2NzQ3hYMVlzVlhEZWxxKys3VHNYNWd0byt0WnpHbnVOSG55QWZtcHRadWtVZVZ6aUlyY2hCbDVLU2k4Mk1OagplSWxqS29hNmFHck9GUVZzeGhjSVNQTnNlWmhEV2VhQjFvT3NNWHJTNHZjMlJQRERCQUp4QUNacGtuQW5RRDJiCnVkcGJGdWJTRGpWZjlyMFJoM0hTaXRwVEd3a3c4L3FEazdnNkNtZ3RmR2RDVGErZGRQdjJzaXFCQklOT3planUKeGY4QmE5cVB1YThXRHB5Tm1PTlZ1V3Z5VFBFdmVMcHQya3JlbnVqOUtUTWd6UlFwd1ZoTlpCTWw3QkFZdUowVApEdktDOWhTSGd1SHRFOE1GcTdPZXplRE5CajR1OU1NU1VsKzFMSElZcyt0M2xxV09JeGxhbFFjVnoza0dMamd5CkY0a1JZNUQrOG9jb2pqcDgvakFKQWdNQkFBR2pRakJBTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQQmdOVkhSTUIKQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJUUUZXR2RCY1VxdGdNSzVrbDdQK3QrSFNnRmpqQU5CZ2txaGtpRwo5dzBCQVFzRkFBT0NBUUVBbWttSitDRnRWSUNjTGVGSlIyaDh0dWtBa25OL2VHSURGSFRuUGZ0eWxkanpRV2dyCkltTHM2ZVFDS1E3aTdVbktuT0sxMmwya3phSzBJbWZDUFhGcjZGbExiNnBMSStDT3h6ZmJvaUFVR1IweHRCdk8KcStmaFFIajdVdzBBQkVWektpcXZVUjJrS0FHWTZoUzhiWUgzc0VzUE1odkQwOGxFQ2hQR29saGVaTnUzSEZ4TQpWNXNOSDZUdnhFM1ZpNXdoWTZUczhnZWN4dkZhbTl4aDBtVy9nQ0l1VFVNaFJCL0ZTWVdsSHpoZE5ocS9KVmMrCjF4Z3pBV1ViS2c4R2ovek5VRE45WGhuTzBNbTNVMnQwV3NKaGNjMnJPWG9XQ09nb0VnZ3llbzl3cVp1N3pyU1cKRHI3ODhUcC96akFheDViVVlXZXVNNWtJMHBxTjhHUVNMaFNRVkE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  network: null
+  networkType: OVNKubernetes
+  osImageURL: ""
+  platform: aws
+  proxy: null
+  pullSecret:
+    name: pull-secret
+    namespace: openshift-config
+  releaseImage: ""
+  rootCAData: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURFRENDQWZpZ0F3SUJBZ0lJSysrYkVzMUJzL013RFFZSktvWklodmNOQVFFTEJRQXdKakVTTUJBR0ExVUUKQ3hNSmIzQmxibk5vYVdaME1SQXdEZ1lEVlFRREV3ZHliMjkwTFdOaE1CNFhEVEl6TVRJd05qQTVNRGt3TkZvWApEVE16TVRJd016QTVNRGt3TkZvd0pqRVNNQkFHQTFVRUN4TUpiM0JsYm5Ob2FXWjBNUkF3RGdZRFZRUURFd2R5CmIyOTBMV05oTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF3NWdGaDVvZUVaTnQKREJ3Z3dVaVpMckFVZW9ucWg5WnZocWZBbCsyVTdBQnFPNjJTdXBRQVNWSmh2RWhXd2ZmWnlUTWFUaXFpa1JMUwo2NjRvclVxKzl4cDlnQyswSTl1NXNnMWQ2TjhTL1RORU9SbytLTnJsVW45b044YzBMNHZ1L1VjRlVDdjE5blVQCm0yRWg3Sk9oYmN2YURlN09LM1h6dWtyK2Y3SU1POGExRmFLOGYxTnBaOHE5ektBbGNDRmNBTzA3WnhDSG92aFcKbENKeTFaSk9PVGZlWWtaR1M5MWhRRTBQQkJ6YURLTGE1RE1Ld3JvWUpsZEVNZHhEWk5URGJCKzhHc0lLbklpdgpxSVdmRzNtV2Zackd0SndvWHp6dnh0czk5Q3FOVGcxQU9mcDRCMVFIRlRKU3lkTlk3bkN0ejZpWkdrTnpicFJvCmdkNmhvRkRVYVFJREFRQUJvMEl3UURBT0JnTlZIUThCQWY4RUJBTUNBcVF3RHdZRFZSMFRBUUgvQkFVd0F3RUIKL3pBZEJnTlZIUTRFRmdRVTlTd2JzckVNUWRZN2FUM1h1Z3FsaktmR1FlWXdEUVlKS29aSWh2Y05BUUVMQlFBRApnZ0VCQUdpQWtYY2NtNHlkcm5oUVlJWU82MTZLbGlLMFhJaWhFVmtuRlNsb3hCeHd2MXY0eUs0M2M0bkJ5ZDg1Ckp4eGhrbEozTmR1azV4bUpkdHJ5YzBrcm9PTEdld0pOUVpKdFJQSGQ1anI0Zjk5MnBKbFBPeVZPTzgzRDdDRlYKRjFKRW9CV0x1RVFDVzAvamI4R0Z0M0s2THB6OTRtRzFCcXk1K0xnNjVuVms2Yi9UbjhFTzJIZE5tUFA3TE5xdQpSMFdWem9EN2N2YXhKU0tyeHVnUEVlUTdUTG1GQ1dqSTJlVU9ZS0FteEpPZCtNNjdEbzNQc1J2Zk9xTE02VEhrClVBZDd0YURUU0N0K2ltT1NKaFFHeEhENlVLVEhkV3RBTG95UHBWOFZYeHVzNmdLUlZXRHRQcVR2WjlTRzFxYkMKdmQ0ekhaRUN6SGZlUzdmemZIaDNTR0pJazRZPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:22:18Z"
+    status: "False"
+    type: TemplateControllerFailing
+  - lastTransitionTime: "2023-12-06T09:38:31Z"
+    message: sync completed towards (2) generation using controller version machine-config-daemon-4.6.0-202006240615.p0-2457-gf691dcd2-dirty
+    status: "True"
+    type: TemplateControllerCompleted
+  - lastTransitionTime: "2023-12-06T09:38:31Z"
+    status: "False"
+    type: TemplateControllerRunning
+  controllerCertificates:
+  - bundleFile: KubeAPIServerServingCAData
+    notAfter: "2033-12-03T09:09:06Z"
+    notBefore: "2023-12-06T09:09:06Z"
+    signer: CN=admin-kubeconfig-signer,OU=openshift
+    subject: CN=admin-kubeconfig-signer,OU=openshift
+  - bundleFile: KubeAPIServerServingCAData
+    notAfter: "2023-12-07T09:09:08Z"
+    notBefore: "2023-12-06T09:09:08Z"
+    signer: CN=kubelet-signer,OU=openshift
+    subject: CN=kubelet-signer,OU=openshift
+  - bundleFile: KubeAPIServerServingCAData
+    notAfter: "2024-12-05T09:09:08Z"
+    notBefore: "2023-12-06T09:09:08Z"
+    signer: CN=kube-control-plane-signer,OU=openshift
+    subject: CN=kube-control-plane-signer,OU=openshift
+  - bundleFile: KubeAPIServerServingCAData
+    notAfter: "2024-12-05T09:09:08Z"
+    notBefore: "2023-12-06T09:09:08Z"
+    signer: CN=kube-apiserver-to-kubelet-signer,OU=openshift
+    subject: CN=kube-apiserver-to-kubelet-signer,OU=openshift
+  - bundleFile: KubeAPIServerServingCAData
+    notAfter: "2033-12-03T09:09:06Z"
+    notBefore: "2023-12-06T09:09:06Z"
+    signer: CN=kubelet-bootstrap-kubeconfig-signer,OU=openshift
+    subject: CN=kubelet-bootstrap-kubeconfig-signer,OU=openshift
+  - bundleFile: RootCAData
+    notAfter: "2033-12-03T09:09:04Z"
+    notBefore: "2023-12-06T09:09:04Z"
+    signer: CN=root-ca,OU=openshift
+    subject: CN=root-ca,OU=openshift
+  - bundleFile: image-registry.openshift-image-registry.svc..5000
+    notAfter: "2026-02-03T09:21:10Z"
+    notBefore: "2023-12-06T09:21:09Z"
+    signer: CN=openshift-service-serving-signer@1701854469
+    subject: CN=openshift-service-serving-signer@1701854469
+  - bundleFile: image-registry.openshift-image-registry.svc.cluster.local..5000
+    notAfter: "2026-02-03T09:21:10Z"
+    notBefore: "2023-12-06T09:21:09Z"
+    signer: CN=openshift-service-serving-signer@1701854469
+    subject: CN=openshift-service-serving-signer@1701854469
+  observedGeneration: 2

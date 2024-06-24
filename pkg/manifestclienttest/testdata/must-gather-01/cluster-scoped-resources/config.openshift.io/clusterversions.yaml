@@ -1,0 +1,316 @@
+---
+apiVersion: config.openshift.io/v1
+items:
+- apiVersion: config.openshift.io/v1
+  kind: ClusterVersion
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:45Z"
+    generation: 1
+    managedFields:
+    - apiVersion: config.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:spec:
+          .: {}
+          f:clusterID: {}
+          f:overrides: {}
+      manager: cluster-bootstrap
+      operation: Update
+      time: "2023-12-06T09:17:45Z"
+    - apiVersion: config.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:status:
+          .: {}
+          f:availableUpdates: {}
+          f:capabilities:
+            .: {}
+            f:enabledCapabilities: {}
+            f:knownCapabilities: {}
+          f:conditions: {}
+          f:desired:
+            .: {}
+            f:image: {}
+            f:version: {}
+          f:history: {}
+          f:observedGeneration: {}
+          f:versionHash: {}
+      manager: cluster-version-operator
+      operation: Update
+      subresource: status
+      time: "2023-12-06T09:57:35Z"
+    name: version
+    resourceVersion: "47477"
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  spec:
+    clusterID: 1cacf7d7-8ac6-48e5-8b0b-eb9e602a6b04
+    overrides:
+    - group: ""
+      kind: Namespace
+      name: openshift-e2e-loki
+      namespace: ""
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: cloud-provider-config
+      namespace: openshift-config
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: cluster-config-v1
+      namespace: kube-system
+      unmanaged: true
+    - group: config.openshift.io
+      kind: DNS
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: config.openshift.io
+      kind: Infrastructure
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: config.openshift.io
+      kind: Ingress
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: cluster-monitoring-config
+      namespace: openshift-monitoring
+      unmanaged: true
+    - group: config.openshift.io
+      kind: Network
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: config.openshift.io
+      kind: Proxy
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: config.openshift.io
+      kind: Scheduler
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: loki-promtail
+      namespace: ""
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      name: loki-promtail
+      namespace: ""
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: loki-promtail
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: promtail-prod-creds
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: apps
+      kind: DaemonSet
+      name: loki-promtail
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: event-exporter-cfg
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      name: event-exporter
+      namespace: ""
+      unmanaged: true
+    - group: apps
+      kind: Deployment
+      name: event-exporter
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: ServiceAccount
+      name: event-exporter
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: operator.openshift.io
+      kind: ImageContentSourcePolicy
+      name: image-policy
+      namespace: ""
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: kube-cloud-cfg
+      namespace: kube-system
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: root-ca
+      namespace: kube-system
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: machine-config-server-tls
+      namespace: openshift-machine-config-operator
+      unmanaged: true
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+      name: promtail-monitor
+      namespace: openshift-monitoring
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
+      name: prom-scrape-loki
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: Role
+      name: promtail-prometheus
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      name: loki-promtail-oauth
+      namespace: ""
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: loki-promtail-oauth
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: pull-secret
+      namespace: openshift-config
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: cookie-secret
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: Service
+      name: promtail
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: ServiceAccount
+      name: loki-promtail
+      namespace: openshift-e2e-loki
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: aws-creds
+      namespace: kube-system
+      unmanaged: true
+    - group: config.openshift.io
+      kind: FeatureGate
+      name: cluster
+      namespace: ""
+      unmanaged: true
+    - group: ""
+      kind: Secret
+      name: kubeadmin
+      namespace: kube-system
+      unmanaged: true
+    - group: rbac.authorization.k8s.io
+      kind: Role
+      name: aws-creds-secret-reader
+      namespace: kube-system
+      unmanaged: true
+    - group: ""
+      kind: ConfigMap
+      name: openshift-install-manifests
+      namespace: openshift-config
+      unmanaged: true
+  status:
+    availableUpdates: null
+    capabilities:
+      enabledCapabilities:
+      - Build
+      - CSISnapshot
+      - CloudCredential
+      - Console
+      - DeploymentConfig
+      - ImageRegistry
+      - Insights
+      - MachineAPI
+      - NodeTuning
+      - OperatorLifecycleManager
+      - Storage
+      - baremetal
+      - marketplace
+      - openshift-samples
+      knownCapabilities:
+      - Build
+      - CSISnapshot
+      - CloudCredential
+      - Console
+      - DeploymentConfig
+      - ImageRegistry
+      - Insights
+      - MachineAPI
+      - NodeTuning
+      - OperatorLifecycleManager
+      - Storage
+      - baremetal
+      - marketplace
+      - openshift-samples
+    conditions:
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      message: The update channel has not been configured.
+      reason: NoChannel
+      status: "False"
+      type: RetrievedUpdates
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      message: Disabling ownership via cluster version overrides prevents upgrades.
+        Please remove overrides before continuing.
+      reason: ClusterVersionOverridesSet
+      status: "False"
+      type: Upgradeable
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      message: Capabilities match configured spec
+      reason: AsExpected
+      status: "False"
+      type: ImplicitlyEnabledCapabilities
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      message: Payload loaded version="4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"
+        image="registry.build03.ci.openshift.org/ci-op-2j285qtr/release@sha256:c14f130391f77b0dc36e25056cccd8cc5c68f895f6879272b7f5324a49e2ac68"
+        architecture="amd64"
+      reason: PayloadLoaded
+      status: "True"
+      type: ReleaseAccepted
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      status: "False"
+      type: Available
+    - lastTransitionTime: "2023-12-06T09:57:35Z"
+      status: "False"
+      type: Failing
+    - lastTransitionTime: "2023-12-06T09:17:48Z"
+      message: 'Working towards 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest:
+        794 of 872 done (91% complete)'
+      status: "True"
+      type: Progressing
+    desired:
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/release@sha256:c14f130391f77b0dc36e25056cccd8cc5c68f895f6879272b7f5324a49e2ac68
+      version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    history:
+    - completionTime: null
+      image: registry.build03.ci.openshift.org/ci-op-2j285qtr/release@sha256:c14f130391f77b0dc36e25056cccd8cc5c68f895f6879272b7f5324a49e2ac68
+      startedTime: "2023-12-06T09:17:48Z"
+      state: Partial
+      verified: false
+      version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+    observedGeneration: 1
+    versionHash: o6SibQS6SX8=
+kind: ClusterVersionList
+metadata:
+  continue: ""
+  resourceVersion: "47578"

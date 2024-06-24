@@ -1,0 +1,73 @@
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  annotations:
+    capability.openshift.io/name: OperatorLifecycleManager
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    olm.providedAPIs: PackageManifest.v1.packages.operators.coreos.com
+  creationTimestamp: "2023-12-06T09:18:19Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operators.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:targetNamespaces:
+          .: {}
+          v:"openshift-operator-lifecycle-manager": {}
+        f:upgradeStrategy: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:19Z"
+  - apiVersion: operators.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:lastUpdated: {}
+        f:namespaces:
+          .: {}
+          v:"openshift-operator-lifecycle-manager": {}
+    manager: olm
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:22:13Z"
+  - apiVersion: operators.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:olm.providedAPIs: {}
+    manager: olm
+    operation: Update
+    time: "2023-12-06T09:22:14Z"
+  name: olm-operators
+  namespace: openshift-operator-lifecycle-manager
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "9920"
+  uid: e5b8abbd-46d6-4082-a9ab-11ea0a3332ed
+spec:
+  targetNamespaces:
+  - openshift-operator-lifecycle-manager
+  upgradeStrategy: Default
+status:
+  lastUpdated: "2023-12-06T09:22:13Z"
+  namespaces:
+  - openshift-operator-lifecycle-manager

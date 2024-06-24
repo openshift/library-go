@@ -1,0 +1,71 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    capability.openshift.io/name: marketplace
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:22:08Z"
+  generation: 1
+  labels:
+    prometheus: alert-rules
+    role: alert-rules
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:labels:
+          .: {}
+          f:prometheus: {}
+          f:role: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:groups:
+          .: {}
+          k:{"name":"operator.marketplace.rules"}:
+            .: {}
+            f:name: {}
+            f:rules: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:22:08Z"
+  name: marketplace-alert-rules
+  namespace: openshift-marketplace
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "9337"
+  uid: f7e6a0f8-a6ca-4979-b8ce-06c288f1cebf
+spec:
+  groups:
+  - name: operator.marketplace.rules
+    rules:
+    - alert: OperatorHubSourceError
+      annotations:
+        description: Operators shipped via the {{ $labels.name }} source are not available
+          for installation until the issue is fixed. Operators already installed from
+          this source will not receive updates until issue is fixed. Inspect the status
+          of the pod owned by {{ $labels.name }} source in the openshift-marketplace
+          namespace (oc -n openshift-marketplace get pods -l olm.catalogSource={{
+          $labels.name }}) to diagnose and repair.
+        summary: The {{ $labels.name }} source is in non-ready state for more than
+          10 minutes.
+      expr: catalogsource_ready{exported_namespace="openshift-marketplace"} == 0
+      for: 10m
+      labels:
+        severity: warning

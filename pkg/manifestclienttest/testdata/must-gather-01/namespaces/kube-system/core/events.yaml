@@ -1,0 +1,3528 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:16:56Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:16:56Z"
+  message: 'unable to get cluster infrastructure status, using HA cluster values for
+    leader election: the server could not find the requested resource (get infrastructures.config.openshift.io
+    cluster)'
+  metadata:
+    creationTimestamp: "2023-12-06T09:16:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:16:56Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3364970ff01c
+    namespace: kube-system
+    resourceVersion: "79"
+    uid: 318727d5-c76c-4dbb-a231-5c1500702c5a
+  reason: ClusterInfrastructureStatus
+  reportingComponent: cluster-policy-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for default namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d370f8c8c
+    namespace: kube-system
+    resourceVersion: "455"
+    uid: e235eb2b-2754-4745-9ee9-ead1f6ba92c5
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for kube-node-lease namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d376d5010
+    namespace: kube-system
+    resourceVersion: "458"
+    uid: 0038ad1d-febc-4e91-941e-d1435f9ba1bc
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for kube-public namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d37bfb8c7
+    namespace: kube-system
+    resourceVersion: "461"
+    uid: 6000b1a2-4f6e-4542-a3e4-6d3deaf6c2eb
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for kube-system namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d382aeb1e
+    namespace: kube-system
+    resourceVersion: "464"
+    uid: 7e306f88-e93e-4107-86c8-668ddf19917f
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-cluster-version namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d3894f80b
+    namespace: kube-system
+    resourceVersion: "469"
+    uid: ac205fcc-5fe4-459f-8bb5-4d230f704c44
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d38ef99e6
+    namespace: kube-system
+    resourceVersion: "472"
+    uid: 3d4c88c6-985d-435c-829d-49574a253067
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-etcd namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d39428535
+    namespace: kube-system
+    resourceVersion: "474"
+    uid: 0b0e87cb-c7c8-4de0-a839-91fc776427a1
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-kube-apiserver namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d42934e5d
+    namespace: kube-system
+    resourceVersion: "477"
+    uid: 4256061e-978c-42bd-b5d5-b8e779108e71
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-kube-apiserver-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d4e74245e
+    namespace: kube-system
+    resourceVersion: "485"
+    uid: 084b6706-0c9b-4b7b-b9da-ed66f2396267
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:33Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:33Z"
+  message: created SCC ranges for openshift-kube-controller-manager namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:33Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d5a5ced8e
+    namespace: kube-system
+    resourceVersion: "489"
+    uid: bfb8c435-cc6a-4f13-b221-4f0eb8af4a1b
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:34Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:34Z"
+  message: created SCC ranges for openshift-kube-controller-manager-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:34Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d664c337a
+    namespace: kube-system
+    resourceVersion: "496"
+    uid: 202774b8-041b-488d-95a6-c61c882d27d9
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:34Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:34Z"
+  message: created SCC ranges for openshift-kube-scheduler namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:34Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d723734d5
+    namespace: kube-system
+    resourceVersion: "499"
+    uid: e8daa964-7c27-4435-b153-2034b210a013
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:34Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:34Z"
+  message: created SCC ranges for openshift-e2e-loki namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:34Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d7e163fa5
+    namespace: kube-system
+    resourceVersion: "506"
+    uid: ed4d4063-a781-42ea-a07d-f53b58e294a9
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:34Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:34Z"
+  message: created SCC ranges for openshift-cloud-credential-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:34Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336d8a0da13c
+    namespace: kube-system
+    resourceVersion: "509"
+    uid: 83fc00df-d373-444d-83f6-6884651c3e85
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:37Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:37Z"
+  message: created SCC ranges for openshift-ingress-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:37Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e336e35391059
+    namespace: kube-system
+    resourceVersion: "529"
+    uid: a04dbe5d-ab6d-4047-bee7-0493592a0c22
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:48Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:48Z"
+  message: created SCC ranges for openshift-cloud-network-config-controller namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:48Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:48Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3370be182096
+    namespace: kube-system
+    resourceVersion: "646"
+    uid: 3e1d7998-ccac-4c53-aca8-658bdafb01ed
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:48Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:48Z"
+  message: created SCC ranges for openshift-config-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:48Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:48Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3370bf10f775
+    namespace: kube-system
+    resourceVersion: "655"
+    uid: dd8e1751-f385-4b0c-9160-de1e30514e3e
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:48Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:48Z"
+  message: created SCC ranges for openshift-cluster-storage-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:48Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:48Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3370bfa4ce08
+    namespace: kube-system
+    resourceVersion: "658"
+    uid: 6c4b004d-9a40-4bea-af39-25baefd2f666
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:49Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:49Z"
+  message: created SCC ranges for openshift-cloud-controller-manager-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:49Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3370e95f6660
+    namespace: kube-system
+    resourceVersion: "697"
+    uid: b7ef21c8-bd01-4157-b646-67be1a74ec4f
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:49Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:49Z"
+  message: created SCC ranges for openshift-etcd-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:49Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3370ec6ab76d
+    namespace: kube-system
+    resourceVersion: "705"
+    uid: 3eb1fac2-06c1-471f-92e8-204f0d930035
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:49Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:49Z"
+  message: created SCC ranges for openshift-insights namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:49Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3371073daff4
+    namespace: kube-system
+    resourceVersion: "742"
+    uid: 329f99fb-4100-4000-bfe7-8c18370018bc
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:49Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:49Z"
+  message: created SCC ranges for openshift-kube-scheduler-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:49Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33710b6b16b9
+    namespace: kube-system
+    resourceVersion: "750"
+    uid: 5bd5a1c5-be86-4f00-a7da-8300d672bd98
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:50Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:50Z"
+  message: created SCC ranges for openshift-authentication-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:50Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33712c57d2c7
+    namespace: kube-system
+    resourceVersion: "777"
+    uid: fc9241f4-412c-49cf-ad02-049c0c4bd26b
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:50Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:50Z"
+  message: created SCC ranges for openshift-service-ca-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:50Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e337130e2e735
+    namespace: kube-system
+    resourceVersion: "784"
+    uid: f8d6abc7-1dd8-443c-8b89-8efa684a7498
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-cluster-node-tuning-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33715719eac6
+    namespace: kube-system
+    resourceVersion: "805"
+    uid: a0cbacb6-808d-4b79-8f40-60dfe891c52b
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-apiserver-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33715c1c9f51
+    namespace: kube-system
+    resourceVersion: "815"
+    uid: e75bcf4e-bf07-46fb-85ca-18eebd354510
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-cluster-machine-approver namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33716e068ad1
+    namespace: kube-system
+    resourceVersion: "833"
+    uid: b2dc5727-594e-4a5c-a657-817e79d38375
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-dns-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33716f3630b3
+    namespace: kube-system
+    resourceVersion: "840"
+    uid: 1c9fdea5-e42a-41fb-b730-b82982585437
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-marketplace namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3371727baa57
+    namespace: kube-system
+    resourceVersion: "847"
+    uid: 82b2457e-1683-4af0-a7c5-0f926dbd01c2
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-cloud-controller-manager namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e337173c2a3ff
+    namespace: kube-system
+    resourceVersion: "854"
+    uid: 1426b1b6-1c5d-4b8a-b1a2-1fd992bbf85b
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-controller-manager-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33717cd4cc39
+    namespace: kube-system
+    resourceVersion: "873"
+    uid: c9bc6e80-f9a8-4a07-90f6-a9fb30280c68
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-cluster-csi-drivers namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33717fb8363a
+    namespace: kube-system
+    resourceVersion: "880"
+    uid: f912159e-108b-400e-b8fd-80355d57a039
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:51Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:51Z"
+  message: created SCC ranges for openshift-network-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:51Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:51Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e337188b8f6c2
+    namespace: kube-system
+    resourceVersion: "888"
+    uid: 82fc0ca3-aa41-45a9-a595-3670ded940f7
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:52Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:52Z"
+  message: created SCC ranges for openshift-machine-config-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:52Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:52Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3371b557e7fd
+    namespace: kube-system
+    resourceVersion: "913"
+    uid: f94af7d8-0376-4631-996f-e4bfafb489ec
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:53Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:53Z"
+  message: created SCC ranges for openshift-image-registry namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:53Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3371cd385703
+    namespace: kube-system
+    resourceVersion: "936"
+    uid: 98dc9b3f-664e-454a-8602-414b15d097a8
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:53Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:53Z"
+  message: created SCC ranges for openshift-cluster-samples-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:53Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:53Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3371f29674b4
+    namespace: kube-system
+    resourceVersion: "971"
+    uid: c1cfa5b2-a53a-4cae-9ccd-2bde38eeac79
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:54Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:54Z"
+  message: created SCC ranges for openshift-openstack-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:54Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33721df932dd
+    namespace: kube-system
+    resourceVersion: "1006"
+    uid: 5f1e1938-d5b6-411d-afcf-c8bb961d917d
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:54Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:54Z"
+  message: created SCC ranges for openshift-kube-storage-version-migrator-operator
+    namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:54Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33723b85610a
+    namespace: kube-system
+    resourceVersion: "1028"
+    uid: 6359ecf6-4dd4-4bc3-838a-485382c5f5af
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:56Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:56Z"
+  message: created SCC ranges for openshift-kni-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:56Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33729527128c
+    namespace: kube-system
+    resourceVersion: "1066"
+    uid: 6943af59-bb75-460d-b905-9d4c0f65d7f6
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:57Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:57Z"
+  message: created SCC ranges for openshift-operator-lifecycle-manager namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:57Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3372daf9c949
+    namespace: kube-system
+    resourceVersion: "1113"
+    uid: 15b273cd-60a9-4907-bd8d-6eb14fa57b28
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:57Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:57Z"
+  message: created SCC ranges for openshift-ovirt-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:57Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3372ee5348fc
+    namespace: kube-system
+    resourceVersion: "1123"
+    uid: 3cf89404-6a8f-4a15-895c-6897e3d46967
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:58Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:58Z"
+  message: created SCC ranges for openshift-operators namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:58Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:58Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3373245c0309
+    namespace: kube-system
+    resourceVersion: "1171"
+    uid: bd77fbcb-ae40-4d29-8b9d-4126201a20e8
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:17:59Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:17:59Z"
+  message: created SCC ranges for openshift-vsphere-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:59Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:17:59Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3373375ab71c
+    namespace: kube-system
+    resourceVersion: "1179"
+    uid: 2f6a4e6a-31a1-4531-8a9b-68926b83b0f3
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:00Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:00Z"
+  message: created SCC ranges for openshift-nutanix-infra namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:00Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3373866dd00d
+    namespace: kube-system
+    resourceVersion: "1224"
+    uid: 865dcbec-aab3-4870-9397-7a5eb5c28ee8
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:05Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:05Z"
+  message: created SCC ranges for openshift-monitoring namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:05Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3374ad88f716
+    namespace: kube-system
+    resourceVersion: "1470"
+    uid: d30f71b2-1c94-4c08-9327-52384101f4ed
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:06Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:06Z"
+  message: created SCC ranges for openshift-user-workload-monitoring namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:06Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3374e18cfd78
+    namespace: kube-system
+    resourceVersion: "1529"
+    uid: 77264c3b-1304-47ad-a6c5-1b3e4f809766
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:11Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:11Z"
+  message: created SCC ranges for openshift-config-managed namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:11Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e3376267d3452
+    namespace: kube-system
+    resourceVersion: "1707"
+    uid: e7019bf4-b3ae-462e-a347-314ac9beddc2
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:12Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:12Z"
+  message: created SCC ranges for openshift-config namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:12Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33765473b409
+    namespace: kube-system
+    resourceVersion: "1731"
+    uid: f0e6c5af-9ff4-4964-bbea-41b4617906c3
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:13Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:13Z"
+  message: created SCC ranges for openshift-machine-api namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:18:13Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e337685c7c39f
+    namespace: kube-system
+    resourceVersion: "1760"
+    uid: ce496889-2ae6-4096-b5f6-f126dc9e6237
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:57Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:57Z"
+  message: created SCC ranges for openshift-multus namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:19:57Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e338ed038a1bc
+    namespace: kube-system
+    resourceVersion: "3353"
+    uid: 88dd795d-5985-4e6b-8caa-df7f1ed84293
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:05Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:05Z"
+  message: created SCC ranges for openshift-ovn-kubernetes namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:20:05Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33908924419a
+    namespace: kube-system
+    resourceVersion: "3535"
+    uid: df2eeb4d-11fd-4de0-8de8-68e550467060
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:12Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:12Z"
+  message: created SCC ranges for openshift-host-network namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:20:12Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33924e2e171c
+    namespace: kube-system
+    resourceVersion: "3649"
+    uid: 44b85976-b102-4822-a635-d69de494b619
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:13Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:13Z"
+  message: created SCC ranges for openshift-network-diagnostics namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:20:13Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33927ddb8de8
+    namespace: kube-system
+    resourceVersion: "3717"
+    uid: 1c47c8a8-ce0d-41d1-a6be-4bc891a82800
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:16Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:16Z"
+  message: created SCC ranges for openshift-network-node-identity namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:20:16Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33933c864ff3
+    namespace: kube-system
+    resourceVersion: "3812"
+    uid: ddf09ff7-74f9-4866-954d-c3fe9f9e113f
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:09Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:09Z"
+  message: created SCC ranges for openshift-service-ca namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:09Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e339f78d7db63
+    namespace: kube-system
+    resourceVersion: "5126"
+    uid: 216f7df0-dbd5-4113-a1d2-30dd9936a6dc
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:09Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:09Z"
+  message: created SCC ranges for openshift-kube-storage-version-migrator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:09Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e339f7a95cd8d
+    namespace: kube-system
+    resourceVersion: "5144"
+    uid: 06d6b837-0faf-4e3a-bce0-cc2eecf49e6b
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: created SCC ranges for openshift-controller-manager namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e339fb3ddb5d4
+    namespace: kube-system
+    resourceVersion: "5309"
+    uid: f03de961-bf56-442d-8c61-f11eff32e269
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: created SCC ranges for openshift-route-controller-manager namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e339fc210bdff
+    namespace: kube-system
+    resourceVersion: "5407"
+    uid: 84dea377-7b58-49b7-9262-138662b399aa
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:14Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:14Z"
+  message: created SCC ranges for openshift-apiserver namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:14Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33a0b480e303
+    namespace: kube-system
+    resourceVersion: "5996"
+    uid: f3062687-a3bb-410f-a285-fc6357cf3d6d
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:15Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:15Z"
+  message: created SCC ranges for openshift-oauth-apiserver namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33a0fbcea30d
+    namespace: kube-system
+    resourceVersion: "6154"
+    uid: 10b7942a-7f22-45e7-8275-1971912e04bf
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:17Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:17Z"
+  message: created SCC ranges for openshift-authentication namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33a14f1df16f
+    namespace: kube-system
+    resourceVersion: "6360"
+    uid: 38c8c4be-f097-43dc-818e-7a1ad0b6a149
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: created SCC ranges for openshift-dns namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33a77a509db9
+    namespace: kube-system
+    resourceVersion: "7994"
+    uid: 05f618d7-a98e-436f-b673-e17592ab947e
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:44Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:44Z"
+  message: created SCC ranges for openshift-ingress namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:44Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:21:44Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33a799a08c21
+    namespace: kube-system
+    resourceVersion: "8116"
+    uid: 916a2a98-4fad-4ce5-802e-5455d53e74c0
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: The CSR "system:openshift:openshift-monitoring-qtkzn" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33ae631288d0
+    namespace: kube-system
+    resourceVersion: "9629"
+    uid: eca843ed-1a63-4154-91a2-5042be1cb3fe
+  reason: CSRApproval
+  reportingComponent: cluster-policy-controller-webhook-authenticator-cert-approver-csr-approver-controller-webhookauthenticatorcertapprover_csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-webhook-authenticator-cert-approver-csr-approver-controller-webhookauthenticatorcertapprover_csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: The CSR "system:openshift:openshift-monitoring-5kngk" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33ae64a9acd7
+    namespace: kube-system
+    resourceVersion: "9639"
+    uid: 39d352c4-d01b-4fa1-8697-2670269a94f4
+  reason: CSRApproval
+  reportingComponent: cluster-policy-controller-webhook-authenticator-cert-approver-csr-approver-controller-webhookauthenticatorcertapprover_csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-webhook-authenticator-cert-approver-csr-approver-controller-webhookauthenticatorcertapprover_csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:27Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:27Z"
+  message: created SCC ranges for openshift namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:23:27Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33bfc5037bf6
+    namespace: kube-system
+    resourceVersion: "12713"
+    uid: 62f27881-b286-4eaa-8265-5fdea4b048a1
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:27Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:27Z"
+  message: created SCC ranges for openshift-node namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:23:27Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33bfc8e8860b
+    namespace: kube-system
+    resourceVersion: "12749"
+    uid: 0ee6ffd3-8d2a-4d7e-8157-31b613913031
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:23:43Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:23:43Z"
+  message: created SCC ranges for openshift-ingress-canary namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:23:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:23:43Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e33c36dcb16df
+    namespace: kube-system
+    resourceVersion: "14955"
+    uid: b817b7a3-6212-4c5b-883c-868ea5a2062f
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:00Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:00Z"
+  message: created SCC ranges for openshift-console namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:38:00Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e348ad1cb2393
+    namespace: kube-system
+    resourceVersion: "29975"
+    uid: cbbb2d56-1ff8-4fc7-b419-1b88da032d6a
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:00Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:00Z"
+  message: created SCC ranges for openshift-console-operator namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:38:00Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e348afd8637a6
+    namespace: kube-system
+    resourceVersion: "30034"
+    uid: f75dd446-7dbe-4a1d-8f94-cb4bf700cd3a
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:01Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:01Z"
+  message: created SCC ranges for openshift-console-user-settings namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:01Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:38:01Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e348b2056f94c
+    namespace: kube-system
+    resourceVersion: "30071"
+    uid: ccebda7d-e7c5-4876-b303-c0859f44e38d
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:19Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:19Z"
+  message: created SCC ranges for openshift-must-gather-2gjxc namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:56:19Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e358adf670749
+    namespace: kube-system
+    resourceVersion: "46088"
+    uid: 0cd4b2ca-313b-4c91-8118-4321746bf876
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:29Z"
+  involvedObject:
+    kind: Pod
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98
+    namespace: kube-system
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:29Z"
+  message: created SCC ranges for openshift-must-gather-q9fmt namespace
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:57:29Z"
+    name: bootstrap-kube-controller-manager-ip-10-0-154-98.179e359b1f6a967e
+    namespace: kube-system
+    resourceVersion: "47356"
+    uid: 418b0416-913c-45c9-8e54-cd843e5d8ddc
+  reason: CreatedSCCRanges
+  reportingComponent: cluster-policy-controller-namespace-security-allocation-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller-namespace-security-allocation-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:16:56Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-policy-controller-lock
+    namespace: kube-system
+    resourceVersion: "80"
+    uid: 98bcab9f-3cce-4cba-93c2-e816e49ab9aa
+  kind: Event
+  lastTimestamp: "2023-12-06T09:16:56Z"
+  message: ip-10-0-154-98_a0d1650d-59cc-4ae8-9ee0-0750cc3044f9 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:16:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:16:56Z"
+    name: cluster-policy-controller-lock.179e3364976c3201
+    namespace: kube-system
+    resourceVersion: "81"
+    uid: 62e92cc4-cc95-43a0-8238-3b516f4629f5
+  reason: LeaderElection
+  reportingComponent: cluster-policy-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:08Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-policy-controller-lock
+    namespace: kube-system
+    resourceVersion: "28874"
+    uid: 98bcab9f-3cce-4cba-93c2-e816e49ab9aa
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:08Z"
+  message: ip-10-0-154-98_1fbf2d80-ad9c-46f1-9bdd-b553bf704d9e became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:37:08Z"
+    name: cluster-policy-controller-lock.179e347ecd2c4cb8
+    namespace: kube-system
+    resourceVersion: "28875"
+    uid: ce8c7d8c-fabe-45e1-a80b-15d2da7bf3af
+  reason: LeaderElection
+  reportingComponent: cluster-policy-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:20Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: cluster-policy-controller-lock
+    namespace: kube-system
+    resourceVersion: "46795"
+    uid: 98bcab9f-3cce-4cba-93c2-e816e49ab9aa
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:20Z"
+  message: ip-10-0-154-98_0a536ad7-06f9-4b5b-89b5-76077ba5143e became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-policy-controller
+      operation: Update
+      time: "2023-12-06T09:57:20Z"
+    name: cluster-policy-controller-lock.179e3598f09457a4
+    namespace: kube-system
+    resourceVersion: "46796"
+    uid: e8ee6cf4-a808-4e0d-a50e-bbb81d2c7def
+  reason: LeaderElection
+  reportingComponent: cluster-policy-controller
+  reportingInstance: ""
+  source:
+    component: cluster-policy-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:16:57Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "204"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:16:57Z"
+  message: ip-10-0-154-98_ec125306-b6f7-4c97-bd98-3d1e1ab0f256 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:16:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:16:57Z"
+    name: kube-controller-manager.179e3364df4b8eea
+    namespace: kube-system
+    resourceVersion: "205"
+    uid: f1b97556-e0b5-449e-8517-c13a8205ed6d
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "28947"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: ip-10-0-21-63_21a293e4-a0f2-4c40-b0fa-1c180304dddc became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:15Z"
+    name: kube-controller-manager.179e34806bdea58d
+    namespace: kube-system
+    resourceVersion: "28948"
+    uid: ab95f5c5-ac7c-4151-8336-7f29bfe4b64f
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:29Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "30930"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:29Z"
+  message: ip-10-0-106-212_248bb2d9-8265-419c-ae2c-f968f6b0ec9e became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:29Z"
+    name: kube-controller-manager.179e3491b96fdcc8
+    namespace: kube-system
+    resourceVersion: "30931"
+    uid: 0af9a3cd-90f9-495e-925d-3e9fc2a7c75b
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:27Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "35788"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:27Z"
+  message: ip-10-0-106-212_248bb2d9-8265-419c-ae2c-f968f6b0ec9e stopped leading
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:27Z"
+    name: kube-controller-manager.179e34bb09e98166
+    namespace: kube-system
+    resourceVersion: "35827"
+    uid: 5e0d658e-c0f8-43da-bbea-c4492bc05f05
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "36013"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: ip-10-0-154-98_a5f723cf-37be-44a5-83d9-db9731c409d1 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: kube-controller-manager.179e34be45713977
+    namespace: kube-system
+    resourceVersion: "36014"
+    uid: ec9a7abd-3877-4c2c-a4a9-4540578aab07
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:24Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-controller-manager
+    namespace: kube-system
+    resourceVersion: "46848"
+    uid: 2b0759cf-5166-45c9-91fa-66326f64e4c9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:24Z"
+  message: ip-10-0-106-212_05e14783-064e-4240-a4af-0fab9c4225d1 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:24Z"
+    name: kube-controller-manager.179e3599fc51e483
+    namespace: kube-system
+    resourceVersion: "46849"
+    uid: 61fbd669-e271-4cbd-9394-38dbce2991b8
+  reason: LeaderElection
+  reportingComponent: kube-controller-manager
+  reportingInstance: ""
+  source:
+    component: kube-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:16:55Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-scheduler
+    namespace: kube-system
+    resourceVersion: "65"
+    uid: 59a5eeb1-c963-4240-b98d-bc834c9df578
+  kind: Event
+  lastTimestamp: "2023-12-06T09:16:55Z"
+  message: ip-10-0-154-98_a78bb9bc-d828-4d5d-81af-9ec3e61e8318 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:16:55Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:16:55Z"
+    name: kube-scheduler.179e336470829225
+    namespace: kube-system
+    resourceVersion: "68"
+    uid: a7d8c3f2-40df-4470-a041-c9ce85ac3ec1
+  reason: LeaderElection
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:08Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-scheduler
+    namespace: kube-system
+    resourceVersion: "28878"
+    uid: 59a5eeb1-c963-4240-b98d-bc834c9df578
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:08Z"
+  message: ip-10-0-154-98_a36acbc9-f322-4eb1-b263-a8ade0943fde became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:37:08Z"
+    name: kube-scheduler.179e347ed972772c
+    namespace: kube-system
+    resourceVersion: "28879"
+    uid: a0de1a54-842b-4433-912d-fee830b2e84a
+  reason: LeaderElection
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:39:00Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-scheduler
+    namespace: kube-system
+    resourceVersion: "31476"
+    uid: 59a5eeb1-c963-4240-b98d-bc834c9df578
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:00Z"
+  message: ip-10-0-154-98_6d528dd0-e30c-4b7f-a20c-6036a0032098 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:00Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:39:00Z"
+    name: kube-scheduler.179e3498ed7d299f
+    namespace: kube-system
+    resourceVersion: "31478"
+    uid: 8ebc75b9-14b0-4bd9-9cbd-9faa5c3ecab5
+  reason: LeaderElection
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:20Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: kube-scheduler
+    namespace: kube-system
+    resourceVersion: "46798"
+    uid: 59a5eeb1-c963-4240-b98d-bc834c9df578
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:20Z"
+  message: ip-10-0-154-98_614f5997-78c9-4821-a329-a036e15aeb52 became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:57:20Z"
+    name: kube-scheduler.179e3598fe7c9b53
+    namespace: kube-system
+    resourceVersion: "46799"
+    uid: 8f8ba645-9470-43ca-a3fc-e407ee6e3700
+  reason: LeaderElection
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47894"

@@ -1,0 +1,615 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: InsightsOperator
+metadata:
+  annotations:
+    capability.openshift.io/name: Insights
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:18:20Z"
+  generation: 1
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:20Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:gatherStatus:
+          .: {}
+          f:gatherers: {}
+          f:lastGatherDuration: {}
+          f:lastGatherTime: {}
+        f:insightsReport:
+          .: {}
+          f:downloadedAt: {}
+        f:readyReplicas: {}
+    manager: insights-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:57:48Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "47676"
+  uid: 1402bca8-2668-41be-b400-bef44b76ed87
+spec:
+  logLevel: Normal
+  managementState: Managed
+  operatorLogLevel: Normal
+status:
+  gatherStatus:
+    gatherers:
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 155ms
+      name: clusterconfig/openshift_authentication_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 18ms
+      name: clusterconfig/cost_management_metrics_configs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 44ms
+      name: clusterconfig/oauths
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 11ms
+      name: clusterconfig/scheduler_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 1.035s
+      name: clusterconfig/active_alerts
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 1.097s
+      name: clusterconfig/metrics
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 11.031s
+      name: clusterconfig/install_plans
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 35ms
+      name: clusterconfig/container_runtime_configs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 2 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 14ms
+      name: clusterconfig/machine_sets
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 2ms
+      name: clusterconfig/ceph_cluster
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 21 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 12ms
+      name: clusterconfig/pdbs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 4ms
+      name: clusterconfig/storage_cluster
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 16 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 143ms
+      name: clusterconfig/machine_configs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 19ms
+      name: clusterconfig/host_subnets
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 9 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 14ms
+      name: clusterconfig/validating_webhook_configurations
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 2 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 58ms
+      name: clusterconfig/crds
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 6 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 19ms
+      name: clusterconfig/nodes
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: secrets "support" not found
+        reason: GatherError
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 26ms
+      name: clusterconfig/support_secret
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 24ms
+      name: clusterconfig/sap_config
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 3 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 450ms
+      name: clusterconfig/node_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 53 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 3.338s
+      name: clusterconfig/operators
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 356ms
+      name: conditional
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 25ms
+      name: clusterconfig/overlapping_namespace_uids
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 2 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 8ms
+      name: clusterconfig/storage_classes
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 56ms
+      name: workloads/helmchart_info
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 266ms
+      name: clusterconfig/kube_controller_manager_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 1.097s
+      name: clusterconfig/silenced_alerts
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 2 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 41ms
+      name: clusterconfig/machine_config_pools
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 54ms
+      name: clusterconfig/proxies
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 6ms
+      name: clusterconfig/jaegers
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 5ms
+      name: clusterconfig/openshift_logging
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 11ms
+      name: clusterconfig/infrastructures
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 6 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 25ms
+      name: clusterconfig/machines
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 20ms
+      name: clusterconfig/image_pruners
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: 'Created 195 records in the archive. Error: function "pod_network_connectivity_checks"
+          failed with an error,function "support_secret" failed with an error,function
+          "config_maps" failed with an error,unable to record function "operators_pods_and_events"
+          record "config/pod/openshift-authentication-operator/authentication-operator-c85dbfd59-hmdtl.json"'
+        reason: GatheredWithError
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 11.986s
+      name: clusterconfig
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 17ms
+      name: clusterconfig/sap_datahubs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 23ms
+      name: clusterconfig/image
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 26ms
+      name: clusterconfig/schedulers
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 35ms
+      name: clusterconfig/feature_gates
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 19ms
+      name: clusterconfig/ingress
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 28ms
+      name: clusterconfig/sap_license_management_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: 'Created 22 records in the archive. Error: the record with the same
+          name "config/pod/openshift-authentication-operator/authentication-operator-c85dbfd59-hmdtl.json"
+          was already recorded and had the fingerprint "ef501372f432d81646d4e90fc87ccbda8080e6bd3e0e7a502f687a05c463644e",
+          overwriting with the record having fingerprint "ef501372f432d81646d4e90fc87ccbda8080e6bd3e0e7a502f687a05c463644e"'
+        reason: GatheredWithError
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 4.909s
+      name: clusterconfig/operators_pods_and_events
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 15ms
+      name: clusterconfig/mutating_webhook_configurations
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 16ms
+      name: clusterconfig/netnamespaces
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: the server could not find the requested resource (get podnetworkconnectivitychecks.controlplane.operator.openshift.io)
+        reason: GatherError
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 16ms
+      name: clusterconfig/pod_network_connectivity_checks
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 11ms
+      name: clusterconfig/image_registries
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: 'Created 14 records in the archive. Error: configmaps "gateway-mode-config"
+          not found'
+        reason: GatheredWithError
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 57ms
+      name: clusterconfig/config_maps
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 26ms
+      name: clusterconfig/openshift_sdn_controller_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 27ms
+      name: clusterconfig/openshift_sdn_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 2 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 69ms
+      name: clusterconfig/monitoring_persistent_volumes
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 9ms
+      name: clusterconfig/openshift_machine_api_events
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 11ms
+      name: clusterconfig/sap_pods
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 59ms
+      name: clusterconfig/openshift_apiserver_operator_logs
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 1.106s
+      name: clusterconfig/tsdb_status
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 10 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 225ms
+      name: clusterconfig/container_images
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 20ms
+      name: clusterconfig/networks
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 24ms
+      name: clusterconfig/machine_healthchecks
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 17ms
+      name: clusterconfig/authentication
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 3 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 67ms
+      name: clusterconfig/version
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 7.47s
+      name: workloads/workload_info
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 72ms
+      name: clusterconfig/certificate_signing_requests
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 17ms
+      name: clusterconfig/dvo_metrics
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 15ms
+      name: clusterconfig/machine_autoscalers
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: ""
+        reason: NoData
+        status: "False"
+        type: DataGathered
+      lastGatherDuration: 61ms
+      name: clusterconfig/olm_operators
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 22ms
+      name: clusterconfig/cluster_apiserver
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 11.804s
+      name: clusterconfig/service_accounts
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:42:31Z"
+        message: Created 1 records in the archive.
+        reason: GatheredOK
+        status: "True"
+        type: DataGathered
+      lastGatherDuration: 7.471s
+      name: workloads
+    lastGatherDuration: 19.820668358s
+    lastGatherTime: "2023-12-06T09:42:11Z"
+  insightsReport:
+    downloadedAt: "2023-12-06T09:57:48Z"
+  readyReplicas: 0

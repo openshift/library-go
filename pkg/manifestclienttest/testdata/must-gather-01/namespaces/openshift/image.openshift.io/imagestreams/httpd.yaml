@@ -1,0 +1,322 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Apache HTTP Server (httpd)
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:08Z"
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:04Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"2.4"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"2.4-el7"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"2.4-el8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"2.4-ubi8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"2.4-ubi9"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:04Z"
+  name: httpd
+  namespace: openshift
+  resourceVersion: "32425"
+  uid: b6b17ba9-ceaf-417c-91c8-7f7e7997da43
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Build and serve static content via Apache HTTP Server (httpd) 2.4
+        on RHEL 7. For more information about using this builder image, including
+        OpenShift considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server 2.4
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd,hidden
+      version: "2.4"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhscl/httpd-24-rhel7
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "2.4"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Apache HTTP Server (httpd) 2.4
+        on RHEL 7. For more information about using this builder image, including
+        OpenShift considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server 2.4 (RHEL 7)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd
+      version: "2.4"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhscl/httpd-24-rhel7
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 2.4-el7
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Apache HTTP Server (httpd) 2.4
+        on RHEL 8. For more information about using this builder image, including
+        OpenShift considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server 2.4 (RHEL 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd,hidden
+      version: "2.4"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhel8/httpd-24
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 2.4-el8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Apache HTTP Server (httpd) 2.4
+        on RHEL 8. For more information about using this builder image, including
+        OpenShift considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server 2.4 (UBI 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd
+      version: "2.4"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi8/httpd-24:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 2.4-ubi8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and serve static content via Apache HTTP Server (httpd) 2.4
+        on UBI 9. For more information about using this builder image, including OpenShift
+        considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server 2.4 (UBI 9)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd
+      version: "2.4"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/ubi9/httpd-24:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 2.4-ubi9
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: |-
+        Build and serve static content via Apache HTTP Server (httpd) on RHEL. For more information about using this builder image, including OpenShift considerations, see https://github.com/sclorg/httpd-container/blob/master/2.4/README.md.
+
+        WARNING: By selecting this tag, your application will automatically update to use the latest version of Httpd available on OpenShift, including major version updates.
+      iconClass: icon-apache
+      openshift.io/display-name: Apache HTTP Server (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      sampleRepo: https://github.com/sclorg/httpd-ex.git
+      supports: httpd
+      tags: builder,httpd
+    from:
+      kind: ImageStreamTag
+      name: 2.4-ubi8
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: latest
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/httpd
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhscl/httpd-24-rhel7@sha256:f31696f37cc7d4359529d71c862bf62d98ca47fa0cc2211e7f451ca026060b38
+      generation: 2
+      image: sha256:f31696f37cc7d4359529d71c862bf62d98ca47fa0cc2211e7f451ca026060b38
+    tag: "2.4"
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhscl/httpd-24-rhel7@sha256:f31696f37cc7d4359529d71c862bf62d98ca47fa0cc2211e7f451ca026060b38
+      generation: 2
+      image: sha256:f31696f37cc7d4359529d71c862bf62d98ca47fa0cc2211e7f451ca026060b38
+    tag: 2.4-el7
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhel8/httpd-24@sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+      generation: 2
+      image: sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+    tag: 2.4-el8
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi8/httpd-24@sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+      generation: 2
+      image: sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+    tag: 2.4-ubi8
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi9/httpd-24@sha256:7644c73f581b193dd32545830f0c0acf75420bef6755ad4af564a51f050a2087
+      generation: 2
+      image: sha256:7644c73f581b193dd32545830f0c0acf75420bef6755ad4af564a51f050a2087
+    tag: 2.4-ubi9
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/ubi8/httpd-24@sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+      generation: 2
+      image: sha256:bce042b87bb5f041aadac670b6a19a4dee4f8cf3e3b44dbceb9ebdf027fb334b
+    tag: latest

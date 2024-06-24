@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:42Z"
+    creationTimestamp: "2023-12-06T09:18:08Z"
+    labels:
+      name: network-operator
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:name: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: metrics
+    namespace: openshift-network-operator
+    resourceVersion: "7881"
+    uid: cc87736a-2f3c-4f2d-a6a0-f5c4f4f86b5d
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: network-operator-689b99748f-bwppn
+        namespace: openshift-network-operator
+        uid: 037211f4-4e02-4155-a9e9-b37e66f7c908
+    ports:
+    - name: metrics
+      port: 9104
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "48028"

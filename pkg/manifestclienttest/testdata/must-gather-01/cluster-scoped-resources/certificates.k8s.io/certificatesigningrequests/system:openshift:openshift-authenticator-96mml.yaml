@@ -1,0 +1,77 @@
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  creationTimestamp: "2023-12-06T09:21:14Z"
+  generateName: system:openshift:openshift-authenticator-
+  labels:
+    authentication.openshift.io/csr: openshift-authenticator
+  managedFields:
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:authentication.openshift.io/csr: {}
+    manager: authentication-operator
+    operation: Update
+    time: "2023-12-06T09:21:14Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Approved"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+    manager: authentication-operator
+    operation: Update
+    subresource: approval
+    time: "2023-12-06T09:21:14Z"
+  - apiVersion: certificates.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:certificate: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:21:14Z"
+  name: system:openshift:openshift-authenticator-96mml
+  resourceVersion: "6048"
+  uid: ba224fcc-186a-4c6f-a982-956a3d217261
+spec:
+  extra:
+    authentication.kubernetes.io/pod-name:
+    - authentication-operator-c85dbfd59-hmdtl
+    authentication.kubernetes.io/pod-uid:
+    - 9a81a8b7-435f-45bc-9ff2-20719fe343b7
+  groups:
+  - system:serviceaccounts
+  - system:serviceaccounts:openshift-authentication-operator
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkREQ0J0QUlCQURCU01WQXdUZ1lEVlFRREUwZHplWE4wWlcwNmMyVnlkbWxqWldGalkyOTFiblE2YjNCbApibk5vYVdaMExXOWhkWFJvTFdGd2FYTmxjblpsY2pwdmNHVnVjMmhwWm5RdFlYVjBhR1Z1ZEdsallYUnZjakJaCk1CTUdCeXFHU000OUFnRUdDQ3FHU000OUF3RUhBMElBQkZWZWlGRkM5aDRGaGFZaEVZRkc4NVYyZDBtNUllZzAKMjVmRk94ODNGbEMvQ3o1bXpSaXdQdW9heFEvY2VKZ0Q2ZkhCMjZYYXpVUkxyQi9JcjM2UWREV2dBREFLQmdncQpoa2pPUFFRREFnTkhBREJFQWlBbXhkYnlPekVnS3Q0YklYVUNPSmYvQ3N3a3hlQlFNZlhuNnZYd3AyQk5yd0lnCkczWENGMk9YZmFMOVBPMlYxa20zelJsN000WlYzamlNdzArQXZPamJVeVU9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=
+  signerName: kubernetes.io/kube-apiserver-client
+  uid: bfa7b52b-10af-4142-b7f3-18c86020acd9
+  usages:
+  - digital signature
+  - key encipherment
+  - client auth
+  username: system:serviceaccount:openshift-authentication-operator:authentication-operator
+status:
+  certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNsRENDQVh5Z0F3SUJBZ0lRRFRzQXBLcnBVaitrYlJnc2ZxeEJQekFOQmdrcWhraUc5dzBCQVFzRkFEQXQKTVJJd0VBWURWUVFMRXdsdmNHVnVjMmhwWm5ReEZ6QVZCZ05WQkFNVERtdDFZbVZzWlhRdGMybG5ibVZ5TUI0WApEVEl6TVRJd05qQTVNVFl4TkZvWERUSXpNVEl3TnpBNU1Ea3dPRm93VWpGUU1FNEdBMVVFQXhOSGMzbHpkR1Z0Ck9uTmxjblpwWTJWaFkyTnZkVzUwT205d1pXNXphR2xtZEMxdllYVjBhQzFoY0dselpYSjJaWEk2YjNCbGJuTm8KYVdaMExXRjFkR2hsYm5ScFkyRjBiM0l3V1RBVEJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQkJ3TkNBQVJWWG9oUgpRdlllQllXbUlSR0JSdk9WZG5kSnVTSG9OTnVYeFRzZk54WlF2d3MrWnMwWXNEN3FHc1VQM0hpWUErbnh3ZHVsCjJzMUVTNndmeUs5K2tIUTFvMVl3VkRBT0JnTlZIUThCQWY4RUJBTUNCYUF3RXdZRFZSMGxCQXd3Q2dZSUt3WUIKQlFVSEF3SXdEQVlEVlIwVEFRSC9CQUl3QURBZkJnTlZIU01FR0RBV2dCUmRLYlRUSzZrMnBOSGsrV2NqUjFWYwpFeTMzbVRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUwvZXpnV2lRaUk5aUdDR21mOVBaZGQ1b3orbFVtdHRrCkN0dlJhQWRUYlhGT3B0eDBJS3FyUDRuWUxIUFdkSU8zSC9neTFDYndrMWFHT28wN1JLZ0xINEZoYXNZVC9lSW0KaVRZcHpOZk9nNVh1ZDBQM1YzNi9RT2Rra0hZeGN4TEtQSThUS1ZKbXhKeno1MnQ2WTdiMkNXUU5HOW9pR0w1QQppV0I4OUFxZ1dYNU1oN2NackJMUGNnbExXK0kzSkpFRklnaVpyaFo1UVIyNndYY2xMdHlleUwzcmpVSmNuRWJSCi9DQ3JCSmgwUjRHdFJSbnNQSmZHbXhOanVJVTFzeVJIREZOQWtYbDdrNy9Zc3duSmtES3B5ZWhVMDhVTVRSQ3EKaE9oV1FweGdUeHEwNWJTcENXTUdJMzhkV29WUnRidTVGQUVRdmg2WWVpMllvL01HY21rRk53PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:14Z"
+    lastUpdateTime: "2023-12-06T09:21:14Z"
+    message: Auto-approved CSR "system:openshift:openshift-authenticator-96mml"
+    reason: AutoApproved
+    status: "True"
+    type: Approved

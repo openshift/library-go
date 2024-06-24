@@ -1,0 +1,503 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "2469"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:41Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:41Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e337d2e7bcced
+    namespace: openshift-insights
+    resourceVersion: "2471"
+    uid: cf2e8292-7e06-4a1d-99b9-8f0d6bc5dd70
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "2473"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-insights/insights-operator-6d8cd7d7f7-g87n8
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339ae53f77dd
+    namespace: openshift-insights
+    resourceVersion: "4464"
+    uid: 91ecd719-7ac8-440e-9864-058027d611e4
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4430"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Add eth0 [10.129.0.35/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339b2a3518b2
+    namespace: openshift-insights
+    resourceVersion: "4542"
+    uid: 2d592dc0-918a-4278-b18b-f8c6bacf80dc
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{insights-operator}
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4414"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:3af130bc6b25e5e31a378afd22e98e6f1abf6888cf4b0bc7eabfd8574511d85b"
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339b2b134183
+    namespace: openshift-insights
+    resourceVersion: "4544"
+    uid: b48be717-2ffa-4f3c-9e5f-740c1f7e0b9e
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:03Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{insights-operator}
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4414"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:03Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:3af130bc6b25e5e31a378afd22e98e6f1abf6888cf4b0bc7eabfd8574511d85b"
+    in 13.059s (13.059s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:03Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:03Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339e358358f8
+    namespace: openshift-insights
+    resourceVersion: "4727"
+    uid: 9045e9a0-a4f8-4020-baeb-3ba68c35e80e
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{insights-operator}
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4414"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Created container insights-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339eb6eb7764
+    namespace: openshift-insights
+    resourceVersion: "9637"
+    uid: e3f01474-c8ba-4d6d-ba54-98a4bd239b18
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{insights-operator}
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4414"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:13Z"
+  message: Started container insights-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:13Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e339ec530cc7f
+    namespace: openshift-insights
+    resourceVersion: "9649"
+    uid: bf54d011-c5ee-4d55-9ca4-7f3358aeadff
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:12Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{insights-operator}
+    kind: Pod
+    name: insights-operator-6d8cd7d7f7-g87n8
+    namespace: openshift-insights
+    resourceVersion: "4414"
+    uid: 30437ec8-1dd9-436e-a065-f9392b04a3e0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:12Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:3af130bc6b25e5e31a378afd22e98e6f1abf6888cf4b0bc7eabfd8574511d85b"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:12Z"
+    name: insights-operator-6d8cd7d7f7-g87n8.179e33ae5071e63a
+    namespace: openshift-insights
+    resourceVersion: "9576"
+    uid: f4a109e2-ced1-4058-8f53-798c36bf61f4
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: insights-operator-6d8cd7d7f7
+    namespace: openshift-insights
+    resourceVersion: "2214"
+    uid: 1ab96a27-72ab-4bb4-9423-1fc943a2ab35
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:31Z"
+  message: 'Error creating: pods "insights-operator-6d8cd7d7f7-" is forbidden: autoscaling.openshift.io/ManagementCPUsOverride
+    the cluster does not have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:31Z"
+    name: insights-operator-6d8cd7d7f7.179e33786896b214
+    namespace: openshift-insights
+    resourceVersion: "2303"
+    uid: 6c78ac07-d411-4c96-91b0-dcdfa6ac6621
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:41Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: insights-operator-6d8cd7d7f7
+    namespace: openshift-insights
+    resourceVersion: "2218"
+    uid: 1ab96a27-72ab-4bb4-9423-1fc943a2ab35
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:41Z"
+  message: 'Created pod: insights-operator-6d8cd7d7f7-g87n8'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:41Z"
+    name: insights-operator-6d8cd7d7f7.179e337d2e7a1cf1
+    namespace: openshift-insights
+    resourceVersion: "2470"
+    uid: bc8a7397-eb9a-4d9d-9561-33ca08f0da25
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: insights-operator
+    namespace: openshift-insights
+    resourceVersion: "2213"
+    uid: eb421d09-801f-4c9d-a25f-d283249bd1a9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:21Z"
+  message: Scaled up replica set insights-operator-6d8cd7d7f7 to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:21Z"
+    name: insights-operator.179e3378685cf3db
+    namespace: openshift-insights
+    resourceVersion: "2215"
+    uid: 0b5a9a91-b94d-410a-a575-bc7c4ac73611
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47744"

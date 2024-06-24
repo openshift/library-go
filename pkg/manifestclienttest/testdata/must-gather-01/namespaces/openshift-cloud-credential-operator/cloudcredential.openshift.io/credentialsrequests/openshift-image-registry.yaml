@@ -1,0 +1,128 @@
+---
+apiVersion: cloudcredential.openshift.io/v1
+kind: CredentialsRequest
+metadata:
+  annotations:
+    capability.openshift.io/name: ImageRegistry
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+  creationTimestamp: "2023-12-06T09:18:11Z"
+  finalizers:
+  - cloudcredential.openshift.io/deprovision
+  generation: 1
+  labels:
+    controller-tools.k8s.io: "1.0"
+  managedFields:
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:capability.openshift.io/name: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+        f:labels:
+          .: {}
+          f:controller-tools.k8s.io: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:providerSpec:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:statementEntries: {}
+        f:secretRef:
+          .: {}
+          f:name: {}
+          f:namespace: {}
+        f:serviceAccountNames: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:18:11Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"cloudcredential.openshift.io/deprovision": {}
+    manager: Go-http-client
+    operation: Update
+    time: "2023-12-06T09:19:49Z"
+  - apiVersion: cloudcredential.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:lastSyncCloudCredsSecretResourceVersion: {}
+        f:lastSyncGeneration: {}
+        f:lastSyncTimestamp: {}
+        f:providerStatus:
+          .: {}
+          f:apiVersion: {}
+          f:kind: {}
+          f:policy: {}
+          f:user: {}
+        f:provisioned: {}
+    manager: Go-http-client
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:19:54Z"
+  name: openshift-image-registry
+  namespace: openshift-cloud-credential-operator
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "3292"
+  uid: 45b3124b-e5a2-428c-8ba5-e50228dd6714
+spec:
+  providerSpec:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AWSProviderSpec
+    statementEntries:
+    - action:
+      - s3:CreateBucket
+      - s3:DeleteBucket
+      - s3:PutBucketTagging
+      - s3:GetBucketTagging
+      - s3:PutBucketPublicAccessBlock
+      - s3:GetBucketPublicAccessBlock
+      - s3:PutEncryptionConfiguration
+      - s3:GetEncryptionConfiguration
+      - s3:PutLifecycleConfiguration
+      - s3:GetLifecycleConfiguration
+      - s3:GetBucketLocation
+      - s3:ListBucket
+      - s3:GetObject
+      - s3:PutObject
+      - s3:DeleteObject
+      - s3:ListBucketMultipartUploads
+      - s3:AbortMultipartUpload
+      - s3:ListMultipartUploadParts
+      effect: Allow
+      resource: '*'
+  secretRef:
+    name: installer-cloud-credentials
+    namespace: openshift-image-registry
+  serviceAccountNames:
+  - cluster-image-registry-operator
+  - registry
+status:
+  lastSyncCloudCredsSecretResourceVersion: "3198"
+  lastSyncGeneration: 1
+  lastSyncTimestamp: "2023-12-06T09:19:54Z"
+  providerStatus:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AWSProviderStatus
+    policy: ci-op-2j285qtr-234c7-openshift-image-registry-cbncl-policy
+    user: ci-op-2j285qtr-234c7-openshift-image-registry-cbncl
+  provisioned: true

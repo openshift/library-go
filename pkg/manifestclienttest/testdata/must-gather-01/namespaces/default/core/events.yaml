@@ -1,0 +1,4239 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:13Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-4nv7v
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:13Z"
+  message: CSR "csr-4nv7v" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:13Z"
+    name: csr-4nv7v.179e33e64aa71093
+    namespace: default
+    resourceVersion: "19228"
+    uid: 6bafa1d2-0da3-44f6-a316-1bd9b54c3dfc
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:35Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-5wcvp
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:35Z"
+  message: CSR "csr-5wcvp" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:20:35Z"
+    name: csr-5wcvp.179e3397a8bd7d28
+    namespace: default
+    resourceVersion: "4185"
+    uid: fefc4b56-a590-4e6b-a20f-7bccac7f0ebc
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:11Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-8btgs
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:11Z"
+  message: CSR "csr-8btgs" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:11Z"
+    name: csr-8btgs.179e33e5f788dd2c
+    namespace: default
+    resourceVersion: "19172"
+    uid: bb3f5692-ff94-46db-975a-9c799489e2d6
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:45Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-8mfl9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:45Z"
+  message: CSR "csr-8mfl9" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:45Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:20:45Z"
+    name: csr-8mfl9.179e339a0142c7ef
+    namespace: default
+    resourceVersion: "4334"
+    uid: 790bb7d8-5483-4792-ae52-44e6f237c204
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:19Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-cscfk
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:19Z"
+  message: CSR "csr-cscfk" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:19Z"
+    name: csr-cscfk.179e33e7c56f944c
+    namespace: default
+    resourceVersion: "19428"
+    uid: f0ebf0c9-03b8-4726-bc82-ef936239e5fd
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:19Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-dhsn8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:19Z"
+  message: CSR "csr-dhsn8" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:19Z"
+    name: csr-dhsn8.179e33e7b2e4009a
+    namespace: default
+    resourceVersion: "19421"
+    uid: 2a75fc03-4260-4860-843d-88f12bd5f6fd
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:32Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-djjcj
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:32Z"
+  message: CSR "csr-djjcj" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:20:32Z"
+    name: csr-djjcj.179e3396d06f745e
+    namespace: default
+    resourceVersion: "4128"
+    uid: c3dafbd9-365c-4daf-bb4b-876e9850e0c6
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:15Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-dz7zq
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:15Z"
+  message: CSR "csr-dz7zq" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: csr-dz7zq.179e33a104560594
+    namespace: default
+    resourceVersion: "6198"
+    uid: b70d882c-388e-4935-b40a-1a0f5e03b19c
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:16Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-khfb2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:16Z"
+  message: CSR "csr-khfb2" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:16Z"
+    name: csr-khfb2.179e33e6fe478c2b
+    namespace: default
+    resourceVersion: "19337"
+    uid: e8bdba45-9fbf-4c8f-8fe4-9375c5f74e30
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:20Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-w5fc2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:20Z"
+  message: CSR "csr-w5fc2" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:26:20Z"
+    name: csr-w5fc2.179e33e7f7a55ea6
+    namespace: default
+    resourceVersion: "19450"
+    uid: 54edecdb-5b98-471a-b124-209c568bd7b4
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:34Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-wq5ct
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:34Z"
+  message: CSR "csr-wq5ct" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:20:34Z"
+    name: csr-wq5ct.179e33977f627066
+    namespace: default
+    resourceVersion: "4170"
+    uid: 914bc4dc-1da9-4a9f-bb4a-199c8ef81e76
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:15Z"
+  involvedObject:
+    kind: CertificateSigningRequest
+    name: csr-wqlp2
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:15Z"
+  message: CSR "csr-wqlp2" has been approved
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ovnkube-identity
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: csr-wqlp2.179e33a0e1c3b044
+    namespace: default
+    resourceVersion: "6074"
+    uid: dbc6e95d-4483-4b7e-baa3-5e7544b50eaa
+  reason: CSRApproved
+  reportingComponent: ovnkube-csr-approver-controller
+  reportingInstance: ""
+  source:
+    component: ovnkube-csr-approver-controller
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:32Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: ip-10-0-106-212.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:38Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:38Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:38Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e337adf781815
+    namespace: default
+    resourceVersion: "2377"
+    uid: 1abaec09-29e6-4fd6-b631-b508e51d193f
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:32Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: ip-10-0-106-212.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:38Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:38Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:38Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e337adf7854ae
+    namespace: default
+    resourceVersion: "2379"
+    uid: 61711d5b-9ed0-4f34-bf58-16d2536c6486
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:32Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: ip-10-0-106-212.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:38Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:38Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:38Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e337adf7881eb
+    namespace: default
+    resourceVersion: "2384"
+    uid: 10c69930-e6e7-4601-a2c9-7fda21d45bde
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:42Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:42Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal event: Registered Node
+    ip-10-0-106-212.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:42Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e337d65747649
+    namespace: default
+    resourceVersion: "2492"
+    uid: 9acf760b-0a3b-48d5-80fa-f6195dc1c37a
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:29Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    resourceVersion: "2954"
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:29Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:29Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e338858747b1a
+    namespace: default
+    resourceVersion: "3036"
+    uid: 3894e7ae-cb0d-4e5f-acbf-9b69888ef227
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:32Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: ip-10-0-106-212.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:32Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal status is now: NodeReady'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:32Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:32Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e33a4d6fe1f3c
+    namespace: default
+    resourceVersion: "7396"
+    uid: ded99676-ef15-41d4-9f8b-4044a270511c
+  reason: NodeReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal event: Registered Node
+    ip-10-0-106-212.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e3480901430be
+    namespace: default
+    resourceVersion: "29136"
+    uid: b93f7cc5-8781-4856-bd90-977d6c060810
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal event: Registered Node
+    ip-10-0-106-212.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e3491dbfc57de
+    namespace: default
+    resourceVersion: "30976"
+    uid: ad7e240e-51ab-4d4f-a093-d5e7e43726d4
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal event: Registered Node
+    ip-10-0-106-212.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e34be69eeb622
+    namespace: default
+    resourceVersion: "36133"
+    uid: 07580e34-aa84-47f5-836b-061aee99b504
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-106-212.us-west-1.compute.internal
+    uid: 1c607fab-4c83-498b-82e7-14c991b2fa80
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-106-212.us-west-1.compute.internal event: Registered Node
+    ip-10-0-106-212.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-106-212.us-west-1.compute.internal.179e359a2a5e5b01
+    namespace: default
+    resourceVersion: "46965"
+    uid: 7938d308-fd2a-4fc9-aa64-665bc123faeb
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:26Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx
+    namespace: default
+    resourceVersion: "46182"
+    uid: b284ae90-53f3-4846-b52a-adcfbb7310ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:26Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:26Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:26Z"
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx.179e358c8b1ffcd3
+    namespace: default
+    resourceVersion: "46191"
+    uid: 74e13d4a-3fa6-470b-936e-bd1a2e8b0e4a
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx
+    namespace: default
+    resourceVersion: "46182"
+    uid: b284ae90-53f3-4846-b52a-adcfbb7310ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+    in 7.257s (7.257s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx.179e358e3bb21db3
+    namespace: default
+    resourceVersion: "46275"
+    uid: b71c1e15-4ca2-4a8c-a84c-2144c6b4ef02
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx
+    namespace: default
+    resourceVersion: "46182"
+    uid: b284ae90-53f3-4846-b52a-adcfbb7310ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Created container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx.179e358e3f7ee261
+    namespace: default
+    resourceVersion: "46276"
+    uid: cffb42ef-0e78-4ef8-be00-004d904333a9
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx
+    namespace: default
+    resourceVersion: "46182"
+    uid: b284ae90-53f3-4846-b52a-adcfbb7310ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Started container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-106-212us-west-1computeinternal-debug-wl4wx.179e358e402c6384
+    namespace: default
+    resourceVersion: "46278"
+    uid: 0b1848d8-c498-4fed-bba8-096af2875ed0
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-106-212.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-106-212.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: ip-10-0-122-108.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d90f456dad
+    namespace: default
+    resourceVersion: "17103"
+    uid: abf9e9a3-e2f0-4005-a141-73c8b2219dbe
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: ip-10-0-122-108.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d90f45b1b9
+    namespace: default
+    resourceVersion: "17108"
+    uid: 579f1ce1-bd7f-41ac-96f2-da623219b1a3
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: ip-10-0-122-108.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d90f45d488
+    namespace: default
+    resourceVersion: "17117"
+    uid: 4949c499-f133-4a5d-8668-7ea81315284f
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: ip-10-0-122-108.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: Updated Node Allocatable limit across pods
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d910c7910f
+    namespace: default
+    resourceVersion: "17098"
+    uid: 539c1398-834d-4966-942b-00818e6fb2f1
+  reason: NodeAllocatableEnforced
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    resourceVersion: "17102"
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d9244118e4
+    namespace: default
+    resourceVersion: "17219"
+    uid: c9090452-f7d8-4ee6-969c-2d8fd899bcd5
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:17Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:17Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal event: Registered Node
+    ip-10-0-122-108.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:17Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33d962235581
+    namespace: default
+    resourceVersion: "17344"
+    uid: 8024f9b6-ff2e-4242-8dba-7c6f8f072079
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:20Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: ip-10-0-122-108.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:20Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal status is now: NodeReady'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:20Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e33e7f69e167f
+    namespace: default
+    resourceVersion: "19446"
+    uid: 4b76ecc4-358d-4588-88f5-aaf569072b47
+  reason: NodeReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal event: Registered Node
+    ip-10-0-122-108.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e3480900ca694
+    namespace: default
+    resourceVersion: "29078"
+    uid: 8a7c998e-52ac-4700-b730-87208ec265b3
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal event: Registered Node
+    ip-10-0-122-108.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e3491dbfdb7e8
+    namespace: default
+    resourceVersion: "30984"
+    uid: f3e0dfc0-657c-44c3-a8d4-a14a0ce7e481
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal event: Registered Node
+    ip-10-0-122-108.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e34be69ef1092
+    namespace: default
+    resourceVersion: "36137"
+    uid: 10893158-8e4a-4b9c-98b1-05041a040ea4
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-122-108.us-west-1.compute.internal
+    uid: 3b9b2d72-2657-460c-84cb-959bfc03ca37
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-122-108.us-west-1.compute.internal event: Registered Node
+    ip-10-0-122-108.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-122-108.us-west-1.compute.internal.179e359a2a5fb4f3
+    namespace: default
+    resourceVersion: "46966"
+    uid: 2bfa9651-3d87-45a6-9d0b-a46275b35d90
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:26Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl
+    namespace: default
+    resourceVersion: "46179"
+    uid: 20ec058d-c6d5-4ec4-8d96-f8b0a5e5ec1f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:26Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:26Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:26Z"
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl.179e358c87a90933
+    namespace: default
+    resourceVersion: "46188"
+    uid: 65fec666-97bd-42de-89a5-bd5520a5502a
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:33Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl
+    namespace: default
+    resourceVersion: "46179"
+    uid: 20ec058d-c6d5-4ec4-8d96-f8b0a5e5ec1f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:33Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+    in 6.842s (6.842s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:33Z"
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl.179e358e1f7c2791
+    namespace: default
+    resourceVersion: "46269"
+    uid: b4d9e87e-4030-4bed-ab69-6c309fefcc52
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:33Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl
+    namespace: default
+    resourceVersion: "46179"
+    uid: 20ec058d-c6d5-4ec4-8d96-f8b0a5e5ec1f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:33Z"
+  message: Created container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:33Z"
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl.179e358e22bce599
+    namespace: default
+    resourceVersion: "46270"
+    uid: a7b28bef-140a-407d-b2b5-d4a32a7bb502
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:33Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl
+    namespace: default
+    resourceVersion: "46179"
+    uid: 20ec058d-c6d5-4ec4-8d96-f8b0a5e5ec1f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:33Z"
+  message: Started container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:33Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:33Z"
+    name: ip-10-0-122-108us-west-1computeinternal-debug-87hfl.179e358e2378c70f
+    namespace: default
+    resourceVersion: "46272"
+    uid: ded90149-03c2-40b4-81cb-e48c9f356e02
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:34Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: ip-10-0-21-63.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:37Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:37Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e337b58bfba0b
+    namespace: default
+    resourceVersion: "2327"
+    uid: 25c96e1c-7a27-4e7f-9845-e902911d1d42
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:34Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: ip-10-0-21-63.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:37Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:37Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e337b58c0242d
+    namespace: default
+    resourceVersion: "2329"
+    uid: ec8f0854-5c94-4c99-b679-ebf2e693b2eb
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:34Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: ip-10-0-21-63.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:37Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:18:37Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e337b58c04a57
+    namespace: default
+    resourceVersion: "2332"
+    uid: 67fa09cb-15ea-466a-9cd7-59358b7919f5
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:37Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:37Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal event: Registered Node ip-10-0-21-63.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:37Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e337c3b66f8b7
+    namespace: default
+    resourceVersion: "2339"
+    uid: bc1dde7f-7032-4f01-b9e3-bb87a84a8386
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    resourceVersion: "3016"
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:30Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:30Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e33886527077a
+    namespace: default
+    resourceVersion: "3046"
+    uid: 895d515c-5783-46a7-a3b1-4ffbdb7364d3
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:47Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    resourceVersion: "4209"
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'adding or updating remote node IC resources ip-10-0-21-63.us-west-1.compute.internal
+    failed, err - creating interconnect resources for remote zone node ip-10-0-21-63.us-west-1.compute.internal
+    for the network default failed : err - failed to find port binding: tstor-ip-10-0-21-63.us-west-1.compute.internal,
+    after 10s: context deadline exceeded, object not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:47Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e339a6eb9ea41
+    namespace: default
+    resourceVersion: "4344"
+    uid: 18ad004d-23e1-44cb-99bb-3d56bab8d418
+  reason: ErrorAddingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: ip-10-0-21-63.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal status is now: NodeReady'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e339adc7368bf
+    namespace: default
+    resourceVersion: "4360"
+    uid: 30e273ae-00b3-445e-8c04-223700d1f9b0
+  reason: NodeReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:57Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    resourceVersion: "4264"
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'adding or updating remote node chassis ip-10-0-21-63.us-west-1.compute.internal
+    failed, err - failed to create or update chassis to remote for remote node ip-10-0-21-63.us-west-1.compute.internal,
+    error: error in transact with ops [{Op:update Table:Encap Row:map[chassis_name:988b7c3b-96e9-453d-820a-6fac7b5033d1
+    ip:10.0.21.63 options:{GoMap:map[csum:true]} type:geneve] Rows:[] Columns:[] Mutations:[]
+    Timeout:<nil> Where:[where column _uuid == {4e939d72-f0cb-42f0-8fe6-ef015f65c1d6}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:update Table:Chassis
+    Row:map[encaps:{GoSet:[{GoUUID:4e939d72-f0cb-42f0-8fe6-ef015f65c1d6}]}] Rows:[]
+    Columns:[] Mutations:[] Timeout:<nil> Where:[where column _uuid == {adc8650a-ff2c-4b50-8f2f-f8de93f9c785}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Chassis
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:other_config Mutator:delete Value:{GoSet:[is-remote]}}
+    {Column:other_config Mutator:insert Value:{GoMap:map[is-remote:true]}}] Timeout:<nil>
+    Where:[where column _uuid == {adc8650a-ff2c-4b50-8f2f-f8de93f9c785}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e339cc2f89c4d
+    namespace: default
+    resourceVersion: "4966"
+    uid: 78727176-d8a4-4370-a7c8-7432b1e61770
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal event: Registered Node ip-10-0-21-63.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e3480900f3836
+    namespace: default
+    resourceVersion: "29080"
+    uid: ead407b2-5da5-4f31-b1c9-64f3cad78919
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal event: Registered Node ip-10-0-21-63.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e3491dbfe02ca
+    namespace: default
+    resourceVersion: "30993"
+    uid: 38118ddb-9060-45f5-be47-a47cfac253f2
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal event: Registered Node ip-10-0-21-63.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e34be69ef6241
+    namespace: default
+    resourceVersion: "36139"
+    uid: 6b82de89-612b-4d9c-b493-ec7070613358
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-21-63.us-west-1.compute.internal
+    uid: 16e2d09d-2040-4a5a-885f-5beac4c0785a
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-21-63.us-west-1.compute.internal event: Registered Node ip-10-0-21-63.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-21-63.us-west-1.compute.internal.179e359a2a604e46
+    namespace: default
+    resourceVersion: "46969"
+    uid: 8dc34ac0-6645-4bdf-a5c2-dc24761ad5fc
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:26Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk
+    namespace: default
+    resourceVersion: "46181"
+    uid: bcb0e731-da8f-450e-b3df-372e7a06dbb7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:26Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:26Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:26Z"
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk.179e358c8b150433
+    namespace: default
+    resourceVersion: "46189"
+    uid: a8a868f7-15b0-41d9-85bf-900e99f24519
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk
+    namespace: default
+    resourceVersion: "46181"
+    uid: bcb0e731-da8f-450e-b3df-372e7a06dbb7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:bf6bad4697d078449863f90365995d9e846f51c58fa29175666f609f7c318c62"
+    in 7.393s (7.393s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk.179e358e43c503a9
+    namespace: default
+    resourceVersion: "46279"
+    uid: ea162853-35f4-4880-9369-3bbc1ea6c298
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk
+    namespace: default
+    resourceVersion: "46181"
+    uid: bcb0e731-da8f-450e-b3df-372e7a06dbb7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Created container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk.179e358e48783d2c
+    namespace: default
+    resourceVersion: "46282"
+    uid: d43c7b05-fd7e-4bdb-b6f3-d64a34c942ce
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:56:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{container-00}
+    kind: Pod
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk
+    namespace: default
+    resourceVersion: "46181"
+    uid: bcb0e731-da8f-450e-b3df-372e7a06dbb7
+  kind: Event
+  lastTimestamp: "2023-12-06T09:56:34Z"
+  message: Started container container-00
+  metadata:
+    creationTimestamp: "2023-12-06T09:56:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:56:34Z"
+    name: ip-10-0-21-63us-west-1computeinternal-debug-ggcrk.179e358e4940a36d
+    namespace: default
+    resourceVersion: "46283"
+    uid: 965413eb-142f-471d-8fd4-f4557d24d2c6
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: ip-10-0-7-104.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e33d90fc72006
+    namespace: default
+    resourceVersion: "17110"
+    uid: e17622ea-bf4d-4a46-b8fe-43eef28b38df
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:16Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: ip-10-0-7-104.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:16Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:16Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e33d90fc7498d
+    namespace: default
+    resourceVersion: "17125"
+    uid: b60b4ff6-aa31-4562-b8ec-3059456619f7
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:17Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    resourceVersion: "17152"
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:17Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:17Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e33d9319b278a
+    namespace: default
+    resourceVersion: "17284"
+    uid: 303ac8df-a3c1-4c7a-afa4-66bfea023c03
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:17Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:17Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal event: Registered Node ip-10-0-7-104.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:17Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e33d96223c5c7
+    namespace: default
+    resourceVersion: "17345"
+    uid: 897ef159-a997-4576-99e7-7831be052c7b
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: ip-10-0-7-104.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal status is now: NodeReady'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e33e84f328ee5
+    namespace: default
+    resourceVersion: "19572"
+    uid: feaefff5-f28f-4381-9ab3-86bffca9e658
+  reason: NodeReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal event: Registered Node ip-10-0-7-104.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e34809011c05a
+    namespace: default
+    resourceVersion: "29087"
+    uid: 88e4fd9b-7e65-44d8-af3a-9387503d8706
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal event: Registered Node ip-10-0-7-104.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e3491dbfee8e9
+    namespace: default
+    resourceVersion: "31003"
+    uid: 3e5cc41d-d85b-4db7-b440-0e6ebfd23778
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal event: Registered Node ip-10-0-7-104.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e34be69eff0b0
+    namespace: default
+    resourceVersion: "36145"
+    uid: c3ab4f4d-c6ab-404e-a471-1be922669dc0
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-7-104.us-west-1.compute.internal
+    uid: 68f955cb-5e46-42cf-a426-095e59f65a2b
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-7-104.us-west-1.compute.internal event: Registered Node ip-10-0-7-104.us-west-1.compute.internal
+    in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-7-104.us-west-1.compute.internal.179e359a2a614d1f
+    namespace: default
+    resourceVersion: "46970"
+    uid: 1214ddec-67ba-448c-89c5-753dbd86a7e6
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:12Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:12Z"
+  message: Starting kubelet.
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:13Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33d83a23bc7c
+    namespace: default
+    resourceVersion: "16958"
+    uid: 840d2404-ae9a-4e19-90ee-5f890f17dee5
+  reason: Starting
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:13Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:13Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:13Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33d83c5c0ad9
+    namespace: default
+    resourceVersion: "16959"
+    uid: 1ca72c5c-e845-46bd-9ce9-77a2719fea5b
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:13Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:13Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:13Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33d83c5ceec8
+    namespace: default
+    resourceVersion: "16960"
+    uid: 6bf0c70e-60ff-414b-8409-c6a3ac1caeb1
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:13Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:13Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:13Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33d83c5e0403
+    namespace: default
+    resourceVersion: "16961"
+    uid: c0b18926-bdec-4942-bb8b-2e3e1519e68b
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: Starting kubelet.
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33daa5fdbb18
+    namespace: default
+    resourceVersion: "17571"
+    uid: 16feb027-30b9-4491-bedf-5c25c52a824c
+  reason: Starting
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33daa77a27ed
+    namespace: default
+    resourceVersion: "17582"
+    uid: b2a32bb1-f22b-402f-91f0-2f0c68c855a4
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33daa77a5986
+    namespace: default
+    resourceVersion: "17588"
+    uid: 84b28807-7282-41e1-9093-3b0f7f97b012
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeHasSufficientPID'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33daa77a70b7
+    namespace: default
+    resourceVersion: "17599"
+    uid: 5a2ed00a-07a9-4161-a464-0f3a86da8a37
+  reason: NodeHasSufficientPID
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:23Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:23Z"
+  message: Updated Node Allocatable limit across pods
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:23Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:25:23Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33daa8eb7d3a
+    namespace: default
+    resourceVersion: "17575"
+    uid: 81d6f98a-f1ce-4060-a7f7-14476b39d1b7
+  reason: NodeAllocatableEnforced
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:24Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    resourceVersion: "17581"
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:24Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:24Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:24Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33dad0cd1c6d
+    namespace: default
+    resourceVersion: "17658"
+    uid: 6e3d0eaa-2218-481e-a8cf-fde6e98da4c5
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:25:27Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:27Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal event: Registered Node
+    ip-10-0-81-189.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:25:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:27Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33dbb6555067
+    namespace: default
+    resourceVersion: "17836"
+    uid: cbbb0627-e699-4649-b00f-9e3940a86d4c
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ip-10-0-81-189.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal status is now: NodeReady'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e33e8237d4f53
+    namespace: default
+    resourceVersion: "19522"
+    uid: 559a65f5-1918-44b9-8588-131ffa18afd2
+  reason: NodeReady
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal event: Registered Node
+    ip-10-0-81-189.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e34809012754b
+    namespace: default
+    resourceVersion: "29093"
+    uid: 80c161bc-dcaf-4808-8279-a0b04cbed450
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal event: Registered Node
+    ip-10-0-81-189.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e3491dbff2e03
+    namespace: default
+    resourceVersion: "31016"
+    uid: 0c11efdd-b2b9-4e9f-a5fd-e1bc19b75e38
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal event: Registered Node
+    ip-10-0-81-189.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e34be69ed4430
+    namespace: default
+    resourceVersion: "36122"
+    uid: 60249213-a830-4daa-9305-11e08f0aad47
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-81-189.us-west-1.compute.internal
+    uid: ca665580-60c1-4a89-916a-9ad4f86c29ef
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-81-189.us-west-1.compute.internal event: Registered Node
+    ip-10-0-81-189.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-81-189.us-west-1.compute.internal.179e359a2a61e7a8
+    namespace: default
+    resourceVersion: "46972"
+    uid: 1aa30b9a-ee08-4c3a-94db-b9a4c25bc367
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 8
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:49Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: ip-10-0-94-160.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:02Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal status is now: NodeHasSufficientMemory'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:02Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e337efc330c6d
+    namespace: default
+    resourceVersion: "2749"
+    uid: 032bb5a8-12a3-451a-b5ba-dabc3be5d8e3
+  reason: NodeHasSufficientMemory
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 8
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:49Z"
+  involvedObject:
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: ip-10-0-94-160.us-west-1.compute.internal
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:02Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal status is now: NodeHasNoDiskPressure'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:19:02Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e337efc33433c
+    namespace: default
+    resourceVersion: "2751"
+    uid: 8353fa2c-5444-43b7-b341-a6ff08851156
+  reason: NodeHasNoDiskPressure
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-94-160.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-94-160.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:02Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:02Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal event: Registered Node
+    ip-10-0-94-160.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:02Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:02Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e33820dbcaf91
+    namespace: default
+    resourceVersion: "2771"
+    uid: fde71ec2-7ea2-4cd1-9c14-3aed3e013fda
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    resourceVersion: "3006"
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:30Z"
+  message: Node synced successfully
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: aws-cloud-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:30Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e3388726ccc85
+    namespace: default
+    resourceVersion: "3052"
+    uid: aa2b921d-4959-4ce9-89d3-c4b6de20efa6
+  reason: Synced
+  reportingComponent: cloud-node-controller
+  reportingInstance: ""
+  source:
+    component: cloud-node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:47Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    resourceVersion: "4168"
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:47Z"
+  message: 'adding or updating remote node IC resources ip-10-0-94-160.us-west-1.compute.internal
+    failed, err - creating interconnect resources for remote zone node ip-10-0-94-160.us-west-1.compute.internal
+    for the network default failed : err - failed to find port binding: tstor-ip-10-0-94-160.us-west-1.compute.internal,
+    after 10s: context deadline exceeded, object not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:47Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:20:47Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e339a6ebb9c67
+    namespace: default
+    resourceVersion: "4346"
+    uid: 929dc1f3-b451-40b6-b134-96f61a4df0f1
+  reason: ErrorAddingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:57Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    resourceVersion: "4330"
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:07Z"
+  message: 'adding or updating remote node chassis ip-10-0-94-160.us-west-1.compute.internal
+    failed, err - failed to create or update chassis to remote for remote node ip-10-0-94-160.us-west-1.compute.internal,
+    error: error in transact with ops [{Op:update Table:Encap Row:map[chassis_name:a684edec-39c2-409d-8208-59805a7b4943
+    ip:10.0.94.160 options:{GoMap:map[csum:true]} type:geneve] Rows:[] Columns:[]
+    Mutations:[] Timeout:<nil> Where:[where column _uuid == {41d01233-64b5-488d-802c-6a55ed7d59f6}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:update Table:Chassis
+    Row:map[encaps:{GoSet:[{GoUUID:41d01233-64b5-488d-802c-6a55ed7d59f6}]}] Rows:[]
+    Columns:[] Mutations:[] Timeout:<nil> Where:[where column _uuid == {7a781959-e8e8-4746-b994-621bc195968f}]
+    Until: Durable:<nil> Comment:<nil> Lock:<nil> UUID: UUIDName:} {Op:mutate Table:Chassis
+    Row:map[] Rows:[] Columns:[] Mutations:[{Column:other_config Mutator:delete Value:{GoSet:[is-remote]}}
+    {Column:other_config Mutator:insert Value:{GoMap:map[is-remote:true]}}] Timeout:<nil>
+    Where:[where column _uuid == {7a781959-e8e8-4746-b994-621bc195968f}] Until: Durable:<nil>
+    Comment:<nil> Lock:<nil> UUID: UUIDName:}]: context deadline exceeded: while awaiting
+    reconnection'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:57Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: ip-10-0-106-212
+      operation: Update
+      time: "2023-12-06T09:21:07Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e339cc2eed20c
+    namespace: default
+    resourceVersion: "4965"
+    uid: a12e8d27-bf60-4456-8036-ef9c81b9b097
+  reason: ErrorUpdatingResource
+  reportingComponent: controlplane
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:37:15Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:37:15Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal event: Registered Node
+    ip-10-0-94-160.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:37:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:37:16Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e34809013604c
+    namespace: default
+    resourceVersion: "29101"
+    uid: 8d998d9a-ee87-4d21-bf49-d37ba9eba47a
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:30Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:30Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal event: Registered Node
+    ip-10-0-94-160.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:38:30Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e3491dbff83ea
+    namespace: default
+    resourceVersion: "31029"
+    uid: 88edae76-f6e2-4169-81cf-0eedad282be9
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:41:41Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:41:41Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal event: Registered Node
+    ip-10-0-94-160.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:41:41Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:41:41Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e34be69ee6cb1
+    namespace: default
+    resourceVersion: "36127"
+    uid: 5097667a-3710-40d7-974b-1f60c310a84b
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:57:25Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: ip-10-0-94-160.us-west-1.compute.internal
+    uid: 81ba1bea-e6f4-4738-856a-3956136a61ac
+  kind: Event
+  lastTimestamp: "2023-12-06T09:57:25Z"
+  message: 'Node ip-10-0-94-160.us-west-1.compute.internal event: Registered Node
+    ip-10-0-94-160.us-west-1.compute.internal in Controller'
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:57:25Z"
+    name: ip-10-0-94-160.us-west-1.compute.internal.179e359a2a627d1c
+    namespace: default
+    resourceVersion: "46974"
+    uid: 338f6e24-bb33-42ff-98fd-5a1326d45385
+  reason: RegisteredNode
+  reportingComponent: node-controller
+  reportingInstance: ""
+  source:
+    component: node-controller
+  type: Normal
+- apiVersion: v1
+  count: 14
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:13Z"
+  involvedObject:
+    apiVersion: config.openshift.io/v1
+    kind: ClusterOperator
+    name: machine-api
+    resourceVersion: "9700"
+    uid: da7cc45d-20ea-4876-8b42-e324c754e178
+  kind: Event
+  lastTimestamp: "2023-12-06T09:25:53Z"
+  message: 'Progressing towards operator: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: machine-api-operator
+      operation: Update
+      time: "2023-12-06T09:25:53Z"
+    name: machine-api.179e33ae6f2e2916
+    namespace: default
+    resourceVersion: "18537"
+    uid: 40c3d488-eb2a-4dd8-8418-093915d21954
+  reason: Status upgrade
+  reportingComponent: machineapioperator
+  reportingInstance: ""
+  source:
+    component: machineapioperator
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: readyz=true
+  metadata:
+    creationTimestamp: "2023-12-06T09:17:06Z"
+    name: openshift-kube-apiserver.179e3366fbb00d51
+    namespace: default
+    resourceVersion: "236"
+    uid: c166241c-3098-44a9-a33a-cfb90111c5b4
+  reason: KubeAPIReadyz
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Warning
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: Received signal to terminate, becoming unready, but keeping serving
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:55Z"
+    name: openshift-kube-apiserver.179e347bcb9f2874
+    namespace: default
+    resourceVersion: "28746"
+    uid: 8d80dc7f-0388-4eda-9b08-35e94bea708e
+  reason: ShutdownInitiated
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: All pre-shutdown hooks have been finished
+  metadata:
+    creationTimestamp: "2023-12-06T09:36:55Z"
+    name: openshift-kube-apiserver.179e347bcd2dcb51
+    namespace: default
+    resourceVersion: "28750"
+    uid: dfa319f8-fdb4-42df-ad6b-20f2afec7d47
+  reason: TerminationPreShutdownHooksFinished
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: The minimal shutdown duration of 1m10s finished
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:05Z"
+    name: openshift-kube-apiserver.179e348c185a5401
+    namespace: default
+    resourceVersion: "30205"
+    uid: 11f13f7f-3771-465a-aa4c-936e11d7c3b4
+  reason: AfterShutdownDelayDuration
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: All non long-running request(s) in-flight have drained
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:05Z"
+    name: openshift-kube-apiserver.179e348c18bd5efa
+    namespace: default
+    resourceVersion: "30208"
+    uid: fa0d90fb-08a8-4a37-8d92-d0681d575a8c
+  reason: InFlightRequestsDrained
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: HTTP Server has stopped listening
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    name: openshift-kube-apiserver.179e3492dba6aba9
+    namespace: default
+    resourceVersion: "31139"
+    uid: 0f0d7acc-1806-422f-99dc-4af84e1c460f
+  reason: HTTPServerStoppedListening
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: All pending requests processed
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:36Z"
+    name: openshift-kube-apiserver.179e349352e087cc
+    namespace: default
+    resourceVersion: "31228"
+    uid: 0e225e8c-0612-4ba2-972a-cdb20623c1d8
+  reason: TerminationGracefulTerminationFinished
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: readyz=true
+  metadata:
+    creationTimestamp: "2023-12-06T09:39:40Z"
+    name: openshift-kube-apiserver.179e34a240ef99ab
+    namespace: default
+    resourceVersion: "33806"
+    uid: b08015a9-ba17-4d1a-abb0-7c0c6e39dd15
+  reason: KubeAPIReadyz
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Warning
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: Received signal to terminate, becoming unready, but keeping serving
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:07Z"
+    name: openshift-kube-apiserver.179e359619656723
+    namespace: default
+    resourceVersion: "46675"
+    uid: f262ccb1-3acc-4021-aec5-dd66cba703d1
+  reason: ShutdownInitiated
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+- apiVersion: v1
+  eventTime: null
+  firstTimestamp: null
+  involvedObject:
+    apiVersion: v1
+    kind: Namespace
+    name: openshift-kube-apiserver
+    namespace: default
+  kind: Event
+  lastTimestamp: null
+  message: All pre-shutdown hooks have been finished
+  metadata:
+    creationTimestamp: "2023-12-06T09:57:08Z"
+    name: openshift-kube-apiserver.179e35961b6efbf7
+    namespace: default
+    resourceVersion: "46679"
+    uid: 9fe1cf9c-165f-421d-b3ce-4d7800152da9
+  reason: TerminationPreShutdownHooksFinished
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: apiserver
+    host: ip-10-0-154-98
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47529"

@@ -1,0 +1,75 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:19Z"
+  creationTimestamp: "2023-12-06T09:39:18Z"
+  generation: 2
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+              f:scheduled: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:39:18Z"
+  name: network-tools
+  namespace: openshift
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    controller: true
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "33153"
+  uid: dc8827dc-5bd0-4734-9bf0-99072f64265b
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations: null
+    from:
+      kind: DockerImage
+      name: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:96ac82784899ea5dc4d5b195d96846c338a65624ada75d2e4ae01d7f0ca8f9eb
+    generation: 2
+    importPolicy:
+      importMode: PreserveOriginal
+      scheduled: true
+    name: latest
+    referencePolicy:
+      type: Source
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/network-tools
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:19Z"
+      dockerImageReference: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:96ac82784899ea5dc4d5b195d96846c338a65624ada75d2e4ae01d7f0ca8f9eb
+      generation: 2
+      image: sha256:96ac82784899ea5dc4d5b195d96846c338a65624ada75d2e4ae01d7f0ca8f9eb
+    tag: latest

@@ -1,0 +1,262 @@
+---
+apiVersion: route.openshift.io/v1
+items:
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: "2023-12-06T09:39:07Z"
+    labels:
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/part-of: openshift-monitoring
+    managedFields:
+    - apiVersion: route.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/part-of: {}
+        f:spec:
+          f:path: {}
+          f:port:
+            .: {}
+            f:targetPort: {}
+          f:tls:
+            .: {}
+            f:insecureEdgeTerminationPolicy: {}
+            f:termination: {}
+          f:to:
+            f:kind: {}
+            f:name: {}
+            f:weight: {}
+          f:wildcardPolicy: {}
+      manager: operator
+      operation: Update
+      time: "2023-12-06T09:39:07Z"
+    name: alertmanager-main
+    namespace: openshift-monitoring
+    resourceVersion: "34615"
+    uid: 53c1eb06-bfe2-4448-af88-2884767ea602
+  spec:
+    host: alertmanager-main-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+    path: /api
+    port:
+      targetPort: web
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: reencrypt
+    to:
+      kind: Service
+      name: alertmanager-main
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:39:07Z"
+        status: "True"
+        type: Admitted
+      host: alertmanager-main-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerCanonicalHostname: router-default.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerName: default
+      wildcardPolicy: None
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: "2023-12-06T09:39:07Z"
+    labels:
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/part-of: openshift-monitoring
+    managedFields:
+    - apiVersion: route.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/part-of: {}
+        f:spec:
+          f:path: {}
+          f:port:
+            .: {}
+            f:targetPort: {}
+          f:tls:
+            .: {}
+            f:insecureEdgeTerminationPolicy: {}
+            f:termination: {}
+          f:to:
+            f:kind: {}
+            f:name: {}
+            f:weight: {}
+          f:wildcardPolicy: {}
+      manager: operator
+      operation: Update
+      time: "2023-12-06T09:39:07Z"
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+    resourceVersion: "34617"
+    uid: 89d4c400-94c5-4392-9db7-0d3d5f21acb6
+  spec:
+    host: prometheus-k8s-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+    path: /api
+    port:
+      targetPort: web
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: reencrypt
+    to:
+      kind: Service
+      name: prometheus-k8s
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:39:07Z"
+        status: "True"
+        type: Admitted
+      host: prometheus-k8s-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerCanonicalHostname: router-default.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerName: default
+      wildcardPolicy: None
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: "2023-12-06T09:39:08Z"
+    labels:
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/part-of: openshift-monitoring
+    managedFields:
+    - apiVersion: route.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/part-of: {}
+        f:spec:
+          f:path: {}
+          f:port:
+            .: {}
+            f:targetPort: {}
+          f:tls:
+            .: {}
+            f:insecureEdgeTerminationPolicy: {}
+            f:termination: {}
+          f:to:
+            f:kind: {}
+            f:name: {}
+            f:weight: {}
+          f:wildcardPolicy: {}
+      manager: operator
+      operation: Update
+      time: "2023-12-06T09:39:08Z"
+    name: prometheus-k8s-federate
+    namespace: openshift-monitoring
+    resourceVersion: "34622"
+    uid: 486b4a75-e26e-4ac8-8c8f-a1e4b59dc6e4
+  spec:
+    host: prometheus-k8s-federate-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+    path: /federate
+    port:
+      targetPort: web
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: reencrypt
+    to:
+      kind: Service
+      name: prometheus-k8s
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:39:08Z"
+        status: "True"
+        type: Admitted
+      host: prometheus-k8s-federate-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerCanonicalHostname: router-default.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerName: default
+      wildcardPolicy: None
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: "2023-12-06T09:39:07Z"
+    labels:
+      app.kubernetes.io/component: query-layer
+      app.kubernetes.io/instance: thanos-querier
+      app.kubernetes.io/managed-by: cluster-monitoring-operator
+      app.kubernetes.io/name: thanos-query
+      app.kubernetes.io/part-of: openshift-monitoring
+      app.kubernetes.io/version: 0.32.5
+    managedFields:
+    - apiVersion: route.openshift.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/component: {}
+            f:app.kubernetes.io/instance: {}
+            f:app.kubernetes.io/managed-by: {}
+            f:app.kubernetes.io/name: {}
+            f:app.kubernetes.io/part-of: {}
+            f:app.kubernetes.io/version: {}
+        f:spec:
+          f:path: {}
+          f:port:
+            .: {}
+            f:targetPort: {}
+          f:tls:
+            .: {}
+            f:insecureEdgeTerminationPolicy: {}
+            f:termination: {}
+          f:to:
+            f:kind: {}
+            f:name: {}
+            f:weight: {}
+          f:wildcardPolicy: {}
+      manager: operator
+      operation: Update
+      time: "2023-12-06T09:39:07Z"
+    name: thanos-querier
+    namespace: openshift-monitoring
+    resourceVersion: "34616"
+    uid: 184f930d-efc4-4c7d-8d0e-1314d7273ca1
+  spec:
+    host: thanos-querier-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+    path: /api
+    port:
+      targetPort: web
+    tls:
+      insecureEdgeTerminationPolicy: Redirect
+      termination: reencrypt
+    to:
+      kind: Service
+      name: thanos-querier
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: "2023-12-06T09:39:07Z"
+        status: "True"
+        type: Admitted
+      host: thanos-querier-openshift-monitoring.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerCanonicalHostname: router-default.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+      routerName: default
+      wildcardPolicy: None
+kind: RouteList
+metadata:
+  resourceVersion: "47787"

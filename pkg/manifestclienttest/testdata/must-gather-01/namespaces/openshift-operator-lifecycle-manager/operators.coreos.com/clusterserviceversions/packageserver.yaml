@@ -1,0 +1,359 @@
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    olm.operatorGroup: olm-operators
+    olm.operatorNamespace: openshift-operator-lifecycle-manager
+    olm.targetNamespaces: openshift-operator-lifecycle-manager
+  creationTimestamp: "2023-12-06T09:22:14Z"
+  generation: 1
+  labels:
+    olm.clusteroperator.name: operator-lifecycle-manager-packageserver
+    olm.version: 0.0.1-snapshot
+  managedFields:
+  - apiVersion: operators.coreos.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/ibm-cloud-managed: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+        f:labels:
+          .: {}
+          f:olm.clusteroperator.name: {}
+          f:olm.version: {}
+      f:spec:
+        .: {}
+        f:apiservicedefinitions:
+          .: {}
+          f:owned: {}
+        f:cleanup:
+          .: {}
+          f:enabled: {}
+        f:customresourcedefinitions: {}
+        f:description: {}
+        f:displayName: {}
+        f:install:
+          .: {}
+          f:spec:
+            .: {}
+            f:clusterPermissions: {}
+            f:deployments: {}
+          f:strategy: {}
+        f:installModes: {}
+        f:keywords: {}
+        f:links: {}
+        f:maintainers: {}
+        f:maturity: {}
+        f:minKubeVersion: {}
+        f:provider:
+          .: {}
+          f:name: {}
+        f:version: {}
+    manager: Go-http-client
+    operation: Update
+    time: "2023-12-06T09:22:14Z"
+  - apiVersion: operators.coreos.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:olm.operatorGroup: {}
+          f:olm.operatorNamespace: {}
+          f:olm.targetNamespaces: {}
+    manager: olm
+    operation: Update
+    time: "2023-12-06T09:22:14Z"
+  - apiVersion: operators.coreos.com/v1alpha1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:certsLastUpdated: {}
+        f:certsRotateAt: {}
+        f:cleanup: {}
+        f:conditions: {}
+        f:lastTransitionTime: {}
+        f:lastUpdateTime: {}
+        f:message: {}
+        f:phase: {}
+        f:reason: {}
+        f:requirementStatus: {}
+    manager: olm
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:38:11Z"
+  name: packageserver
+  namespace: openshift-operator-lifecycle-manager
+  resourceVersion: "30298"
+  uid: 318874e1-7de0-4d93-a787-c9707fe095d3
+spec:
+  apiservicedefinitions:
+    owned:
+    - containerPort: 5443
+      deploymentName: packageserver
+      description: A PackageManifest is a resource generated from existing CatalogSources
+        and their ConfigMaps
+      displayName: PackageManifest
+      group: packages.operators.coreos.com
+      kind: PackageManifest
+      name: packagemanifests
+      version: v1
+  cleanup:
+    enabled: false
+  customresourcedefinitions: {}
+  description: Represents an Operator package that is available from a given CatalogSource
+    which will resolve to a ClusterServiceVersion.
+  displayName: Package Server
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - catalogsources
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - packages.operators.coreos.com
+          resources:
+          - packagemanifests
+          verbs:
+          - get
+          - list
+        serviceAccountName: olm-operator-serviceaccount
+      deployments:
+      - name: packageserver
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: packageserver
+          strategy:
+            rollingUpdate:
+              maxSurge: 1
+              maxUnavailable: 1
+            type: RollingUpdate
+          template:
+            metadata:
+              annotations:
+                target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+              creationTimestamp: null
+              labels:
+                app: packageserver
+            spec:
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchLabels:
+                        app: packageserver
+                    topologyKey: kubernetes.io/hostname
+              containers:
+              - command:
+                - /bin/package-server
+                - -v=4
+                - --secure-port
+                - "5443"
+                - --global-namespace
+                - openshift-marketplace
+                image: registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f2db126083cd36dff22d64c6cf0a47f46b41f8247a62a8666ff47174cc6dba4e
+                imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 5443
+                    scheme: HTTPS
+                name: packageserver
+                ports:
+                - containerPort: 5443
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 5443
+                    scheme: HTTPS
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 50Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                terminationMessagePolicy: FallbackToLogsOnError
+                volumeMounts:
+                - mountPath: /tmp
+                  name: tmpfs
+              nodeSelector:
+                kubernetes.io/os: linux
+                node-role.kubernetes.io/master: ""
+              priorityClassName: system-cluster-critical
+              securityContext:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              serviceAccountName: olm-operator-serviceaccount
+              tolerations:
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/master
+                operator: Exists
+              - effect: NoExecute
+                key: node.kubernetes.io/unreachable
+                operator: Exists
+                tolerationSeconds: 120
+              - effect: NoExecute
+                key: node.kubernetes.io/not-ready
+                operator: Exists
+                tolerationSeconds: 120
+              volumes:
+              - emptyDir: {}
+                name: tmpfs
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: true
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - packagemanifests
+  - olm
+  - packages
+  links:
+  - name: Package Server
+    url: https://github.com/operator-framework/operator-lifecycle-manager/tree/master/pkg/package-server
+  maintainers:
+  - email: openshift-operators@redhat.com
+    name: Red Hat
+  maturity: alpha
+  minKubeVersion: 1.11.0
+  provider:
+    name: Red Hat
+  version: 0.0.1-snapshot
+status:
+  certsLastUpdated: "2023-12-06T09:22:15Z"
+  certsRotateAt: "2025-12-04T09:22:15Z"
+  cleanup: {}
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:22:14Z"
+    lastUpdateTime: "2023-12-06T09:22:14Z"
+    message: requirements not yet checked
+    phase: Pending
+    reason: RequirementsUnknown
+  - lastTransitionTime: "2023-12-06T09:22:14Z"
+    lastUpdateTime: "2023-12-06T09:22:14Z"
+    message: all requirements found, attempting install
+    phase: InstallReady
+    reason: AllRequirementsMet
+  - lastTransitionTime: "2023-12-06T09:22:15Z"
+    lastUpdateTime: "2023-12-06T09:22:15Z"
+    message: waiting for install components to report healthy
+    phase: Installing
+    reason: InstallSucceeded
+  - lastTransitionTime: "2023-12-06T09:22:15Z"
+    lastUpdateTime: "2023-12-06T09:22:15Z"
+    message: apiServices not installed
+    phase: Installing
+    reason: InstallWaiting
+  - lastTransitionTime: "2023-12-06T09:27:14Z"
+    lastUpdateTime: "2023-12-06T09:27:14Z"
+    message: install timeout
+    phase: Failed
+    reason: InstallCheckFailed
+  - lastTransitionTime: "2023-12-06T09:27:15Z"
+    lastUpdateTime: "2023-12-06T09:27:15Z"
+    message: apiServices not installed
+    phase: Pending
+    reason: NeedsReinstall
+  - lastTransitionTime: "2023-12-06T09:27:15Z"
+    lastUpdateTime: "2023-12-06T09:27:15Z"
+    message: all requirements found, attempting install
+    phase: InstallReady
+    reason: AllRequirementsMet
+  - lastTransitionTime: "2023-12-06T09:27:16Z"
+    lastUpdateTime: "2023-12-06T09:27:16Z"
+    message: waiting for install components to report healthy
+    phase: Installing
+    reason: InstallSucceeded
+  - lastTransitionTime: "2023-12-06T09:27:16Z"
+    lastUpdateTime: "2023-12-06T09:27:16Z"
+    message: apiServices not installed
+    phase: Installing
+    reason: InstallWaiting
+  - lastTransitionTime: "2023-12-06T09:38:11Z"
+    lastUpdateTime: "2023-12-06T09:38:11Z"
+    message: install strategy completed with no errors
+    phase: Succeeded
+    reason: InstallSucceeded
+  lastTransitionTime: "2023-12-06T09:38:11Z"
+  lastUpdateTime: "2023-12-06T09:38:11Z"
+  message: install strategy completed with no errors
+  phase: Succeeded
+  reason: InstallSucceeded
+  requirementStatus:
+  - group: operators.coreos.com
+    kind: ClusterServiceVersion
+    message: CSV minKubeVersion (1.11.0) less than server version (v1.28.2-3483+9f68be2cf5bfba-dirty)
+    name: packageserver
+    status: Present
+    version: v1alpha1
+  - group: apiregistration.k8s.io
+    kind: APIService
+    message: ""
+    name: v1.packages.operators.coreos.com
+    status: DeploymentFound
+    version: v1
+  - dependents:
+    - group: rbac.authorization.k8s.io
+      kind: PolicyRule
+      message: cluster rule:{"verbs":["create","get"],"apiGroups":["authorization.k8s.io"],"resources":["subjectaccessreviews"]}
+      status: Satisfied
+      version: v1
+    - group: rbac.authorization.k8s.io
+      kind: PolicyRule
+      message: cluster rule:{"verbs":["get","list","watch"],"apiGroups":[""],"resources":["configmaps"]}
+      status: Satisfied
+      version: v1
+    - group: rbac.authorization.k8s.io
+      kind: PolicyRule
+      message: cluster rule:{"verbs":["get","list","watch"],"apiGroups":["operators.coreos.com"],"resources":["catalogsources"]}
+      status: Satisfied
+      version: v1
+    - group: rbac.authorization.k8s.io
+      kind: PolicyRule
+      message: cluster rule:{"verbs":["get","list"],"apiGroups":["packages.operators.coreos.com"],"resources":["packagemanifests"]}
+      status: Satisfied
+      version: v1
+    group: ""
+    kind: ServiceAccount
+    message: ""
+    name: olm-operator-serviceaccount
+    status: Present
+    version: v1

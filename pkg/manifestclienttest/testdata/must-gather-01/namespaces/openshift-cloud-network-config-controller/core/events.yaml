@@ -1,0 +1,506 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:56Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3321"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:56Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.kubernetes.io/not-ready:
+    }. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:56Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e338e983b4d7d
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3324"
+    uid: 0901f149-5f44-47f4-b4b7-5b12fa0a0252
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3327"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-cloud-network-config-controller/cloud-network-config-controller-857fdf5bb-6x472
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339ae1bb9393
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4461"
+    uid: 6f483dc8-d892-462c-a54b-9c33132565dc
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4425"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Add eth0 [10.129.0.31/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339b23f24422
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4526"
+    uid: 318a53df-3698-4d5d-a384-360e50e4a07f
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ecbba7e9b21ae13e72c8adfc750332cd9499890cdf460824e161ff72590b82ba"
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339b257d7858
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4528"
+    uid: fb05169b-7124-4462-a6cc-a459558a8e63
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ecbba7e9b21ae13e72c8adfc750332cd9499890cdf460824e161ff72590b82ba"
+    in 14.813s (14.813s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339e9878381e
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4848"
+    uid: 297a85ad-4837-472a-b311-0b846fb1d1cc
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:59Z"
+  message: Created container controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:59Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339ebd2baa46
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "8932"
+    uid: a676c022-7433-4f76-af02-046467376baa
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 3
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:00Z"
+  message: Started container controller
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:00Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e339ec6c82fcb
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "8944"
+    uid: b31a4a22-77c0-4b87-9751-7e5c32feb864
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:37Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:59Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:ecbba7e9b21ae13e72c8adfc750332cd9499890cdf460824e161ff72590b82ba"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:37Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:59Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e33a60f1bc3fe
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "8881"
+    uid: 019eb700-ea6e-4ab8-a462-aa9e1a2d9a9d
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:47Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{controller}
+    kind: Pod
+    name: cloud-network-config-controller-857fdf5bb-6x472
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "4395"
+    uid: 8d89ef55-866e-4cac-ad92-b4a2deca604e
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:47Z"
+  message: Back-off restarting failed container controller in pod cloud-network-config-controller-857fdf5bb-6x472_openshift-cloud-network-config-controller(8d89ef55-866e-4cac-ad92-b4a2deca604e)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:47Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:47Z"
+    name: cloud-network-config-controller-857fdf5bb-6x472.179e33a86b5e4fb0
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "8249"
+    uid: 6319ca39-0f86-42ea-bcc9-747b7b7e7719
+  reason: BackOff
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:56Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cloud-network-config-controller-857fdf5bb
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3318"
+    uid: 101853de-3a54-4fa5-a054-468d8a249902
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:56Z"
+  message: 'Created pod: cloud-network-config-controller-857fdf5bb-6x472'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:56Z"
+    name: cloud-network-config-controller-857fdf5bb.179e338e9824e438
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3322"
+    uid: 8d23c714-f1be-418d-bbae-f4cfb48a2323
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:56Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cloud-network-config-controller
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3317"
+    uid: bda2f4c3-44a4-46ec-93dc-3d2e8398a9e4
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:56Z"
+  message: Scaled up replica set cloud-network-config-controller-857fdf5bb to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:56Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:56Z"
+    name: cloud-network-config-controller.179e338e97a5eff2
+    namespace: openshift-cloud-network-config-controller
+    resourceVersion: "3320"
+    uid: b6d43953-b58d-433c-b41f-c44123fc053d
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "48029"

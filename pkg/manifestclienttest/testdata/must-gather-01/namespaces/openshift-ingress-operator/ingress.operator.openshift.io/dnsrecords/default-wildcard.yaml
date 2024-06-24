@@ -1,0 +1,89 @@
+---
+apiVersion: ingress.operator.openshift.io/v1
+kind: DNSRecord
+metadata:
+  annotations:
+    ingress.operator.openshift.io/target-hosted-zone-id: Z368ELLRRE2KJ0
+  creationTimestamp: "2023-12-06T09:21:47Z"
+  finalizers:
+  - operator.openshift.io/ingress-dns
+  generation: 1
+  labels:
+    ingresscontroller.operator.openshift.io/owning-ingresscontroller: default
+  managedFields:
+  - apiVersion: ingress.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:ingress.operator.openshift.io/target-hosted-zone-id: {}
+        f:finalizers:
+          .: {}
+          v:"operator.openshift.io/ingress-dns": {}
+        f:labels:
+          .: {}
+          f:ingresscontroller.operator.openshift.io/owning-ingresscontroller: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"1262d03a-6878-4ec1-b010-9eb4c1e20f64"}: {}
+      f:spec:
+        .: {}
+        f:dnsManagementPolicy: {}
+        f:dnsName: {}
+        f:recordTTL: {}
+        f:recordType: {}
+        f:targets: {}
+    manager: ingress-operator
+    operation: Update
+    time: "2023-12-06T09:22:01Z"
+  - apiVersion: ingress.operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:observedGeneration: {}
+        f:zones: {}
+    manager: ingress-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:22:01Z"
+  name: default-wildcard
+  namespace: openshift-ingress-operator
+  ownerReferences:
+  - apiVersion: operator.openshift.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: IngressController
+    name: default
+    uid: 1262d03a-6878-4ec1-b010-9eb4c1e20f64
+  resourceVersion: "9111"
+  uid: b17701ec-d870-4f0d-8e86-a7e2d0ab07d9
+spec:
+  dnsManagementPolicy: Managed
+  dnsName: '*.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com.'
+  recordTTL: 30
+  recordType: CNAME
+  targets:
+  - a918ae546727c4804b381917088bf49e-1296089883.us-west-1.elb.amazonaws.com
+status:
+  observedGeneration: 1
+  zones:
+  - conditions:
+    - lastTransitionTime: "2023-12-06T09:22:01Z"
+      message: The DNS provider succeeded in ensuring the record
+      reason: ProviderSuccess
+      status: "True"
+      type: Published
+    dnsZone:
+      tags:
+        Name: ci-op-2j285qtr-234c7-w84r8-int
+        kubernetes.io/cluster/ci-op-2j285qtr-234c7-w84r8: owned
+  - conditions:
+    - lastTransitionTime: "2023-12-06T09:22:01Z"
+      message: The DNS provider succeeded in ensuring the record
+      reason: ProviderSuccess
+      status: "True"
+      type: Published
+    dnsZone:
+      id: Z2GYOLTZHS5VK

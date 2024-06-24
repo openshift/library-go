@@ -1,0 +1,365 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:10Z"
+    openshift.io/provider-display-name: Red Hat, Inc.
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:05Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:openshift.io/provider-display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"1.0"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.1"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.10"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.11"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.12"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.14"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"1.15"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:sampleContextDir: {}
+              f:sampleRepo: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:05Z"
+  name: openjdk-11-rhel7
+  namespace: openshift
+  resourceVersion: "32620"
+  uid: 3ef532fd-f33f-42f9-a75b-676f799611dc
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.0"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.0
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.0"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.1"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.1
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.1"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.10"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.10
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.10"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.11"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.11
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.11"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.12"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.12
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.12"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.14"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.14
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.14"
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Build and run Java applications using Maven and OpenJDK 11 upon
+        RHEL7.
+      iconClass: icon-rh-openjdk
+      openshift.io/display-name: Red Hat OpenJDK 11 (RHEL7)
+      sampleContextDir: undertow-servlet
+      sampleRepo: https://github.com/jboss-openshift/openshift-quickstarts
+      supports: java:11
+      tags: builder,java,openjdk,hidden
+      version: "1.15"
+    from:
+      kind: DockerImage
+      name: registry.access.redhat.com/openjdk/openjdk-11-rhel7:1.15
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.15"
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/openjdk-11-rhel7
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:5fb3543c0d42146f0506c1ea4d09575131da6a2f27885729b7cfce13a0fa90e3
+      generation: 2
+      image: sha256:5fb3543c0d42146f0506c1ea4d09575131da6a2f27885729b7cfce13a0fa90e3
+    tag: "1.0"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:1d68b58a73f4cf15fcd886ab39fddf18be923b52b24cb8ec3ab1da2d3e9bd5f6
+      generation: 2
+      image: sha256:1d68b58a73f4cf15fcd886ab39fddf18be923b52b24cb8ec3ab1da2d3e9bd5f6
+    tag: "1.1"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:7de877b0e748cdb47cb702400f3ddaa3c3744a022887e2213c2bb27775ab4b25
+      generation: 2
+      image: sha256:7de877b0e748cdb47cb702400f3ddaa3c3744a022887e2213c2bb27775ab4b25
+    tag: "1.10"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:af9c08644ca057d83ef4b7d8de1489f01c5a52ff8670133b8a09162831b7fb34
+      generation: 2
+      image: sha256:af9c08644ca057d83ef4b7d8de1489f01c5a52ff8670133b8a09162831b7fb34
+    tag: "1.11"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:b053401886c06581d3c296855525cc13e0613100a596ed007bb69d5f8e972346
+      generation: 2
+      image: sha256:b053401886c06581d3c296855525cc13e0613100a596ed007bb69d5f8e972346
+    tag: "1.12"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:61555b923dabe4ff734279ed1bdb9eb6d450c760e1cc04463cf88608ac8d1338
+      generation: 2
+      image: sha256:61555b923dabe4ff734279ed1bdb9eb6d450c760e1cc04463cf88608ac8d1338
+    tag: "1.14"
+  - items:
+    - created: "2023-12-06T09:39:10Z"
+      dockerImageReference: registry.access.redhat.com/openjdk/openjdk-11-rhel7@sha256:9ab26cb4005e9b60fd6349950957bbd0120efba216036da53c547c6f1c9e5e7f
+      generation: 2
+      image: sha256:9ab26cb4005e9b60fd6349950957bbd0120efba216036da53c547c6f1c9e5e7f
+    tag: "1.15"

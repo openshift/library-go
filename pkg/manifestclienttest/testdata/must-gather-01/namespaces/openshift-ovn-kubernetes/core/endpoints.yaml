@@ -1,0 +1,135 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:20:13Z"
+    creationTimestamp: "2023-12-06T09:20:11Z"
+    labels:
+      app: ovnkube-control-plane
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:20:13Z"
+    name: ovn-kubernetes-control-plane
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "3675"
+    uid: 111bd39f-bab3-49ba-a8ff-5a0e8407aa28
+  subsets:
+  - addresses:
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-control-plane-85d75554dc-s5l89
+        namespace: openshift-ovn-kubernetes
+        uid: 7932b954-2f10-446e-9231-3eb756ae6489
+    - ip: 10.0.94.160
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-control-plane-85d75554dc-wqt92
+        namespace: openshift-ovn-kubernetes
+        uid: 5dbcc5ea-9c48-40d6-9b8b-075a069b2adc
+    ports:
+    - name: metrics
+      port: 9108
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:25:24Z"
+    creationTimestamp: "2023-12-06T09:20:12Z"
+    labels:
+      app: ovnkube-node
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:labels:
+            .: {}
+            f:app: {}
+            f:service.kubernetes.io/headless: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:25:24Z"
+    name: ovn-kubernetes-node
+    namespace: openshift-ovn-kubernetes
+    resourceVersion: "17711"
+    uid: ebb8e771-ff77-48af-aae5-12a8438405e5
+  subsets:
+  - addresses:
+    - ip: 10.0.106.212
+      nodeName: ip-10-0-106-212.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-9xzrf
+        namespace: openshift-ovn-kubernetes
+        uid: 6de9d82f-c133-46ed-8d3b-533a274f3c57
+    - ip: 10.0.122.108
+      nodeName: ip-10-0-122-108.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-5t2jb
+        namespace: openshift-ovn-kubernetes
+        uid: 8a7b2342-145a-4669-b92c-5b1f72d183d9
+    - ip: 10.0.21.63
+      nodeName: ip-10-0-21-63.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-nrgfb
+        namespace: openshift-ovn-kubernetes
+        uid: 64b66012-e311-4341-afd9-092e6c5646e3
+    - ip: 10.0.7.104
+      nodeName: ip-10-0-7-104.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-t96lp
+        namespace: openshift-ovn-kubernetes
+        uid: 66884271-a2e1-4984-b120-ff484129c674
+    - ip: 10.0.81.189
+      nodeName: ip-10-0-81-189.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-gs2f5
+        namespace: openshift-ovn-kubernetes
+        uid: 174394bd-1401-4206-9254-4295185228fa
+    - ip: 10.0.94.160
+      nodeName: ip-10-0-94-160.us-west-1.compute.internal
+      targetRef:
+        kind: Pod
+        name: ovnkube-node-l5d7b
+        namespace: openshift-ovn-kubernetes
+        uid: f6e88589-1780-4fc0-aca1-297cadfaad45
+    ports:
+    - name: ovn-metrics
+      port: 9105
+      protocol: TCP
+    - name: metrics
+      port: 9103
+      protocol: TCP
+kind: EndpointsList
+metadata:
+  resourceVersion: "47999"

@@ -1,0 +1,4423 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:46Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "2570"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:46Z"
+  message: '0/2 nodes are available: 2 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:46Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:18:46Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e337e45e08b8a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "2572"
+    uid: 41156732-4001-46d9-a52f-49c9c1eda481
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "2574"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-controller-manager-operator/openshift-controller-manager-operator-c7c544d8c-rr6m7
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339ae08b8558
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4449"
+    uid: afec4972-e8d5-49d2-8fdc-daf4557c956b
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4429"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Add eth0 [10.129.0.33/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339b2807c7f1
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4533"
+    uid: 15438311-2c74-4fbd-9c0e-977ccfde3072
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:50Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-controller-manager-operator}
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4385"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:50Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4910ebba81d6d798b36d49b1f8fdcce911e3d4358940aa344ac3f00a102d3d80"
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:50Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:20:50Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339b296ce183
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4541"
+    uid: 18a4f227-60a6-4a24-98ac-ec878a13db4d
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:05Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-controller-manager-operator}
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4385"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4910ebba81d6d798b36d49b1f8fdcce911e3d4358940aa344ac3f00a102d3d80"
+    in 14.9s (14.9s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339ea18b4a5c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4855"
+    uid: de976b63-b9fc-4778-b8a6-4a77678aba32
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-controller-manager-operator}
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4385"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: Created container openshift-controller-manager-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339ebb4bd42a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10953"
+    uid: 30e1fac2-8928-4010-a320-e77121982024
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:06Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-controller-manager-operator}
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4385"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: Started container openshift-controller-manager-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:06Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e339ec9d753a6
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10956"
+    uid: e6fb3ca9-5496-4f7a-ab67-1f216d1c9d59
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:34Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{openshift-controller-manager-operator}
+    kind: Pod
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "4385"
+    uid: c0a1ab54-9c61-471b-9db9-70824eb71602
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:4910ebba81d6d798b36d49b1f8fdcce911e3d4358940aa344ac3f00a102d3d80"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator-c7c544d8c-rr6m7.179e33b34a655734
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10910"
+    uid: 7b66f96c-e171-4d4c-863a-2e50d8135781
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 13
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:05Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: openshift-controller-manager-operator-c7c544d8c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "1480"
+    uid: 21c6f782-0f4e-4505-85ad-3de7df1966a3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:26Z"
+  message: 'Error creating: pods "openshift-controller-manager-operator-c7c544d8c-"
+    is forbidden: autoscaling.openshift.io/ManagementCPUsOverride the cluster does
+    not have any nodes'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:26Z"
+    name: openshift-controller-manager-operator-c7c544d8c.179e3374bad04e40
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "2280"
+    uid: f19029b1-9dbf-4738-ab60-85746ac8d7b1
+  reason: FailedCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:46Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: openshift-controller-manager-operator-c7c544d8c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "1484"
+    uid: 21c6f782-0f4e-4505-85ad-3de7df1966a3
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:46Z"
+  message: 'Created pod: openshift-controller-manager-operator-c7c544d8c-rr6m7'
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:46Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:46Z"
+    name: openshift-controller-manager-operator-c7c544d8c.179e337e45cc3067
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "2571"
+    uid: 1d8e26f6-ec48-44fb-a1db-bd8834f65b8d
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:09Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: openshift-controller-manager-operator-lock
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5208"
+    uid: 1db43f61-6fd9-4b8e-a2cb-acc3fdc36be0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:09Z"
+  message: openshift-controller-manager-operator-c7c544d8c-rr6m7_e2f8be61-849a-4519-9dda-e627d3dd3844
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:09Z"
+    name: openshift-controller-manager-operator-lock.179e339f90cc8743
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5211"
+    uid: 6bf362fc-5768-4aa5-a4d9-161be21d7c51
+  reason: LeaderElection
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:34Z"
+  involvedObject:
+    apiVersion: coordination.k8s.io/v1
+    kind: Lease
+    name: openshift-controller-manager-operator-lock
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10963"
+    uid: 1db43f61-6fd9-4b8e-a2cb-acc3fdc36be0
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: openshift-controller-manager-operator-c7c544d8c-rr6m7_0ecfcc4e-3e03-4525-95b6-615b2f60a0da
+    became leader
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator-lock.179e33b36159dff5
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10964"
+    uid: ea7e8ae1-3d53-473f-9c3e-29dc3ba56c4c
+  reason: LeaderElection
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:18:05Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "1479"
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:18:05Z"
+  message: Scaled up replica set openshift-controller-manager-operator-c7c544d8c to
+    1
+  metadata:
+    creationTimestamp: "2023-12-06T09:18:05Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:18:05Z"
+    name: openshift-controller-manager-operator.179e3374ba9c7e7e
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "1481"
+    uid: f440a14e-3767-4cae-8edf-8a150a8ed970
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:09Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:09Z"
+  message: FeatureGates updated to featuregates.Features{Enabled:[]v1.FeatureGateName{"AlibabaPlatform",
+    "AzureWorkloadIdentity", "BuildCSIVolumes", "CloudDualStackNodeIPs", "ExternalCloudProvider",
+    "ExternalCloudProviderAzure", "ExternalCloudProviderExternal", "ExternalCloudProviderGCP",
+    "OpenShiftPodSecurityAdmission", "PrivateHostedZoneAWS"}, Disabled:[]v1.FeatureGateName{"AdminNetworkPolicy",
+    "AutomatedEtcdBackup", "CSIDriverSharedResource", "ClusterAPIInstall", "DNSNameResolver",
+    "DisableKubeletCloudCredentialProviders", "DynamicResourceAllocation", "EventedPLEG",
+    "GCPClusterHostedDNS", "GCPLabelsTags", "GatewayAPI", "InsightsConfigAPI", "InstallAlternateInfrastructureAWS",
+    "MachineAPIOperatorDisableMachineHealthCheckController", "MachineAPIProviderOpenStack",
+    "MachineConfigNodes", "ManagedBootImages", "MaxUnavailableStatefulSet", "MetricsServer",
+    "MixedCPUsAllocation", "NetworkLiveMigration", "NodeSwap", "RouteExternalCertificate",
+    "SigstoreImageVerification", "VSphereControlPlaneMachineSet", "VSphereStaticIPs",
+    "ValidatingAdmissionPolicy"}}
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:09Z"
+    name: openshift-controller-manager-operator.179e339f91c686ac
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5212"
+    uid: 79807423-7c24-479b-8ab9-dc73343554c3
+  reason: FeatureGatesInitialized
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Updated featureGates to BuildCSIVolumes=true
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fa8f97b8a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5260"
+    uid: 3f8b8768-b307-4cb5-9ed0-7eb58a109561
+  reason: ObserveFeatureFlagsUpdated
+  reportingComponent: openshift-controller-manager-operator-config-observer-configobserver
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-config-observer-configobserver
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: "Writing updated observed config:   map[string]any{\n+ \t\"build\": map[string]any{\n+ \t\t\"buildDefaults\":
+    map[string]any{\"resources\": map[string]any{}},\n+ \t\t\"imageTemplateFormat\":
+    map[string]any{\n+ \t\t\t\"format\": string(\"registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f\"...),\n+ \t\t},\n+ \t},\n+ \t\"controllers\":
+    []any{\n+ \t\tstring(\"openshift.io/build\"), string(\"openshift.io/build-config-change\"),\n+ \t\tstring(\"openshift.io/builder-serviceaccount\"),\n+ \t\tstring(\"openshift.io/default-rolebindings\"),
+    string(\"openshift.io/deployer\"),\n+ \t\tstring(\"openshift.io/deployer-serviceaccount\"),\n+ \t\tstring(\"openshift.io/deploymentconfig\"),
+    string(\"openshift.io/image-import\"),\n+ \t\tstring(\"openshift.io/image-signature-import\"),\n+ \t\tstring(\"openshift.io/image-trigger\"),
+    string(\"openshift.io/ingress-ip\"),\n+ \t\tstring(\"openshift.io/ingress-to-route\"),\n+ \t\tstring(\"openshift.io/origin-namespace\"),
+    string(\"openshift.io/serviceaccount\"),\n+ \t\tstring(\"openshift.io/serviceaccount-pull-secrets\"),\n+ \t\tstring(\"openshift.io/templateinstance\"),
+    ...,\n+ \t},\n+ \t\"deployer\": map[string]any{\n+ \t\t\"imageTemplateFormat\":
+    map[string]any{\n+ \t\t\t\"format\": string(\"registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f\"...),\n+ \t\t},\n+ \t},\n+ \t\"featureGates\":
+    []any{string(\"BuildCSIVolumes=true\")},\n+ \t\"ingress\":      map[string]any{\"ingressIPNetworkCIDR\":
+    string(\"\")},\n  }\n"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fa8fd071a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5264"
+    uid: d7b713df-d2be-46ca-a6ef-c7b7a7c1e661
+  reason: ObservedConfigChanged
+  reportingComponent: openshift-controller-manager-operator-config-observer-configobserver
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-config-observer-configobserver
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create ConfigMap/config -n openshift-controller-manager: namespaces
+    "openshift-controller-manager" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fa94872f1
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5262"
+    uid: 95a461a4-0aa4-4f9b-910a-f96144655320
+  reason: ConfigMapCreateFailed
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fa9a22976
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5265"
+    uid: 697dae01-78ff-4326-b479-bb6b5b7116b9
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339faa223d8b
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5268"
+    uid: 2ab3cfd3-1517-4e27-bf0e-4f02faa737b3
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Degraded
+    set to False ("All is well"),Progressing set to Unknown (""),Available set to
+    Unknown (""),Upgradeable set to Unknown (""),status.relatedObjects changed from
+    [] to [{"operator.openshift.io" "openshiftcontrollermanagers" "" "cluster"} {""
+    "namespaces" "" "openshift-config"} {"" "namespaces" "" "openshift-config-managed"}
+    {"" "namespaces" "" "openshift-controller-manager-operator"} {"" "namespaces"
+    "" "openshift-controller-manager"} {"" "namespaces" "" "openshift-route-controller-manager"}]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339faa8752ea
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5271"
+    uid: 1b5ba9d8-aa0d-41c2-88fe-bfccbf9ec7f0
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:tokenreview-openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339faac114b2
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5272"
+    uid: eef8ce10-8017-4474-aa4f-8f8d3a7a4e25
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:tokenreview-openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fab5ccd82
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5274"
+    uid: 2daa5934-dd97-48ae-90ab-782011b28bc7
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create configmap/openshift-service-ca-n openshift-controller-manager:
+    namespaces "openshift-controller-manager" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fad4f132e
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5284"
+    uid: 5b8b901d-9aeb-4482-97e7-7e79ed041fa5
+  reason: ConfigMapCreateFailed
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create Role.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n openshift-controller-manager: namespaces "openshift-controller-manager" not
+    found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339faeb3b1ce
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5285"
+    uid: 1f8765c3-ed57-4bc9-8e31-5a6667ee87d2
+  reason: RoleCreateFailed
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create ConfigMap/openshift-global-ca -n openshift-controller-manager:
+    namespaces "openshift-controller-manager" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fb0737b61
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5319"
+    uid: 13a54556-2345-41f0-859e-8290d207eea3
+  reason: ConfigMapCreateFailed
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create RoleBinding.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n openshift-controller-manager: namespaces "openshift-controller-manager" not
+    found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fb2136dd3
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5398"
+    uid: aa6fecea-3fe4-448a-b40e-fe32f81d1fe8
+  reason: RoleBindingCreateFailed
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Namespace/openshift-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fb2c89d4f
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5522"
+    uid: 13c2e247-c461-4326-9b26-c0f4ce18c49e
+  reason: NamespaceCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-controller-manager-operator.179e339fb4580ad3
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5578"
+    uid: bd6f7ee4-a443-4f8c-be50-d1fcdad2edde
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create ConfigMap/config -n openshift-route-controller-manager:
+    namespaces "openshift-route-controller-manager" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:10Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:10Z"
+    name: openshift-controller-manager-operator.179e339fb610d65c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5462"
+    uid: 298fd080-2bfa-41b3-90cc-829c46811f68
+  reason: ConfigMapCreateFailed
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-controller-manager-operator.179e339fb63e94a3
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5652"
+    uid: 250b26d0-6cfe-4898-8842-88e73f7f87c1
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Deployment.apps/controller-manager -n openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-controller-manager-operator.179e339fb935b3b6
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5566"
+    uid: 92ecc4cb-1e96-49a3-b1ac-a588bbba4faa
+  reason: DeploymentCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create Role.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-route-controller-manager
+    -n openshift-route-controller-manager: namespaces "openshift-route-controller-manager"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-controller-manager-operator.179e339fbac28b60
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5716"
+    uid: 85034f6b-4349-459b-b859-a8e618ddb36c
+  reason: RoleCreateFailed
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create Deployment.apps/route-controller-manager -n openshift-route-controller-manager:
+    namespaces "openshift-route-controller-manager" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-controller-manager-operator.179e339fbd8f8b3a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5640"
+    uid: a9275151-3257-4b83-8e20-f965414a95de
+  reason: DeploymentCreateFailed
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ConfigMap/config -n openshift-controller-manager because it was
+    missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:11Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:11Z"
+    name: openshift-controller-manager-operator.179e339fbee9ec76
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5670"
+    uid: 6bb33ca0-d1be-4920-8fc7-36a83cef1c10
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created configmap/openshift-service-ca-n openshift-controller-manager because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-controller-manager-operator.179e339fbf3ae91a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5731"
+    uid: c10d428e-3457-4c1e-b4d9-75611653cb60
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ConfigMap/openshift-global-ca -n openshift-controller-manager because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-controller-manager-operator.179e339fbf677bcd
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5807"
+    uid: 22f32e64-7c49-4a79-90fe-ebd55ae93e00
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: 'Failed to create RoleBinding.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-route-controller-manager
+    -n openshift-route-controller-manager: namespaces "openshift-route-controller-manager"
+    not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-controller-manager-operator.179e339fc07823ef
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5791"
+    uid: ec0faa6f-e2b7-4f26-9ed8-aea8ea0c1dbf
+  reason: RoleBindingCreateFailed
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Namespace/openshift-route-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-controller-manager-operator.179e339fc1a63fbc
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5849"
+    uid: e7bcdf17-13f3-4744-b6c7-3ddafcd8db54
+  reason: NamespaceCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ServiceAccount/route-controller-manager-sa -n openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-controller-manager-operator.179e339fc261c69d
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5933"
+    uid: caf8652e-2d2d-4e0e-9e42-f51c1d17d9a6
+  reason: ServiceAccountCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ConfigMap/config -n openshift-route-controller-manager because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-controller-manager-operator.179e339fc2ee4bc5
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5865"
+    uid: 15cae543-8c6b-44b6-8352-2d85fc83ad72
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Role.rbac.authorization.k8s.io/system:openshift:sa-creating-route-controller-manager
+    -n openshift-infra because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:14Z"
+    name: openshift-controller-manager-operator.179e339fc4ca2919
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5968"
+    uid: cf571562-1cd6-484c-b734-85cce3514f94
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/system:openshift:sa-creating-route-controller-manager
+    -n openshift-infra because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:14Z"
+    name: openshift-controller-manager-operator.179e339fc5ab587a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6011"
+    uid: 1666afb1-6956-4e1e-9965-36ecb5a82daa
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 7
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:29Z"
+  message: Updated Deployment.apps/controller-manager -n openshift-controller-manager
+    because it changed
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:29Z"
+    name: openshift-controller-manager-operator.179e339fc5e4fef4
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10706"
+    uid: 3830ec1f-eba6-47d1-bb9c-516dab5c5757
+  reason: DeploymentUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Role.rbac.authorization.k8s.io/prometheus-k8s -n openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: openshift-controller-manager-operator.179e339fc736c7f1
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6058"
+    uid: 79c59149-f1f8-467f-82ca-4db9c778e64f
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Deployment.apps/route-controller-manager -n openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:14Z"
+    name: openshift-controller-manager-operator.179e339fc848844a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5984"
+    uid: dca3e4df-6826-4748-a1f8-6f00bf44f145
+  reason: DeploymentCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/prometheus-k8s -n openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: openshift-controller-manager-operator.179e339fc98ddaad
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6096"
+    uid: 1db79889-8f4e-4127-ace4-f82eb8a9da49
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Service/route-controller-manager -n openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: openshift-controller-manager-operator.179e339fcca2f909
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6190"
+    uid: 8c189fea-b0f0-436a-9cb9-d707d179fd9c
+  reason: ServiceCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:tokenreview-openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:16Z"
+    name: openshift-controller-manager-operator.179e339fce81b2fe
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6235"
+    uid: 9715f77d-7be6-48be-8d8d-82cb04961361
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:tokenreview-openshift-route-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:16Z"
+    name: openshift-controller-manager-operator.179e339fcf311bcf
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6266"
+    uid: dafceb20-f4cf-4ade-9afd-ad478aed440c
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:ingress-to-route-controller
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:16Z"
+    name: openshift-controller-manager-operator.179e339fd15effcb
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6283"
+    uid: 22253e68-4028-4404-8170-f35b15c91c62
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:ingress-to-route-controller
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:16Z"
+    name: openshift-controller-manager-operator.179e339fd2038263
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6303"
+    uid: 5b13f4f1-93c0-41fa-be91-0fd3d28e83e4
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Role.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n kube-system because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:16Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:16Z"
+    name: openshift-controller-manager-operator.179e339fd2cc9fc9
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6318"
+    uid: ad994ff6-c2e3-4f46-9212-ba2d090480fb
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n kube-system because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-controller-manager-operator.179e339fd4eda9da
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6338"
+    uid: 048333ee-b1dd-4b4f-8c2e-1363be2393fe
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Role.rbac.authorization.k8s.io/system:openshift:sa-creating-openshift-controller-manager
+    -n openshift-infra because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-controller-manager-operator.179e339fd61badf1
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6376"
+    uid: 7c8e4dab-00dc-47a7-a4cb-982cc91d82e7
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/system:openshift:sa-creating-openshift-controller-manager
+    -n openshift-infra because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-controller-manager-operator.179e339fd6ba0ebb
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6406"
+    uid: f262e2e7-ffc8-4ef9-b6b8-f781dce64cbc
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ServiceAccount/openshift-controller-manager-sa -n openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-controller-manager-operator.179e339fd70ae480
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6446"
+    uid: 9787b104-19a8-4402-89bf-79dde9b768c5
+  reason: ServiceAccountCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Service/controller-manager -n openshift-controller-manager because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:17Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:17Z"
+    name: openshift-controller-manager-operator.179e339fd7a75562
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6459"
+    uid: afae8421-7500-4ddd-9392-2a209dafd304
+  reason: ServiceCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created Role.rbac.authorization.k8s.io/prometheus-k8s -n openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: openshift-controller-manager-operator.179e339fd8314d0c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6480"
+    uid: 6013e7a2-8baa-4ffc-8abc-d98de6aa1135
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/prometheus-k8s -n openshift-controller-manager
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: openshift-controller-manager-operator.179e339fd8d64204
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6504"
+    uid: c518767c-4719-48bc-ba7c-dc6906e1316a
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:update-buildconfig-status
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: openshift-controller-manager-operator.179e339fd9d7ce98
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6520"
+    uid: 0903716c-0427-4933-b445-9c8803bd8c1c
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:update-buildconfig-status
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: openshift-controller-manager-operator.179e339fda3a0c2d
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6570"
+    uid: 17876ae2-8440-4804-be6c-f107a0e849d5
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:deployer because it
+    was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:18Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:18Z"
+    name: openshift-controller-manager-operator.179e339fdb56b26b
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6598"
+    uid: 37645608-0c06-400c-b634-736acf616c62
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:deployer because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: openshift-controller-manager-operator.179e339fdbb4c19f
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6612"
+    uid: f2ca4123-c951-46c3-94f5-8e9159df9a36
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRole.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:image-trigger-controller
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: openshift-controller-manager-operator.179e339fdc1a8cb7
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6639"
+    uid: 59270209-a42d-4bdd-a6a4-bdebd49a2f78
+  reason: ClusterRoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:10Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:10Z"
+  message: Created ClusterRoleBinding.rbac.authorization.k8s.io/system:openshift:openshift-controller-manager:image-trigger-controller
+    because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: openshift-controller-manager-operator.179e339fdc59fb8a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6660"
+    uid: df7b21da-a8da-464d-9cdb-7abf882fa697
+  reason: ClusterRoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-controller-manager:
+    cause by changes in data.openshift-controller-manager.openshift-global-ca.configmap
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:14Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:14Z"
+    name: openshift-controller-manager-operator.179e339fee384acc
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6033"
+    uid: a1994547-5c42-458a-a36f-9afeb3109cfa
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Created Role.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n openshift-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: openshift-controller-manager-operator.179e339ff9a32468
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6684"
+    uid: 0e8d8214-4dfa-4812-806a-3b0eea88ca22
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-controller-manager
+    -n openshift-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:19Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:19Z"
+    name: openshift-controller-manager-operator.179e339ffa0d2de5
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6695"
+    uid: 93eedb62-46d8-4472-ace1-0d61f2d39920
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Created Role.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-route-controller-manager
+    -n openshift-route-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:20Z"
+    name: openshift-controller-manager-operator.179e339ffad4f659
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6711"
+    uid: b8442cf2-c941-411a-a598-a403ed31c4a6
+  reason: RoleCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: Created RoleBinding.rbac.authorization.k8s.io/system:openshift:leader-locking-openshift-route-controller-manager
+    -n openshift-route-controller-manager because it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:20Z"
+    name: openshift-controller-manager-operator.179e339ffb598e47
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "6739"
+    uid: cb0635fc-128d-4977-8872-a518b4755671
+  reason: RoleBindingCreated
+  reportingComponent: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-openshiftcontrollermanagerstaticresources-openshiftcontrollermanagerstaticresources
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:11Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:11Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    changed from Unknown to True ("Progressing: deployment/controller-manager: observed
+    generation is 1, desired generation is 2.\nProgressing: deployment/controller-manager:
+    available replicas is 0, desired available replicas > 1\nProgressing: deployment/controller-manager:
+    updated replicas is 0, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 0, desired generation is 1.\nProgressing: deployment/route-controller-manager:
+    available replicas is 0, desired available replicas > 1\nProgressing: deployment/route-controller-manager:
+    updated replicas is 0, desired replicas is 3\nProgressing: openshiftcontrollermanagers.operator.openshift.io/cluster:
+    observed generation is 0, desired generation is 2."),Available changed from Unknown
+    to False ("Available: no pods available on any node."),Upgradeable changed from
+    Unknown to True ("All is well")'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:12Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:12Z"
+    name: openshift-controller-manager-operator.179e33a004eaed0c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5686"
+    uid: 714803b7-0bbc-4c5e-b6f6-9fbc1168b0db
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:12Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:12Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Degraded
+    message changed from "All is well" to "OpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/leader-role.yaml\" (string): namespaces
+    \"openshift-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/leader-rolebinding.yaml\" (string): namespaces
+    \"openshift-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/route-controller-manager-leader-role.yaml\"
+    (string): namespaces \"openshift-route-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/route-controller-manager-leader-rolebinding.yaml\"
+    (string): namespaces \"openshift-route-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    "'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-controller-manager-operator.179e33a0407dc6d0
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5826"
+    uid: 48f122b0-05a2-47dd-8300-f12b20bf9900
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:13Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:13Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Degraded
+    message changed from "OpenshiftControllerManagerStaticResourcesDegraded: \"assets/openshift-controller-manager/leader-role.yaml\"
+    (string): namespaces \"openshift-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/leader-rolebinding.yaml\" (string): namespaces
+    \"openshift-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/route-controller-manager-leader-role.yaml\"
+    (string): namespaces \"openshift-route-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    \"assets/openshift-controller-manager/route-controller-manager-leader-rolebinding.yaml\"
+    (string): namespaces \"openshift-route-controller-manager\" not found\nOpenshiftControllerManagerStaticResourcesDegraded:
+    " to "All is well"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:13Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:13Z"
+    name: openshift-controller-manager-operator.179e33a064856965
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "5915"
+    uid: 70411313-52de-4fdc-b0d8-8991370430e3
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:29Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-controller-manager:
+    cause by changes in data.openshift-controller-manager.serving-cert.secret
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:29Z"
+    name: openshift-controller-manager-operator.179e33a4468a653b
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "7242"
+    uid: b28f4179-7dad-4ce4-927d-a078b3a2ba08
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:29Z"
+  message: Created ConfigMap/client-ca -n openshift-controller-manager because it
+    was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:29Z"
+    name: openshift-controller-manager-operator.179e33a446ee1275
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "7244"
+    uid: 346e5a2e-b272-4999-a37d-5f5da6053043
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:29Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-route-controller-manager:
+    cause by changes in data.openshift-route-controller-manager.serving-cert.secret
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:29Z"
+    name: openshift-controller-manager-operator.179e33a4475b3210
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "7246"
+    uid: acf0b9af-7507-4b22-bd82-c39cea7a1b2e
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:29Z"
+  message: Created ConfigMap/client-ca -n openshift-route-controller-manager because
+    it was missing
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:29Z"
+    name: openshift-controller-manager-operator.179e33a447c850c5
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "7249"
+    uid: fbeb74bd-83a5-4252-b291-bfab02da23a2
+  reason: ConfigMapCreated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 4
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:29Z"
+  message: Updated Deployment.apps/route-controller-manager -n openshift-route-controller-manager
+    because it changed
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:29Z"
+    name: openshift-controller-manager-operator.179e33a449482e20
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10725"
+    uid: a4b03cd8-05f7-43d3-8449-3123b222395e
+  reason: DeploymentUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:30Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:30Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 1, desired generation is 2.\nProgressing: deployment/controller-manager: available
+    replicas is 0, desired available replicas > 1\nProgressing: deployment/controller-manager:
+    updated replicas is 0, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 0, desired generation is 1.\nProgressing: deployment/route-controller-manager:
+    available replicas is 0, desired available replicas > 1\nProgressing: deployment/route-controller-manager:
+    updated replicas is 0, desired replicas is 3\nProgressing: openshiftcontrollermanagers.operator.openshift.io/cluster:
+    observed generation is 0, desired generation is 2." to "Progressing: deployment/controller-manager:
+    observed generation is 3, desired generation is 4.\nProgressing: deployment/controller-manager:
+    available replicas is 0, desired available replicas > 1\nProgressing: deployment/controller-manager:
+    updated replicas is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 1, desired generation is 2.\nProgressing: deployment/route-controller-manager:
+    available replicas is 0, desired available replicas > 1"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:30Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:30Z"
+    name: openshift-controller-manager-operator.179e33a450af07af
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "7268"
+    uid: aa689774-26dd-4900-b04e-3887c2462588
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:49Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:29Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-controller-manager:
+    cause by changes in data.openshift-controller-manager.client-ca.configmap
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:29Z"
+    name: openshift-controller-manager-operator.179e33a8ed482a0e
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10702"
+    uid: 96e562d3-53fc-418c-9553-c49096a2c71e
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:49Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:29Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-route-controller-manager:
+    cause by changes in data.openshift-route-controller-manager.client-ca.configmap
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:29Z"
+    name: openshift-controller-manager-operator.179e33a8edd5104b
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10704"
+    uid: 8974faa5-cb02-408b-8618-ee3a8f128af3
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:49Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:49Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 3, desired generation is 4.\nProgressing: deployment/controller-manager: available
+    replicas is 0, desired available replicas > 1\nProgressing: deployment/controller-manager:
+    updated replicas is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 1, desired generation is 2.\nProgressing: deployment/route-controller-manager:
+    available replicas is 0, desired available replicas > 1" to "Progressing: deployment/controller-manager:
+    observed generation is 4, desired generation is 5.\nProgressing: deployment/controller-manager:
+    updated replicas is 2, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 2, desired generation is 3.\nProgressing: deployment/route-controller-manager:
+    updated replicas is 2, desired replicas is 3",Available changed from False to
+    True ("All is well")'
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:21:49Z"
+    name: openshift-controller-manager-operator.179e33a8f0828090
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "8304"
+    uid: 6e61f2c4-e942-435e-a544-c821f8ad0864
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:09Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:09Z"
+  message: |-
+    Updated ConfigMap/client-ca -n openshift-controller-manager:
+    cause by changes in data.ca-bundle.crt
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:09Z"
+    name: openshift-controller-manager-operator.179e33ad959be28c
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "9361"
+    uid: 2c7bdcd8-ee24-45f4-b0a7-ebe2db8d9d95
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:09Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:09Z"
+  message: |-
+    Updated ConfigMap/client-ca -n openshift-route-controller-manager:
+    cause by changes in data.ca-bundle.crt
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:09Z"
+    name: openshift-controller-manager-operator.179e33ad9634f2c2
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "9363"
+    uid: ee2e1826-bf9e-4187-9140-5545b9e93d3e
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:09Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:09Z"
+  message: clusteroperator/openshift-controller-manager version "operator" changed
+    from "" to "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:09Z"
+    name: openshift-controller-manager-operator.179e33ad98925dd3
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "9384"
+    uid: b88d5a06-7e2f-40ba-b9e6-5360543524c9
+  reason: OperatorVersionChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:09Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:09Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 4, desired generation is 5.\nProgressing: deployment/controller-manager: updated
+    replicas is 2, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    observed generation is 2, desired generation is 3.\nProgressing: deployment/route-controller-manager:
+    updated replicas is 2, desired replicas is 3" to "Progressing: deployment/controller-manager:
+    observed generation is 5, desired generation is 6.\nProgressing: deployment/route-controller-manager:
+    observed generation is 3, desired generation is 4.",status.versions changed from
+    [] to [{"operator" "4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest"}]'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:09Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:09Z"
+    name: openshift-controller-manager-operator.179e33ad9940b87b
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "9393"
+    uid: bdb5a0f7-5c02-4d9a-a7f2-9b91f425472d
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:29Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:29Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 5, desired generation is 6.\nProgressing: deployment/route-controller-manager:
+    observed generation is 3, desired generation is 4." to "Progressing: deployment/controller-manager:
+    observed generation is 6, desired generation is 7.\nProgressing: deployment/route-controller-manager:
+    observed generation is 4, desired generation is 5."'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:29Z"
+    name: openshift-controller-manager-operator.179e33b242febd0e
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10737"
+    uid: 0d9966e6-756c-45c2-9e52-bdaa40152d02
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: FeatureGates updated to featuregates.Features{Enabled:[]v1.FeatureGateName{"AlibabaPlatform",
+    "AzureWorkloadIdentity", "BuildCSIVolumes", "CloudDualStackNodeIPs", "ExternalCloudProvider",
+    "ExternalCloudProviderAzure", "ExternalCloudProviderExternal", "ExternalCloudProviderGCP",
+    "OpenShiftPodSecurityAdmission", "PrivateHostedZoneAWS"}, Disabled:[]v1.FeatureGateName{"AdminNetworkPolicy",
+    "AutomatedEtcdBackup", "CSIDriverSharedResource", "ClusterAPIInstall", "DNSNameResolver",
+    "DisableKubeletCloudCredentialProviders", "DynamicResourceAllocation", "EventedPLEG",
+    "GCPClusterHostedDNS", "GCPLabelsTags", "GatewayAPI", "InsightsConfigAPI", "InstallAlternateInfrastructureAWS",
+    "MachineAPIOperatorDisableMachineHealthCheckController", "MachineAPIProviderOpenStack",
+    "MachineConfigNodes", "ManagedBootImages", "MaxUnavailableStatefulSet", "MetricsServer",
+    "MixedCPUsAllocation", "NetworkLiveMigration", "NodeSwap", "RouteExternalCertificate",
+    "SigstoreImageVerification", "VSphereControlPlaneMachineSet", "VSphereStaticIPs",
+    "ValidatingAdmissionPolicy"}}
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator.179e33b361806114
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10966"
+    uid: ba4d6a12-bd37-4eff-a01c-2e5f2551605d
+  reason: FeatureGatesInitialized
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:34Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 6, desired generation is 7.\nProgressing: deployment/route-controller-manager:
+    observed generation is 4, desired generation is 5." to "Progressing: deployment/controller-manager:
+    updated replicas is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 2, desired replicas is 3"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:34Z"
+    name: openshift-controller-manager-operator.179e33b368549157
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "10971"
+    uid: 67ebba6c-9b71-48ee-bfe7-a1e37afdcde8
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:39Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:22:39Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: updated replicas
+    is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 2, desired replicas is 3" to "Progressing: deployment/controller-manager:
+    updated replicas is 2, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 2, desired replicas is 3"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:39Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:22:39Z"
+    name: openshift-controller-manager-operator.179e33b4621f6486
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "11125"
+    uid: db936665-12fc-47db-a3bc-ede5c6a266b7
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:22:54Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:39:14Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    changed from True to False ("All is well")'
+  metadata:
+    creationTimestamp: "2023-12-06T09:22:54Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:39:14Z"
+    name: openshift-controller-manager-operator.179e33b80c7f6b8d
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "32966"
+    uid: a14c1621-b504-41f6-967f-b4ce48a220c5
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:34Z"
+  message: "Writing updated observed config:   map[string]any{\n  \t\"build\":       map[string]any{\"buildDefaults\":
+    map[string]any{\"resources\": map[string]any{}}, \"imageTemplateFormat\": map[string]any{\"format\":
+    string(\"registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f\"...)}},\n  \t\"controllers\":
+    []any{string(\"openshift.io/build\"), string(\"openshift.io/build-config-change\"),
+    string(\"openshift.io/builder-serviceaccount\"), string(\"openshift.io/default-rolebindings\"),
+    ...},\n  \t\"deployer\":    map[string]any{\"imageTemplateFormat\": map[string]any{\"format\":
+    string(\"registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:f\"...)}},\n+ \t\"dockerPullSecret\":
+    map[string]any{\n+ \t\t\"internalRegistryHostname\": string(\"image-registry.openshift-image-registry.svc:5000\"),\n+ \t},\n  \t\"featureGates\":
+    []any{string(\"BuildCSIVolumes=true\")},\n  \t\"ingress\":      map[string]any{\"ingressIPNetworkCIDR\":
+    string(\"\")},\n  }\n"
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:34Z"
+    name: openshift-controller-manager-operator.179e3492ece913d6
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31141"
+    uid: 8c129b47-51b2-430c-9070-d964806b62af
+  reason: ObservedConfigChanged
+  reportingComponent: openshift-controller-manager-operator-config-observer-configobserver
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-config-observer-configobserver
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:34Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-controller-manager:
+    cause by changes in data.config.yaml
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:34Z"
+    name: openshift-controller-manager-operator.179e3492f08b6cf0
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31148"
+    uid: 9a66937a-8353-4311-a0d6-19f8becba935
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:34Z"
+  message: |-
+    Updated ConfigMap/config -n openshift-route-controller-manager:
+    cause by changes in data.config.yaml
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:34Z"
+    name: openshift-controller-manager-operator.179e3492f22aa64a
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31150"
+    uid: f86f612e-e8bc-45ef-8565-c03bb937f65e
+  reason: ConfigMapUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:34Z"
+  message: Updated Deployment.apps/controller-manager -n openshift-controller-manager
+    because it changed
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:34Z"
+    name: openshift-controller-manager-operator.179e3492f3cce55e
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31154"
+    uid: 31c5fd2f-0c28-4453-a1c7-33255ce94152
+  reason: DeploymentUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:34Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:34Z"
+  message: Updated Deployment.apps/route-controller-manager -n openshift-route-controller-manager
+    because it changed
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:34Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:34Z"
+    name: openshift-controller-manager-operator.179e3492f51a6d21
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31160"
+    uid: e34182d4-4f72-4182-8001-c83a9083cb01
+  reason: DeploymentUpdated
+  reportingComponent: openshift-controller-manager-operator
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:35Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    changed from False to True ("Progressing: deployment/controller-manager: observed
+    generation is 7, desired generation is 8.\nProgressing: deployment/route-controller-manager:
+    observed generation is 5, desired generation is 6.\nProgressing: openshiftcontrollermanagers.operator.openshift.io/cluster:
+    observed generation is 2, desired generation is 3.")'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:35Z"
+    name: openshift-controller-manager-operator.179e3492f7a9686f
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31172"
+    uid: 55d8edca-aefe-4324-9e62-7c4d47f8b36d
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:35Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:35Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: observed generation
+    is 7, desired generation is 8.\nProgressing: deployment/route-controller-manager:
+    observed generation is 5, desired generation is 6.\nProgressing: openshiftcontrollermanagers.operator.openshift.io/cluster:
+    observed generation is 2, desired generation is 3." to "Progressing: deployment/controller-manager:
+    updated replicas is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 0, desired replicas is 3"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:35Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:35Z"
+    name: openshift-controller-manager-operator.179e349308f151c4
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31209"
+    uid: 9d3343bd-2cc9-4511-a5c7-df534aeb62b1
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:38:36Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openshift-controller-manager-operator
+    namespace: openshift-controller-manager-operator
+    uid: 7581328c-344f-48e5-a2d0-11bad75d5982
+  kind: Event
+  lastTimestamp: "2023-12-06T09:38:36Z"
+  message: 'Status for clusteroperator/openshift-controller-manager changed: Progressing
+    message changed from "Progressing: deployment/controller-manager: updated replicas
+    is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 0, desired replicas is 3" to "Progressing: deployment/controller-manager:
+    updated replicas is 1, desired replicas is 3\nProgressing: deployment/route-controller-manager:
+    updated replicas is 1, desired replicas is 3"'
+  metadata:
+    creationTimestamp: "2023-12-06T09:38:36Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: cluster-openshift-controller-manager-operator
+      operation: Update
+      time: "2023-12-06T09:38:36Z"
+    name: openshift-controller-manager-operator.179e349338b1f09d
+    namespace: openshift-controller-manager-operator
+    resourceVersion: "31219"
+    uid: 4358f25c-0a9e-47a3-a49c-2d5a01fce9f4
+  reason: OperatorStatusChanged
+  reportingComponent: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  reportingInstance: ""
+  source:
+    component: openshift-controller-manager-operator-status-controller-statussyncer_openshift-controller-manager
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "48042"

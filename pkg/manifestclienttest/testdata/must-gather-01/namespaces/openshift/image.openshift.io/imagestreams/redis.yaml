@@ -1,0 +1,251 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Redis
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:08Z"
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:04Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"6-el7"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"6-el8"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"6-el9"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"7-el9"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:openshift.io/provider-display-name: {}
+              f:tags: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:04Z"
+  name: redis
+  namespace: openshift
+  resourceVersion: "32384"
+  uid: 684e57f2-882f-4ed8-b54e-ebd6abf014a5
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Provides a Redis 6 database on RHEL 7. For more information about
+        using this database image, including OpenShift considerations, see https://github.com/sclorg/redis-container/tree/master/6/README.md.
+      iconClass: icon-redis
+      openshift.io/display-name: Redis 6 (RHEL 7)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: redis
+      version: "6"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhscl/redis-6-rhel7:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 6-el7
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Redis 6 database on RHEL 8. For more information about
+        using this database image, including OpenShift considerations, see https://github.com/sclorg/redis-container/tree/master/6/README.md.
+      iconClass: icon-redis
+      openshift.io/display-name: Redis 6 (RHEL 8)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: redis
+      version: "6"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhel8/redis-6:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 6-el8
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Redis 6 database on RHEL 9. For more information about
+        using this database image, including OpenShift considerations, see https://github.com/sclorg/redis-container/tree/master/6/README.md.
+      iconClass: icon-redis
+      openshift.io/display-name: Redis 6 (RHEL 9)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: redis
+      version: "6"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhel9/redis-6:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 6-el9
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: Provides a Redis 7 database on RHEL 9. For more information about
+        using this database image, including OpenShift considerations, see https://github.com/sclorg/redis-container/tree/master/7/README.md.
+      iconClass: icon-redis
+      openshift.io/display-name: Redis 7 (RHEL 9)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: redis
+      version: "7"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhel9/redis-7:latest
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: 7-el9
+    referencePolicy:
+      type: Local
+  - annotations:
+      description: |-
+        Provides a Redis database on RHEL. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/redis-container/tree/master/6/README.md.
+
+        WARNING: By selecting this tag, your application will automatically update to use the latest version of Redis available on OpenShift, including major version updates.
+      iconClass: icon-redis
+      openshift.io/display-name: Redis (Latest)
+      openshift.io/provider-display-name: Red Hat, Inc.
+      tags: redis
+    from:
+      kind: ImageStreamTag
+      name: 6-el8
+    generation: 1
+    importPolicy:
+      importMode: Legacy
+    name: latest
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/redis
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhscl/redis-6-rhel7@sha256:87fe8cdf883eb53dbad73a7146bfa16fadafd52d41c37bfb6c1aa05690810a0b
+      generation: 2
+      image: sha256:87fe8cdf883eb53dbad73a7146bfa16fadafd52d41c37bfb6c1aa05690810a0b
+    tag: 6-el7
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhel8/redis-6@sha256:cacc3be17330af319ffcce3aa8e3106be338561cef23373537ffda1b1be29643
+      generation: 2
+      image: sha256:cacc3be17330af319ffcce3aa8e3106be338561cef23373537ffda1b1be29643
+    tag: 6-el8
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhel9/redis-6@sha256:91b755b9fb09b7299896f9a90f7d2752fdba36a8e6e9b9d1ddc17f3f92466745
+      generation: 2
+      image: sha256:91b755b9fb09b7299896f9a90f7d2752fdba36a8e6e9b9d1ddc17f3f92466745
+    tag: 6-el9
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhel9/redis-7@sha256:6412371d95ee956f37b1f453ec6a321c047ed349a5874f97dd7129481547e718
+      generation: 2
+      image: sha256:6412371d95ee956f37b1f453ec6a321c047ed349a5874f97dd7129481547e718
+    tag: 7-el9
+  - items:
+    - created: "2023-12-06T09:39:08Z"
+      dockerImageReference: registry.redhat.io/rhel8/redis-6@sha256:cacc3be17330af319ffcce3aa8e3106be338561cef23373537ffda1b1be29643
+      generation: 2
+      image: sha256:cacc3be17330af319ffcce3aa8e3106be338561cef23373537ffda1b1be29643
+    tag: latest

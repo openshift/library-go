@@ -1,0 +1,137 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: ClusterCSIDriver
+metadata:
+  annotations:
+    storage.openshift.io/remove-from: mgmt
+  creationTimestamp: "2023-12-06T09:21:09Z"
+  generation: 2
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:storage.openshift.io/remove-from: {}
+      f:spec:
+        .: {}
+        f:driverConfig:
+          .: {}
+          f:driverType: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:observedConfig: {}
+        f:operatorLogLevel: {}
+        f:unsupportedConfigOverrides: {}
+    manager: cluster-storage-operator
+    operation: Update
+    time: "2023-12-06T09:21:09Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:observedConfig:
+          f:targetcsiconfig:
+            .: {}
+            f:servingInfo:
+              .: {}
+              f:cipherSuites: {}
+              f:minTLSVersion: {}
+    manager: aws-ebs-csi-driver-operator
+    operation: Update
+    time: "2023-12-06T09:21:15Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:readyReplicas: {}
+    manager: aws-ebs-csi-driver-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:26:25Z"
+  name: ebs.csi.aws.com
+  resourceVersion: "19728"
+  uid: 7417bdc0-fd63-4140-b063-b09d2593b32a
+spec:
+  driverConfig:
+    driverType: ""
+  logLevel: Normal
+  managementState: Managed
+  observedConfig:
+    targetcsiconfig:
+      servingInfo:
+        cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        minTLSVersion: VersionTLS12
+  operatorLogLevel: Normal
+  unsupportedConfigOverrides: null
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:15Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSDriverConditionalStaticResourcesControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:55Z"
+    status: "True"
+    type: AWSEBSDriverControllerServiceControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:22:15Z"
+    status: "False"
+    type: AWSEBSDriverControllerServiceControllerProgressing
+  - lastTransitionTime: "2023-12-06T09:21:26Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSDriverControllerServiceControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:15Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:16Z"
+    status: "False"
+    type: ConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:21:25Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSDriverControlPlaneStaticResourcesControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:28Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSDriverNodeServiceControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:54Z"
+    status: "True"
+    type: AWSEBSDriverNodeServiceControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:26:25Z"
+    status: "False"
+    type: AWSEBSDriverNodeServiceControllerProgressing
+  - lastTransitionTime: "2023-12-06T09:21:23Z"
+    status: "False"
+    type: ManagementStateDegraded
+  - lastTransitionTime: "2023-12-06T09:21:24Z"
+    reason: AsExpected
+    status: "False"
+    type: StorageClassControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:28Z"
+    reason: AsExpected
+    status: "False"
+    type: AWSEBSDriverGuestStaticResourcesControllerDegraded
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 4
+    name: aws-ebs-csi-driver-controller
+    namespace: openshift-cluster-csi-drivers
+    resource: deployments
+  - group: apps
+    hash: ""
+    lastGeneration: 2
+    name: aws-ebs-csi-driver-node
+    namespace: openshift-cluster-csi-drivers
+    resource: daemonsets
+  readyReplicas: 0

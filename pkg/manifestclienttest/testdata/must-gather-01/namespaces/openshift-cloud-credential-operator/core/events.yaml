@@ -1,0 +1,600 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:07Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2853"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:07Z"
+  message: '0/3 nodes are available: 3 node(s) had untolerated taint {node.cloudprovider.kubernetes.io/uninitialized:
+    true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling..'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:19:07Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33830a5cc4df
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2854"
+    uid: 69948497-87f6-4595-a180-a6b6939b32fd
+  reason: FailedScheduling
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2857"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:20:49Z"
+  message: Successfully assigned openshift-cloud-credential-operator/cloud-credential-operator-7568f9dc9c-6rn8t
+    to ip-10-0-21-63.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:20:49Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e339ae1bdd315
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4463"
+    uid: f5c5396b-205a-4b57-ac25-3708497798c7
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 6
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:20:49Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:05Z"
+  message: 'MountVolume.SetUp failed for volume "cloud-credential-operator-serving-cert"
+    : secret "cloud-credential-operator-serving-cert" not found'
+  metadata:
+    creationTimestamp: "2023-12-06T09:20:49Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:05Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e339af2ec914e
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4853"
+    uid: 9ac4d67c-c03d-4f56-b5c0-6672d7a4aa7a
+  reason: FailedMount
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4609"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Add eth0 [10.129.0.34/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a2763d7345
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "6925"
+    uid: 48b09398-eba3-4c9b-9e08-5147531b2763
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Container image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8"
+    already present on machine
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a278652f82
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "6932"
+    uid: f56ac002-340e-46ae-b18c-80dbfdf13031
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Created container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a27d26db9f
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "6939"
+    uid: c46d4620-f7a0-43cf-9b80-d2f61a09c5fa
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{kube-rbac-proxy}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Started container kube-rbac-proxy
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a27e5a3b99
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "6943"
+    uid: 3bb2f64d-865e-49cc-854b-57e5af03d27a
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cloud-credential-operator}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:22Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:3bd0afe5d08cb406636cf6bfadca0968ff9097fd9365b5fa50836cf5d473d28f"
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:22Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a27e655a6d
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "6944"
+    uid: 8d08354f-2375-4793-be9c-d26f09d702e7
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:40Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cloud-credential-operator}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:40Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:3bd0afe5d08cb406636cf6bfadca0968ff9097fd9365b5fa50836cf5d473d28f"
+    in 18.456s (18.456s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:40Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:40Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a6ca83d14c
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "7728"
+    uid: f23c221a-d636-4b34-89f4-fe7166757bc0
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:42Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cloud-credential-operator}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:42Z"
+  message: Created container cloud-credential-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:42Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:42Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a74fb8a16b
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "7893"
+    uid: 990ea2d0-3251-4673-ae22-08dd85603660
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:21:43Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{cloud-credential-operator}
+    kind: Pod
+    name: cloud-credential-operator-7568f9dc9c-6rn8t
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "4393"
+    uid: 8fc3bcb5-bc16-47a9-b60d-58966824efb8
+  kind: Event
+  lastTimestamp: "2023-12-06T09:21:43Z"
+  message: Started container cloud-credential-operator
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:43Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: cloud-credential-operator-7568f9dc9c-6rn8t.179e33a756db4f8d
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "7909"
+    uid: fe7d63c3-05dc-4594-b98a-65cb18a2dcea
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-21-63.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-21-63.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: cloud-credential-operator-7568f9dc9c
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2850"
+    uid: 99a001f2-986b-43c5-93ab-d9c43daf902f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:07Z"
+  message: 'Created pod: cloud-credential-operator-7568f9dc9c-6rn8t'
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:07Z"
+    name: cloud-credential-operator-7568f9dc9c.179e33830a5a8283
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2855"
+    uid: aa37a3b8-e773-4c8b-bff1-60a20de33864
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:19:07Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cloud-credential-operator
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2849"
+    uid: 66dbad36-269c-442c-8d77-6ec5e240766c
+  kind: Event
+  lastTimestamp: "2023-12-06T09:19:07Z"
+  message: Scaled up replica set cloud-credential-operator-7568f9dc9c to 1
+  metadata:
+    creationTimestamp: "2023-12-06T09:19:07Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:19:07Z"
+    name: cloud-credential-operator.179e338309d4a49f
+    namespace: openshift-cloud-credential-operator
+    resourceVersion: "2851"
+    uid: 6dbe8626-c76c-4707-8c38-6fd32cfe5a1d
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47658"

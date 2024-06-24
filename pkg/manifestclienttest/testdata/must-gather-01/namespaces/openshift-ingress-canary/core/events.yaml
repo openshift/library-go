@@ -1,0 +1,960 @@
+---
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:20Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19468"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:20Z"
+  message: Successfully assigned openshift-ingress-canary/ingress-canary-cv4pt to
+    ip-10-0-122-108.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:26:20Z"
+    name: ingress-canary-cv4pt.179e33e7fc4b9ccd
+    namespace: openshift-ingress-canary
+    resourceVersion: "19486"
+    uid: e9c4dfc2-6572-41ba-be72-8ebd49f129ad
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19490"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: Add eth0 [10.131.0.8/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: ingress-canary-cv4pt.179e33e81cce502d
+    namespace: openshift-ingress-canary
+    resourceVersion: "19513"
+    uid: d87d046e-e1ce-4f47-8997-fb5f5572c959
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19476"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: ingress-canary-cv4pt.179e33e81f65c100
+    namespace: openshift-ingress-canary
+    resourceVersion: "19518"
+    uid: 5dd78b94-eca3-4265-b16f-96b74f69ba39
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19476"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:28Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+    in 7.575s (7.575s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:28Z"
+    name: ingress-canary-cv4pt.179e33e9e2f0305f
+    namespace: openshift-ingress-canary
+    resourceVersion: "19875"
+    uid: 7c2d5b37-b34a-4c1b-9719-d7c9519fd300
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:29Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19476"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:29Z"
+  message: Created container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: ingress-canary-cv4pt.179e33e9f11723ed
+    namespace: openshift-ingress-canary
+    resourceVersion: "19894"
+    uid: d86ad2ab-06a6-4b3c-9539-cd5a3a309374
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:29Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-cv4pt
+    namespace: openshift-ingress-canary
+    resourceVersion: "19476"
+    uid: 4ad905ce-f47b-466d-85f6-e80ed85b79ed
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:29Z"
+  message: Started container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:29Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:29Z"
+    name: ingress-canary-cv4pt.179e33e9f7f97e15
+    namespace: openshift-ingress-canary
+    resourceVersion: "19902"
+    uid: 103eda14-5c3d-4296-b503-422ef5475272
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-122-108.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-122-108.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19578"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Successfully assigned openshift-ingress-canary/ingress-canary-jd58r to
+    ip-10-0-7-104.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary-jd58r.179e33e8525b9d4f
+    namespace: openshift-ingress-canary
+    resourceVersion: "19592"
+    uid: f5a094d1-aaef-4343-bb9e-433f8dbe3081
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19594"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Add eth0 [10.128.2.7/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary-jd58r.179e33e869a9cfbd
+    namespace: openshift-ingress-canary
+    resourceVersion: "19610"
+    uid: 53a4de94-7bfc-48eb-8212-58d21fde507b
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19583"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary-jd58r.179e33e86af99337
+    namespace: openshift-ingress-canary
+    resourceVersion: "19613"
+    uid: 12e4f337-83a5-4cd7-a819-712cc59b18d7
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19583"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:28Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+    in 5.831s (5.831s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:28Z"
+    name: ingress-canary-jd58r.179e33e9c69470f4
+    namespace: openshift-ingress-canary
+    resourceVersion: "19837"
+    uid: 4dec5d9a-d5e2-4658-a791-ff6ea75a81b0
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19583"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:28Z"
+  message: Created container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:28Z"
+    name: ingress-canary-jd58r.179e33e9d0ce2930
+    namespace: openshift-ingress-canary
+    resourceVersion: "19851"
+    uid: d5bce997-deee-4878-b0ec-6cd1cb310264
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:28Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-jd58r
+    namespace: openshift-ingress-canary
+    resourceVersion: "19583"
+    uid: 4b2abf42-389c-498b-a816-a2fd6958e71f
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:28Z"
+  message: Started container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:28Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:28Z"
+    name: ingress-canary-jd58r.179e33e9d2f20f3b
+    namespace: openshift-ingress-canary
+    resourceVersion: "19853"
+    uid: f93fb747-5551-4a7c-8d2d-829786a085ef
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-7-104.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-7-104.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19528"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: Successfully assigned openshift-ingress-canary/ingress-canary-xbpf7 to
+    ip-10-0-81-189.us-west-1.compute.internal
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-scheduler
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: ingress-canary-xbpf7.179e33e826393653
+    namespace: openshift-ingress-canary
+    resourceVersion: "19538"
+    uid: 7b0dfd3c-ff91-4ab5-8f04-78c617507857
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19540"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Add eth0 [10.129.2.7/23] from ovn-kubernetes
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: multus-daemon
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary-xbpf7.179e33e86f1cb0b2
+    namespace: openshift-ingress-canary
+    resourceVersion: "19617"
+    uid: ccec3638-f5a5-4ed4-974e-533afadcb8e2
+  reason: AddedInterface
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: multus
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19532"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: Pulling image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary-xbpf7.179e33e87083f7e9
+    namespace: openshift-ingress-canary
+    resourceVersion: "19622"
+    uid: 6309b7a4-4790-4cd9-be3a-fb6d359e7888
+  reason: Pulling
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:25Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19532"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:25Z"
+  message: Successfully pulled image "registry.build03.ci.openshift.org/ci-op-2j285qtr/stable@sha256:0cd2f8083fb12cc2cdeb77ad79c60f244b4bacaaa856ea56408361ec46b09b58"
+    in 3.165s (3.165s including waiting)
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:25Z"
+    name: ingress-canary-xbpf7.179e33e92d368f87
+    namespace: openshift-ingress-canary
+    resourceVersion: "19735"
+    uid: 503ea4a6-d967-44af-ac21-378c83500915
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:25Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19532"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:25Z"
+  message: Created container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:25Z"
+    name: ingress-canary-xbpf7.179e33e9319e6d73
+    namespace: openshift-ingress-canary
+    resourceVersion: "19738"
+    uid: daa26b6e-5bc0-4575-834a-4873c0314663
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:25Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{serve-healthcheck-canary}
+    kind: Pod
+    name: ingress-canary-xbpf7
+    namespace: openshift-ingress-canary
+    resourceVersion: "19532"
+    uid: d5e4463f-8214-4557-9bfa-808b9050bf57
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:25Z"
+  message: Started container serve-healthcheck-canary
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:25Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:reportingInstance: {}
+        f:source:
+          f:component: {}
+          f:host: {}
+        f:type: {}
+      manager: kubelet
+      operation: Update
+      time: "2023-12-06T09:26:25Z"
+    name: ingress-canary-xbpf7.179e33e932acc5f9
+    namespace: openshift-ingress-canary
+    resourceVersion: "19740"
+    uid: b49b8e4f-813c-4945-bdd1-b2d0ecd8081d
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: ip-10-0-81-189.us-west-1.compute.internal
+  source:
+    component: kubelet
+    host: ip-10-0-81-189.us-west-1.compute.internal
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:20Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: ingress-canary
+    namespace: openshift-ingress-canary
+    resourceVersion: "14964"
+    uid: 1fe0d039-148f-4745-a3a6-d1d573dbe5e9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:20Z"
+  message: 'Created pod: ingress-canary-cv4pt'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:20Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:20Z"
+    name: ingress-canary.179e33e7fb22ed5b
+    namespace: openshift-ingress-canary
+    resourceVersion: "19474"
+    uid: 77d8032d-585d-4a7c-8f8a-db9262a328f0
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: ingress-canary
+    namespace: openshift-ingress-canary
+    resourceVersion: "19475"
+    uid: 1fe0d039-148f-4745-a3a6-d1d573dbe5e9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:21Z"
+  message: 'Created pod: ingress-canary-xbpf7'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:21Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:21Z"
+    name: ingress-canary.179e33e825855e11
+    namespace: openshift-ingress-canary
+    resourceVersion: "19536"
+    uid: 4edb29e4-b771-40e8-91b1-3a237187d00b
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2023-12-06T09:26:22Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: DaemonSet
+    name: ingress-canary
+    namespace: openshift-ingress-canary
+    resourceVersion: "19533"
+    uid: 1fe0d039-148f-4745-a3a6-d1d573dbe5e9
+  kind: Event
+  lastTimestamp: "2023-12-06T09:26:22Z"
+  message: 'Created pod: ingress-canary-jd58r'
+  metadata:
+    creationTimestamp: "2023-12-06T09:26:22Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:count: {}
+        f:firstTimestamp: {}
+        f:involvedObject: {}
+        f:lastTimestamp: {}
+        f:message: {}
+        f:reason: {}
+        f:reportingComponent: {}
+        f:source:
+          f:component: {}
+        f:type: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:26:22Z"
+    name: ingress-canary.179e33e8519537f0
+    namespace: openshift-ingress-canary
+    resourceVersion: "19588"
+    uid: 6e47a03e-732d-43b5-aabc-233487fc7c1e
+  reason: SuccessfulCreate
+  reportingComponent: daemonset-controller
+  reportingInstance: ""
+  source:
+    component: daemonset-controller
+  type: Normal
+kind: EventList
+metadata:
+  resourceVersion: "47742"

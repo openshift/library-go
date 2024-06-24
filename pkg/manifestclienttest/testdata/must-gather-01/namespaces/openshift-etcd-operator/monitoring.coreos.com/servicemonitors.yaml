@@ -1,0 +1,187 @@
+---
+apiVersion: monitoring.coreos.com/v1
+items:
+- apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/name: etcd
+      k8s-app: etcd
+      monitoring.openshift.io/collection-profile: full
+    managedFields:
+    - apiVersion: monitoring.coreos.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/name: {}
+            f:k8s-app: {}
+            f:monitoring.openshift.io/collection-profile: {}
+        f:spec:
+          .: {}
+          f:endpoints: {}
+          f:jobLabel: {}
+          f:namespaceSelector:
+            .: {}
+            f:matchNames: {}
+          f:selector: {}
+      manager: cluster-etcd-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: etcd
+    namespace: openshift-etcd-operator
+    resourceVersion: "6090"
+    uid: 801e8536-2d12-4055-b84b-9eb7eadd69ef
+  spec:
+    endpoints:
+    - interval: 30s
+      port: etcd-metrics
+      scheme: https
+      tlsConfig:
+        ca:
+          configMap:
+            key: ca-bundle.crt
+            name: etcd-metric-serving-ca
+        cert:
+          secret:
+            key: tls.crt
+            name: etcd-metric-client
+        keySecret:
+          key: tls.key
+          name: etcd-metric-client
+    jobLabel: k8s-app
+    namespaceSelector:
+      matchNames:
+      - openshift-etcd
+    selector:
+      matchLabels:
+        k8s-app: etcd
+- apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  metadata:
+    creationTimestamp: "2023-12-06T09:21:15Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/name: etcd
+      k8s-app: etcd
+      monitoring.openshift.io/collection-profile: minimal
+    managedFields:
+    - apiVersion: monitoring.coreos.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:app.kubernetes.io/name: {}
+            f:k8s-app: {}
+            f:monitoring.openshift.io/collection-profile: {}
+        f:spec:
+          .: {}
+          f:endpoints: {}
+          f:jobLabel: {}
+          f:namespaceSelector:
+            .: {}
+            f:matchNames: {}
+          f:selector: {}
+      manager: cluster-etcd-operator
+      operation: Update
+      time: "2023-12-06T09:21:15Z"
+    name: etcd-minimal
+    namespace: openshift-etcd-operator
+    resourceVersion: "6091"
+    uid: bfe4976a-b45e-4434-87ec-72816ce7d615
+  spec:
+    endpoints:
+    - interval: 30s
+      metricRelabelings:
+      - action: keep
+        regex: (etcd_disk_backend_commit_duration_seconds_bucket|etcd_disk_wal_fsync_duration_seconds_bucket|etcd_mvcc_db_total_size_in_bytes|etcd_mvcc_db_total_size_in_use_in_bytes|etcd_network_peer_round_trip_time_seconds_bucket|etcd_network_peer_sent_failures_total|etcd_server_has_leader|etcd_server_is_leader|etcd_server_proposals_failed_total|etcd_server_quota_backend_bytes|grpc_server_handled_total|grpc_server_handling_seconds_bucket|grpc_server_started_total|process_start_time_seconds)
+        sourceLabels:
+        - __name__
+      port: etcd-metrics
+      scheme: https
+      tlsConfig:
+        ca:
+          configMap:
+            key: ca-bundle.crt
+            name: etcd-metric-serving-ca
+        cert:
+          secret:
+            key: tls.crt
+            name: etcd-metric-client
+        keySecret:
+          key: tls.key
+          name: etcd-metric-client
+    jobLabel: k8s-app
+    namespaceSelector:
+      matchNames:
+      - openshift-etcd
+    selector:
+      matchLabels:
+        k8s-app: etcd
+- apiVersion: monitoring.coreos.com/v1
+  kind: ServiceMonitor
+  metadata:
+    annotations:
+      include.release.openshift.io/self-managed-high-availability: "true"
+      include.release.openshift.io/single-node-developer: "true"
+    creationTimestamp: "2023-12-06T09:18:07Z"
+    generation: 1
+    managedFields:
+    - apiVersion: monitoring.coreos.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:include.release.openshift.io/self-managed-high-availability: {}
+            f:include.release.openshift.io/single-node-developer: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+        f:spec:
+          .: {}
+          f:endpoints: {}
+          f:jobLabel: {}
+          f:namespaceSelector:
+            .: {}
+            f:matchNames: {}
+          f:selector: {}
+      manager: cluster-version-operator
+      operation: Update
+      time: "2023-12-06T09:18:07Z"
+    name: etcd-operator
+    namespace: openshift-etcd-operator
+    ownerReferences:
+    - apiVersion: config.openshift.io/v1
+      controller: true
+      kind: ClusterVersion
+      name: version
+      uid: a7216904-f9ea-48f0-a63e-5356267ade74
+    resourceVersion: "1596"
+    uid: 911f099e-2e9f-41c8-ab6b-de6a8c0b7c0e
+  spec:
+    endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      port: https
+      scheme: https
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+        keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+        serverName: metrics.openshift-etcd-operator.svc
+    jobLabel: component
+    namespaceSelector:
+      matchNames:
+      - openshift-etcd-operator
+    selector:
+      matchLabels:
+        app: etcd-operator
+kind: ServiceMonitorList
+metadata:
+  continue: ""
+  resourceVersion: "47717"

@@ -1,0 +1,151 @@
+---
+apiVersion: discovery.k8s.io/v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.129.2.9
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-81-189.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: image-registry-84cc678fbb-qswbr
+      namespace: openshift-image-registry
+      uid: 18cd3313-6eb4-492c-bd06-1ebf4b0d709f
+    zone: us-west-1b
+  - addresses:
+    - 10.128.2.10
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-7-104.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: image-registry-84cc678fbb-rz84t
+      namespace: openshift-image-registry
+      uid: add4f045-33ba-493d-b037-62f29a536c9a
+    zone: us-west-1a
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:39:22Z"
+    creationTimestamp: "2023-12-06T09:38:30Z"
+    generateName: image-registry-
+    generation: 5
+    labels:
+      docker-registry: default
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: image-registry
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:docker-registry: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"810c8c3f-1048-4507-8d6d-fd0a210e891e"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:39:22Z"
+    name: image-registry-6frc8
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: image-registry
+      uid: 810c8c3f-1048-4507-8d6d-fd0a210e891e
+    resourceVersion: "33263"
+    uid: 31447d8f-8f28-4f20-88f6-fa90da557a88
+  ports:
+  - name: 5000-tcp
+    port: 5000
+    protocol: TCP
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.129.0.14
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: ip-10-0-21-63.us-west-1.compute.internal
+    targetRef:
+      kind: Pod
+      name: cluster-image-registry-operator-797bf89d95-krhc6
+      namespace: openshift-image-registry
+      uid: bb29dc0d-f74c-4467-b9a5-3c2548191108
+    zone: us-west-1a
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-12-06T09:21:43Z"
+    creationTimestamp: "2023-12-06T09:18:18Z"
+    generateName: image-registry-operator-
+    generation: 2
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: image-registry-operator
+      name: image-registry-operator
+      service.kubernetes.io/headless: ""
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+            f:name: {}
+            f:service.kubernetes.io/headless: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"8585ea3a-a7a2-4f24-9ddd-180d30727a8a"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-12-06T09:21:43Z"
+    name: image-registry-operator-w5mfv
+    namespace: openshift-image-registry
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: image-registry-operator
+      uid: 8585ea3a-a7a2-4f24-9ddd-180d30727a8a
+    resourceVersion: "8025"
+    uid: b5031aba-e33b-4398-817c-ba0ad3731f0f
+  ports:
+  - name: ""
+    port: 60000
+    protocol: TCP
+kind: EndpointSliceList
+metadata:
+  resourceVersion: "47738"

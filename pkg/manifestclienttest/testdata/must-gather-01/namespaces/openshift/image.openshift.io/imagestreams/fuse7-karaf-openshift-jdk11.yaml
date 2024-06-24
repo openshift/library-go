@@ -1,0 +1,84 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/display-name: Red Hat Fuse 7 Karaf Java11
+    openshift.io/image.dockerRepositoryCheck: "2023-12-06T09:39:07Z"
+    openshift.io/provider-display-name: Red Hat, Inc.
+    samples.operator.openshift.io/version: 4.15.0-0.ci.test-2023-12-06-090630-ci-op-2j285qtr-latest
+  creationTimestamp: "2023-12-06T09:39:06Z"
+  generation: 2
+  labels:
+    samples.operator.openshift.io/managed: "true"
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/display-name: {}
+          f:openshift.io/provider-display-name: {}
+          f:samples.operator.openshift.io/version: {}
+        f:labels:
+          .: {}
+          f:samples.operator.openshift.io/managed: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"1.12"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:description: {}
+              f:iconClass: {}
+              f:openshift.io/display-name: {}
+              f:supports: {}
+              f:tags: {}
+              f:version: {}
+            f:from: {}
+            f:generation: {}
+            f:importPolicy:
+              .: {}
+              f:importMode: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: cluster-samples-operator
+    operation: Update
+    time: "2023-12-06T09:39:06Z"
+  name: fuse7-karaf-openshift-jdk11
+  namespace: openshift
+  resourceVersion: "32149"
+  uid: c90ac39f-3928-4e44-a4f6-308f4966de9d
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      description: Red Hat Fuse 7.0 Karaf S2I images Java11.
+      iconClass: icon-rh-integration
+      openshift.io/display-name: Red Hat Fuse 7.12 Karaf Java11
+      supports: jboss-fuse:7.12.0,java:11,xpaas:1.2
+      tags: builder,jboss-fuse,java,karaf,xpaas,hidden
+      version: "1.0"
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/fuse7/fuse-karaf-openshift-jdk11-rhel8:1.12
+    generation: 2
+    importPolicy:
+      importMode: Legacy
+    name: "1.12"
+    referencePolicy:
+      type: Local
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift/fuse7-karaf-openshift-jdk11
+  tags:
+  - items:
+    - created: "2023-12-06T09:39:07Z"
+      dockerImageReference: registry.redhat.io/fuse7/fuse-karaf-openshift-jdk11-rhel8@sha256:2db32b507079a8298e5acf454edfe4ed9ab9b168e961a2905ee4d04a169a763b
+      generation: 2
+      image: sha256:2db32b507079a8298e5acf454edfe4ed9ab9b168e961a2905ee4d04a169a763b
+    tag: "1.12"

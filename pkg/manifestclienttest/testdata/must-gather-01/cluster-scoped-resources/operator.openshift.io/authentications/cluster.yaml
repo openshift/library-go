@@ -1,0 +1,387 @@
+---
+apiVersion: operator.openshift.io/v1
+kind: Authentication
+metadata:
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/create-only: "true"
+  creationTimestamp: "2023-12-06T09:17:57Z"
+  generation: 8
+  managedFields:
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:include.release.openshift.io/self-managed-high-availability: {}
+          f:include.release.openshift.io/single-node-developer: {}
+          f:release.openshift.io/create-only: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"a7216904-f9ea-48f0-a63e-5356267ade74"}: {}
+      f:spec:
+        .: {}
+        f:logLevel: {}
+        f:managementState: {}
+        f:operatorLogLevel: {}
+    manager: cluster-version-operator
+    operation: Update
+    time: "2023-12-06T09:17:57Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:observedConfig:
+          .: {}
+          f:oauthAPIServer:
+            .: {}
+            f:apiServerArguments:
+              .: {}
+              f:api-audiences: {}
+              f:cors-allowed-origins: {}
+              f:etcd-servers: {}
+              f:tls-cipher-suites: {}
+              f:tls-min-version: {}
+          f:oauthServer:
+            .: {}
+            f:corsAllowedOrigins: {}
+            f:oauthConfig:
+              .: {}
+              f:assetPublicURL: {}
+              f:loginURL: {}
+              f:templates:
+                .: {}
+                f:error: {}
+                f:login: {}
+                f:providerSelection: {}
+              f:tokenConfig:
+                .: {}
+                f:accessTokenMaxAgeSeconds: {}
+                f:authorizeTokenMaxAgeSeconds: {}
+            f:serverArguments:
+              .: {}
+              f:audit-log-format: {}
+              f:audit-log-maxbackup: {}
+              f:audit-log-maxsize: {}
+              f:audit-log-path: {}
+              f:audit-policy-file: {}
+            f:servingInfo:
+              .: {}
+              f:cipherSuites: {}
+              f:minTLSVersion: {}
+              f:namedCertificates: {}
+            f:volumesToMount:
+              .: {}
+              f:identityProviders: {}
+        f:unsupportedConfigOverrides: {}
+    manager: authentication-operator
+    operation: Update
+    time: "2023-12-06T09:39:12Z"
+  - apiVersion: operator.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:conditions: {}
+        f:generations: {}
+        f:oauthAPIServer:
+          .: {}
+          f:latestAvailableRevision: {}
+        f:readyReplicas: {}
+    manager: authentication-operator
+    operation: Update
+    subresource: status
+    time: "2023-12-06T09:57:08Z"
+  name: cluster
+  ownerReferences:
+  - apiVersion: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+    uid: a7216904-f9ea-48f0-a63e-5356267ade74
+  resourceVersion: "46683"
+  uid: 36512e08-5f40-48df-9c02-83baaff02d34
+spec:
+  logLevel: Normal
+  managementState: Managed
+  observedConfig:
+    oauthAPIServer:
+      apiServerArguments:
+        api-audiences:
+        - https://kubernetes.default.svc
+        cors-allowed-origins:
+        - //127\.0\.0\.1(:|$)
+        - //localhost(:|$)
+        etcd-servers:
+        - https://10.0.106.212:2379
+        - https://10.0.21.63:2379
+        - https://10.0.94.160:2379
+        tls-cipher-suites:
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        tls-min-version: VersionTLS12
+    oauthServer:
+      corsAllowedOrigins:
+      - //127\.0\.0\.1(:|$)
+      - //localhost(:|$)
+      oauthConfig:
+        assetPublicURL: https://console-openshift-console.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+        loginURL: https://api.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com:6443
+        templates:
+          error: /var/config/system/secrets/v4-0-config-system-ocp-branding-template/errors.html
+          login: /var/config/system/secrets/v4-0-config-system-ocp-branding-template/login.html
+          providerSelection: /var/config/system/secrets/v4-0-config-system-ocp-branding-template/providers.html
+        tokenConfig:
+          accessTokenMaxAgeSeconds: 86400
+          authorizeTokenMaxAgeSeconds: 300
+      serverArguments:
+        audit-log-format:
+        - json
+        audit-log-maxbackup:
+        - "10"
+        audit-log-maxsize:
+        - "100"
+        audit-log-path:
+        - /var/log/oauth-server/audit.log
+        audit-policy-file:
+        - /var/run/configmaps/audit/audit.yaml
+      servingInfo:
+        cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        minTLSVersion: VersionTLS12
+        namedCertificates:
+        - certFile: /var/config/system/secrets/v4-0-config-system-router-certs/apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+          keyFile: /var/config/system/secrets/v4-0-config-system-router-certs/apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com
+          names:
+          - '*.apps.ci-op-2j285qtr-234c7.origin-ci-int-aws.dev.rhcloud.com'
+      volumesToMount:
+        identityProviders: '{}'
+  operatorLogLevel: Normal
+  unsupportedConfigOverrides: null
+status:
+  conditions:
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: NoUnsupportedConfigOverrides
+    status: "True"
+    type: UnsupportedConfigOverridesUpgradeable
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    status: "False"
+    type: ManagementStateDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    reason: AsExpected
+    status: "False"
+    type: WebhookAuthenticatorCertApprover_OpenShiftAuthenticatorDegraded
+  - lastTransitionTime: "2023-12-06T09:35:08Z"
+    reason: AsExpected
+    status: "True"
+    type: OAuthServerServiceEndpointAccessibleControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:22:21Z"
+    status: "False"
+    type: OAuthServiceDegraded
+  - lastTransitionTime: "2023-12-06T09:21:09Z"
+    status: "False"
+    type: SystemServiceCAConfigDegraded
+  - lastTransitionTime: "2023-12-06T09:35:08Z"
+    reason: AsExpected
+    status: "True"
+    type: OAuthServerServiceEndpointsEndpointAccessibleControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:26:20Z"
+    status: "True"
+    type: ReadyIngressNodesAvailable
+  - lastTransitionTime: "2023-12-06T09:35:09Z"
+    reason: AsExpected
+    status: "False"
+    type: OAuthServerServiceEndpointAccessibleControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:35:08Z"
+    reason: AsExpected
+    status: "False"
+    type: OAuthServerServiceEndpointsEndpointAccessibleControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:22:19Z"
+    status: "False"
+    type: OAuthServerConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:21:13Z"
+    status: "False"
+    type: APIServicesDegraded
+  - lastTransitionTime: "2023-12-06T09:53:07Z"
+    message: |-
+      "oauth.openshift.io.v1" is not ready: an attempt failed with statusCode = 503, err = the server is currently unable to handle the request
+      "user.openshift.io.v1" is not ready: an attempt failed with statusCode = 503, err = the server is currently unable to handle the request
+    reason: Error
+    status: "False"
+    type: APIServicesAvailable
+  - lastTransitionTime: "2023-12-06T09:23:21Z"
+    reason: AsExpected
+    status: "True"
+    type: APIServerDeploymentAvailable
+  - lastTransitionTime: "2023-12-06T09:29:00Z"
+    reason: AsExpected
+    status: "False"
+    type: APIServerDeploymentDegraded
+  - lastTransitionTime: "2023-12-06T09:27:53Z"
+    reason: AsExpected
+    status: "False"
+    type: APIServerDeploymentProgressing
+  - lastTransitionTime: "2023-12-06T09:21:14Z"
+    status: "False"
+    type: APIServerWorkloadDegraded
+  - lastTransitionTime: "2023-12-06T09:21:26Z"
+    status: "False"
+    type: ResourceSyncControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:22:15Z"
+    status: "False"
+    type: RevisionControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:22Z"
+    message: All is well
+    reason: AsExpected
+    status: "False"
+    type: AuthenticatorCertKeyProgressing
+  - lastTransitionTime: "2023-12-06T09:23:13Z"
+    status: "False"
+    type: OAuthAPIServerConfigObservationDegraded
+  - lastTransitionTime: "2023-12-06T09:22:22Z"
+    reason: AsExpected
+    status: "False"
+    type: WebhookAuthenticatorControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:48Z"
+    status: "False"
+    type: EncryptionMigrationControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:21:48Z"
+    status: "False"
+    type: EncryptionMigrationControllerProgressing
+  - lastTransitionTime: "2023-12-06T09:21:51Z"
+    status: "False"
+    type: Encrypted
+  - lastTransitionTime: "2023-12-06T09:22:04Z"
+    reason: AsExpected
+    status: "False"
+    type: OpenshiftAuthenticationStaticResourcesDegraded
+  - lastTransitionTime: "2023-12-06T09:22:07Z"
+    status: "False"
+    type: EncryptionKeyControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:22:09Z"
+    status: "False"
+    type: EncryptionStateControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:22:18Z"
+    status: "False"
+    type: EncryptionPruneControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:22:19Z"
+    status: "False"
+    type: AuditPolicyDegraded
+  - lastTransitionTime: "2023-12-06T09:35:12Z"
+    status: "False"
+    type: IngressStateEndpointsDegraded
+  - lastTransitionTime: "2023-12-06T09:22:20Z"
+    status: "False"
+    type: IngressStatePodsDegraded
+  - lastTransitionTime: "2023-12-06T09:22:22Z"
+    reason: AsExpected
+    status: "False"
+    type: RouterCertsDegraded
+  - lastTransitionTime: "2023-12-06T09:22:22Z"
+    reason: AsExpected
+    status: "False"
+    type: APIServerStaticResourcesDegraded
+  - lastTransitionTime: "2023-12-06T09:22:23Z"
+    reason: AsExpected
+    status: "False"
+    type: RouterCertsDomainValidationControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:53:40Z"
+    message: 'unable to ensure existence of a bootstrapped OAuth client "openshift-browser-client":
+      the server is currently unable to handle the request (post oauthclients.oauth.openshift.io)'
+    reason: SyncError
+    status: "True"
+    type: OAuthClientsControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:57:08Z"
+    reason: AsExpected
+    status: "True"
+    type: WellKnownAvailable
+  - lastTransitionTime: "2023-12-06T09:57:08Z"
+    reason: AsExpected
+    status: "False"
+    type: WellKnownReadyControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:34:51Z"
+    reason: AsExpected
+    status: "False"
+    type: ProxyConfigControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:37:11Z"
+    reason: AsExpected
+    status: "True"
+    type: OAuthServerRouteEndpointAccessibleControllerAvailable
+  - lastTransitionTime: "2023-12-06T09:34:52Z"
+    status: "False"
+    type: AuthConfigDegraded
+  - lastTransitionTime: "2023-12-06T09:34:52Z"
+    status: "False"
+    type: IngressConfigDegraded
+  - lastTransitionTime: "2023-12-06T09:34:52Z"
+    status: "False"
+    type: OAuthSystemMetadataDegraded
+  - lastTransitionTime: "2023-12-06T09:37:12Z"
+    reason: AsExpected
+    status: "False"
+    type: OAuthServerRouteEndpointAccessibleControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:35:11Z"
+    reason: AsExpected
+    status: "True"
+    type: OAuthServerDeploymentAvailable
+  - lastTransitionTime: "2023-12-06T09:40:45Z"
+    reason: AsExpected
+    status: "False"
+    type: OAuthServerDeploymentDegraded
+  - lastTransitionTime: "2023-12-06T09:40:13Z"
+    reason: AsExpected
+    status: "False"
+    type: OAuthServerDeploymentProgressing
+  - lastTransitionTime: "2023-12-06T09:34:53Z"
+    status: "False"
+    type: OAuthServerWorkloadDegraded
+  - lastTransitionTime: "2023-12-06T09:54:08Z"
+    message: the server is currently unable to handle the request (get routes.route.openshift.io
+      oauth-openshift)
+    reason: SyncError
+    status: "True"
+    type: CustomRouteControllerDegraded
+  - lastTransitionTime: "2023-12-06T09:57:08Z"
+    status: "False"
+    type: WellKnownReadyControllerProgressing
+  - lastTransitionTime: "2023-12-06T09:35:04Z"
+    status: "False"
+    type: OAuthConfigDegraded
+  - lastTransitionTime: "2023-12-06T09:35:04Z"
+    status: "False"
+    type: OAuthConfigIngressDegraded
+  - lastTransitionTime: "2023-12-06T09:35:04Z"
+    status: "False"
+    type: OAuthConfigRouteDegraded
+  - lastTransitionTime: "2023-12-06T09:35:04Z"
+    status: "False"
+    type: OAuthConfigServiceDegraded
+  - lastTransitionTime: "2023-12-06T09:35:04Z"
+    status: "False"
+    type: OAuthSessionSecretDegraded
+  generations:
+  - group: apps
+    hash: ""
+    lastGeneration: 3
+    name: apiserver
+    namespace: openshift-oauth-apiserver
+    resource: deployments
+  - group: apps
+    hash: ""
+    lastGeneration: 4
+    name: oauth-openshift
+    namespace: openshift-authentication
+    resource: deployments
+  oauthAPIServer:
+    latestAvailableRevision: 1
+  readyReplicas: 0
