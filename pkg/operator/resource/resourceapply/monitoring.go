@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -66,6 +67,8 @@ func DeleteServiceMonitor(ctx context.Context, client dynamic.Interface, recorde
 }
 
 // ApplyUnstructuredResourceImproved can utilize the cache to reconcile the existing resource to the desired state.
+// NOTE: A `nil` defaultingFunc and equalityChecker are assigned resourceapply.noDefaulting and equality.Semantic,
+// respectively. Users are recommended to instantiate a cache to benefit from the memoization machinery.
 func ApplyUnstructuredResourceImproved(
 	ctx context.Context,
 	client dynamic.Interface,
@@ -80,6 +83,9 @@ func ApplyUnstructuredResourceImproved(
 	namespace := required.GetNamespace()
 
 	// Create if resource does not exist, and update cache with new metadata.
+	if cache == nil {
+		cache = noCache
+	}
 	existing, err := client.Resource(resourceGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		want, err := client.Resource(resourceGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
@@ -91,9 +97,7 @@ func ApplyUnstructuredResourceImproved(
 		return nil, false, err
 	}
 
-	// Skip if:
-	// * cache is non-nil, and,
-	// * the metadata hashes and resource version hashes match.
+	// Skip if the cache is non-nil, and the metadata hashes and resource version hashes match.
 	if cache.SafeToSkipApply(required, existing) {
 		return existing, false, nil
 	}
@@ -127,7 +131,7 @@ func ApplyUnstructuredResourceImproved(
 	}
 
 	// Check if the metadata objects differ.
-	didMetadataModify := resourcemerge.BoolPtr(false)
+	didMetadataModify := ptr.To(false)
 	resourcemerge.EnsureObjectMeta(didMetadataModify, &existingObjectMetaTyped, requiredObjectMetaTyped)
 
 	// Deep-check the spec objects for equality, and update the cache in either case.
