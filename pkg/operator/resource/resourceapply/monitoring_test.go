@@ -2,142 +2,143 @@ package resourceapply
 
 import (
 	"context"
-	"reflect"
-	"sort"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/diff"
-	"sigs.k8s.io/yaml"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/json"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 
+	pov1api "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
 	"github.com/openshift/library-go/pkg/operator/events"
 )
-
-const (
-	fakeServiceMonitor = `apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: cluster-kube-apiserver
-  namespace: openshift-kube-apiserver
-spec:
-  endpoints:
-    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-      interval: 30s
-      metricRelabelings:
-        - action: drop
-          regex: etcd_(debugging|disk|request|server).*
-          sourceLabels:
-            - __name__
-      port: https
-      scheme: https
-      tlsConfig:
-        caFile: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
-        serverName: apiserver.openshift-kube-apiserver.svc
-  jobLabel: component
-  namespaceSelector:
-    matchNames:
-      - openshift-kube-apiserver
-  selector:
-    matchLabels:
-      custom: custom-label
-      app: openshift-kube-apiserver
-`
-	fakeIncompleteServiceMonitor = `apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: cluster-kube-apiserver
-  namespace: openshift-kube-apiserver
-spec:
-  endpoints:
-    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-      interval: 30s
-      metricRelabelings:
-        - action: drop
-          regex: etcd_(debugging|disk|request|server).*
-          sourceLabels:
-            - __name__
-      port: https
-      scheme: https
-  jobLabel: component
-  namespaceSelector:
-    matchNames:
-      - wrong-name
-  selector:
-    matchLabels:
-      app: openshift-kube-apiserver
-`
-)
-
-func readServiceMonitorFromBytes(monitorBytes []byte) *unstructured.Unstructured {
-	monitorJSON, err := yaml.YAMLToJSON(monitorBytes)
-	if err != nil {
-		panic(err)
-	}
-	monitorObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, monitorJSON)
-	if err != nil {
-		panic(err)
-	}
-	required, ok := monitorObj.(*unstructured.Unstructured)
-	if !ok {
-		panic("unexpected object")
-	}
-	return required
-}
 
 func TestApplyServiceMonitor(t *testing.T) {
 	dynamicScheme := runtime.NewScheme()
 	dynamicScheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "ServiceMonitor"}, &unstructured.Unstructured{})
 
-	dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, readServiceMonitorFromBytes([]byte(fakeIncompleteServiceMonitor)))
+	structuredServiceMonitor := pov1api.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "monitoring.coreos.com/v1",
+			Kind:       "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sm",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"app": "test-app"},
+		},
+		Spec: pov1api.ServiceMonitorSpec{
+			NamespaceSelector: pov1api.NamespaceSelector{
+				MatchNames: []string{"test-ns"},
+			},
+		},
+	}
+	unstructuredServiceMonitor := structuredToUnstructuredServiceMonitor(&structuredServiceMonitor)
 
-	required := resourceread.ReadUnstructuredOrDie([]byte(fakeServiceMonitor))
+	structuredServiceMonitorDifferentLabels := structuredServiceMonitor.DeepCopy()
+	structuredServiceMonitorDifferentLabels.Labels = map[string]string{"app": "different-test-app"}
+	unstructuredServiceMonitorDifferentLabels := structuredToUnstructuredServiceMonitor(structuredServiceMonitorDifferentLabels)
 
-	_, modified, err := ApplyServiceMonitor(context.TODO(), dynamicClient, events.NewInMemoryRecorder("monitor-test"), required)
+	structuredServiceMonitorDifferentSpec := structuredServiceMonitor.DeepCopy()
+	structuredServiceMonitorDifferentSpec.Spec.NamespaceSelector.MatchNames = []string{"different-test-ns"}
+	unstructuredServiceMonitorDifferentSpec := structuredToUnstructuredServiceMonitor(structuredServiceMonitorDifferentSpec)
+
+	structuredServiceMonitorDifferentLabelsDifferentSpec := structuredServiceMonitor.DeepCopy()
+	structuredServiceMonitorDifferentLabelsDifferentSpec.Spec.NamespaceSelector.MatchNames = []string{"different-test-ns"}
+	unstructuredServiceMonitorDifferentLabelsDifferentSpec := structuredToUnstructuredServiceMonitor(structuredServiceMonitorDifferentLabelsDifferentSpec)
+
+	for _, tc := range []struct {
+		name                               string
+		existing                           *unstructured.Unstructured
+		expectExistingResourceToBeModified bool
+		expectActionsDuringModification    []string
+	}{
+		{
+			name:                            "same label, same spec",
+			existing:                        unstructuredServiceMonitor,
+			expectActionsDuringModification: []string{"get"},
+		},
+		{
+			name:                               "different label, same spec",
+			existing:                           unstructuredServiceMonitorDifferentLabels,
+			expectExistingResourceToBeModified: true,
+			expectActionsDuringModification:    []string{"get", "update"},
+		},
+		{
+			name:                               "same label, different spec",
+			existing:                           unstructuredServiceMonitorDifferentSpec,
+			expectExistingResourceToBeModified: true,
+			expectActionsDuringModification:    []string{"get", "update"},
+		},
+		{
+			name:                               "different label, different spec",
+			existing:                           unstructuredServiceMonitorDifferentLabelsDifferentSpec,
+			expectExistingResourceToBeModified: true,
+			expectActionsDuringModification:    []string{"get", "update"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, tc.existing)
+			_, modified, err := ApplyServiceMonitor(context.TODO(), dynamicClient, events.NewInMemoryRecorder("monitor-test"), unstructuredServiceMonitor)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !modified && tc.expectExistingResourceToBeModified {
+				t.Fatalf("expected the service monitor to be modified, it was not")
+			}
+
+			actions := dynamicClient.Actions()
+			if len(actions) != len(tc.expectActionsDuringModification) {
+				t.Fatalf("expected %d actions, got %d: %v", len(tc.expectActionsDuringModification), len(actions), actions)
+			}
+			for i, action := range actions {
+				if action.GetVerb() != tc.expectActionsDuringModification[i] {
+					t.Fatalf("expected action %d to be %q, got %q", i, tc.expectActionsDuringModification[i], action.GetVerb())
+				}
+			}
+
+			if len(tc.expectActionsDuringModification) > 1 &&
+				tc.expectActionsDuringModification[1] == "update" {
+				updateAction, isUpdate := actions[1].(clienttesting.UpdateAction)
+				if !isUpdate {
+					t.Fatalf("expected second action to be update, got %+v", actions[1])
+				}
+				updatedMonitorObj := updateAction.GetObject().(*unstructured.Unstructured)
+
+				// Verify `metadata`.
+				requiredMonitorMetadata, _, _ := unstructured.NestedMap(unstructuredServiceMonitor.UnstructuredContent(), "metadata")
+				existingMonitorMetadata, _, _ := unstructured.NestedMap(updatedMonitorObj.UnstructuredContent(), "metadata")
+				if !equality.Semantic.DeepEqual(requiredMonitorMetadata, existingMonitorMetadata) {
+					t.Fatalf("expected resulting service monitor metadata to match required metadata: %s", diff.ObjectDiff(requiredMonitorMetadata, existingMonitorMetadata))
+				}
+
+				// Verify `spec`.
+				requiredMonitorSpec, _, _ := unstructured.NestedMap(unstructuredServiceMonitor.UnstructuredContent(), "spec")
+				existingMonitorSpec, _, _ := unstructured.NestedMap(updatedMonitorObj.UnstructuredContent(), "spec")
+				if !equality.Semantic.DeepEqual(requiredMonitorSpec, existingMonitorSpec) {
+					t.Fatalf("expected resulting service monitor spec to match required spec: %s", diff.ObjectDiff(requiredMonitorMetadata, existingMonitorMetadata))
+				}
+			}
+		})
+	}
+}
+
+func structuredToUnstructuredServiceMonitor(monitor *pov1api.ServiceMonitor) *unstructured.Unstructured {
+	var unstructuredMonitor unstructured.Unstructured
+	rawMonitor, err := json.Marshal(monitor)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		panic(err)
 	}
-	if !modified {
-		t.Fatalf("expected the service monitor will be modified, it was not")
-	}
-
-	if len(dynamicClient.Actions()) != 2 {
-		t.Fatalf("expected 2 actions, got %d", len(dynamicClient.Actions()))
-	}
-
-	updateAction, isUpdate := dynamicClient.Actions()[1].(clienttesting.UpdateAction)
-	if !isUpdate {
-		t.Fatalf("expected second action to be update, got %+v", dynamicClient.Actions()[1])
-	}
-	updatedMonitorObj := updateAction.GetObject().(*unstructured.Unstructured)
-
-	labels, _, err := unstructured.NestedStringMap(updatedMonitorObj.UnstructuredContent(), "spec", "selector", "matchLabels")
+	err = json.Unmarshal(rawMonitor, &unstructuredMonitor)
 	if err != nil {
-		t.Fatalf("unable to get selector: %v", err)
+		panic(err)
 	}
 
-	expectedKeys := []string{"app", "custom"}
-	resultKeys := []string{}
-	for key := range labels {
-		resultKeys = append(resultKeys, key)
-	}
-	sort.Strings(resultKeys)
-
-	if !reflect.DeepEqual(resultKeys, expectedKeys) {
-		t.Fatalf("expected %#v selectors, got %#v", expectedKeys, resultKeys)
-	}
-
-	requiredMonitorSpec, _, _ := unstructured.NestedMap(readServiceMonitorFromBytes([]byte(fakeServiceMonitor)).UnstructuredContent(), "spec", "endpoints")
-	existingMonitorSpec, _, _ := unstructured.NestedMap(updatedMonitorObj.UnstructuredContent(), "spec", "endpoints")
-
-	if !equality.Semantic.DeepEqual(requiredMonitorSpec, existingMonitorSpec) {
-		t.Fatalf("expected resulting service monitor spec endpoints to match required spec: %s", diff.ObjectDiff(requiredMonitorSpec, existingMonitorSpec))
-	}
-
+	return &unstructuredMonitor
 }
