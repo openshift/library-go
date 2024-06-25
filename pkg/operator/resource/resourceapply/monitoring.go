@@ -177,9 +177,8 @@ func DeleteUnstructuredResource(ctx context.Context, client dynamic.Interface, r
 }
 
 func ensureGenericSpec(required, existing *unstructured.Unstructured, mimicDefaultingFn mimicDefaultingFunc, equalityChecker equalityChecker) (*unstructured.Unstructured, bool, error) {
-	requiredCopy := required.DeepCopy()
-	mimicDefaultingFn(requiredCopy)
-	requiredSpec, _, err := unstructured.NestedMap(requiredCopy.UnstructuredContent(), "spec")
+	mimicDefaultingFn(required)
+	requiredSpec, _, err := unstructured.NestedMap(required.UnstructuredContent(), "spec")
 	if err != nil {
 		return nil, false, err
 	}
@@ -212,5 +211,5 @@ func noDefaulting(*unstructured.Unstructured) {}
 // operator managed fields.  This capability allows something like .spec.scale to be specified or changed by a component
 // like HPA.  Use this capability sparingly.  Most places ought to just use `equality.Semantic`
 type equalityChecker interface {
-	DeepEqual(a1, a2 interface{}) bool
+	DeepEqual(existing, required interface{}) bool
 }
