@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,14 +35,23 @@ type CABundleConfigMap struct {
 	Owner *metav1.OwnerReference
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
+	// Lock acquires an optional mutex that protects the EnsureConfigMapCABundle method.
+	// Set it to true only when this instance is shared across multiple controllers.
+	Lock bool
 	// Plumbing:
 	Informer      corev1informers.ConfigMapInformer
 	Lister        corev1listers.ConfigMapLister
 	Client        corev1client.ConfigMapsGetter
 	EventRecorder events.Recorder
+
+	lock sync.Mutex
 }
 
-func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+func (c *CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+	if c.Lock {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+	}
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
 	modified := false
