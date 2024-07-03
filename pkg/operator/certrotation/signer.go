@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -47,6 +48,10 @@ type RotatedSigningCASecret struct {
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
 
+	// Lock is an optional mutex that protects the EnsureSigningCertKeyPair method.
+	// Use it only when this instance is shared across multiple controllers.
+	Lock *sync.Mutex
+
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
 	Lister        corev1listers.SecretLister
@@ -63,6 +68,10 @@ type RotatedSigningCASecret struct {
 // EnsureSigningCertKeyPair manages the entire lifecycle of a signer cert as a secret, from creation to continued rotation.
 // It always returns the currently used CA pair, a bool indicating whether it was created/updated within this function call and an error.
 func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, bool, error) {
+	if c.Lock != nil {
+		c.Lock.Lock()
+		defer c.Lock.Unlock()
+	}
 	modified := false
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
