@@ -62,9 +62,9 @@ type CertRotationController struct {
 	// controller name
 	Name string
 	// RotatedSigningCASecret rotates a self-signed signing CA stored in a secret.
-	RotatedSigningCASecret RotatedSigningCASecret
+	RotatedSigningCASecret *RotatedSigningCASecret
 	// CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from rotatedSigningCASecret, and by removing expired old ones.
-	CABundleConfigMap CABundleConfigMap
+	CABundleConfigMap *CABundleConfigMap
 	// RotatedSelfSignedCertKeySecret rotates a key and cert signed by a signing CA and stores it in a secret.
 	RotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret
 
@@ -74,8 +74,8 @@ type CertRotationController struct {
 
 func NewCertRotationController(
 	name string,
-	rotatedSigningCASecret RotatedSigningCASecret,
-	caBundleConfigMap CABundleConfigMap,
+	rotatedSigningCASecret *RotatedSigningCASecret,
+	caBundleConfigMap *CABundleConfigMap,
 	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
