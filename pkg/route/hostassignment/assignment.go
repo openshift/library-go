@@ -166,8 +166,15 @@ func validateImmutableField(newVal, oldVal interface{}, fldPath *field.Path, err
 // done to the route object. If the route's host/subdomain has been updated it checks if
 // the user has "update" permission on custom-host subresource. If only the certificate
 // has changed, it checks if the user has "create" permission on the custom-host subresource.
+//
+// Which means "update" permission is required to change host/subdomain and
+// either "create" or "update" permission is required to change certificate.
+// https://github.com/openshift/origin/pull/18177#issuecomment-360660024.
+//
 // Caveat here is that if the route uses externalCertificate, the certChanged condition will
 // always be true since we cannot verify state of external secret object.
+// Due to this it proceeds with the assumption that the certificate has changed
+// when the route has externalCertificate set.
 func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc route.SubjectAccessReviewCreator, opts route.RouteValidationOptions) field.ErrorList {
 	hostChanged := route.Spec.Host != older.Spec.Host
 	subdomainChanged := route.Spec.Subdomain != older.Spec.Subdomain
@@ -246,7 +253,9 @@ func ValidateHostUpdate(ctx context.Context, route, older *routev1.Route, sarc r
 				if route.Spec.TLS.ExternalCertificate == nil || older.Spec.TLS.ExternalCertificate == nil {
 					errs = append(errs, validateImmutableField(route.Spec.TLS.ExternalCertificate, older.Spec.TLS.ExternalCertificate, field.NewPath("spec", "tls", "externalCertificate"), routeTLSPermissionErrMsg)...)
 				} else {
-					errs = append(errs, validateImmutableField(route.Spec.TLS.ExternalCertificate.Name, older.Spec.TLS.ExternalCertificate.Name, field.NewPath("spec", "tls", "externalCertificate"), routeTLSPermissionErrMsg)...)
+					// since the state of the external secret cannot be verified, return error (even when secret name remains unchanged)
+					// without performing immutability checks, if externalCertificate is set.
+					errs = append(errs, field.Invalid(field.NewPath("spec", "tls", "externalCertificate"), route.Spec.TLS.ExternalCertificate, routeTLSPermissionErrMsg))
 				}
 			}
 			return errs
