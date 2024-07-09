@@ -123,6 +123,14 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	return signingCertKeyPair, signerUpdated, nil
 }
 
+func (c RotatedSigningCASecret) getSigningCertKeyPair() (*crypto.CA, error) {
+	signingCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
+	if err != nil || apierrors.IsNotFound(err) || signingCertKeyPairSecret == nil {
+		return nil, err
+	}
+	return crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
+}
+
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
 func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) bool {
 	var found bool
