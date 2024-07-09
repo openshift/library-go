@@ -6,7 +6,6 @@ import "encoding/xml"
 // XML schema, but do not contain all valid fields. For instance, the class name
 // field for test cases is omitted, as this concept does not directly apply to Go.
 // For XML specifications see http://help.catchsoftware.com/display/ET/JUnit+Format
-// or view the XSD included in this package as 'junit.xsd'
 
 // Usage is something like
 // import "encoding/xml"
