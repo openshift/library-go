@@ -41,7 +41,7 @@ type CABundleConfigMap struct {
 	EventRecorder events.Recorder
 }
 
-func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+func (c CABundleConfigMap) ensureConfigMapCABundleFromCerts(ctx context.Context, signers []*x509.Certificate) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
 	modified := false
@@ -68,7 +68,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
 	modified = needsOwnerUpdate || needsMetadataUpdate || modified
 
-	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
+	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signers)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 			return nil, err
 		}
 		if updated {
-			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name, certs.CertificateBundleToString(updatedCerts))
 		}
 		caBundleConfigMap = actualCABundleConfigMap
 	}
@@ -103,9 +103,30 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	return certificates, nil
 }
 
+func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+	return c.ensureConfigMapCABundleFromCerts(ctx, signingCertKeyPair.Config.Certs)
+}
+
+func (c CABundleConfigMap) getConfigMapCABundle() ([]*x509.Certificate, error) {
+	caBundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
+	if err != nil || apierrors.IsNotFound(err) || caBundleConfigMap == nil {
+		return nil, err
+	}
+	caBundle := caBundleConfigMap.Data["ca-bundle.crt"]
+	if len(caBundle) == 0 {
+		return nil, fmt.Errorf("configmap/%s -n%s missing ca-bundle.crt", caBundleConfigMap.Name, caBundleConfigMap.Namespace)
+	}
+	certificates, err := cert.ParseCertsPEM([]byte(caBundle))
+	if err != nil {
+		return nil, err
+	}
+
+	return certificates, nil
+}
+
 // manageCABundleConfigMap adds the new certificate to the list of cabundles, eliminates duplicates, and prunes the list of expired
 // certs to trust as signers
-func manageCABundleConfigMap(caBundleConfigMap *corev1.ConfigMap, currentSigner *x509.Certificate) ([]*x509.Certificate, error) {
+func manageCABundleConfigMap(caBundleConfigMap *corev1.ConfigMap, signers []*x509.Certificate) ([]*x509.Certificate, error) {
 	if caBundleConfigMap.Data == nil {
 		caBundleConfigMap.Data = map[string]string{}
 	}
@@ -119,7 +140,7 @@ func manageCABundleConfigMap(caBundleConfigMap *corev1.ConfigMap, currentSigner 
 			return nil, err
 		}
 	}
-	certificates = append([]*x509.Certificate{currentSigner}, certificates...)
+	certificates = append(signers, certificates...)
 	certificates = crypto.FilterExpiredCerts(certificates...)
 
 	finalCertificates := []*x509.Certificate{}
