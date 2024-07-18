@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/openshift/library-go/pkg/security/ldapclient"
@@ -191,8 +191,8 @@ func TestNewSearchRequest(t *testing.T) {
 				},
 				QueryAttribute: "DN",
 			},
-			attributeValue:  "uid=john,o=users,dc=example,dc=com",
-			attributes:      DefaultAttributes,
+			attributeValue: "uid=john,o=users,dc=example,dc=com",
+			attributes:     DefaultAttributes,
 			expectedRequest: &ldap.SearchRequest{
 				BaseDN:       "uid=john,o=users,dc=example,dc=com",
 				Scope:        ldap.ScopeBaseObject,
@@ -204,7 +204,7 @@ func TestNewSearchRequest(t *testing.T) {
 				Attributes:   DefaultAttributes,
 				Controls:     DefaultControls,
 			},
-			expectedError:   false,
+			expectedError: false,
 		},
 		{
 			name: "attribute query no attributes with paging",
