@@ -382,6 +382,70 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 	}
 }
 
+func TestDeleteValidatingConfiguration(t *testing.T) {
+	defaultHook := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	defaultHook.SetName("test")
+	deleteEvent := "ValidatingWebhookConfigurationDeleted"
+
+	tests := []struct {
+		name           string
+		expectModified bool
+		existing       func() *admissionregistrationv1.ValidatingWebhookConfiguration
+		input          func() *admissionregistrationv1.ValidatingWebhookConfiguration
+		expectedEvents []string
+	}{
+		{
+			name:           "Should delete webhook if it exists",
+			expectModified: true,
+			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			existing: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			expectedEvents: []string{deleteEvent},
+		},
+		{
+			name:           "Should do nothing if webhook does not exist",
+			expectModified: false,
+			input: func() *admissionregistrationv1.ValidatingWebhookConfiguration {
+				hook := defaultHook.DeepCopy()
+				return hook
+			},
+			expectedEvents: []string{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			existingHooks := []runtime.Object{}
+			if test.existing != nil {
+				existingHooks = append(existingHooks, test.existing())
+			}
+			client := fake.NewSimpleClientset(existingHooks...)
+			recorder := events.NewInMemoryRecorder("test")
+
+			testApply := func(expectModify bool) {
+				updatedHook, modified, err := DeleteValidatingWebhookConfiguration(
+					context.TODO(),
+					client.AdmissionregistrationV1(),
+					recorder, test.input())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if expectModify != modified {
+					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedHook)
+				}
+			}
+
+			testApply(test.expectModified)
+			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
+		})
+	}
+}
+
 func TestApplyValidatingAdmissionPolicyConfiguration(t *testing.T) {
 	defaultPolicy := &admissionregistrationv1beta1.ValidatingAdmissionPolicy{}
 	defaultPolicy.SetName("test")

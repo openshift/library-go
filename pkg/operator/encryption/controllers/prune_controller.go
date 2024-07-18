@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
@@ -160,9 +160,9 @@ NextEncryptionSecret:
 
 		// remove our finalizer if it is present
 		secret := s.DeepCopy()
-		if finalizers := sets.New(secret.Finalizers...); finalizers.Has(secrets.EncryptionSecretFinalizer) {
-			delete(finalizers, secrets.EncryptionSecretFinalizer)
-			secret.Finalizers = sets.List(finalizers)
+		idx := slices.Index(secret.Finalizers, secrets.EncryptionSecretFinalizer)
+		if idx > -1 {
+			secret.Finalizers = slices.Delete(secret.Finalizers, idx, idx+1)
 			var updateErr error
 			secret, updateErr = c.secretClient.Secrets("openshift-config-managed").Update(ctx, secret, metav1.UpdateOptions{})
 			deleteErrs = append(deleteErrs, updateErr)
