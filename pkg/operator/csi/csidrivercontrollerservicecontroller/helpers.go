@@ -215,6 +215,14 @@ func WithPlaceholdersHook(configInformer configinformers.SharedInformerFactory) 
 		logLevel := loglevel.LogLevelToVerbosity(spec.LogLevel)
 		pairs = append(pairs, []string{"${LOG_LEVEL}", strconv.Itoa(logLevel)}...)
 
+		// FIPS
+		fipsEnabled := "\"false\""
+		contents, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
+		if err == nil && string(contents) == "1\n" {
+			fipsEnabled = "\"true\""
+		}
+		pairs = append(pairs, []string{"${FIPS_ENABLED}", fipsEnabled}...)
+
 		replaced := strings.NewReplacer(pairs...).Replace(string(manifest))
 		return []byte(replaced), nil
 	}
