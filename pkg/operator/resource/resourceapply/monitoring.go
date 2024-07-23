@@ -109,14 +109,14 @@ func ApplyUnstructuredResourceImproved(
 		return nil, false, err
 	}
 	if !found {
-		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in %s", existingCopy.GetName()))
+		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in the existing object: %s/%s", existing.GetNamespace(), existingCopy.GetName()))
 	}
 	requiredObjectMeta, found, err := unstructured.NestedMap(required.Object, "metadata")
 	if err != nil {
 		return nil, false, err
 	}
 	if !found {
-		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in %s", required.GetName()))
+		return nil, false, errorsstdlib.New(fmt.Sprintf("metadata not found in the required object: %s/%s", required.GetNamespace(), required.GetName()))
 	}
 
 	// Cast the metadata to the correct type.
@@ -127,6 +127,12 @@ func ApplyUnstructuredResourceImproved(
 	}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(requiredObjectMeta, &requiredObjectMetaTyped)
 	if err != nil {
+		return nil, false, err
+	}
+
+	// Fail-fast if the resource versions differ.
+	if requiredObjectMetaTyped.ResourceVersion != "" && existingObjectMetaTyped.ResourceVersion != requiredObjectMetaTyped.ResourceVersion {
+		err = errors.NewConflict(resourceGVR.GroupResource(), name, fmt.Errorf("rejected to update %s %s because the object has been modified: desired/actual ResourceVersion: %v/%v", existing.GetKind(), existing.GetName(), requiredObjectMetaTyped.ResourceVersion, existingObjectMetaTyped.ResourceVersion))
 		return nil, false, err
 	}
 
