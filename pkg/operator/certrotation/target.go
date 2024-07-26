@@ -125,7 +125,10 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	needsMetadataUpdate := ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	needsMetadataUpdate, err := ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	if err != nil {
+		return nil, err
+	}
 	needsSecretTypeUpdate := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
 	modified = needsMetadataUpdate || needsSecretTypeUpdate || modified
 

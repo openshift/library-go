@@ -90,7 +90,10 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	needsMetadataUpdate := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	needsMetadataUpdate, err := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	if err != nil {
+		return nil, false, err
+	}
 	needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
 	modified = needsMetadataUpdate || needsTypeChange || modified
 
@@ -128,7 +131,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 }
 
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
-func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) bool {
+func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) (bool, error) {
 	var found bool
 	for _, ref := range meta.OwnerReferences {
 		if ref == *owner {
@@ -136,11 +139,14 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 			break
 		}
 	}
-	if !found {
-		meta.OwnerReferences = append(meta.OwnerReferences, *owner)
-		return true
+	if !found && len(meta.OwnerReferences) > 0 {
+		return true, fmt.Errorf("attempting to add a new owner when it already exists: %#v", meta.OwnerReferences)
 	}
-	return false
+	if found {
+		return false, nil
+	}
+	meta.OwnerReferences = append(meta.OwnerReferences, *owner)
+	return true, nil
 }
 
 func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {

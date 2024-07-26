@@ -44,6 +44,7 @@ type CABundleConfigMap struct {
 func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA, signingCertKeyPairLocation string) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
+	var err error
 	modified := false
 
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
@@ -63,7 +64,10 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 
 	needsOwnerUpdate := false
 	if c.Owner != nil {
-		needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
+		needsOwnerUpdate, err = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
+		if err != nil {
+			return nil, err
+		}
 	}
 	needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
 	modified = needsOwnerUpdate || needsMetadataUpdate || modified
