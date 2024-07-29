@@ -119,7 +119,9 @@ func TestCertRotationController(t *testing.T) {
 		Owner:                 owner,
 	}
 
-	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{})
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
+	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 
 	time.AfterFunc(1*time.Second, func() {
 		cancel()
@@ -220,8 +222,10 @@ func TestCertRotationControllerIdempotent(t *testing.T) {
 		Owner:                 owner,
 	}
 
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
 	// Run sync once to get signer / cabundle / target filled up
-	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{})
+	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 	syncCtx := factory.NewSyncContext("test", eventstesting.NewTestingEventRecorder(t))
 	err := c.Sync(controllerCtx, syncCtx)
 	if err != nil {
@@ -319,8 +323,10 @@ func TestCertRotationControllerSignerUpdate(t *testing.T) {
 		Owner:                 owner,
 	}
 
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
 	// Run sync once to get signer / cabundle / target filled up
-	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{})
+	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 	syncCtx := factory.NewSyncContext("test", eventstesting.NewTestingEventRecorder(t))
 	err := c.Sync(controllerCtx, syncCtx)
 	if err != nil {
@@ -460,8 +466,10 @@ func TestCertRotationControllerFilterExpiredSigners(t *testing.T) {
 		Owner:                 owner,
 	}
 
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
 	// Run sync once to get signer / cabundle / target filled up
-	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{})
+	c := NewCertRotationController("operator", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 	syncCtx := factory.NewSyncContext("test", eventstesting.NewTestingEventRecorder(t))
 	err := c.Sync(controllerCtx, syncCtx)
 	if err != nil {
@@ -602,8 +610,10 @@ func TestCertRotationControllerParallelUpdate(t *testing.T) {
 		Owner:                 owner,
 	}
 
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
 	syncCtx := factory.NewSyncContext("test", eventstesting.NewTestingEventRecorder(t))
-	c1 := NewCertRotationController("c1", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{})
+	c1 := NewCertRotationController("c1", signerSecret, caBundleConfigMap, targetSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 
 	// Sync first controller to get first copy of signer/cabundle
 	err := c1.Sync(controllerCtx, syncCtx)
@@ -672,7 +682,9 @@ func TestCertRotationControllerParallelUpdate(t *testing.T) {
 			Owner:                 owner,
 		}
 		name := fmt.Sprintf("c%d", i)
-		ctrl := NewCertRotationController(name, signerSecret, caBundleConfigMap, targetNewSecret, eventRecorder, &fakeStatusReporter{})
+		controlledSecrets := []metav1.ObjectMeta{}
+		controlledConfigMaps := []metav1.ObjectMeta{}
+		ctrl := NewCertRotationController(name, signerSecret, caBundleConfigMap, targetNewSecret, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 		controllers[name] = ctrl
 	}
 
@@ -797,7 +809,9 @@ func TestCertRotationControllerMultipleTargets(t *testing.T) {
 		Owner:                 owner,
 	}
 
-	c := NewCertRotationControllerMultipleTargets("operator", signerSecret, caBundleConfigMap, []RotatedSelfSignedCertKeySecret{targetFirstSecret, targetSecondSecret}, eventRecorder, &fakeStatusReporter{})
+	controlledSecrets := []metav1.ObjectMeta{}
+	controlledConfigMaps := []metav1.ObjectMeta{}
+	c := NewCertRotationControllerMultipleTargets("operator", signerSecret, caBundleConfigMap, []RotatedSelfSignedCertKeySecret{targetFirstSecret, targetSecondSecret}, eventRecorder, &fakeStatusReporter{}, &controlledSecrets, &controlledConfigMaps)
 
 	time.AfterFunc(1*time.Second, func() {
 		cancel()

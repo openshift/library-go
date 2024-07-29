@@ -6,6 +6,7 @@ import (
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -80,6 +81,8 @@ func NewCertRotationController(
 	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
+	controlledSecrets *[]metav1.ObjectMeta,
+	controlledConfigMaps *[]metav1.ObjectMeta,
 ) factory.Controller {
 	c := &CertRotationController{
 		Name:                   name,
@@ -88,6 +91,19 @@ func NewCertRotationController(
 		RotatedTargetSecrets:   []RotatedSelfSignedCertKeySecret{rotatedSelfSignedCertKeySecret},
 		StatusReporter:         reporter,
 	}
+	*controlledSecrets = append(*controlledSecrets, metav1.ObjectMeta{
+		Name:      rotatedSigningCASecret.Name,
+		Namespace: rotatedSigningCASecret.Namespace,
+	})
+	*controlledConfigMaps = append(*controlledConfigMaps, metav1.ObjectMeta{
+		Name:      caBundleConfigMap.Name,
+		Namespace: caBundleConfigMap.Namespace,
+	})
+	*controlledSecrets = append(*controlledSecrets, metav1.ObjectMeta{
+		Name:      rotatedSelfSignedCertKeySecret.Name,
+		Namespace: rotatedSelfSignedCertKeySecret.Namespace,
+	})
+
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(c.Sync).
@@ -112,14 +128,28 @@ func NewCertRotationControllerMultipleTargets(
 	rotatedTargetSecrets []RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
+	controlledSecrets *[]metav1.ObjectMeta,
+	controlledConfigMaps *[]metav1.ObjectMeta,
 ) factory.Controller {
 	informers := sets.New[factory.Informer](
 		rotatedSigningCASecret.Informer.Informer(),
 		caBundleConfigMap.Informer.Informer(),
 	)
 
+	*controlledSecrets = append(*controlledSecrets, metav1.ObjectMeta{
+		Name:      rotatedSigningCASecret.Name,
+		Namespace: rotatedSigningCASecret.Namespace,
+	})
+	*controlledConfigMaps = append(*controlledConfigMaps, metav1.ObjectMeta{
+		Name:      caBundleConfigMap.Name,
+		Namespace: caBundleConfigMap.Namespace,
+	})
 	for _, target := range rotatedTargetSecrets {
 		informers = informers.Insert(target.Informer.Informer())
+		*controlledSecrets = append(*controlledSecrets, metav1.ObjectMeta{
+			Name:      target.Name,
+			Namespace: target.Namespace,
+		})
 	}
 
 	c := &CertRotationController{
