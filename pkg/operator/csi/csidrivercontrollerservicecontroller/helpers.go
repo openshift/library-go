@@ -35,6 +35,7 @@ const (
 	snapshotterImageEnvName   = "SNAPSHOTTER_IMAGE"
 	livenessProbeImageEnvName = "LIVENESS_PROBE_IMAGE"
 	kubeRBACProxyImageEnvName = "KUBE_RBAC_PROXY_IMAGE"
+	toolsImageEnvName         = "TOOLS_IMAGE"
 
 	infraConfigName = "cluster"
 )
@@ -206,6 +207,11 @@ func WithPlaceholdersHook(configInformer configinformers.SharedInformerFactory) 
 		kubeRBACProxy := os.Getenv(kubeRBACProxyImageEnvName)
 		if kubeRBACProxy != "" {
 			pairs = append(pairs, []string{"${KUBE_RBAC_PROXY_IMAGE}", kubeRBACProxy}...)
+		}
+
+		tools := os.Getenv(toolsImageEnvName)
+		if tools != "" {
+			pairs = append(pairs, []string{"${TOOLS_IMAGE}", tools}...)
 		}
 
 		// Cluster ID
