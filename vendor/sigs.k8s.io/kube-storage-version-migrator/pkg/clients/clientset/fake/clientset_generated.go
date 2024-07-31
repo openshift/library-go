@@ -74,10 +74,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var (
-	_ clientset.Interface = &Clientset{}
-	_ testing.FakeClient  = &Clientset{}
-)
+var _ clientset.Interface = &Clientset{}
 
 // MigrationV1alpha1 retrieves the MigrationV1alpha1Client
 func (c *Clientset) MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1Interface {

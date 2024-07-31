@@ -23,6 +23,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +35,9 @@ type FakeStorageStates struct {
 	Fake *FakeMigrationV1alpha1
 }
 
-var storagestatesResource = v1alpha1.SchemeGroupVersion.WithResource("storagestates")
+var storagestatesResource = schema.GroupVersionResource{Group: "migration.k8s.io", Version: "v1alpha1", Resource: "storagestates"}
 
-var storagestatesKind = v1alpha1.SchemeGroupVersion.WithKind("StorageState")
+var storagestatesKind = schema.GroupVersionKind{Group: "migration.k8s.io", Version: "v1alpha1", Kind: "StorageState"}
 
 // Get takes name of the storageState, and returns the corresponding storageState object, and an error if there is any.
 func (c *FakeStorageStates) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.StorageState, err error) {
@@ -109,7 +110,7 @@ func (c *FakeStorageStates) UpdateStatus(ctx context.Context, storageState *v1al
 // Delete takes name of the storageState and deletes it. Returns an error if one occurs.
 func (c *FakeStorageStates) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(storagestatesResource, name, opts), &v1alpha1.StorageState{})
+		Invokes(testing.NewRootDeleteAction(storagestatesResource, name), &v1alpha1.StorageState{})
 	return err
 }
 
