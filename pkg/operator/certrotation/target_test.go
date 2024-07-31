@@ -1,12 +1,18 @@
 package certrotation
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -140,7 +146,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 		initialSecretFn func() *corev1.Secret
 		caFn            func() (*crypto.CA, error)
 
-		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
 	}{
 		{
@@ -149,7 +155,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
 			initialSecretFn: func() *corev1.Secret { return nil },
-			verifyActions: func(t *testing.T, updateonly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -197,7 +203,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -233,80 +239,6 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			},
 		},
 		{
-			name: "update SecretTLSType secrets",
-			caFn: func() (*crypto.CA, error) {
-				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
-			},
-			initialSecretFn: func() *corev1.Secret {
-				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
-					Data:       map[string][]byte{},
-					Type:       "SecretTypeTLS",
-				}
-				return caBundleSecret
-			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 3
-				if updateOnly {
-					lengthWant = 2
-				}
-				actions := client.Actions()
-				if len(actions) != lengthWant {
-					t.Fatal(spew.Sdump(actions))
-				}
-
-				var idx int
-				switch updateOnly {
-				case true:
-					idx = 1
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("update", "secrets") {
-						t.Error(actions[1])
-					}
-				default:
-					idx = 2
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("delete", "secrets") {
-						t.Error(actions[1])
-					}
-					if !actions[2].Matches("create", "secrets") {
-						t.Error(actions[2])
-					}
-				}
-
-				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if len(actual.Annotations) == 0 {
-					t.Errorf("expected certificates to be annotated")
-				}
-				ownershipValue, found := actual.Annotations[annotations.OpenShiftComponent]
-				if !found {
-					t.Errorf("expected secret to have ownership annotations, got: %v", actual.Annotations)
-				}
-				if ownershipValue != "test" {
-					t.Errorf("expected ownership annotation to be 'test', got: %v", ownershipValue)
-				}
-				if actual.Type != corev1.SecretTypeTLS {
-					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
-				}
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
-					t.Error(actual.Data)
-				}
-				if actual.Annotations[CertificateHostnames] != "bar,foo" {
-					t.Error(actual.Annotations[CertificateHostnames])
-				}
-				if len(actual.OwnerReferences) != 1 {
-					t.Errorf("expected to have exactly one owner reference")
-				}
-				if actual.OwnerReferences[0].Name != "operator" {
-					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
-				}
-			},
-		},
-		{
 			name: "recreate invalid secret type",
 			caFn: func() (*crypto.CA, error) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
@@ -319,38 +251,21 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 3
-				if updateOnly {
-					lengthWant = 2
-				}
-
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != lengthWant {
+				if len(actions) != 3 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				var idx int
-				switch updateOnly {
-				case true:
-					idx = 1
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("update", "secrets") {
-						t.Error(actions[1])
-					}
-				default:
-					idx = 2
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("delete", "secrets") {
-						t.Error(actions[1])
-					}
-					if !actions[2].Matches("create", "secrets") {
-						t.Error(actions[2])
-					}
+				idx := 2
+				if !actions[0].Matches("get", "secrets") {
+					t.Error(actions[0])
+				}
+				if !actions[1].Matches("delete", "secrets") {
+					t.Error(actions[1])
+				}
+				if !actions[2].Matches("create", "secrets") {
+					t.Error(actions[2])
 				}
 
 				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
@@ -383,55 +298,52 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 		},
 	}
 
-	for _, b := range []bool{true, false} {
-		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/update-only/%t", test.name, b), func(t *testing.T) {
-				indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s/update-only", test.name), func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-				client := kubefake.NewSimpleClientset()
-				if startingObj := test.initialSecretFn(); startingObj != nil {
-					indexer.Add(startingObj)
-					client = kubefake.NewSimpleClientset(startingObj)
-				}
+			client := kubefake.NewSimpleClientset()
+			if startingObj := test.initialSecretFn(); startingObj != nil {
+				indexer.Add(startingObj)
+				client = kubefake.NewSimpleClientset(startingObj)
+			}
 
-				c := &RotatedSelfSignedCertKeySecret{
-					Namespace: "ns",
-					Validity:  24 * time.Hour,
-					Refresh:   12 * time.Hour,
-					Name:      "target-secret",
-					CertCreator: &ServingRotation{
-						Hostnames: func() []string { return []string{"foo", "bar"} },
-					},
+			c := &RotatedSelfSignedCertKeySecret{
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"foo", "bar"} },
+				},
 
-					Client:        client.CoreV1(),
-					Lister:        corev1listers.NewSecretLister(indexer),
-					EventRecorder: events.NewInMemoryRecorder("test"),
-					AdditionalAnnotations: AdditionalAnnotations{
-						JiraComponent: "test",
-					},
-					Owner: &metav1.OwnerReference{
-						Name: "operator",
-					},
-					UseSecretUpdateOnly: b,
-				}
+				Client:        client.CoreV1(),
+				Lister:        corev1listers.NewSecretLister(indexer),
+				EventRecorder: events.NewInMemoryRecorder("test"),
+				AdditionalAnnotations: AdditionalAnnotations{
+					JiraComponent: "test",
+				},
+				Owner: &metav1.OwnerReference{
+					Name: "operator",
+				},
+			}
 
-				newCA, err := test.caFn()
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
-				switch {
-				case err != nil && len(test.expectedError) == 0:
-					t.Error(err)
-				case err != nil && !strings.Contains(err.Error(), test.expectedError):
-					t.Error(err)
-				case err == nil && len(test.expectedError) != 0:
-					t.Errorf("missing %q", test.expectedError)
-				}
+			newCA, err := test.caFn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			switch {
+			case err != nil && len(test.expectedError) == 0:
+				t.Error(err)
+			case err != nil && !strings.Contains(err.Error(), test.expectedError):
+				t.Error(err)
+			case err == nil && len(test.expectedError) != 0:
+				t.Errorf("missing %q", test.expectedError)
+			}
 
-				test.verifyActions(t, b, client)
-			})
-		}
+			test.verifyActions(t, client)
+		})
 	}
 }
 
@@ -496,7 +408,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 		initialSecretFn func() *corev1.Secret
 		caFn            func() (*crypto.CA, error)
 
-		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
 	}{
 		{
@@ -505,7 +417,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
 			initialSecretFn: func() *corev1.Secret { return nil },
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -553,7 +465,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -586,48 +498,306 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 		},
 	}
 
-	for _, b := range []bool{true, false} {
-		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/update-only/%t", test.name, b), func(t *testing.T) {
-				indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s/update-only", test.name), func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-				client := kubefake.NewSimpleClientset()
-				if startingObj := test.initialSecretFn(); startingObj != nil {
-					indexer.Add(startingObj)
-					client = kubefake.NewSimpleClientset(startingObj)
-				}
+			client := kubefake.NewSimpleClientset()
+			if startingObj := test.initialSecretFn(); startingObj != nil {
+				indexer.Add(startingObj)
+				client = kubefake.NewSimpleClientset(startingObj)
+			}
 
-				c := &RotatedSelfSignedCertKeySecret{
-					Namespace: "ns",
-					Validity:  24 * time.Hour,
-					Refresh:   12 * time.Hour,
-					Name:      "target-secret",
-					CertCreator: &SignerRotation{
-						SignerName: "lower-signer",
-					},
+			c := &RotatedSelfSignedCertKeySecret{
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
+				CertCreator: &SignerRotation{
+					SignerName: "lower-signer",
+				},
 
-					Client:              client.CoreV1(),
-					Lister:              corev1listers.NewSecretLister(indexer),
-					EventRecorder:       events.NewInMemoryRecorder("test"),
-					UseSecretUpdateOnly: b,
-				}
+				Client:        client.CoreV1(),
+				Lister:        corev1listers.NewSecretLister(indexer),
+				EventRecorder: events.NewInMemoryRecorder("test"),
+			}
 
-				newCA, err := test.caFn()
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
-				switch {
-				case err != nil && len(test.expectedError) == 0:
-					t.Error(err)
-				case err != nil && !strings.Contains(err.Error(), test.expectedError):
-					t.Error(err)
-				case err == nil && len(test.expectedError) != 0:
-					t.Errorf("missing %q", test.expectedError)
-				}
+			newCA, err := test.caFn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			switch {
+			case err != nil && len(test.expectedError) == 0:
+				t.Error(err)
+			case err != nil && !strings.Contains(err.Error(), test.expectedError):
+				t.Error(err)
+			case err == nil && len(test.expectedError) != 0:
+				t.Errorf("missing %q", test.expectedError)
+			}
 
-				test.verifyActions(t, b, client)
-			})
-		}
+			test.verifyActions(t, client)
+		})
 	}
+}
+
+// A simplified test scenario for a race condition when multiple CertRotationControllers
+// are used with the same SignerSecret (CA) and CABundleConfigMap.
+//
+// Let's assume there are two target controllers (firstCertController and secondCertController).
+// The specific implementation details of these controllers are not defined in this test.
+//
+// During the recovery process, when the Signer is expired, the following sequence of events can occur:
+//
+// 1. firstCertController regenerates the signer (firstSignerSecret).
+//
+// 2. secondCertController regenerates the signer (secondSignerSecret) because it hasn't observed the change from step 1.
+//
+// 3. firstCertController regenerates the client cert and signs it with the firstSignerSecret.
+//
+// 4. secondCertController regenerates the client cert and signs it with the secondSignerSecret.
+//
+// At this point, we have client certs signed with two different signers (different keys) but with the same CommonName.
+//
+//  5. Since secondCertController persisted its signer last (the secondSignerSecret is stored in the shared secret), at some point,
+//     the firstCertController gets triggered BUT it will NOT regenerate the client cert BECAUSE
+//     the CommonName (from the firstSignerSecret) matches the one from secondSignerSecret.
+func TestEnsureTargetCertKeyPairSignerCommonName(t *testing.T) {
+	// firstSignerSecret would be generated by the firstCertController
+	firstSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(firstSignerSecret, time.Hour))
+
+	time.Sleep(time.Second * 1)
+	// the secondSignerSecret would be generated by the secondCertController
+	secondSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(secondSignerSecret, time.Hour))
+
+	firstSecretCommonName := firstSignerSecret.Annotations[CertificateIssuer]
+	secondSecretCommonName := secondSignerSecret.Annotations[CertificateIssuer]
+	require.NotEqual(t, firstSecretCommonName, secondSecretCommonName)
+
+	firstSigner, err := crypto.GetCAFromBytes(firstSignerSecret.Data["tls.crt"], firstSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+	secondSigner, err := crypto.GetCAFromBytes(secondSignerSecret.Data["tls.crt"], secondSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+
+	fakeKubeClient := kubefake.NewSimpleClientset()
+	coreV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	// firstClientCertificate managed by firstCertController
+	firstClientCertificate := RotatedSelfSignedCertKeySecret{
+		Namespace: "ns",
+		Name:      "first-client-secret",
+		Validity:  24 * time.Hour,
+		Refresh:   12 * time.Hour,
+		CertCreator: &ClientRotation{
+			UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
+		},
+
+		Client:        fakeKubeClient.CoreV1(),
+		Lister:        corev1listers.NewSecretLister(coreV1Indexer),
+		EventRecorder: events.NewInMemoryRecorder("test"),
+	}
+
+	// normally, we would have secondClientCertificate managed by secondCertController,
+	// but it is not needed to show the issue
+
+	// normally, firstCertController would call EnsureTargetCertKeyPair
+	firstClientCertResult, err := firstClientCertificate.EnsureTargetCertKeyPair(context.TODO(), firstSigner, []*x509.Certificate{firstSigner.Config.Certs[0]})
+	require.NoError(t, err)
+	coreV1Indexer.Add(firstClientCertResult)
+
+	// since the secondCertController won, eventually secondSignerSecret should be used
+	// to regenerate the firstClientCertificate but because the CommonName is exactly the same, but it isn't
+	firstClientCertSecondResult, err := firstClientCertificate.EnsureTargetCertKeyPair(context.TODO(), secondSigner, []*x509.Certificate{secondSigner.Config.Certs[0]})
+	require.NoError(t, err)
+
+	// the firstClientCertSecondResult should be signed with the secondSignerSecret
+	require.NotEqual(t, firstClientCertResult, firstClientCertSecondResult)
+}
+
+// TestCABundleWithMultipleSigners shows that a CABundle can miss a CAs
+func TestCABundleWithMultipleSigners(t *testing.T) {
+	firstSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(firstSignerSecret, time.Hour))
+	time.Sleep(time.Second * 1)
+
+	secondSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(secondSignerSecret, time.Hour))
+
+	firstSecretCommonName := firstSignerSecret.Annotations[CertificateIssuer]
+	secondSecretCommonName := secondSignerSecret.Annotations[CertificateIssuer]
+	require.NotEqual(t, firstSecretCommonName, secondSecretCommonName)
+
+	firstSigner, err := crypto.GetCAFromBytes(firstSignerSecret.Data["tls.crt"], firstSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+	secondSigner, err := crypto.GetCAFromBytes(secondSignerSecret.Data["tls.crt"], secondSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+
+	fakeKubeClient := kubefake.NewSimpleClientset()
+	coreV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	target := CABundleConfigMap{
+		Namespace:     "ns",
+		Name:          "trust-bundle",
+		Client:        fakeKubeClient.CoreV1(),
+		Lister:        corev1listers.NewConfigMapLister(coreV1Indexer),
+		EventRecorder: events.NewInMemoryRecorder("test"),
+	}
+
+	expectedCertificates := []*x509.Certificate{}
+
+	res, err := target.EnsureConfigMapCABundle(context.TODO(), firstSigner, "test-ns/first-test-signer")
+	require.NoError(t, err)
+	_, err = fakeKubeClient.CoreV1().ConfigMaps("ns").Get(context.Background(), "trust-bundle", metav1.GetOptions{})
+	require.NoError(t, err)
+	expectedCertificates = append(expectedCertificates, firstSigner.Config.Certs[0])
+	require.Equal(t, expectedCertificates, res)
+
+	// Emulate configmap already existing
+
+	res, err = target.EnsureConfigMapCABundle(context.TODO(), secondSigner, "test-ns/second-test-signer")
+	require.NoError(t, err)
+	expectedCertificates = append(expectedCertificates, secondSigner.Config.Certs[0])
+	sort.SliceStable(expectedCertificates, func(i, j int) bool {
+		return bytes.Compare(expectedCertificates[i].Raw, expectedCertificates[j].Raw) < 0
+	})
+	require.Equal(t, expectedCertificates, res)
+}
+
+// TestCABundleWithMultipleSignersThree shows that a CABundle can miss a CAs
+func TestCABundleWithMultipleSignersThree(t *testing.T) {
+	firstSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(firstSignerSecret, time.Hour))
+	secondSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(secondSignerSecret, time.Hour))
+	thirdSignerSecret := &corev1.Secret{}
+	require.NoError(t, setSigningCertKeyPairSecret(thirdSignerSecret, time.Hour))
+
+	firstSecretCommonName := firstSignerSecret.Annotations[CertificateIssuer]
+	secondSecretCommonName := secondSignerSecret.Annotations[CertificateIssuer]
+	thirdSecretCommonName := thirdSignerSecret.Annotations[CertificateIssuer]
+	require.Equal(t, firstSecretCommonName, secondSecretCommonName, thirdSecretCommonName)
+
+	firstSigner, err := crypto.GetCAFromBytes(firstSignerSecret.Data["tls.crt"], firstSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+	secondSigner, err := crypto.GetCAFromBytes(secondSignerSecret.Data["tls.crt"], secondSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+	thirdSigner, err := crypto.GetCAFromBytes(thirdSignerSecret.Data["tls.crt"], thirdSignerSecret.Data["tls.key"])
+	require.NoError(t, err)
+
+	fakeKubeClient := kubefake.NewSimpleClientset()
+	coreV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	target := CABundleConfigMap{
+		Namespace:     "ns",
+		Name:          "trust-bundle",
+		Client:        fakeKubeClient.CoreV1(),
+		Lister:        corev1listers.NewConfigMapLister(coreV1Indexer),
+		EventRecorder: events.NewInMemoryRecorder("test"),
+	}
+
+	expectedCertificates := []*x509.Certificate{firstSigner.Config.Certs[0]}
+	res, err := target.EnsureConfigMapCABundle(context.TODO(), firstSigner, "test-ns/first-test-signer")
+	require.NoError(t, err)
+	require.Equal(t, expectedCertificates, res)
+	caBundleConfigMap, err := fakeKubeClient.CoreV1().ConfigMaps("ns").Get(context.Background(), "trust-bundle", metav1.GetOptions{})
+	require.NoError(t, err)
+	coreV1Indexer.Add(caBundleConfigMap)
+
+	res, err = target.EnsureConfigMapCABundle(context.TODO(), secondSigner, "test-ns/first-test-signer")
+	require.NoError(t, err)
+	// by not adding the raBundleConfigMap
+	// to the lister, we simulate the race condition
+	// that causes overwriting of the CM
+	//
+	// nevertheless, let's add the secondSigner to our expectedCertificates
+	expectedCertificates = append(expectedCertificates, secondSigner.Config.Certs[0])
+	sort.SliceStable(expectedCertificates, func(i, j int) bool {
+		return bytes.Compare(expectedCertificates[i].Raw, expectedCertificates[j].Raw) < 0
+	})
+	require.Equal(t, expectedCertificates, res)
+
+	res, err = target.EnsureConfigMapCABundle(context.TODO(), thirdSigner, "test-ns/third-test-signer")
+	require.NoError(t, err)
+	expectedCertificates = append(expectedCertificates, thirdSigner.Config.Certs[0])
+	sort.SliceStable(expectedCertificates, func(i, j int) bool {
+		return bytes.Compare(expectedCertificates[i].Raw, expectedCertificates[j].Raw) < 0
+	})
+	require.Equal(t, expectedCertificates, res)
+}
+
+func TestRotatedSigningCASecretSameCommonName(t *testing.T) {
+	fakeKubeClient := kubefake.NewSimpleClientset()
+	coreV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	signer := RotatedSigningCASecret{
+		Namespace:     "ns",
+		Name:          "signer",
+		Validity:      24 * time.Hour,
+		Refresh:       12 * time.Hour,
+		Client:        fakeKubeClient.CoreV1(),
+		Lister:        corev1listers.NewSecretLister(coreV1Indexer),
+		EventRecorder: events.NewInMemoryRecorder("test"),
+	}
+
+	firstSigner, signerUpdated, err := signer.EnsureSigningCertKeyPair(context.TODO())
+	require.NoError(t, err)
+	require.True(t, signerUpdated)
+	signerSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "signer",
+			Namespace: "ns",
+		},
+	}
+	ensureMetadataUpdate(signerSecret, signer.Owner, signer.AdditionalAnnotations)
+	err = setSigningCertKeyPairSecret(signerSecret, signer.Validity)
+	require.NoError(t, err)
+	coreV1Indexer.Add(signerSecret)
+
+	secondSigner, signerUpdated, err := signer.EnsureSigningCertKeyPair(context.TODO())
+	require.NoError(t, err)
+	require.False(t, signerUpdated)
+
+	firstSecretCommonName := firstSigner.Config.Certs[0].Subject.CommonName
+	secondSecretCommonName := secondSigner.Config.Certs[0].Subject.CommonName
+	require.Equal(t, firstSecretCommonName, secondSecretCommonName)
+}
+
+func TestRotatedSigningCASecretUpdateError(t *testing.T) {
+	fakeKubeClient := kubefake.NewSimpleClientset()
+	coreV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	signer := RotatedSigningCASecret{
+		Namespace:     "ns",
+		Name:          "signer",
+		Validity:      24 * time.Hour,
+		Refresh:       12 * time.Hour,
+		Client:        fakeKubeClient.CoreV1(),
+		Lister:        corev1listers.NewSecretLister(coreV1Indexer),
+		EventRecorder: events.NewInMemoryRecorder("test"),
+	}
+
+	firstSigner, signerUpdated, err := signer.EnsureSigningCertKeyPair(context.TODO())
+	require.NoError(t, err)
+	require.True(t, signerUpdated)
+	signerSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "signer",
+			Namespace:       "ns",
+			ResourceVersion: "10",
+		},
+	}
+	ensureMetadataUpdate(signerSecret, signer.Owner, signer.AdditionalAnnotations)
+	err = setSigningCertKeyPairSecret(signerSecret, signer.Validity)
+	require.NoError(t, err)
+	coreV1Indexer.Add(signerSecret)
+
+	secondSigner, signerUpdated, err := signer.EnsureSigningCertKeyPair(context.TODO())
+	require.NoError(t, err)
+	require.False(t, signerUpdated)
+
+	firstSecretCommonName := firstSigner.Config.Certs[0].Subject.CommonName
+	secondSecretCommonName := secondSigner.Config.Certs[0].Subject.CommonName
+	require.Equal(t, firstSecretCommonName, secondSecretCommonName)
 }
