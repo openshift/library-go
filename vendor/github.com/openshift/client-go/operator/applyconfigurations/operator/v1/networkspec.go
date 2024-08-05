@@ -7,7 +7,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// NetworkSpecApplyConfiguration represents an declarative configuration of the NetworkSpec type for use
+// NetworkSpecApplyConfiguration represents a declarative configuration of the NetworkSpec type for use
 // with apply.
 type NetworkSpecApplyConfiguration struct {
 	OperatorSpecApplyConfiguration `json:",inline"`
@@ -24,7 +24,7 @@ type NetworkSpecApplyConfiguration struct {
 	Migration                      *NetworkMigrationApplyConfiguration             `json:"migration,omitempty"`
 }
 
-// NetworkSpecApplyConfiguration constructs an declarative configuration of the NetworkSpec type for use with
+// NetworkSpecApplyConfiguration constructs a declarative configuration of the NetworkSpec type for use with
 // apply.
 func NetworkSpec() *NetworkSpecApplyConfiguration {
 	return &NetworkSpecApplyConfiguration{}

@@ -2,7 +2,7 @@
 
 package v1
 
-// ImageSpecApplyConfiguration represents an declarative configuration of the ImageSpec type for use
+// ImageSpecApplyConfiguration represents a declarative configuration of the ImageSpec type for use
 // with apply.
 type ImageSpecApplyConfiguration struct {
 	AllowedRegistriesForImport []RegistryLocationApplyConfiguration      `json:"allowedRegistriesForImport,omitempty"`
@@ -11,7 +11,7 @@ type ImageSpecApplyConfiguration struct {
 	RegistrySources            *RegistrySourcesApplyConfiguration        `json:"registrySources,omitempty"`
 }
 
-// ImageSpecApplyConfiguration constructs an declarative configuration of the ImageSpec type for use with
+// ImageSpecApplyConfiguration constructs a declarative configuration of the ImageSpec type for use with
 // apply.
 func ImageSpec() *ImageSpecApplyConfiguration {
 	return &ImageSpecApplyConfiguration{}
