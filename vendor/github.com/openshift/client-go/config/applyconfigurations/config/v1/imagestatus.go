@@ -2,14 +2,14 @@
 
 package v1
 
-// ImageStatusApplyConfiguration represents an declarative configuration of the ImageStatus type for use
+// ImageStatusApplyConfiguration represents a declarative configuration of the ImageStatus type for use
 // with apply.
 type ImageStatusApplyConfiguration struct {
 	InternalRegistryHostname  *string  `json:"internalRegistryHostname,omitempty"`
 	ExternalRegistryHostnames []string `json:"externalRegistryHostnames,omitempty"`
 }
 
-// ImageStatusApplyConfiguration constructs an declarative configuration of the ImageStatus type for use with
+// ImageStatusApplyConfiguration constructs a declarative configuration of the ImageStatus type for use with
 // apply.
 func ImageStatus() *ImageStatusApplyConfiguration {
 	return &ImageStatusApplyConfiguration{}

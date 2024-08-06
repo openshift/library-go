@@ -630,7 +630,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: extension
       type:
         namedType: __untyped_atomic_
-      default: {}
     - name: relatedObjects
       type:
         list:
@@ -649,7 +648,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: lastTransitionTime
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
-      default: {}
     - name: message
       type:
         scalar: string
@@ -3345,7 +3343,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: startedTime
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
-      default: {}
     - name: state
       type:
         scalar: string
@@ -3963,6 +3960,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: request
+      type:
+        scalar: string
 - name: io.k8s.api.core.v1.ResourceFieldSelector
   map:
     fields:
@@ -3972,7 +3972,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: divisor
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
-      default: {}
     - name: resource
       type:
         scalar: string
@@ -4040,7 +4039,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: lastTransitionTime
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
-      default: {}
     - name: message
       type:
         scalar: string
@@ -4141,7 +4139,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: creationTimestamp
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
-      default: {}
     - name: deletionGracePeriodSeconds
       type:
         scalar: numeric
