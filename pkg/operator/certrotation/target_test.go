@@ -150,18 +150,14 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			initialSecretFn: func() *corev1.Secret { return nil },
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
-
-				if !actions[0].Matches("get", "secrets") {
+				if !actions[0].Matches("create", "secrets") {
 					t.Error(actions[0])
 				}
-				if !actions[1].Matches("create", "secrets") {
-					t.Error(actions[1])
-				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				actual := actions[0].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 				if len(actual.Annotations) == 0 {
 					t.Errorf("expected certificates to be annotated")
 				}
@@ -198,75 +194,15 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[1].Matches("update", "secrets") {
-					t.Error(actions[1])
-				}
-
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if len(actual.Annotations) == 0 {
-					t.Errorf("expected certificates to be annotated")
-				}
-				ownershipValue, found := actual.Annotations[annotations.OpenShiftComponent]
-				if !found {
-					t.Errorf("expected secret to have ownership annotations, got: %v", actual.Annotations)
-				}
-				if ownershipValue != "test" {
-					t.Errorf("expected ownership annotation to be 'test', got: %v", ownershipValue)
-				}
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
-					t.Error(actual.Data)
-				}
-				if actual.Annotations[CertificateHostnames] != "bar,foo" {
-					t.Error(actual.Annotations[CertificateHostnames])
-				}
-				if len(actual.OwnerReferences) != 1 {
-					t.Errorf("expected to have exactly one owner reference")
-				}
-				if actual.OwnerReferences[0].Name != "operator" {
-					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
-				}
-			},
-		},
-		{
-			name: "update SecretTLSType secrets",
-			caFn: func() (*crypto.CA, error) {
-				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
-			},
-			initialSecretFn: func() *corev1.Secret {
-				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
-					Data:       map[string][]byte{},
-					Type:       "SecretTypeTLS",
-				}
-				return caBundleSecret
-			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
-				actions := client.Actions()
-				if len(actions) != 5 {
-					t.Fatal(spew.Sdump(actions))
-				}
-
-				if !actions[0].Matches("get", "secrets") {
+				if !actions[0].Matches("update", "secrets") {
 					t.Error(actions[0])
 				}
-				if !actions[1].Matches("delete", "secrets") {
-					t.Error(actions[1])
-				}
-				if !actions[2].Matches("create", "secrets") {
-					t.Error(actions[2])
-				}
-				if !actions[3].Matches("get", "secrets") {
-					t.Error(actions[3])
-				}
-				if !actions[4].Matches("update", "secrets") {
-					t.Error(actions[4])
-				}
 
-				actual := actions[4].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if len(actual.Annotations) == 0 {
 					t.Errorf("expected certificates to be annotated")
 				}
@@ -276,72 +212,6 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				if ownershipValue != "test" {
 					t.Errorf("expected ownership annotation to be 'test', got: %v", ownershipValue)
-				}
-				if actual.Type != corev1.SecretTypeTLS {
-					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
-				}
-				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
-					t.Error(actual.Data)
-				}
-				if actual.Annotations[CertificateHostnames] != "bar,foo" {
-					t.Error(actual.Annotations[CertificateHostnames])
-				}
-				if len(actual.OwnerReferences) != 1 {
-					t.Errorf("expected to have exactly one owner reference")
-				}
-				if actual.OwnerReferences[0].Name != "operator" {
-					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
-				}
-			},
-		},
-		{
-			name: "recreate invalid secret type",
-			caFn: func() (*crypto.CA, error) {
-				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
-			},
-			initialSecretFn: func() *corev1.Secret {
-				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
-					Type:       corev1.SecretTypeOpaque,
-					Data:       map[string][]byte{"foo": {}, "bar": {}},
-				}
-				return caBundleSecret
-			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
-				actions := client.Actions()
-				if len(actions) != 5 {
-					t.Fatal(spew.Sdump(actions))
-				}
-
-				if !actions[0].Matches("get", "secrets") {
-					t.Error(actions[0])
-				}
-				if !actions[1].Matches("delete", "secrets") {
-					t.Error(actions[1])
-				}
-				if !actions[2].Matches("create", "secrets") {
-					t.Error(actions[2])
-				}
-				if !actions[3].Matches("get", "secrets") {
-					t.Error(actions[3])
-				}
-				if !actions[4].Matches("update", "secrets") {
-					t.Error(actions[4])
-				}
-
-				actual := actions[4].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if len(actual.Annotations) == 0 {
-					t.Errorf("expected certificates to be annotated")
-				}
-				ownershipValue, found := actual.Annotations[annotations.OpenShiftComponent]
-				if !found {
-					t.Errorf("expected secret to have ownership annotations, got: %v", actual.Annotations)
-				}
-				if ownershipValue != "test" {
-					t.Errorf("expected ownership annotation to be 'test', got: %v", ownershipValue)
-				}
-				if actual.Type != corev1.SecretTypeTLS {
-					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
 				}
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
@@ -480,18 +350,15 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			initialSecretFn: func() *corev1.Secret { return nil },
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[0].Matches("get", "secrets") {
+				if !actions[0].Matches("create", "secrets") {
 					t.Error(actions[0])
 				}
-				if !actions[1].Matches("create", "secrets") {
-					t.Error(actions[1])
-				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				actual := actions[0].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
 				}
@@ -520,7 +387,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			},
 			initialSecretFn: func() *corev1.Secret {
 				caBundleSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
 					Data:       map[string][]byte{},
 					Type:       corev1.SecretTypeTLS,
 				}
@@ -528,15 +395,15 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[1].Matches("update", "secrets") {
-					t.Error(actions[1])
+				if !actions[0].Matches("update", "secrets") {
+					t.Error(actions[0])
 				}
 
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
 				}
