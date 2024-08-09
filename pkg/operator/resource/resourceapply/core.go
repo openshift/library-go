@@ -88,14 +88,6 @@ func ApplySecret(ctx context.Context, client coreclientv1.SecretsGetter, recorde
 	return applySecretImproved(ctx, client, recorder, required, noCache, false)
 }
 
-// ApplySecretDoNotUse is depreated and will be removed
-// Deprecated: DO NOT USE, it is intended as a short term hack for a very specific use case,
-// and it works in tandem with a particular carry patch applied to the openshift kube-apiserver.
-// Use ApplySecret instead.
-func ApplySecretDoNotUse(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret) (*corev1.Secret, bool, error) {
-	return applySecretImproved(ctx, client, recorder, required, noCache, true)
-}
-
 // ApplyNamespace merges objectmeta, does not worry about anything else
 func ApplyNamespaceImproved(ctx context.Context, client coreclientv1.NamespacesGetter, recorder events.Recorder, required *corev1.Namespace, cache ResourceCache) (*corev1.Namespace, bool, error) {
 	existing, err := client.Namespaces().Get(ctx, required.Name, metav1.GetOptions{})
