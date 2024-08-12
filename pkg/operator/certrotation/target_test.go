@@ -3,7 +3,6 @@ package certrotation
 import (
 	"context"
 	"crypto/x509/pkix"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -140,7 +139,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 		initialSecretFn func() *corev1.Secret
 		caFn            func() (*crypto.CA, error)
 
-		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
 	}{
 		{
@@ -149,7 +148,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
 			initialSecretFn: func() *corev1.Secret { return nil },
-			verifyActions: func(t *testing.T, updateonly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -197,7 +196,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -245,40 +244,29 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 3
-				if updateOnly {
-					lengthWant = 2
-				}
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != lengthWant {
+				if len(actions) != 5 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				var idx int
-				switch updateOnly {
-				case true:
-					idx = 1
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("update", "secrets") {
-						t.Error(actions[1])
-					}
-				default:
-					idx = 2
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("delete", "secrets") {
-						t.Error(actions[1])
-					}
-					if !actions[2].Matches("create", "secrets") {
-						t.Error(actions[2])
-					}
+				if !actions[0].Matches("get", "secrets") {
+					t.Error(actions[0])
+				}
+				if !actions[1].Matches("delete", "secrets") {
+					t.Error(actions[1])
+				}
+				if !actions[2].Matches("create", "secrets") {
+					t.Error(actions[2])
+				}
+				if !actions[3].Matches("get", "secrets") {
+					t.Error(actions[3])
+				}
+				if !actions[4].Matches("update", "secrets") {
+					t.Error(actions[4])
 				}
 
-				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				actual := actions[4].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if len(actual.Annotations) == 0 {
 					t.Errorf("expected certificates to be annotated")
 				}
@@ -319,41 +307,29 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
-				lengthWant := 3
-				if updateOnly {
-					lengthWant = 2
-				}
-
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != lengthWant {
+				if len(actions) != 5 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				var idx int
-				switch updateOnly {
-				case true:
-					idx = 1
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("update", "secrets") {
-						t.Error(actions[1])
-					}
-				default:
-					idx = 2
-					if !actions[0].Matches("get", "secrets") {
-						t.Error(actions[0])
-					}
-					if !actions[1].Matches("delete", "secrets") {
-						t.Error(actions[1])
-					}
-					if !actions[2].Matches("create", "secrets") {
-						t.Error(actions[2])
-					}
+				if !actions[0].Matches("get", "secrets") {
+					t.Error(actions[0])
+				}
+				if !actions[1].Matches("delete", "secrets") {
+					t.Error(actions[1])
+				}
+				if !actions[2].Matches("create", "secrets") {
+					t.Error(actions[2])
+				}
+				if !actions[3].Matches("get", "secrets") {
+					t.Error(actions[3])
+				}
+				if !actions[4].Matches("update", "secrets") {
+					t.Error(actions[4])
 				}
 
-				actual := actions[idx].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				actual := actions[4].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if len(actual.Annotations) == 0 {
 					t.Errorf("expected certificates to be annotated")
 				}
@@ -383,55 +359,52 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 		},
 	}
 
-	for _, b := range []bool{true, false} {
-		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/update-only/%t", test.name, b), func(t *testing.T) {
-				indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-				client := kubefake.NewSimpleClientset()
-				if startingObj := test.initialSecretFn(); startingObj != nil {
-					indexer.Add(startingObj)
-					client = kubefake.NewSimpleClientset(startingObj)
-				}
+			client := kubefake.NewSimpleClientset()
+			if startingObj := test.initialSecretFn(); startingObj != nil {
+				indexer.Add(startingObj)
+				client = kubefake.NewSimpleClientset(startingObj)
+			}
 
-				c := &RotatedSelfSignedCertKeySecret{
-					Namespace: "ns",
-					Validity:  24 * time.Hour,
-					Refresh:   12 * time.Hour,
-					Name:      "target-secret",
-					CertCreator: &ServingRotation{
-						Hostnames: func() []string { return []string{"foo", "bar"} },
-					},
+			c := &RotatedSelfSignedCertKeySecret{
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"foo", "bar"} },
+				},
 
-					Client:        client.CoreV1(),
-					Lister:        corev1listers.NewSecretLister(indexer),
-					EventRecorder: events.NewInMemoryRecorder("test"),
-					AdditionalAnnotations: AdditionalAnnotations{
-						JiraComponent: "test",
-					},
-					Owner: &metav1.OwnerReference{
-						Name: "operator",
-					},
-					UseSecretUpdateOnly: b,
-				}
+				Client:        client.CoreV1(),
+				Lister:        corev1listers.NewSecretLister(indexer),
+				EventRecorder: events.NewInMemoryRecorder("test"),
+				AdditionalAnnotations: AdditionalAnnotations{
+					JiraComponent: "test",
+				},
+				Owner: &metav1.OwnerReference{
+					Name: "operator",
+				},
+			}
 
-				newCA, err := test.caFn()
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
-				switch {
-				case err != nil && len(test.expectedError) == 0:
-					t.Error(err)
-				case err != nil && !strings.Contains(err.Error(), test.expectedError):
-					t.Error(err)
-				case err == nil && len(test.expectedError) != 0:
-					t.Errorf("missing %q", test.expectedError)
-				}
+			newCA, err := test.caFn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			switch {
+			case err != nil && len(test.expectedError) == 0:
+				t.Error(err)
+			case err != nil && !strings.Contains(err.Error(), test.expectedError):
+				t.Error(err)
+			case err == nil && len(test.expectedError) != 0:
+				t.Errorf("missing %q", test.expectedError)
+			}
 
-				test.verifyActions(t, b, client)
-			})
-		}
+			test.verifyActions(t, client)
+		})
 	}
 }
 
@@ -496,7 +469,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 		initialSecretFn func() *corev1.Secret
 		caFn            func() (*crypto.CA, error)
 
-		verifyActions func(t *testing.T, updateOnly bool, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
 	}{
 		{
@@ -505,7 +478,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
 			initialSecretFn: func() *corev1.Secret { return nil },
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -553,7 +526,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 				return caBundleSecret
 			},
-			verifyActions: func(t *testing.T, updateOnly bool, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 2 {
 					t.Fatal(spew.Sdump(actions))
@@ -586,48 +559,45 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 		},
 	}
 
-	for _, b := range []bool{true, false} {
-		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/update-only/%t", test.name, b), func(t *testing.T) {
-				indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-				client := kubefake.NewSimpleClientset()
-				if startingObj := test.initialSecretFn(); startingObj != nil {
-					indexer.Add(startingObj)
-					client = kubefake.NewSimpleClientset(startingObj)
-				}
+			client := kubefake.NewSimpleClientset()
+			if startingObj := test.initialSecretFn(); startingObj != nil {
+				indexer.Add(startingObj)
+				client = kubefake.NewSimpleClientset(startingObj)
+			}
 
-				c := &RotatedSelfSignedCertKeySecret{
-					Namespace: "ns",
-					Validity:  24 * time.Hour,
-					Refresh:   12 * time.Hour,
-					Name:      "target-secret",
-					CertCreator: &SignerRotation{
-						SignerName: "lower-signer",
-					},
+			c := &RotatedSelfSignedCertKeySecret{
+				Namespace: "ns",
+				Validity:  24 * time.Hour,
+				Refresh:   12 * time.Hour,
+				Name:      "target-secret",
+				CertCreator: &SignerRotation{
+					SignerName: "lower-signer",
+				},
 
-					Client:              client.CoreV1(),
-					Lister:              corev1listers.NewSecretLister(indexer),
-					EventRecorder:       events.NewInMemoryRecorder("test"),
-					UseSecretUpdateOnly: b,
-				}
+				Client:        client.CoreV1(),
+				Lister:        corev1listers.NewSecretLister(indexer),
+				EventRecorder: events.NewInMemoryRecorder("test"),
+			}
 
-				newCA, err := test.caFn()
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
-				switch {
-				case err != nil && len(test.expectedError) == 0:
-					t.Error(err)
-				case err != nil && !strings.Contains(err.Error(), test.expectedError):
-					t.Error(err)
-				case err == nil && len(test.expectedError) != 0:
-					t.Errorf("missing %q", test.expectedError)
-				}
+			newCA, err := test.caFn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			switch {
+			case err != nil && len(test.expectedError) == 0:
+				t.Error(err)
+			case err != nil && !strings.Contains(err.Error(), test.expectedError):
+				t.Error(err)
+			case err == nil && len(test.expectedError) != 0:
+				t.Errorf("missing %q", test.expectedError)
+			}
 
-				test.verifyActions(t, b, client)
-			})
-		}
+			test.verifyActions(t, client)
+		})
 	}
 }
