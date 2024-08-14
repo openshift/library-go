@@ -1,10 +1,10 @@
-package resourceapply
+package resourcehelper
 
 import (
 	"errors"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -51,7 +51,7 @@ func TestReportCreateEvent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
-			reportCreateEvent(recorder, test.object, test.err)
+			ReportCreateEvent(recorder, test.object, test.err)
 			recordedEvents := recorder.Events()
 
 			if eventCount := len(recordedEvents); eventCount != 1 {
@@ -125,9 +125,9 @@ func TestReportUpdateEvent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
 			if len(test.details) == 0 {
-				reportUpdateEvent(recorder, test.object, test.err)
+				ReportUpdateEvent(recorder, test.object, test.err)
 			} else {
-				reportUpdateEvent(recorder, test.object, test.err, test.details)
+				ReportUpdateEvent(recorder, test.object, test.err, test.details)
 			}
 			recordedEvents := recorder.Events()
 
@@ -202,9 +202,9 @@ func TestReportDeleteEvent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test")
 			if len(test.details) == 0 {
-				reportDeleteEvent(recorder, test.object, test.err)
+				ReportDeleteEvent(recorder, test.object, test.err)
 			} else {
-				reportDeleteEvent(recorder, test.object, test.err, test.details)
+				ReportDeleteEvent(recorder, test.object, test.err, test.details)
 			}
 			recordedEvents := recorder.Events()
 
