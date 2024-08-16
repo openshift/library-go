@@ -25,26 +25,27 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 
 		initialSecret *corev1.Secret
 
-		verifyActions func(t *testing.T, client *kubefake.Clientset)
+		verifyActions func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool)
 		expectedError string
 	}{
 		{
 			name: "initial create",
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[0].Matches("get", "secrets") {
-					t.Error(actions[0])
-				}
-				if !actions[1].Matches("create", "secrets") {
-					t.Error(actions[1])
+				if !controllerUpdatedSecret {
+					t.Errorf("expected controller to update secret")
 				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				if !actions[0].Matches("create", "secrets") {
+					t.Error(actions[0])
+				}
+
+				actual := actions[0].(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeSigner {
 					t.Errorf("expected certificate type 'signer', got: %v", certType)
 				}
@@ -76,21 +77,21 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type:       corev1.SecretTypeTLS,
 				Data:       map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[0].Matches("get", "secrets") {
+				if !actions[0].Matches("update", "secrets") {
 					t.Error(actions[0])
 				}
-				if !actions[1].Matches("update", "secrets") {
-					t.Error(actions[1])
+				if !controllerUpdatedSecret {
+					t.Errorf("expected controller to update secret")
 				}
 
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeSigner {
 					t.Errorf("expected certificate type 'signer', got: %v", certType)
 				}
@@ -129,107 +130,11 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
 				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
-				}
-			},
-			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
-		},
-		{
-			name: "update SecretTLSType secrets",
-			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer",
-					ResourceVersion: "10",
-					Annotations: map[string]string{
-						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
-						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
-					}},
-				Type: "SecretTypeTLS",
-				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
-			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
-				t.Helper()
-				actions := client.Actions()
-				if len(actions) != 3 {
-					t.Fatal(spew.Sdump(actions))
-				}
-
-				if !actions[0].Matches("get", "secrets") {
-					t.Error(actions[0])
-				}
-				if !actions[1].Matches("delete", "secrets") {
-					t.Error(actions[1])
-				}
-				if !actions[2].Matches("create", "secrets") {
-					t.Error(actions[2])
-				}
-				actual := actions[2].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if actual.Type != corev1.SecretTypeTLS {
-					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
-				}
-				cert, found := actual.Data["tls.crt"]
-				if !found {
-					t.Errorf("expected to have tls.crt key")
-				}
-				if len(cert) != 0 {
-					t.Errorf("expected tls.crt to be empty, got %v", cert)
-				}
-				key, found := actual.Data["tls.key"]
-				if !found {
-					t.Errorf("expected to have tls.key key")
-				}
-				if len(key) != 0 {
-					t.Errorf("expected tls.key to be empty, got %v", key)
-				}
-				if len(actual.OwnerReferences) != 1 {
-					t.Errorf("expected to have exactly one owner reference")
-				}
-				if actual.OwnerReferences[0].Name != "operator" {
-					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
-				}
-			},
-			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
-		},
-		{
-			name: "recreate invalid type secrets",
-			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer",
-					ResourceVersion: "10",
-					Annotations: map[string]string{
-						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
-						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
-					}},
-				Type: corev1.SecretTypeOpaque,
-				Data: map[string][]byte{"foo": {}, "bar": {}},
-			},
-			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
-				t.Helper()
-				actions := client.Actions()
-				if len(actions) != 3 {
-					t.Fatal(spew.Sdump(actions))
-				}
-
-				if !actions[0].Matches("get", "secrets") {
-					t.Error(actions[0])
-				}
-				if !actions[1].Matches("delete", "secrets") {
-					t.Error(actions[1])
-				}
-				if !actions[2].Matches("create", "secrets") {
-					t.Error(actions[2])
-				}
-				actual := actions[2].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-				if actual.Type != corev1.SecretTypeTLS {
-					t.Errorf("expected secret type to be kubernetes.io/tls, got: %v", actual.Type)
-				}
-				if len(actual.OwnerReferences) != 1 {
-					t.Errorf("expected to have exactly one owner reference")
-				}
-				if actual.OwnerReferences[0].Name != "operator" {
-					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
 				}
 			},
 			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
@@ -262,7 +167,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				},
 			}
 
-			_, _, err := c.EnsureSigningCertKeyPair(context.TODO())
+			_, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
@@ -272,7 +177,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				t.Errorf("missing %q", test.expectedError)
 			}
 
-			test.verifyActions(t, client)
+			test.verifyActions(t, client, updated)
 		})
 	}
 }

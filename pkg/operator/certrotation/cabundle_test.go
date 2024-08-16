@@ -46,18 +46,14 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			initialConfigMapFn: func() *corev1.ConfigMap { return nil },
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
-
-				if !actions[0].Matches("get", "configmaps") {
+				if !actions[0].Matches("create", "configmaps") {
 					t.Error(actions[0])
 				}
-				if !actions[1].Matches("create", "configmaps") {
-					t.Error(actions[1])
-				}
 
-				actual := actions[1].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+				actual := actions[0].(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
 				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
 					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
 				}
@@ -73,7 +69,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			initialConfigMapFn: func() *corev1.ConfigMap {
 				caBundleConfigMap := &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle", ResourceVersion: "10"},
 					Data:       map[string]string{},
 				}
 				certs, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
@@ -89,15 +85,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[1].Matches("update", "configmaps") {
-					t.Error(actions[1])
+				if !actions[0].Matches("update", "configmaps") {
+					t.Error(actions[0])
 				}
 
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
@@ -120,7 +116,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			initialConfigMapFn: func() *corev1.ConfigMap {
 				caBundleConfigMap := &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle", ResourceVersion: "10"},
 					Data:       map[string]string{},
 				}
 				certs, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
@@ -136,15 +132,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[1].Matches("update", "configmaps") {
-					t.Error(actions[1])
+				if !actions[0].Matches("update", "configmaps") {
+					t.Error(actions[0])
 				}
 
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
@@ -167,7 +163,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			initialConfigMapFn: func() *corev1.ConfigMap {
 				caBundleConfigMap := &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle", ResourceVersion: "10"},
 					Data:       map[string]string{},
 				}
 				certBytes, err := os.ReadFile("./testfiles/tls-expired.crt")
@@ -187,15 +183,15 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 2 {
+				if len(actions) != 1 {
 					t.Fatal(spew.Sdump(actions))
 				}
 
-				if !actions[1].Matches("update", "configmaps") {
-					t.Error(actions[1])
+				if !actions[0].Matches("update", "configmaps") {
+					t.Error(actions[0])
 				}
 
-				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
 				if len(actual.Data["ca-bundle.crt"]) == 0 {
 					t.Error(actual.Data)
 				}
