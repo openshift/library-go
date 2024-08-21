@@ -89,7 +89,7 @@ func ApplyUnstructuredResourceImproved(
 	existing, err := client.Resource(resourceGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		want, err := client.Resource(resourceGVR).Namespace(namespace).Create(ctx, required, metav1.CreateOptions{})
-		reportCreateEvent(recorder, required, err)
+		resourcehelper.ReportCreateEvent(recorder, required, err)
 		cache.UpdateCachedResourceMetadata(required, want)
 		return want, true, err
 	}
@@ -164,7 +164,7 @@ func ApplyUnstructuredResourceImproved(
 
 	// Perform update if resource exists but different from the required (desired) one.
 	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, required, metav1.UpdateOptions{})
-	reportUpdateEvent(recorder, required, err)
+	resourcehelper.ReportUpdateEvent(recorder, required, err)
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
 }
