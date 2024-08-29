@@ -216,6 +216,10 @@ func (c *baseController) degradedPanicHandler(panicVal interface{}) {
 	_ = c.reportDegraded(context.TODO(), fmt.Errorf("panic caught:\n%v", panicVal))
 }
 
+func (c *baseController) ControllerFieldManager(usageName string) string {
+	return ControllerFieldManager(c.name, usageName)
+}
+
 // reportDegraded updates status with an indication of degraded-ness
 func (c *baseController) reportDegraded(ctx context.Context, reportedError error) error {
 	if c.syncDegradedClient == nil {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,6 +156,22 @@ func (c *fakeStaticPodOperatorClient) UpdateStaticPodOperatorSpec(ctx context.Co
 	return c.fakeStaticPodOperatorSpec, c.resourceVersion, nil
 }
 
+func (c *fakeStaticPodOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
+	return nil
+}
+
 func (c *fakeStaticPodOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
 	return &c.fakeStaticPodOperatorSpec.OperatorSpec, &c.fakeStaticPodOperatorStatus.OperatorStatus, c.resourceVersion, nil
 }
@@ -281,6 +298,14 @@ func (c *fakeOperatorClient) UpdateOperatorSpec(ctx context.Context, resourceVer
 	c.resourceVersion = strconv.Itoa(rv + 1)
 	c.fakeOperatorSpec = spec
 	return c.fakeOperatorSpec, c.resourceVersion, nil
+}
+
+func (c *fakeOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	return nil
 }
 
 func (c *fakeOperatorClient) EnsureFinalizer(ctx context.Context, finalizer string) error {
