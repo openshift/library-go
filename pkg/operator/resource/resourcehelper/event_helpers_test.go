@@ -46,6 +46,20 @@ func TestReportCreateEvent(t *testing.T) {
 			expectedEventReason:  "PodCreated",
 			expectedEventMessage: "Created Pod/podName -n nsName because it was missing",
 		},
+		{
+			name:                 "nil-with-error",
+			object:               nil,
+			err:                  testErr,
+			expectedEventReason:  "<unknown>CreateFailed",
+			expectedEventMessage: "Failed to create <unknown>/<unknown> -n <unknown>: test",
+		},
+		{
+			name:                 "empty-pointer-with-error",
+			object:               &v1.Secret{},
+			err:                  testErr,
+			expectedEventReason:  "SecretCreateFailed",
+			expectedEventMessage: "Failed to create Secret/: test",
+		},
 	}
 
 	for _, test := range tests {
@@ -118,6 +132,20 @@ func TestReportUpdateEvent(t *testing.T) {
 			details:              "because reasons",
 			expectedEventReason:  "PodUpdated",
 			expectedEventMessage: "Updated Pod/podName -n nsName:\nbecause reasons",
+		},
+		{
+			name:                 "nil-with-error",
+			object:               nil,
+			err:                  testErr,
+			expectedEventReason:  "<unknown>UpdateFailed",
+			expectedEventMessage: "Failed to update <unknown>/<unknown> -n <unknown>: test",
+		},
+		{
+			name:                 "empty-pointer-with-error",
+			object:               &v1.Secret{},
+			err:                  testErr,
+			expectedEventReason:  "SecretUpdateFailed",
+			expectedEventMessage: "Failed to update Secret/: test",
 		},
 	}
 
@@ -195,6 +223,20 @@ func TestReportDeleteEvent(t *testing.T) {
 			details:              "because reasons",
 			expectedEventReason:  "PodDeleted",
 			expectedEventMessage: "Deleted Pod/podName -n nsName:\nbecause reasons",
+		},
+		{
+			name:                 "nil-with-error",
+			object:               nil,
+			err:                  testErr,
+			expectedEventReason:  "<unknown>DeleteFailed",
+			expectedEventMessage: "Failed to delete <unknown>/<unknown> -n <unknown>: test",
+		},
+		{
+			name:                 "empty-pointer-with-error",
+			object:               &v1.Secret{},
+			err:                  testErr,
+			expectedEventReason:  "SecretDeleteFailed",
+			expectedEventMessage: "Failed to delete Secret/: test",
 		},
 	}
 
