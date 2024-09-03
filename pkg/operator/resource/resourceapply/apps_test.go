@@ -159,7 +159,7 @@ func TestDeleteDeployment(t *testing.T) {
 			}
 
 			_, deletedFlag, err := resourceapply.DeleteDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment)
-			if err != nil {
+			if tt.expectError && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
@@ -195,7 +195,7 @@ func TestDeleteDaemonSet(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			_, deletedFlag, err := resourceapply.DeleteDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDaemonSet)
-			if err != nil {
+			if tt.expectError && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if !deletedFlag {

@@ -7,7 +7,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	appv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -321,18 +320,16 @@ func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recor
 				_, result.Changed, result.Error = DeleteRoleBinding(ctx, clients.kubeClient.RbacV1(), recorder, t)
 			}
 		case *appsv1.Deployment:
-			client := clients.deploymentsGetter()
-			if client == nil {
+			if clients.kubeClient == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
 			} else {
-				_, result.Changed, result.Error = DeleteDeployment(ctx, client, recorder, t)
+				_, result.Changed, result.Error = DeleteDeployment(ctx, clients.kubeClient.AppsV1(), recorder, t)
 			}
 		case *appsv1.DaemonSet:
-			client := clients.daemonSetsGetter()
-			if client == nil {
+			if clients.kubeClient == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
 			} else {
-				_, result.Changed, result.Error = DeleteDaemonSet(ctx, client, recorder, t)
+				_, result.Changed, result.Error = DeleteDaemonSet(ctx, clients.kubeClient.AppsV1(), recorder, t)
 			}
 		case *policyv1.PodDisruptionBudget:
 			if clients.kubeClient == nil {
@@ -404,18 +401,4 @@ func (c *ClientHolder) secretsGetter() corev1client.SecretsGetter {
 		return c.kubeClient.CoreV1()
 	}
 	return v1helpers.CachedSecretGetter(c.kubeClient.CoreV1(), c.kubeInformers)
-}
-
-func (c *ClientHolder) deploymentsGetter() appv1client.DeploymentsGetter {
-	if c.kubeClient == nil {
-		return nil
-	}
-	return c.kubeClient.AppsV1()
-}
-
-func (c *ClientHolder) daemonSetsGetter() appv1client.DaemonSetsGetter {
-	if c.kubeClient == nil {
-		return nil
-	}
-	return c.kubeClient.AppsV1()
 }
