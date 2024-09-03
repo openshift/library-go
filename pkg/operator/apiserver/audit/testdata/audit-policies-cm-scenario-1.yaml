@@ -15,11 +15,6 @@ data:
     omitStages:
     - "RequestReceived"
     rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
     # Don't log authenticated requests to certain non-resource URL paths.
     - level: None
       userGroups: ["system:authenticated", "system:unauthenticated"]
