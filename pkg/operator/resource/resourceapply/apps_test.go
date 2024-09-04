@@ -135,15 +135,26 @@ func TestApplyDeployment(t *testing.T) {
 }
 
 func TestDeleteDeployment(t *testing.T) {
+	validDeployment := workload()
 	tests := []struct {
-		name              string
-		desiredDeployment *appsv1.Deployment
-		expectError       bool
+		name               string
+		desiredDeployment  *appsv1.Deployment
+		deploymentToDelete *appsv1.Deployment
+		expectError        bool
+		deletedFlag        bool
 	}{
 		{
-			name:              "when deployment exists",
-			desiredDeployment: workload(),
-			expectError:       false,
+			name:               "when deployment exists",
+			desiredDeployment:  validDeployment,
+			deploymentToDelete: validDeployment,
+			expectError:        false,
+			deletedFlag:        true,
+		},
+		{
+			name:               "when deployment does not exist",
+			deploymentToDelete: validDeployment,
+			expectError:        false,
+			deletedFlag:        false,
 		},
 	}
 	for _, tt := range tests {
@@ -153,33 +164,46 @@ func TestDeleteDeployment(t *testing.T) {
 			if tt.desiredDeployment != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDeployment)
 			}
-			_, _, err := resourceapply.ApplyDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, 0)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			if tt.desiredDeployment != nil {
+				_, _, err := resourceapply.ApplyDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, 0)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 
-			_, deletedFlag, err := resourceapply.DeleteDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment)
+			_, deletedFlag, err := resourceapply.DeleteDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.deploymentToDelete)
 			if tt.expectError && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if !deletedFlag {
-				t.Fatalf("expected deployment to be deleted but failed")
+			if deletedFlag != tt.deletedFlag {
+				t.Fatalf("expected deployment to be deleted: %v, got: %v", tt.deletedFlag, deletedFlag)
 			}
 		})
 	}
 }
 
 func TestDeleteDaemonSet(t *testing.T) {
+	validDaemonSet := daemonSet()
 	tests := []struct {
-		name             string
-		desiredDaemonSet *appsv1.DaemonSet
-		expectError      bool
+		name              string
+		desiredDaemonSet  *appsv1.DaemonSet
+		daemonsetToDelete *appsv1.DaemonSet
+		deletedFlag       bool
+		expectError       bool
 	}{
 		{
-			name:             "when daemonset exists",
-			desiredDaemonSet: daemonSet(),
-			expectError:      false,
+			name:              "when daemonset exists",
+			desiredDaemonSet:  validDaemonSet,
+			daemonsetToDelete: validDaemonSet,
+			deletedFlag:       true,
+			expectError:       false,
+		},
+		{
+			name:              "when daemonset does not exist",
+			daemonsetToDelete: validDaemonSet,
+			deletedFlag:       false,
+			expectError:       false,
 		},
 	}
 
@@ -190,16 +214,19 @@ func TestDeleteDaemonSet(t *testing.T) {
 			if tt.desiredDaemonSet != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDaemonSet)
 			}
-			_, _, err := resourceapply.ApplyDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDaemonSet, 0)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			if tt.desiredDaemonSet != nil {
+				_, _, err := resourceapply.ApplyDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDaemonSet, 0)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
-			_, deletedFlag, err := resourceapply.DeleteDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDaemonSet)
+
+			_, deletedFlag, err := resourceapply.DeleteDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.daemonsetToDelete)
 			if tt.expectError && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !deletedFlag {
-				t.Fatalf("expected daemonset to be deleted but failed")
+			if deletedFlag != tt.deletedFlag {
+				t.Fatalf("expected daemonset to be deleted: %v, got: %v", tt.deletedFlag, deletedFlag)
 			}
 		})
 	}
