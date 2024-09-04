@@ -134,6 +134,104 @@ func TestApplyDeployment(t *testing.T) {
 	}
 }
 
+func TestDeleteDeployment(t *testing.T) {
+	validDeployment := workload()
+	tests := []struct {
+		name               string
+		desiredDeployment  *appsv1.Deployment
+		deploymentToDelete *appsv1.Deployment
+		expectError        bool
+		deletedFlag        bool
+	}{
+		{
+			name:               "when deployment exists",
+			desiredDeployment:  validDeployment,
+			deploymentToDelete: validDeployment,
+			expectError:        false,
+			deletedFlag:        true,
+		},
+		{
+			name:               "when deployment does not exist",
+			deploymentToDelete: validDeployment,
+			expectError:        false,
+			deletedFlag:        false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eventRecorder := events.NewInMemoryRecorder("")
+			fakeKubeClient := fake.NewSimpleClientset()
+			if tt.desiredDeployment != nil {
+				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDeployment)
+			}
+			if tt.desiredDeployment != nil {
+				_, _, err := resourceapply.ApplyDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDeployment, 0)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+
+			_, deletedFlag, err := resourceapply.DeleteDeployment(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.deploymentToDelete)
+			if tt.expectError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if deletedFlag != tt.deletedFlag {
+				t.Fatalf("expected deployment to be deleted: %v, got: %v", tt.deletedFlag, deletedFlag)
+			}
+		})
+	}
+}
+
+func TestDeleteDaemonSet(t *testing.T) {
+	validDaemonSet := daemonSet()
+	tests := []struct {
+		name              string
+		desiredDaemonSet  *appsv1.DaemonSet
+		daemonsetToDelete *appsv1.DaemonSet
+		deletedFlag       bool
+		expectError       bool
+	}{
+		{
+			name:              "when daemonset exists",
+			desiredDaemonSet:  validDaemonSet,
+			daemonsetToDelete: validDaemonSet,
+			deletedFlag:       true,
+			expectError:       false,
+		},
+		{
+			name:              "when daemonset does not exist",
+			daemonsetToDelete: validDaemonSet,
+			deletedFlag:       false,
+			expectError:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eventRecorder := events.NewInMemoryRecorder("")
+			fakeKubeClient := fake.NewSimpleClientset()
+			if tt.desiredDaemonSet != nil {
+				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDaemonSet)
+			}
+			if tt.desiredDaemonSet != nil {
+				_, _, err := resourceapply.ApplyDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.desiredDaemonSet, 0)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+
+			_, deletedFlag, err := resourceapply.DeleteDaemonSet(context.TODO(), fakeKubeClient.AppsV1(), eventRecorder, tt.daemonsetToDelete)
+			if tt.expectError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if deletedFlag != tt.deletedFlag {
+				t.Fatalf("expected daemonset to be deleted: %v, got: %v", tt.deletedFlag, deletedFlag)
+			}
+		})
+	}
+}
+
 func TestApplyDeploymentWithForce(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -222,6 +320,32 @@ func workload() *appsv1.Deployment {
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](3),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "docker-registry/img",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func daemonSet() *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "apiserver",
+			Namespace:   "openshift-apiserver",
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+		Spec: appsv1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      map[string]string{},
