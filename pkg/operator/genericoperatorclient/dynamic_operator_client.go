@@ -7,26 +7,31 @@ import (
 	"strings"
 	"time"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 )
 
 const defaultConfigName = "cluster"
 
-func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*dynamicOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
+type StaticPodOperatorSpecExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorSpecApplyConfiguration, error)
+type StaticPodOperatorStatusExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorStatusApplyConfiguration, error)
+type OperatorSpecExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error)
+type OperatorStatusExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error)
+
+func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, extractApplySpec StaticPodOperatorSpecExtractorFunc, extractApplyStatus StaticPodOperatorStatusExtractorFunc) (*dynamicOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, nil, err
@@ -37,14 +42,47 @@ func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersion
 	informer := informers.ForResource(gvr)
 
 	return &dynamicOperatorClient{
-		kind:     gvk,
-		informer: informer,
-		client:   client,
+		gvk:                gvk,
+		informer:           informer,
+		client:             client,
+		extractApplySpec:   extractApplySpec,
+		extractApplyStatus: extractApplyStatus,
 	}, informers, nil
 }
 
-func NewClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
-	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk)
+func convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec OperatorSpecExtractorFunc) StaticPodOperatorSpecExtractorFunc {
+	return func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorSpecApplyConfiguration, error) {
+		operatorSpec, err := extractApplySpec(obj, fieldManager)
+		if err != nil {
+			return nil, err
+		}
+		if operatorSpec == nil {
+			return nil, nil
+		}
+		return &applyoperatorv1.StaticPodOperatorSpecApplyConfiguration{
+			OperatorSpecApplyConfiguration: *operatorSpec,
+		}, nil
+	}
+}
+
+func convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus OperatorStatusExtractorFunc) StaticPodOperatorStatusExtractorFunc {
+	return func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorStatusApplyConfiguration, error) {
+		operatorStatus, err := extractApplyStatus(obj, fieldManager)
+		if err != nil {
+			return nil, err
+		}
+		if operatorStatus == nil {
+			return nil, nil
+		}
+		return &applyoperatorv1.StaticPodOperatorStatusApplyConfiguration{
+			OperatorStatusApplyConfiguration: *operatorStatus,
+		}, nil
+	}
+}
+
+func NewClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, extractApplySpec OperatorSpecExtractorFunc, extractApplyStatus OperatorStatusExtractorFunc) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
+	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk,
+		convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec), convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,11 +91,12 @@ func NewClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersion
 
 }
 
-func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, configName string) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
+func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, configName string, extractApplySpec OperatorSpecExtractorFunc, extractApplyStatus OperatorStatusExtractorFunc) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
 	if len(configName) < 1 {
 		return nil, nil, fmt.Errorf("config name cannot be empty")
 	}
-	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk)
+	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk,
+		convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec), convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -67,10 +106,13 @@ func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schem
 }
 
 type dynamicOperatorClient struct {
-	kind       schema.GroupVersionKind
+	gvk        schema.GroupVersionKind
 	configName string
 	informer   informers.GenericInformer
 	client     dynamic.ResourceInterface
+
+	extractApplySpec   StaticPodOperatorSpecExtractorFunc
+	extractApplyStatus StaticPodOperatorStatusExtractorFunc
 }
 
 func (c dynamicOperatorClient) Informer() cache.SharedIndexInformer {
@@ -174,49 +216,120 @@ func (c dynamicOperatorClient) UpdateOperatorStatus(ctx context.Context, resourc
 	return retStatus, nil
 }
 
-func (c dynamicOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
-	applyMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(applyConfiguration)
+func (c dynamicOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, desiredConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	if desiredConfiguration == nil {
+		return fmt.Errorf("desiredConfiguration must have value")
+	}
+	desiredConfigurationAsStaticPod := applyoperatorv1.StaticPodOperatorSpec()
+	desiredConfigurationAsStaticPod.OperatorSpecApplyConfiguration = *desiredConfiguration
+	return c.applyOperatorSpec(ctx, fieldManager, desiredConfigurationAsStaticPod)
+}
+
+func (c dynamicOperatorClient) applyOperatorSpec(ctx context.Context, fieldManager string, desiredConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
+	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	switch {
+	case apierrors.IsNotFound(err):
+		// do nothing and proceed with the apply
+	case err != nil:
+		return fmt.Errorf("unable to read existing %q: %w", c.configName, err)
+	default:
+		original := uncastOriginal.(*unstructured.Unstructured)
+		if c.extractApplySpec == nil {
+			return fmt.Errorf("extractApplySpec is nil")
+		}
+		previouslyDesiredConfiguration, err := c.extractApplySpec(original, fieldManager)
+		if err != nil {
+			return fmt.Errorf("unable to extract status for %q: %w", fieldManager, err)
+		}
+		if equality.Semantic.DeepEqual(previouslyDesiredConfiguration, desiredConfiguration) {
+			// nothing to apply, so return early
+			return nil
+		}
+	}
+
+	desiredSpec, err := runtime.DefaultUnstructuredConverter.ToUnstructured(desiredConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
-	applyUnstructured := &unstructured.Unstructured{
+	desiredConfigurationAsUnstructured := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"spec": applyMap,
+			"spec": desiredSpec,
 		},
 	}
-	applyUnstructured.SetGroupVersionKind(c.kind)
-	applyUnstructured.SetName(c.configName)
-
-	_, err = c.client.Apply(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
+	desiredConfigurationAsUnstructured.SetGroupVersionKind(c.gvk)
+	desiredConfigurationAsUnstructured.SetName(c.configName)
+	_, err = c.client.Apply(ctx, c.configName, desiredConfigurationAsUnstructured, metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: fieldManager,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
+		return fmt.Errorf("unable to Apply for operator using fieldManager %q: %w", fieldManager, err)
 	}
 
 	return nil
 }
 
-func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
-	applyMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(applyConfiguration)
+func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, desiredConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	if desiredConfiguration == nil {
+		return fmt.Errorf("desiredConfiguration must have value")
+	}
+	desiredConfigurationAsStaticPod := applyoperatorv1.StaticPodOperatorStatus()
+	desiredConfigurationAsStaticPod.OperatorStatusApplyConfiguration = *desiredConfiguration
+	return c.applyOperatorStatus(ctx, fieldManager, desiredConfigurationAsStaticPod)
+}
+
+func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldManager string, desiredConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
+	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	switch {
+	case apierrors.IsNotFound(err):
+		// do nothing and proceed with the apply
+	case err != nil:
+		return fmt.Errorf("unable to read existing %q: %w", c.configName, err)
+	default:
+		original := uncastOriginal.(*unstructured.Unstructured)
+		if c.extractApplyStatus == nil {
+			return fmt.Errorf("extractApplyStatus is nil")
+		}
+		previouslyDesiredConfiguration, err := c.extractApplyStatus(original, fieldManager)
+		if err != nil {
+			return fmt.Errorf("unable to extract status for %q: %w", fieldManager, err)
+		}
+
+		// canonicalize so the DeepEqual works consistently
+		v1helpers.CanonicalizeStaticPodOperatorStatus(previouslyDesiredConfiguration)
+		v1helpers.CanonicalizeStaticPodOperatorStatus(desiredConfiguration)
+		previouslyDesiredObj, err := v1helpers.ToStaticPodOperator(previouslyDesiredConfiguration)
+		if err != nil {
+			return err
+		}
+		desiredObj, err := v1helpers.ToStaticPodOperator(desiredConfiguration)
+		if err != nil {
+			return err
+		}
+		if equality.Semantic.DeepEqual(previouslyDesiredObj, desiredObj) {
+			// nothing to apply, so return early
+			return nil
+		}
+	}
+
+	desiredStatus, err := runtime.DefaultUnstructuredConverter.ToUnstructured(desiredConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
-	applyUnstructured := &unstructured.Unstructured{
+	desiredConfigurationAsUnstructured := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"status": applyMap,
+			"status": desiredStatus,
 		},
 	}
-	applyUnstructured.SetGroupVersionKind(c.kind)
-	applyUnstructured.SetName(c.configName)
+	desiredConfigurationAsUnstructured.SetGroupVersionKind(c.gvk)
+	desiredConfigurationAsUnstructured.SetName(c.configName)
 
-	_, err = c.client.ApplyStatus(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
+	_, err = c.client.ApplyStatus(ctx, c.configName, desiredConfigurationAsUnstructured, metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: fieldManager,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
+		return fmt.Errorf("unable to ApplyStatus for operator using fieldManager %q: %w", fieldManager, err)
 	}
 
 	return nil

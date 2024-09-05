@@ -621,7 +621,7 @@ func (c *statusClient) UpdateOperatorStatus(context.Context, string, *operatorv1
 	panic("missing")
 }
 
-func (c *statusClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	panic("missing")
 }
 

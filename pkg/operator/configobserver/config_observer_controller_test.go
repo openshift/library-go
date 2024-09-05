@@ -61,7 +61,7 @@ func (c *fakeOperatorClient) UpdateOperatorStatus(ctx context.Context, rv string
 	return in, nil
 }
 
-func (c *fakeOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	if c.specUpdateFailure != nil {
 		return c.specUpdateFailure
 	}

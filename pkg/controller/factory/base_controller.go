@@ -217,10 +217,6 @@ func (c *baseController) degradedPanicHandler(panicVal interface{}) {
 	_ = c.reportDegraded(context.TODO(), fmt.Errorf("panic caught:\n%v", panicVal))
 }
 
-func (c *baseController) ControllerFieldManager(usageName string) string {
-	return ControllerFieldManager(c.name, usageName)
-}
-
 // reportDegraded updates status with an indication of degraded-ness
 func (c *baseController) reportDegraded(ctx context.Context, reportedError error) error {
 	if c.syncDegradedClient == nil {
@@ -233,7 +229,7 @@ func (c *baseController) reportDegraded(ctx context.Context, reportedError error
 				WithStatus(operatorv1.ConditionTrue).
 				WithReason("SyncError").
 				WithMessage(reportedError.Error()))
-		updateErr := c.syncDegradedClient.ApplyOperatorStatus(ctx, c.ControllerFieldManager("reportDegraded"), condition)
+		updateErr := c.syncDegradedClient.ApplyOperatorStatus(ctx, ControllerFieldManager(c.name, "reportDegraded"), condition)
 		if updateErr != nil {
 			klog.Warningf("Updating status of %q failed: %v", c.Name(), updateErr)
 		}
@@ -245,7 +241,7 @@ func (c *baseController) reportDegraded(ctx context.Context, reportedError error
 			WithType(c.name + "Degraded").
 			WithStatus(operatorv1.ConditionFalse).
 			WithReason("AsExpected"))
-	updateErr := c.syncDegradedClient.ApplyOperatorStatus(ctx, c.ControllerFieldManager("reportDegraded"), condition)
+	updateErr := c.syncDegradedClient.ApplyOperatorStatus(ctx, ControllerFieldManager(c.name, "reportDegraded"), condition)
 	return updateErr
 }
 

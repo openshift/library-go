@@ -150,7 +150,7 @@ func (c *statusClient) UpdateOperatorStatus(ctx context.Context, version string,
 	return &c.status, nil
 }
 
-func (c *statusClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	return nil
 }
 
