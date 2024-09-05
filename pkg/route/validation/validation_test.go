@@ -112,6 +112,21 @@ func TestValidateRoute(t *testing.T) {
 	var headerNameXSS string = "X-XSS-Protection"
 	invalidNumRequests := make([]routev1.RouteHTTPHeader, maxRequestHeaderList+1)
 	invalidNumResponses := make([]routev1.RouteHTTPHeader, maxResponseHeaderList+1)
+	routeWithPathAndRewriteAnnotation := func(path, rewriteTargetAnnotation string) *routev1.Route {
+		return &routev1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wildcardpolicy",
+				Namespace: "foo",
+				Annotations: map[string]string{
+					"haproxy.router.openshift.io/rewrite-target": rewriteTargetAnnotation,
+				},
+			},
+			Spec: routev1.RouteSpec{
+				To:   createRouteSpecTo("serviceName", "Service"),
+				Path: path,
+			},
+		}
+	}
 	tests := []struct {
 		name           string
 		route          *routev1.Route
@@ -1007,13 +1022,69 @@ func TestValidateRoute(t *testing.T) {
 			},
 			expectedErrors: 1,
 		},
+		{
+			name:           "spec.path should not contain unmatched single quotes when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo'", "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain unmatched double quotes when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation(`/foo"`, "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain hash symbol when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo#", "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain new lines when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo\n\r", "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain an invalid regex with [a-Z] when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo[a-Z]", "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain an invalid regex with invalid escape when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation(`/foo\o`, "foo"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should can contain an valid regex with + when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo+", "foo"),
+			expectedErrors: 0,
+		},
+		{
+			name:           "spec.path can contain an valid regex with [A-z] when rewrite-target annotation is set",
+			route:          routeWithPathAndRewriteAnnotation("/foo[A-z]", "foo"),
+			expectedErrors: 0,
+		},
+		{
+			name: "spec.path can contain an invalid regex when rewrite-target annotation is NOT set",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcardpolicy",
+					Namespace: "foo",
+				},
+				Spec: routev1.RouteSpec{
+					To:   createRouteSpecTo("serviceName", "Service"),
+					Path: "/foo[a-Z]",
+				},
+			},
+			expectedErrors: 0,
+		},
 	}
 
 	for _, tc := range tests {
-		errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
-		if len(errs) != tc.expectedErrors {
-			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
+			if len(errs) != tc.expectedErrors {
+				t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
+			}
+		})
 	}
 }
 
@@ -2701,10 +2772,12 @@ func TestValidateEdgeReencryptInsecureEdgeTerminationPolicy(t *testing.T) {
 
 func TestWarnings(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		host      string
-		subdomain string
-		expected  []string
+		name                string
+		host                string
+		subdomain           string
+		path                string
+		rewriteTargetExists bool
+		expected            []string
 	}{
 		{
 			name:      "both host and subdomain set",
@@ -2723,14 +2796,57 @@ func TestWarnings(t *testing.T) {
 		{
 			name: "both host and subdomain unset",
 		},
+		{
+			name:                "no-warning path with rewrite-target annotation",
+			path:                "/foo",
+			rewriteTargetExists: true,
+			expected:            []string{},
+		},
+		{
+			name:                "warning path with single quotes with rewrite-target annotation",
+			path:                "/'foo'",
+			rewriteTargetExists: true,
+			expected:            []string{"spec.path contains a ' haproxy.router.openshift.io/rewrite-target may produce an unexpected result"},
+		},
+		{
+			name:                "warning path with double quotes with rewrite-target annotation",
+			path:                `/"foo"`,
+			rewriteTargetExists: true,
+			expected:            []string{"spec.path contains a \" haproxy.router.openshift.io/rewrite-target may produce an unexpected result"},
+		},
+		{
+			name:                "warning path with regex meta character with rewrite-target annotation",
+			path:                "/foo$",
+			rewriteTargetExists: true,
+			expected:            []string{"spec.path contains regex meta characters, haproxy.router.openshift.io/rewrite-target may provide an unexpected result"},
+		},
+		{
+			name:                "no-warning path with hash character with rewrite-target annotation (will be rejected)",
+			path:                "/foo#",
+			rewriteTargetExists: true,
+			expected:            []string{},
+		},
+		{
+			name:                "no-warning path with regex meta character without rewrite-target annotation",
+			path:                "/foo^",
+			rewriteTargetExists: false,
+			expected:            []string{},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := Warnings(&routev1.Route{
+			route := &routev1.Route{
 				Spec: routev1.RouteSpec{
+					Path:      tc.path,
 					Host:      tc.host,
 					Subdomain: tc.subdomain,
 				},
-			})
+			}
+			if tc.rewriteTargetExists {
+				route.Annotations = map[string]string{
+					"haproxy.router.openshift.io/rewrite-target": "foo",
+				}
+			}
+			actual := Warnings(route)
 			if len(actual) != len(tc.expected) {
 				t.Fatalf("expected %#v, got %#v", tc.expected, actual)
 			}
