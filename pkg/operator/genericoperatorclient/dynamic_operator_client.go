@@ -7,21 +7,21 @@ import (
 	"strings"
 	"time"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 )
 
 const defaultConfigName = "cluster"
@@ -187,6 +187,23 @@ func (c dynamicOperatorClient) ApplyOperator(ctx context.Context, fieldManager s
 	applyUnstructured.SetGroupVersionKind(c.kind)
 	applyUnstructured.SetName(c.configName)
 
+	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	if err != nil {
+		return fmt.Errorf("unable to read existing: %w", err)
+	}
+	switch {
+	case apierrors.IsNotFound(err):
+		// do nothing and proceed with the apply
+	case err != nil:
+		return fmt.Errorf("unable to read existing: %w", err)
+	default:
+		original := uncastOriginal.(*unstructured.Unstructured)
+		if allRequiredFieldsArePresent(original, applyUnstructured) {
+			// nothing to apply, so return early
+			return nil
+		}
+	}
+
 	_, err = c.client.Apply(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: fieldManager,
@@ -211,6 +228,20 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 	applyUnstructured.SetGroupVersionKind(c.kind)
 	applyUnstructured.SetName(c.configName)
 
+	uncastOriginal, err := c.informer.Lister().Get(c.configName)
+	switch {
+	case apierrors.IsNotFound(err):
+		// do nothing and proceed with the apply
+	case err != nil:
+		return fmt.Errorf("unable to read existing: %w", err)
+	default:
+		original := uncastOriginal.(*unstructured.Unstructured)
+		if allRequiredFieldsArePresent(original, applyUnstructured) {
+			// nothing to apply, so return early
+			return nil
+		}
+	}
+
 	_, err = c.client.ApplyStatus(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: fieldManager,
@@ -220,6 +251,12 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 	}
 
 	return nil
+}
+
+// TODO eventually this must also make sure that all previously managed fields are set
+// TODO make work eventually.  We're making unnecessary calls, but for starting out with a transition this is probably acceptable since no write occurs.
+func allRequiredFieldsArePresent(original, required *unstructured.Unstructured) bool {
+	return false
 }
 
 func (c dynamicOperatorClient) EnsureFinalizer(ctx context.Context, finalizer string) error {
