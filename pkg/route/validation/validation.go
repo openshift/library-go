@@ -60,6 +60,8 @@ const (
 	permittedResponseHeaderValueErrorMessage = "Either header value provided is not in correct format or the converter specified is not allowed. The dynamic header value  may use HAProxy's %[] syntax and otherwise must be a valid HTTP header value as defined in https://datatracker.ietf.org/doc/html/rfc7230#section-3.2 Sample fetchers allowed are res.hdr, ssl_c_der. Converters allowed are lower, base64."
 	// routerServiceAccount is used to validate RBAC permissions for externalCertificate
 	routerServiceAccount = "system:serviceaccount:openshift-ingress:router"
+	// rewriteTargetAnnotation is route annotation used to specify a rewrite target.
+	rewriteTargetAnnotation = "haproxy.router.openshift.io/rewrite-target"
 )
 
 var (
@@ -212,7 +214,63 @@ func validateRoute(ctx context.Context, route *routev1.Route, checkHostname bool
 		result = append(result, errs...)
 	}
 
+	if errs := ValidatePathWithRewriteTargetAnnotation(route, specPath.Child("path")); len(errs) != 0 {
+		result = append(result, errs...)
+	}
+
 	return result
+}
+
+// ValidatePathWithRewriteTargetAnnotation tests the spec.path field for invalid syntax when the
+// rewrite-target annotation is set. This addresses OCPBUGS-27741 by rejecting invalid spec.path
+// values, while preserving compatibility for users who may have depended on the unintended
+// behavior caused by the bug.
+func ValidatePathWithRewriteTargetAnnotation(route *routev1.Route, fldPath *field.Path) field.ErrorList {
+	result := field.ErrorList{}
+	if _, ok := route.Annotations[rewriteTargetAnnotation]; ok {
+		if !fakeSimpleValidation(route.Spec.Path) {
+			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain invalid characters while %s is specified", rewriteTargetAnnotation)))
+		}
+	}
+	return result
+}
+
+// fakeSimpleValidation checks for invalid characters in the route path.
+func fakeSimpleValidation(routePath string) bool {
+	inDoubleQuotes := false
+	inSingleQuotes := false
+	for i := 0; i < len(routePath); i++ {
+		c := routePath[i]
+		if c == '"' {
+			// Toggle double-quote state.
+			if !inSingleQuotes {
+				inDoubleQuotes = !inDoubleQuotes
+			}
+			continue
+		}
+
+		if c == '\'' {
+			// Toggle single-quote state.
+			if !inDoubleQuotes {
+				inSingleQuotes = !inSingleQuotes
+			}
+			continue
+		}
+
+		if c == '\\' && i+1 < len(routePath) {
+			// Skip the next escaped character.
+			i++
+			continue
+		}
+
+		if !inDoubleQuotes && !inSingleQuotes && (c == ' ' || c == '#') {
+			// Reject if space or # is outside double or single quotes.
+			return false
+		}
+	}
+
+	// Reject if there are unmatched quotes.
+	return !(inDoubleQuotes || inSingleQuotes)
 }
 
 func ValidateRouteUpdate(ctx context.Context, route *routev1.Route, older *routev1.Route, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
@@ -526,10 +584,59 @@ func validateKubeFinalizerName(stringValue string, fldPath *field.Path) field.Er
 }
 
 func Warnings(route *routev1.Route) []string {
+	var warnings []string
 	if len(route.Spec.Host) != 0 && len(route.Spec.Subdomain) != 0 {
-		var warnings []string
 		warnings = append(warnings, "spec.host is set; spec.subdomain may be ignored")
-		return warnings
 	}
-	return nil
+	warnings = append(warnings, warnPathWithRewriteTargetAnnotation(route)...)
+
+	return warnings
+}
+
+// warnPathWithRewriteTargetAnnotation returns warnings if a provided route has
+// the rewrite-target annotation set, and the spec.path contains invalid
+// values that, while valid, may lead to unintended behavior.
+func warnPathWithRewriteTargetAnnotation(route *routev1.Route) []string {
+	var warnings []string
+	if _, ok := route.Annotations[rewriteTargetAnnotation]; ok {
+		if containsRegexMetaChars(route.Spec.Path) {
+			warnings = append(warnings, fmt.Sprintf("spec.path contains regex meta characters which may lead to unexpected behavior using %s", rewriteTargetAnnotation))
+		}
+		if strings.Contains(route.Spec.Path, `'`) {
+			warnings = append(warnings, fmt.Sprintf("spec.path contains a ' which may lead to unexpected behavior using %s", rewriteTargetAnnotation))
+		}
+		if strings.Contains(route.Spec.Path, `"`) {
+			warnings = append(warnings, fmt.Sprintf("spec.path contains a \" which may lead to unexpected behavior using %s", rewriteTargetAnnotation))
+		}
+	}
+	return warnings
+}
+
+// hasUnmatchedSingleQuotes returns true if input string has unmatched single quotes.
+func hasUnmatchedSingleQuotes(input string) bool {
+	singleQuoteCount := strings.Count(input, `'`)
+	if singleQuoteCount%2 != 0 {
+		return true
+	}
+	return false
+}
+
+// hasUnmatchedDoubleQuotes returns true if input string has unmatched double quotes.
+func hasUnmatchedDoubleQuotes(input string) bool {
+	doubleQuoteCount := strings.Count(input, `"`)
+	if doubleQuoteCount%2 != 0 {
+		return true
+	}
+	return false
+}
+
+// containsRegexMetaChars returns true if the input string contains a regex meta character.
+func containsRegexMetaChars(input string) bool {
+	regexMetaChars := `.+*?^$()[]{}|\`
+	for _, char := range regexMetaChars {
+		if strings.ContainsRune(input, char) {
+			return true
+		}
+	}
+	return false
 }
