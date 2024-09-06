@@ -126,25 +126,12 @@ func (c dynamicStaticPodOperatorClient) UpdateStaticPodOperatorStatus(ctx contex
 	return retStatus, nil
 }
 
-func (c dynamicOperatorClient) ApplyStaticPodOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
+func (c dynamicOperatorClient) ApplyStaticPodOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
 	applyMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(applyConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
-	applyUnstructured := &unstructured.Unstructured{
-		Object: applyMap,
-	}
-	applyUnstructured.SetName(c.configName)
-
-	_, err = c.client.Apply(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
-		Force:        true,
-		FieldManager: fieldManager,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
-	}
-
-	return nil
+	return c.applyOperatorSpec(ctx, fieldManager, applyMap)
 }
 
 func (c dynamicOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
@@ -152,20 +139,7 @@ func (c dynamicOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
-	applyUnstructured := &unstructured.Unstructured{
-		Object: applyMap,
-	}
-	applyUnstructured.SetName(c.configName)
-
-	_, err = c.client.ApplyStatus(ctx, c.configName, applyUnstructured, metav1.ApplyOptions{
-		Force:        true,
-		FieldManager: fieldManager,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
-	}
-
-	return nil
+	return c.applyOperatorStatus(ctx, fieldManager, applyMap)
 }
 
 func getStaticPodOperatorSpecFromUnstructured(obj map[string]interface{}) (*operatorv1.StaticPodOperatorSpec, error) {

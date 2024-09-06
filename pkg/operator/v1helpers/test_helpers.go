@@ -156,7 +156,7 @@ func (c *fakeStaticPodOperatorClient) UpdateStaticPodOperatorSpec(ctx context.Co
 	return c.fakeStaticPodOperatorSpec, c.resourceVersion, nil
 }
 
-func (c *fakeStaticPodOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c *fakeStaticPodOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (c *fakeStaticPodOperatorClient) ApplyOperatorStatus(ctx context.Context, f
 	return nil
 }
 
-func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
+func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error) {
 	return nil
 }
 
@@ -300,7 +300,7 @@ func (c *fakeOperatorClient) UpdateOperatorSpec(ctx context.Context, resourceVer
 	return c.fakeOperatorSpec, c.resourceVersion, nil
 }
 
-func (c *fakeOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	return nil
 }
 

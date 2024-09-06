@@ -37,7 +37,7 @@ func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersion
 	informer := informers.ForResource(gvr)
 
 	return &dynamicOperatorClient{
-		kind:     gvk,
+		gvk:      gvk,
 		informer: informer,
 		client:   client,
 	}, informers, nil
@@ -67,7 +67,7 @@ func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schem
 }
 
 type dynamicOperatorClient struct {
-	kind       schema.GroupVersionKind
+	gvk        schema.GroupVersionKind
 	configName string
 	informer   informers.GenericInformer
 	client     dynamic.ResourceInterface
@@ -174,31 +174,33 @@ func (c dynamicOperatorClient) UpdateOperatorStatus(ctx context.Context, resourc
 	return retStatus, nil
 }
 
-func (c dynamicOperatorClient) ApplyOperator(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+func (c dynamicOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
 	applyMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(applyConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
+
+	return c.applyOperatorSpec(ctx, fieldManager, applyMap)
+}
+
+func (c dynamicOperatorClient) applyOperatorSpec(ctx context.Context, fieldManager string, applyMap map[string]interface{}) (err error) {
 	applyUnstructured := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"spec": applyMap,
 		},
 	}
-	applyUnstructured.SetGroupVersionKind(c.kind)
+	applyUnstructured.SetGroupVersionKind(c.gvk)
 	applyUnstructured.SetName(c.configName)
 
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
-	if err != nil {
-		return fmt.Errorf("unable to read existing: %w", err)
-	}
 	switch {
 	case apierrors.IsNotFound(err):
 		// do nothing and proceed with the apply
 	case err != nil:
-		return fmt.Errorf("unable to read existing: %w", err)
+		return fmt.Errorf("unable to read existing %q: %w", c.configName, err)
 	default:
 		original := uncastOriginal.(*unstructured.Unstructured)
-		if allRequiredFieldsArePresent(original, applyUnstructured) {
+		if isRequestedApplyZeroDiff(original, applyUnstructured) {
 			// nothing to apply, so return early
 			return nil
 		}
@@ -209,7 +211,7 @@ func (c dynamicOperatorClient) ApplyOperator(ctx context.Context, fieldManager s
 		FieldManager: fieldManager,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
+		return fmt.Errorf("unable to Apply for operator using fieldManager %q: %w", fieldManager, err)
 	}
 
 	return nil
@@ -220,12 +222,16 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 	if err != nil {
 		return fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
+	return c.applyOperatorStatus(ctx, fieldManager, applyMap)
+}
+
+func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldManager string, applyMap map[string]interface{}) (err error) {
 	applyUnstructured := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"status": applyMap,
 		},
 	}
-	applyUnstructured.SetGroupVersionKind(c.kind)
+	applyUnstructured.SetGroupVersionKind(c.gvk)
 	applyUnstructured.SetName(c.configName)
 
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
@@ -233,10 +239,10 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 	case apierrors.IsNotFound(err):
 		// do nothing and proceed with the apply
 	case err != nil:
-		return fmt.Errorf("unable to read existing: %w", err)
+		return fmt.Errorf("unable to read existing %q: %w", c.configName, err)
 	default:
 		original := uncastOriginal.(*unstructured.Unstructured)
-		if allRequiredFieldsArePresent(original, applyUnstructured) {
+		if isRequestedApplyZeroDiff(original, applyUnstructured) {
 			// nothing to apply, so return early
 			return nil
 		}
@@ -247,7 +253,7 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 		FieldManager: fieldManager,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to ApplyStatus for operator: %w", err)
+		return fmt.Errorf("unable to ApplyStatus for operator using fieldManager %q: %w", fieldManager, err)
 	}
 
 	return nil
@@ -255,7 +261,7 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 
 // TODO eventually this must also make sure that all previously managed fields are set
 // TODO make work eventually.  We're making unnecessary calls, but for starting out with a transition this is probably acceptable since no write occurs.
-func allRequiredFieldsArePresent(original, required *unstructured.Unstructured) bool {
+func isRequestedApplyZeroDiff(original, required *unstructured.Unstructured) bool {
 	return false
 }
 
