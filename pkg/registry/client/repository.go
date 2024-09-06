@@ -16,11 +16,11 @@ import (
 
 	"github.com/distribution/distribution/v3"
 	v2 "github.com/distribution/distribution/v3/registry/api/v2"
+	"github.com/distribution/distribution/v3/registry/storage/cache"
+	"github.com/distribution/distribution/v3/registry/storage/cache/memory"
 	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	"github.com/openshift/library-go/pkg/registry/client/transport"
-	"github.com/openshift/library-go/pkg/registry/storage/cache"
-	"github.com/openshift/library-go/pkg/registry/storage/cache/memory"
 )
 
 // Registry provides an interface for calling Repositories, which returns a catalog of repositories.
