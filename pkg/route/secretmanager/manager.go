@@ -17,7 +17,7 @@ type SecretManager interface {
 	RegisterRoute(ctx context.Context, namespace string, routeName string, secretName string, handler cache.ResourceEventHandlerFuncs) error
 	UnregisterRoute(namespace string, routeName string) error
 	GetSecret(ctx context.Context, namespace string, routeName string) (*v1.Secret, error)
-	IsRouteRegistered(namespace string, routeName string) bool
+	LookupRouteSecret(namespace string, routeName string) (string, bool)
 	Queue() workqueue.RateLimitingInterface
 }
 
@@ -29,7 +29,7 @@ type manager struct {
 	// Map of registered handlers for each route.
 	// Populated inside RegisterRoute() and used in UnregisterRoute(), GetSecret.
 	// generateKey() will create the map key.
-	registeredHandlers map[string]secret.SecretEventHandlerRegistration
+	registeredHandlers map[string]referencedSecret
 
 	// Lock to protect access to registeredHandlers map.
 	handlersLock sync.RWMutex
@@ -38,12 +38,17 @@ type manager struct {
 	queue workqueue.RateLimitingInterface
 }
 
+type referencedSecret struct {
+	secretName          string
+	handlerRegistration secret.SecretEventHandlerRegistration
+}
+
 func NewManager(kubeClient kubernetes.Interface, queue workqueue.RateLimitingInterface) SecretManager {
 	return &manager{
 		monitor:            secret.NewSecretMonitor(kubeClient),
 		handlersLock:       sync.RWMutex{},
 		queue:              queue,
-		registeredHandlers: make(map[string]secret.SecretEventHandlerRegistration),
+		registeredHandlers: map[string]referencedSecret{},
 	}
 }
 
@@ -70,13 +75,16 @@ func (m *manager) RegisterRoute(ctx context.Context, namespace, routeName, secre
 
 	// Add a secret event handler for the specified namespace and secret, with the handler functions.
 	klog.V(5).Infof("trying to add handler for key %s with secret %s", key, secretName)
-	handlerRegistration, err := m.monitor.AddSecretEventHandler(ctx, namespace, secretName, handler)
+	handlerReg, err := m.monitor.AddSecretEventHandler(ctx, namespace, secretName, handler)
 	if err != nil {
 		return err
 	}
 
-	// Store the registration in the manager's map. Used during UnregisterRoute() and GetSecret().
-	m.registeredHandlers[key] = handlerRegistration
+	// Store the registration and secretName in the manager's map. Used during UnregisterRoute() and GetSecret().
+	m.registeredHandlers[key] = referencedSecret{
+		secretName:          secretName,
+		handlerRegistration: handlerReg,
+	}
 	klog.Infof("secret manager registered route for key %s with secret %s", key, secretName)
 
 	return nil
@@ -91,14 +99,14 @@ func (m *manager) UnregisterRoute(namespace, routeName string) error {
 	key := generateKey(namespace, routeName)
 
 	// Get the registered handler.
-	handlerRegistration, exists := m.registeredHandlers[key]
+	ref, exists := m.registeredHandlers[key]
 	if !exists {
 		return fmt.Errorf("no handler registered with key %s", key)
 	}
 
 	// Remove the corresponding secret event handler from the secret monitor.
 	klog.V(5).Info("trying to remove handler with key", key)
-	err := m.monitor.RemoveSecretEventHandler(handlerRegistration)
+	err := m.monitor.RemoveSecretEventHandler(ref.handlerRegistration)
 	if err != nil {
 		return err
 	}
@@ -117,13 +125,13 @@ func (m *manager) GetSecret(ctx context.Context, namespace, routeName string) (*
 
 	key := generateKey(namespace, routeName)
 
-	handlerRegistration, exists := m.registeredHandlers[key]
+	ref, exists := m.registeredHandlers[key]
 	if !exists {
 		return nil, fmt.Errorf("no handler registered with key %s", key)
 	}
 
 	// Get the secret from the secret monitor's cache using the registered handler.
-	obj, err := m.monitor.GetSecret(ctx, handlerRegistration)
+	obj, err := m.monitor.GetSecret(ctx, ref.handlerRegistration)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +139,19 @@ func (m *manager) GetSecret(ctx context.Context, namespace, routeName string) (*
 	return obj, nil
 }
 
-// IsRouteRegistered returns true if route is registered, false otherwise
-func (m *manager) IsRouteRegistered(namespace, routeName string) bool {
+// LookupRouteSecret returns the secret name associated with a route,
+// and true indicating if the route is registered with manager.
+// If the route is not registered, an empty string and false are returned.
+func (m *manager) LookupRouteSecret(namespace, routeName string) (string, bool) {
 	m.handlersLock.RLock()
 	defer m.handlersLock.RUnlock()
 
 	key := generateKey(namespace, routeName)
-	_, exists := m.registeredHandlers[key]
-	return exists
+	ref, exists := m.registeredHandlers[key]
+	if !exists {
+		return "", false
+	}
+	return ref.secretName, true
 }
 
 // generateKey creates a unique identifier for a route
