@@ -93,3 +93,16 @@ func SSASetDeploymentGeneration(generations *[]applyoperatorv1.GenerationStatusA
 		LastGeneration: ptr.To(actual.Generation),
 	})
 }
+
+func SSASetDaemonSetGeneration(generations *[]applyoperatorv1.GenerationStatusApplyConfiguration, actual *appsv1.DaemonSet) {
+	if actual == nil {
+		return
+	}
+	*generations = append(*generations, applyoperatorv1.GenerationStatusApplyConfiguration{
+		Group:          ptr.To("apps"),
+		Resource:       ptr.To("daemonsets"),
+		Namespace:      ptr.To(actual.Namespace),
+		Name:           ptr.To(actual.Name),
+		LastGeneration: ptr.To(actual.Generation),
+	})
+}

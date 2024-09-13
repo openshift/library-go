@@ -9,6 +9,7 @@ import (
 	"time"
 
 	opv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
 	dc "github.com/openshift/library-go/pkg/operator/deploymentcontroller"
@@ -173,45 +174,45 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		return err
 	}
 
-	availableCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeAvailable,
-		Status: opv1.ConditionTrue,
-	}
+	// Create an OperatorStatusApplyConfiguration
+	status := applyoperatorv1.OperatorStatus()
+
+	// Set the generations
+	resourcemerge.SSASetDaemonSetGeneration(&status.Generations, daemonSet)
+
+	// Set Available condition
+	availableCondition := applyoperatorv1.OperatorCondition().
+		WithType(c.name + opv1.OperatorStatusTypeAvailable).
+		WithStatus(opv1.ConditionTrue)
 
 	if daemonSet.Status.NumberAvailable > 0 {
-		availableCondition.Status = opv1.ConditionTrue
+		availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
 	} else {
-		availableCondition.Status = opv1.ConditionFalse
-		availableCondition.Message = "Waiting for the DaemonSet to deploy the CSI Node Service"
-		availableCondition.Reason = "Deploying"
+		availableCondition = availableCondition.
+			WithStatus(opv1.ConditionFalse).
+			WithMessage("Waiting for the DaemonSet to deploy the CSI Node Service").
+			WithReason("Deploying")
 	}
+	status = status.WithConditions(availableCondition)
 
-	progressingCondition := opv1.OperatorCondition{
-		Type:   c.name + opv1.OperatorStatusTypeProgressing,
-		Status: opv1.ConditionFalse,
-	}
+	// Set Progressing condition
+	progressingCondition := applyoperatorv1.OperatorCondition().
+		WithType(c.name + opv1.OperatorStatusTypeProgressing).
+		WithStatus(opv1.ConditionFalse)
 
 	if ok, msg := isProgressing(opStatus, daemonSet); ok {
-		progressingCondition.Status = opv1.ConditionTrue
-		progressingCondition.Message = msg
-		progressingCondition.Reason = "Deploying"
+		progressingCondition = progressingCondition.
+			WithStatus(opv1.ConditionTrue).
+			WithMessage(msg).
+			WithReason("Deploying")
 	}
+	status = status.WithConditions(progressingCondition)
 
-	updateStatusFn := func(newStatus *opv1.OperatorStatus) error {
-		// TODO: set ObservedGeneration (the last stable generation change we dealt with)
-		resourcemerge.SetDaemonSetGeneration(&newStatus.Generations, daemonSet)
-		return nil
-	}
-
-	_, _, err = v1helpers.UpdateStatus(
+	return c.operatorClient.ApplyOperatorStatus(
 		ctx,
-		c.operatorClient,
-		updateStatusFn,
-		v1helpers.UpdateConditionFn(availableCondition),
-		v1helpers.UpdateConditionFn(progressingCondition),
+		factory.ControllerFieldManager(c.name, "updateOperatorStatus"),
+		status,
 	)
-
-	return err
 }
 
 func (c *CSIDriverNodeServiceController) getDaemonSet(opSpec *opv1.OperatorSpec) (*appsv1.DaemonSet, error) {
