@@ -94,6 +94,7 @@ func TestSyncSecret(t *testing.T) {
 	)
 	eventRecorder := eventstesting.NewTestingEventRecorder(t)
 	c := NewResourceSyncController(
+		"testing-instance",
 		fakeStaticPodOperatorClient,
 		v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 			"config":   secretInformers,
@@ -185,6 +186,7 @@ func TestSyncConfigMap(t *testing.T) {
 	kubeInformersForNamespaces := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{"other": configInformers})
 
 	c := NewResourceSyncController(
+		"testing-instance",
 		fakeStaticPodOperatorClient,
 		v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 			"config":         configInformers,
@@ -289,6 +291,7 @@ func TestSyncConditionally(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
 
 			c := NewResourceSyncController(
+				"testing-instance",
 				fakeStaticPodOperatorClient,
 				v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 					"config":   configInformers,

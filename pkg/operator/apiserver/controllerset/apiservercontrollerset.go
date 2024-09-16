@@ -71,6 +71,7 @@ func (cw *controllerWrapper) prepare() (controller, error) {
 
 // APIServerControllerSet is a set of controllers that maintain a deployment of an API server and the namespace it's running in
 type APIServerControllerSet struct {
+	name           string
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 
@@ -88,10 +89,12 @@ type APIServerControllerSet struct {
 }
 
 func NewAPIServerControllerSet(
+	name string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) *APIServerControllerSet {
 	apiServerControllerSet := &APIServerControllerSet{
+		name:           name,
 		operatorClient: operatorClient,
 		eventRecorder:  eventRecorder,
 	}
@@ -405,6 +408,7 @@ func (cs *APIServerControllerSet) WithAuditPolicyController(
 	kubeClient kubernetes.Interface,
 ) *APIServerControllerSet {
 	cs.auditPolicyController.controller = auditpolicy.NewAuditPolicyController(
+		cs.name,
 		targetNamespace,
 		targetConfigMapName,
 		apiserverConfigLister,
