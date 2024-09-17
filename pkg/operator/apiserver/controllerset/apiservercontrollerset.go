@@ -320,6 +320,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 		configMapGetter,
 		secretGetter,
 		cs.eventRecorder,
+		nil,
 	)
 	return cs
 }
