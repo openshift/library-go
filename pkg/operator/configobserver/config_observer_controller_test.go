@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/imdario/mergo"
 	"sigs.k8s.io/yaml"
@@ -57,6 +59,18 @@ func (c *fakeOperatorClient) UpdateOperatorSpec(ctx context.Context, rv string, 
 func (c *fakeOperatorClient) UpdateOperatorStatus(ctx context.Context, rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = in
 	return in, nil
+}
+
+func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	if c.specUpdateFailure != nil {
+		return c.specUpdateFailure
+	}
+
+	return nil
+}
+
+func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	return nil
 }
 
 type fakeOperatorClient struct {

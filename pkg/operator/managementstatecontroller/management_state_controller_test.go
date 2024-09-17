@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/management"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,4 +148,12 @@ func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.O
 func (c *statusClient) UpdateOperatorStatus(ctx context.Context, version string, s *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = *s
 	return &c.status, nil
+}
+
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	return nil
 }

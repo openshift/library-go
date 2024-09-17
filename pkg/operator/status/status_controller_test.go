@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
@@ -616,6 +618,14 @@ func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.O
 }
 
 func (c *statusClient) UpdateOperatorStatus(context.Context, string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
+	panic("missing")
+}
+
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	panic("missing")
+}
+
+func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
 	panic("missing")
 }
 

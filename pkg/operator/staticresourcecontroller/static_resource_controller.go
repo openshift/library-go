@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -296,12 +298,14 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			} else {
 				message = "the operator didn't specify what preconditions are missing"
 			}
-			if _, _, updateErr := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    fmt.Sprintf("%sDegraded", c.name),
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "PreconditionNotReady",
-				Message: message,
-			})); updateErr != nil {
+			condition := applyoperatorv1.OperatorStatus().
+				WithConditions(applyoperatorv1.OperatorCondition().
+					WithType(fmt.Sprintf("%sDegraded", c.name)).
+					WithStatus(operatorv1.ConditionTrue).
+					WithReason("PreconditionNotReady").
+					WithMessage(message))
+			updateErr := c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.name, "reportDegraded"), condition)
+			if updateErr != nil {
 				return updateErr
 			}
 			return err
@@ -341,28 +345,30 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 		}
 	}
 
-	cnd := operatorv1.OperatorCondition{
-		Type:    fmt.Sprintf("%sDegraded", c.name),
-		Status:  operatorv1.ConditionFalse,
-		Reason:  "AsExpected",
-		Message: "",
-	}
+	cnd := applyoperatorv1.OperatorCondition().
+		WithType(fmt.Sprintf("%sDegraded", c.name)).
+		WithStatus(operatorv1.ConditionFalse).
+		WithReason("AsExpected").
+		WithMessage("")
+
 	if len(errors) > 0 {
 		message := ""
 		for _, err := range errors {
 			message = message + err.Error() + "\n"
 		}
-		cnd.Status = operatorv1.ConditionTrue
-		cnd.Message = message
-		cnd.Reason = "SyncError"
+		cnd = cnd.
+			WithStatus(operatorv1.ConditionTrue).
+			WithMessage(message).
+			WithReason("SyncError")
 
 		if c.ignoreNotFoundOnCreate && len(errors) == notFoundErrorsCount {
 			// all errors were NotFound
-			cnd.Status = operatorv1.ConditionFalse
+			cnd = cnd.WithStatus(operatorv1.ConditionFalse)
 		}
 	}
 
-	_, _, err = v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cnd))
+	status := applyoperatorv1.OperatorStatus().WithConditions(cnd)
+	err = c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.name, "reportDegraded"), status)
 	if err != nil {
 		errors = append(errors, err)
 	}
