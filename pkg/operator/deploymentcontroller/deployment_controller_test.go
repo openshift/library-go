@@ -270,16 +270,6 @@ func TestDeploymentCreation(t *testing.T) {
 	}
 }
 
-func withGeneration(generations ...int64) operatorModifier {
-	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
-		i.Generation = generations[0]
-		if len(generations) > 1 {
-			i.Status.ObservedGeneration = generations[1]
-		}
-		return i
-	}
-}
-
 func withGenerations(deployment int64) operatorModifier {
 	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
 		i.Status.Generations = []opv1.GenerationStatus{
@@ -590,7 +580,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -601,7 +590,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionProgressing), // The operator is Progressing
 					withFalseConditions(conditionAvailable)), // The operator is not Available (controller not running...)
 			},
@@ -616,7 +604,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -627,7 +614,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
 			},
 		},
