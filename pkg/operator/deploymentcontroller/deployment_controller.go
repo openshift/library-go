@@ -7,7 +7,15 @@ import (
 	"strings"
 	"time"
 
+	opv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,14 +24,7 @@ import (
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-
-	opv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/utils/ptr"
 )
 
 // DeploymentHookFunc is a hook function to modify the Deployment.
@@ -251,51 +252,50 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		return err
 	}
 
-	updateStatusFuncs := []v1helpers.UpdateStatusFunc{
-		func(newStatus *opv1.OperatorStatus) error {
-			// TODO: set ObservedGeneration (the last stable generation change we dealt with)
-			resourcemerge.SetDeploymentGeneration(&newStatus.Generations, deployment)
-			return nil
-		},
-	}
+	// Create an OperatorStatusApplyConfiguration with generations
+	status := applyoperatorv1.OperatorStatus().
+		WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
+			Group:          ptr.To("apps"),
+			Resource:       ptr.To("deployments"),
+			Namespace:      ptr.To(deployment.Namespace),
+			Name:           ptr.To(deployment.Name),
+			LastGeneration: ptr.To(deployment.Generation),
+		})
 
-	// Set Available Condition
+	// Set Available condition
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
-		availableCondition := opv1.OperatorCondition{
-			Type:   c.name + opv1.OperatorStatusTypeAvailable,
-			Status: opv1.ConditionTrue,
-		}
+		availableCondition := applyoperatorv1.
+			OperatorCondition().WithType(c.name + opv1.OperatorStatusTypeAvailable)
 		if deployment.Status.AvailableReplicas > 0 {
-			availableCondition.Status = opv1.ConditionTrue
+			availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
 		} else {
-			availableCondition.Status = opv1.ConditionFalse
-			availableCondition.Message = "Waiting for Deployment"
-			availableCondition.Reason = "Deploying"
+			availableCondition = availableCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithMessage("Waiting for Deployment").
+				WithReason("Deploying")
 		}
-		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(availableCondition))
+		status = status.WithConditions(availableCondition)
 	}
 
-	// Set Progressing Condition
+	// Set Progressing condition
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
-		progressingCondition := opv1.OperatorCondition{
-			Type:   c.name + opv1.OperatorStatusTypeProgressing,
-			Status: opv1.ConditionFalse,
-		}
+		progressingCondition := applyoperatorv1.OperatorCondition().
+			WithType(c.name + opv1.OperatorStatusTypeProgressing).
+			WithStatus(opv1.ConditionFalse)
 		if ok, msg := isProgressing(deployment); ok {
-			progressingCondition.Status = opv1.ConditionTrue
-			progressingCondition.Message = msg
-			progressingCondition.Reason = "Deploying"
+			progressingCondition = progressingCondition.
+				WithStatus(opv1.ConditionTrue).
+				WithMessage(msg).
+				WithReason("Deploying")
 		}
-		updateStatusFuncs = append(updateStatusFuncs, v1helpers.UpdateConditionFn(progressingCondition))
+		status = status.WithConditions(progressingCondition)
 	}
 
-	_, _, err = v1helpers.UpdateStatus(
+	return c.operatorClient.ApplyOperatorStatus(
 		ctx,
-		c.operatorClient,
-		updateStatusFuncs...,
+		factory.ControllerFieldManager(c.name, "updateOperatorStatus"),
+		status,
 	)
-
-	return err
 }
 
 func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
