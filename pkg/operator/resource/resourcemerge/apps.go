@@ -3,10 +3,8 @@ package resourcemerge
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/ptr"
 
 	operatorsv1 "github.com/openshift/api/operator/v1"
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 )
 
 func GenerationFor(generations []operatorsv1.GenerationStatus, resource schema.GroupResource, namespace, name string) *operatorsv1.GenerationStatus {
@@ -78,31 +76,5 @@ func SetDaemonSetGeneration(generations *[]operatorsv1.GenerationStatus, actual 
 		Namespace:      actual.Namespace,
 		Name:           actual.Name,
 		LastGeneration: actual.ObjectMeta.Generation,
-	})
-}
-
-func SSASetDeploymentGeneration(generations *[]applyoperatorv1.GenerationStatusApplyConfiguration, actual *appsv1.Deployment) {
-	if actual == nil {
-		return
-	}
-	*generations = append(*generations, applyoperatorv1.GenerationStatusApplyConfiguration{
-		Group:          ptr.To("apps"),
-		Resource:       ptr.To("deployments"),
-		Namespace:      ptr.To(actual.Namespace),
-		Name:           ptr.To(actual.Name),
-		LastGeneration: ptr.To(actual.Generation),
-	})
-}
-
-func SSASetDaemonSetGeneration(generations *[]applyoperatorv1.GenerationStatusApplyConfiguration, actual *appsv1.DaemonSet) {
-	if actual == nil {
-		return
-	}
-	*generations = append(*generations, applyoperatorv1.GenerationStatusApplyConfiguration{
-		Group:          ptr.To("apps"),
-		Resource:       ptr.To("daemonsets"),
-		Namespace:      ptr.To(actual.Namespace),
-		Name:           ptr.To(actual.Name),
-		LastGeneration: ptr.To(actual.Generation),
 	})
 }

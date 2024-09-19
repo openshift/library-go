@@ -26,6 +26,7 @@ import (
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -174,11 +175,15 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		return err
 	}
 
-	// Create an OperatorStatusApplyConfiguration
-	status := applyoperatorv1.OperatorStatus()
-
-	// Set the generations
-	resourcemerge.SSASetDaemonSetGeneration(&status.Generations, daemonSet)
+	// Create an OperatorStatusApplyConfiguration with generations
+	status := applyoperatorv1.OperatorStatus().
+		WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
+			Group:          ptr.To("apps"),
+			Resource:       ptr.To("daemonsets"),
+			Namespace:      ptr.To(daemonSet.Namespace),
+			Name:           ptr.To(daemonSet.Name),
+			LastGeneration: ptr.To(daemonSet.Generation),
+		})
 
 	// Set Available condition
 	availableCondition := applyoperatorv1.OperatorCondition().

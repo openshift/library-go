@@ -24,6 +24,7 @@ import (
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 // DeploymentHookFunc is a hook function to modify the Deployment.
@@ -251,11 +252,15 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		return err
 	}
 
-	// Create an OperatorStatusApplyConfiguration
-	status := applyoperatorv1.OperatorStatus()
-
-	// Set the generations
-	resourcemerge.SSASetDeploymentGeneration(&status.Generations, deployment)
+	// Create an OperatorStatusApplyConfiguration with generations
+	status := applyoperatorv1.OperatorStatus().
+		WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
+			Group:          ptr.To("apps"),
+			Resource:       ptr.To("deployments"),
+			Namespace:      ptr.To(deployment.Namespace),
+			Name:           ptr.To(deployment.Name),
+			LastGeneration: ptr.To(deployment.Generation),
+		})
 
 	// Set Available condition
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
