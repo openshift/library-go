@@ -15,8 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	coreinformers "k8s.io/client-go/informers"
-	fakecore "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
@@ -159,135 +157,60 @@ func TestWithObservedProxyDeploymentHook(t *testing.T) {
 }
 
 func TestWithReplicasHook(t *testing.T) {
-	var (
-		argsLevel2       = 2
-		masterNodeLabels = map[string]string{"node-role.kubernetes.io/master": ""}
-		workerNodeLabels = map[string]string{"node-role.kubernetes.io/worker": ""}
-	)
+	argsLevel2 := 2
 	testCases := []struct {
 		name               string
-		initialDriver      *fakeDriverInstance
-		initialNodes       []*v1.Node
+		infra              *configv1.Infrastructure
 		initialDeployment  *appsv1.Deployment
 		expectedDeployment *appsv1.Deployment
-		expectError        bool
 	}{
 		{
-			name:          "three-node control-plane",
-			initialDriver: makeFakeDriverInstance(),
-			initialNodes: []*v1.Node{
-				makeNode("A", masterNodeLabels),
-				makeNode("B", masterNodeLabels),
-				makeNode("C", masterNodeLabels),
-			},
+			name:  "highly available topology",
+			infra: makeInfraWithCPTopology(configv1.HighlyAvailableTopologyMode),
 			initialDeployment: makeDeployment(
 				defaultClusterID,
 				argsLevel2,
 				defaultImages(),
 				withDeploymentReplicas(1),
-				withDeploymentGeneration(1, 0)),
+				withDeploymentGeneration(1, 0),
+			),
 			expectedDeployment: makeDeployment(
 				defaultClusterID,
 				argsLevel2,
 				defaultImages(),
 				withDeploymentReplicas(2),
-				withDeploymentGeneration(1, 0)),
-			expectError: false,
+				withDeploymentGeneration(1, 0),
+			),
 		},
 		{
-			name:          "three-node control-plane with one worker node",
-			initialDriver: makeFakeDriverInstance(),
-			initialNodes: []*v1.Node{
-				makeNode("A", masterNodeLabels),
-				makeNode("B", masterNodeLabels),
-				makeNode("C", masterNodeLabels),
-				makeNode("D", workerNodeLabels),
-			},
-			initialDeployment: makeDeployment(
-				defaultClusterID,
+			name:  "single replica topology",
+			infra: makeInfraWithCPTopology(configv1.SingleReplicaTopologyMode),
+			initialDeployment: makeDeployment(defaultClusterID,
 				argsLevel2,
 				defaultImages(),
 				withDeploymentReplicas(1),
-				withDeploymentGeneration(1, 0)),
-			expectedDeployment: makeDeployment(
-				defaultClusterID,
-				argsLevel2,
-				defaultImages(),
-				withDeploymentReplicas(2),
-				withDeploymentGeneration(1, 0)),
-			expectError: false,
-		},
-		{
-			name:          "two-node control-plane",
-			initialDriver: makeFakeDriverInstance(),
-			initialNodes: []*v1.Node{
-				makeNode("A", masterNodeLabels),
-				makeNode("B", masterNodeLabels),
-			},
-			initialDeployment: makeDeployment(
-				defaultClusterID,
+				withDeploymentGeneration(1, 0),
+			),
+			expectedDeployment: makeDeployment(defaultClusterID,
 				argsLevel2,
 				defaultImages(),
 				withDeploymentReplicas(1),
-				withDeploymentGeneration(1, 0)),
-			expectedDeployment: makeDeployment(
-				defaultClusterID,
-				argsLevel2,
-				defaultImages(),
-				withDeploymentReplicas(2),
-				withDeploymentGeneration(1, 0)),
-			expectError: false,
-		},
-		{
-			name:          "single-node control-plane with one worker node",
-			initialDriver: makeFakeDriverInstance(),
-			initialNodes: []*v1.Node{
-				makeNode("A", masterNodeLabels),
-				makeNode("B", workerNodeLabels),
-			},
-			initialDeployment: makeDeployment(
-				defaultClusterID,
-				argsLevel2,
-				defaultImages(),
-				withDeploymentReplicas(1),
-				withDeploymentGeneration(1, 0)),
-			expectedDeployment: makeDeployment(
-				defaultClusterID,
-				argsLevel2,
-				defaultImages(),
-				withDeploymentReplicas(1),
-				withDeploymentGeneration(1, 0)),
-			expectError: false,
+				withDeploymentGeneration(1, 0),
+			),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var initialObjects []runtime.Object
+			initialInfras := []runtime.Object{tc.infra}
+			configClient := fakeconfig.NewSimpleClientset(initialInfras...)
+			configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+			configInformerFactory.Config().V1().Infrastructures().Informer().GetIndexer().Add(initialInfras[0])
 
-			// Add deployment to slice of objects to be added to client and informer
-			initialObjects = append(initialObjects, tc.initialDeployment)
-
-			// Do the same with nodes
-			for _, node := range tc.initialNodes {
-				initialObjects = append(initialObjects, node)
-			}
-
-			// Create fake client and informer
-			coreClient := fakecore.NewSimpleClientset(initialObjects...)
-			coreInformerFactory := coreinformers.NewSharedInformerFactory(coreClient, 0 /*no resync */)
-
-			// Fill the fake informer with the initial deployment and nodes
-			coreInformerFactory.Apps().V1().Deployments().Informer().GetIndexer().Add(tc.initialDeployment)
-			for _, node := range initialObjects {
-				coreInformerFactory.Core().V1().Nodes().Informer().GetIndexer().Add(node)
-			}
-
-			fn := WithReplicasHook(coreInformerFactory.Core().V1().Nodes().Lister())
-			err := fn(&tc.initialDriver.Spec, tc.initialDeployment)
-			if err != nil && !tc.expectError {
-				t.Errorf("Expected no error running hook function, got: %v", err)
-
+			fn := WithReplicasHook(configInformerFactory)
+			err := fn(nil, tc.initialDeployment)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 			if !equality.Semantic.DeepEqual(tc.initialDeployment, tc.expectedDeployment) {
 				t.Errorf("Unexpected Deployment content:\n%s", cmp.Diff(tc.initialDeployment, tc.expectedDeployment))
