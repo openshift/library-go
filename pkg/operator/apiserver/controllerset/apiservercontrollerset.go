@@ -315,6 +315,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 	secretGetter corev1client.SecretsGetter,
 ) *APIServerControllerSet {
 	cs.revisionController.controller = revisioncontroller.NewRevisionController(
+		cs.name,
 		targetNamespace,
 		configMaps,
 		secrets,

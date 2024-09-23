@@ -171,7 +171,9 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 				},
 				nil,
 				nil,
@@ -281,8 +283,10 @@ func TestNewNodeController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
-					NodeStatuses:            test.startNodeStatus,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
+					NodeStatuses: test.startNodeStatus,
 				},
 				nil,
 				nil,

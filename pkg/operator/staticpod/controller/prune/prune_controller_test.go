@@ -40,7 +40,9 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources based on failedLimit 1, succeedLimit 1",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 4,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 4,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -60,7 +62,9 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources with multiple nodes based on failedLimit 1, succeedLimit 1",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 5,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 5,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -87,8 +91,10 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources without nodes",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 1,
-				NodeStatuses:            []operatorv1.NodeStatus{},
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 1,
+				},
+				NodeStatuses: []operatorv1.NodeStatus{},
 			},
 			failedLimit:      1,
 			succeededLimit:   1,
@@ -100,7 +106,9 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources based on failedLimit 2, succeedLimit 3",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 10,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 10,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -120,7 +128,9 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources based on failedLimit 2, succeedLimit 3 and all relevant revisions set",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 40,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 40,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:           "test-node-1",
@@ -141,7 +151,9 @@ func TestSync(t *testing.T) {
 			name:            "prunes api resources based on failedLimit 0, succeedLimit 0",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 40,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 40,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:           "test-node-1",
@@ -162,7 +174,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 20,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 20,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:           "test-node-1",
@@ -182,7 +196,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all with different nodes",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 20,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 20,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -205,7 +221,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all with unlimited revisions",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 1,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 1,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -224,7 +242,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all with unlimited succeeded revisions",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 5,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 5,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -243,7 +263,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all with unlimited failed revisions",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 5,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 5,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",
@@ -262,7 +284,9 @@ func TestSync(t *testing.T) {
 			name:            "protects all with unlimited failed revisions, but no progress",
 			targetNamespace: "prune-api",
 			status: operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: 5,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 5,
+				},
 				NodeStatuses: []operatorv1.NodeStatus{
 					{
 						NodeName:        "test-node-1",

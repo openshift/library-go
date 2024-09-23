@@ -85,7 +85,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -130,7 +132,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 0,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 0,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -193,7 +197,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -236,7 +242,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 0,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 0,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -303,7 +311,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 0,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 0,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -382,7 +392,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 0,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 0,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -443,7 +455,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -481,7 +495,9 @@ func TestRevisionController(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -517,6 +533,7 @@ func TestRevisionController(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
 			c := NewRevisionController(
+				"testing",
 				tc.targetNamespace,
 				tc.testConfigs,
 				tc.testSecrets,
@@ -580,6 +597,14 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 	testConfigs := []RevisionResource{{Name: "test-config"}, {Name: "test-config-opt", Optional: true}}
 	testSecrets := []RevisionResource{{Name: "test-secret"}, {Name: "test-secret-opt", Optional: true}}
 
+	type errorContainer struct {
+		err error
+	}
+	testErr := &errorContainer{}
+
+	errFn := func(rv string, status *operatorv1.StaticPodOperatorStatus) error {
+		return testErr.err
+	}
 	staticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 		&operatorv1.StaticPodOperatorSpec{
 			OperatorSpec: operatorv1.OperatorSpec{
@@ -587,7 +612,9 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 2,
+			OperatorStatus: operatorv1.OperatorStatus{
+				LatestAvailableRevision: 2,
+			},
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
@@ -596,21 +623,20 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 				},
 			},
 		},
-		nil,
+		errFn,
 		nil,
 	)
-
-	fakeStaticPodOperatosClient := &fakeStaticPodLatestRevisionClient{client: &StaticPodLatestRevisionClient{StaticPodOperatorClient: staticPodOperatorClient}, StaticPodOperatorClient: staticPodOperatorClient}
 
 	kubeClient := fake.NewSimpleClientset(startingObjects...)
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
 	c := NewRevisionController(
+		"testing",
 		targetNamespace,
 		testConfigs,
 		testSecrets,
 		informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(targetNamespace)),
-		fakeStaticPodOperatosClient,
+		staticPodOperatorClient,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		eventRecorder,
@@ -619,7 +645,7 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 
 	klog.Infof("Running NewRevisionController.Sync with UpdateLatestRevisionOperatorStatus returning an error")
 	// make the first UpdateLatestRevisionOperatorStatus call fail
-	fakeStaticPodOperatosClient.updateLatestRevisionOperatorStatusErrs = true
+	testErr.err = fmt.Errorf("applyStatusFailure")
 	syncErr := c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder))
 	klog.Infof("Validating NewRevisionController.Sync returned an error: %v", syncErr)
 	if syncErr == nil {
@@ -639,7 +665,7 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 
 	klog.Infof("Running NewRevisionController.Sync with UpdateLatestRevisionOperatorStatus succeeding")
 	// make the second UpdateLatestRevisionOperatorStatus call to succeed
-	fakeStaticPodOperatosClient.updateLatestRevisionOperatorStatusErrs = false
+	testErr.err = nil
 	syncErr = c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder))
 	if syncErr != nil && syncErr != factory.SyntheticRequeueError {
 		t.Errorf("unexpected error after running NewRevisionController.Sync: %v", syncErr)
@@ -692,7 +718,9 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -730,7 +758,9 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -770,7 +800,9 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -795,6 +827,7 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
 
 			c := NewRevisionController(
+				"testing",
 				tc.targetNamespace,
 				tc.testConfigs,
 				tc.testSecrets,
@@ -809,7 +842,7 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 			require.Equal(t, syncErr, tc.expSyncErr)
 
 			_, status, _, _ := tc.staticPodOperatorClient.GetStaticPodOperatorState()
-			require.Equal(t, status.LatestAvailableRevision, tc.expUpdatedLatestAvailableRevision)
+			require.Equal(t, tc.expUpdatedLatestAvailableRevision, status.LatestAvailableRevision)
 
 		})
 	}
