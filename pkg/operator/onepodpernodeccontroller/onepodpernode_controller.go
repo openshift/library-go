@@ -78,7 +78,7 @@ func NewOnePodPerNodeController(
 	).WithSyncDegradedOnError(
 		operatorClient,
 	).ToController(
-		c.name,
+		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
 		recorder.WithComponentSuffix(strings.ToLower(name)+"-one-pod-per-node-"),
 	)
 }

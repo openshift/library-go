@@ -83,10 +83,13 @@ func NewLatencyProfileController(
 
 		// for configmaps of operator client target namespace
 		kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer(),
-	).ResyncEvery(time.Minute).WithSync(ret.sync).WithSyncDegradedOnError(operatorClient).ToController(
-		"WorkerLatencyProfile",
-		eventRecorder.WithComponentSuffix("latency-profile-controller"),
-	)
+	).ResyncEvery(time.Minute).
+		WithSync(ret.sync).
+		WithSyncDegradedOnError(operatorClient).
+		ToController(
+			"WorkerLatencyProfile", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("latency-profile-controller"),
+		)
 }
 
 func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.SyncContext) error {

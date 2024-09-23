@@ -445,7 +445,13 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 }
 
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
-	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
+	c.factory.
+		WithSync(c.Sync).
+		ToController(
+			c.Name(), // don't change what is passed here unless you also remove the old FooDegraded condition
+			c.eventRecorder,
+		).
+		Run(ctx, workers)
 }
 
 func defaultStaticResourcesPreconditionsFunc(_ context.Context) (bool, error) {

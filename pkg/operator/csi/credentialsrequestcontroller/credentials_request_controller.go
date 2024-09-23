@@ -75,7 +75,7 @@ func NewCredentialsRequestController(
 	).WithSyncDegradedOnError(
 		operatorClient,
 	).ToController(
-		c.name,
+		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
 		recorder.WithComponentSuffix("credentials-request-controller-"+strings.ToLower(name)),
 	)
 }

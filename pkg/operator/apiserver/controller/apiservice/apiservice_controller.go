@@ -121,7 +121,7 @@ func (c *APIServiceController) updateOperatorStatus(
 	defer func() {
 		status := applyoperatorv1.OperatorStatus().
 			WithConditions(conditionAPIServicesDegraded, conditionAPIServicesAvailable)
-		updateError := c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.controllerInstanceName, "updateOperatorStatus"), status)
+		updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 		if updateError != nil {
 			// overrides error returned through 'return <ERROR>' statement
 			err = updateError

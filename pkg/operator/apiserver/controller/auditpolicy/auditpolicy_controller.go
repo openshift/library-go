@@ -58,7 +58,10 @@ func NewAuditPolicyController(
 		configInformers.Config().V1().APIServers().Informer(),
 		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),
-	).ToController("auditPolicyController", eventRecorder.WithComponentSuffix("audit-policy-controller"))
+	).ToController(
+		"auditPolicyController", // don't change what is passed here unless you also remove the old FooDegraded condition
+		eventRecorder.WithComponentSuffix("audit-policy-controller"),
+	)
 }
 
 func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {

@@ -78,7 +78,10 @@ func NewStateController(
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
-	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-state-controller"))
+	).ToController(
+		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
+		eventRecorder.WithComponentSuffix("encryption-state-controller"),
+	)
 
 }
 

@@ -110,7 +110,10 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 
 	return c.WithSync(controllerRef.sync).
 		WithInformers(informers...).
-		ToController(fmt.Sprintf("%sWorkloadController", name), eventRecorder)
+		ToController(
+			fmt.Sprintf("%sWorkloadController", name), // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder,
+		)
 }
 
 func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncContext) error {

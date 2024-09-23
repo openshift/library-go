@@ -87,7 +87,15 @@ func NewResourceSyncController(
 		informers = append(informers, informer.Core().V1().Secrets().Informer())
 	}
 
-	f := factory.New().WithSync(c.Sync).WithSyncContext(c.syncCtx).WithInformers(informers...).ResyncEvery(time.Minute).ToController(c.controllerInstanceName, eventRecorder.WithComponentSuffix("resource-sync-controller"))
+	f := factory.New().
+		WithSync(c.Sync).
+		WithSyncContext(c.syncCtx).
+		WithInformers(informers...).
+		ResyncEvery(time.Minute).
+		ToController(
+			instanceName, // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("resource-sync-controller"),
+		)
 	c.runFn = f.Run
 
 	return c

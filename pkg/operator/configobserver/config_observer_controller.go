@@ -119,7 +119,14 @@ func NewNestedConfigObserver(
 		degradedConditionType:  degradedConditionPrefix + condition.ConfigObservationDegradedConditionType,
 	}
 
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(append(informers, listersToInformer(listers)...)...).ToController("ConfigObserver", eventRecorder.WithComponentSuffix("config-observer"))
+	return factory.New().
+		ResyncEvery(time.Minute).
+		WithSync(c.sync).
+		WithInformers(append(informers, listersToInformer(listers)...)...).
+		ToController(
+			"ConfigObserver", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("config-observer"),
+		)
 }
 
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This

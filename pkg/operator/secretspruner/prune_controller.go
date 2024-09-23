@@ -56,10 +56,16 @@ func NewSecretRevisionPruneController(
 		secretInformer: informers.InformersFor(targetNamespace).Core().V1().Secrets(),
 	}
 
-	return factory.New().WithInformers(
-		c.podInformer.Informer(),
-		c.secretInformer.Informer(),
-	).WithSync(c.sync).ToController("SecretRevisionPruneController", eventRecorder.WithComponentSuffix("secret-revision-prune-controller"))
+	return factory.New().
+		WithInformers(
+			c.podInformer.Informer(),
+			c.secretInformer.Informer(),
+		).
+		WithSync(c.sync).
+		ToController(
+			"SecretRevisionPruneController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("secret-revision-prune-controller"),
+		)
 }
 
 func (c *SecretRevisionPruneController) sync(ctx context.Context, syncContext factory.SyncContext) error {

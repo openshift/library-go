@@ -96,7 +96,7 @@ func NewCSIStorageClassController(
 		informerFactory.Storage().V1().StorageClasses().Informer(),
 		operatorInformer.Operator().V1().ClusterCSIDrivers().Informer(),
 	).ToController(
-		"StorageClassController",
+		"StorageClassController", // don't change what is passed here unless you also remove the old FooDegraded condition
 		eventRecorder,
 	)
 }

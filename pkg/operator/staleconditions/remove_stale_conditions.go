@@ -25,7 +25,14 @@ func NewRemoveStaleConditionsController(
 		conditions:     conditions,
 		operatorClient: operatorClient,
 	}
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(operatorClient.Informer()).ToController("RemoveStaleConditionsController", eventRecorder.WithComponentSuffix("remove-stale-conditions"))
+	return factory.New().
+		ResyncEvery(time.Minute).
+		WithSync(c.sync).
+		WithInformers(operatorClient.Informer()).
+		ToController(
+			"RemoveStaleConditionsController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("remove-stale-conditions"),
+		)
 }
 
 func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext factory.SyncContext) error {

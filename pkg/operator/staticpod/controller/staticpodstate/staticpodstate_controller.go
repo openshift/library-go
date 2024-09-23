@@ -52,10 +52,17 @@ func NewStaticPodStateController(
 		podsGetter:      podsGetter,
 		versionRecorder: versionRecorder,
 	}
-	return factory.New().WithInformers(
-		operatorClient.Informer(),
-		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
-	).WithSync(c.sync).ResyncEvery(time.Minute).ToController("StaticPodStateController", eventRecorder)
+	return factory.New().
+		WithInformers(
+			operatorClient.Informer(),
+			kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
+		).
+		WithSync(c.sync).
+		ResyncEvery(time.Minute).
+		ToController(
+			"StaticPodStateController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder,
+		)
 }
 
 func describeWaitingContainerState(waiting *v1.ContainerStateWaiting) string {
