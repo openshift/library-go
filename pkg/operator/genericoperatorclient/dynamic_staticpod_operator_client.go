@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func NewStaticPodOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, extractApplySpec StaticPodOperatorSpecExtractorFunc, extractApplyStatus StaticPodOperatorStatusExtractorFunc) (v1helpers.StaticPodOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
+func NewStaticPodOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, extractApplySpec StaticPodOperatorSpecExtractorFunc, extractApplyStatus StaticPodOperatorStatusExtractorFunc) (v1helpers.StaticPodOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, nil, err
@@ -32,6 +32,7 @@ func NewStaticPodOperatorClient(config *rest.Config, gvr schema.GroupVersionReso
 
 	return &dynamicStaticPodOperatorClient{
 		dynamicOperatorClient: dynamicOperatorClient{
+			gvk:                gvk,
 			configName:         defaultConfigName,
 			informer:           informer,
 			client:             client,
