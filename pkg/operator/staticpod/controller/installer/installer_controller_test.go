@@ -2613,6 +2613,168 @@ func TestTimeToWait(t *testing.T) {
 	}
 }
 
+func TestInstallerController_ForDeletingNodes(t *testing.T) {
+
+	tests := []struct {
+		name                    string
+		nodeStatuses            []operatorv1.NodeStatus
+		latestAvailableRevision int32
+		staticPods              []*corev1.Pod
+		deletingNodes           func(context.Context) []string
+		expectedNodeStatus      []operatorv1.NodeStatus
+	}{
+		{
+			name: "when a deleting node is present",
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-3",
+					CurrentRevision: 1,
+				},
+			},
+			latestAvailableRevision: 4,
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 4, corev1.PodSucceeded, true),
+			},
+			deletingNodes: func(context.Context) []string { return []string{"test-node-1"} },
+			expectedNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 4,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 4,
+				},
+				{
+					NodeName:        "test-node-3",
+					CurrentRevision: 4,
+				},
+			},
+		},
+		{
+			name: "when no deleting nodes are present",
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+			},
+			latestAvailableRevision: 4,
+			staticPods: []*corev1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-0"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 4, corev1.PodSucceeded, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 4, corev1.PodSucceeded, true),
+			},
+			deletingNodes: nil,
+			expectedNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-0",
+					CurrentRevision: 4,
+				},
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 4,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 4,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset(
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 4)}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 4)}},
+			)
+			kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+				installerPod := action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
+				installerPod.Status.Phase = corev1.PodSucceeded
+				return false, nil, nil
+			})
+
+			for _, pod := range tt.staticPods {
+				if _, err := kubeClient.CoreV1().Pods("test").Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			operatorSpec := &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
+			}
+			originalOperatorStatus := &operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{LatestAvailableRevision: tt.latestAvailableRevision},
+				NodeStatuses:   tt.nodeStatuses,
+			}
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			c := &InstallerController{
+				targetNamespace:     "test",
+				staticPodName:       "test-pod",
+				configMaps:          []revision.RevisionResource{{Name: "test-config"}},
+				secrets:             []revision.RevisionResource{{Name: "test-secret"}},
+				command:             []string{"/bin/true"},
+				operatorClient:      v1helpers.NewFakeStaticPodOperatorClient(operatorSpec, originalOperatorStatus, nil, nil),
+				configMapsGetter:    kubeClient.CoreV1(),
+				secretsGetter:       kubeClient.CoreV1(),
+				podsGetter:          kubeClient.CoreV1(),
+				eventRecorder:       eventRecorder,
+				installerPodImageFn: func() string { return "docker.io/foo/bar" },
+				deletingNodes:       tt.deletingNodes,
+			}
+			c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
+			c.startupMonitorEnabled = func() (bool, error) {
+				return false, nil
+			}
+			for i := 1; i <= len(tt.nodeStatuses)*2+1; i++ {
+				if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			_, currOperatorStatus, _, _ := c.operatorClient.GetStaticPodOperatorState()
+			if !reflect.DeepEqual(currOperatorStatus.NodeStatuses, tt.expectedNodeStatus) {
+				t.Errorf("currOperatorStatus.NodeStatuses = %v, wantOperatorStatus = %v ", currOperatorStatus.NodeStatuses, tt.expectedNodeStatus)
+			}
+		})
+	}
+
+}
+
 func timestamp(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, fmt.Sprintf("2021-01-02T%sZ", s))
 	if err != nil {
