@@ -282,7 +282,11 @@ func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldMan
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
 	switch {
 	case apierrors.IsNotFound(err):
-		// do nothing and proceed with the apply
+		// set last transitionTimes and then apply
+		// If our cache improperly 404's (the lister wasn't synchronized), then we will improperly reset all the last transition times.
+		// This isn't ideal, but we shouldn't hit this case unless a loop isn't waiting for HasSynced.
+		v1helpers.SetApplyConditionsLastTransitionTime(&desiredConfiguration.Conditions, nil)
+
 	case err != nil:
 		return fmt.Errorf("unable to read existing %q: %w", c.configName, err)
 	default:
@@ -293,6 +297,24 @@ func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldMan
 		previouslyDesiredConfiguration, err := c.extractApplyStatus(original, fieldManager)
 		if err != nil {
 			return fmt.Errorf("unable to extract status for %q: %w", fieldManager, err)
+		}
+
+		// set last transitionTimes to properly calculate a difference
+		// It is possible for last transition time to shift a couple times until the cache updates to have the condition[*].status match,
+		// but it will eventually settle.  The failing sequence looks like
+		/*
+			1. type=foo, status=false, time=t0.Now
+			2. type=foo, status=true, time=t1.Now
+			3. rapid update happens and the cache still indicates #1
+			4. type=foo, status=true, time=t2.Now (this *should* be t1.Now)
+		*/
+		// Eventually the cache updates to see at #2 and we stop applying new times.
+		// This only becomes pathological if the condition is also flapping, but if that happens the time should also update.
+		switch {
+		case desiredConfiguration != nil && desiredConfiguration.Conditions != nil && previouslyDesiredConfiguration != nil:
+			v1helpers.SetApplyConditionsLastTransitionTime(&desiredConfiguration.Conditions, previouslyDesiredConfiguration.Conditions)
+		case desiredConfiguration != nil && desiredConfiguration.Conditions != nil && previouslyDesiredConfiguration == nil:
+			v1helpers.SetApplyConditionsLastTransitionTime(&desiredConfiguration.Conditions, nil)
 		}
 
 		// canonicalize so the DeepEqual works consistently
