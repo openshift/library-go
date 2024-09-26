@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 const defaultConfigName = "cluster"
@@ -279,6 +280,18 @@ func (c dynamicOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldMan
 }
 
 func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldManager string, desiredConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
+	if desiredConfiguration != nil {
+		for i, curr := range desiredConfiguration.Conditions {
+			// panicking so we can quickly find it and fix the source
+			if len(ptr.Deref(curr.Type, "")) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%d].type is missing", i))
+			}
+			if len(ptr.Deref(curr.Status, "")) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%q].status is missing", *curr.Type))
+			}
+		}
+	}
+
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
 	switch {
 	case apierrors.IsNotFound(err):
@@ -331,6 +344,15 @@ func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldMan
 		if equality.Semantic.DeepEqual(previouslyDesiredObj, desiredObj) {
 			// nothing to apply, so return early
 			return nil
+		}
+	}
+
+	for _, curr := range desiredConfiguration.Conditions {
+		if len(ptr.Deref(curr.Reason, "")) == 0 {
+			klog.Warningf(".status.conditions[%q].reason is missing; this will eventually be fatal", *curr.Type)
+		}
+		if len(ptr.Deref(curr.Message, "")) == 0 {
+			klog.Warningf(".status.conditions[%q].message is missing; this will eventually be fatal", *curr.Type)
 		}
 	}
 
