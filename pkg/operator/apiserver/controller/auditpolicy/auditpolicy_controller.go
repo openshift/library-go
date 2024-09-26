@@ -4,13 +4,12 @@ import (
 	"context"
 	"time"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
-
 	configv1 "github.com/openshift/api/config/v1"
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -35,7 +34,7 @@ type auditPolicyController struct {
 // NewAuditPolicyController create a controller that watches the config.openshift.io/v1 APIServer object
 // and reconciles a ConfigMap in the target namespace with the audit.k8s.io/v1 policy.yaml file.
 func NewAuditPolicyController(
-	name string,
+	instanceName string,
 	targetNamespace string,
 	targetConfigMapName string,
 	apiserverConfigLister configv1listers.APIServerLister,
@@ -46,7 +45,7 @@ func NewAuditPolicyController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &auditPolicyController{
-		controllerInstanceName: factory.ControllerInstanceName(name, "AuditPolicy"),
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "AuditPolicy"),
 		operatorClient:         operatorClient,
 		apiserverConfigLister:  apiserverConfigLister,
 		kubeClient:             kubeClient,
@@ -54,12 +53,15 @@ func NewAuditPolicyController(
 		targetConfigMapName:    targetConfigMapName,
 	}
 
-	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
-		configInformers.Config().V1().APIServers().Informer(),
-		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
-		operatorClient.Informer(),
-	).ToController(
-		"auditPolicyController", // don't change what is passed here unless you also remove the old FooDegraded condition
+	return factory.New().
+		WithSync(c.sync).
+		ResyncEvery(10*time.Second).
+		WithInformers(
+			configInformers.Config().V1().APIServers().Informer(),
+			kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
+			operatorClient.Informer(),
+		).ToController(
+		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("audit-policy-controller"),
 	)
 }

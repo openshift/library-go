@@ -20,8 +20,8 @@ import (
 )
 
 type finalizerController struct {
-	name          string
-	namespaceName string
+	controllerInstanceName string
+	namespaceName          string
 
 	namespaceGetter v1.NamespacesGetter
 	podLister       corev1listers.PodLister
@@ -41,20 +41,22 @@ func NewFinalizerController(
 	namespaceGetter v1.NamespacesGetter,
 	eventRecorder events.Recorder,
 ) factory.Controller {
-	fullname := "NamespaceFinalizerController_" + namespaceName
 	c := &finalizerController{
-		name:            fullname,
-		namespaceName:   namespaceName,
-		namespaceGetter: namespaceGetter,
-		podLister:       kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
-		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
+		controllerInstanceName: factory.ControllerInstanceName(namespaceName, "NamespaceFinalizerController"),
+		namespaceName:          namespaceName,
+		namespaceGetter:        namespaceGetter,
+		podLister:              kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
+		dsLister:               kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
 	}
 
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
-		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
-		kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer(),
-	).ToController(
-		fullname, // don't change what is passed here unless you also remove the old FooDegraded condition
+	return factory.New().
+		ResyncEvery(time.Minute).
+		WithSync(c.sync).
+		WithInformers(
+			kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
+			kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer(),
+		).ToController(
+		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("finalizer-controller"),
 	)
 }

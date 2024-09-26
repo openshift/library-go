@@ -49,6 +49,8 @@ type Delegate interface {
 // Callers must provide a sync function for delegation. It should bring the desired workload into operation.
 // The returned state along with errors will be converted into conditions and persisted in the status field.
 type Controller struct {
+	controllerInstanceName string
+
 	// conditionsPrefix an optional prefix that will be used as operator's condition type field for example APIServerDeploymentDegraded where APIServer indicates the prefix
 	conditionsPrefix     string
 	operatorNamespace    string
@@ -77,7 +79,7 @@ type Controller struct {
 // the "operatorNamespace" is used to set "version-mapping" in the correct namespace
 //
 // the "targetNamespace" represent the namespace for the managed resource (DaemonSet)
-func NewController(name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
+func NewController(instanceName, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	podLister corev1listers.PodLister,
@@ -89,6 +91,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 	versionRecorder status.VersionGetter,
 ) factory.Controller {
 	controllerRef := &Controller{
+		controllerInstanceName:       factory.ControllerInstanceName(instanceName, "Workload"),
 		operatorNamespace:            operatorNamespace,
 		targetNamespace:              targetNamespace,
 		targetOperandVersion:         targetOperandVersion,
@@ -100,7 +103,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		versionRecorder:              versionRecorder,
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), instanceName),
 	}
 
 	c := factory.New()
@@ -111,7 +114,7 @@ func NewController(name, operatorNamespace, targetNamespace, targetOperandVersio
 	return c.WithSync(controllerRef.sync).
 		WithInformers(informers...).
 		ToController(
-			fmt.Sprintf("%sWorkloadController", name), // don't change what is passed here unless you also remove the old FooDegraded condition
+			controllerRef.controllerInstanceName,
 			eventRecorder,
 		)
 }
