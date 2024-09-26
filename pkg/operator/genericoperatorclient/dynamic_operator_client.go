@@ -192,6 +192,18 @@ func (c dynamicOperatorClient) UpdateOperatorSpec(ctx context.Context, resourceV
 // in operatorv1.OperatorStatus while preserving pre-existing status fields that have
 // no correspondence in operatorv1.OperatorStatus.
 func (c dynamicOperatorClient) UpdateOperatorStatus(ctx context.Context, resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
+	if status != nil {
+		for i, curr := range status.Conditions {
+			// panicking so we can quickly find it and fix the source
+			if len(curr.Type) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%d].type is missing", i))
+			}
+			if len(curr.Status) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%q].status is missing", curr.Type))
+			}
+		}
+	}
+
 	uncastOriginal, err := c.informer.Lister().Get(c.configName)
 	if err != nil {
 		return nil, err
