@@ -3,6 +3,7 @@ package configobserver
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -70,6 +71,16 @@ func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager
 }
 
 func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	applyJSON, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return fmt.Errorf("marshal failure: %w", err)
+	}
+	status := &operatorv1.OperatorStatus{}
+	if err := json.Unmarshal(applyJSON, status); err != nil {
+		return fmt.Errorf("unmarshal failure: %w", err)
+	}
+	c.status = status
+
 	return nil
 }
 

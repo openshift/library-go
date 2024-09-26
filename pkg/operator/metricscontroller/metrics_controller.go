@@ -48,7 +48,10 @@ func NewMetricsController(name string, operatorClient v1helpers.OperatorClient, 
 	return factory.New().
 		WithSync(c.sync).
 		ResyncEvery(time.Minute).
-		ToController(name, recorder)
+		ToController(
+			name, // don't change what is passed here unless you also remove the old FooDegraded condition
+			recorder,
+		)
 }
 
 func (c *metricsController) sync(ctx context.Context, syncCtx factory.SyncContext) error {

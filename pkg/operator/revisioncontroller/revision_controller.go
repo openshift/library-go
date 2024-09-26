@@ -90,10 +90,18 @@ func NewRevisionController(
 		revisionPrecondition: revisionPrecondition,
 	}
 
-	return factory.New().WithInformers(
-		operatorClient.Informer(),
-		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
-		kubeInformersForTargetNamespace.Core().V1().Secrets().Informer()).WithSync(c.sync).ResyncEvery(1*time.Minute).ToController("RevisionController", eventRecorder)
+	return factory.New().
+		WithInformers(
+			operatorClient.Informer(),
+			kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
+			kubeInformersForTargetNamespace.Core().V1().Secrets().Informer(),
+		).
+		WithSync(c.sync).
+		ResyncEvery(1*time.Minute).
+		ToController(
+			"RevisionController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder,
+		)
 }
 
 // createRevisionIfNeeded takes care of creating content for the static pods to use.

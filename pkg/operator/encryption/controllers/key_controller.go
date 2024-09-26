@@ -111,7 +111,10 @@ func NewKeyController(
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 			deployer,
-		).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-key-controller"))
+		).ToController(
+		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
+		eventRecorder.WithComponentSuffix("encryption-key-controller"),
+	)
 }
 
 func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {

@@ -60,7 +60,12 @@ func NewConditionController(
 		operatorClient.Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
-	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
+	).ResyncEvery(time.Minute).
+		WithSync(c.sync).
+		ToController(
+			"EncryptionConditionController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("encryption-condition-controller"),
+		)
 }
 
 func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {

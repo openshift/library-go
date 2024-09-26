@@ -61,7 +61,8 @@ func init() {
 type StaticResourcesPreconditionsFuncType func(ctx context.Context) (bool, error)
 
 type StaticResourceController struct {
-	name                   string
+	instanceName           string
+	controllerInstanceName string
 	manifests              []conditionalManifests
 	ignoreNotFoundOnCreate bool
 	preconditions          []StaticResourcesPreconditionsFuncType
@@ -96,7 +97,7 @@ type conditionalManifests struct {
 // Optionally, the controller can ignore NotFound errors. This is useful when syncing CRs for CRDs that may not yet exist
 // when the controller runs, such as ServiceMonitor.
 func NewStaticResourceController(
-	name string,
+	instanceName string,
 	manifests resourceapply.AssetFunc,
 	files []string,
 	clients *resourceapply.ClientHolder,
@@ -104,14 +105,15 @@ func NewStaticResourceController(
 	eventRecorder events.Recorder,
 ) *StaticResourceController {
 	c := &StaticResourceController{
-		name: name,
+		instanceName:           instanceName,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "StaticResources"),
 
 		operatorClient: operatorClient,
 		clients:        clients,
 
 		preconditions: []StaticResourcesPreconditionsFuncType{defaultStaticResourcesPreconditionsFunc},
 
-		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
+		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(instanceName)),
 
 		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
 		performanceCache: resourceapply.NewResourceCache(),
@@ -300,11 +302,11 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			}
 			condition := applyoperatorv1.OperatorStatus().
 				WithConditions(applyoperatorv1.OperatorCondition().
-					WithType(fmt.Sprintf("%sDegraded", c.name)).
+					WithType(fmt.Sprintf("%sDegraded", c.instanceName)).
 					WithStatus(operatorv1.ConditionTrue).
 					WithReason("PreconditionNotReady").
 					WithMessage(message))
-			updateErr := c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.name, "reportDegraded"), condition)
+			updateErr := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, condition)
 			if updateErr != nil {
 				return updateErr
 			}
@@ -346,7 +348,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 	}
 
 	cnd := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDegraded", c.name)).
+		WithType(fmt.Sprintf("%sDegraded", c.instanceName)).
 		WithStatus(operatorv1.ConditionFalse).
 		WithReason("AsExpected").
 		WithMessage("")
@@ -368,7 +370,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 	}
 
 	status := applyoperatorv1.OperatorStatus().WithConditions(cnd)
-	err = c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.name, "reportDegraded"), status)
+	err = c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 	if err != nil {
 		errors = append(errors, err)
 	}
@@ -376,7 +378,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 }
 
 func (c *StaticResourceController) Name() string {
-	return c.name
+	return c.controllerInstanceName
 }
 
 func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference, error) {
@@ -443,7 +445,13 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 }
 
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
-	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
+	c.factory.
+		WithSync(c.Sync).
+		ToController(
+			c.Name(), // don't change what is passed here unless you also remove the old FooDegraded condition
+			c.eventRecorder,
+		).
+		Run(ctx, workers)
 }
 
 func defaultStaticResourcesPreconditionsFunc(_ context.Context) (bool, error) {

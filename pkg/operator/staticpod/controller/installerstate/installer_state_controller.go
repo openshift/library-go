@@ -50,7 +50,14 @@ func NewInstallerStateController(kubeInformersForTargetNamespace informers.Share
 		timeNowFn:       time.Now,
 	}
 
-	return factory.New().WithInformers(kubeInformersForTargetNamespace.Core().V1().Pods().Informer()).WithSync(c.sync).ResyncEvery(1*time.Minute).ToController("InstallerStateController", recorder)
+	return factory.New().
+		WithInformers(kubeInformersForTargetNamespace.Core().V1().Pods().Informer()).
+		WithSync(c.sync).
+		ResyncEvery(1*time.Minute).
+		ToController(
+			"InstallerStateController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			recorder,
+		)
 }
 
 // degradedConditionNames lists all supported condition types.

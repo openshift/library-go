@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -23,6 +25,7 @@ import (
 )
 
 type auditPolicyController struct {
+	controllerInstanceName               string
 	apiserverConfigLister                configv1listers.APIServerLister
 	kubeClient                           kubernetes.Interface
 	operatorClient                       v1helpers.OperatorClient
@@ -32,6 +35,7 @@ type auditPolicyController struct {
 // NewAuditPolicyController create a controller that watches the config.openshift.io/v1 APIServer object
 // and reconciles a ConfigMap in the target namespace with the audit.k8s.io/v1 policy.yaml file.
 func NewAuditPolicyController(
+	name string,
 	targetNamespace string,
 	targetConfigMapName string,
 	apiserverConfigLister configv1listers.APIServerLister,
@@ -42,18 +46,22 @@ func NewAuditPolicyController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &auditPolicyController{
-		operatorClient:        operatorClient,
-		apiserverConfigLister: apiserverConfigLister,
-		kubeClient:            kubeClient,
-		targetNamespace:       targetNamespace,
-		targetConfigMapName:   targetConfigMapName,
+		controllerInstanceName: factory.ControllerInstanceName(name, "AuditPolicy"),
+		operatorClient:         operatorClient,
+		apiserverConfigLister:  apiserverConfigLister,
+		kubeClient:             kubeClient,
+		targetNamespace:        targetNamespace,
+		targetConfigMapName:    targetConfigMapName,
 	}
 
 	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
 		configInformers.Config().V1().APIServers().Informer(),
 		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),
-	).ToController("auditPolicyController", eventRecorder.WithComponentSuffix("audit-policy-controller"))
+	).ToController(
+		"auditPolicyController", // don't change what is passed here unless you also remove the old FooDegraded condition
+		eventRecorder.WithComponentSuffix("audit-policy-controller"),
+	)
 }
 
 func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -81,19 +89,19 @@ func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncCo
 	err = c.syncAuditPolicy(ctx, config.Spec.Audit, syncCtx.Recorder())
 
 	// update failing condition
-	cond := operatorv1.OperatorCondition{
-		Type:   "AuditPolicyDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
+	condition := applyoperatorv1.OperatorCondition().
+		WithType("AuditPolicyDegraded").
+		WithStatus(operatorv1.ConditionFalse)
 	if err != nil {
-		cond.Status = operatorv1.ConditionTrue
-		cond.Reason = "Error"
-		cond.Message = err.Error()
+		condition = condition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Error").
+			WithMessage(err.Error())
 	}
-	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
-		if err == nil {
-			return updateError
-		}
+	status := applyoperatorv1.OperatorStatus().WithConditions(condition)
+	updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
+	if updateError != nil {
+		return updateError
 	}
 
 	return err

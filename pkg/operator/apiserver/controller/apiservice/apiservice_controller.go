@@ -34,7 +34,7 @@ type GetAPIServicesToMangeFunc func() (enabled []*apiregistrationv1.APIService, 
 type apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool, error)
 
 type APIServiceController struct {
-	name                     string
+	controllerInstanceName   string
 	getAPIServicesToManageFn GetAPIServicesToMangeFunc
 	// preconditionsForEnabledAPIServices must return true before the apiservices will be created
 	preconditionsForEnabledAPIServices apiServicesPreconditionFuncType
@@ -46,7 +46,7 @@ type APIServiceController struct {
 }
 
 func NewAPIServiceController(
-	name, targetNamespace string,
+	instanceName, targetNamespace string,
 	getAPIServicesToManageFunc GetAPIServicesToMangeFunc,
 	operatorClient v1helpers.OperatorClient,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
@@ -57,7 +57,7 @@ func NewAPIServiceController(
 	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
-		name: "APIServiceController_" + name,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "APIService"),
 		preconditionsForEnabledAPIServices: preconditionsForEnabledAPIServices(
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Lister(),
 			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Lister(),
@@ -77,7 +77,7 @@ func NewAPIServiceController(
 			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Informer(),
 			apiregistrationInformers.Apiregistration().V1().APIServices().Informer(),
 		)...,
-	).ToController(c.name, eventRecorder.WithComponentSuffix("apiservice-"+name+"-controller"))
+	).ToController(c.controllerInstanceName, eventRecorder.WithComponentSuffix("apiservice-"+instanceName+"-controller"))
 }
 
 func (c *APIServiceController) updateOperatorStatus(
@@ -121,7 +121,7 @@ func (c *APIServiceController) updateOperatorStatus(
 	defer func() {
 		status := applyoperatorv1.OperatorStatus().
 			WithConditions(conditionAPIServicesDegraded, conditionAPIServicesAvailable)
-		updateError := c.operatorClient.ApplyOperatorStatus(ctx, factory.ControllerFieldManager(c.name, "updateOperatorStatus"), status)
+		updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 		if updateError != nil {
 			// overrides error returned through 'return <ERROR>' statement
 			err = updateError

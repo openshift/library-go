@@ -3,6 +3,7 @@ package latencyprofilecontroller
 import (
 	"context"
 	"fmt"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +46,7 @@ type CheckProfileRejectionFunc func(
 // this could break cluster upgrades and set this controller into degraded state
 // because of an "unknown latency profile" error.
 type LatencyProfileController struct {
+	controllerInstanceName  string
 	operatorClient          v1helpers.StaticPodOperatorClient
 	targetNamespace         string
 	configNodeLister        listerv1.NodeLister
@@ -53,6 +55,7 @@ type LatencyProfileController struct {
 }
 
 func NewLatencyProfileController(
+	instanceName string,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	targetNamespace string,
 	checkProfileRejectionFn CheckProfileRejectionFunc,
@@ -63,6 +66,7 @@ func NewLatencyProfileController(
 ) factory.Controller {
 
 	ret := &LatencyProfileController{
+		controllerInstanceName:  factory.ControllerInstanceName(instanceName, "LatencyProfile"),
 		operatorClient:          operatorClient,
 		targetNamespace:         targetNamespace,
 		checkProfileRejectionFn: checkProfileRejectionFn,
@@ -79,10 +83,13 @@ func NewLatencyProfileController(
 
 		// for configmaps of operator client target namespace
 		kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer(),
-	).ResyncEvery(time.Minute).WithSync(ret.sync).WithSyncDegradedOnError(operatorClient).ToController(
-		"WorkerLatencyProfile",
-		eventRecorder.WithComponentSuffix("latency-profile-controller"),
-	)
+	).ResyncEvery(time.Minute).
+		WithSync(ret.sync).
+		WithSyncDegradedOnError(operatorClient).
+		ToController(
+			"WorkerLatencyProfile", // don't change what is passed here unless you also remove the old FooDegraded condition
+			eventRecorder.WithComponentSuffix("latency-profile-controller"),
+		)
 }
 
 func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -96,7 +103,7 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 		}
 
 		// in case config/v1/node/cluster object doesn't exist
-		_, err = c.updateStatus(
+		err = c.updateStatus(
 			ctx,
 			false, true, // not progressing, complete=True
 			reasonLatencyProfileEmpty,
@@ -131,7 +138,7 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 		// if profile transition is rejected, set status to progress=False, complete=False
 		// and degrade operator with suitable error message
 		if isRejected {
-			_, err = c.updateStatus(
+			err = c.updateStatus(
 				ctx,
 				false, false, // not progressing, not complete
 				reasonLatencyProfileUpdateProhibited,
@@ -153,7 +160,7 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 	// also since this is a non-GA feature having a no-op case with profile empty would make sense.
 	// TODO: we should change this behavior in the future before Worker Latency Profiles feature is GA.
 	if configNodeObj.Spec.WorkerLatencyProfile == "" {
-		_, err = c.updateStatus(
+		err = c.updateStatus(
 			ctx,
 			false, true, // not progressing, complete=True
 			reasonLatencyProfileEmpty,
@@ -169,14 +176,14 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 	}
 
 	if revisionsHaveSynced {
-		_, err = c.updateStatus(
+		err = c.updateStatus(
 			ctx,
 			false, true, // not progressing, complete=True
 			reasonLatencyProfileUpdated,
 			syncMsg,
 		)
 	} else {
-		_, err = c.updateStatus(
+		err = c.updateStatus(
 			ctx,
 			true, false, // progressing=True, not complete
 			reasonLatencyProfileUpdateTriggered,
@@ -186,30 +193,31 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 	return err
 }
 
-func (c *LatencyProfileController) updateStatus(ctx context.Context, isProgressing, isComplete bool, reason, message string) (bool, error) {
-	progressingCondition := operatorv1.OperatorCondition{
-		Type:   workerLatencyProfileProgressing,
-		Status: operatorv1.ConditionFalse,
-		Reason: reason,
-	}
-	completedCondition := operatorv1.OperatorCondition{
-		Type:   workerLatencyProfileComplete,
-		Status: operatorv1.ConditionFalse,
-		Reason: reason,
-	}
+func (c *LatencyProfileController) updateStatus(ctx context.Context, isProgressing, isComplete bool, reason, message string) error {
+	progressingCondition := applyoperatorv1.OperatorCondition().
+		WithType(workerLatencyProfileProgressing).
+		WithStatus(operatorv1.ConditionFalse).
+		WithReason(reason)
+	completedCondition := applyoperatorv1.OperatorCondition().
+		WithType(workerLatencyProfileComplete).
+		WithStatus(operatorv1.ConditionFalse).
+		WithReason(reason)
 
 	if isProgressing {
-		progressingCondition.Status = operatorv1.ConditionTrue
-		progressingCondition.Message = message
+		progressingCondition = progressingCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithMessage(message)
 	} else if isComplete {
-		completedCondition.Status = operatorv1.ConditionTrue
-		completedCondition.Message = message
+		completedCondition = completedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithMessage(message)
 	}
 
-	_, isUpdated, err := v1helpers.UpdateStatus(
-		ctx, c.operatorClient,
-		v1helpers.UpdateConditionFn(progressingCondition),
-		v1helpers.UpdateConditionFn(completedCondition),
-	)
-	return isUpdated, err
+	status := applyoperatorv1.OperatorStatus().WithConditions(progressingCondition, completedCondition)
+	updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
+	if updateError != nil {
+		return updateError
+	}
+
+	return nil
 }

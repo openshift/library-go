@@ -71,11 +71,14 @@ type DaemonSetHookFunc func(*opv1.OperatorSpec, *appsv1.DaemonSet) error
 // <name>Progressing: indicates that the CSI Node Service is being deployed.
 // <name>Degraded: produced when the sync() method returns an error.
 type CSIDriverNodeServiceController struct {
-	name           string
-	manifest       []byte
-	operatorClient v1helpers.OperatorClientWithFinalizers
-	kubeClient     kubernetes.Interface
-	dsInformer     appsinformersv1.DaemonSetInformer
+	// instanceName is the name to identify what instance this belongs too: FooDriver for instance
+	instanceName string
+	// controllerInstanceName is the name to identify this instance of this particular control loop: FooDriver-CSIDriverNodeService for instance.
+	controllerInstanceName string
+	manifest               []byte
+	operatorClient         v1helpers.OperatorClientWithFinalizers
+	kubeClient             kubernetes.Interface
+	dsInformer             appsinformersv1.DaemonSetInformer
 	// Optional hook functions to modify the DaemonSet.
 	// If one of these functions returns an error, the sync
 	// fails indicating the ordinal position of the failed function.
@@ -85,7 +88,7 @@ type CSIDriverNodeServiceController struct {
 }
 
 func NewCSIDriverNodeServiceController(
-	name string,
+	instanceName string,
 	manifest []byte,
 	recorder events.Recorder,
 	operatorClient v1helpers.OperatorClientWithFinalizers,
@@ -95,7 +98,8 @@ func NewCSIDriverNodeServiceController(
 	optionalDaemonSetHooks ...DaemonSetHookFunc,
 ) factory.Controller {
 	c := &CSIDriverNodeServiceController{
-		name:                   name,
+		instanceName:           instanceName,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "CSIDriverNodeService"),
 		manifest:               manifest,
 		operatorClient:         operatorClient,
 		kubeClient:             kubeClient,
@@ -115,13 +119,13 @@ func NewCSIDriverNodeServiceController(
 	).WithSyncDegradedOnError(
 		operatorClient,
 	).ToController(
-		c.name,
-		recorder.WithComponentSuffix("csi-driver-node-service_"+strings.ToLower(name)),
+		c.instanceName, // don't change what is passed here unless you also remove the old FooDegraded condition
+		recorder.WithComponentSuffix("csi-driver-node-service_"+strings.ToLower(instanceName)),
 	)
 }
 
 func (c *CSIDriverNodeServiceController) Name() string {
-	return c.name
+	return c.instanceName
 }
 
 func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext factory.SyncContext) error {
@@ -154,7 +158,7 @@ func (c *CSIDriverNodeServiceController) sync(ctx context.Context, syncContext f
 func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
 	klog.V(4).Infof("syncManaged")
 	if management.IsOperatorRemovable() {
-		if err := v1helpers.EnsureFinalizer(ctx, c.operatorClient, c.name); err != nil {
+		if err := v1helpers.EnsureFinalizer(ctx, c.operatorClient, c.instanceName); err != nil {
 			return err
 		}
 	}
@@ -187,7 +191,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 
 	// Set Available condition
 	availableCondition := applyoperatorv1.OperatorCondition().
-		WithType(c.name + opv1.OperatorStatusTypeAvailable).
+		WithType(c.instanceName + opv1.OperatorStatusTypeAvailable).
 		WithStatus(opv1.ConditionTrue)
 
 	if daemonSet.Status.NumberAvailable > 0 {
@@ -202,7 +206,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 
 	// Set Progressing condition
 	progressingCondition := applyoperatorv1.OperatorCondition().
-		WithType(c.name + opv1.OperatorStatusTypeProgressing).
+		WithType(c.instanceName + opv1.OperatorStatusTypeProgressing).
 		WithStatus(opv1.ConditionFalse)
 
 	if ok, msg := isProgressing(opStatus, daemonSet); ok {
@@ -215,7 +219,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 
 	return c.operatorClient.ApplyOperatorStatus(
 		ctx,
-		factory.ControllerFieldManager(c.name, "updateOperatorStatus"),
+		c.controllerInstanceName,
 		status,
 	)
 }
@@ -301,5 +305,5 @@ func (c *CSIDriverNodeServiceController) syncDeleting(ctx context.Context, opSpe
 	}
 
 	// All removed, remove the finalizer as the last step
-	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.name)
+	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.instanceName)
 }
