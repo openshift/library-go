@@ -161,7 +161,7 @@ func TestSimpleChecks(t *testing.T) {
 		t.Run(roundTripperTest.name, func(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
-					test.testFn(t, roundTripperTest.getClient())
+					test.testFn(t, roundTripperTest.getClient().GetHTTPClient())
 				})
 			}
 		})
@@ -171,36 +171,29 @@ func TestSimpleChecks(t *testing.T) {
 func defaultRoundTrippers(t *testing.T) []*testRoundTrippers {
 	t.Helper()
 
-	mustGatherRoundTripper, err := manifestclient.NewRoundTripper("testdata/must-gather-01")
-	if err != nil {
-		t.Fatal(err)
-	}
-	testRoundTripper, err := manifestclient.NewTestingRoundTripper(mustGather01, "testdata/must-gather-01")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	return []*testRoundTrippers{
 		{
-			name:         "directory read",
-			roundTripper: mustGatherRoundTripper,
+			name: "directory read",
+			newClientFn: func() manifestclient.MutationTrackingClient {
+				return manifestclient.NewHTTPClient("testdata/must-gather-01")
+			},
 		},
 		{
-			name:         "embed read",
-			roundTripper: testRoundTripper,
+			name: "embed read",
+			newClientFn: func() manifestclient.MutationTrackingClient {
+				return manifestclient.NewTestingHTTPClient(mustGather01, "testdata/must-gather-01")
+			},
 		},
 	}
 }
 
 type testRoundTrippers struct {
-	name         string
-	roundTripper http.RoundTripper
+	name        string
+	newClientFn func() manifestclient.MutationTrackingClient
 }
 
-func (r *testRoundTrippers) getClient() *http.Client {
-	return &http.Client{
-		Transport: r.roundTripper,
-	}
+func (r *testRoundTrippers) getClient() manifestclient.MutationTrackingClient {
+	return r.newClientFn()
 }
 
 func TestWatchChecks(t *testing.T) {
@@ -240,7 +233,7 @@ func TestWatchChecks(t *testing.T) {
 		t.Run(roundTripperTest.name, func(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
-					test.testFn(t, roundTripperTest.getClient())
+					test.testFn(t, roundTripperTest.getClient().GetHTTPClient())
 				})
 			}
 		})
