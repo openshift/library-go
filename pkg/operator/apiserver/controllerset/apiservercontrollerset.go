@@ -310,7 +310,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 	configMaps []revisioncontroller.RevisionResource,
 	secrets []revisioncontroller.RevisionResource,
 	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
-	revisionClient revisioncontroller.LatestRevisionClient,
+	operatorClient v1helpers.OperatorClient,
 	configMapGetter corev1client.ConfigMapsGetter,
 	secretGetter corev1client.SecretsGetter,
 ) *APIServerControllerSet {
@@ -320,7 +320,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 		configMaps,
 		secrets,
 		kubeInformersForTargetNamespace,
-		revisionClient,
+		operatorClient,
 		configMapGetter,
 		secretGetter,
 		cs.eventRecorder,

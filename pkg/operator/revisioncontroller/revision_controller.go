@@ -24,17 +24,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// LatestRevisionClient is an operator client for an operator status with a latest revision field.
-// Deprecated
-type LatestRevisionClient interface {
-	v1helpers.OperatorClient
-
-	// GetLatestRevisionState returns the spec, status and latest revision.
-	GetLatestRevisionState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, rev int32, rv string, err error)
-	// UpdateLatestRevisionOperatorStatus updates the status with the given latestAvailableRevision and the by applying the given updateFuncs.
-	UpdateLatestRevisionOperatorStatus(ctx context.Context, latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error)
-}
-
 // RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
 // of them. If the original resources changes, the revision counter is increased, stored in LatestAvailableRevision
 // field of the operator config and new snapshots suffixed by the revision are created.

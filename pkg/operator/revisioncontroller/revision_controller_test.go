@@ -538,7 +538,7 @@ func TestRevisionController(t *testing.T) {
 				tc.testConfigs,
 				tc.testSecrets,
 				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(tc.targetNamespace)),
-				StaticPodLatestRevisionClient{StaticPodOperatorClient: tc.staticPodOperatorClient},
+				tc.staticPodOperatorClient,
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,
@@ -564,25 +564,6 @@ func TestRevisionController(t *testing.T) {
 			}
 		})
 	}
-}
-
-type fakeStaticPodLatestRevisionClient struct {
-	v1helpers.StaticPodOperatorClient
-	client                                 *StaticPodLatestRevisionClient
-	updateLatestRevisionOperatorStatusErrs bool
-}
-
-var _ LatestRevisionClient = &fakeStaticPodLatestRevisionClient{}
-
-func (c fakeStaticPodLatestRevisionClient) GetLatestRevisionState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, int32, string, error) {
-	return c.client.GetLatestRevisionState()
-}
-
-func (c fakeStaticPodLatestRevisionClient) UpdateLatestRevisionOperatorStatus(ctx context.Context, latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error) {
-	if c.updateLatestRevisionOperatorStatusErrs {
-		return nil, false, fmt.Errorf("Operation cannot be fulfilled on kubeapiservers.operator.openshift.io \"cluster\": the object has been modified; please apply your changes to the latest version and try again")
-	}
-	return c.client.UpdateLatestRevisionOperatorStatus(ctx, latestAvailableRevision, updateFuncs...)
 }
 
 func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
@@ -832,7 +813,7 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 				tc.testConfigs,
 				tc.testSecrets,
 				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(targetNamespace)),
-				StaticPodLatestRevisionClient{StaticPodOperatorClient: tc.staticPodOperatorClient},
+				tc.staticPodOperatorClient,
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				eventRecorder,

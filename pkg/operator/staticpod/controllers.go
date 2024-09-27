@@ -236,7 +236,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.revisionConfigMaps,
 			b.revisionSecrets,
 			operandInformers,
-			revisioncontroller.StaticPodLatestRevisionClient{StaticPodOperatorClient: b.staticPodOperatorClient},
+			b.staticPodOperatorClient,
 			configMapClient,
 			secretClient,
 			eventRecorder,
