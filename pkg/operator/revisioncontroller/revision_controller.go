@@ -364,11 +364,10 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 		return nil
 	}
 
-	if shouldCreateNewRevision, err := c.revisionPrecondition(ctx); err != nil || !shouldCreateNewRevision {
-		return err
-	}
-
 	// If the operator status's latest available revision is not the same as the observed latest revision, update the operator.
+	// This needs to be done even if the revision precondition is not required because it ensures our operator status is
+	// correct for all consumers.
+	// This is what is going to allow us to move where the state is stored in authentications.openshift.io.
 	latestObservedRevision, err := c.getLatestAvailableRevision(ctx)
 	if err != nil {
 		return err
@@ -387,6 +386,10 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 		}
 		// regardless of whether we made a change, requeue to rerun the sync with updated status
 		return factory.SyntheticRequeueError
+	}
+
+	if shouldCreateNewRevision, err := c.revisionPrecondition(ctx); err != nil || !shouldCreateNewRevision {
+		return err
 	}
 
 	wroteStatus, requeue, syncErr := c.createRevisionIfNeeded(ctx, syncCtx.Recorder(), operatorStatus.LatestAvailableRevision)
