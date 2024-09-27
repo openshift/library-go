@@ -188,7 +188,7 @@ func TestInstallerStateController(t *testing.T) {
 
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(&operatorv1.StaticPodOperatorSpec{}, &operatorv1.StaticPodOperatorStatus{}, nil, nil)
 			eventRecorder := eventstesting.NewTestingEventRecorder(t)
-			controller := NewInstallerStateController(kubeInformers, kubeClient.CoreV1(), kubeClient.CoreV1(), fakeStaticPodOperatorClient, "test", eventRecorder)
+			controller := NewInstallerStateController("unit-test", kubeInformers, kubeClient.CoreV1(), kubeClient.CoreV1(), fakeStaticPodOperatorClient, "test", eventRecorder)
 			if err := controller.Sync(context.TODO(), factory.NewSyncContext("InstallerStateController", eventRecorder)); err != nil {
 				t.Error(err)
 				return
