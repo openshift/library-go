@@ -124,12 +124,13 @@ func NewDeploymentControllerBuilder(
 	deployInformer appsinformersv1.DeploymentInformer,
 ) *DeploymentController {
 	return &DeploymentController{
-		instanceName:   instanceName,
-		manifest:       manifest,
-		operatorClient: operatorClient,
-		kubeClient:     kubeClient,
-		deployInformer: deployInformer,
-		recorder:       recorder,
+		instanceName:           instanceName,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "Deployment"),
+		manifest:               manifest,
+		operatorClient:         operatorClient,
+		kubeClient:             kubeClient,
+		deployInformer:         deployInformer,
+		recorder:               recorder,
 	}
 }
 
