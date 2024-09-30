@@ -127,8 +127,6 @@ func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder
 				WithMessage(err.Error()),
 			).
 			WithLatestAvailableRevision(currentLastAvailableRevision)
-		// different fieldmanager is used to conflict. We could also choose to *always* set the lastavailablerevision
-		// update this tomorrow, that's probably better.
 		updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 		if updateError != nil {
 			recorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
@@ -326,6 +324,11 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 	var latestRevision int32
 	for _, configMap := range configMaps.Items {
 		if !strings.HasPrefix(configMap.Name, "revision-status-") {
+			// if it's not a revision status configmap, skip
+			continue
+		}
+		if configMap.Annotations["operator.openshift.io/revision-ready"] != "true" {
+			// we only want to include ready revisions.
 			continue
 		}
 		if revision, ok := configMap.Data["revision"]; ok {
@@ -343,7 +346,6 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 }
 
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	//operatorSpec, _, latestAvailableRevisionSeenByOperator, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
 	operatorSpec, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
@@ -388,12 +390,7 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 	case syncErr != nil:
 		// this is updated in status inside of createRevisionIfNeeded
 		return syncErr
-
-	}
-	if requeue && syncErr == nil {
-		return factory.SyntheticRequeueError
-	}
-	if wroteStatus {
+	case wroteStatus:
 		return syncErr
 	}
 
