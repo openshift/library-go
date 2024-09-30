@@ -171,6 +171,7 @@ func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorSpec(ctx context.Con
 }
 
 func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
+	c.fakeStaticPodOperatorStatus.OperatorStatus = *convertOperatorStatusApplyConfiguration(&applyConfiguration.OperatorStatusApplyConfiguration)
 	return nil
 }
 

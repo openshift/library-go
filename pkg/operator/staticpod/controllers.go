@@ -269,6 +269,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		), 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
+			b.operandName,
 			operandInformers,
 			podClient,
 			eventsClient,
