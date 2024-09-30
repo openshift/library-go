@@ -305,6 +305,11 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 	var latestRevision int32
 	for _, configMap := range configMaps.Items {
 		if !strings.HasPrefix(configMap.Name, "revision-status-") {
+			// if it's not a revision status configmap, skip
+			continue
+		}
+		if configMap.Annotations["operator.openshift.io/revision-ready"] != "true" {
+			// we only want to include ready revisions.
 			continue
 		}
 		if revision, ok := configMap.Data["revision"]; ok {
