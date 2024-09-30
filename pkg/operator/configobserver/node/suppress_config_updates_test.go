@@ -212,8 +212,10 @@ func TestSuppressConfigUpdateUntilSameProfileFunc(t *testing.T) {
 				}
 			}
 			staticPodOperatorStatus := operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: int32(len(testCase.observedConfigRevisions) + 1),
-				NodeStatuses:            nodesStatuses,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: int32(len(testCase.observedConfigRevisions) + 1),
+				},
+				NodeStatuses: nodesStatuses,
 			}
 
 			operatorObservedConfig, err := json.Marshal(testCase.operatorSpecObservedConfig)

@@ -539,8 +539,10 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: test.latestAvailableRevision,
-					NodeStatuses:            []operatorv1.NodeStatus{test.current},
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: test.latestAvailableRevision,
+					},
+					NodeStatuses: []operatorv1.NodeStatus{test.current},
 				},
 				nil,
 				nil,
@@ -664,7 +666,9 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 3,
+			OperatorStatus: operatorv1.OperatorStatus{
+				LatestAvailableRevision: 3,
+			},
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
@@ -1072,7 +1076,9 @@ func TestCreateInstallerPod(t *testing.T) {
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 1,
+			OperatorStatus: operatorv1.OperatorStatus{
+				LatestAvailableRevision: 1,
+			},
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
@@ -1239,7 +1245,9 @@ func TestEnsureInstallerPod(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -1985,8 +1993,10 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: test.latestAvailableRevision,
-					NodeStatuses:            test.nodeStatuses,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: test.latestAvailableRevision,
+					},
+					NodeStatuses: test.nodeStatuses,
 				},
 				statusUpdateErrorFunc,
 				nil,
@@ -2328,7 +2338,9 @@ func TestSetConditions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := &operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: tc.latestAvailableRevision,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: tc.latestAvailableRevision,
+				},
 			}
 			for _, current := range tc.currentRevisions {
 				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{
