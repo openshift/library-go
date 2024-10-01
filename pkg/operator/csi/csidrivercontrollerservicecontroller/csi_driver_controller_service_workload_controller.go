@@ -13,7 +13,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// CSIDriverControllerServiceController is a controller that deploys a CSI Controller Service to a given namespace.
+// NewCSIDriverControllerServiceWorkloadController is a controller that deploys a CSI Controller Service to a given namespace.
 //
 // The CSI Controller Service is represented by a Deployment. The reason it's a Deployment is because this object
 // can be evicted and it's shut down on node drain, which is important for master nodes. This Deployment deploys a
@@ -63,15 +63,17 @@ import (
 // <name>Progressing: indicates that the CSI Controller Service is being deployed.
 // <name>Degraded: produced when the sync() method returns an error.
 
-// TODO: remove after all CSI operators migrate to NewCSIDriverControllerServiceWorkloadController
-func NewCSIDriverControllerServiceController(
+func NewCSIDriverControllerServiceWorkloadController(
 	name string,
+	operandNamespace string,
 	manifest []byte,
 	recorder events.Recorder,
 	operatorClient v1helpers.OperatorClientWithFinalizers,
 	kubeClient kubernetes.Interface,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	deployInformer appsinformersv1.DeploymentInformer,
 	configInformer configinformers.SharedInformerFactory,
+	preconditions []dc.PreconditionFunc,
 	optionalInformers []factory.Informer,
 	optionalDeploymentHooks ...dc.DeploymentHookFunc,
 ) factory.Controller {
@@ -85,5 +87,20 @@ func NewCSIDriverControllerServiceController(
 	var deploymentHooks []dc.DeploymentHookFunc
 	deploymentHooks = append(deploymentHooks, WithControlPlaneTopologyHook(configInformer))
 	deploymentHooks = append(deploymentHooks, optionalDeploymentHooks...)
-	return dc.NewDeploymentController(name, manifest, recorder, operatorClient, kubeClient, deployInformer, optionalInformers, optionalManifestHooks, deploymentHooks...)
+
+	var newDeploymentController = dc.NewWorkloadController(
+		name,
+		operandNamespace,
+		manifest,
+		recorder,
+		operatorClient,
+		kubeClient,
+		deployInformer,
+		kubeInformersForNamespaces,
+		preconditions,
+		optionalInformers,
+		optionalManifestHooks,
+		deploymentHooks...,
+	)
+	return newDeploymentController
 }

@@ -200,6 +200,42 @@ func (c *CSIControllerSet) WithCSIDriverControllerService(
 	return c
 }
 
+func (c *CSIControllerSet) WithCSIDriverControllerServiceWorkload(
+	name string,
+	operandNamespace string,
+	assetFunc resourceapply.AssetFunc,
+	file string,
+	kubeClient kubernetes.Interface,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	configInformer configinformers.SharedInformerFactory,
+	preconditions []deploymentcontroller.PreconditionFunc,
+	optionalInformers []factory.Informer,
+	optionalDeploymentHooks ...deploymentcontroller.DeploymentHookFunc,
+) *CSIControllerSet {
+	manifestFile, err := assetFunc(file)
+	if err != nil {
+		panic(fmt.Sprintf("asset: Asset(%v): %v", file, err))
+	}
+
+	namespacedInformerFactory := kubeInformersForNamespaces.InformersFor(operandNamespace)
+
+	c.csiDriverControllerServiceController = csidrivercontrollerservicecontroller.NewCSIDriverControllerServiceWorkloadController(
+		name,
+		operandNamespace,
+		manifestFile,
+		c.eventRecorder,
+		c.operatorClient,
+		kubeClient,
+		kubeInformersForNamespaces,
+		namespacedInformerFactory.Apps().V1().Deployments(),
+		configInformer,
+		preconditions,
+		optionalInformers,
+		optionalDeploymentHooks...,
+	)
+	return c
+}
+
 func (c *CSIControllerSet) WithCSIDriverNodeService(
 	name string,
 	assetFunc resourceapply.AssetFunc,
