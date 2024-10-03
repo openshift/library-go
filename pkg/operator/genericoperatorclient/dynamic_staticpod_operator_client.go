@@ -2,8 +2,6 @@ package genericoperatorclient
 
 import (
 	"context"
-	"time"
-
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/imdario/mergo"
@@ -25,28 +23,12 @@ func NewStaticPodOperatorClient(config *rest.Config, gvr schema.GroupVersionReso
 	if err != nil {
 		return nil, nil, err
 	}
-	client := dynamicClient.Resource(gvr)
 
-	informers := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 12*time.Hour)
-	informer := informers.ForResource(gvr)
-
-	return &dynamicStaticPodOperatorClient{
-		dynamicOperatorClient: dynamicOperatorClient{
-			gvk:                gvk,
-			configName:         defaultConfigName,
-			informer:           informer,
-			client:             client,
-			extractApplySpec:   extractApplySpec,
-			extractApplyStatus: extractApplyStatus,
-		},
-	}, informers, nil
+	return newClusterScopedOperatorClient(dynamicClient, gvr, gvk, defaultConfigName,
+		extractApplySpec, extractApplyStatus)
 }
 
-type dynamicStaticPodOperatorClient struct {
-	dynamicOperatorClient
-}
-
-func (c dynamicStaticPodOperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
+func (c dynamicOperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
 	uncastInstance, err := c.informer.Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
@@ -69,7 +51,7 @@ func getStaticPodOperatorStateFromInstance(instance *unstructured.Unstructured) 
 	return spec, status, instance.GetResourceVersion(), nil
 }
 
-func (c dynamicStaticPodOperatorClient) GetStaticPodOperatorStateWithQuorum(ctx context.Context) (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
+func (c dynamicOperatorClient) GetStaticPodOperatorStateWithQuorum(ctx context.Context) (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
 	instance, err := c.client.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, "", err
@@ -78,7 +60,7 @@ func (c dynamicStaticPodOperatorClient) GetStaticPodOperatorStateWithQuorum(ctx 
 	return getStaticPodOperatorStateFromInstance(instance)
 }
 
-func (c dynamicStaticPodOperatorClient) UpdateStaticPodOperatorSpec(ctx context.Context, resourceVersion string, spec *operatorv1.StaticPodOperatorSpec) (*operatorv1.StaticPodOperatorSpec, string, error) {
+func (c dynamicOperatorClient) UpdateStaticPodOperatorSpec(ctx context.Context, resourceVersion string, spec *operatorv1.StaticPodOperatorSpec) (*operatorv1.StaticPodOperatorSpec, string, error) {
 	uncastOriginal, err := c.informer.Lister().Get("cluster")
 	if err != nil {
 		return nil, "", err
@@ -103,7 +85,7 @@ func (c dynamicStaticPodOperatorClient) UpdateStaticPodOperatorSpec(ctx context.
 	return retSpec, ret.GetResourceVersion(), nil
 }
 
-func (c dynamicStaticPodOperatorClient) UpdateStaticPodOperatorStatus(ctx context.Context, resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
+func (c dynamicOperatorClient) UpdateStaticPodOperatorStatus(ctx context.Context, resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
 	uncastOriginal, err := c.informer.Lister().Get("cluster")
 	if err != nil {
 		return nil, err
