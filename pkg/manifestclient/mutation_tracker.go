@@ -9,7 +9,8 @@ import (
 type AllActionsTracker struct {
 	lock sync.RWMutex
 
-	ActionToTracker map[Action]*ActionTracker
+	NextRequestNumber int
+	ActionToTracker   map[Action]*ActionTracker
 }
 
 type Action string
@@ -48,17 +49,18 @@ type NamespaceTracker struct {
 
 type NameTracker struct {
 	Name               string
-	SerializedRequests []SerializedRequest
-}
-
-type SerializedRequest struct {
-	Options []byte
-	Body    []byte
+	SerializedRequests []TrackedSerializedRequest
 }
 
 func (a *AllActionsTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+
+	trackedRequest := TrackedSerializedRequest{
+		RequestNumber:     a.NextRequestNumber,
+		SerializedRequest: request,
+	}
+	a.NextRequestNumber++
 
 	if a.ActionToTracker == nil {
 		a.ActionToTracker = map[Action]*ActionTracker{}
@@ -66,7 +68,7 @@ func (a *AllActionsTracker) AddRequest(metadata ActionMetadata, request Serializ
 	if _, ok := a.ActionToTracker[metadata.Action]; !ok {
 		a.ActionToTracker[metadata.Action] = &ActionTracker{Action: metadata.Action}
 	}
-	a.ActionToTracker[metadata.Action].AddRequest(metadata, request)
+	a.ActionToTracker[metadata.Action].AddRequest(metadata, trackedRequest)
 }
 
 func (a *AllActionsTracker) ListActions() []Action {
@@ -83,7 +85,7 @@ func (a *AllActionsTracker) MutationsForAction(action Action) *ActionTracker {
 	return a.ActionToTracker[action]
 }
 
-func (a *AllActionsTracker) MutationsForMetadata(metadata ActionMetadata) []SerializedRequest {
+func (a *AllActionsTracker) MutationsForMetadata(metadata ActionMetadata) []TrackedSerializedRequest {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
@@ -106,7 +108,7 @@ func (a *AllActionsTracker) MutationsForMetadata(metadata ActionMetadata) []Seri
 	return nameTracker.SerializedRequests
 }
 
-func (a *ActionTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
+func (a *ActionTracker) AddRequest(metadata ActionMetadata, request TrackedSerializedRequest) {
 	if a.ResourceToTracker == nil {
 		a.ResourceToTracker = map[schema.GroupVersionResource]*ResourceTracker{}
 	}
@@ -124,7 +126,7 @@ func (a *ActionTracker) MutationsForResource(gvr schema.GroupVersionResource) *R
 	return a.ResourceToTracker[gvr]
 }
 
-func (a *ResourceTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
+func (a *ResourceTracker) AddRequest(metadata ActionMetadata, request TrackedSerializedRequest) {
 	if a.NamespaceToTracker == nil {
 		a.NamespaceToTracker = map[string]*NamespaceTracker{}
 	}
@@ -142,7 +144,7 @@ func (a *ResourceTracker) MutationsForNamespace(namespace string) *NamespaceTrac
 	return a.NamespaceToTracker[namespace]
 }
 
-func (a *NamespaceTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
+func (a *NamespaceTracker) AddRequest(metadata ActionMetadata, request TrackedSerializedRequest) {
 	if a.NameToTracker == nil {
 		a.NameToTracker = map[string]*NameTracker{}
 	}
@@ -160,9 +162,9 @@ func (a *NamespaceTracker) MutationsForName(name string) *NameTracker {
 	return a.NameToTracker[name]
 }
 
-func (a *NameTracker) AddRequest(request SerializedRequest) {
+func (a *NameTracker) AddRequest(request TrackedSerializedRequest) {
 	if a.SerializedRequests == nil {
-		a.SerializedRequests = []SerializedRequest{}
+		a.SerializedRequests = []TrackedSerializedRequest{}
 	}
 	a.SerializedRequests = append(a.SerializedRequests, request)
 }

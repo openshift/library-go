@@ -1,9 +1,7 @@
 package manifestclienttest
 
 import (
-	"bytes"
 	"context"
-	"k8s.io/utils/ptr"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -16,9 +14,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"net/http"
 	"sigs.k8s.io/yaml"
 	"testing"
+)
+
+var (
+	featureGateGVR = schema.GroupVersionResource{
+		Group:    "config.openshift.io",
+		Version:  "v1",
+		Resource: "featuregates",
+	}
+	featureGateGVK = schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Version: "v1",
+		Kind:    "FeatureGate",
+	}
+	apiserverGVR = schema.GroupVersionResource{
+		Group:    "config.openshift.io",
+		Version:  "v1",
+		Resource: "apiservers",
+	}
+	apiserverGVK = schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Version: "v1",
+		Kind:    "APIServer",
+	}
 )
 
 func featureGateYAMLBytesOrDie(obj *configv1.FeatureGate) []byte {
@@ -51,11 +73,11 @@ func apiserverYAMLBytesOrDie(obj *configv1.APIServer) []byte {
 func TestSimpleWritesChecks(t *testing.T) {
 	tests := []struct {
 		name   string
-		testFn func(*testing.T, *http.Client) (location manifestclient.ActionMetadata, expectedBodyBytes, expectedOptionsBytes []byte)
+		testFn func(*testing.T, *http.Client) (action manifestclient.Action, serializedRequests []manifestclient.SerializedRequestish)
 	}{
 		{
 			name: "CREATE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -74,23 +96,22 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionCreate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionCreate,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType:     featureGateGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("{}\n"),
+							Body:         featureGateYAMLBytesOrDie(mutationObj),
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
+					}
 			},
 		},
 		{
 			name: "CREATE-crd-not-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -109,23 +130,22 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionCreate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "apiservers",
+				return manifestclient.ActionCreate,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: apiserverGVR,
+							KindType:     apiserverGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("{}\n"),
+							Body:         apiserverYAMLBytesOrDie(mutationObj),
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					apiserverYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
+					}
 			},
 		},
 		{
 			name: "UPDATE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -144,23 +164,22 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionUpdate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionUpdate,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType:     featureGateGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("{}\n"),
+							Body:         featureGateYAMLBytesOrDie(mutationObj),
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
+					}
 			},
 		},
 		{
 			name: "UPDATE-STATUS-crd-in-dataset-with-options",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -179,23 +198,23 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionUpdateStatus,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionUpdateStatus,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType:     featureGateGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("fieldValidation: Strict\n"),
+							Body:         featureGateYAMLBytesOrDie(mutationObj),
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("fieldValidation: Strict\n")
+					}
+
 			},
 		},
 		{
 			name: "APPLY-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -218,23 +237,22 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionApply,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionApply,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType:     featureGateGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("fieldManager: the-client\nforce: true\n"),
+							Body:         applyBytes,
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					applyBytes,
-					[]byte("fieldManager: the-client\nforce: true\n")
+					}
 			},
 		},
 		{
 			name: "APPLY-STATUS-crd-in-dataset-with-options",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -265,23 +283,22 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionApplyStatus,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionApplyStatus,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType:     featureGateGVK,
+							Namespace:    "",
+							Name:         "new-item",
+							Options:      []byte("fieldManager: the-client\nforce: true\n"),
+							Body:         applyBytes,
 						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					applyBytes,
-					[]byte("fieldManager: the-client\nforce: true\n")
+					}
 			},
 		},
 		{
 			name: "DELETE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.Action, []manifestclient.SerializedRequestish) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -294,18 +311,21 @@ func TestSimpleWritesChecks(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionDelete,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
+				return manifestclient.ActionDelete,
+					[]manifestclient.SerializedRequestish{
+						manifestclient.SerializedRequest{
+							ResourceType: featureGateGVR,
+							KindType: schema.GroupVersionKind{
+								Group:   "config.openshift.io",
+								Version: "v1",
+								Kind:    "DeleteOptions",
+							},
+							Namespace: "",
+							Name:      "cluster",
+							Options:   []byte("{}\n"),
+							Body:      []byte("apiVersion: config.openshift.io/v1\nkind: DeleteOptions\npropagationPolicy: Foreground\n"),
 						},
-						Namespace: "",
-						Name:      "cluster",
-					},
-					[]byte("apiVersion: config.openshift.io/v1\nkind: DeleteOptions\npropagationPolicy: Foreground\n"),
-					[]byte("{}\n")
+					}
 			},
 		},
 	}
@@ -315,17 +335,21 @@ func TestSimpleWritesChecks(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
 					mutationTrackingClient := roundTripperTest.getClient()
-					expectedMetadata, expectedBodyBytes, expectedOptionsBytes := test.testFn(t, mutationTrackingClient.GetHTTPClient())
+					expectedAction, expectedSerializedRequests := test.testFn(t, mutationTrackingClient.GetHTTPClient())
 					mutations := mutationTrackingClient.GetMutations()
-					serializedRequests := mutations.MutationsForMetadata(expectedMetadata)
-					if len(serializedRequests) != 1 {
-						t.Fatal(spew.Sdump(mutations))
+					actualSerializedRequestsForAction := mutations.MutationsForAction(expectedAction)
+
+					actualSerializedRequests := []manifestclient.TrackedSerializedRequest{}
+					for _, resourceActions := range actualSerializedRequestsForAction.ResourceToTracker {
+						for _, namespaceActions := range resourceActions.NamespaceToTracker {
+							for _, nameActions := range namespaceActions.NameToTracker {
+								actualSerializedRequests = append(actualSerializedRequests, nameActions.SerializedRequests...)
+							}
+						}
 					}
-					if !bytes.Equal(serializedRequests[0].Body, expectedBodyBytes) {
-						t.Fatal(cmp.Diff(string(serializedRequests[0].Body), string(expectedBodyBytes)))
-					}
-					if !bytes.Equal(serializedRequests[0].Options, expectedOptionsBytes) {
-						t.Fatal(cmp.Diff(string(serializedRequests[0].Options), string(expectedOptionsBytes)))
+
+					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequests, expectedSerializedRequests) {
+						t.Fatal(cmp.Diff(actualSerializedRequests, expectedSerializedRequests))
 					}
 				})
 			}
