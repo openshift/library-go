@@ -31,7 +31,9 @@ type writeTrackingRoundTripper struct {
 
 func newWriteRoundTripper() *writeTrackingRoundTripper {
 	return &writeTrackingRoundTripper{
-		actionTracker: &AllActionsTracker{},
+		actionTracker: &AllActionsTracker{
+			NextRequestNumber: 1,
+		},
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
@@ -127,23 +129,36 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		return nil, fmt.Errorf("unable to encode body: %w", err)
 	}
 
-	serializedRequest := SerializedRequest{
-		Options: optionsBytes,
-		Body:    bodyYAMLBytes,
+	if requestInfo.Namespace != bodyObj.(*unstructured.Unstructured).GetNamespace() {
+		return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
+	}
+	if action != ActionCreate && action != ActionDelete && requestInfo.Name != bodyObj.(*unstructured.Unstructured).GetName() {
+		return nil, fmt.Errorf("request name %q does not equal body name %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    requestInfo.APIGroup,
+		Version:  requestInfo.APIVersion,
+		Resource: requestInfo.Resource,
 	}
 	metadata := ActionMetadata{
-		Action: action,
-		GVR: schema.GroupVersionResource{
-			Group:    requestInfo.APIGroup,
-			Version:  requestInfo.APIVersion,
-			Resource: requestInfo.Resource,
-		},
+		Action:    action,
+		GVR:       gvr,
 		Namespace: requestInfo.Namespace,
 		Name:      requestInfo.Name,
 	}
 	if action == ActionCreate {
 		// in this case, the name isn't in the URL, it's in the body
 		metadata.Name = bodyObj.(*unstructured.Unstructured).GetName()
+	}
+
+	serializedRequest := SerializedRequest{
+		ResourceType: metadata.GVR,
+		KindType:     bodyObj.GetObjectKind().GroupVersionKind(),
+		Namespace:    metadata.Namespace,
+		Name:         metadata.Name,
+		Options:      optionsBytes,
+		Body:         bodyYAMLBytes,
 	}
 
 	mrt.actionTracker.AddRequest(metadata, serializedRequest)
