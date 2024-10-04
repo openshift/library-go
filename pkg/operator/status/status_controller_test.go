@@ -9,21 +9,21 @@ import (
 	"testing"
 	"time"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/client-go/tools/cache"
+	"github.com/stretchr/testify/assert"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/stretchr/testify/assert"
-
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestDegraded(t *testing.T) {
@@ -626,6 +626,10 @@ func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager strin
 }
 
 func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	panic("missing")
+}
+
+func (c *statusClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
 	panic("missing")
 }
 

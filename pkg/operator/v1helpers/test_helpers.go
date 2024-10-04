@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +18,8 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	v1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 )
 
 // NewFakeSharedIndexInformer returns a fake shared index informer, suitable to use in static pod controller unit tests.
@@ -84,7 +85,7 @@ func (fakeSharedIndexInformer) SetTransform(f cache.TransformFunc) error {
 func NewFakeStaticPodOperatorClient(
 	staticPodSpec *operatorv1.StaticPodOperatorSpec, staticPodStatus *operatorv1.StaticPodOperatorStatus,
 	triggerStatusErr func(rv string, status *operatorv1.StaticPodOperatorStatus) error,
-	triggerSpecErr func(rv string, spec *operatorv1.StaticPodOperatorSpec) error) StaticPodOperatorClient {
+	triggerSpecErr func(rv string, spec *operatorv1.StaticPodOperatorSpec) error) *fakeStaticPodOperatorClient {
 	return &fakeStaticPodOperatorClient{
 		fakeStaticPodOperatorSpec:   staticPodSpec,
 		fakeStaticPodOperatorStatus: staticPodStatus,
@@ -100,6 +101,8 @@ type fakeStaticPodOperatorClient struct {
 	resourceVersion             string
 	triggerStatusUpdateError    func(rv string, status *operatorv1.StaticPodOperatorStatus) error
 	triggerSpecUpdateError      func(rv string, status *operatorv1.StaticPodOperatorSpec) error
+
+	patchedOperatorStatus *jsonpatch.PatchSet
 }
 
 func (c *fakeStaticPodOperatorClient) Informer() cache.SharedIndexInformer {
@@ -182,6 +185,22 @@ func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorSpec(ctx context.Con
 func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
 	c.fakeStaticPodOperatorStatus = convertStaticPodOperatorStatusApplyConfiguration(applyConfiguration)
 	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
+	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) PatchStaticOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
+	if c.triggerStatusUpdateError != nil {
+		return c.triggerStatusUpdateError("", nil)
+	}
+	c.patchedOperatorStatus = jsonPatch
+	return nil
+}
+
+func (c *fakeStaticPodOperatorClient) GetPatchedOperatorStatus() *jsonpatch.PatchSet {
+	return c.patchedOperatorStatus
 }
 
 func (c *fakeStaticPodOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
@@ -318,6 +337,10 @@ func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager
 
 func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
 	c.fakeOperatorStatus = convertOperatorStatusApplyConfiguration(applyConfiguration)
+	return nil
+}
+
+func (c *fakeOperatorClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
 	return nil
 }
 
