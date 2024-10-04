@@ -8,6 +8,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,6 +27,8 @@ type OperatorClient interface {
 
 	ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error)
 	ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error)
+
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error)
 }
 
 type StaticPodOperatorClient interface {
