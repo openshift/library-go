@@ -380,8 +380,8 @@ func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldMan
 	return nil
 }
 
-func (c dynamicOperatorClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error) {
-	ret, err := c.client.Patch(ctx, name, pt, data, options, subresources...)
+func (c dynamicOperatorClient) Patch(ctx context.Context, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error) {
+	ret, err := c.client.Patch(ctx, c.configName, pt, data, options, subresources...)
 	if err != nil {
 		return nil, nil, err
 	}

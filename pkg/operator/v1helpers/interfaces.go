@@ -28,7 +28,7 @@ type OperatorClient interface {
 	ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error)
 	ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error)
 
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error)
+	Patch(ctx context.Context, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error)
 }
 
 type StaticPodOperatorClient interface {
@@ -46,6 +46,8 @@ type StaticPodOperatorClient interface {
 
 	ApplyStaticPodOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorSpecApplyConfiguration) (err error)
 	ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error)
+
+	PatchStaticOperator(ctx context.Context, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, error)
 }
 
 type OperatorClientWithFinalizers interface {
