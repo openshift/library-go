@@ -69,7 +69,7 @@ func TestBasicInformer(t *testing.T) {
 		t.Run(roundTripperTest.name, func(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
-					test.testFn(t, roundTripperTest.getClient())
+					test.testFn(t, roundTripperTest.getClient().GetHTTPClient())
 				})
 			}
 		})

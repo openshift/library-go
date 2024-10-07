@@ -32,11 +32,11 @@ type StaticPodOperatorStatusExtractorFunc func(obj *unstructured.Unstructured, f
 type OperatorSpecExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error)
 type OperatorStatusExtractorFunc func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error)
 
-func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, extractApplySpec StaticPodOperatorSpecExtractorFunc, extractApplyStatus StaticPodOperatorStatusExtractorFunc) (*dynamicOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, nil, err
+func newClusterScopedOperatorClient(dynamicClient dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, instanceName string, extractApplySpec StaticPodOperatorSpecExtractorFunc, extractApplyStatus StaticPodOperatorStatusExtractorFunc) (*dynamicOperatorClient, dynamicinformer.DynamicSharedInformerFactory, error) {
+	if len(instanceName) < 1 {
+		return nil, nil, fmt.Errorf("config name cannot be empty")
 	}
+
 	client := dynamicClient.Resource(gvr)
 
 	informers := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 12*time.Hour)
@@ -46,6 +46,7 @@ func newClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersion
 		gvk:                gvk,
 		informer:           informer,
 		client:             client,
+		configName:         instanceName,
 		extractApplySpec:   extractApplySpec,
 		extractApplyStatus: extractApplyStatus,
 	}, informers, nil
@@ -82,28 +83,18 @@ func convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus OperatorS
 }
 
 func NewClusterScopedOperatorClient(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, extractApplySpec OperatorSpecExtractorFunc, extractApplyStatus OperatorStatusExtractorFunc) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
-	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk,
-		convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec), convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus))
-	if err != nil {
-		return nil, nil, err
-	}
-	d.configName = defaultConfigName
-	return d, informers, nil
+	return NewClusterScopedOperatorClientWithConfigName(config, gvr, gvk, defaultConfigName, extractApplySpec, extractApplyStatus)
 
 }
 
 func NewClusterScopedOperatorClientWithConfigName(config *rest.Config, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, configName string, extractApplySpec OperatorSpecExtractorFunc, extractApplyStatus OperatorStatusExtractorFunc) (v1helpers.OperatorClientWithFinalizers, dynamicinformer.DynamicSharedInformerFactory, error) {
-	if len(configName) < 1 {
-		return nil, nil, fmt.Errorf("config name cannot be empty")
-	}
-	d, informers, err := newClusterScopedOperatorClient(config, gvr, gvk,
-		convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec), convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus))
+	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, nil, err
 	}
-	d.configName = configName
-	return d, informers, nil
 
+	return newClusterScopedOperatorClient(dynamicClient, gvr, gvk, configName,
+		convertOperatorSpecToStaticPodOperatorSpec(extractApplySpec), convertOperatorStatusToStaticPodOperatorStatus(extractApplyStatus))
 }
 
 type dynamicOperatorClient struct {

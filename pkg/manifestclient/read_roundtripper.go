@@ -35,21 +35,13 @@ type RawReader interface {
 	fs.ReadDirFS
 }
 
-func NewTestingRoundTripper(embedFS embed.FS, prefix string) (*manifestRoundTripper, error) {
-	return newRoundTripper(newPrefixedReader(embedFS, prefix))
-}
-
-func NewRoundTripper(mustGatherDir string) (*manifestRoundTripper, error) {
-	return newRoundTripper(newMustGatherReader(mustGatherDir))
-}
-
-func newRoundTripper(contentReader RawReader) (*manifestRoundTripper, error) {
+func newReadRoundTripper(contentReader RawReader) *manifestRoundTripper {
 	return &manifestRoundTripper{
 		contentReader: contentReader,
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
-	}, nil
+	}
 }
 
 type prefixedContentReader struct {
