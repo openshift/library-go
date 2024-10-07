@@ -16,6 +16,7 @@ rules:
   - "/version"
   - "/healthz"
   - "/readyz"
+  - "/livez"
 # Don't log requests by "system:apiserver" on apirequestcounts
 - level: None
   users: ["system:apiserver"]
