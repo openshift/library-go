@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"sync"
 
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,14 +28,15 @@ type writeTrackingRoundTripper struct {
 	// requestInfoResolver is the same type constructed the same way as the kube-apiserver
 	requestInfoResolver *apirequest.RequestInfoFactory
 
-	actionTracker *AllActionsTracker
+	lock              sync.RWMutex
+	nextRequestNumber int
+	actionTracker     *AllActionsTracker[TrackedSerializedRequest]
 }
 
 func newWriteRoundTripper() *writeTrackingRoundTripper {
 	return &writeTrackingRoundTripper{
-		actionTracker: &AllActionsTracker{
-			NextRequestNumber: 1,
-		},
+		nextRequestNumber: 1,
+		actionTracker:     &AllActionsTracker[TrackedSerializedRequest]{},
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
@@ -112,6 +115,9 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("unable to encode options: %w", err)
 	}
+	if strings.TrimSpace(string(optionsBytes)) == "{}" {
+		optionsBytes = nil
+	}
 
 	bodyContent := []byte{}
 	if req.Body != nil {
@@ -141,27 +147,32 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		Version:  requestInfo.APIVersion,
 		Resource: requestInfo.Resource,
 	}
-	metadata := ActionMetadata{
-		Action:    action,
-		GVR:       gvr,
-		Namespace: requestInfo.Namespace,
-		Name:      requestInfo.Name,
-	}
+	metadataName := requestInfo.Name
 	if action == ActionCreate {
 		// in this case, the name isn't in the URL, it's in the body
-		metadata.Name = bodyObj.(*unstructured.Unstructured).GetName()
+		metadataName = bodyObj.(*unstructured.Unstructured).GetName()
 	}
 
 	serializedRequest := SerializedRequest{
-		ResourceType: metadata.GVR,
+		Action:       action,
+		ResourceType: gvr,
 		KindType:     bodyObj.GetObjectKind().GroupVersionKind(),
-		Namespace:    metadata.Namespace,
-		Name:         metadata.Name,
+		Namespace:    requestInfo.Namespace,
+		Name:         metadataName,
 		Options:      optionsBytes,
 		Body:         bodyYAMLBytes,
 	}
 
-	mrt.actionTracker.AddRequest(metadata, serializedRequest)
+	// this lock also protects the access to actionTracker
+	mrt.lock.Lock()
+	defer mrt.lock.Unlock()
+	trackedRequest := TrackedSerializedRequest{
+		RequestNumber:     mrt.nextRequestNumber,
+		SerializedRequest: serializedRequest,
+	}
+	mrt.nextRequestNumber++
+
+	mrt.actionTracker.AddRequest(trackedRequest)
 
 	// returning a value that will probably not cause the wrapping client to fail, but isn't very useful.
 	// this keeps calling code from depending on the return value.
@@ -174,4 +185,11 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		return nil, fmt.Errorf("unable to encode body: %w", err)
 	}
 	return retBytes, nil
+}
+
+func (mrt *writeTrackingRoundTripper) GetMutations() *AllActionsTracker[TrackedSerializedRequest] {
+	mrt.lock.Lock()
+	defer mrt.lock.Unlock()
+
+	return mrt.actionTracker.DeepCopy()
 }

@@ -52,7 +52,7 @@ type readWriteRoundTripper struct {
 
 type MutationTrackingRoundTripper interface {
 	http.RoundTripper
-	GetMutations() *AllActionsTracker
+	GetMutations() *AllActionsTracker[TrackedSerializedRequest]
 }
 
 type mutationTrackingClient struct {
@@ -65,13 +65,13 @@ func (m mutationTrackingClient) GetHTTPClient() *http.Client {
 	return m.httpClient
 }
 
-func (m mutationTrackingClient) GetMutations() *AllActionsTracker {
+func (m mutationTrackingClient) GetMutations() *AllActionsTracker[TrackedSerializedRequest] {
 	return m.mutationTrackingRoundTripper.GetMutations()
 }
 
 type MutationTrackingClient interface {
 	GetHTTPClient() *http.Client
-	GetMutations() *AllActionsTracker
+	GetMutations() *AllActionsTracker[TrackedSerializedRequest]
 }
 
 func (rt *readWriteRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -89,6 +89,6 @@ func (rt *readWriteRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	}
 }
 
-func (rt *readWriteRoundTripper) GetMutations() *AllActionsTracker {
-	return rt.writeDelegate.actionTracker
+func (rt *readWriteRoundTripper) GetMutations() *AllActionsTracker[TrackedSerializedRequest] {
+	return rt.writeDelegate.GetMutations()
 }

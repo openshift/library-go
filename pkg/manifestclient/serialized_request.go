@@ -11,6 +11,8 @@ import (
 
 type SerializedRequestish interface {
 	GetSerializedRequest() *SerializedRequest
+	SuggestedFilenames() (string, string)
+	DeepCopy() SerializedRequestish
 }
 
 type FileOriginatedSerializedRequest struct {
@@ -27,6 +29,7 @@ type TrackedSerializedRequest struct {
 }
 
 type SerializedRequest struct {
+	Action       Action
 	ResourceType schema.GroupVersionResource
 	KindType     schema.GroupVersionKind
 	Namespace    string
@@ -74,36 +77,9 @@ func EquivalentSerializedRequests(lhs, rhs SerializedRequestish) bool {
 	return lhs.GetSerializedRequest().Equals(rhs.GetSerializedRequest())
 }
 
-//func SuggestedFilenamesForSerializedRequest(in SerializedRequest) (string, string) {
-//	groupName := in.ResourceType.Group
-//	if len(groupName) == 0 {
-//		groupName = "core"
-//	}
-//
-//	if len(in.Namespace) > 0 {
-//		bodyFilename := filepath.Join("namespaces", in.Namespace, groupName, in.ResourceType.Resource, fmt.Sprintf("%03d-%s.yaml", in.RequestNumber, in.Name))
-//		optionsFilename := filepath.Join("namespaces", in.Namespace, groupName, in.ResourceType.Resource, fmt.Sprintf("%03d-%s-options.yaml", in.RequestNumber, in.Name))
-//		return bodyFilename, optionsFilename
-//	}
-//	bodyFilename := filepath.Join("cluster-scoped", in.Namespace, groupName, in.ResourceType.Resource, fmt.Sprintf("%03d-%s.yaml", in.RequestNumber, in.Name))
-//	optionsFilename := filepath.Join("cluster-scoped", in.Namespace, groupName, in.ResourceType.Resource, fmt.Sprintf("%03d-%s-options.yaml", in.RequestNumber, in.Name))
-//	return bodyFilename, optionsFilename
-//}
-
-func SuggestedFilenameForTrackedSerializedRequest(in TrackedSerializedRequest) (string, string) {
-	groupName := in.SerializedRequest.ResourceType.Group
-	if len(groupName) == 0 {
-		groupName = "core"
-	}
-
-	if len(in.SerializedRequest.Namespace) > 0 {
-		bodyFilename := filepath.Join("namespaces", in.SerializedRequest.Namespace, groupName, in.SerializedRequest.ResourceType.Resource, fmt.Sprintf("%03d-%s.yaml", in.RequestNumber, in.SerializedRequest.Name))
-		optionsFilename := filepath.Join("namespaces", in.SerializedRequest.Namespace, groupName, in.SerializedRequest.ResourceType.Resource, fmt.Sprintf("%03d-%s-options.yaml", in.RequestNumber, in.SerializedRequest.Name))
-		return bodyFilename, optionsFilename
-	}
-	bodyFilename := filepath.Join("cluster-scoped", in.SerializedRequest.Namespace, groupName, in.SerializedRequest.ResourceType.Resource, fmt.Sprintf("%03d-%s.yaml", in.RequestNumber, in.SerializedRequest.Name))
-	optionsFilename := filepath.Join("cluster-scoped", in.SerializedRequest.Namespace, groupName, in.SerializedRequest.ResourceType.Resource, fmt.Sprintf("%03d-%s-options.yaml", in.RequestNumber, in.SerializedRequest.Name))
-	return bodyFilename, optionsFilename
+func MakeFilenameGoModSafe(in string) string {
+	// go mod doesn't like colons, so rename those.  We might theoretically conflict, but we shouldn't practically do so often
+	return strings.Replace(in, ":", "-COLON-", -1)
 }
 
 func (lhs *FileOriginatedSerializedRequest) Equals(rhs *FileOriginatedSerializedRequest) bool {
@@ -170,6 +146,10 @@ func CompareSerializedRequest(lhs, rhs *SerializedRequest) int {
 		return -1
 	}
 
+	if cmp := strings.Compare(string(lhs.Action), string(rhs.Action)); cmp != 0 {
+		return cmp
+	}
+
 	if cmp := strings.Compare(lhs.ResourceType.Group, rhs.ResourceType.Group); cmp != 0 {
 		return cmp
 	}
@@ -217,4 +197,82 @@ func (a TrackedSerializedRequest) GetSerializedRequest() *SerializedRequest {
 
 func (a SerializedRequest) GetSerializedRequest() *SerializedRequest {
 	return &a
+}
+
+func (a FileOriginatedSerializedRequest) SuggestedFilenames() (string, string) {
+	return a.BodyFilename, a.OptionsFilename
+}
+
+func (a TrackedSerializedRequest) SuggestedFilenames() (string, string) {
+	return suggestedFilenames(a.SerializedRequest, a.RequestNumber)
+}
+
+func (a SerializedRequest) SuggestedFilenames() (string, string) {
+	// this may very well conflict in some cases. Up to the caller to work out how to fix it.
+	uniqueNumber := 0 // chosen by fair dice roll. guaranteed to be random. :)
+	return suggestedFilenames(a, uniqueNumber)
+}
+
+func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) {
+	groupName := a.ResourceType.Group
+	if len(groupName) == 0 {
+		groupName = "core"
+	}
+
+	scopingString := ""
+	if len(a.Namespace) > 0 {
+		scopingString = filepath.Join("namespaces", a.Namespace)
+	} else {
+		scopingString = filepath.Join("cluster-scoped")
+	}
+
+	bodyFilename := MakeFilenameGoModSafe(
+		filepath.Join(
+			string(a.Action),
+			scopingString,
+			groupName,
+			a.ResourceType.Resource,
+			fmt.Sprintf("%03d-body-%s.yaml", uniqueNumber, a.Name),
+		),
+	)
+	optionsFilename := ""
+	if len(a.Options) > 0 {
+		optionsFilename = MakeFilenameGoModSafe(
+			filepath.Join(
+				string(a.Action),
+				scopingString,
+				groupName,
+				a.ResourceType.Resource,
+				fmt.Sprintf("%03d-options-%s.yaml", uniqueNumber, a.Name),
+			),
+		)
+	}
+	return bodyFilename, optionsFilename
+}
+
+func (a FileOriginatedSerializedRequest) DeepCopy() SerializedRequestish {
+	return FileOriginatedSerializedRequest{
+		BodyFilename:      a.BodyFilename,
+		OptionsFilename:   a.OptionsFilename,
+		SerializedRequest: a.SerializedRequest.DeepCopy().(SerializedRequest),
+	}
+}
+
+func (a TrackedSerializedRequest) DeepCopy() SerializedRequestish {
+	return TrackedSerializedRequest{
+		RequestNumber:     a.RequestNumber,
+		SerializedRequest: a.SerializedRequest.DeepCopy().(SerializedRequest),
+	}
+}
+
+func (a SerializedRequest) DeepCopy() SerializedRequestish {
+	return SerializedRequest{
+		Action:       a.Action,
+		ResourceType: a.ResourceType,
+		KindType:     a.KindType,
+		Namespace:    a.Namespace,
+		Name:         a.Name,
+		Options:      bytes.Clone(a.Options),
+		Body:         bytes.Clone(a.Body),
+	}
 }

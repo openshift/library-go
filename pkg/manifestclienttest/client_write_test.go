@@ -99,6 +99,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionCreate,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionCreate,
 							ResourceType: featureGateGVR,
 							KindType:     featureGateGVK,
 							Namespace:    "",
@@ -133,6 +134,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionCreate,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionCreate,
 							ResourceType: apiserverGVR,
 							KindType:     apiserverGVK,
 							Namespace:    "",
@@ -167,6 +169,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionUpdate,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionUpdate,
 							ResourceType: featureGateGVR,
 							KindType:     featureGateGVK,
 							Namespace:    "",
@@ -201,6 +204,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionUpdateStatus,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionUpdateStatus,
 							ResourceType: featureGateGVR,
 							KindType:     featureGateGVK,
 							Namespace:    "",
@@ -240,6 +244,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionApply,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionApply,
 							ResourceType: featureGateGVR,
 							KindType:     featureGateGVK,
 							Namespace:    "",
@@ -286,6 +291,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionApplyStatus,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionApplyStatus,
 							ResourceType: featureGateGVR,
 							KindType:     featureGateGVK,
 							Namespace:    "",
@@ -314,6 +320,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 				return manifestclient.ActionDelete,
 					[]manifestclient.SerializedRequestish{
 						manifestclient.SerializedRequest{
+							Action:       manifestclient.ActionDelete,
 							ResourceType: featureGateGVR,
 							KindType: schema.GroupVersionKind{
 								Group:   "config.openshift.io",
@@ -337,19 +344,10 @@ func TestSimpleWritesChecks(t *testing.T) {
 					mutationTrackingClient := roundTripperTest.getClient()
 					expectedAction, expectedSerializedRequests := test.testFn(t, mutationTrackingClient.GetHTTPClient())
 					mutations := mutationTrackingClient.GetMutations()
-					actualSerializedRequestsForAction := mutations.MutationsForAction(expectedAction)
+					actualSerializedRequestsForAction := mutations.RequestsForAction(expectedAction)
 
-					actualSerializedRequests := []manifestclient.TrackedSerializedRequest{}
-					for _, resourceActions := range actualSerializedRequestsForAction.ResourceToTracker {
-						for _, namespaceActions := range resourceActions.NamespaceToTracker {
-							for _, nameActions := range namespaceActions.NameToTracker {
-								actualSerializedRequests = append(actualSerializedRequests, nameActions.SerializedRequests...)
-							}
-						}
-					}
-
-					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequests, expectedSerializedRequests) {
-						t.Fatal(cmp.Diff(actualSerializedRequests, expectedSerializedRequests))
+					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequestsForAction, expectedSerializedRequests) {
+						t.Fatal(cmp.Diff(actualSerializedRequestsForAction, expectedSerializedRequests))
 					}
 				})
 			}
