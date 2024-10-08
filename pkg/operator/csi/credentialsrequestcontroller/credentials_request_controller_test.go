@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -318,4 +319,139 @@ func (fake *fakeDynamicClient) Apply(ctx context.Context, name string, obj *unst
 
 func (fake *fakeDynamicClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, errors.New("not implemented")
+}
+
+func TestShouldSync(t *testing.T) {
+	tests := []struct {
+		name               string
+		cloudCredential    *opv1.CloudCredential
+		envVars            map[string]string
+		expectedShouldSync bool
+		expectedError      bool
+	}{
+		{
+			name: "Default mode",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeDefault,
+				},
+			},
+			expectedShouldSync: true,
+			expectedError:      false,
+		},
+		{
+			name: "Manual mode without short-term credentials",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			expectedShouldSync: false,
+			expectedError:      false,
+		},
+		{
+			name: "Manual mode with AWS STS enabled",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"ROLEARN": "arn:aws:iam::123456789012:role/test-role",
+			},
+			expectedShouldSync: true,
+			expectedError:      false,
+		},
+		{
+			name: "Manual mode with GCP WIF enabled",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"POOL_ID":               "test-pool",
+				"PROVIDER_ID":           "test-provider",
+				"SERVICE_ACCOUNT_EMAIL": "test@example.com",
+				"PROJECT_NUMBER":        "123456789",
+			},
+			expectedShouldSync: true,
+			expectedError:      false,
+		},
+		{
+			name: "Manual mode with partial GCP WIF configuration",
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"POOL_ID":               "test-pool",
+				"PROVIDER_ID":           "test-provider",
+				"SERVICE_ACCOUNT_EMAIL": "test@example.com",
+			},
+			expectedShouldSync: false,
+			expectedError:      false,
+		},
+		{
+			name:               "Error getting cloud credential",
+			cloudCredential:    nil,
+			expectedShouldSync: false,
+			expectedError:      true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup
+			typedVersionedOperatorClient := fakeoperatorv1client.NewSimpleClientset()
+			cloudCredentialInformer := operatorinformer.NewSharedInformerFactory(typedVersionedOperatorClient, 1*time.Minute)
+
+			if tc.cloudCredential != nil {
+				err := cloudCredentialInformer.Operator().V1().CloudCredentials().Informer().GetStore().Add(tc.cloudCredential)
+				if err != nil {
+					t.Fatalf("Failed to add cloud credential to store: %v", err)
+				}
+			}
+
+			// Set environment variables
+			for k, v := range tc.envVars {
+				os.Setenv(k, v)
+			}
+			defer func() {
+				for k := range tc.envVars {
+					os.Unsetenv(k)
+				}
+			}()
+
+			// Act
+			shouldSync, err := shouldSync(cloudCredentialInformer.Operator().V1().CloudCredentials().Lister())
+
+			// Assert
+			if tc.expectedError && err == nil {
+				t.Error("Expected an error, but got none")
+			}
+			if !tc.expectedError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if shouldSync != tc.expectedShouldSync {
+				t.Errorf("Expected shouldSync to be %v, but got %v", tc.expectedShouldSync, shouldSync)
+			}
+		})
+	}
 }
