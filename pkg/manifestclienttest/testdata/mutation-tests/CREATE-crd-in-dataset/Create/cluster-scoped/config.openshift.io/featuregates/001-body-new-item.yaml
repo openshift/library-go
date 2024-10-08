@@ -1,0 +1,8 @@
+apiVersion: config.openshift.io/v1
+kind: FeatureGate
+metadata:
+  creationTimestamp: null
+  name: new-item
+spec: {}
+status:
+  featureGates: null

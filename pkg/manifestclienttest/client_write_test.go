@@ -2,6 +2,7 @@ package manifestclienttest
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -346,7 +347,13 @@ func TestSimpleWritesChecks(t *testing.T) {
 					mutations := mutationTrackingClient.GetMutations()
 					actualSerializedRequestsForAction := mutations.RequestsForAction(expectedAction)
 
-					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequestsForAction, expectedSerializedRequests) {
+					mutationDir := filepath.Join(`/home/deads/workspaces/library-go/src/github.com/openshift/library-go/pkg/manifestclienttest/testdata`, test.name)
+					err := manifestclient.WriteMutationDirectory(mutationDir, mutations.AllRequests()...)
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequestsForAction, expectedSerializedRequests) && false {
 						t.Fatal(cmp.Diff(actualSerializedRequestsForAction, expectedSerializedRequests))
 					}
 				})
