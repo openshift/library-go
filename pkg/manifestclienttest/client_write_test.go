@@ -2,6 +2,7 @@ package manifestclienttest
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 
 	"github.com/davecgh/go-spew/spew"
@@ -185,23 +186,28 @@ func TestSimpleWritesChecks(t *testing.T) {
 				t.Run(test.name, func(t *testing.T) {
 					mutationTrackingClient := roundTripperTest.getClient()
 					test.testFn(t, mutationTrackingClient.GetHTTPClient())
-					mutations := mutationTrackingClient.GetMutations()
-					actualSerializedRequestsForAction := mutations.AllRequests()
+					actualMutations := mutationTrackingClient.GetMutations()
+					actualRequests := actualMutations.AllRequests()
 
 					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(packageTestData, filepath.Join("testdata", "mutation-tests", test.name))
 					if err != nil {
 						t.Fatal(err)
 					}
 
-					//
-					//mutationDir := filepath.Join(`/home/deads/workspaces/library-go/src/github.com/openshift/library-go/pkg/manifestclienttest/testdata`, test.name)
-					//err := manifestclient.WriteMutationDirectory(mutationDir, mutations.AllRequests()...)
-					//if err != nil {
-					//	t.Fatal(err)
-					//}
+					const updateEnvVar = "UPDATE_MUTATION_TEST_DATA"
+					if os.Getenv(updateEnvVar) == "true" {
+						mutationDir := filepath.Join("testdata", "mutation-tests", test.name)
+						err := manifestclient.WriteMutationDirectory(mutationDir, actualMutations.AllRequests()...)
+						if err != nil {
+							t.Fatal(err)
+						} else {
+							t.Logf("Updated data")
+						}
+					}
 
-					if !manifestclient.AreAllSerializedRequestsEquivalent(actualSerializedRequestsForAction, expectedRequests.AllRequests()) {
-						t.Fatal(cmp.Diff(actualSerializedRequestsForAction[0].SerializedRequest, expectedRequests.AllRequests()[0].SerializedRequest))
+					if !manifestclient.AreAllSerializedRequestsEquivalent(actualRequests, expectedRequests.AllRequests()) {
+						t.Logf("Re-run with `UPDATE_MUTATION_TEST_DATA=true` to write new expected test data")
+						t.Fatal(cmp.Diff(actualRequests, expectedRequests.AllRequests()))
 					}
 				})
 			}
