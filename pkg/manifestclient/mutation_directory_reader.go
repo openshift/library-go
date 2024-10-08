@@ -16,26 +16,49 @@ import (
 )
 
 func ReadMutationDirectory(mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
+	return readMutationFS(os.DirFS(mutationDirectory), ".")
+}
+
+func ReadEmbeddedMutationDirectory(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
+	return readMutationFS(inFS, mutationDirectory)
+}
+
+func readMutationFS(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
 	ret := NewAllActionsTracker[FileOriginatedSerializedRequest]()
 	errs := []error{}
 
 	for _, action := range sets.List(AllActions) {
 		actionDir := filepath.Join(mutationDirectory, string(action))
+		file, err := inFS.Open(actionDir)
+		if file != nil {
+			file.Close()
+		}
+		switch {
+		case os.IsNotExist(err):
+			continue
+		case err != nil:
+			errs = append(errs, fmt.Errorf("unable to read %q content in %q: %w", action, actionDir, err))
+			continue
+		case err == nil:
+		}
 
-		currResourceList, err := readSerializedRequestsFromActionDirectory(action, actionDir)
+		currResourceList, err := readSerializedRequestsFromActionDirectory(action, inFS, mutationDirectory)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("unable to read %q content in %q: %w", action, actionDir, err))
 		}
 		ret.AddRequests(currResourceList...)
 	}
 
-	return nil, nil
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return ret, nil
 }
 
-func readSerializedRequestsFromActionDirectory(action Action, mustGatherDir string) ([]FileOriginatedSerializedRequest, error) {
+func readSerializedRequestsFromActionDirectory(action Action, inFS fs.FS, mutationDirectory string) ([]FileOriginatedSerializedRequest, error) {
 	currResourceList := []FileOriginatedSerializedRequest{}
 	errs := []error{}
-	err := filepath.WalkDir(mustGatherDir, func(currLocation string, currFile fs.DirEntry, err error) error {
+	err := fs.WalkDir(inFS, filepath.Join(mutationDirectory, string(action)), func(currLocation string, currFile fs.DirEntry, err error) error {
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -61,7 +84,10 @@ func readSerializedRequestsFromActionDirectory(action Action, mustGatherDir stri
 		errs = append(errs, err)
 	}
 
-	return currResourceList, errors.Join(errs...)
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return currResourceList, nil
 }
 
 var (
