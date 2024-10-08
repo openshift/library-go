@@ -130,11 +130,6 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode body: %w", err)
 	}
-	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
-	if err != nil {
-		return nil, fmt.Errorf("unable to encode body: %w", err)
-	}
-
 	if requestInfo.Namespace != bodyObj.(*unstructured.Unstructured).GetNamespace() {
 		return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
 	}
@@ -151,6 +146,20 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	if action == ActionCreate {
 		// in this case, the name isn't in the URL, it's in the body
 		metadataName = bodyObj.(*unstructured.Unstructured).GetName()
+	}
+	if action == ActionDelete {
+		// do this so that when we try to issue deletes later, we'll have the name we need to use.
+		annotations := bodyObj.(*unstructured.Unstructured).GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[DeletionNameAnnotation] = metadataName
+		bodyObj.(*unstructured.Unstructured).SetAnnotations(annotations)
+	}
+
+	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
+	if err != nil {
+		return nil, fmt.Errorf("unable to encode body: %w", err)
 	}
 
 	serializedRequest := SerializedRequest{

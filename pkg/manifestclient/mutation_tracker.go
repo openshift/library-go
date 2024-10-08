@@ -5,6 +5,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const DeletionNameAnnotation = "operator.openshift.io/deletion-name"
+
 type Action string
 
 const (

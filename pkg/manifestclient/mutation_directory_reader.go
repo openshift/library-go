@@ -141,6 +141,11 @@ func serializedRequestFromFile(action Action, bodyFilename string) (*FileOrigina
 		groupName = ""
 	}
 
+	metadataName := retObj.(*unstructured.Unstructured).GetName()
+	if action == ActionDelete {
+		metadataName = retObj.(*unstructured.Unstructured).GetAnnotations()[DeletionNameAnnotation]
+	}
+
 	ret := &FileOriginatedSerializedRequest{
 		BodyFilename: bodyFilename,
 		SerializedRequest: SerializedRequest{
@@ -152,7 +157,7 @@ func serializedRequestFromFile(action Action, bodyFilename string) (*FileOrigina
 			},
 			KindType:  retObj.(*unstructured.Unstructured).GroupVersionKind(),
 			Namespace: retObj.(*unstructured.Unstructured).GetNamespace(),
-			Name:      retObj.(*unstructured.Unstructured).GetName(),
+			Name:      metadataName,
 			Body:      bodyContent,
 		},
 	}
