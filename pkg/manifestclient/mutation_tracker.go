@@ -74,14 +74,22 @@ func (a *AllActionsTracker[T]) ListActions() []Action {
 	return sets.List(sets.KeySet(a.actionToTracker))
 }
 
-func (a *AllActionsTracker[T]) RequestsForAction(action Action) []T {
-	return a.actionToTracker[action].Mutations()
+func (a *AllActionsTracker[T]) RequestsForAction(action Action) []SerializedRequestish {
+	ret := []SerializedRequestish{}
+	mutations := a.actionToTracker[action].Mutations()
+	for _, mutation := range mutations {
+		ret = append(ret, mutation)
+	}
+	return ret
 }
 
-func (a *AllActionsTracker[T]) AllRequests() []T {
-	ret := []T{}
+func (a *AllActionsTracker[T]) AllRequests() []SerializedRequestish {
+	ret := []SerializedRequestish{}
 	for _, currActionTracker := range a.actionToTracker {
-		ret = append(ret, currActionTracker.Mutations()...)
+		mutations := currActionTracker.Mutations()
+		for _, mutation := range mutations {
+			ret = append(ret, mutation)
+		}
 	}
 	return ret
 }
