@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -374,6 +375,15 @@ func (c dynamicOperatorClient) applyOperatorStatus(ctx context.Context, fieldMan
 	}
 
 	return nil
+}
+
+func (c dynamicOperatorClient) Patch(ctx context.Context, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, error) {
+	ret, err := c.client.Patch(ctx, c.configName, pt, data, options, subresources...)
+	if err != nil {
+		return nil, nil, err
+	}
+	spec, status, _, err := getOperatorStateFromInstance(ret)
+	return spec, status, err
 }
 
 func (c dynamicOperatorClient) EnsureFinalizer(ctx context.Context, finalizer string) error {
