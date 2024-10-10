@@ -1,0 +1,12 @@
+apiVersion: config.openshift.io/v1
+kind: APIServer
+metadata:
+  creationTimestamp: null
+  name: new-item
+spec:
+  audit: {}
+  clientCA:
+    name: ""
+  encryption: {}
+  servingCerts: {}
+status: {}

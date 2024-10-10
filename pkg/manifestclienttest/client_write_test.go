@@ -1,9 +1,9 @@
 package manifestclienttest
 
 import (
-	"bytes"
 	"context"
-	"k8s.io/utils/ptr"
+	"os"
+	"path/filepath"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -12,50 +12,21 @@ import (
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/openshift/library-go/pkg/manifestclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"net/http"
-	"sigs.k8s.io/yaml"
 	"testing"
 )
 
-func featureGateYAMLBytesOrDie(obj *configv1.FeatureGate) []byte {
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		panic(err)
-	}
-	unstructuredObj["apiVersion"] = "config.openshift.io/v1"
-	unstructuredObj["kind"] = "FeatureGate"
-	retBytes, err := yaml.Marshal(unstructuredObj)
-	if err != nil {
-		panic(err)
-	}
-	return retBytes
-}
-
-func apiserverYAMLBytesOrDie(obj *configv1.APIServer) []byte {
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		panic(err)
-	}
-	unstructuredObj["apiVersion"] = "config.openshift.io/v1"
-	unstructuredObj["kind"] = "APIServer"
-	retBytes, err := yaml.Marshal(unstructuredObj)
-	if err != nil {
-		panic(err)
-	}
-	return retBytes
-}
 func TestSimpleWritesChecks(t *testing.T) {
 	tests := []struct {
 		name   string
-		testFn func(*testing.T, *http.Client) (location manifestclient.ActionMetadata, expectedBodyBytes, expectedOptionsBytes []byte)
+		testFn func(*testing.T, *http.Client)
 	}{
 		{
 			name: "CREATE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -73,24 +44,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionCreate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
 			},
 		},
 		{
 			name: "CREATE-crd-not-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -108,24 +66,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionCreate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "apiservers",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					apiserverYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
 			},
 		},
 		{
 			name: "UPDATE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -143,24 +88,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionUpdate,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("{}\n")
 			},
 		},
 		{
 			name: "UPDATE-STATUS-crd-in-dataset-with-options",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -178,24 +110,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionUpdateStatus,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					featureGateYAMLBytesOrDie(mutationObj),
-					[]byte("fieldValidation: Strict\n")
 			},
 		},
 		{
 			name: "APPLY-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -212,29 +131,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				applyBytes, err := yaml.Marshal(applyConfig)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionApply,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					applyBytes,
-					[]byte("fieldManager: the-client\nforce: true\n")
 			},
 		},
 		{
 			name: "APPLY-STATUS-crd-in-dataset-with-options",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -259,29 +160,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if len(resultingObj.Name) == 0 {
 					t.Fatal(spew.Sdump(resultingObj))
 				}
-
-				applyBytes, err := yaml.Marshal(applyConfig)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionApplyStatus,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "new-item",
-					},
-					applyBytes,
-					[]byte("fieldManager: the-client\nforce: true\n")
 			},
 		},
 		{
 			name: "DELETE-crd-in-dataset",
-			testFn: func(t *testing.T, httpClient *http.Client) (manifestclient.ActionMetadata, []byte, []byte) {
+			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
@@ -293,19 +176,6 @@ func TestSimpleWritesChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-
-				return manifestclient.ActionMetadata{
-						Action: manifestclient.ActionDelete,
-						GVR: schema.GroupVersionResource{
-							Group:    "config.openshift.io",
-							Version:  "v1",
-							Resource: "featuregates",
-						},
-						Namespace: "",
-						Name:      "cluster",
-					},
-					[]byte("apiVersion: config.openshift.io/v1\nkind: DeleteOptions\npropagationPolicy: Foreground\n"),
-					[]byte("{}\n")
 			},
 		},
 	}
@@ -315,17 +185,29 @@ func TestSimpleWritesChecks(t *testing.T) {
 			for _, test := range tests {
 				t.Run(test.name, func(t *testing.T) {
 					mutationTrackingClient := roundTripperTest.getClient()
-					expectedMetadata, expectedBodyBytes, expectedOptionsBytes := test.testFn(t, mutationTrackingClient.GetHTTPClient())
-					mutations := mutationTrackingClient.GetMutations()
-					serializedRequests := mutations.MutationsForMetadata(expectedMetadata)
-					if len(serializedRequests) != 1 {
-						t.Fatal(spew.Sdump(mutations))
+					test.testFn(t, mutationTrackingClient.GetHTTPClient())
+					actualMutations := mutationTrackingClient.GetMutations()
+					actualRequests := actualMutations.AllRequests()
+
+					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(packageTestData, filepath.Join("testdata", "mutation-tests", test.name))
+					if err != nil {
+						t.Fatal(err)
 					}
-					if !bytes.Equal(serializedRequests[0].Body, expectedBodyBytes) {
-						t.Fatal(cmp.Diff(string(serializedRequests[0].Body), string(expectedBodyBytes)))
+
+					const updateEnvVar = "UPDATE_MUTATION_TEST_DATA"
+					if os.Getenv(updateEnvVar) == "true" {
+						mutationDir := filepath.Join("testdata", "mutation-tests", test.name)
+						err := manifestclient.WriteMutationDirectory(mutationDir, actualMutations.AllRequests()...)
+						if err != nil {
+							t.Fatal(err)
+						} else {
+							t.Logf("Updated data")
+						}
 					}
-					if !bytes.Equal(serializedRequests[0].Options, expectedOptionsBytes) {
-						t.Fatal(cmp.Diff(string(serializedRequests[0].Options), string(expectedOptionsBytes)))
+
+					if !manifestclient.AreAllSerializedRequestsEquivalent(actualRequests, expectedRequests.AllRequests()) {
+						t.Logf("Re-run with `UPDATE_MUTATION_TEST_DATA=true` to write new expected test data")
+						t.Fatal(cmp.Diff(actualRequests, expectedRequests.AllRequests()))
 					}
 				})
 			}

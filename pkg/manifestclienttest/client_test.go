@@ -20,7 +20,7 @@ import (
 )
 
 //go:embed testdata
-var mustGather01 embed.FS
+var packageTestData embed.FS
 
 func TestSimpleChecks(t *testing.T) {
 	tests := []struct {
@@ -181,7 +181,7 @@ func defaultRoundTrippers(t *testing.T) []*testRoundTrippers {
 		{
 			name: "embed read",
 			newClientFn: func() manifestclient.MutationTrackingClient {
-				return manifestclient.NewTestingHTTPClient(mustGather01, "testdata/must-gather-01")
+				return manifestclient.NewTestingHTTPClient(packageTestData, "testdata/must-gather-01")
 			},
 		},
 	}

@@ -3,26 +3,36 @@ package manifestclient
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sync"
 )
 
-type AllActionsTracker struct {
-	lock sync.RWMutex
-
-	ActionToTracker map[Action]*ActionTracker
-}
+const DeletionNameAnnotation = "operator.openshift.io/deletion-name"
 
 type Action string
 
 const (
 	// this is really a subset of patch, but we treat it separately because it is useful to do so
-	ActionApply        Action = "server-side-apply"
-	ActionApplyStatus  Action = "server-side-apply-status"
-	ActionUpdate       Action = "update"
-	ActionUpdateStatus Action = "update-status"
-	ActionCreate       Action = "create"
-	ActionDelete       Action = "delete"
+	ActionApply        Action = "Apply"
+	ActionApplyStatus  Action = "ApplyStatus"
+	ActionUpdate       Action = "Update"
+	ActionUpdateStatus Action = "UpdateStatus"
+	ActionCreate       Action = "Create"
+	ActionDelete       Action = "Delete"
 )
+
+var (
+	AllActions = sets.New[Action](
+		ActionApply,
+		ActionApplyStatus,
+		ActionUpdate,
+		ActionUpdateStatus,
+		ActionCreate,
+		ActionDelete,
+	)
+)
+
+type AllActionsTracker[T SerializedRequestish] struct {
+	actionToTracker map[Action]*actionTracker[T]
+}
 
 type ActionMetadata struct {
 	Action    Action
@@ -31,138 +41,81 @@ type ActionMetadata struct {
 	Name      string
 }
 
-type ActionTracker struct {
-	Action            Action
-	ResourceToTracker map[schema.GroupVersionResource]*ResourceTracker
+type actionTracker[T SerializedRequestish] struct {
+	action Action
+
+	requests []T
 }
 
-type ResourceTracker struct {
-	GVR                schema.GroupVersionResource
-	NamespaceToTracker map[string]*NamespaceTracker
-}
-
-type NamespaceTracker struct {
-	Namespace     string
-	NameToTracker map[string]*NameTracker
-}
-
-type NameTracker struct {
-	Name               string
-	SerializedRequests []SerializedRequest
-}
-
-type SerializedRequest struct {
-	Options []byte
-	Body    []byte
-}
-
-func (a *AllActionsTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	if a.ActionToTracker == nil {
-		a.ActionToTracker = map[Action]*ActionTracker{}
+func NewAllActionsTracker[T SerializedRequestish]() *AllActionsTracker[T] {
+	return &AllActionsTracker[T]{
+		actionToTracker: make(map[Action]*actionTracker[T]),
 	}
-	if _, ok := a.ActionToTracker[metadata.Action]; !ok {
-		a.ActionToTracker[metadata.Action] = &ActionTracker{Action: metadata.Action}
+}
+
+func (a *AllActionsTracker[T]) AddRequests(requests ...T) {
+	for _, request := range requests {
+		a.AddRequest(request)
 	}
-	a.ActionToTracker[metadata.Action].AddRequest(metadata, request)
 }
 
-func (a *AllActionsTracker) ListActions() []Action {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	return sets.KeySet(a.ActionToTracker).UnsortedList()
-}
-
-func (a *AllActionsTracker) MutationsForAction(action Action) *ActionTracker {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-
-	return a.ActionToTracker[action]
-}
-
-func (a *AllActionsTracker) MutationsForMetadata(metadata ActionMetadata) []SerializedRequest {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-
-	actionTracker := a.MutationsForAction(metadata.Action)
-	if actionTracker == nil {
-		return nil
+func (a *AllActionsTracker[T]) AddRequest(request T) {
+	if a.actionToTracker == nil {
+		a.actionToTracker = map[Action]*actionTracker[T]{}
 	}
-	resourceTracker := actionTracker.MutationsForResource(metadata.GVR)
-	if resourceTracker == nil {
-		return nil
+	action := request.GetSerializedRequest().Action
+	if _, ok := a.actionToTracker[action]; !ok {
+		a.actionToTracker[action] = &actionTracker[T]{action: action}
 	}
-	namespaceTracker := resourceTracker.MutationsForNamespace(metadata.Namespace)
-	if namespaceTracker == nil {
-		return nil
-	}
-	nameTracker := namespaceTracker.MutationsForName(metadata.Name)
-	if nameTracker == nil {
-		return nil
-	}
-	return nameTracker.SerializedRequests
+	a.actionToTracker[action].AddRequest(request)
 }
 
-func (a *ActionTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
-	if a.ResourceToTracker == nil {
-		a.ResourceToTracker = map[schema.GroupVersionResource]*ResourceTracker{}
+func (a *AllActionsTracker[T]) ListActions() []Action {
+	return sets.List(sets.KeySet(a.actionToTracker))
+}
+
+func (a *AllActionsTracker[T]) RequestsForAction(action Action) []T {
+	return a.actionToTracker[action].Mutations()
+}
+
+func (a *AllActionsTracker[T]) AllRequests() []T {
+	ret := []T{}
+	for _, currActionTracker := range a.actionToTracker {
+		ret = append(ret, currActionTracker.Mutations()...)
 	}
-	if _, ok := a.ResourceToTracker[metadata.GVR]; !ok {
-		a.ResourceToTracker[metadata.GVR] = &ResourceTracker{GVR: metadata.GVR}
+	return ret
+}
+
+func (a *AllActionsTracker[T]) DeepCopy() *AllActionsTracker[T] {
+	ret := &AllActionsTracker[T]{
+		actionToTracker: make(map[Action]*actionTracker[T]),
 	}
-	a.ResourceToTracker[metadata.GVR].AddRequest(metadata, request)
-}
 
-func (a *ActionTracker) ListResources() []schema.GroupVersionResource {
-	return sets.KeySet(a.ResourceToTracker).UnsortedList()
-}
-
-func (a *ActionTracker) MutationsForResource(gvr schema.GroupVersionResource) *ResourceTracker {
-	return a.ResourceToTracker[gvr]
-}
-
-func (a *ResourceTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
-	if a.NamespaceToTracker == nil {
-		a.NamespaceToTracker = map[string]*NamespaceTracker{}
+	for k, v := range a.actionToTracker {
+		ret.actionToTracker[k] = v.DeepCopy()
 	}
-	if _, ok := a.NamespaceToTracker[metadata.Namespace]; !ok {
-		a.NamespaceToTracker[metadata.Namespace] = &NamespaceTracker{Namespace: metadata.Namespace}
+	return ret
+}
+
+func (a *actionTracker[T]) AddRequest(request T) {
+	if a.action != request.GetSerializedRequest().Action {
+		panic("coding error")
 	}
-	a.NamespaceToTracker[metadata.Namespace].AddRequest(metadata, request)
+	a.requests = append(a.requests, request)
 }
 
-func (a *ResourceTracker) ListNamespaces() []string {
-	return sets.KeySet(a.NamespaceToTracker).UnsortedList()
+func (a *actionTracker[T]) Mutations() []T {
+	return a.requests
 }
 
-func (a *ResourceTracker) MutationsForNamespace(namespace string) *NamespaceTracker {
-	return a.NamespaceToTracker[namespace]
-}
-
-func (a *NamespaceTracker) AddRequest(metadata ActionMetadata, request SerializedRequest) {
-	if a.NameToTracker == nil {
-		a.NameToTracker = map[string]*NameTracker{}
+func (a *actionTracker[T]) DeepCopy() *actionTracker[T] {
+	ret := &actionTracker[T]{
+		action:   a.action,
+		requests: make([]T, 0),
 	}
-	if _, ok := a.NameToTracker[metadata.Name]; !ok {
-		a.NameToTracker[metadata.Name] = &NameTracker{Name: metadata.Name}
+
+	for _, v := range a.requests {
+		ret.requests = append(ret.requests, v.DeepCopy().(T))
 	}
-	a.NameToTracker[metadata.Name].AddRequest(request)
-}
-
-func (a *NamespaceTracker) ListNames() []string {
-	return sets.KeySet(a.NameToTracker).UnsortedList()
-}
-
-func (a *NamespaceTracker) MutationsForName(name string) *NameTracker {
-	return a.NameToTracker[name]
-}
-
-func (a *NameTracker) AddRequest(request SerializedRequest) {
-	if a.SerializedRequests == nil {
-		a.SerializedRequests = []SerializedRequest{}
-	}
-	a.SerializedRequests = append(a.SerializedRequests, request)
+	return ret
 }
