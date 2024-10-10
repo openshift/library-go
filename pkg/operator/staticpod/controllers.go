@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 type staticPodOperatorControllerBuilder struct {
@@ -247,7 +248,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	}
 
 	if len(b.installCommand) > 0 {
-		manager.WithController(installer.NewInstallerController(
+		installerController := installer.NewInstallerController(
 			b.operandNamespace,
 			b.staticPodName,
 			b.revisionConfigMaps,
@@ -267,7 +268,16 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.installerPodMutationFunc,
 		).WithMinReadyDuration(
 			b.minReadyDuration,
-		), 1)
+		)
+
+		// TODO: register the metrics more cleanly at the operator level and
+		// decouple it from the legacy registry
+		err := installerController.RegisterMetrics(legacyregistry.Register)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to register installer controller metrics: %v", err))
+		}
+
+		manager.WithController(installerController, 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
 			b.operandName,

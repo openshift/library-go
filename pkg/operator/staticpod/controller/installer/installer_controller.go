@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/metrics"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	basemetrics "k8s.io/component-base/metrics"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 )
@@ -98,6 +100,9 @@ type InstallerController struct {
 	clock            clock.Clock
 	installerBackOff func(count int) time.Duration
 	fallbackBackOff  func(count int) time.Duration
+
+	metrics          *metrics.Metrics
+	rolloutStartTime time.Time
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -186,6 +191,8 @@ func NewInstallerController(
 		clock:               clock.RealClock{},
 		installerBackOff:    backOffDuration(10*time.Second, 1.5, 10*time.Minute),
 		fallbackBackOff:     backOffDuration(10*time.Minute, 2, 2*time.Hour), // 10min, 20min, 40min, 1h20, 2h
+
+		metrics: metrics.New(),
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
@@ -210,6 +217,10 @@ func (c *InstallerController) Run(ctx context.Context, workers int) {
 
 func (c InstallerController) Name() string {
 	return "InstallerController"
+}
+
+func (c *InstallerController) RegisterMetrics(registrationFunc func(basemetrics.Registerable) error) error {
+	return c.metrics.Register(registrationFunc)
 }
 
 // getStaticPodState returns
@@ -514,6 +525,9 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
 					c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d because %s", currNodeState.NodeName,
 						currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision, reason)
+					klog.Infof("Recording static pod rollout that lasted %f", time.Since(c.rolloutStartTime).Seconds())
+					c.metrics.ObserveStaticPodRollout(c.staticPodName, time.Since(c.rolloutStartTime).Seconds())
+					c.rolloutStartTime = time.Time{}
 				}
 
 				return false, 0, nil // no requeue because UpdateStaticPodStatus triggers an external event anyway
@@ -936,6 +950,11 @@ func (c *InstallerController) ensureInstallerPod(ctx context.Context, operatorSp
 	}
 
 	_, _, err = resourceapply.ApplyPod(ctx, c.podsGetter, c.eventRecorder, pod)
+
+	if c.rolloutStartTime.IsZero() {
+		c.rolloutStartTime = time.Now()
+	}
+
 	return err
 }
 
