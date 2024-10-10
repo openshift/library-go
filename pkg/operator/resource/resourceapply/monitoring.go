@@ -139,6 +139,10 @@ func ApplyUnstructuredResourceImproved(
 	// Check if the metadata objects differ. This only checks for selective fields (excluding the resource version, among others).
 	didMetadataModify := ptr.To(false)
 	resourcemerge.EnsureObjectMeta(didMetadataModify, &existingObjectMetaTyped, requiredObjectMetaTyped)
+	existingCopy.Object["metadata"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(&existingObjectMetaTyped)
+	if err != nil {
+		return nil, false, err
+	}
 
 	// Deep-check the spec objects for equality, and update the cache in either case.
 	if defaultingFunc == nil {
@@ -162,14 +166,10 @@ func ApplyUnstructuredResourceImproved(
 		klog.Infof("%s %q changes: %v", resourceGVR.String(), namespace+"/"+name, JSONPatchNoError(existing, existingCopy))
 	}
 
-	// CRs, unlike certain core objects (e.g., deployments), need to specify the resource version for updates.
-	requiredCopy := required.DeepCopy()
-	requiredCopy.SetResourceVersion(existingCopy.GetResourceVersion())
-
 	// Perform update if resource exists but different from the required (desired) one.
-	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, requiredCopy, metav1.UpdateOptions{})
-	resourcehelper.ReportUpdateEvent(recorder, requiredCopy, err)
-	cache.UpdateCachedResourceMetadata(requiredCopy, actual)
+	actual, err := client.Resource(resourceGVR).Namespace(namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
+	resourcehelper.ReportUpdateEvent(recorder, existingCopy, err)
+	cache.UpdateCachedResourceMetadata(existingCopy, actual)
 	return actual, true, err
 }
 
