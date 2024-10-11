@@ -165,20 +165,16 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	}
 
 	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable)).
-		WithStatus(operatorv1.ConditionTrue)
+		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable))
 
 	workloadDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix)).
-		WithStatus(operatorv1.ConditionFalse)
+		WithType(fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix))
 
 	deploymentDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeploymentDegraded", c.conditionsPrefix)).
-		WithStatus(operatorv1.ConditionFalse)
+		WithType(fmt.Sprintf("%sDeploymentDegraded", c.conditionsPrefix))
 
 	deploymentProgressingCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing)).
-		WithStatus(operatorv1.ConditionFalse)
+		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing))
 
 	status := applyoperatorv1.OperatorStatus()
 	defer func() {
@@ -218,6 +214,11 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithStatus(operatorv1.ConditionFalse).
 			WithReason("PreconditionNotFulfilled")
 
+		workloadDegradedCondition = workloadDegradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("PreconditionNotFulfilled").
+			WithMessage(message)
+
 		return kerrors.NewAggregate(errs)
 	}
 
@@ -248,6 +249,11 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithMessage(message)
 
 		deploymentDegradedCondition = deploymentDegradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("NoDeployment").
+			WithMessage(message)
+
+		workloadDegradedCondition = workloadDegradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("NoDeployment").
 			WithMessage(message)
