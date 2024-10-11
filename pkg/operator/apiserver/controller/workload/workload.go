@@ -17,7 +17,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -177,6 +176,17 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing))
 
 	status := applyoperatorv1.OperatorStatus()
+	if workload != nil {
+		// The Hash field is not required since the LastGeneration field is enough to uniquely identify a Deployment's desired state
+		status = status.WithGenerations(applyoperatorv1.GenerationStatus().
+			WithGroup("apps").
+			WithResource("deployments").
+			WithNamespace(workload.Namespace).
+			WithName(workload.Name).
+			WithLastGeneration(workload.Generation),
+		)
+	}
+
 	defer func() {
 		status = status.WithConditions(
 			deploymentAvailableCondition,
@@ -329,15 +339,6 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		}
 		c.versionRecorder.SetVersion(operandName, c.targetOperandVersion)
 	}
-
-	// set generations
-	status = status.WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
-		Group:          ptr.To("apps"),
-		Resource:       ptr.To("deployments"),
-		Namespace:      ptr.To(workload.Namespace),
-		Name:           ptr.To(workload.Name),
-		LastGeneration: ptr.To(workload.Generation),
-	})
 
 	if len(errs) > 0 {
 		return kerrors.NewAggregate(errs)
