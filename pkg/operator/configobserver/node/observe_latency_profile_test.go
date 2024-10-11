@@ -78,8 +78,8 @@ func multiScenarioLatencyProfilesTest(t *testing.T, observeFn configobserver.Obs
 			if len(err) > 0 {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(scenario.expectedObservedConfig, actualObservedConfig) {
-				t.Fatalf("unexpected configuration, diff = %v", cmp.Diff(scenario.expectedObservedConfig, actualObservedConfig))
+			if diff := cmp.Diff(scenario.expectedObservedConfig, actualObservedConfig); diff != "" {
+				t.Fatalf("unexpected configuration, diff = %v", diff)
 			}
 		})
 	}
