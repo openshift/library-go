@@ -3,12 +3,12 @@ package e2e_monitoring
 import (
 	"context"
 	clocktesting "k8s.io/utils/clock/testing"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/test/library"
 	monv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -18,10 +18,45 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	noUpdate = iota
+	metadataUpdate
+	specAndMaybeMetadataUpdate
+)
+
+// didUpdate compares two unstructured resources and returns if the specified parts changed.
+func didUpdate(old, new *unstructured.Unstructured) (int, error) {
+	oldResourceVersion, _, err := unstructured.NestedString(old.Object, "metadata", "resourceVersion")
+	if err != nil {
+		return 0, err
+	}
+	newResourceVersion, _, err := unstructured.NestedString(new.Object, "metadata", "resourceVersion")
+	if err != nil {
+		return 0, err
+	}
+	oldGeneration, _, err := unstructured.NestedInt64(old.Object, "metadata", "generation")
+	if err != nil {
+		return 0, err
+	}
+	newGeneration, _, err := unstructured.NestedInt64(new.Object, "metadata", "generation")
+	if err != nil {
+		return 0, err
+	}
+	if oldResourceVersion != newResourceVersion {
+		if oldGeneration != newGeneration {
+			return specAndMaybeMetadataUpdate, nil
+		}
+		return metadataUpdate, nil
+	}
+
+	return noUpdate, nil
+}
+
 func TestResourceVersionApplication(t *testing.T) {
-	config, err := library.NewClientConfigForTest()
+	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
 	require.NoError(t, err)
 
 	// Define the resource.
@@ -70,7 +105,8 @@ func TestResourceVersionApplication(t *testing.T) {
 	unstructuredResourceMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resource)
 	require.NoError(t, err)
 	unstructuredResource.SetUnstructuredContent(unstructuredResourceMap)
-	gotUnstructured, didUpdate, err := resourceapply.ApplyUnstructuredResourceImproved(
+	oldUnstructuredResource := unstructuredResource.DeepCopy()
+	gotUnstructuredResource, err := resourceapply.ApplyUnstructuredResourceImproved(
 		context.TODO(),
 		dynamicClient,
 		recorder,
@@ -83,15 +119,19 @@ func TestResourceVersionApplication(t *testing.T) {
 	if err != nil && !errors.IsAlreadyExists(err) {
 		t.Fatalf("Failed to create resource: %v", err)
 	}
-	require.True(t, didUpdate)
+	expectation, err := didUpdate(oldUnstructuredResource, gotUnstructuredResource)
+	if err != nil {
+		t.Fatalf("Failed to compare resources: %v", err)
+	}
+	require.True(t, expectation != noUpdate)
 
 	// Update the resource version and the generation since we made a spec change.
-	unstructuredResource.SetResourceVersion(gotUnstructured.GetResourceVersion())
-	unstructuredResource.SetGeneration(gotUnstructured.GetGeneration())
-	unstructuredResource.SetCreationTimestamp(gotUnstructured.GetCreationTimestamp())
-	unstructuredResource.SetUID(gotUnstructured.GetUID())
-	unstructuredResource.SetManagedFields(gotUnstructured.GetManagedFields())
-	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructured.UnstructuredContent())
+	unstructuredResource.SetResourceVersion(gotUnstructuredResource.GetResourceVersion())
+	unstructuredResource.SetGeneration(gotUnstructuredResource.GetGeneration())
+	unstructuredResource.SetCreationTimestamp(gotUnstructuredResource.GetCreationTimestamp())
+	unstructuredResource.SetUID(gotUnstructuredResource.GetUID())
+	unstructuredResource.SetManagedFields(gotUnstructuredResource.GetManagedFields())
+	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructuredResource.UnstructuredContent())
 
 	// Compare the existing resource with the one we have.
 	existingResourceUnstructured, err := dynamicClient.Resource(gvr).Namespace(resource.GetNamespace()).Get(context.TODO(), resource.GetName(), metav1.GetOptions{})
@@ -103,7 +143,8 @@ func TestResourceVersionApplication(t *testing.T) {
 	unstructuredResourceMap, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&resource)
 	require.NoError(t, err)
 	unstructuredResource.SetUnstructuredContent(unstructuredResourceMap)
-	gotUnstructured, didUpdate, err = resourceapply.ApplyUnstructuredResourceImproved(
+	oldUnstructuredResource = gotUnstructuredResource.DeepCopy()
+	gotUnstructuredResource, err = resourceapply.ApplyUnstructuredResourceImproved(
 		context.TODO(),
 		dynamicClient,
 		recorder,
@@ -116,15 +157,19 @@ func TestResourceVersionApplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to update resource: %v", err)
 	}
-	require.True(t, didUpdate)
+	expectation, err = didUpdate(oldUnstructuredResource, gotUnstructuredResource)
+	if err != nil {
+		t.Fatalf("Failed to compare resources: %v", err)
+	}
+	require.True(t, expectation == specAndMaybeMetadataUpdate)
 
 	// Update the resource version and the generation since we made a spec change.
-	unstructuredResource.SetResourceVersion(gotUnstructured.GetResourceVersion())
-	unstructuredResource.SetGeneration(gotUnstructured.GetGeneration())
-	unstructuredResource.SetCreationTimestamp(gotUnstructured.GetCreationTimestamp())
-	unstructuredResource.SetUID(gotUnstructured.GetUID())
-	unstructuredResource.SetManagedFields(gotUnstructured.GetManagedFields())
-	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructured.UnstructuredContent())
+	unstructuredResource.SetResourceVersion(gotUnstructuredResource.GetResourceVersion())
+	unstructuredResource.SetGeneration(gotUnstructuredResource.GetGeneration())
+	unstructuredResource.SetCreationTimestamp(gotUnstructuredResource.GetCreationTimestamp())
+	unstructuredResource.SetUID(gotUnstructuredResource.GetUID())
+	unstructuredResource.SetManagedFields(gotUnstructuredResource.GetManagedFields())
+	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructuredResource.UnstructuredContent())
 
 	// Compare the existing resource with the one we have.
 	existingResourceUnstructured, err = dynamicClient.Resource(gvr).Namespace(resource.GetNamespace()).Get(context.TODO(), resource.GetName(), metav1.GetOptions{})
@@ -132,7 +177,8 @@ func TestResourceVersionApplication(t *testing.T) {
 	require.Equal(t, unstructuredResource.UnstructuredContent(), existingResourceUnstructured.UnstructuredContent())
 
 	// Update the resource without any changes, without specifying a resource version.
-	gotUnstructured, didUpdate, err = resourceapply.ApplyUnstructuredResourceImproved(
+	oldUnstructuredResource = gotUnstructuredResource.DeepCopy()
+	gotUnstructuredResource, err = resourceapply.ApplyUnstructuredResourceImproved(
 		context.TODO(),
 		dynamicClient,
 		recorder,
@@ -145,10 +191,14 @@ func TestResourceVersionApplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to update resource: %v", err)
 	}
-	require.False(t, didUpdate)
+	expectation, err = didUpdate(oldUnstructuredResource, gotUnstructuredResource)
+	if err != nil {
+		t.Fatalf("Failed to compare resources: %v", err)
+	}
+	require.True(t, expectation == noUpdate)
 
 	// Do not update any fields as no change was made.
-	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructured.UnstructuredContent())
+	require.Equal(t, unstructuredResource.UnstructuredContent(), gotUnstructuredResource.UnstructuredContent())
 
 	// Compare the existing resource with the one we have.
 	existingResourceUnstructured, err = dynamicClient.Resource(gvr).Namespace(resource.GetNamespace()).Get(context.TODO(), resource.GetName(), metav1.GetOptions{})
