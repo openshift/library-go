@@ -107,8 +107,8 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					{
 						Type:    fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
 						Status:  operatorv1.ConditionTrue,
-						Reason:  "NoDeployment",
-						Message: "deployment/: could not be retrieved",
+						Message: "nasty error\n",
+						Reason:  "SyncError",
 					},
 					{
 						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),

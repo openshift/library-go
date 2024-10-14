@@ -262,10 +262,13 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithReason("NoDeployment").
 			WithMessage(message)
 
-		workloadDegradedCondition = workloadDegradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("NoDeployment").
-			WithMessage(message)
+		// Don't overwrite workoadDegraded if it's currently true
+		if workloadDegradedCondition.Status == nil || *workloadDegradedCondition.Status == operatorv1.ConditionFalse {
+			workloadDegradedCondition = workloadDegradedCondition.
+				WithStatus(operatorv1.ConditionTrue).
+				WithReason("NoDeployment").
+				WithMessage(message)
+		}
 
 		return kerrors.NewAggregate(errs)
 	}
