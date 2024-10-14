@@ -34,6 +34,10 @@ func (p *PatchSet) WithTest(path string, value interface{}) *PatchSet {
 	return p
 }
 
+func (p *PatchSet) IsEmpty() bool {
+	return len(p.patches) == 0
+}
+
 func (p *PatchSet) Marshal() ([]byte, error) {
 	jsonBytes, err := json.Marshal(p.patches)
 	if err != nil {
