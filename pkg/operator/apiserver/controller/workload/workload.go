@@ -241,6 +241,11 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("SyncError").
 			WithMessage(message)
+	} else if workload == nil {
+		workloadDegradedCondition = workloadDegradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("NoDeployment").
+			WithMessage(fmt.Sprintf("deployment/%s: could not be retrieved", c.targetNamespace))
 	} else {
 		workloadDegradedCondition = workloadDegradedCondition.
 			WithStatus(operatorv1.ConditionFalse)
@@ -259,11 +264,6 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithMessage(message)
 
 		deploymentDegradedCondition = deploymentDegradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("NoDeployment").
-			WithMessage(message)
-
-		workloadDegradedCondition = workloadDegradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("NoDeployment").
 			WithMessage(message)
