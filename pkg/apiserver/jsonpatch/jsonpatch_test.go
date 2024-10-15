@@ -28,17 +28,17 @@ func TestJSONPatch(t *testing.T) {
 		{
 			name:           "patch WithTest and WithRemove multiple times same test",
 			target:         New().WithRemove("/status/foo", NewTestCondition("/status/condition", "bar")).WithRemove("/status/bar", NewTestCondition("/status/condition", "bar")),
-			expectedOutput: `[{"op":"test","path":"/status/condition","value":"bar"},{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/foo"},{"op":"remove","path":"/status/bar"}]`,
+			expectedOutput: `[{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/foo"},{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/bar"}]`,
 		},
 		{
 			name:           "patch WithTest and WithRemove multiple times different test",
 			target:         New().WithRemove("/status/foo", NewTestCondition("/status/condition", "bar")).WithRemove("/status/bar", NewTestCondition("/status/condition", "foo")),
-			expectedOutput: `[{"op":"test","path":"/status/condition","value":"foo"},{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/foo"},{"op":"remove","path":"/status/bar"}]`,
+			expectedOutput: `[{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/foo"},{"op":"test","path":"/status/condition","value":"foo"},{"op":"remove","path":"/status/bar"}]`,
 		},
 		{
 			name:           "patch WithTest multiple times",
 			target:         New().WithTest("/status/secondCondition", "foo").WithRemove("/status/foo", NewTestCondition("/status/condition", "bar")),
-			expectedOutput: `[{"op":"test","path":"/status/condition","value":"bar"},{"op":"test","path":"/status/secondCondition","value":"foo"},{"op":"remove","path":"/status/foo"}]`,
+			expectedOutput: `[{"op":"test","path":"/status/secondCondition","value":"foo"},{"op":"test","path":"/status/condition","value":"bar"},{"op":"remove","path":"/status/foo"}]`,
 		},
 	}
 	for _, scenario := range scenarios {
