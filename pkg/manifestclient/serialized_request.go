@@ -223,7 +223,7 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) 
 	if len(a.Namespace) > 0 {
 		scopingString = filepath.Join("namespaces", a.Namespace)
 	} else {
-		scopingString = filepath.Join("cluster-scoped")
+		scopingString = filepath.Join("cluster-scoped-resources")
 	}
 
 	bodyFilename := MakeFilenameGoModSafe(

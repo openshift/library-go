@@ -155,6 +155,38 @@ func TestSimpleChecks(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "LIST-namespace-scoped-secret-from-missing-namespace-with-list-file",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().Secrets("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(len(obj.Items))
+				}
+			},
+		},
+		{
+			name: "LIST-namespace-scoped-configmap-from-missing-namespace-with-individual-file",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(len(obj.Items))
+				}
+			},
+		},
 	}
 
 	for _, roundTripperTest := range defaultRoundTrippers(t) {
