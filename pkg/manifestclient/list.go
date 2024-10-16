@@ -20,12 +20,12 @@ import (
 // Keep in mind that to produce a cluster-scoped list of namespaced resources, you can need to navigate many namespaces.
 func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]byte, error) {
 	var retList *unstructured.UnstructuredList
-	possibleListFiles, err := allPossibleListFileLocations(mrt.contentReader, requestInfo)
+	possibleListFiles, err := allPossibleListFileLocations(mrt.sourceFS, requestInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine list file locations: %w", err)
 	}
 	for _, listFile := range possibleListFiles {
-		currList, err := readListFile(mrt.contentReader, listFile)
+		currList, err := readListFile(mrt.sourceFS, listFile)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			// do nothing, it's possible, not guaranteed
@@ -54,12 +54,12 @@ func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]by
 		Object: map[string]interface{}{},
 		Items:  nil,
 	}
-	individualFiles, err := allIndividualFileLocations(mrt.contentReader, requestInfo)
+	individualFiles, err := allIndividualFileLocations(mrt.sourceFS, requestInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine individual file locations: %w", err)
 	}
 	for _, individualFile := range individualFiles {
-		currInstance, err := readIndividualFile(mrt.contentReader, individualFile)
+		currInstance, err := readIndividualFile(mrt.sourceFS, individualFile)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			// do nothing, it's possible, not guaranteed
@@ -87,12 +87,12 @@ func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]by
 
 	// if we get here, there is no list file and no individual files in the expected namespace, but we might have a kind in another namespace.
 	// we will always assume that empty list is kinder than 404 since we want informers to be synchronized.
-	possibleListFilesFromOtherNamespaces, err := allPossibleNamespacedListFilesInAnyNamespace(mrt.contentReader, requestInfo)
+	possibleListFilesFromOtherNamespaces, err := allPossibleNamespacedListFilesInAnyNamespace(mrt.sourceFS, requestInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine list file alternative locations: %w", err)
 	}
 	for _, listFile := range possibleListFilesFromOtherNamespaces {
-		currList, err := readListFile(mrt.contentReader, listFile)
+		currList, err := readListFile(mrt.sourceFS, listFile)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			// do nothing, it's possible, not guaranteed
@@ -116,12 +116,12 @@ func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]by
 		return []byte(ret), nil
 	}
 
-	possibleIndividualFilesFromOtherNamespaces, err := allPossibleNamespacedIndividualFilesInAnyNamespace(mrt.contentReader, requestInfo)
+	possibleIndividualFilesFromOtherNamespaces, err := allPossibleNamespacedIndividualFilesInAnyNamespace(mrt.sourceFS, requestInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine list file alternative individual files: %w", err)
 	}
 	for _, individualFile := range possibleIndividualFilesFromOtherNamespaces {
-		currList, err := readIndividualFile(mrt.contentReader, individualFile)
+		currList, err := readIndividualFile(mrt.sourceFS, individualFile)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			// do nothing, it's possible, not guaranteed
@@ -148,7 +148,7 @@ func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]by
 	return nil, fmt.Errorf("unable to read any file in any namespaceso we have no Kind for namespaced resource")
 }
 
-func allIndividualFileLocations(contentReader RawReader, requestInfo *apirequest.RequestInfo) ([]string, error) {
+func allIndividualFileLocations(sourceFS fs.FS, requestInfo *apirequest.RequestInfo) ([]string, error) {
 	resourceDirectoryParts := []string{}
 	if len(requestInfo.APIGroup) > 0 {
 		resourceDirectoryParts = append(resourceDirectoryParts, requestInfo.APIGroup)
@@ -166,7 +166,7 @@ func allIndividualFileLocations(contentReader RawReader, requestInfo *apirequest
 		clusterParts := append([]string{"cluster-scoped-resources"}, resourceDirectoryParts...)
 		resourceDirectoriesToCheckForIndividualFiles = append(resourceDirectoriesToCheckForIndividualFiles, filepath.Join(clusterParts...))
 
-		namespaces, err := allNamespacesWithData(contentReader)
+		namespaces, err := allNamespacesWithData(sourceFS)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read namespaces")
 		}
@@ -178,7 +178,7 @@ func allIndividualFileLocations(contentReader RawReader, requestInfo *apirequest
 
 	allIndividualFilePaths := []string{}
 	for _, resourceDirectory := range resourceDirectoriesToCheckForIndividualFiles {
-		individualFiles, err := contentReader.ReadDir(resourceDirectory)
+		individualFiles, err := fs.ReadDir(sourceFS, resourceDirectory)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			continue
@@ -194,7 +194,7 @@ func allIndividualFileLocations(contentReader RawReader, requestInfo *apirequest
 	return allIndividualFilePaths, nil
 }
 
-func allPossibleListFileLocations(contentReader RawReader, requestInfo *apirequest.RequestInfo) ([]string, error) {
+func allPossibleListFileLocations(sourceFS fs.FS, requestInfo *apirequest.RequestInfo) ([]string, error) {
 	resourceListFileParts := []string{}
 	if len(requestInfo.APIGroup) > 0 {
 		resourceListFileParts = append(resourceListFileParts, requestInfo.APIGroup)
@@ -212,7 +212,7 @@ func allPossibleListFileLocations(contentReader RawReader, requestInfo *apireque
 		clusterParts := append([]string{"cluster-scoped-resources"}, resourceListFileParts...)
 		allPossibleListFileLocations = append(allPossibleListFileLocations, filepath.Join(clusterParts...))
 
-		namespaces, err := allNamespacesWithData(contentReader)
+		namespaces, err := allNamespacesWithData(sourceFS)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read namespaces")
 		}
@@ -225,8 +225,8 @@ func allPossibleListFileLocations(contentReader RawReader, requestInfo *apireque
 	return allPossibleListFileLocations, nil
 }
 
-func allNamespacesWithData(contentReader RawReader) ([]string, error) {
-	nsDirs, err := contentReader.ReadDir("namespaces")
+func allNamespacesWithData(sourceFS fs.FS) ([]string, error) {
+	nsDirs, err := fs.ReadDir(sourceFS, "namespaces")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read allNamespacesWithData: %w", err)
 	}
@@ -239,7 +239,7 @@ func allNamespacesWithData(contentReader RawReader) ([]string, error) {
 	return ret, nil
 }
 
-func allPossibleNamespacedListFilesInAnyNamespace(contentReader RawReader, requestInfo *apirequest.RequestInfo) ([]string, error) {
+func allPossibleNamespacedListFilesInAnyNamespace(sourceFS fs.FS, requestInfo *apirequest.RequestInfo) ([]string, error) {
 	if len(requestInfo.Namespace) == 0 {
 		return nil, fmt.Errorf("namespace must be specified for allPossibleNamespacedListFilesInAnyNamespace")
 	}
@@ -254,7 +254,7 @@ func allPossibleNamespacedListFilesInAnyNamespace(contentReader RawReader, reque
 
 	allPossibleListFileLocations := []string{}
 	if len(requestInfo.Namespace) > 0 {
-		namespaces, err := allNamespacesWithData(contentReader)
+		namespaces, err := allNamespacesWithData(sourceFS)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read namespaces")
 		}
@@ -268,7 +268,7 @@ func allPossibleNamespacedListFilesInAnyNamespace(contentReader RawReader, reque
 	return allPossibleListFileLocations, nil
 }
 
-func allPossibleNamespacedIndividualFilesInAnyNamespace(contentReader RawReader, requestInfo *apirequest.RequestInfo) ([]string, error) {
+func allPossibleNamespacedIndividualFilesInAnyNamespace(sourceFS fs.FS, requestInfo *apirequest.RequestInfo) ([]string, error) {
 	if len(requestInfo.Namespace) == 0 {
 		return nil, fmt.Errorf("namespace must be specified for allPossibleNamespacedListFilesInAnyNamespace")
 	}
@@ -283,14 +283,14 @@ func allPossibleNamespacedIndividualFilesInAnyNamespace(contentReader RawReader,
 
 	allPossibleListFileLocations := []string{}
 	if len(requestInfo.Namespace) > 0 {
-		namespaces, err := allNamespacesWithData(contentReader)
+		namespaces, err := allNamespacesWithData(sourceFS)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read namespaces: %w", err)
 		}
 
 		for _, namespace := range namespaces {
 			parts := append([]string{"namespaces", namespace}, resourceDirFileParts...)
-			individualFiles, err := allIndividualFilesInResourceDirWithData(contentReader, filepath.Join(parts...))
+			individualFiles, err := allIndividualFilesInResourceDirWithData(sourceFS, filepath.Join(parts...))
 			if err != nil {
 				return nil, fmt.Errorf("unable to read resourcefiles: %w", err)
 			}
@@ -304,8 +304,8 @@ func allPossibleNamespacedIndividualFilesInAnyNamespace(contentReader RawReader,
 	return allPossibleListFileLocations, nil
 }
 
-func allIndividualFilesInResourceDirWithData(contentReader RawReader, resourceDir string) ([]string, error) {
-	individualFiles, err := contentReader.ReadDir(resourceDir)
+func allIndividualFilesInResourceDirWithData(sourceFS fs.FS, resourceDir string) ([]string, error) {
+	individualFiles, err := fs.ReadDir(sourceFS, resourceDir)
 	if os.IsNotExist(err) { // not all the namespaces will have the resourceDir
 		return nil, nil
 	}

@@ -2,6 +2,7 @@ package manifestclienttest
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -189,7 +190,11 @@ func TestSimpleWritesChecks(t *testing.T) {
 					actualMutations := mutationTrackingClient.GetMutations()
 					actualRequests := actualMutations.AllRequests()
 
-					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(packageTestData, filepath.Join("testdata", "mutation-tests", test.name))
+					testFS, err := fs.Sub(packageTestData, filepath.Join("testdata", "mutation-tests", test.name))
+					if err != nil {
+						t.Fatal(err)
+					}
+					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(testFS)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -207,6 +212,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 
 					if !manifestclient.AreAllSerializedRequestsEquivalent(actualRequests, expectedRequests.AllRequests()) {
 						t.Logf("Re-run with `UPDATE_MUTATION_TEST_DATA=true` to write new expected test data")
+						t.Log(expectedRequests.AllRequests())
 						t.Fatal(cmp.Diff(actualRequests, expectedRequests.AllRequests()))
 					}
 				})

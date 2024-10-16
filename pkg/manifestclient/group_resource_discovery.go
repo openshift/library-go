@@ -32,12 +32,12 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 	apiResources := map[string]metav1.APIResource{}
 
 	clusterGroupPath := filepath.Join("cluster-scoped-resources", group)
-	clusterGroupDirEntries, err := mrt.contentReader.ReadDir(clusterGroupPath)
+	clusterGroupDirEntries, err := fs.ReadDir(mrt.sourceFS, clusterGroupPath)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("unable to read directory: %w", err)
 	}
 
-	apiResourcesForClusterScope, err := getAPIResourcesFromNamespaceDirEntries(clusterGroupDirEntries, mrt.contentReader, group, version, clusterGroupPath, false /* cluster-scoped */)
+	apiResourcesForClusterScope, err := getAPIResourcesFromNamespaceDirEntries(clusterGroupDirEntries, mrt.sourceFS, group, version, clusterGroupPath, false /* cluster-scoped */)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get resources from cluster-scoped directory: %w", err)
 	}
@@ -45,7 +45,7 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 		apiResources[resourceName] = apiResource
 	}
 
-	namespaceDirEntries, err := mrt.contentReader.ReadDir("namespaces")
+	namespaceDirEntries, err := fs.ReadDir(mrt.sourceFS, "namespaces")
 	if err != nil {
 		return nil, fmt.Errorf("unable to read directory: %w", err)
 	}
@@ -55,7 +55,7 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 		}
 
 		namespaceGroupPath := filepath.Join("namespaces", namespaceDirEntry.Name(), group)
-		namespaceGroupDirEntries, err := mrt.contentReader.ReadDir(namespaceGroupPath)
+		namespaceGroupDirEntries, err := fs.ReadDir(mrt.sourceFS, namespaceGroupPath)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("unable to read directory: %w", err)
 		} else if errors.Is(err, fs.ErrNotExist) {
@@ -63,7 +63,7 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 			continue
 		}
 
-		apiResourcesForNamespace, err := getAPIResourcesFromNamespaceDirEntries(namespaceGroupDirEntries, mrt.contentReader, group, version, namespaceGroupPath, true /* namespaced */)
+		apiResourcesForNamespace, err := getAPIResourcesFromNamespaceDirEntries(namespaceGroupDirEntries, mrt.sourceFS, group, version, namespaceGroupPath, true /* namespaced */)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get resources from namespace directory: %w", err)
 		}
@@ -97,8 +97,8 @@ func splitGroupVersionFromRequestPath(path string) (string, string, error) {
 	return parts[2], parts[3], nil
 }
 
-func getResourceDirAPIServerListEntry(contentReader RawReader, groupPath, resourceName, group, version string, namespaced bool) (*metav1.APIResource, error) {
-	resourceDirEntries, err := contentReader.ReadDir(filepath.Join(groupPath, resourceName))
+func getResourceDirAPIServerListEntry(sourceFS fs.FS, groupPath, resourceName, group, version string, namespaced bool) (*metav1.APIResource, error) {
+	resourceDirEntries, err := fs.ReadDir(sourceFS, filepath.Join(groupPath, resourceName))
 	if err != nil {
 		return nil, fmt.Errorf("unable to read directory: %w", err)
 	}
@@ -108,7 +108,7 @@ func getResourceDirAPIServerListEntry(contentReader RawReader, groupPath, resour
 			continue
 		}
 
-		individualObj, individualErr := readIndividualFile(contentReader, filepath.Join(groupPath, resourceName, fileEntry.Name()))
+		individualObj, individualErr := readIndividualFile(sourceFS, filepath.Join(groupPath, resourceName, fileEntry.Name()))
 		if individualErr != nil {
 			return nil, fmt.Errorf("unable to read file: %w", individualErr)
 		}
@@ -137,12 +137,12 @@ func getResourceDirAPIServerListEntry(contentReader RawReader, groupPath, resour
 	return nil, nil
 }
 
-func getAPIResourcesFromNamespaceDirEntries(dirEntries []fs.DirEntry, contentReader RawReader, group, version string, basePath string, namespaced bool) (map[string]metav1.APIResource, error) {
+func getAPIResourcesFromNamespaceDirEntries(dirEntries []fs.DirEntry, sourceFS fs.FS, group, version string, basePath string, namespaced bool) (map[string]metav1.APIResource, error) {
 	apiResources := map[string]metav1.APIResource{}
 	for _, dirEntry := range dirEntries {
 		// Directories are named after the resource and contain individual resources.
 		if dirEntry.IsDir() {
-			apiResource, err := getResourceDirAPIServerListEntry(contentReader, basePath, dirEntry.Name(), group, version, namespaced)
+			apiResource, err := getResourceDirAPIServerListEntry(sourceFS, basePath, dirEntry.Name(), group, version, namespaced)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get resource from directory: %w", err)
 			}
@@ -163,7 +163,7 @@ func getAPIResourcesFromNamespaceDirEntries(dirEntries []fs.DirEntry, contentRea
 		}
 
 		// Files are named after the resource and contain a list of resources.
-		listObj, err := readListFile(contentReader, filepath.Join(basePath, dirEntry.Name()))
+		listObj, err := readListFile(sourceFS, filepath.Join(basePath, dirEntry.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("unable to read list file: %w", err)
 		}

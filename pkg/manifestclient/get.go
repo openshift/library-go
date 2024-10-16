@@ -29,7 +29,7 @@ func (mrt *manifestRoundTripper) get(requestInfo *apirequest.RequestInfo) ([]byt
 	}
 
 	individualFilePath := individualFileLocation(requestInfo)
-	individualObj, individualErr := readIndividualFile(mrt.contentReader, individualFilePath)
+	individualObj, individualErr := readIndividualFile(mrt.sourceFS, individualFilePath)
 	switch {
 	case errors.Is(individualErr, fs.ErrNotExist):
 		// try for the list
@@ -47,7 +47,7 @@ func (mrt *manifestRoundTripper) get(requestInfo *apirequest.RequestInfo) ([]byt
 	}
 
 	listFilePath := listFileLocation(requestInfo)
-	listObj, listErr := readListFile(mrt.contentReader, listFilePath)
+	listObj, listErr := readListFile(mrt.sourceFS, listFilePath)
 	switch {
 	case errors.Is(listErr, fs.ErrNotExist):
 		// we need this to be a not-found when sent back

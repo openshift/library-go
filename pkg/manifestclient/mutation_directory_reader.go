@@ -16,20 +16,19 @@ import (
 )
 
 func ReadMutationDirectory(mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
-	return readMutationFS(os.DirFS(mutationDirectory), ".")
+	return readMutationFS(os.DirFS(mutationDirectory))
 }
 
-func ReadEmbeddedMutationDirectory(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
-	return readMutationFS(inFS, mutationDirectory)
+func ReadEmbeddedMutationDirectory(inFS fs.FS) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
+	return readMutationFS(inFS)
 }
 
-func readMutationFS(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
+func readMutationFS(inFS fs.FS) (*AllActionsTracker[FileOriginatedSerializedRequest], error) {
 	ret := NewAllActionsTracker[FileOriginatedSerializedRequest]()
 	errs := []error{}
 
 	for _, action := range sets.List(AllActions) {
-		actionDir := filepath.Join(mutationDirectory, string(action))
-		file, err := inFS.Open(actionDir)
+		file, err := inFS.Open(string(action))
 		if file != nil {
 			file.Close()
 		}
@@ -37,14 +36,19 @@ func readMutationFS(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[Fi
 		case os.IsNotExist(err):
 			continue
 		case err != nil:
-			errs = append(errs, fmt.Errorf("unable to read %q content in %q: %w", action, actionDir, err))
+			errs = append(errs, fmt.Errorf("unable to read %q : %w", action, err))
 			continue
 		case err == nil:
 		}
-
-		currResourceList, err := readSerializedRequestsFromActionDirectory(action, inFS, mutationDirectory)
+		actionFS, err := fs.Sub(inFS, string(action))
 		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to read %q content in %q: %w", action, actionDir, err))
+			errs = append(errs, fmt.Errorf("unable to create subFS %q: %w", action, err))
+			continue
+		}
+
+		currResourceList, err := readSerializedRequestsFromActionDirectory(action, actionFS)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unable to read %q: %w", action, err))
 		}
 		ret.AddRequests(currResourceList...)
 	}
@@ -55,10 +59,10 @@ func readMutationFS(inFS fs.FS, mutationDirectory string) (*AllActionsTracker[Fi
 	return ret, nil
 }
 
-func readSerializedRequestsFromActionDirectory(action Action, inFS fs.FS, mutationDirectory string) ([]FileOriginatedSerializedRequest, error) {
+func readSerializedRequestsFromActionDirectory(action Action, actionFS fs.FS) ([]FileOriginatedSerializedRequest, error) {
 	currResourceList := []FileOriginatedSerializedRequest{}
 	errs := []error{}
-	err := fs.WalkDir(inFS, filepath.Join(mutationDirectory, string(action)), func(currLocation string, currFile fs.DirEntry, err error) error {
+	err := fs.WalkDir(actionFS, ".", func(currLocation string, currFile fs.DirEntry, err error) error {
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -69,7 +73,7 @@ func readSerializedRequestsFromActionDirectory(action Action, inFS fs.FS, mutati
 		if !strings.HasSuffix(currFile.Name(), ".yaml") && !strings.HasSuffix(currFile.Name(), ".json") {
 			return nil
 		}
-		currResource, err := serializedRequestFromFile(action, currLocation)
+		currResource, err := serializedRequestFromFile(action, actionFS, currLocation)
 		if err != nil {
 			return fmt.Errorf("error deserializing %q: %w", currLocation, err)
 		}
@@ -95,7 +99,7 @@ var (
 	optionsRegex = regexp.MustCompile(`(\d\d\d)-options-(.+).yaml`)
 )
 
-func serializedRequestFromFile(action Action, bodyFilename string) (*FileOriginatedSerializedRequest, error) {
+func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename string) (*FileOriginatedSerializedRequest, error) {
 	bodyBasename := filepath.Base(bodyFilename)
 	if !bodyRegex.MatchString(bodyBasename) {
 		return nil, nil
@@ -103,13 +107,13 @@ func serializedRequestFromFile(action Action, bodyFilename string) (*FileOrigina
 	optionsBaseName := strings.Replace(bodyBasename, "body", "options", 1)
 	optionsFilename := filepath.Join(filepath.Dir(bodyFilename), optionsBaseName)
 
-	bodyContent, err := os.ReadFile(bodyFilename)
+	bodyContent, err := fs.ReadFile(actionFS, bodyFilename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q: %w", bodyFilename, err)
 	}
 
 	optionsExist := false
-	optionsContent, err := os.ReadFile(optionsFilename)
+	optionsContent, err := fs.ReadFile(actionFS, optionsFilename)
 	switch {
 	case os.IsNotExist(err):
 	// not required, do nothing
