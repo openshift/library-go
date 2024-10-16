@@ -26,5 +26,6 @@ verify-podnetworkconnectivitychecks:
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 .PHONY: test-e2e-encryption
 
-test-e2e-monitoring:
+test-e2e-monitoring: GO_TEST_PACKAGES :=./test/e2e-monitoring/...
+test-e2e-monitoring: test-unit
 .PHONY: test-e2e-monitoring
