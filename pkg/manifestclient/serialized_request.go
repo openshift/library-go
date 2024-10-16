@@ -39,6 +39,16 @@ type SerializedRequest struct {
 	Body    []byte
 }
 
+func RequestsForResource[S ~[]E, E SerializedRequestish](mutations S, metadata ActionMetadata) []SerializedRequestish {
+	ret := []SerializedRequestish{}
+	for _, mutation := range mutations {
+		if mutation.GetSerializedRequest().GetLookupMetadata() == metadata {
+			ret = append(ret, mutation)
+		}
+	}
+	return ret
+}
+
 // Difference returns a set of objects that are not in s2.
 // For example:
 // s1 = {a1, a2, a3}
@@ -71,6 +81,26 @@ func AreAllSerializedRequestsEquivalent[S ~[]E, E SerializedRequestish, T ~[]F, 
 		return false
 	}
 	return true
+}
+
+func AreAllSerializedRequestsEquivalentWithReasons[S ~[]E, E SerializedRequestish, T ~[]F, F SerializedRequestish](lhs S, rhs T) (bool, []SerializedRequest, []SerializedRequest) {
+	missingInRHS := DifferenceOfSerializedRequests(lhs, rhs)
+	missingInLHS := DifferenceOfSerializedRequests(rhs, lhs)
+
+	if len(missingInRHS) == 0 && len(missingInLHS) == 0 {
+		return true, nil, nil
+	}
+
+	missingInRHSAsSerializedRequest := []SerializedRequest{}
+	missingInLHSAsSerializedRequest := []SerializedRequest{}
+	for _, curr := range missingInRHS {
+		missingInRHSAsSerializedRequest = append(missingInRHSAsSerializedRequest, *curr.GetSerializedRequest())
+	}
+	for _, curr := range missingInLHS {
+		missingInLHSAsSerializedRequest = append(missingInLHSAsSerializedRequest, *curr.GetSerializedRequest())
+	}
+
+	return false, missingInRHSAsSerializedRequest, missingInLHSAsSerializedRequest
 }
 
 func EquivalentSerializedRequests(lhs, rhs SerializedRequestish) bool {
@@ -274,5 +304,18 @@ func (a SerializedRequest) DeepCopy() SerializedRequestish {
 		Name:         a.Name,
 		Options:      bytes.Clone(a.Options),
 		Body:         bytes.Clone(a.Body),
+	}
+}
+
+func (a SerializedRequest) StringID() string {
+	return fmt.Sprintf("%s-%s.%s.%s/%s[%s]", a.Action, a.KindType.Kind, a.KindType.Version, a.KindType.Group, a.Name, a.Namespace)
+}
+
+func (a SerializedRequest) GetLookupMetadata() ActionMetadata {
+	return ActionMetadata{
+		Action:    a.Action,
+		GVR:       a.ResourceType,
+		Namespace: a.Namespace,
+		Name:      a.Name,
 	}
 }

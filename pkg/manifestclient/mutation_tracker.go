@@ -83,6 +83,17 @@ func (a *AllActionsTracker[T]) RequestsForAction(action Action) []SerializedRequ
 	return ret
 }
 
+func (a *AllActionsTracker[T]) RequestsForResource(metadata ActionMetadata) []SerializedRequestish {
+	ret := []SerializedRequestish{}
+	mutations := a.actionToTracker[metadata.Action].Mutations()
+	for _, mutation := range mutations {
+		if mutation.GetSerializedRequest().GetLookupMetadata() == metadata {
+			ret = append(ret, mutation)
+		}
+	}
+	return ret
+}
+
 func (a *AllActionsTracker[T]) AllRequests() []SerializedRequestish {
 	ret := []SerializedRequestish{}
 	for _, currActionTracker := range a.actionToTracker {
