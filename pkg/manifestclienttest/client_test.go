@@ -188,6 +188,38 @@ func TestSimpleChecks(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "GET-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), "openshift-apiserver", metav1.GetOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if obj.Labels["pod-security.kubernetes.io/audit"] != "privileged" {
+					t.Fatal(obj)
+				}
+			},
+		},
+		{
+			name: "LIST-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 3 {
+					t.Fatal(obj)
+				}
+			},
+		},
 	}
 
 	for _, roundTripperTest := range defaultRoundTrippers(t) {
