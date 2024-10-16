@@ -19,7 +19,22 @@ import (
 // we have to choose which to prefer and we should always prefer the #2 if it's available.
 // Keep in mind that to produce a cluster-scoped list of namespaced resources, you can need to navigate many namespaces.
 func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]byte, error) {
+	// TODO post-filter for label selectors
+	return mrt.listAll(requestInfo)
+}
+
+func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([]byte, error) {
 	var retList *unstructured.UnstructuredList
+
+	// namespaces are special.
+	if len(requestInfo.APIGroup) == 0 &&
+		requestInfo.APIVersion == "v1" &&
+		requestInfo.Resource == "namespaces" &&
+		len(requestInfo.Subresource) == 0 {
+
+		return mrt.listAllNamespaces()
+	}
+
 	possibleListFiles, err := allPossibleListFileLocations(mrt.sourceFS, requestInfo)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine list file locations: %w", err)
@@ -146,6 +161,40 @@ func (mrt *manifestRoundTripper) list(requestInfo *apirequest.RequestInfo) ([]by
 	}
 
 	return nil, fmt.Errorf("unable to read any file in any namespaceso we have no Kind for namespaced resource")
+}
+
+func (mrt *manifestRoundTripper) listAllNamespaces() ([]byte, error) {
+	possibleNamespaceFiles, err := allPossibleNamespaceFiles(mrt.sourceFS)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine list file alternative individual files: %w", err)
+	}
+	namespaces := []unstructured.Unstructured{}
+	for _, individualFile := range possibleNamespaceFiles {
+		currNamespace, err := readIndividualFile(mrt.sourceFS, individualFile)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			// do nothing, it's possible, not guaranteed
+			continue
+		case err != nil:
+			return nil, fmt.Errorf("unable to determine read namespace individual file %v: %w", individualFile, err)
+		}
+		namespaces = append(namespaces, *currNamespace)
+
+	}
+
+	retList := &unstructured.UnstructuredList{
+		Object: map[string]interface{}{},
+		Items:  namespaces,
+	}
+	retList.SetKind("NamespaceList")
+	retList.SetAPIVersion("v1")
+
+	ret, err := serializeListObjToJSON(retList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize: %v", err)
+	}
+
+	return []byte(ret), nil
 }
 
 func allIndividualFileLocations(sourceFS fs.FS, requestInfo *apirequest.RequestInfo) ([]string, error) {
@@ -319,4 +368,18 @@ func allIndividualFilesInResourceDirWithData(sourceFS fs.FS, resourceDir string)
 	}
 
 	return ret, nil
+}
+
+func allPossibleNamespaceFiles(sourceFS fs.FS) ([]string, error) {
+	allPossibleListFileLocations := []string{}
+	namespaces, err := allNamespacesWithData(sourceFS)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read namespaces: %w", err)
+	}
+
+	for _, namespace := range namespaces {
+		allPossibleListFileLocations = append(allPossibleListFileLocations, filepath.Join("namespaces", namespace, namespace+".yaml"))
+	}
+
+	return allPossibleListFileLocations, nil
 }
