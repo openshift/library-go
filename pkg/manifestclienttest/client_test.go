@@ -3,6 +3,7 @@ package manifestclienttest
 import (
 	"context"
 	"embed"
+	"io/fs"
 	"net/http"
 	"reflect"
 	"testing"
@@ -213,7 +214,11 @@ func defaultRoundTrippers(t *testing.T) []*testRoundTrippers {
 		{
 			name: "embed read",
 			newClientFn: func() manifestclient.MutationTrackingClient {
-				return manifestclient.NewTestingHTTPClient(packageTestData, "testdata/must-gather-01")
+				embeddedReadFS, err := fs.Sub(packageTestData, "testdata/must-gather-01")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return manifestclient.NewTestingHTTPClient(embeddedReadFS)
 			},
 		},
 	}

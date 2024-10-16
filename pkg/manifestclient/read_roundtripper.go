@@ -2,13 +2,10 @@ package manifestclient
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,73 +20,19 @@ import (
 )
 
 type manifestRoundTripper struct {
-	contentReader RawReader
+	sourceFS fs.FS
 
 	// requestInfoResolver is the same type constructed the same way as the kube-apiserver
 	requestInfoResolver *apirequest.RequestInfoFactory
 }
 
-type RawReader interface {
-	fs.FS
-	fs.ReadFileFS
-	fs.ReadDirFS
-}
-
-func newReadRoundTripper(contentReader RawReader) *manifestRoundTripper {
+func newReadRoundTripper(content fs.FS) *manifestRoundTripper {
 	return &manifestRoundTripper{
-		contentReader: contentReader,
+		sourceFS: content,
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
 	}
-}
-
-type prefixedContentReader struct {
-	embedFS embed.FS
-	prefix  string
-}
-
-func newPrefixedReader(embedFS embed.FS, prefix string) RawReader {
-	return &prefixedContentReader{
-		embedFS: embedFS,
-		prefix:  prefix,
-	}
-}
-
-func (r *prefixedContentReader) Open(name string) (fs.File, error) {
-	return r.embedFS.Open(filepath.Join(r.prefix, name))
-}
-
-func (r *prefixedContentReader) ReadFile(name string) ([]byte, error) {
-	return fs.ReadFile(r.embedFS, filepath.Join(r.prefix, name))
-}
-
-func (r *prefixedContentReader) ReadDir(name string) ([]fs.DirEntry, error) {
-	return fs.ReadDir(r.embedFS, filepath.Join(r.prefix, name))
-}
-
-type mustGatherReader struct {
-	filesystem    fs.FS
-	mustGatherDir string
-}
-
-func newMustGatherReader(mustGatherDir string) RawReader {
-	return &mustGatherReader{
-		filesystem:    os.DirFS(mustGatherDir),
-		mustGatherDir: mustGatherDir,
-	}
-}
-
-func (r *mustGatherReader) Open(name string) (fs.File, error) {
-	return r.filesystem.Open(name)
-}
-
-func (r *mustGatherReader) ReadFile(name string) ([]byte, error) {
-	return fs.ReadFile(r.filesystem, name)
-}
-
-func (r *mustGatherReader) ReadDir(name string) ([]fs.DirEntry, error) {
-	return fs.ReadDir(r.filesystem, name)
 }
 
 // RoundTrip will allow performing read requests very similar to a kube-apiserver against a must-gather style directory.

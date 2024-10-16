@@ -2,15 +2,16 @@ package manifestclient
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
+	"os"
 )
 
 // Enter here and call `NewForConfigAndClient(&rest.Config{}, httpClient)`
 func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
-	mutationTrackingRoundTripper := newReadWriteRoundTripper(newMustGatherReader(mustGatherDir))
+	mutationTrackingRoundTripper := newReadWriteRoundTripper(os.DirFS(mustGatherDir))
 	return &mutationTrackingClient{
 		httpClient: &http.Client{
 			Transport: mutationTrackingRoundTripper,
@@ -20,8 +21,8 @@ func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
 }
 
 // Enter here and call `NewForConfigAndClient(&rest.Config{}, httpClient)`
-func NewTestingHTTPClient(embedFS embed.FS, prefix string) MutationTrackingClient {
-	mutationTrackingRoundTripper := newReadWriteRoundTripper(newPrefixedReader(embedFS, prefix))
+func NewTestingHTTPClient(embedFS fs.FS) MutationTrackingClient {
+	mutationTrackingRoundTripper := newReadWriteRoundTripper(embedFS)
 	return &mutationTrackingClient{
 		httpClient: &http.Client{
 			Transport: mutationTrackingRoundTripper,
@@ -30,17 +31,17 @@ func NewTestingHTTPClient(embedFS embed.FS, prefix string) MutationTrackingClien
 	}
 }
 
-func NewTestingRoundTripper(embedFS embed.FS, prefix string) *readWriteRoundTripper {
-	return newReadWriteRoundTripper(newPrefixedReader(embedFS, prefix))
+func NewTestingRoundTripper(embedFS fs.FS) *readWriteRoundTripper {
+	return newReadWriteRoundTripper(embedFS)
 }
 
 func NewRoundTripper(mustGatherDir string) *readWriteRoundTripper {
-	return newReadWriteRoundTripper(newMustGatherReader(mustGatherDir))
+	return newReadWriteRoundTripper(os.DirFS(mustGatherDir))
 }
 
-func newReadWriteRoundTripper(contentReader RawReader) *readWriteRoundTripper {
+func newReadWriteRoundTripper(sourceFS fs.FS) *readWriteRoundTripper {
 	return &readWriteRoundTripper{
-		readDelegate:  newReadRoundTripper(contentReader),
+		readDelegate:  newReadRoundTripper(sourceFS),
 		writeDelegate: newWriteRoundTripper(),
 	}
 }

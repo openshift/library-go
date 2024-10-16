@@ -3,6 +3,7 @@ package manifestclient
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +28,8 @@ func individualFromList(objList *unstructured.UnstructuredList, name string) (*u
 	return nil, fmt.Errorf("not found in this list")
 }
 
-func readListFile(contentReader RawReader, path string) (*unstructured.UnstructuredList, error) {
-	content, err := contentReader.ReadFile(path)
+func readListFile(sourceFS fs.FS, path string) (*unstructured.UnstructuredList, error) {
+	content, err := fs.ReadFile(sourceFS, path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read %q: %w", path, err)
 	}
@@ -36,8 +37,8 @@ func readListFile(contentReader RawReader, path string) (*unstructured.Unstructu
 	return decodeListObj(content)
 }
 
-func readIndividualFile(contentReader RawReader, path string) (*unstructured.Unstructured, error) {
-	content, err := contentReader.ReadFile(path)
+func readIndividualFile(sourceFS fs.FS, path string) (*unstructured.Unstructured, error) {
+	content, err := fs.ReadFile(sourceFS, path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read %q: %w", path, err)
 	}
