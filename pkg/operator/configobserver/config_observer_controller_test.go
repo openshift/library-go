@@ -3,12 +3,12 @@ package configobserver
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/json"
 	"reflect"
 	"strings"
 	"testing"
 
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/imdario/mergo"
@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -81,6 +82,10 @@ func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManag
 	}
 	c.status = status
 
+	return nil
+}
+
+func (c *fakeOperatorClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
 	return nil
 }
 
