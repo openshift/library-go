@@ -2,20 +2,22 @@ package manifestclient
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"io"
 	"io/fs"
+	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
+	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-
 	"k8s.io/apimachinery/pkg/util/sets"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
 )
 
@@ -24,6 +26,15 @@ type manifestRoundTripper struct {
 
 	// requestInfoResolver is the same type constructed the same way as the kube-apiserver
 	requestInfoResolver *apirequest.RequestInfoFactory
+
+	lock            sync.RWMutex
+	kindForResource map[schema.GroupVersionResource]kindData
+}
+
+type kindData struct {
+	kind     schema.GroupVersionKind
+	listKind schema.GroupVersionKind
+	err      error
 }
 
 func newReadRoundTripper(content fs.FS) *manifestRoundTripper {
@@ -32,6 +43,7 @@ func newReadRoundTripper(content fs.FS) *manifestRoundTripper {
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
+		kindForResource: make(map[schema.GroupVersionResource]kindData),
 	}
 }
 
@@ -128,10 +140,94 @@ func isServerGroupResourceDiscovery(path string) bool {
 	if path == "/api/v1" {
 		return true
 	}
+	if path == "/api" {
+		return true
+	}
 
 	parts := strings.Split(path, "/")
 	if len(parts) != 4 {
 		return false
 	}
 	return parts[0] == "" && parts[1] == "apis"
+}
+
+//go:embed default-discovery
+var defaultDiscovery embed.FS
+
+func (mrt *manifestRoundTripper) getKindForResource(gvr schema.GroupVersionResource) (kindData, error) {
+	mrt.lock.RLock()
+	kindForGVR, ok := mrt.kindForResource[gvr]
+	if ok {
+		defer mrt.lock.RUnlock()
+		return kindForGVR, kindForGVR.err
+	}
+	mrt.lock.RUnlock()
+
+	mrt.lock.Lock()
+	defer mrt.lock.Unlock()
+
+	kindForGVR, ok = mrt.kindForResource[gvr]
+	if ok {
+		return kindForGVR, kindForGVR.err
+	}
+
+	discoveryPath := "/apis"
+	if len(gvr.Group) == 0 {
+		discoveryPath = "/api"
+	}
+	discoveryBytes, err := mrt.getGroupResourceDiscovery(&apirequest.RequestInfo{Path: discoveryPath})
+	if err != nil {
+		kindForGVR.err = fmt.Errorf("error reading discovery: %w", err)
+		mrt.kindForResource[gvr] = kindForGVR
+		return kindForGVR, kindForGVR.err
+	}
+
+	discoveryInfo := &apidiscoveryv2.APIGroupDiscoveryList{}
+	if err := json.Unmarshal(discoveryBytes, discoveryInfo); err != nil {
+		kindForGVR.err = fmt.Errorf("error unmarshalling discovery: %w", err)
+		mrt.kindForResource[gvr] = kindForGVR
+		return kindForGVR, kindForGVR.err
+	}
+
+	kindForGVR.err = fmt.Errorf("did not find kind for %v\n", gvr)
+	for _, groupInfo := range discoveryInfo.Items {
+		if groupInfo.Name != gvr.Group {
+			continue
+		}
+		for _, versionInfo := range groupInfo.Versions {
+			if versionInfo.Version != gvr.Version {
+				continue
+			}
+			for _, resourceInfo := range versionInfo.Resources {
+				if resourceInfo.Resource != gvr.Resource {
+					continue
+				}
+				if resourceInfo.ResponseKind == nil {
+					continue
+				}
+				kindForGVR.kind = schema.GroupVersionKind{
+					Group:   gvr.Group,
+					Version: gvr.Version,
+					Kind:    resourceInfo.ResponseKind.Kind,
+				}
+				if len(resourceInfo.ResponseKind.Group) > 0 {
+					kindForGVR.kind.Group = resourceInfo.ResponseKind.Group
+				}
+				if len(resourceInfo.ResponseKind.Version) > 0 {
+					kindForGVR.kind.Version = resourceInfo.ResponseKind.Version
+				}
+				kindForGVR.listKind = schema.GroupVersionKind{
+					Group:   kindForGVR.kind.Group,
+					Version: kindForGVR.kind.Version,
+					Kind:    resourceInfo.ResponseKind.Kind + "List",
+				}
+				kindForGVR.err = nil
+				mrt.kindForResource[gvr] = kindForGVR
+				return kindForGVR, kindForGVR.err
+			}
+		}
+	}
+
+	mrt.kindForResource[gvr] = kindForGVR
+	return kindForGVR, kindForGVR.err
 }
