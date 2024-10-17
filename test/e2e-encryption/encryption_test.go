@@ -382,7 +382,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 }
 
 const encryptionTestOperatorCRD = `
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: encryptiontests.operator.openshift.io
