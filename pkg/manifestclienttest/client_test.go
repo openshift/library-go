@@ -163,9 +163,14 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				_, err = kubeClient.CoreV1().Secrets("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
-				if !apierrors.IsNotFound(err) {
+				obj, err := kubeClient.CoreV1().Secrets("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
+				if err != nil {
 					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(obj.Items)
 				}
 			},
 		},
@@ -176,10 +181,16 @@ func TestSimpleChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				_, err = kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
-				if !apierrors.IsNotFound(err) {
+				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
+				if err != nil {
 					t.Fatal(err)
 				}
+				if len(obj.Items) != 0 {
+					t.Fatal(obj.Items)
+				}
+
 			},
 		},
 		{
@@ -331,10 +342,16 @@ func TestDiscoveryChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				_, err = kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
-				if !apierrors.IsNotFound(err) {
+				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
+				if err != nil {
 					t.Fatal(err)
 				}
+				if len(obj.Items) != 0 {
+					t.Fatal(obj.Items)
+				}
+
 			},
 		},
 		{
