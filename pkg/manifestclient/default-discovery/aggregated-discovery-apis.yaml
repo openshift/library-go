@@ -2036,23 +2036,89 @@ items:
     version: v1
 - metadata:
     creationTimestamp: null
-    name: cloud.network.openshift.io
+    name: autoscaling.openshift.io
   versions:
   - freshness: Current
     resources:
-    - resource: cloudprivateipconfigs
+    - resource: clusterautoscalers
       responseKind:
-        group: cloud.network.openshift.io
-        kind: CloudPrivateIPConfig
+        group: autoscaling.openshift.io
+        kind: ClusterAutoscaler
         version: v1
       scope: Cluster
-      singularResource: cloudprivateipconfig
+      shortNames:
+      - ca
+      singularResource: clusterautoscaler
       subresources:
       - responseKind:
-          group: cloud.network.openshift.io
-          kind: CloudPrivateIPConfig
+          group: autoscaling.openshift.io
+          kind: ClusterAutoscaler
           version: v1
         subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1
+  - freshness: Current
+    resources:
+    - resource: machineautoscalers
+      responseKind:
+        group: autoscaling.openshift.io
+        kind: MachineAutoscaler
+        version: v1beta1
+      scope: Namespaced
+      shortNames:
+      - ma
+      singularResource: machineautoscaler
+      subresources:
+      - responseKind:
+          group: autoscaling.openshift.io
+          kind: MachineAutoscaler
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1beta1
+- metadata:
+    creationTimestamp: null
+    name: autoscalinge2e.example.com
+  versions:
+  - freshness: Current
+    resources:
+    - resource: testcrds
+      responseKind:
+        group: autoscalinge2e.example.com
+        kind: TestCRD
+        version: v1
+      scope: Namespaced
+      singularResource: testcrd
+      subresources:
+      - responseKind:
+          group: autoscaling
+          kind: Scale
+          version: v1
+        subresource: scale
         verbs:
         - get
         - patch
@@ -2996,6 +3062,146 @@ items:
     version: v1
 - metadata:
     creationTimestamp: null
+    name: infrastructure.cluster.x-k8s.io
+  versions:
+  - freshness: Current
+    resources:
+    - categories:
+      - cluster-api
+      resource: metal3remediations
+      responseKind:
+        group: infrastructure.cluster.x-k8s.io
+        kind: Metal3Remediation
+        version: v1beta1
+      scope: Namespaced
+      shortNames:
+      - m3r
+      - m3remediation
+      singularResource: metal3remediation
+      subresources:
+      - responseKind:
+          group: infrastructure.cluster.x-k8s.io
+          kind: Metal3Remediation
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - categories:
+      - cluster-api
+      resource: metal3remediationtemplates
+      responseKind:
+        group: infrastructure.cluster.x-k8s.io
+        kind: Metal3RemediationTemplate
+        version: v1beta1
+      scope: Namespaced
+      shortNames:
+      - m3rt
+      - m3remediationtemplate
+      - m3remediationtemplates
+      - metal3rt
+      - metal3remediationtemplate
+      singularResource: metal3remediationtemplate
+      subresources:
+      - responseKind:
+          group: infrastructure.cluster.x-k8s.io
+          kind: Metal3RemediationTemplate
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1beta1
+  - freshness: Current
+    resources:
+    - categories:
+      - cluster-api
+      resource: metal3remediations
+      responseKind:
+        group: infrastructure.cluster.x-k8s.io
+        kind: Metal3Remediation
+        version: v1alpha5
+      scope: Namespaced
+      shortNames:
+      - m3r
+      - m3remediation
+      singularResource: metal3remediation
+      subresources:
+      - responseKind:
+          group: infrastructure.cluster.x-k8s.io
+          kind: Metal3Remediation
+          version: v1alpha5
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - categories:
+      - cluster-api
+      resource: metal3remediationtemplates
+      responseKind:
+        group: infrastructure.cluster.x-k8s.io
+        kind: Metal3RemediationTemplate
+        version: v1alpha5
+      scope: Namespaced
+      shortNames:
+      - m3rt
+      - m3remediationtemplate
+      - m3remediationtemplates
+      - metal3rt
+      - metal3remediationtemplate
+      singularResource: metal3remediationtemplate
+      subresources:
+      - responseKind:
+          group: infrastructure.cluster.x-k8s.io
+          kind: Metal3RemediationTemplate
+          version: v1alpha5
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1alpha5
+- metadata:
+    creationTimestamp: null
     name: ingress.operator.openshift.io
   versions:
   - freshness: Current
@@ -3027,6 +3233,108 @@ items:
       - update
       - watch
     version: v1
+- metadata:
+    creationTimestamp: null
+    name: ipam.cluster.x-k8s.io
+  versions:
+  - freshness: Current
+    resources:
+    - categories:
+      - cluster-api
+      resource: ipaddressclaims
+      responseKind:
+        group: ipam.cluster.x-k8s.io
+        kind: IPAddressClaim
+        version: v1beta1
+      scope: Namespaced
+      singularResource: ipaddressclaim
+      subresources:
+      - responseKind:
+          group: ipam.cluster.x-k8s.io
+          kind: IPAddressClaim
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - categories:
+      - cluster-api
+      resource: ipaddresses
+      responseKind:
+        group: ipam.cluster.x-k8s.io
+        kind: IPAddress
+        version: v1beta1
+      scope: Namespaced
+      singularResource: ipaddress
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1beta1
+  - freshness: Current
+    resources:
+    - categories:
+      - cluster-api
+      resource: ipaddressclaims
+      responseKind:
+        group: ipam.cluster.x-k8s.io
+        kind: IPAddressClaim
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: ipaddressclaim
+      subresources:
+      - responseKind:
+          group: ipam.cluster.x-k8s.io
+          kind: IPAddressClaim
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - categories:
+      - cluster-api
+      resource: ipaddresses
+      responseKind:
+        group: ipam.cluster.x-k8s.io
+        kind: IPAddress
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: ipaddress
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1alpha1
 - metadata:
     creationTimestamp: null
     name: k8s.cni.cncf.io
@@ -3185,10 +3493,173 @@ items:
     version: v1
 - metadata:
     creationTimestamp: null
+    name: machine.openshift.io
+  versions:
+  - freshness: Current
+    resources:
+    - resource: controlplanemachinesets
+      responseKind:
+        group: machine.openshift.io
+        kind: ControlPlaneMachineSet
+        version: v1
+      scope: Namespaced
+      singularResource: controlplanemachineset
+      subresources:
+      - responseKind:
+          group: machine.openshift.io
+          kind: ControlPlaneMachineSet
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      - responseKind:
+          group: autoscaling
+          kind: Scale
+          version: v1
+        subresource: scale
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1
+  - freshness: Current
+    resources:
+    - resource: machinehealthchecks
+      responseKind:
+        group: machine.openshift.io
+        kind: MachineHealthCheck
+        version: v1beta1
+      scope: Namespaced
+      shortNames:
+      - mhc
+      - mhcs
+      singularResource: machinehealthcheck
+      subresources:
+      - responseKind:
+          group: machine.openshift.io
+          kind: MachineHealthCheck
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: machines
+      responseKind:
+        group: machine.openshift.io
+        kind: Machine
+        version: v1beta1
+      scope: Namespaced
+      singularResource: machine
+      subresources:
+      - responseKind:
+          group: machine.openshift.io
+          kind: Machine
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: machinesets
+      responseKind:
+        group: machine.openshift.io
+        kind: MachineSet
+        version: v1beta1
+      scope: Namespaced
+      singularResource: machineset
+      subresources:
+      - responseKind:
+          group: machine.openshift.io
+          kind: MachineSet
+          version: v1beta1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      - responseKind:
+          group: autoscaling
+          kind: Scale
+          version: v1
+        subresource: scale
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1beta1
+- metadata:
+    creationTimestamp: null
     name: machineconfiguration.openshift.io
   versions:
   - freshness: Current
     resources:
+    - resource: containerruntimeconfigs
+      responseKind:
+        group: machineconfiguration.openshift.io
+        kind: ContainerRuntimeConfig
+        version: v1
+      scope: Cluster
+      shortNames:
+      - ctrcfg
+      singularResource: containerruntimeconfig
+      subresources:
+      - responseKind:
+          group: machineconfiguration.openshift.io
+          kind: ContainerRuntimeConfig
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
     - resource: controllerconfigs
       responseKind:
         group: machineconfiguration.openshift.io
@@ -3215,7 +3686,328 @@ items:
       - create
       - update
       - watch
+    - resource: kubeletconfigs
+      responseKind:
+        group: machineconfiguration.openshift.io
+        kind: KubeletConfig
+        version: v1
+      scope: Cluster
+      singularResource: kubeletconfig
+      subresources:
+      - responseKind:
+          group: machineconfiguration.openshift.io
+          kind: KubeletConfig
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: machineconfigpools
+      responseKind:
+        group: machineconfiguration.openshift.io
+        kind: MachineConfigPool
+        version: v1
+      scope: Cluster
+      shortNames:
+      - mcp
+      singularResource: machineconfigpool
+      subresources:
+      - responseKind:
+          group: machineconfiguration.openshift.io
+          kind: MachineConfigPool
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: machineconfigs
+      responseKind:
+        group: machineconfiguration.openshift.io
+        kind: MachineConfig
+        version: v1
+      scope: Cluster
+      shortNames:
+      - mc
+      singularResource: machineconfig
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
     version: v1
+- metadata:
+    creationTimestamp: null
+    name: metal3.io
+  versions:
+  - freshness: Current
+    resources:
+    - resource: baremetalhosts
+      responseKind:
+        group: metal3.io
+        kind: BareMetalHost
+        version: v1alpha1
+      scope: Namespaced
+      shortNames:
+      - bmh
+      - bmhost
+      singularResource: baremetalhost
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: BareMetalHost
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: bmceventsubscriptions
+      responseKind:
+        group: metal3.io
+        kind: BMCEventSubscription
+        version: v1alpha1
+      scope: Namespaced
+      shortNames:
+      - bes
+      - bmcevent
+      singularResource: bmceventsubscription
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: BMCEventSubscription
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: dataimages
+      responseKind:
+        group: metal3.io
+        kind: DataImage
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: dataimage
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: DataImage
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: firmwareschemas
+      responseKind:
+        group: metal3.io
+        kind: FirmwareSchema
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: firmwareschema
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: hardwaredata
+      responseKind:
+        group: metal3.io
+        kind: HardwareData
+        version: v1alpha1
+      scope: Namespaced
+      shortNames:
+      - hd
+      singularResource: hardwaredata
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: hostfirmwarecomponents
+      responseKind:
+        group: metal3.io
+        kind: HostFirmwareComponents
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: hostfirmwarecomponents
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: HostFirmwareComponents
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: hostfirmwaresettings
+      responseKind:
+        group: metal3.io
+        kind: HostFirmwareSettings
+        version: v1alpha1
+      scope: Namespaced
+      shortNames:
+      - hfs
+      singularResource: hostfirmwaresettings
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: HostFirmwareSettings
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: hostupdatepolicies
+      responseKind:
+        group: metal3.io
+        kind: HostUpdatePolicy
+        version: v1alpha1
+      scope: Namespaced
+      singularResource: hostupdatepolicy
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: preprovisioningimages
+      responseKind:
+        group: metal3.io
+        kind: PreprovisioningImage
+        version: v1alpha1
+      scope: Namespaced
+      shortNames:
+      - ppimg
+      singularResource: preprovisioningimage
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: PreprovisioningImage
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    - resource: provisionings
+      responseKind:
+        group: metal3.io
+        kind: Provisioning
+        version: v1alpha1
+      scope: Cluster
+      singularResource: provisioning
+      subresources:
+      - responseKind:
+          group: metal3.io
+          kind: Provisioning
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1alpha1
 - metadata:
     creationTimestamp: null
     name: migration.k8s.io
@@ -3298,6 +4090,15 @@ items:
           kind: Alertmanager
           version: v1
         subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      - responseKind:
+          group: autoscaling
+          kind: Scale
+          version: v1
+        subresource: scale
         verbs:
         - get
         - patch
@@ -3621,6 +4422,32 @@ items:
   versions:
   - freshness: Current
     resources:
+    - resource: authentications
+      responseKind:
+        group: operator.openshift.io
+        kind: Authentication
+        version: v1
+      scope: Cluster
+      singularResource: authentication
+      subresources:
+      - responseKind:
+          group: operator.openshift.io
+          kind: Authentication
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
     - resource: cloudcredentials
       responseKind:
         group: operator.openshift.io
@@ -4465,6 +5292,97 @@ items:
       - responseKind:
           group: operators.coreos.com
           kind: Subscription
+          version: v1alpha1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1alpha1
+- metadata:
+    creationTimestamp: null
+    name: performance.openshift.io
+  versions:
+  - freshness: Current
+    resources:
+    - resource: performanceprofiles
+      responseKind:
+        group: performance.openshift.io
+        kind: PerformanceProfile
+        version: v2
+      scope: Cluster
+      singularResource: performanceprofile
+      subresources:
+      - responseKind:
+          group: performance.openshift.io
+          kind: PerformanceProfile
+          version: v2
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v2
+  - freshness: Current
+    resources:
+    - resource: performanceprofiles
+      responseKind:
+        group: performance.openshift.io
+        kind: PerformanceProfile
+        version: v1
+      scope: Cluster
+      singularResource: performanceprofile
+      subresources:
+      - responseKind:
+          group: performance.openshift.io
+          kind: PerformanceProfile
+          version: v1
+        subresource: status
+        verbs:
+        - get
+        - patch
+        - update
+      verbs:
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - create
+      - update
+      - watch
+    version: v1
+  - freshness: Current
+    resources:
+    - resource: performanceprofiles
+      responseKind:
+        group: performance.openshift.io
+        kind: PerformanceProfile
+        version: v1alpha1
+      scope: Cluster
+      singularResource: performanceprofile
+      subresources:
+      - responseKind:
+          group: performance.openshift.io
+          kind: PerformanceProfile
           version: v1alpha1
         subresource: status
         verbs:

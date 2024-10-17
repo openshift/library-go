@@ -110,22 +110,6 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 		return []byte(ret), nil
 	}
 
-	if len(requestInfo.Namespace) > 0 {
-		allNamespaceNames, err := allNamespacesWithData(mrt.sourceFS)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get namespaces: %v", err)
-		}
-		found := false
-		for _, currNamespaceName := range allNamespaceNames {
-			if requestInfo.Namespace == currNamespaceName {
-				found = true
-			}
-		}
-		if !found {
-			return nil, newNotFound(requestInfo)
-		}
-	}
-
 	// if we get here, there is no list file and no individual files.
 	// the namespace must exist or we would have returned long ago. Return an empty list.
 	ret, err := serializeListObjToJSON(retList)

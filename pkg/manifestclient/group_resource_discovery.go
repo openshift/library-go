@@ -17,13 +17,13 @@ import (
 func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apirequest.RequestInfo) ([]byte, error) {
 	switch {
 	case requestInfo.Path == "/api":
-		ret, err := mrt.getAggregatedDiscoveryForURL("discovery-api.yaml", requestInfo.Path)
+		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-api.yaml", requestInfo.Path)
 		if os.IsNotExist(err) {
 			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
 		}
 		return ret, err
 	case requestInfo.Path == "/apis":
-		ret, err := mrt.getAggregatedDiscoveryForURL("discovery-apis.yaml", requestInfo.Path)
+		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-apis.yaml", requestInfo.Path)
 		if os.IsNotExist(err) {
 			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
 		}
