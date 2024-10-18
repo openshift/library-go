@@ -88,7 +88,7 @@ func (c NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) e
 				WithLastFallbackCount(originalOperatorStatus.NodeStatuses[i].LastFallbackCount).
 				WithLastFailedRevisionErrors(originalOperatorStatus.NodeStatuses[i].LastFailedRevisionErrors...)
 			if originalOperatorStatus.NodeStatuses[i].LastFailedTime != nil {
-				newTargetNodeState.WithLastFailedTime(*originalOperatorStatus.NodeStatuses[i].LastFailedTime)
+				newTargetNodeState = newTargetNodeState.WithLastFailedTime(*originalOperatorStatus.NodeStatuses[i].LastFailedTime)
 			}
 			newTargetNodeStates = append(newTargetNodeStates, newTargetNodeState)
 		} else {
