@@ -102,3 +102,49 @@ webhooks:
 		t.Errorf("Expected a webhook, got nil")
 	}
 }
+
+func TestValidatingAdmissionPolicies(t *testing.T) {
+	validValidatingAdmissionPolicy := `
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "machine-configuration-guards"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: Equivalent
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups:   ["operator.openshift.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE","UPDATE"]
+      resources:   ["machineconfigurations"]
+      scope: "*"
+  validations:
+    - expression: "object.metadata.name=='cluster'"
+      message: "Only a single object of MachineConfiguration is allowed and it must be named cluster."
+`
+	obj := ReadValidatingAdmissionPolicyV1OrDie([]byte(validValidatingAdmissionPolicy))
+	if obj == nil {
+		t.Errorf("Expected a validatingadmissionpolicy, got nil")
+	}
+
+}
+
+func TestValidatingAdmissionPolicyBindings(t *testing.T) {
+	validValidatingAdmissionPolicyBinding := `
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "machine-configuration-guards-binding"
+spec:
+  policyName: "machine-configuration-guards"
+  validationActions: [Deny]
+`
+	obj := ReadValidatingAdmissionPolicyBindingV1OrDie([]byte(validValidatingAdmissionPolicyBinding))
+	if obj == nil {
+		t.Errorf("Expected a validatingadmissionpolicybinding, got nil")
+	}
+
+}
