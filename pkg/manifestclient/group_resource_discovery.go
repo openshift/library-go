@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/util/json"
+	"os"
 	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +15,47 @@ import (
 )
 
 func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apirequest.RequestInfo) ([]byte, error) {
+	switch {
+	case requestInfo.Path == "/api":
+		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-api.yaml", requestInfo.Path)
+		if os.IsNotExist(err) {
+			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
+		}
+		return ret, err
+	case requestInfo.Path == "/apis":
+		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-apis.yaml", requestInfo.Path)
+		if os.IsNotExist(err) {
+			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
+		}
+		return ret, err
+	default:
+		// TODO can probably do better
+		return mrt.getLegacyGroupResourceDiscovery(requestInfo)
+	}
+}
+
+func (mrt *manifestRoundTripper) getAggregatedDiscoveryForURL(filename, url string) ([]byte, error) {
+	discoveryBytes, err := fs.ReadFile(mrt.sourceFS, filename)
+	if os.IsNotExist(err) {
+		discoveryBytes, err = fs.ReadFile(defaultDiscovery, filepath.Join("default-discovery", filename))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error reading discovery: %w", err)
+	}
+
+	apiMap := map[string]interface{}{}
+	if err := yaml.Unmarshal(discoveryBytes, &apiMap); err != nil {
+		return nil, fmt.Errorf("discovery %q unmarshal failed: %w", url, err)
+	}
+	apiJSON, err := json.Marshal(apiMap)
+	if err != nil {
+		return nil, fmt.Errorf("discovery %q marshal failed: %w", url, err)
+	}
+
+	return apiJSON, err
+}
+
+func (mrt *manifestRoundTripper) getLegacyGroupResourceDiscovery(requestInfo *apirequest.RequestInfo) ([]byte, error) {
 	if len(requestInfo.Path) == 0 {
 		return nil, fmt.Errorf("path required for group resource discovery")
 	}

@@ -164,11 +164,13 @@ func TestSimpleChecks(t *testing.T) {
 					t.Fatal(err)
 				}
 				obj, err := kubeClient.CoreV1().Secrets("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
 				if err != nil {
 					t.Fatal(err)
 				}
 				if len(obj.Items) != 0 {
-					t.Fatal(len(obj.Items))
+					t.Fatal(obj.Items)
 				}
 			},
 		},
@@ -180,12 +182,15 @@ func TestSimpleChecks(t *testing.T) {
 					t.Fatal(err)
 				}
 				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
 				if err != nil {
 					t.Fatal(err)
 				}
 				if len(obj.Items) != 0 {
-					t.Fatal(len(obj.Items))
+					t.Fatal(obj.Items)
 				}
+
 			},
 		},
 		{
@@ -305,6 +310,119 @@ func TestWatchChecks(t *testing.T) {
 					test.testFn(t, roundTripperTest.getClient().GetHTTPClient())
 				})
 			}
+		})
+	}
+}
+
+func TestDiscoveryChecks(t *testing.T) {
+	tests := []struct {
+		name   string
+		testFn func(*testing.T, *http.Client)
+	}{
+		{
+			name: "LIST-type-not-present",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(len(obj.Items))
+				}
+			},
+		},
+		{
+			name: "LIST-namespace-scoped-configmap-from-missing-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
+				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
+				// the real API server will report a 404.  We do not report the 404 so our informers will sync
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(obj.Items)
+				}
+
+			},
+		},
+		{
+			name: "LIST-namespace-scoped-configmap-from-present-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().ConfigMaps("present").List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(len(obj.Items))
+				}
+			},
+		},
+		{
+			name: "GET-configmap-from-missing-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = kubeClient.CoreV1().ConfigMaps("non-existent-namespace").Get(context.TODO(), "openshift-apiserver", metav1.GetOptions{})
+				if !apierrors.IsNotFound(err) {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "GET-missing-namespace",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), "openshift-apiserver", metav1.GetOptions{})
+				if !apierrors.IsNotFound(err) {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "LIST-all-namespaces",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obj, err := kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(obj.Items) != 0 {
+					t.Fatal(obj)
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			embeddedReadFS, err := fs.Sub(packageTestData, "testdata/must-gather-02")
+			if err != nil {
+				t.Fatal(err)
+			}
+			testClient := manifestclient.NewTestingHTTPClient(embeddedReadFS)
+
+			test.testFn(t, testClient.GetHTTPClient())
 		})
 	}
 }
