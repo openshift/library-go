@@ -82,11 +82,11 @@ func validateJSONPatch(expected, actual *jsonpatch.PatchSet) error {
 
 func TestNodeControllerDegradedConditionType(t *testing.T) {
 	scenarios := []struct {
-		name                     string
-		masterNodes              []runtime.Object
-		existingNodeStatuses     []operatorv1.NodeStatus
-		existingConditions       []operatorv1.OperatorCondition
-		triggerStatusUpdateError error
+		name                    string
+		masterNodes             []runtime.Object
+		existingNodeStatuses    []operatorv1.NodeStatus
+		existingConditions      []operatorv1.OperatorCondition
+		triggerStatusApplyError error
 
 		verifyNodeStatus        func([]operatorv1.OperatorCondition) error
 		verifyJSONPatch         func(*jsonpatch.PatchSet) error
@@ -197,7 +197,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 					NodeName: "test-node-4",
 				},
 			},
-			triggerStatusUpdateError: fmt.Errorf("nasty err"),
+			triggerStatusApplyError: fmt.Errorf("nasty err"),
 			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
 				var expectedCondition operatorv1.OperatorCondition
 				expectedCondition.Type = condition.NodeControllerDegradedConditionType
@@ -443,9 +443,9 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 			fakeLister := v1helpers.NewFakeNodeLister(kubeClient)
 
 			var triggerStatusUpdateError func(rv string, spec *operatorv1.StaticPodOperatorStatus) error
-			if scenario.triggerStatusUpdateError != nil {
+			if scenario.triggerStatusApplyError != nil {
 				triggerStatusUpdateError = func(rv string, spec *operatorv1.StaticPodOperatorStatus) error {
-					return scenario.triggerStatusUpdateError
+					return scenario.triggerStatusApplyError
 				}
 			}
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
