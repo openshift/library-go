@@ -71,8 +71,10 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Message: "deployment/: could not be retrieved",
 					},
 					{
-						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
-						Status: operatorv1.ConditionFalse,
+						Type:    fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "NoDeployment",
+						Message: "deployment/: could not be retrieved",
 					},
 					{
 						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
@@ -441,8 +443,10 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Message: "",
 					},
 					{
-						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
-						Status: operatorv1.ConditionFalse,
+						Type:    fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "PreconditionNotFulfilled",
+						Message: "the operator didn't specify what preconditions are missing",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
