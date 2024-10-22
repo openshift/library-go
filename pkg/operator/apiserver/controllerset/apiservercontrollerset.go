@@ -3,6 +3,7 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/clock"
 	"regexp"
 	"time"
 
@@ -74,6 +75,7 @@ type APIServerControllerSet struct {
 	name           string
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
+	clock          clock.PassiveClock
 
 	apiServiceController            controllerWrapper
 	auditPolicyController           controllerWrapper
@@ -92,11 +94,13 @@ func NewAPIServerControllerSet(
 	name string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
+	clock clock.PassiveClock,
 ) *APIServerControllerSet {
 	apiServerControllerSet := &APIServerControllerSet{
 		name:           name,
 		operatorClient: operatorClient,
 		eventRecorder:  eventRecorder,
+		clock:          clock,
 	}
 
 	return apiServerControllerSet
@@ -143,6 +147,7 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 		cs.operatorClient,
 		versionRecorder,
 		cs.eventRecorder,
+		cs.clock,
 	)
 	for _, opt := range options {
 		s = opt(s)

@@ -3,34 +3,39 @@ package status
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/util/json"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
 	"github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
-	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
+	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
-
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/diff"
+	clientesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 )
 
 func TestDegraded(t *testing.T) {
 
-	threeMinutesAgo := metav1.NewTime(time.Now().Add(-3 * time.Minute))
-	fiveSecondsAgo := metav1.NewTime(time.Now().Add(-2 * time.Second))
-	yesterday := metav1.NewTime(time.Now().Add(-24 * time.Hour))
+	fakeNow := time.Now()
+
+	threeMinutesAgo := metav1.NewTime(fakeNow.Add(-3 * time.Minute))
+	fiveSecondsAgo := metav1.NewTime(fakeNow.Add(-2 * time.Second))
+	yesterday := metav1.NewTime(fakeNow.Add(-24 * time.Hour))
 
 	testCases := []struct {
 		name             string
@@ -304,7 +309,7 @@ func TestDegraded(t *testing.T) {
 			clusterOperator := &configv1.ClusterOperator{
 				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
 			}
-			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+			clusterOperatorClient := fake.NewClientset(clusterOperator)
 
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			indexer.Add(clusterOperator)
@@ -315,12 +320,14 @@ func TestDegraded(t *testing.T) {
 					Conditions: tc.conditions,
 				},
 			}
+
 			controller := &StatusSyncer{
 				clusterOperatorName:   "OPERATOR_NAME",
 				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
 				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:        statusClient,
 				versionGetter:         NewVersionGetter(),
+				clock:                 clocktesting.NewFakePassiveClock(fakeNow),
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -337,7 +344,6 @@ func TestDegraded(t *testing.T) {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
-			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
 
 			var expectedCondition *configv1.ClusterOperatorStatusCondition
 			if tc.expectedStatus != "" {
@@ -353,16 +359,36 @@ func TestDegraded(t *testing.T) {
 				}
 			}
 
+			if len(clusterOperatorClient.Actions()) != 1 {
+				t.Log(clusterOperatorClient.Actions()[0])
+				t.Log(clusterOperatorClient.Actions()[1])
+				t.Fatal(len(clusterOperatorClient.Actions()))
+			}
+			applyBytes := clusterOperatorClient.Actions()[0].(clientesting.PatchAction).GetPatch()
+			result := &configv1.ClusterOperator{}
+			if err := json.Unmarshal(applyBytes, result); err != nil {
+				t.Fatal(err)
+			}
 			for i := range result.Status.Conditions {
 				result.Status.Conditions[i].LastTransitionTime = metav1.Time{}
 			}
 
-			actual := v1helpers.FindStatusCondition(result.Status.Conditions, tc.expectedType)
+			actual := FindStatusCondition(result.Status.Conditions, tc.expectedType)
 			if !reflect.DeepEqual(expectedCondition, actual) {
-				t.Error(diff.ObjectDiff(expectedCondition, actual))
+				t.Error(cmp.Diff(expectedCondition, actual))
 			}
 		})
 	}
+}
+
+func FindStatusCondition(conditions []configv1.ClusterOperatorStatusCondition, conditionType configv1.ClusterStatusConditionType) *configv1.ClusterOperatorStatusCondition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
 }
 
 func TestRelatedObjects(t *testing.T) {
@@ -426,7 +452,29 @@ func TestRelatedObjects(t *testing.T) {
 		t.Run(fmt.Sprintf("%d/%s", idx, tc.name), func(t *testing.T) {
 
 			clusterOperator := &configv1.ClusterOperator{
-				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "OPERATOR_NAME",
+					ResourceVersion: "12",
+					ManagedFields: []metav1.ManagedFieldsEntry{
+						{
+							Manager:    factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
+							Operation:  "Apply",
+							APIVersion: "operator.openshift.io/v1",
+							Time:       &metav1.Time{time.Now()},
+							FieldsType: "FieldsV1",
+							FieldsV1: &metav1.FieldsV1{
+								[]byte(`{
+  "f:status": {
+    "f:conditions": {},
+    "f:relatedObjects": {},
+    "f:versions": {}
+  }
+}`),
+							},
+							Subresource: "status",
+						},
+					},
+				},
 				Status: configv1.ClusterOperatorStatus{
 					RelatedObjects: tc.existingRO,
 				},
@@ -441,12 +489,13 @@ func TestRelatedObjects(t *testing.T) {
 				status: operatorv1.OperatorStatus{},
 			}
 			controller := &StatusSyncer{
-				clusterOperatorName:   "OPERATOR_NAME",
-				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
-				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
-				operatorClient:        statusClient,
-				versionGetter:         NewVersionGetter(),
-				relatedObjects:        tc.staticRO,
+				controllerInstanceName: factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
+				clusterOperatorName:    "OPERATOR_NAME",
+				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister:  configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:         statusClient,
+				versionGetter:          NewVersionGetter(),
+				relatedObjects:         tc.staticRO,
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -550,12 +599,34 @@ func TestVersions(t *testing.T) {
 		t.Run(fmt.Sprintf("%d/%s", idx, tc.name), func(t *testing.T) {
 
 			clusterOperator := &configv1.ClusterOperator{
-				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "OPERATOR_NAME",
+					ResourceVersion: "12",
+					ManagedFields: []metav1.ManagedFieldsEntry{
+						{
+							Manager:    factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
+							Operation:  "Apply",
+							APIVersion: "operator.openshift.io/v1",
+							Time:       &metav1.Time{time.Now()},
+							FieldsType: "FieldsV1",
+							FieldsV1: &metav1.FieldsV1{
+								[]byte(`{
+  "f:status": {
+    "f:conditions": {},
+    "f:relatedObjects": {},
+    "f:versions": {}
+  }
+}`),
+							},
+							Subresource: "status",
+						},
+					},
+				},
 				Status: configv1.ClusterOperatorStatus{
 					Versions: tc.initialVersions,
 				},
 			}
-			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+			clusterOperatorClient := fake.NewClientset(clusterOperator)
 
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			indexer.Add(clusterOperator)
@@ -570,11 +641,12 @@ func TestVersions(t *testing.T) {
 			}
 
 			controller := &StatusSyncer{
-				clusterOperatorName:   "OPERATOR_NAME",
-				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
-				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
-				operatorClient:        statusClient,
-				versionGetter:         versionGetter,
+				controllerInstanceName: factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
+				clusterOperatorName:    "OPERATOR_NAME",
+				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister:  configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:         statusClient,
+				versionGetter:          versionGetter,
 			}
 			if tc.allowRemoval {
 				controller = controller.WithVersionRemoval()
@@ -583,7 +655,12 @@ func TestVersions(t *testing.T) {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
-			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
+			applyBytes := clusterOperatorClient.Actions()[0].(clientesting.PatchAction).GetPatch()
+			result := &configv1.ClusterOperator{}
+			if err := json.Unmarshal(applyBytes, result); err != nil {
+				t.Fatal(err)
+			}
+
 			assert.ElementsMatch(t, tc.expectedVersions, result.Status.Versions)
 		})
 	}
@@ -636,150 +713,150 @@ func (c *statusClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonp
 func TestSkipOperatorStatusChangedEvent(t *testing.T) {
 	testCases := []struct {
 		name         string
-		original     configv1.ClusterOperatorStatus
-		updated      configv1.ClusterOperatorStatus
+		original     applyconfigv1.ClusterOperatorStatusApplyConfiguration
+		updated      applyconfigv1.ClusterOperatorStatusApplyConfiguration
 		skipExpected bool
 	}{
 		{
 			name: "skip, happy",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
 			skipExpected: true,
 		},
 		{
 			name: "no skip, something else changed",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
-				Versions: []configv1.OperandVersion{{Name: "TEST", Version: "1.0"}},
+				Versions: []applyconfigv1.OperandVersionApplyConfiguration{{Name: ptr.To("TEST"), Version: ptr.To("1.0")}},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
-				Versions: []configv1.OperandVersion{{Name: "TEST", Version: "2.0"}},
+				Versions: []applyconfigv1.OperandVersionApplyConfiguration{{Name: ptr.To("TEST"), Version: ptr.To("2.0")}},
 			},
 			skipExpected: false,
 		},
 		{
 			name: "skip, partial challenge",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
 			skipExpected: true,
 		},
 		{
 			name: "no skip, partial challenge response",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
 			skipExpected: false,
 		},
 		{
 			name: "no skip, non-standard type",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
-					{Message: "\ufeffTest", Type: "NonStandard"},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To[configv1.ClusterStatusConditionType]("NonStandard")},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
-					{Message: "Test", Type: "NonStandard"},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
+					{Message: ptr.To("Test"), Type: ptr.To[configv1.ClusterStatusConditionType]("NonStandard")},
 				},
 			},
 			skipExpected: false,
 		},
 		{
 			name: "no skip, non challenge response",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Test", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "Skip", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("Skip"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
 			skipExpected: false,
 		},
 		{
 			name: "no skip, non-trivial response",
-			original: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "\ufeffTest", Type: configv1.OperatorAvailable},
-					{Message: "\ufeffTest", Type: configv1.OperatorProgressing},
-					{Message: "\ufeffTest", Type: configv1.OperatorDegraded},
-					{Message: "\ufeffTest", Type: configv1.OperatorUpgradeable},
+			original: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("\ufeffTest"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
-			updated: configv1.ClusterOperatorStatus{
-				Conditions: []configv1.ClusterOperatorStatusCondition{
-					{Message: "Test", Type: configv1.OperatorAvailable},
-					{Message: "Test", Type: configv1.OperatorProgressing},
-					{Message: "Test", Type: configv1.OperatorDegraded},
-					{Message: "TestUpdated", Type: configv1.OperatorUpgradeable},
+			updated: applyconfigv1.ClusterOperatorStatusApplyConfiguration{
+				Conditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorAvailable)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorProgressing)},
+					{Message: ptr.To("Test"), Type: ptr.To(configv1.OperatorDegraded)},
+					{Message: ptr.To("TestUpdated"), Type: ptr.To(configv1.OperatorUpgradeable)},
 				},
 			},
 			skipExpected: false,
@@ -787,9 +864,11 @@ func TestSkipOperatorStatusChangedEvent(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.skipExpected != skipOperatorStatusChangedEvent(tc.original, tc.updated) {
+			if tc.skipExpected != skipOperatorStatusChangedEvent(&tc.original, &tc.updated) {
+				t.Log(configv1helpers.GetStatusDiff(&tc.original, &tc.updated))
 				t.Errorf("expected: %v, got: %v", tc.skipExpected, !tc.skipExpected)
 			}
+
 		})
 	}
 }

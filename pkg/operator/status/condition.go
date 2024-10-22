@@ -2,6 +2,8 @@ package status
 
 import (
 	"fmt"
+	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
+	"k8s.io/utils/ptr"
 	"sort"
 	"strings"
 	"time"
@@ -89,18 +91,18 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 // on true, but Available merges on false.  Thing of it like an anti-default.
 //
 // If inertia is non-nil, then resist returning a condition with a status opposite the defaultConditionStatus.
-func UnionClusterCondition(conditionType configv1.ClusterStatusConditionType, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) configv1.ClusterOperatorStatusCondition {
+func UnionClusterCondition(conditionType configv1.ClusterStatusConditionType, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) *applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration {
 	cnd := UnionCondition(string(conditionType), defaultConditionStatus, inertia, allConditions...)
 	return OperatorConditionToClusterOperatorCondition(cnd)
 }
 
-func OperatorConditionToClusterOperatorCondition(condition operatorv1.OperatorCondition) configv1.ClusterOperatorStatusCondition {
-	return configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.ClusterStatusConditionType(condition.Type),
-		Status:             configv1.ConditionStatus(condition.Status),
-		LastTransitionTime: condition.LastTransitionTime,
-		Reason:             condition.Reason,
-		Message:            condition.Message,
+func OperatorConditionToClusterOperatorCondition(condition operatorv1.OperatorCondition) *applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration {
+	return &applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
+		Type:               ptr.To(configv1.ClusterStatusConditionType(condition.Type)),
+		Status:             ptr.To(configv1.ConditionStatus(condition.Status)),
+		LastTransitionTime: ptr.To(condition.LastTransitionTime),
+		Reason:             ptr.To(condition.Reason),
+		Message:            ptr.To(condition.Message),
 	}
 }
 func latestTransitionTime(conditions []operatorv1.OperatorCondition) metav1.Time {

@@ -3,57 +3,20 @@ package v1helpers
 import (
 	"bytes"
 	"fmt"
-	"strings"
-	"time"
-
+	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/utils/ptr"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
 
-// SetStatusCondition sets the corresponding condition in conditions to newCondition.
-func SetStatusCondition(conditions *[]configv1.ClusterOperatorStatusCondition, newCondition configv1.ClusterOperatorStatusCondition) {
-	if conditions == nil {
-		conditions = &[]configv1.ClusterOperatorStatusCondition{}
-	}
-	existingCondition := FindStatusCondition(*conditions, newCondition.Type)
-	if existingCondition == nil {
-		newCondition.LastTransitionTime = metav1.NewTime(time.Now())
-		*conditions = append(*conditions, newCondition)
-		return
-	}
-
-	if existingCondition.Status != newCondition.Status {
-		existingCondition.Status = newCondition.Status
-		existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
-	}
-
-	existingCondition.Reason = newCondition.Reason
-	existingCondition.Message = newCondition.Message
-}
-
-// RemoveStatusCondition removes the corresponding conditionType from conditions.
-func RemoveStatusCondition(conditions *[]configv1.ClusterOperatorStatusCondition, conditionType configv1.ClusterStatusConditionType) {
-	if conditions == nil {
-		conditions = &[]configv1.ClusterOperatorStatusCondition{}
-	}
-	newConditions := []configv1.ClusterOperatorStatusCondition{}
-	for _, condition := range *conditions {
-		if condition.Type != conditionType {
-			newConditions = append(newConditions, condition)
-		}
-	}
-
-	*conditions = newConditions
-}
-
 // FindStatusCondition finds the conditionType in conditions.
-func FindStatusCondition(conditions []configv1.ClusterOperatorStatusCondition, conditionType configv1.ClusterStatusConditionType) *configv1.ClusterOperatorStatusCondition {
+func FindStatusCondition(conditions []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration, conditionType *configv1.ClusterStatusConditionType) *applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration {
 	for i := range conditions {
-		if conditions[i].Type == conditionType {
+		if ptr.Deref(conditions[i].Type, "") == ptr.Deref(conditionType, "") {
 			return &conditions[i]
 		}
 	}
@@ -62,38 +25,52 @@ func FindStatusCondition(conditions []configv1.ClusterOperatorStatusCondition, c
 }
 
 // GetStatusDiff returns a string representing change in condition status in human readable form.
-func GetStatusDiff(oldStatus configv1.ClusterOperatorStatus, newStatus configv1.ClusterOperatorStatus) string {
+func GetStatusDiff(oldStatus, newStatus *applyconfigv1.ClusterOperatorStatusApplyConfiguration) string {
+	switch {
+	case oldStatus == nil && newStatus == nil:
+	case oldStatus != nil && newStatus == nil:
+		return "status was removed"
+	}
 	messages := []string{}
 	for _, newCondition := range newStatus.Conditions {
+		if oldStatus == nil {
+			messages = append(messages, fmt.Sprintf("%s set to %s (%q)", ptr.Deref(newCondition.Type, ""), ptr.Deref(newCondition.Status, ""), ptr.Deref(newCondition.Message, "")))
+			continue
+		}
 		existingStatusCondition := FindStatusCondition(oldStatus.Conditions, newCondition.Type)
 		if existingStatusCondition == nil {
-			messages = append(messages, fmt.Sprintf("%s set to %s (%q)", newCondition.Type, newCondition.Status, newCondition.Message))
+			messages = append(messages, fmt.Sprintf("%s set to %s (%q)", ptr.Deref(newCondition.Type, ""), ptr.Deref(newCondition.Status, ""), ptr.Deref(newCondition.Message, "")))
 			continue
 		}
-		if existingStatusCondition.Status != newCondition.Status {
-			messages = append(messages, fmt.Sprintf("%s changed from %s to %s (%q)", existingStatusCondition.Type, existingStatusCondition.Status, newCondition.Status, newCondition.Message))
+		if ptr.Deref(existingStatusCondition.Status, "") != ptr.Deref(newCondition.Status, "") {
+			messages = append(messages, fmt.Sprintf("%s changed from %s to %s (%q)", ptr.Deref(existingStatusCondition.Type, ""), ptr.Deref(existingStatusCondition.Status, ""), ptr.Deref(newCondition.Status, ""), ptr.Deref(newCondition.Message, "")))
 			continue
 		}
-		if existingStatusCondition.Message != newCondition.Message {
-			messages = append(messages, fmt.Sprintf("%s message changed from %q to %q", existingStatusCondition.Type, existingStatusCondition.Message, newCondition.Message))
+		existingMessage := strings.TrimPrefix(ptr.Deref(existingStatusCondition.Message, ""), "\ufeff")
+		newMessage := strings.TrimPrefix(ptr.Deref(newCondition.Message, ""), "\ufeff")
+		if existingMessage != newMessage {
+			messages = append(messages, fmt.Sprintf("%s message changed from %q to %q", ptr.Deref(existingStatusCondition.Type, ""), existingMessage, newMessage))
 		}
 	}
-	for _, oldCondition := range oldStatus.Conditions {
-		// This should not happen. It means we removed old condition entirely instead of just changing its status
-		if c := FindStatusCondition(newStatus.Conditions, oldCondition.Type); c == nil {
-			messages = append(messages, fmt.Sprintf("%s was removed", oldCondition.Type))
+	if oldStatus != nil {
+		for _, oldCondition := range oldStatus.Conditions {
+			// This should not happen. It means we removed old condition entirely instead of just changing its status
+			if c := FindStatusCondition(newStatus.Conditions, oldCondition.Type); c == nil {
+				messages = append(messages, fmt.Sprintf("%s was removed", ptr.Deref(oldCondition.Type, "")))
+			}
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(oldStatus.RelatedObjects, newStatus.RelatedObjects) {
-		messages = append(messages, fmt.Sprintf("status.relatedObjects changed from %q to %q", oldStatus.RelatedObjects, newStatus.RelatedObjects))
-	}
-	if !equality.Semantic.DeepEqual(oldStatus.Extension, newStatus.Extension) {
-		messages = append(messages, fmt.Sprintf("status.extension changed from %q to %q", oldStatus.Extension, newStatus.Extension))
-	}
-
-	if !equality.Semantic.DeepEqual(oldStatus.Versions, newStatus.Versions) {
-		messages = append(messages, fmt.Sprintf("status.versions changed from %q to %q", oldStatus.Versions, newStatus.Versions))
+	if oldStatus != nil {
+		if !equality.Semantic.DeepEqual(oldStatus.RelatedObjects, newStatus.RelatedObjects) {
+			messages = append(messages, fmt.Sprintf("status.relatedObjects changed from %#v to %#v", oldStatus.RelatedObjects, newStatus.RelatedObjects))
+		}
+		if !equality.Semantic.DeepEqual(oldStatus.Extension, newStatus.Extension) {
+			messages = append(messages, fmt.Sprintf("status.extension changed from %#v to %#v", oldStatus.Extension, newStatus.Extension))
+		}
+		if !equality.Semantic.DeepEqual(oldStatus.Versions, newStatus.Versions) {
+			messages = append(messages, fmt.Sprintf("status.versions changed from %#v to %#v", oldStatus.Versions, newStatus.Versions))
+		}
 	}
 
 	if len(messages) == 0 {
