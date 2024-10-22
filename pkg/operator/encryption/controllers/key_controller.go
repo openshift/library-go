@@ -23,6 +23,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
@@ -62,8 +63,8 @@ type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 
-	component                string
-	name                     string
+	controllerInstanceName   string
+	instanceName             string
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer                 statemachine.Deployer
@@ -75,7 +76,7 @@ type keyController struct {
 }
 
 func NewKeyController(
-	component string,
+	instanceName string,
 	unsupportedConfigPrefix []string,
 	provider Provider,
 	deployer statemachine.Deployer,
@@ -92,9 +93,9 @@ func NewKeyController(
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 
-		component:               component,
+		instanceName:            instanceName,
+		controllerInstanceName:  factory.ControllerInstanceName(instanceName, "EncryptionKey"),
 		unsupportedConfigPrefix: unsupportedConfigPrefix,
-		name:                    "EncryptionKeyController",
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
@@ -112,35 +113,47 @@ func NewKeyController(
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 			deployer,
 		).ToController(
-		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
+		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-key-controller"),
 	)
 }
 
 func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
-	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionKeyControllerDegraded", Status: operatorv1.ConditionFalse}
+	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
+	degradedCondition := applyoperatorv1.OperatorCondition().
+		WithType("EncryptionKeyControllerDegraded")
+
 	defer func() {
 		if degradedCondition == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
-			err = updateError
+		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition)
+		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
+			err = applyError
 		}
 	}()
 
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		if err != nil {
 			degradedCondition = nil
+		} else {
+			degradedCondition = degradedCondition.
+				WithStatus(operatorv1.ConditionFalse)
 		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
 	if err != nil {
-		degradedCondition.Status = operatorv1.ConditionTrue
-		degradedCondition.Reason = "Error"
-		degradedCondition.Message = err.Error()
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Error").
+			WithMessage(err.Error())
+	} else {
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionFalse)
 	}
+
 	return err
 }
 
@@ -252,7 +265,7 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
-	return secrets.FromKeyState(c.component, ks)
+	return secrets.FromKeyState(c.instanceName, ks)
 }
 
 func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, error) {
