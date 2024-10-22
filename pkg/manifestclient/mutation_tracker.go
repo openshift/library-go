@@ -35,10 +35,11 @@ type AllActionsTracker[T SerializedRequestish] struct {
 }
 
 type ActionMetadata struct {
-	Action    Action
-	GVR       schema.GroupVersionResource
-	Namespace string
-	Name      string
+	Action       Action
+	GVR          schema.GroupVersionResource
+	Namespace    string
+	Name         string
+	GenerateName string
 }
 
 type actionTracker[T SerializedRequestish] struct {

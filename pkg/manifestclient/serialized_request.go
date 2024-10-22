@@ -34,6 +34,7 @@ type SerializedRequest struct {
 	KindType     schema.GroupVersionKind
 	Namespace    string
 	Name         string
+	GenerateName string
 
 	Options []byte
 	Body    []byte
@@ -206,6 +207,9 @@ func CompareSerializedRequest(lhs, rhs *SerializedRequest) int {
 	if cmp := strings.Compare(lhs.Name, rhs.Name); cmp != 0 {
 		return cmp
 	}
+	if cmp := strings.Compare(lhs.GenerateName, rhs.GenerateName); cmp != 0 {
+		return cmp
+	}
 
 	if cmp := bytes.Compare(lhs.Body, rhs.Body); cmp != 0 {
 		return cmp
@@ -262,7 +266,7 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) 
 			scopingString,
 			groupName,
 			a.ResourceType.Resource,
-			fmt.Sprintf("%03d-body-%s.yaml", uniqueNumber, a.Name),
+			fmt.Sprintf("%03d-body-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
 		),
 	)
 	optionsFilename := ""
@@ -273,7 +277,7 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) 
 				scopingString,
 				groupName,
 				a.ResourceType.Resource,
-				fmt.Sprintf("%03d-options-%s.yaml", uniqueNumber, a.Name),
+				fmt.Sprintf("%03d-options-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
 			),
 		)
 	}
@@ -302,20 +306,22 @@ func (a SerializedRequest) DeepCopy() SerializedRequestish {
 		KindType:     a.KindType,
 		Namespace:    a.Namespace,
 		Name:         a.Name,
+		GenerateName: a.GenerateName,
 		Options:      bytes.Clone(a.Options),
 		Body:         bytes.Clone(a.Body),
 	}
 }
 
 func (a SerializedRequest) StringID() string {
-	return fmt.Sprintf("%s-%s.%s.%s/%s[%s]", a.Action, a.KindType.Kind, a.KindType.Version, a.KindType.Group, a.Name, a.Namespace)
+	return fmt.Sprintf("%s-%s.%s.%s/%s%s[%s]", a.Action, a.KindType.Kind, a.KindType.Version, a.KindType.Group, a.Name, a.GenerateName, a.Namespace)
 }
 
 func (a SerializedRequest) GetLookupMetadata() ActionMetadata {
 	return ActionMetadata{
-		Action:    a.Action,
-		GVR:       a.ResourceType,
-		Namespace: a.Namespace,
-		Name:      a.Name,
+		Action:       a.Action,
+		GVR:          a.ResourceType,
+		Namespace:    a.Namespace,
+		Name:         a.Name,
+		GenerateName: a.GenerateName,
 	}
 }

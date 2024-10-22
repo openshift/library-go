@@ -159,10 +159,11 @@ func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename strin
 				Version:  versionName,
 				Resource: resourceName,
 			},
-			KindType:  retObj.(*unstructured.Unstructured).GroupVersionKind(),
-			Namespace: retObj.(*unstructured.Unstructured).GetNamespace(),
-			Name:      metadataName,
-			Body:      bodyContent,
+			KindType:     retObj.(*unstructured.Unstructured).GroupVersionKind(),
+			Namespace:    retObj.(*unstructured.Unstructured).GetNamespace(),
+			Name:         metadataName,
+			GenerateName: retObj.(*unstructured.Unstructured).GetGenerateName(),
+			Body:         bodyContent,
 		},
 	}
 	if optionsExist {

@@ -168,6 +168,7 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		KindType:     bodyObj.GetObjectKind().GroupVersionKind(),
 		Namespace:    requestInfo.Namespace,
 		Name:         metadataName,
+		GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
 		Options:      optionsBytes,
 		Body:         bodyYAMLBytes,
 	}
