@@ -140,6 +140,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, LastUpdateTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)), LastTransitionTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)), Reason: "ProgressDeadlineExceeded", Message: "timed out"},
+					},
 				},
 			},
 			pods: []*corev1.Pod{
@@ -192,7 +195,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
 						Status:  operatorv1.ConditionTrue,
 						Reason:  "PodsUpdating",
-						Message: "deployment/apiserver.openshift-apiserver: 0/3 pods have been updated to the latest generation",
+						Message: "deployment/apiserver.openshift-apiserver: 0/3 pods have been updated to the latest generation and 0/3 pods are available",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
@@ -211,6 +214,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				},
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "ReplicaSetUpdated", Message: "progressing"},
+					},
 				},
 			},
 			pods: []*corev1.Pod{
@@ -262,7 +268,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
 						Status:  operatorv1.ConditionTrue,
 						Reason:  "PodsUpdating",
-						Message: "deployment/apiserver.openshift-apiserver: 0/3 pods have been updated to the latest generation",
+						Message: "deployment/apiserver.openshift-apiserver: 0/3 pods have been updated to the latest generation and 0/3 pods are available",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
@@ -282,6 +288,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 2,
 					UpdatedReplicas:   3,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "NewReplicaSetAvailable", Message: "has successfully progressed"},
+					},
 				},
 			},
 			pods: []*corev1.Pod{
@@ -345,6 +354,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 3,
 					UpdatedReplicas:   3,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "NewReplicaSetAvailable", Message: "has successfully progressed"},
+					},
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
@@ -387,8 +399,65 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
+					Replicas:           3,
+					ReadyReplicas:      3,
 					AvailableReplicas:  3,
+					UpdatedReplicas:    3,
 					ObservedGeneration: 99,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "NewReplicaSetAvailable", Message: "has successfully progressed"},
+					},
+				},
+			},
+			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status: operatorv1.ConditionFalse,
+					},
+					{
+						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionFalse,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "NewGeneration",
+						Message: "deployment/apiserver.openshift-apiserver: observed generation is 99, desired generation is 100.",
+					},
+				}
+				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
+			},
+		},
+
+		{
+			name: "scenario: rare case when we have an outdated (generation) workload and one old replica failing is but it will be picked up soon by the new rollout thus we are available and we are progressing",
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "apiserver",
+					Namespace:  "openshift-apiserver",
+					Generation: 100,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: ptr.To[int32](3),
+				},
+				Status: appsv1.DeploymentStatus{
+					Replicas:           3,
+					ReadyReplicas:      2,
+					AvailableReplicas:  2,
+					UpdatedReplicas:    3,
+					ObservedGeneration: 99,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "NewReplicaSetAvailable", Message: "has successfully progressed"},
+					},
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
@@ -469,6 +538,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					AvailableReplicas:  2,
 					UpdatedReplicas:    1,
 					ObservedGeneration: 2,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "ReplicaSetUpdated", Message: "progressing"},
+					},
 				},
 			},
 			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
@@ -493,7 +565,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
 						Status:  operatorv1.ConditionTrue,
 						Reason:  "PodsUpdating",
-						Message: "deployment/apiserver.openshift-apiserver: 1/3 pods have been updated to the latest generation",
+						Message: "deployment/apiserver.openshift-apiserver: 1/3 pods have been updated to the latest generation and 2/3 pods are available",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
@@ -512,6 +584,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				Status: appsv1.DeploymentStatus{
 					AvailableReplicas: 3,
 					UpdatedReplicas:   3,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "NewReplicaSetAvailable", Message: "has successfully progressed"},
+					},
 				},
 			},
 			previousConditions: []operatorv1.OperatorCondition{
@@ -542,6 +617,55 @@ func TestUpdateOperatorStatus(t *testing.T) {
 						Type:   fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
 						Status: operatorv1.ConditionFalse,
 						Reason: "AsExpected",
+					},
+				}
+				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
+			},
+		},
+		{
+			name: "some pods rolled out and waiting for old terminating pod before we can progress further",
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "apiserver",
+					Namespace: "openshift-apiserver",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}},
+					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
+					Replicas: ptr.To[int32](3),
+				},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 2,
+					ReadyReplicas:     2,
+					UpdatedReplicas:   3,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, LastUpdateTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "ReplicaSetUpdated", Message: "progressing"},
+					},
+				},
+			},
+			validateOperatorStatus: func(actualStatus *operatorv1.OperatorStatus) error {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+						Status: operatorv1.ConditionFalse,
+					},
+					{
+						Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
+						Status:  operatorv1.ConditionFalse,
+						Reason:  "AsExpected",
+						Message: "",
+					},
+					{
+						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "PodsUpdating",
+						Message: "deployment/apiserver.openshift-apiserver: 3/3 pods have been updated to the latest generation and 2/3 pods are available",
 					},
 				}
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
