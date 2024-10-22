@@ -183,6 +183,12 @@ func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorSpec(ctx context.Con
 }
 
 func (c *fakeStaticPodOperatorClient) ApplyStaticPodOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) (err error) {
+	if c.triggerStatusUpdateError != nil {
+		operatorStatus := convertStaticPodOperatorStatusApplyConfiguration(applyConfiguration)
+		if err := c.triggerStatusUpdateError("", operatorStatus); err != nil {
+			return err
+		}
+	}
 	c.fakeStaticPodOperatorStatus = convertStaticPodOperatorStatusApplyConfiguration(applyConfiguration)
 	return nil
 }
