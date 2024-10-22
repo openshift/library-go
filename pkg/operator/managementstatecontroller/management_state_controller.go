@@ -55,6 +55,9 @@ func (c ManagementStateController) sync(ctx context.Context, syncContext factory
 		syncContext.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for %s", c.operatorName)
 		return nil
 	}
+	if err != nil {
+		return err
+	}
 
 	cond := applyoperatorv1.OperatorCondition().
 		WithType(condition.ManagementStateDegradedConditionType).
@@ -82,11 +85,5 @@ func (c ManagementStateController) sync(ctx context.Context, syncContext factory
 	}
 
 	status := applyoperatorv1.OperatorStatus().WithConditions(cond)
-	if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
-		if err == nil {
-			return applyError
-		}
-	}
-
-	return nil
+	return c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 }
