@@ -84,6 +84,88 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "diff in generateName",
+			args: args{
+				lhs: []FileOriginatedSerializedRequest{
+					{
+						BodyFilename:    "foo.yaml",
+						OptionsFilename: "foo-options.yaml",
+						SerializedRequest: SerializedRequest{
+							Namespace:    "foo-ns",
+							GenerateName: "bar-",
+							Options:      nil,
+							Body:         []byte("content"),
+						},
+					},
+				},
+				rhs: []TrackedSerializedRequest{
+					{
+						RequestNumber: 6,
+						SerializedRequest: SerializedRequest{
+							Namespace: "foo-ns",
+							Name:      "bar",
+							Options:   nil,
+							Body:      []byte("content"),
+						},
+					},
+				},
+			},
+			want: []FileOriginatedSerializedRequest{
+				{
+					BodyFilename:    "foo.yaml",
+					OptionsFilename: "foo-options.yaml",
+					SerializedRequest: SerializedRequest{
+						Namespace:    "foo-ns",
+						GenerateName: "bar-",
+						Options:      nil,
+						Body:         []byte("content"),
+					},
+				},
+			},
+		},
+		{
+			name: "diff in generateName with same name",
+			args: args{
+				lhs: []FileOriginatedSerializedRequest{
+					{
+						BodyFilename:    "foo.yaml",
+						OptionsFilename: "foo-options.yaml",
+						SerializedRequest: SerializedRequest{
+							Namespace:    "foo-ns",
+							Name:         "bar-2", // this happens on updates for instance
+							GenerateName: "bar-",
+							Options:      nil,
+							Body:         []byte("content"),
+						},
+					},
+				},
+				rhs: []TrackedSerializedRequest{
+					{
+						RequestNumber: 6,
+						SerializedRequest: SerializedRequest{
+							Namespace: "foo-ns",
+							Name:      "bar-2",
+							Options:   nil,
+							Body:      []byte("content"),
+						},
+					},
+				},
+			},
+			want: []FileOriginatedSerializedRequest{
+				{
+					BodyFilename:    "foo.yaml",
+					OptionsFilename: "foo-options.yaml",
+					SerializedRequest: SerializedRequest{
+						Namespace:    "foo-ns",
+						Name:         "bar-2", // this happens on updates for instance
+						GenerateName: "bar-",
+						Options:      nil,
+						Body:         []byte("content"),
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
