@@ -33,7 +33,7 @@ func readMutationFS(inFS fs.FS) (*AllActionsTracker[FileOriginatedSerializedRequ
 			file.Close()
 		}
 		switch {
-		case os.IsNotExist(err):
+		case errors.Is(err, fs.ErrNotExist):
 			continue
 		case err != nil:
 			errs = append(errs, fmt.Errorf("unable to read %q : %w", action, err))
@@ -115,7 +115,7 @@ func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename strin
 	optionsExist := false
 	optionsContent, err := fs.ReadFile(actionFS, optionsFilename)
 	switch {
-	case os.IsNotExist(err):
+	case errors.Is(err, fs.ErrNotExist):
 	// not required, do nothing
 	case err != nil:
 		return nil, fmt.Errorf("failed to read %q: %w", optionsFilename, err)
