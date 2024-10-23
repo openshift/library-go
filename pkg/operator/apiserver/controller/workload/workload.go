@@ -287,9 +287,26 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		desiredReplicas = *(workload.Spec.Replicas)
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(workload.Spec.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to construct label selector: %v", err)
+	}
+	matchingPods, err := c.podsLister.Pods(c.targetNamespace).List(selector)
+	if err != nil {
+		return err
+	}
+	// Terminating pods don't account for any of the other status fields but
+	// still can exist in a state when they are accepting connections and would
+	// contribute to unexpected behavior if we report Progressing=False.
+	// The case of too many pods might occur for example if `TerminationGracePeriodSeconds` is set.
+	terminatingPods := countTerminatingPods(matchingPods)
+
 	// If the workload is up to date, then we are no longer progressing
 	workloadAtHighestGeneration := workload.ObjectMeta.Generation == workload.Status.ObservedGeneration
-	workloadIsBeingUpdated := workload.Status.UpdatedReplicas < desiredReplicas
+	// update is done when all pods have been updated to the latest revision
+	// and the deployment controller has reported NewReplicaSetAvailable
+	workloadIsBeingUpdated := !workloadAtHighestGeneration || !hasDeploymentProgressed(workload.Status)
+	workloadHasOldTerminatingPods := workload.Status.AvailableReplicas == desiredReplicas && terminatingPods > 0
 	workloadIsBeingUpdatedTooLong, err := isUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
 	if !workloadAtHighestGeneration {
 		deploymentProgressingCondition = deploymentProgressingCondition.
@@ -300,7 +317,12 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("PodsUpdating").
-			WithMessage(fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas))
+			WithMessage(fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation and %d/%d pods are available", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas, workload.Status.AvailableReplicas, desiredReplicas))
+	} else if workloadHasOldTerminatingPods {
+		deploymentProgressingCondition = deploymentProgressingCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("PreviousGenerationPodsPresent").
+			WithMessage(fmt.Sprintf("deployment/%s.%s: %d pod(s) from the previous generation are still present", workload.Name, c.targetNamespace, terminatingPods))
 	} else {
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionFalse).
@@ -351,6 +373,32 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 func isUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
 	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
 	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(15*time.Minute)), nil
+}
+
+// hasDeploymentProgressed returns true if the deployment reports NewReplicaSetAvailable
+// via the DeploymentProgressing condition
+func hasDeploymentProgressed(status appsv1.DeploymentStatus) bool {
+	for _, cond := range status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			return cond.Status == corev1.ConditionTrue && cond.Reason == "NewReplicaSetAvailable"
+		}
+	}
+	return false
+}
+
+func countTerminatingPods(pods []*corev1.Pod) int32 {
+	numberOfTerminatingPods := 0
+	for _, p := range pods {
+		if isPodTerminating(p) {
+			numberOfTerminatingPods += 1
+		}
+	}
+	return int32(numberOfTerminatingPods)
+}
+
+func isPodTerminating(p *corev1.Pod) bool {
+	return p.Status.Phase != corev1.PodFailed && p.Status.Phase != corev1.PodSucceeded &&
+		p.DeletionTimestamp != nil
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
