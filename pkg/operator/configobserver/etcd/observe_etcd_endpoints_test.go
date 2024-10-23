@@ -184,13 +184,13 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 			expectErrors:      true,
 		},
 		{
-			name:             "IgnoreBootstrap",
+			name:             "BootstrapIncluded",
 			currentConfigFor: observedConfigFor(withStorageURLFor("https://previous.url:2379")),
 			endpoint: endpoints(
 				withBootstrap("10.0.0.2"),
 				withAddress("10.0.0.1"),
 			),
-			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379")),
+			expectedConfigFor: observedConfigFor(withStorageURLFor("https://10.0.0.1:2379"), withStorageURLFor("https://10.0.0.2:2379")),
 		},
 	}
 	for _, tt := range tests {
