@@ -248,6 +248,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	if len(b.installCommand) > 0 {
 		manager.WithController(installer.NewInstallerController(
+			b.operandName,
 			b.operandNamespace,
 			b.staticPodName,
 			b.revisionConfigMaps,
