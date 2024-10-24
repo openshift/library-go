@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/util/json"
-	"os"
 	"path/filepath"
 	"sigs.k8s.io/yaml"
 	"strings"
@@ -18,13 +17,13 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 	switch {
 	case requestInfo.Path == "/api":
 		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-api.yaml", requestInfo.Path)
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
 		}
 		return ret, err
 	case requestInfo.Path == "/apis":
 		ret, err := mrt.getAggregatedDiscoveryForURL("aggregated-discovery-apis.yaml", requestInfo.Path)
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return mrt.getLegacyGroupResourceDiscovery(requestInfo)
 		}
 		return ret, err
@@ -36,7 +35,7 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 
 func (mrt *manifestRoundTripper) getAggregatedDiscoveryForURL(filename, url string) ([]byte, error) {
 	discoveryBytes, err := fs.ReadFile(mrt.sourceFS, filename)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		discoveryBytes, err = fs.ReadFile(defaultDiscovery, filepath.Join("default-discovery", filename))
 	}
 	if err != nil {

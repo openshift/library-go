@@ -46,7 +46,10 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 		return nil, fmt.Errorf("unable to determine list kind: %w", err)
 	}
 	possibleListFiles, err := allPossibleListFileLocations(mrt.sourceFS, requestInfo)
-	if err != nil {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		// continue to see if something else is present to return
+	case err != nil:
 		return nil, fmt.Errorf("unable to determine list file locations: %w", err)
 	}
 	for _, listFile := range possibleListFiles {
@@ -84,7 +87,10 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 	}
 	retList.SetGroupVersionKind(kind.listKind)
 	individualFiles, err := allIndividualFileLocations(mrt.sourceFS, requestInfo)
-	if err != nil {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		// continue to see if something else is present to return
+	case err != nil:
 		return nil, fmt.Errorf("unable to determine individual file locations: %w", err)
 	}
 	for _, individualFile := range individualFiles {
@@ -122,9 +128,12 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 
 func (mrt *manifestRoundTripper) listAllNamespaces() ([]byte, error) {
 	possibleNamespaceFiles, err := allPossibleNamespaceFiles(mrt.sourceFS)
-	if err != nil {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+	case err != nil:
 		return nil, fmt.Errorf("unable to determine list file alternative individual files: %w", err)
 	}
+
 	namespaces := []unstructured.Unstructured{}
 	for _, individualFile := range possibleNamespaceFiles {
 		currNamespace, err := readIndividualFile(mrt.sourceFS, individualFile)
@@ -174,7 +183,7 @@ func allIndividualFileLocations(sourceFS fs.FS, requestInfo *apirequest.RequestI
 
 		namespaces, err := allNamespacesWithData(sourceFS)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read namespaces")
+			return nil, fmt.Errorf("unable to read namespaces: %w", err)
 		}
 		for _, ns := range namespaces {
 			nsParts := append([]string{"namespaces", ns}, resourceDirectoryParts...)
