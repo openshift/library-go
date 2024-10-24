@@ -3,12 +3,11 @@ package status
 import (
 	"fmt"
 	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 	"sort"
 	"strings"
-	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -20,7 +19,7 @@ import (
 // on true, but Available merges on false.  Thing of it like an anti-default.
 //
 // If inertia is non-nil, then resist returning a condition with a status opposite the defaultConditionStatus.
-func UnionCondition(conditionType string, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) operatorv1.OperatorCondition {
+func UnionCondition(clock clock.PassiveClock, conditionType string, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) operatorv1.OperatorCondition {
 	var oppositeConditionStatus operatorv1.ConditionStatus
 	if defaultConditionStatus == operatorv1.ConditionTrue {
 		oppositeConditionStatus = operatorv1.ConditionFalse
@@ -56,7 +55,7 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 	if inertia == nil {
 		elderBadConditions = badConditions
 	} else {
-		now := time.Now()
+		now := clock.Now()
 		for _, condition := range badConditions {
 			if condition.LastTransitionTime.Time.Before(now.Add(-inertia(condition))) {
 				elderBadConditions = append(elderBadConditions, condition)
@@ -91,8 +90,8 @@ func UnionCondition(conditionType string, defaultConditionStatus operatorv1.Cond
 // on true, but Available merges on false.  Thing of it like an anti-default.
 //
 // If inertia is non-nil, then resist returning a condition with a status opposite the defaultConditionStatus.
-func UnionClusterCondition(conditionType configv1.ClusterStatusConditionType, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) *applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration {
-	cnd := UnionCondition(string(conditionType), defaultConditionStatus, inertia, allConditions...)
+func UnionClusterCondition(clock clock.PassiveClock, conditionType configv1.ClusterStatusConditionType, defaultConditionStatus operatorv1.ConditionStatus, inertia Inertia, allConditions ...operatorv1.OperatorCondition) *applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration {
+	cnd := UnionCondition(clock, string(conditionType), defaultConditionStatus, inertia, allConditions...)
 	return OperatorConditionToClusterOperatorCondition(cnd)
 }
 

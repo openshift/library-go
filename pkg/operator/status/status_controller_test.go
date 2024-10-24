@@ -491,6 +491,7 @@ func TestRelatedObjects(t *testing.T) {
 			controller := &StatusSyncer{
 				controllerInstanceName: factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
 				clusterOperatorName:    "OPERATOR_NAME",
+				clock:                  clocktesting.NewFakePassiveClock(time.Now()),
 				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
 				clusterOperatorLister:  configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:         statusClient,
@@ -643,6 +644,7 @@ func TestVersions(t *testing.T) {
 			controller := &StatusSyncer{
 				controllerInstanceName: factory.ControllerInstanceName("OPERATOR_NAME", "ClusterOperatorStatus"),
 				clusterOperatorName:    "OPERATOR_NAME",
+				clock:                  clocktesting.NewFakePassiveClock(time.Now()),
 				clusterOperatorClient:  clusterOperatorClient.ConfigV1(),
 				clusterOperatorLister:  configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:         statusClient,

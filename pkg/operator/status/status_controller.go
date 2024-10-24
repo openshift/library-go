@@ -266,12 +266,17 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 	}
 
 	desiredStatus.WithConditions(
-		UnionClusterCondition(configv1.OperatorDegraded, operatorv1.ConditionFalse, c.degradedInertia, currentDetailedStatus.Conditions...),
-		UnionClusterCondition(configv1.OperatorProgressing, operatorv1.ConditionFalse, nil, currentDetailedStatus.Conditions...),
-		UnionClusterCondition(configv1.OperatorAvailable, operatorv1.ConditionTrue, nil, currentDetailedStatus.Conditions...),
-		UnionClusterCondition(configv1.OperatorUpgradeable, operatorv1.ConditionTrue, nil, currentDetailedStatus.Conditions...),
-		UnionClusterCondition(configv1.EvaluationConditionsDetected, operatorv1.ConditionFalse, nil, currentDetailedStatus.Conditions...),
+		UnionClusterCondition(c.clock, configv1.OperatorDegraded, operatorv1.ConditionFalse, c.degradedInertia, currentDetailedStatus.Conditions...),
+		UnionClusterCondition(c.clock, configv1.OperatorProgressing, operatorv1.ConditionFalse, nil, currentDetailedStatus.Conditions...),
+		UnionClusterCondition(c.clock, configv1.OperatorAvailable, operatorv1.ConditionTrue, nil, currentDetailedStatus.Conditions...),
+		UnionClusterCondition(c.clock, configv1.OperatorUpgradeable, operatorv1.ConditionTrue, nil, currentDetailedStatus.Conditions...),
+		UnionClusterCondition(c.clock, configv1.EvaluationConditionsDetected, operatorv1.ConditionFalse, nil, currentDetailedStatus.Conditions...),
 	)
+	var previousConditions []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration
+	if previouslyDesiredStatus != nil && previouslyDesiredStatus.Status != nil {
+		previousConditions = previouslyDesiredStatus.Status.Conditions
+	}
+	operatorv1helpers.SetClusterOperatorApplyConditionsLastTransitionTime(c.clock, &desiredStatus.Conditions, previousConditions)
 
 	desiredStatus.WithVersions(c.createNewOperatorVersions(previouslyDesiredStatus.Status, syncCtx)...)
 
