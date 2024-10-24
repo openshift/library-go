@@ -262,13 +262,11 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 	createdStatus, err := c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Create(ctx, desiredStatusConfigMap, metav1.CreateOptions{})
 	switch {
 	case apierrors.IsAlreadyExists(err):
-		if createdStatus == nil || len(createdStatus.UID) == 0 {
-			createdStatus, err = c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Get(ctx, desiredStatusConfigMap.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-		}
 		// take a live GET here to get current status to check the annotation
+		createdStatus, err = c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Get(ctx, desiredStatusConfigMap.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 		if createdStatus.Annotations["operator.openshift.io/revision-ready"] == "true" {
 			// no work to do because our cache is out of date and when we're updated, we will be able to see the result
 			klog.Infof("down the branch indicating that our cache was out of date and we're trying to recreate a revision.")
@@ -305,6 +303,9 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 		}
 	}
 
+	if createdStatus.Annotations == nil {
+		createdStatus.Annotations = map[string]string{}
+	}
 	createdStatus.Annotations["operator.openshift.io/revision-ready"] = "true"
 	if _, err := c.configMapGetter.ConfigMaps(createdStatus.Namespace).Update(ctx, createdStatus, metav1.UpdateOptions{}); err != nil {
 		return false, err
