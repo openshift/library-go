@@ -2,6 +2,8 @@ package managementstatecontroller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -155,6 +157,15 @@ func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager strin
 }
 
 func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	applyJSON, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return fmt.Errorf("marshal failure: %w", err)
+	}
+	status := &operatorv1.OperatorStatus{}
+	if err := json.Unmarshal(applyJSON, status); err != nil {
+		return fmt.Errorf("unmarshal failure: %w", err)
+	}
+	c.status = *status
 	return nil
 }
 

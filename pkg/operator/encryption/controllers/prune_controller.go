@@ -17,6 +17,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -36,7 +37,8 @@ const (
 // them.  Keeping a small number of old keys around is meant to help facilitate
 // decryption of old backups (and general precaution).
 type pruneController struct {
-	operatorClient operatorv1helpers.OperatorClient
+	controllerInstanceName string
+	operatorClient         operatorv1helpers.OperatorClient
 
 	encryptionSecretSelector metav1.ListOptions
 
@@ -44,10 +46,10 @@ type pruneController struct {
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	secretClient             corev1client.SecretsGetter
-	name                     string
 }
 
 func NewPruneController(
+	instanceName string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -60,7 +62,7 @@ func NewPruneController(
 ) factory.Controller {
 	c := &pruneController{
 		operatorClient:           operatorClient,
-		name:                     "EncryptionPruneController",
+		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionPrune"),
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		provider:                 provider,
@@ -74,34 +76,46 @@ func NewPruneController(
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(
-		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
+		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-prune-controller"),
 	)
 }
 
 func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
-	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionPruneControllerDegraded", Status: operatorv1.ConditionFalse}
+	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
+	degradedCondition := applyoperatorv1.OperatorCondition().
+		WithType("EncryptionPruneControllerDegraded")
+
 	defer func() {
 		if degradedCondition == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
-			err = updateError
+		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition)
+		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
+			err = applyError
 		}
 	}()
 
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		if err != nil {
 			degradedCondition = nil
+
+		} else {
+			degradedCondition = degradedCondition.
+				WithStatus(operatorv1.ConditionFalse)
 		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	configError := c.deleteOldMigratedSecrets(ctx, syncCtx, c.provider.EncryptedGRs())
 	if configError != nil {
-		degradedCondition.Status = operatorv1.ConditionTrue
-		degradedCondition.Reason = "Error"
-		degradedCondition.Message = configError.Error()
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Error").
+			WithMessage(configError.Error())
+	} else {
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionFalse)
 	}
 	return configError
 }

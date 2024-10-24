@@ -91,6 +91,7 @@ func NewControllers(
 				eventRecorder,
 			),
 			controllers.NewPruneController(
+				component,
 				provider,
 				deployer,
 				encryptionEnabledChecker.PreconditionFulfilled,
@@ -115,6 +116,7 @@ func NewControllers(
 				eventRecorder,
 			),
 			controllers.NewConditionController(
+				component,
 				provider,
 				deployer,
 				encryptionEnabledChecker.PreconditionFulfilled,

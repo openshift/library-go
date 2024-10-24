@@ -20,6 +20,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
@@ -28,7 +29,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -55,8 +55,8 @@ const (
 //     encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
 //     current write-key secrets.
 type migrationController struct {
-	component string
-	name      string
+	instanceName           string
+	controllerInstanceName string
 
 	operatorClient operatorv1helpers.OperatorClient
 	secretClient   corev1client.SecretsGetter
@@ -71,7 +71,7 @@ type migrationController struct {
 }
 
 func NewMigrationController(
-	component string,
+	instanceName string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -84,9 +84,9 @@ func NewMigrationController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &migrationController{
-		component:      component,
-		name:           "EncryptionMigrationController",
-		operatorClient: operatorClient,
+		instanceName:           instanceName,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionMigration"),
+		operatorClient:         operatorClient,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -103,24 +103,28 @@ func NewMigrationController(
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(
-		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
+		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-migration-controller"),
 	)
 }
 
 func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
-	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerDegraded", Status: operatorv1.ConditionFalse}
-	progressingCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerProgressing", Status: operatorv1.ConditionFalse}
+	// Status for these conditions is left out to make sure it's correctly set in every branch
+	degradedCondition := applyoperatorv1.OperatorCondition().
+		WithType("EncryptionMigrationControllerDegraded")
+	progressingCondition := applyoperatorv1.OperatorCondition().
+		WithType("EncryptionMigrationControllerProgressing")
+
 	defer func() {
-		if degradedCondition == nil && progressingCondition == nil {
+		if degradedCondition == nil || progressingCondition == nil {
 			return
 		}
-		conditions := []v1helpers.UpdateStatusFunc{
-			v1helpers.UpdateConditionFn(*degradedCondition),
-			v1helpers.UpdateConditionFn(*progressingCondition),
-		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, conditions...); updateError != nil {
-			err = updateError
+		status := applyoperatorv1.OperatorStatus().WithConditions(
+			degradedCondition,
+			progressingCondition,
+		)
+		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
+			err = applyError
 		}
 	}()
 
@@ -128,21 +132,36 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 		if err != nil {
 			degradedCondition = nil
 			progressingCondition = nil
+		} else {
+			degradedCondition = degradedCondition.
+				WithStatus(operatorv1.ConditionFalse)
+			progressingCondition = progressingCondition.
+				WithStatus(operatorv1.ConditionFalse)
 		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	migratingResources, migrationError := c.migrateKeysIfNeededAndRevisionStable(ctx, syncCtx, c.provider.EncryptedGRs())
 	if migrationError != nil {
-		degradedCondition.Status = operatorv1.ConditionTrue
-		degradedCondition.Reason = "Error"
-		degradedCondition.Message = migrationError.Error()
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Error").
+			WithMessage(migrationError.Error())
+	} else {
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionFalse)
 	}
+
 	if len(migratingResources) > 0 {
-		progressingCondition.Status = operatorv1.ConditionTrue
-		progressingCondition.Reason = "Migrating"
-		progressingCondition.Message = fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources))
+		progressingCondition = progressingCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Migrating").
+			WithMessage(fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources)))
+	} else {
+		progressingCondition = progressingCondition.
+			WithStatus(operatorv1.ConditionFalse)
 	}
+
 	return migrationError
 }
 
@@ -230,7 +249,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 
 		// update secret annotations
-		oldWriteKey, err := secrets.FromKeyState(c.component, grActualKeys.WriteKey)
+		oldWriteKey, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
 		if err != nil {
 			errs = append(errs, result)
 			continue
