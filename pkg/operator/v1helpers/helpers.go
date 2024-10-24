@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
+	"k8s.io/utils/ptr"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,29 +24,25 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// SetOperandVersion sets the new version and returns the previous value.
-func SetOperandVersion(versions *[]configv1.OperandVersion, operandVersion configv1.OperandVersion) string {
-	if versions == nil {
-		versions = &[]configv1.OperandVersion{}
-	}
-	existingVersion := FindOperandVersion(*versions, operandVersion.Name)
-	if existingVersion == nil {
-		*versions = append(*versions, operandVersion)
-		return ""
-	}
-
-	previous := existingVersion.Version
-	existingVersion.Version = operandVersion.Version
-	return previous
-}
-
-func FindOperandVersion(versions []configv1.OperandVersion, name string) *configv1.OperandVersion {
+func FindOperandVersion(versions []applyconfigv1.OperandVersionApplyConfiguration, name string) *applyconfigv1.OperandVersionApplyConfiguration {
 	if versions == nil {
 		return nil
 	}
 	for i := range versions {
-		if versions[i].Name == name {
+		if ptr.Deref(versions[i].Name, "") == name {
 			return &versions[i]
+		}
+	}
+	return nil
+}
+
+func FindOperandVersionPtr(versions []*applyconfigv1.OperandVersionApplyConfiguration, name string) *applyconfigv1.OperandVersionApplyConfiguration {
+	if versions == nil {
+		return nil
+	}
+	for i := range versions {
+		if ptr.Deref(versions[i].Name, "") == name {
+			return versions[i]
 		}
 	}
 	return nil
