@@ -4,31 +4,29 @@ import (
 	"context"
 	"os"
 	"sort"
+	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	opv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/management"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	core "k8s.io/client-go/testing"
-
-	"testing"
-
 	configv1 "github.com/openshift/api/config/v1"
+	opv1 "github.com/openshift/api/operator/v1"
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	coreinformers "k8s.io/client-go/informers"
 	fakecore "k8s.io/client-go/kubernetes/fake"
+	core "k8s.io/client-go/testing"
 )
 
 const (
@@ -690,6 +688,65 @@ func TestSync(t *testing.T) {
 			sanitizeObjectMeta(expectedMeta)
 			if !equality.Semantic.DeepEqual(actualMeta, expectedMeta) {
 				t.Errorf("Unexpected operator %+v ObjectMeta content:\n%s", operandName, cmp.Diff(expectedMeta, actualMeta))
+			}
+		})
+	}
+}
+
+func TestSyncSetAvailableCondition(t *testing.T) {
+	now := time.Now()
+	oneMinuteAgo := now.Add(-1 * time.Minute)
+	threeMinutesAgo := now.Add(-3 * time.Minute)
+
+	tests := []struct {
+		name       string
+		deployment *appsv1.Deployment
+		conditions []opv1.OperatorCondition
+		expected   *applyoperatorv1.OperatorConditionApplyConfiguration
+	}{
+		{
+			name:       "DeploymentDelayNotTolerated",
+			deployment: makeDeployment(withDeploymentReplicas(1), withDeploymentStatus(0, 0, 0)),
+			conditions: []opv1.OperatorCondition{
+				{
+					Type:               opv1.OperatorStatusTypeAvailable,
+					Status:             opv1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(threeMinutesAgo),
+				},
+			},
+			expected: applyoperatorv1.OperatorCondition().
+				WithType(opv1.OperatorStatusTypeAvailable).
+				WithStatus(opv1.ConditionFalse).
+				WithReason("Deploying").
+				WithMessage("Waiting for Deployment"),
+		},
+		{
+			name:       "DeploymentDelayTolerated",
+			deployment: makeDeployment(withDeploymentReplicas(1), withDeploymentStatus(0, 0, 0)),
+			conditions: []opv1.OperatorCondition{
+				{
+					Type:               opv1.OperatorStatusTypeAvailable,
+					Status:             opv1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(oneMinuteAgo),
+				},
+			},
+			expected: applyoperatorv1.OperatorCondition().
+				WithType(opv1.OperatorStatusTypeAvailable).
+				WithStatus(opv1.ConditionTrue).
+				WithLastTransitionTime(metav1.NewTime(oneMinuteAgo)).
+				WithReason("").
+				WithMessage(""),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &DeploymentController{
+				availabilityTolerance: 2 * time.Minute,
+				conditions:            []string{opv1.OperatorStatusTypeAvailable},
+			}
+			actual := c.syncSetAvailableCondition(tc.conditions, tc.deployment, now)
+			if !cmp.Equal(actual, tc.expected) {
+				t.Fatal(cmp.Diff(tc.expected, actual))
 			}
 		})
 	}

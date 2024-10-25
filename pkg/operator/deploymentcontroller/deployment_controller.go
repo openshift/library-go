@@ -68,6 +68,11 @@ type DeploymentController struct {
 	// fails indicating the ordinal position of the failed function.
 	// Also, in that scenario the Degraded status is set to True.
 	optionalDeploymentHooks []DeploymentHookFunc
+	// availabilityTolerance indicates how long the deployment can be progressing
+	// before we set the condition Available=False. This is useful for deployments of
+	// components that are not highly-available that might not want to indicate
+	// Available=False while the deployment is progressing.
+	availabilityTolerance time.Duration
 	// errors contains any errors that occur during the configuration
 	// and setup of the DeploymentController.
 	errors []error
@@ -177,6 +182,15 @@ func (c *DeploymentController) WithConditions(conditions ...string) *DeploymentC
 	return c
 }
 
+// WithAvailabilityTolerance indicates how long the deployment can be progressing
+// before we set the condition Available=False. This is useful for deployments of
+// components that are not highly-available that might not want to indicate
+// Available=False while the deployment is progressing.
+func (c *DeploymentController) WithAvailabilityTolerance(tolerance time.Duration) *DeploymentController {
+	c.availabilityTolerance = tolerance
+	return c
+}
+
 // ToController converts the DeploymentController into a factory.Controller.
 // It aggregates and returns all errors reported during the builder phase.
 func (c *DeploymentController) ToController() (factory.Controller, error) {
@@ -268,19 +282,7 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		})
 
 	// Set Available condition
-	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
-		availableCondition := applyoperatorv1.
-			OperatorCondition().WithType(c.instanceName + opv1.OperatorStatusTypeAvailable)
-		if deployment.Status.AvailableReplicas > 0 {
-			availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
-		} else {
-			availableCondition = availableCondition.
-				WithStatus(opv1.ConditionFalse).
-				WithMessage("Waiting for Deployment").
-				WithReason("Deploying")
-		}
-		status = status.WithConditions(availableCondition)
-	}
+	status.WithConditions(c.syncSetAvailableCondition(opStatus.Conditions, deployment, time.Now()))
 
 	// Set Progressing condition
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
@@ -301,6 +303,30 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		c.controllerInstanceName,
 		status,
 	)
+}
+
+func (c *DeploymentController) syncSetAvailableCondition(conditions []opv1.OperatorCondition, deployment *appsv1.Deployment, now time.Time) *applyoperatorv1.OperatorConditionApplyConfiguration {
+	var availableCondition *applyoperatorv1.OperatorConditionApplyConfiguration
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
+		availableCondition = applyoperatorv1.OperatorCondition().WithType(c.instanceName + opv1.OperatorStatusTypeAvailable)
+		previous := v1helpers.FindOperatorCondition(conditions, opv1.OperatorStatusTypeAvailable)
+		switch {
+		case deployment.Status.AvailableReplicas > 0:
+			availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
+		case previous != nil && previous.Status == opv1.ConditionTrue && now.Before(previous.LastTransitionTime.Add(c.availabilityTolerance)):
+			availableCondition = availableCondition.
+				WithStatus(previous.Status).
+				WithLastTransitionTime(previous.LastTransitionTime).
+				WithReason(previous.Reason).
+				WithMessage(previous.Message)
+		default:
+			availableCondition = availableCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithMessage("Waiting for Deployment").
+				WithReason("Deploying")
+		}
+	}
+	return availableCondition
 }
 
 func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
