@@ -185,6 +185,7 @@ func TestPruneController(t *testing.T) {
 			provider := newTestProvider(scenario.targetGRs)
 
 			target := NewPruneController(
+				"EncryptionPruneController",
 				provider,
 				deployer,
 				alwaysFulfilledPreconditions,

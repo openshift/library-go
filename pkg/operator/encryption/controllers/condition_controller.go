@@ -13,6 +13,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -24,7 +25,8 @@ import (
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
 // fully migrated read-key in the current config, and no later key is of identity type.
 type conditionController struct {
-	operatorClient operatorv1helpers.OperatorClient
+	controllerInstanceName string
+	operatorClient         operatorv1helpers.OperatorClient
 
 	encryptionSecretSelector metav1.ListOptions
 
@@ -35,6 +37,7 @@ type conditionController struct {
 }
 
 func NewConditionController(
+	instanceName string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -46,7 +49,8 @@ func NewConditionController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &conditionController{
-		operatorClient: operatorClient,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionCondition"),
+		operatorClient:         operatorClient,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
@@ -63,25 +67,29 @@ func NewConditionController(
 	).ResyncEvery(time.Minute).
 		WithSync(c.sync).
 		ToController(
-			"EncryptionConditionController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			c.controllerInstanceName,
 			eventRecorder.WithComponentSuffix("encryption-condition-controller"),
 		)
 }
 
 func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
-	cond := &operatorv1.OperatorCondition{Type: "Encrypted", Status: operatorv1.ConditionFalse}
+	// Status for this condition is left out to make sure it's correctly set in every branch
+	cond := applyoperatorv1.OperatorCondition().WithType("Encrypted")
 	defer func() {
 		if cond == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*cond)); updateError != nil {
-			err = updateError
+		status := applyoperatorv1.OperatorStatus().WithConditions(cond)
+		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
+			err = applyError
 		}
 	}()
 
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		if err != nil {
 			cond = nil
+		} else {
+			cond = cond.WithStatus(operatorv1.ConditionFalse)
 		}
 		return err // we will get re-kicked when the operator status updates
 	}
@@ -95,13 +103,16 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 	}
 	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
 
-	cond.Status = operatorv1.ConditionTrue
-	cond.Reason = "EncryptionCompleted"
-	cond.Message = fmt.Sprintf("All resources encrypted: %s", grString(encryptedGRs))
+	cond = cond.
+		WithStatus(operatorv1.ConditionTrue).
+		WithReason("EncryptionCompleted").
+		WithMessage(fmt.Sprintf("All resources encrypted: %s", grString(encryptedGRs)))
+
 	if len(foundSecrets) == 0 {
-		cond.Status = operatorv1.ConditionFalse
-		cond.Reason = "EncryptionDisabled"
-		cond.Message = "Encryption is not enabled"
+		cond = cond.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("EncryptionDisabled").
+			WithMessage("Encryption is not enabled")
 	} else {
 		// check for identity key in desired state first. This will make us catch upcoming decryption early before
 		// it settles into the current config.
@@ -111,38 +122,44 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 			}
 
 			if allMigrated(encryptedGRs, s.WriteKey.Migrated.Resources) {
-				cond.Status = operatorv1.ConditionFalse
-				cond.Reason = "DecryptionCompleted"
-				cond.Message = "Encryption mode set to identity and everything is decrypted"
+				cond = cond.
+					WithStatus(operatorv1.ConditionFalse).
+					WithReason("DecryptionCompleted").
+					WithMessage("Encryption mode set to identity and everything is decrypted")
 			} else {
-				cond.Status = operatorv1.ConditionFalse
-				cond.Reason = "DecryptionInProgress"
-				cond.Message = "Encryption mode set to identity and decryption is not finished"
+				cond = cond.
+					WithStatus(operatorv1.ConditionFalse).
+					WithReason("DecryptionInProgress").
+					WithMessage("Encryption mode set to identity and decryption is not finished")
 			}
 			break
 		}
 	}
-	if cond.Status == operatorv1.ConditionTrue {
+
+	if *cond.Status == operatorv1.ConditionTrue {
 		// now that the desired state look like it won't lead to identity as write-key, test the current state
 	NextResource:
 		for _, gr := range encryptedGRs {
 			s, ok := currentState[gr]
 			if !ok {
-				cond.Status = operatorv1.ConditionFalse
-				cond.Reason = "EncryptionInProgress"
-				cond.Message = fmt.Sprintf("Resource %s is not encrypted", gr.String())
+				cond = cond.
+					WithStatus(operatorv1.ConditionFalse).
+					WithReason("EncryptionInProgress").
+					WithMessage(fmt.Sprintf("Resource %s is not encrypted", gr.String()))
 				break NextResource
 			}
 
 			if s.WriteKey.Mode == state.Identity {
 				if allMigrated(encryptedGRs, s.WriteKey.Migrated.Resources) {
-					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "DecryptionCompleted"
-					cond.Message = "Encryption mode set to identity and everything is decrypted"
+					cond = cond.
+						WithStatus(operatorv1.ConditionFalse).
+						WithReason("DecryptionCompleted").
+						WithMessage("Encryption mode set to identity and everything is decrypted")
 				} else {
-					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "DecryptionInProgress"
-					cond.Message = "Encryption mode set to identity and decryption is not finished"
+					cond = cond.
+						WithStatus(operatorv1.ConditionFalse).
+						WithReason("DecryptionInProgress").
+						WithMessage("Encryption mode set to identity and decryption is not finished")
 				}
 				break
 			}
@@ -151,9 +168,10 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 			// means migration is ongoing. :
 			for _, rk := range s.ReadKeys {
 				if rk.Mode == state.Identity {
-					cond.Status = operatorv1.ConditionFalse
-					cond.Reason = "EncryptionInProgress"
-					cond.Message = "Encryption is ongoing"
+					cond = cond.
+						WithStatus(operatorv1.ConditionFalse).
+						WithReason("EncryptionInProgress").
+						WithMessage("Encryption is ongoing")
 					break NextResource
 				}
 				if migratedSet(rk.Migrated.Resources).Has(gr.String()) {
@@ -161,9 +179,10 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 				}
 			}
 
-			cond.Status = operatorv1.ConditionFalse
-			cond.Reason = "EncryptionInProgress"
-			cond.Message = fmt.Sprintf("Resource %s is being encrypted", gr.String())
+			cond = cond.
+				WithStatus(operatorv1.ConditionFalse).
+				WithReason("EncryptionInProgress").
+				WithMessage(fmt.Sprintf("Resource %s is being encrypted", gr.String()))
 			break
 		}
 	}

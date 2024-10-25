@@ -105,7 +105,7 @@ func NewAPIServerControllerSet(
 // WithConfigUpgradableController adds a controller for the operator to check for presence of
 // unsupported configuration and to set the Upgradable condition to false if it finds any
 func (cs *APIServerControllerSet) WithConfigUpgradableController() *APIServerControllerSet {
-	cs.configUpgradableController.controller = unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(cs.operatorClient, cs.eventRecorder)
+	cs.configUpgradableController.controller = unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(cs.name, cs.operatorClient, cs.eventRecorder)
 	return cs
 }
 
