@@ -6,6 +6,7 @@ import (
 )
 
 const DeletionNameAnnotation = "operator.openshift.io/deletion-name"
+const ControllerNameAnnotation = "operator.openshift.io/controller-name"
 
 type Action string
 

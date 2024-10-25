@@ -1,0 +1,10 @@
+apiVersion: config.openshift.io/v1
+kind: FeatureGate
+metadata:
+  annotations:
+    operator.openshift.io/controller-name: fooController
+  creationTimestamp: null
+  name: new-item
+spec: {}
+status:
+  featureGates: null
