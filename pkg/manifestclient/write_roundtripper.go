@@ -149,12 +149,10 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	}
 	if action == ActionDelete {
 		// do this so that when we try to issue deletes later, we'll have the name we need to use.
-		annotations := bodyObj.(*unstructured.Unstructured).GetAnnotations()
-		if annotations == nil {
-			annotations = map[string]string{}
-		}
-		annotations[DeletionNameAnnotation] = metadataName
-		bodyObj.(*unstructured.Unstructured).SetAnnotations(annotations)
+		setAnnotationFor(bodyObj.(*unstructured.Unstructured), DeletionNameAnnotation, metadataName)
+	}
+	if controllerName := ControllerNameFromContext(req.Context()); len(controllerName) > 0 {
+		setAnnotationFor(bodyObj.(*unstructured.Unstructured), ControllerNameAnnotation, controllerName)
 	}
 
 	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
@@ -202,4 +200,17 @@ func (mrt *writeTrackingRoundTripper) GetMutations() *AllActionsTracker[TrackedS
 	defer mrt.lock.Unlock()
 
 	return mrt.actionTracker.DeepCopy()
+}
+
+func setAnnotationFor(obj *unstructured.Unstructured, key, value string) {
+	if obj == nil {
+		return
+	}
+
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[key] = value
+	obj.SetAnnotations(annotations)
 }
