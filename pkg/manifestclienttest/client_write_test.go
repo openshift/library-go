@@ -92,6 +92,29 @@ func TestSimpleWritesChecks(t *testing.T) {
 			},
 		},
 		{
+			name: "UPDATE-crd-in-dataset-with-controller-name",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				mutationObj := &configv1.FeatureGate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "new-item",
+					},
+				}
+				ctx := manifestclient.WithControllerNameInContext(context.TODO(), "fooController")
+				resultingObj, err := configClient.ConfigV1().FeatureGates().Update(ctx, mutationObj, metav1.UpdateOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+			},
+		},
+		{
 			name: "UPDATE-STATUS-crd-in-dataset-with-options",
 			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
