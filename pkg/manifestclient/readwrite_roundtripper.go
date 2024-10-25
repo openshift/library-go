@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"k8s.io/client-go/rest"
 	"net/http"
 	"os"
 )
 
-// Enter here and call `NewForConfigAndClient(&rest.Config{}, httpClient)`
+// RecommendedRESTConfig is meant to be paired with the HTTPClients below
+func RecommendedRESTConfig() *rest.Config {
+	return &rest.Config{
+		QPS:   1000,
+		Burst: 10000,
+	}
+}
+
+// Enter here and call `NewForConfigAndClient(manifestclient.RecommendedRESTConfig(), httpClient)`
 func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
 	mutationTrackingRoundTripper := newReadWriteRoundTripper(os.DirFS(mustGatherDir))
 	return &mutationTrackingClient{
@@ -20,7 +29,7 @@ func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
 	}
 }
 
-// Enter here and call `NewForConfigAndClient(&rest.Config{}, httpClient)`
+// Enter here and call `NewForConfigAndClient(manifestclient.RecommendedRESTConfig(), httpClient)`
 func NewTestingHTTPClient(embedFS fs.FS) MutationTrackingClient {
 	mutationTrackingRoundTripper := newReadWriteRoundTripper(embedFS)
 	return &mutationTrackingClient{
