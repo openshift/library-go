@@ -539,3 +539,39 @@ func TestEmptyContent(t *testing.T) {
 		})
 	}
 }
+
+func TestNoNamespacesContent(t *testing.T) {
+	tests := []struct {
+		name   string
+		testFn func(*testing.T, *http.Client)
+	}{
+		{
+			name: "LIST-cluster-scoped-resource-with-single-item",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				featureGatesCluster, err := configClient.ConfigV1().FeatureGates().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(featureGatesCluster.Items) != 1 {
+					t.Fatal(spew.Sdump(featureGatesCluster))
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			embeddedReadFS, err := fs.Sub(packageTestData, "testdata/no-namespaces")
+			if err != nil {
+				t.Fatal(err)
+			}
+			testClient := manifestclient.NewTestingHTTPClient(embeddedReadFS)
+
+			test.testFn(t, testClient.GetHTTPClient())
+		})
+	}
+}
