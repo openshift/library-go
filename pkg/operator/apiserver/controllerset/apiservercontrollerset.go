@@ -44,26 +44,23 @@ import (
 )
 
 type preparedAPIServerControllerSet struct {
-	controllers []controller
+	controllers []factory.Controller
 }
 
 type controllerWrapper struct {
 	emptyAllowed bool
 	// creationError allows for reporting errors that occurred during object creation
 	creationError error
-	controller
+	controller    factory.Controller
 }
 
-type controller interface {
-	Run(ctx context.Context, workers int)
-}
-
-func (cw *controllerWrapper) prepare() (controller, error) {
-	if !cw.emptyAllowed && cw.controller == nil {
-		return nil, fmt.Errorf("missing controller")
-	}
+func (cw *controllerWrapper) prepare() (factory.Controller, error) {
 	if cw.creationError != nil {
 		return nil, cw.creationError
+	}
+
+	if !cw.emptyAllowed && cw.controller == nil {
+		return nil, fmt.Errorf("missing controller")
 	}
 
 	return cw.controller, nil
@@ -429,22 +426,31 @@ func (cs *APIServerControllerSet) WithoutAuditPolicyController() *APIServerContr
 }
 
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
-	prepared := []controller{}
+	prepared := []factory.Controller{}
 	errs := []error{}
 
-	for name, cw := range map[string]controllerWrapper{
+	controllerWrapperMap := map[string]controllerWrapper{
 		"apiServiceController":            cs.apiServiceController,
 		"auditPolicyController":           cs.auditPolicyController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
-		"encryptionControllers":           cs.encryptionControllers.build(),
 		"finalizerController":             cs.finalizerController,
 		"logLevelController":              cs.logLevelController,
 		"pruneController":                 cs.pruneController,
 		"revisionController":              cs.revisionController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
-	} {
+	}
+
+	for _, encryptionControllerWrapper := range cs.encryptionControllers.build() {
+		if _, ok := controllerWrapperMap[encryptionControllerWrapper.controller.Name()]; ok {
+			errs = append(errs, fmt.Errorf("encryption controller with name: %s already registered", encryptionControllerWrapper.controller.Name()))
+			continue
+		}
+		controllerWrapperMap[encryptionControllerWrapper.controller.Name()] = encryptionControllerWrapper
+	}
+
+	for name, cw := range controllerWrapperMap {
 		c, err := cw.prepare()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %v", name, err))
@@ -462,6 +468,10 @@ func (cs *preparedAPIServerControllerSet) Run(ctx context.Context) {
 	for i := range cs.controllers {
 		go cs.controllers[i].Run(ctx, 1)
 	}
+}
+
+func (cs *preparedAPIServerControllerSet) Controllers() []factory.Controller {
+	return cs.controllers
 }
 
 type encryptionControllerBuilder struct {
@@ -483,11 +493,12 @@ type encryptionControllerBuilder struct {
 	unsupportedConfigPrefix []string
 }
 
-func (e *encryptionControllerBuilder) build() controllerWrapper {
+func (e *encryptionControllerBuilder) build() []controllerWrapper {
 	if e.emptyAllowed {
-		return e.controllerWrapper
+		return []controllerWrapper{e.controllerWrapper}
 	}
-	e.controllerWrapper.controller, e.controllerWrapper.creationError = encryption.NewControllers(
+
+	controllers, err := encryption.NewControllers(
 		e.component,
 		e.unsupportedConfigPrefix,
 		e.provider,
@@ -501,6 +512,15 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 		e.eventRecorder,
 		e.resourceSyncer,
 	)
+	if err != nil {
+		e.creationError = err
+		return []controllerWrapper{e.controllerWrapper}
+	}
 
-	return e.controllerWrapper
+	controllerWrappers := []controllerWrapper{}
+	for _, controller := range controllers {
+		cw := controllerWrapper{controller: controller}
+		controllerWrappers = append(controllerWrappers, cw)
+	}
+	return controllerWrappers
 }
