@@ -104,7 +104,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 						Name: "new-item",
 					},
 				}
-				ctx := manifestclient.WithControllerNameInContext(context.TODO(), "fooController")
+				ctx := manifestclient.WithControllerInstanceNameFromContext(context.TODO(), "fooController")
 				resultingObj, err := configClient.ConfigV1().FeatureGates().Update(ctx, mutationObj, metav1.UpdateOptions{})
 				if err != nil {
 					t.Fatal(err)

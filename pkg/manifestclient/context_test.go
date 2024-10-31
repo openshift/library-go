@@ -28,8 +28,8 @@ func TestWithControllerNameInContext(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			ctx := WithControllerNameInContext(scenario.ctx, scenario.controllerNameToSet)
-			retrievedControllerName := ControllerNameFromContext(ctx)
+			ctx := WithControllerInstanceNameFromContext(scenario.ctx, scenario.controllerNameToSet)
+			retrievedControllerName := ControllerInstanceNameFromContext(ctx)
 			if retrievedControllerName != scenario.expectedControllerName {
 				t.Errorf("expected controller name: %q, got: %q", scenario.expectedControllerName, retrievedControllerName)
 			}
@@ -39,7 +39,7 @@ func TestWithControllerNameInContext(t *testing.T) {
 
 func TestControllerNameFromContext(t *testing.T) {
 	ctx := context.Background()
-	retrievedControllerName := ControllerNameFromContext(ctx)
+	retrievedControllerName := ControllerInstanceNameFromContext(ctx)
 	if len(retrievedControllerName) != 0 {
 		t.Errorf("unexpected controller name: %q", retrievedControllerName)
 	}

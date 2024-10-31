@@ -2,7 +2,7 @@ apiVersion: config.openshift.io/v1
 kind: FeatureGate
 metadata:
   annotations:
-    operator.openshift.io/controller-name: fooController
+    synthetic.mom.openshift.io/controller-instance-name: fooController
   creationTimestamp: null
   name: new-item
 spec: {}

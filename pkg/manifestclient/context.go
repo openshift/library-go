@@ -8,11 +8,11 @@ type ctxKey struct{}
 
 var controllerNameCtxKey = ctxKey{}
 
-func WithControllerNameInContext(ctx context.Context, name string) context.Context {
+func WithControllerInstanceNameFromContext(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, controllerNameCtxKey, name)
 }
 
-func ControllerNameFromContext(ctx context.Context) string {
+func ControllerInstanceNameFromContext(ctx context.Context) string {
 	val, _ := ctx.Value(controllerNameCtxKey).(string)
 	return val
 }
