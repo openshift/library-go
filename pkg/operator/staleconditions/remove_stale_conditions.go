@@ -13,19 +13,19 @@ import (
 
 type RemoveStaleConditionsController struct {
 	controllerInstanceName string
-	conditions             []string
+	conditionTypesToRemove []string
 	operatorClient         v1helpers.OperatorClient
 }
 
 func NewRemoveStaleConditionsController(
 	instanceName string,
-	conditions []string,
+	conditionTypes []string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &RemoveStaleConditionsController{
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "RemoveStaleConditions"),
-		conditions:             conditions,
+		conditionTypesToRemove: conditionTypes,
 		operatorClient:         operatorClient,
 	}
 	return factory.New().
@@ -47,8 +47,8 @@ func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext f
 	var removedCount int
 	jsonPatch := jsonpatch.New()
 	for i, existingCondition := range operatorStatus.Conditions {
-		for _, conditionToRemove := range c.conditions {
-			if existingCondition.Type != conditionToRemove {
+		for _, conditionTypeToRemove := range c.conditionTypesToRemove {
+			if existingCondition.Type != conditionTypeToRemove {
 				continue
 			}
 			removeAtIndex := i
@@ -57,7 +57,7 @@ func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext f
 			}
 			jsonPatch.WithRemove(
 				fmt.Sprintf("/status/conditions/%d", removeAtIndex),
-				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionToRemove),
+				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionTypeToRemove),
 			)
 			removedCount++
 		}
