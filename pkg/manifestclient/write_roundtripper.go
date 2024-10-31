@@ -151,8 +151,8 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		// do this so that when we try to issue deletes later, we'll have the name we need to use.
 		setAnnotationFor(bodyObj.(*unstructured.Unstructured), DeletionNameAnnotation, metadataName)
 	}
-	if controllerName := ControllerNameFromContext(req.Context()); len(controllerName) > 0 {
-		setAnnotationFor(bodyObj.(*unstructured.Unstructured), ControllerNameAnnotation, controllerName)
+	if controllerName := ControllerInstanceNameFromContext(req.Context()); len(controllerName) > 0 {
+		setAnnotationFor(bodyObj.(*unstructured.Unstructured), SyntheticControllerInstanceNameAnnotation, controllerName)
 	}
 
 	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
