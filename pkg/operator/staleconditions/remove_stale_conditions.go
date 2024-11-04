@@ -2,50 +2,70 @@ package staleconditions
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
-
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type RemoveStaleConditionsController struct {
-	conditions     []string
-	operatorClient v1helpers.OperatorClient
+	controllerInstanceName string
+	conditionTypesToRemove []string
+	operatorClient         v1helpers.OperatorClient
 }
 
 func NewRemoveStaleConditionsController(
-	conditions []string,
+	instanceName string,
+	conditionTypes []string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &RemoveStaleConditionsController{
-		conditions:     conditions,
-		operatorClient: operatorClient,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "RemoveStaleConditions"),
+		conditionTypesToRemove: conditionTypes,
+		operatorClient:         operatorClient,
 	}
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(c.sync).
 		WithInformers(operatorClient.Informer()).
 		ToController(
-			"RemoveStaleConditionsController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			c.controllerInstanceName,
 			eventRecorder.WithComponentSuffix("remove-stale-conditions"),
 		)
 }
 
 func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	removeStaleConditionsFn := func(status *operatorv1.OperatorStatus) error {
-		for _, condition := range c.conditions {
-			v1helpers.RemoveOperatorCondition(&status.Conditions, condition)
-		}
-		return nil
-	}
-
-	if _, _, err := v1helpers.UpdateStatus(ctx, c.operatorClient, removeStaleConditionsFn); err != nil {
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
 		return err
 	}
 
-	return nil
+	var removedCount int
+	jsonPatch := jsonpatch.New()
+	for i, existingCondition := range operatorStatus.Conditions {
+		for _, conditionTypeToRemove := range c.conditionTypesToRemove {
+			if existingCondition.Type != conditionTypeToRemove {
+				continue
+			}
+			removeAtIndex := i
+			if !jsonPatch.IsEmpty() {
+				removeAtIndex = removeAtIndex - removedCount
+			}
+			jsonPatch.WithRemove(
+				fmt.Sprintf("/status/conditions/%d", removeAtIndex),
+				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionTypeToRemove),
+			)
+			removedCount++
+		}
+	}
+
+	if jsonPatch.IsEmpty() {
+		return nil
+	}
+
+	return c.operatorClient.PatchOperatorStatus(ctx, jsonPatch)
 }
