@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -22,10 +23,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 )
 
-type runner interface {
-	Run(ctx context.Context, workers int)
-}
-
 func NewControllers(
 	component string,
 	unsupportedConfigPrefix []string,
@@ -39,7 +36,7 @@ func NewControllers(
 	secretsClient corev1.SecretsGetter,
 	eventRecorder events.Recorder,
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
-) (*Controllers, error) {
+) (Controllers, error) {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
 	// this is fine in terms of performance since these controllers will be idle most of the time
@@ -62,81 +59,77 @@ func NewControllers(
 		}
 	}
 
-	return &Controllers{
-		controllers: []runner{
-			controllers.NewKeyController(
-				component,
-				unsupportedConfigPrefix,
-				provider,
-				deployer,
-				encryptionEnabledChecker.PreconditionFulfilled,
-				operatorClient,
-				apiServerClient,
-				apiServerInformer,
-				kubeInformersForNamespaces,
-				secretsClient,
-				encryptionSecretSelector,
-				eventRecorder,
-			),
-			controllers.NewStateController(
-				component,
-				provider,
-				deployer,
-				encryptionEnabledChecker.PreconditionFulfilled,
-				operatorClient,
-				apiServerInformer,
-				kubeInformersForNamespaces,
-				secretsClient,
-				encryptionSecretSelector,
-				eventRecorder,
-			),
-			controllers.NewPruneController(
-				component,
-				provider,
-				deployer,
-				encryptionEnabledChecker.PreconditionFulfilled,
-				operatorClient,
-				apiServerInformer,
-				kubeInformersForNamespaces,
-				secretsClient,
-				encryptionSecretSelector,
-				eventRecorder,
-			),
-			controllers.NewMigrationController(
-				component,
-				provider,
-				deployer,
-				encryptionEnabledChecker.PreconditionFulfilled,
-				migrator,
-				operatorClient,
-				apiServerInformer,
-				kubeInformersForNamespaces,
-				secretsClient,
-				encryptionSecretSelector,
-				eventRecorder,
-			),
-			controllers.NewConditionController(
-				component,
-				provider,
-				deployer,
-				encryptionEnabledChecker.PreconditionFulfilled,
-				operatorClient,
-				apiServerInformer,
-				kubeInformersForNamespaces,
-				secretsClient,
-				encryptionSecretSelector,
-				eventRecorder,
-			),
-		},
+	return []factory.Controller{
+		controllers.NewKeyController(
+			component,
+			unsupportedConfigPrefix,
+			provider,
+			deployer,
+			encryptionEnabledChecker.PreconditionFulfilled,
+			operatorClient,
+			apiServerClient,
+			apiServerInformer,
+			kubeInformersForNamespaces,
+			secretsClient,
+			encryptionSecretSelector,
+			eventRecorder,
+		),
+		controllers.NewStateController(
+			component,
+			provider,
+			deployer,
+			encryptionEnabledChecker.PreconditionFulfilled,
+			operatorClient,
+			apiServerInformer,
+			kubeInformersForNamespaces,
+			secretsClient,
+			encryptionSecretSelector,
+			eventRecorder,
+		),
+		controllers.NewPruneController(
+			component,
+			provider,
+			deployer,
+			encryptionEnabledChecker.PreconditionFulfilled,
+			operatorClient,
+			apiServerInformer,
+			kubeInformersForNamespaces,
+			secretsClient,
+			encryptionSecretSelector,
+			eventRecorder,
+		),
+		controllers.NewMigrationController(
+			component,
+			provider,
+			deployer,
+			encryptionEnabledChecker.PreconditionFulfilled,
+			migrator,
+			operatorClient,
+			apiServerInformer,
+			kubeInformersForNamespaces,
+			secretsClient,
+			encryptionSecretSelector,
+			eventRecorder,
+		),
+		controllers.NewConditionController(
+			component,
+			provider,
+			deployer,
+			encryptionEnabledChecker.PreconditionFulfilled,
+			operatorClient,
+			apiServerInformer,
+			kubeInformersForNamespaces,
+			secretsClient,
+			encryptionSecretSelector,
+			eventRecorder,
+		),
 	}, nil
 }
 
-type Controllers struct {
-	controllers []runner
-}
+type Controllers []factory.Controller
 
-func (c *Controllers) Run(ctx context.Context, workers int) {
-	for _, controller := range c.controllers {
+func (c Controllers) Run(ctx context.Context, workers int) {
+	for _, controller := range c {
 		con := controller // capture range variable
 		go con.Run(ctx, workers)
 	}
