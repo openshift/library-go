@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
@@ -74,6 +75,10 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 		if retList.GroupVersionKind() != kind.listKind {
 			return nil, fmt.Errorf("inconsistent list kind: got %v, expected %v", retList.GroupVersionKind(), kind.listKind)
 		}
+		retList, err := filterByLabelSelector(retList, requestInfo.LabelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter by labelSelector %s: %w", requestInfo.LabelSelector, err)
+		}
 		ret, err := serializeListObjToJSON(retList)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize: %v", err)
@@ -108,6 +113,10 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 	if len(retList.Items) > 0 {
 		if retList.Items[0].GroupVersionKind() != kind.kind {
 			return nil, fmt.Errorf("inconsistent item kind: got %v, expected %v", retList.Items[0].GroupVersionKind(), kind.kind)
+		}
+		retList, err := filterByLabelSelector(retList, requestInfo.LabelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter by labelSelector %s: %w", requestInfo.LabelSelector, err)
 		}
 		ret, err := serializeListObjToJSON(retList)
 		if err != nil {
@@ -269,4 +278,27 @@ func allPossibleNamespaceFiles(sourceFS fs.FS) ([]string, error) {
 	}
 
 	return allPossibleListFileLocations, nil
+}
+
+func filterByLabelSelector(list *unstructured.UnstructuredList, labelSelector string) (*unstructured.UnstructuredList, error) {
+	if labelSelector == "" {
+		return list, nil
+	}
+
+	parsedSelector, err := labels.Parse(labelSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredItems []unstructured.Unstructured
+	for _, item := range list.Items {
+		if parsedSelector.Matches(labels.Set(item.GetLabels())) {
+			filteredItems = append(filteredItems, item)
+		}
+	}
+
+	return &unstructured.UnstructuredList{
+		Object: list.Object,
+		Items:  filteredItems,
+	}, nil
 }
