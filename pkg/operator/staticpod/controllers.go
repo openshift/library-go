@@ -318,6 +318,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	if b.enableStartMonitor != nil {
 		manager.WithController(startupmonitorcondition.New(
+			b.operandName,
 			b.operandNamespace,
 			b.staticPodName,
 			b.staticPodOperatorClient,
