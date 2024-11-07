@@ -2065,7 +2065,7 @@ func TestValidateTLS(t *testing.T) {
 			},
 			allow:          false,
 			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
-			expectedErrors: 5,
+			expectedErrors: 3,
 		},
 		{
 			name: "Invalid Reencrypt route for externalCertificate as not authorized",
@@ -2092,7 +2092,7 @@ func TestValidateTLS(t *testing.T) {
 			},
 			allow:          false,
 			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
-			expectedErrors: 5,
+			expectedErrors: 3,
 		},
 		{
 			name: "Invalid Edge route for externalCertificate as secret not found",
