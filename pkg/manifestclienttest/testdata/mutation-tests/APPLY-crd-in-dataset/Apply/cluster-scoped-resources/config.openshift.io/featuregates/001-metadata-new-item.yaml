@@ -1,0 +1,8 @@
+action: Apply
+generateName: ""
+mame: new-item
+namespace: ""
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

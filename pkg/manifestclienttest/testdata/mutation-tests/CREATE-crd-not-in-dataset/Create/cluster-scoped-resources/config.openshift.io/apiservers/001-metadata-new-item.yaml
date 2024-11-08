@@ -1,0 +1,8 @@
+action: Create
+generateName: ""
+mame: new-item
+namespace: ""
+resourceType:
+  Group: config.openshift.io
+  Resource: apiservers
+  Version: v1
