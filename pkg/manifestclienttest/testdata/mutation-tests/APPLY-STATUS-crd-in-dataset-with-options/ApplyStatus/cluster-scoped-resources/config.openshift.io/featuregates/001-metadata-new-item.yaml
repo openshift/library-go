@@ -1,7 +1,8 @@
 action: ApplyStatus
+controllerInstanceName: ""
+fieldManager: the-client
 generateName: ""
 mame: new-item
-namespace: ""
 resourceType:
   Group: config.openshift.io
   Resource: featuregates
