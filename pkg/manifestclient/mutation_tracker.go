@@ -24,6 +24,8 @@ const (
 
 var (
 	AllActions = sets.New[Action](
+		ActionPatch,
+		ActionPatchStatus,
 		ActionApply,
 		ActionApplyStatus,
 		ActionUpdate,

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -134,16 +135,21 @@ func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename strin
 	}
 
 	// parse to discover bits of the serialized request
-	retObj, _, jsonErr := unstructured.UnstructuredJSONScheme.Decode(bodyContent, nil, &unstructured.Unstructured{})
-	if jsonErr != nil {
-		// try to see if it's yaml
-		jsonString, err := yaml.YAMLToJSON(bodyContent)
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode %q as json: %w", bodyFilename, jsonErr)
-		}
-		retObj, _, err = unstructured.UnstructuredJSONScheme.Decode(jsonString, nil, &unstructured.Unstructured{})
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode %q as yaml: %w", bodyFilename, err)
+	kindType := schema.GroupVersionKind{}
+	actionHasRuntimeObjectBody := action != ActionPatch && action != ActionPatchStatus
+	if actionHasRuntimeObjectBody {
+		retObj, _, jsonErr := unstructured.UnstructuredJSONScheme.Decode(bodyContent, nil, &unstructured.Unstructured{})
+		if jsonErr != nil {
+			// try to see if it's yaml
+			jsonString, err := yaml.YAMLToJSON(bodyContent)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode %q as json: %w", bodyFilename, jsonErr)
+			}
+			retObj, _, err = unstructured.UnstructuredJSONScheme.Decode(jsonString, nil, &unstructured.Unstructured{})
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode %q as yaml: %w", bodyFilename, err)
+			}
+			kindType = retObj.(*unstructured.Unstructured).GroupVersionKind()
 		}
 	}
 
@@ -151,7 +157,7 @@ func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename strin
 		BodyFilename: bodyFilename,
 		SerializedRequest: SerializedRequest{
 			ActionMetadata: *metadataFromFile,
-			KindType:       retObj.(*unstructured.Unstructured).GroupVersionKind(),
+			KindType:       kindType,
 			Body:           bodyContent,
 		},
 	}

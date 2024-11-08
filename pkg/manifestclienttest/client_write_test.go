@@ -3,6 +3,7 @@ package manifestclienttest
 import (
 	"context"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
 
@@ -149,6 +150,44 @@ func TestSimpleWritesChecks(t *testing.T) {
 					Force:        true,
 					FieldManager: "the-client",
 				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+			},
+		},
+		{
+			name: "PATCH-crd-in-dataset",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				ctx := manifestclient.WithControllerInstanceNameFromContext(context.TODO(), "fooController")
+
+				resultingObj, err := configClient.ConfigV1().FeatureGates().Patch(
+					ctx,
+					"instance-name",
+					types.JSONPatchType,
+					[]byte("json-patch"),
+					metav1.PatchOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+
+				resultingObj, err = configClient.ConfigV1().FeatureGates().Patch(
+					ctx,
+					"instance-name",
+					types.JSONPatchType,
+					[]byte("json-patch"),
+					metav1.PatchOptions{},
+					"status")
 				if err != nil {
 					t.Fatal(err)
 				}
