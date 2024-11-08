@@ -217,10 +217,6 @@ func TestSimpleWritesChecks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(testFS)
-					if err != nil {
-						t.Fatal(err)
-					}
 
 					const updateEnvVar = "UPDATE_MUTATION_TEST_DATA"
 					if os.Getenv(updateEnvVar) == "true" {
@@ -231,6 +227,12 @@ func TestSimpleWritesChecks(t *testing.T) {
 						} else {
 							t.Logf("Updated data")
 						}
+						t.Errorf("updated. now re-run your test")
+					}
+
+					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(testFS)
+					if err != nil {
+						t.Fatal(err)
 					}
 
 					if !manifestclient.AreAllSerializedRequestsEquivalent(actualRequests, expectedRequests.AllRequests()) {

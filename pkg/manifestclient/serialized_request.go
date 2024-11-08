@@ -11,13 +11,14 @@ import (
 
 type SerializedRequestish interface {
 	GetSerializedRequest() *SerializedRequest
-	SuggestedFilenames() (string, string)
+	SuggestedFilenames() (string, string, string)
 	DeepCopy() SerializedRequestish
 }
 
 type FileOriginatedSerializedRequest struct {
-	BodyFilename    string
-	OptionsFilename string
+	MetadataFilename string
+	BodyFilename     string
+	OptionsFilename  string
 
 	SerializedRequest SerializedRequest
 }
@@ -29,12 +30,8 @@ type TrackedSerializedRequest struct {
 }
 
 type SerializedRequest struct {
-	Action       Action
-	ResourceType schema.GroupVersionResource
-	KindType     schema.GroupVersionKind
-	Namespace    string
-	Name         string
-	GenerateName string
+	ActionMetadata
+	KindType schema.GroupVersionKind
 
 	Options []byte
 	Body    []byte
@@ -128,6 +125,9 @@ func CompareFileOriginatedSerializedRequest(lhs, rhs *FileOriginatedSerializedRe
 	}
 
 	if cmp := CompareSerializedRequest(&lhs.SerializedRequest, &rhs.SerializedRequest); cmp != 0 {
+		return cmp
+	}
+	if cmp := strings.Compare(lhs.MetadataFilename, rhs.MetadataFilename); cmp != 0 {
 		return cmp
 	}
 	if cmp := strings.Compare(lhs.BodyFilename, rhs.BodyFilename); cmp != 0 {
@@ -233,21 +233,21 @@ func (a SerializedRequest) GetSerializedRequest() *SerializedRequest {
 	return &a
 }
 
-func (a FileOriginatedSerializedRequest) SuggestedFilenames() (string, string) {
-	return a.BodyFilename, a.OptionsFilename
+func (a FileOriginatedSerializedRequest) SuggestedFilenames() (string, string, string) {
+	return a.MetadataFilename, a.BodyFilename, a.OptionsFilename
 }
 
-func (a TrackedSerializedRequest) SuggestedFilenames() (string, string) {
+func (a TrackedSerializedRequest) SuggestedFilenames() (string, string, string) {
 	return suggestedFilenames(a.SerializedRequest, a.RequestNumber)
 }
 
-func (a SerializedRequest) SuggestedFilenames() (string, string) {
+func (a SerializedRequest) SuggestedFilenames() (string, string, string) {
 	// this may very well conflict in some cases. Up to the caller to work out how to fix it.
 	uniqueNumber := 0 // chosen by fair dice roll. guaranteed to be random. :)
 	return suggestedFilenames(a, uniqueNumber)
 }
 
-func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) {
+func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string, string) {
 	groupName := a.ResourceType.Group
 	if len(groupName) == 0 {
 		groupName = "core"
@@ -260,6 +260,15 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) 
 		scopingString = filepath.Join("cluster-scoped-resources")
 	}
 
+	metadataFilename := MakeFilenameGoModSafe(
+		filepath.Join(
+			string(a.Action),
+			scopingString,
+			groupName,
+			a.ResourceType.Resource,
+			fmt.Sprintf("%03d-metadata-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
+		),
+	)
 	bodyFilename := MakeFilenameGoModSafe(
 		filepath.Join(
 			string(a.Action),
@@ -281,11 +290,12 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string) 
 			),
 		)
 	}
-	return bodyFilename, optionsFilename
+	return metadataFilename, bodyFilename, optionsFilename
 }
 
 func (a FileOriginatedSerializedRequest) DeepCopy() SerializedRequestish {
 	return FileOriginatedSerializedRequest{
+		MetadataFilename:  a.MetadataFilename,
 		BodyFilename:      a.BodyFilename,
 		OptionsFilename:   a.OptionsFilename,
 		SerializedRequest: a.SerializedRequest.DeepCopy().(SerializedRequest),
@@ -301,14 +311,16 @@ func (a TrackedSerializedRequest) DeepCopy() SerializedRequestish {
 
 func (a SerializedRequest) DeepCopy() SerializedRequestish {
 	return SerializedRequest{
-		Action:       a.Action,
-		ResourceType: a.ResourceType,
-		KindType:     a.KindType,
-		Namespace:    a.Namespace,
-		Name:         a.Name,
-		GenerateName: a.GenerateName,
-		Options:      bytes.Clone(a.Options),
-		Body:         bytes.Clone(a.Body),
+		ActionMetadata: ActionMetadata{
+			Action:       a.Action,
+			ResourceType: a.ResourceType,
+			Namespace:    a.Namespace,
+			Name:         a.Name,
+			GenerateName: a.GenerateName,
+		},
+		KindType: a.KindType,
+		Options:  bytes.Clone(a.Options),
+		Body:     bytes.Clone(a.Body),
 	}
 }
 
@@ -319,7 +331,7 @@ func (a SerializedRequest) StringID() string {
 func (a SerializedRequest) GetLookupMetadata() ActionMetadata {
 	return ActionMetadata{
 		Action:       a.Action,
-		GVR:          a.ResourceType,
+		ResourceType: a.ResourceType,
 		Namespace:    a.Namespace,
 		Name:         a.Name,
 		GenerateName: a.GenerateName,

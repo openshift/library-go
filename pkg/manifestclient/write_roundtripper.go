@@ -161,14 +161,16 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	}
 
 	serializedRequest := SerializedRequest{
-		Action:       action,
-		ResourceType: gvr,
-		KindType:     bodyObj.GetObjectKind().GroupVersionKind(),
-		Namespace:    requestInfo.Namespace,
-		Name:         metadataName,
-		GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
-		Options:      optionsBytes,
-		Body:         bodyYAMLBytes,
+		ActionMetadata: ActionMetadata{
+			Action:       action,
+			ResourceType: gvr,
+			Namespace:    requestInfo.Namespace,
+			Name:         metadataName,
+			GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
+		},
+		KindType: bodyObj.GetObjectKind().GroupVersionKind(),
+		Options:  optionsBytes,
+		Body:     bodyYAMLBytes,
 	}
 
 	// this lock also protects the access to actionTracker
