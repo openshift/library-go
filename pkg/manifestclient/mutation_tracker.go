@@ -38,9 +38,18 @@ type AllActionsTracker[T SerializedRequestish] struct {
 }
 
 type ActionMetadata struct {
-	Action       Action                      `json:"action"`
+	Action           Action `json:"action"`
+	ResourceMetadata `json:",inline"`
+
+	FieldManager           string `json:"fieldManager,omitempty"`
+	ControllerInstanceName string `json:"controllerInstanceName"`
+}
+
+// ResourceMetadata uniquely identifies an item in the API
+// This is probably shareable across multiple packages.
+type ResourceMetadata struct {
 	ResourceType schema.GroupVersionResource `json:"resourceType"`
-	Namespace    string                      `json:"namespace"`
+	Namespace    string                      `json:"namespace,omitempty"`
 	Name         string                      `json:"mame"`
 	GenerateName string                      `json:"generateName"`
 }

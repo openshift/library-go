@@ -180,6 +180,12 @@ func CompareSerializedRequest(lhs, rhs *SerializedRequest) int {
 	if cmp := strings.Compare(string(lhs.Action), string(rhs.Action)); cmp != 0 {
 		return cmp
 	}
+	if cmp := strings.Compare(lhs.FieldManager, rhs.FieldManager); cmp != 0 {
+		return cmp
+	}
+	if cmp := strings.Compare(lhs.ControllerInstanceName, rhs.ControllerInstanceName); cmp != 0 {
+		return cmp
+	}
 
 	if cmp := strings.Compare(lhs.ResourceType.Group, rhs.ResourceType.Group); cmp != 0 {
 		return cmp
@@ -312,11 +318,15 @@ func (a TrackedSerializedRequest) DeepCopy() SerializedRequestish {
 func (a SerializedRequest) DeepCopy() SerializedRequestish {
 	return SerializedRequest{
 		ActionMetadata: ActionMetadata{
-			Action:       a.Action,
-			ResourceType: a.ResourceType,
-			Namespace:    a.Namespace,
-			Name:         a.Name,
-			GenerateName: a.GenerateName,
+			Action: a.Action,
+			ResourceMetadata: ResourceMetadata{
+				ResourceType: a.ResourceType,
+				Namespace:    a.Namespace,
+				Name:         a.Name,
+				GenerateName: a.GenerateName,
+			},
+			FieldManager:           a.FieldManager,
+			ControllerInstanceName: a.ControllerInstanceName,
 		},
 		KindType: a.KindType,
 		Options:  bytes.Clone(a.Options),
@@ -329,11 +339,5 @@ func (a SerializedRequest) StringID() string {
 }
 
 func (a SerializedRequest) GetLookupMetadata() ActionMetadata {
-	return ActionMetadata{
-		Action:       a.Action,
-		ResourceType: a.ResourceType,
-		Namespace:    a.Namespace,
-		Name:         a.Name,
-		GenerateName: a.GenerateName,
-	}
+	return a.ActionMetadata
 }

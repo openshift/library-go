@@ -147,26 +147,28 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		// in this case, the name isn't in the URL, it's in the body
 		metadataName = bodyObj.(*unstructured.Unstructured).GetName()
 	}
-	if action == ActionDelete {
-		// do this so that when we try to issue deletes later, we'll have the name we need to use.
-		setAnnotationFor(bodyObj.(*unstructured.Unstructured), DeletionNameAnnotation, metadataName)
-	}
-	if controllerName := ControllerInstanceNameFromContext(req.Context()); len(controllerName) > 0 {
-		setAnnotationFor(bodyObj.(*unstructured.Unstructured), SyntheticControllerInstanceNameAnnotation, controllerName)
-	}
 
 	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
 	if err != nil {
 		return nil, fmt.Errorf("unable to encode body: %w", err)
 	}
 
+	fieldManagerName := ""
+	if patchOptions, ok := opts.(*metav1.PatchOptions); ok {
+		fieldManagerName = patchOptions.FieldManager
+	}
+
 	serializedRequest := SerializedRequest{
 		ActionMetadata: ActionMetadata{
-			Action:       action,
-			ResourceType: gvr,
-			Namespace:    requestInfo.Namespace,
-			Name:         metadataName,
-			GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
+			Action: action,
+			ResourceMetadata: ResourceMetadata{
+				ResourceType: gvr,
+				Namespace:    requestInfo.Namespace,
+				Name:         metadataName,
+				GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
+			},
+			FieldManager:           fieldManagerName,
+			ControllerInstanceName: ControllerInstanceNameFromContext(req.Context()),
 		},
 		KindType: bodyObj.GetObjectKind().GroupVersionKind(),
 		Options:  optionsBytes,
