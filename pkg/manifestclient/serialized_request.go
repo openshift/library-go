@@ -180,6 +180,9 @@ func CompareSerializedRequest(lhs, rhs *SerializedRequest) int {
 	if cmp := strings.Compare(string(lhs.Action), string(rhs.Action)); cmp != 0 {
 		return cmp
 	}
+	if cmp := strings.Compare(lhs.PatchType, rhs.PatchType); cmp != 0 {
+		return cmp
+	}
 	if cmp := strings.Compare(lhs.FieldManager, rhs.FieldManager); cmp != 0 {
 		return cmp
 	}
@@ -325,6 +328,7 @@ func (a SerializedRequest) DeepCopy() SerializedRequestish {
 				Name:         a.Name,
 				GenerateName: a.GenerateName,
 			},
+			PatchType:              a.PatchType,
 			FieldManager:           a.FieldManager,
 			ControllerInstanceName: a.ControllerInstanceName,
 		},

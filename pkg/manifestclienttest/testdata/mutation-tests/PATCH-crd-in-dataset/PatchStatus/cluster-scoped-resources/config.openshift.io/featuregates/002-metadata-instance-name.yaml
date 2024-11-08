@@ -1,0 +1,8 @@
+action: PatchStatus
+controllerInstanceName: fooController
+generateName: ""
+mame: instance-name
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

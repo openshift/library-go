@@ -78,6 +78,7 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		return nil, fmt.Errorf("subresource %v is not supported by this implementation", requestInfo.Subresource)
 	}
 
+	patchType := ""
 	var action Action
 	switch {
 	case requestInfo.Verb == "create" && len(requestInfo.Subresource) == 0:
@@ -92,8 +93,10 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		action = ActionApplyStatus
 	case requestInfo.Verb == "patch" && len(requestInfo.Subresource) == 0:
 		action = ActionPatch
+		patchType = req.Header.Get("Content-Type")
 	case requestInfo.Verb == "patch" && requestInfo.Subresource == "status":
 		action = ActionPatchStatus
+		patchType = req.Header.Get("Content-Type")
 	case requestInfo.Verb == "delete" && len(requestInfo.Subresource) == 0:
 		action = ActionDelete
 	default:
@@ -185,6 +188,7 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 				Name:         metadataName,
 				GenerateName: generatedName,
 			},
+			PatchType:              patchType,
 			FieldManager:           fieldManagerName,
 			ControllerInstanceName: ControllerInstanceNameFromContext(req.Context()),
 		},

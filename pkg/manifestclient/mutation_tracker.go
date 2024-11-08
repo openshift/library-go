@@ -43,6 +43,7 @@ type ActionMetadata struct {
 	Action           Action `json:"action"`
 	ResourceMetadata `json:",inline"`
 
+	PatchType              string `json:"patchType,omitempty"`
 	FieldManager           string `json:"fieldManager,omitempty"`
 	ControllerInstanceName string `json:"controllerInstanceName"`
 }
