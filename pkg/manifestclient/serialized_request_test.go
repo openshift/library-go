@@ -24,8 +24,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						OptionsFilename: "foo-options.yaml",
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -37,8 +39,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						RequestNumber: 6,
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -57,8 +61,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						OptionsFilename: "foo-options.yaml",
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar",
+								},
 							},
 							Options: []byte("options!"),
 							Body:    []byte("content"),
@@ -70,8 +76,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						RequestNumber: 6,
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -85,8 +93,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 					OptionsFilename: "foo-options.yaml",
 					SerializedRequest: SerializedRequest{
 						ActionMetadata: ActionMetadata{
-							Namespace: "foo-ns",
-							Name:      "bar",
+							ResourceMetadata: ResourceMetadata{
+								Namespace: "foo-ns",
+								Name:      "bar",
+							},
 						},
 						Options: []byte("options!"),
 						Body:    []byte("content"),
@@ -103,8 +113,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						OptionsFilename: "foo-options.yaml",
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace:    "foo-ns",
-								GenerateName: "bar-",
+								ResourceMetadata: ResourceMetadata{
+									Namespace:    "foo-ns",
+									GenerateName: "bar-",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -116,8 +128,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						RequestNumber: 6,
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -131,8 +145,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 					OptionsFilename: "foo-options.yaml",
 					SerializedRequest: SerializedRequest{
 						ActionMetadata: ActionMetadata{
-							Namespace:    "foo-ns",
-							GenerateName: "bar-",
+							ResourceMetadata: ResourceMetadata{
+								Namespace:    "foo-ns",
+								GenerateName: "bar-",
+							},
 						},
 						Options: nil,
 						Body:    []byte("content"),
@@ -149,9 +165,11 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						OptionsFilename: "foo-options.yaml",
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace:    "foo-ns",
-								Name:         "bar-2", // this happens on updates for instance
-								GenerateName: "bar-",
+								ResourceMetadata: ResourceMetadata{
+									Namespace:    "foo-ns",
+									Name:         "bar-2", // this happens on updates for instance
+									GenerateName: "bar-",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -163,8 +181,10 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 						RequestNumber: 6,
 						SerializedRequest: SerializedRequest{
 							ActionMetadata: ActionMetadata{
-								Namespace: "foo-ns",
-								Name:      "bar-2",
+								ResourceMetadata: ResourceMetadata{
+									Namespace: "foo-ns",
+									Name:      "bar-2",
+								},
 							},
 							Options: nil,
 							Body:    []byte("content"),
@@ -178,9 +198,11 @@ func TestDifferenceOfSerializedRequests(t *testing.T) {
 					OptionsFilename: "foo-options.yaml",
 					SerializedRequest: SerializedRequest{
 						ActionMetadata: ActionMetadata{
-							Namespace:    "foo-ns",
-							Name:         "bar-2", // this happens on updates for instance
-							GenerateName: "bar-",
+							ResourceMetadata: ResourceMetadata{
+								Namespace:    "foo-ns",
+								Name:         "bar-2", // this happens on updates for instance
+								GenerateName: "bar-",
+							},
 						},
 						Options: nil,
 						Body:    []byte("content"),
