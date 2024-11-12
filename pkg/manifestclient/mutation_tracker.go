@@ -12,6 +12,8 @@ type Action string
 
 const (
 	// this is really a subset of patch, but we treat it separately because it is useful to do so
+	ActionPatch        Action = "Patch"
+	ActionPatchStatus  Action = "PatchStatus"
 	ActionApply        Action = "Apply"
 	ActionApplyStatus  Action = "ApplyStatus"
 	ActionUpdate       Action = "Update"
@@ -22,6 +24,8 @@ const (
 
 var (
 	AllActions = sets.New[Action](
+		ActionPatch,
+		ActionPatchStatus,
 		ActionApply,
 		ActionApplyStatus,
 		ActionUpdate,
@@ -36,11 +40,21 @@ type AllActionsTracker[T SerializedRequestish] struct {
 }
 
 type ActionMetadata struct {
-	Action       Action
-	GVR          schema.GroupVersionResource
-	Namespace    string
-	Name         string
-	GenerateName string
+	Action           Action `json:"action"`
+	ResourceMetadata `json:",inline"`
+
+	PatchType              string `json:"patchType,omitempty"`
+	FieldManager           string `json:"fieldManager,omitempty"`
+	ControllerInstanceName string `json:"controllerInstanceName"`
+}
+
+// ResourceMetadata uniquely identifies an item in the API
+// This is probably shareable across multiple packages.
+type ResourceMetadata struct {
+	ResourceType schema.GroupVersionResource `json:"resourceType"`
+	Namespace    string                      `json:"namespace,omitempty"`
+	Name         string                      `json:"mame"`
+	GenerateName string                      `json:"generateName"`
 }
 
 type actionTracker[T SerializedRequestish] struct {

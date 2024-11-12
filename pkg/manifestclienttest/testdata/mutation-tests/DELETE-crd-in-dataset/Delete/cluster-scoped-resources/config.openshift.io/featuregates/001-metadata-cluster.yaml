@@ -1,0 +1,8 @@
+action: Delete
+controllerInstanceName: ""
+generateName: ""
+mame: cluster
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

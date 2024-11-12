@@ -3,6 +3,7 @@ package manifestclienttest
 import (
 	"context"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
 
@@ -158,6 +159,44 @@ func TestSimpleWritesChecks(t *testing.T) {
 			},
 		},
 		{
+			name: "PATCH-crd-in-dataset",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				ctx := manifestclient.WithControllerInstanceNameFromContext(context.TODO(), "fooController")
+
+				resultingObj, err := configClient.ConfigV1().FeatureGates().Patch(
+					ctx,
+					"instance-name",
+					types.JSONPatchType,
+					[]byte("json-patch"),
+					metav1.PatchOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+
+				resultingObj, err = configClient.ConfigV1().FeatureGates().Patch(
+					ctx,
+					"instance-name",
+					types.JSONPatchType,
+					[]byte("json-patch"),
+					metav1.PatchOptions{},
+					"status")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+			},
+		},
+		{
 			name: "APPLY-STATUS-crd-in-dataset-with-options",
 			testFn: func(t *testing.T, httpClient *http.Client) {
 				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
@@ -217,10 +256,6 @@ func TestSimpleWritesChecks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(testFS)
-					if err != nil {
-						t.Fatal(err)
-					}
 
 					const updateEnvVar = "UPDATE_MUTATION_TEST_DATA"
 					if os.Getenv(updateEnvVar) == "true" {
@@ -231,6 +266,12 @@ func TestSimpleWritesChecks(t *testing.T) {
 						} else {
 							t.Logf("Updated data")
 						}
+						t.Errorf("updated. now re-run your test")
+					}
+
+					expectedRequests, err := manifestclient.ReadEmbeddedMutationDirectory(testFS)
+					if err != nil {
+						t.Fatal(err)
 					}
 
 					if !manifestclient.AreAllSerializedRequestsEquivalent(actualRequests, expectedRequests.AllRequests()) {

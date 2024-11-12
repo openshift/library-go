@@ -78,6 +78,7 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		return nil, fmt.Errorf("subresource %v is not supported by this implementation", requestInfo.Subresource)
 	}
 
+	patchType := ""
 	var action Action
 	switch {
 	case requestInfo.Verb == "create" && len(requestInfo.Subresource) == 0:
@@ -90,6 +91,12 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		action = ActionApply
 	case requestInfo.Verb == "patch" && req.Header.Get("Content-Type") == string(types.ApplyPatchType) && requestInfo.Subresource == "status":
 		action = ActionApplyStatus
+	case requestInfo.Verb == "patch" && len(requestInfo.Subresource) == 0:
+		action = ActionPatch
+		patchType = req.Header.Get("Content-Type")
+	case requestInfo.Verb == "patch" && requestInfo.Subresource == "status":
+		action = ActionPatchStatus
+		patchType = req.Header.Get("Content-Type")
 	case requestInfo.Verb == "delete" && len(requestInfo.Subresource) == 0:
 		action = ActionDelete
 	default:
@@ -98,6 +105,8 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 
 	var opts runtime.Object
 	switch action {
+	case ActionPatch, ActionPatchStatus:
+		opts = &metav1.PatchOptions{}
 	case ActionApply, ActionApplyStatus:
 		opts = &metav1.PatchOptions{}
 	case ActionUpdate, ActionUpdateStatus:
@@ -126,15 +135,20 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 			return nil, fmt.Errorf("failed to read body: %w", err)
 		}
 	}
-	bodyObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, bodyContent)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decode body: %w", err)
-	}
-	if requestInfo.Namespace != bodyObj.(*unstructured.Unstructured).GetNamespace() {
-		return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
-	}
-	if action != ActionCreate && action != ActionDelete && requestInfo.Name != bodyObj.(*unstructured.Unstructured).GetName() {
-		return nil, fmt.Errorf("request name %q does not equal body name %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
+
+	var bodyObj runtime.Object
+	actionHasRuntimeObjectBody := action != ActionPatch && action != ActionPatchStatus
+	if actionHasRuntimeObjectBody {
+		bodyObj, err = runtime.Decode(unstructured.UnstructuredJSONScheme, bodyContent)
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode body: %w", err)
+		}
+		if requestInfo.Namespace != bodyObj.(*unstructured.Unstructured).GetNamespace() {
+			return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
+		}
+		if action != ActionCreate && action != ActionDelete && requestInfo.Name != bodyObj.(*unstructured.Unstructured).GetName() {
+			return nil, fmt.Errorf("request name %q does not equal body name %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
+		}
 	}
 
 	gvr := schema.GroupVersionResource{
@@ -147,28 +161,40 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		// in this case, the name isn't in the URL, it's in the body
 		metadataName = bodyObj.(*unstructured.Unstructured).GetName()
 	}
-	if action == ActionDelete {
-		// do this so that when we try to issue deletes later, we'll have the name we need to use.
-		setAnnotationFor(bodyObj.(*unstructured.Unstructured), DeletionNameAnnotation, metadataName)
-	}
-	if controllerName := ControllerInstanceNameFromContext(req.Context()); len(controllerName) > 0 {
-		setAnnotationFor(bodyObj.(*unstructured.Unstructured), SyntheticControllerInstanceNameAnnotation, controllerName)
+
+	bodyOutputBytes := bodyContent
+	generatedName := ""
+	kindType := schema.GroupVersionKind{}
+	if actionHasRuntimeObjectBody {
+		bodyOutputBytes, err = yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
+		if err != nil {
+			return nil, fmt.Errorf("unable to encode body: %w", err)
+		}
+		generatedName = bodyObj.(*unstructured.Unstructured).GetGenerateName()
+		kindType = bodyObj.GetObjectKind().GroupVersionKind()
 	}
 
-	bodyYAMLBytes, err := yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
-	if err != nil {
-		return nil, fmt.Errorf("unable to encode body: %w", err)
+	fieldManagerName := ""
+	if patchOptions, ok := opts.(*metav1.PatchOptions); ok {
+		fieldManagerName = patchOptions.FieldManager
 	}
 
 	serializedRequest := SerializedRequest{
-		Action:       action,
-		ResourceType: gvr,
-		KindType:     bodyObj.GetObjectKind().GroupVersionKind(),
-		Namespace:    requestInfo.Namespace,
-		Name:         metadataName,
-		GenerateName: bodyObj.(*unstructured.Unstructured).GetGenerateName(),
-		Options:      optionsBytes,
-		Body:         bodyYAMLBytes,
+		ActionMetadata: ActionMetadata{
+			Action: action,
+			ResourceMetadata: ResourceMetadata{
+				ResourceType: gvr,
+				Namespace:    requestInfo.Namespace,
+				Name:         metadataName,
+				GenerateName: generatedName,
+			},
+			PatchType:              patchType,
+			FieldManager:           fieldManagerName,
+			ControllerInstanceName: ControllerInstanceNameFromContext(req.Context()),
+		},
+		KindType: kindType,
+		Options:  optionsBytes,
+		Body:     bodyOutputBytes,
 	}
 
 	// this lock also protects the access to actionTracker
@@ -185,9 +211,11 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	// returning a value that will probably not cause the wrapping client to fail, but isn't very useful.
 	// this keeps calling code from depending on the return value.
 	ret := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	ret.SetGroupVersionKind(bodyObj.GetObjectKind().GroupVersionKind())
-	ret.SetName(bodyObj.(*unstructured.Unstructured).GetName())
-	ret.SetNamespace(bodyObj.(*unstructured.Unstructured).GetNamespace())
+	ret.SetName(serializedRequest.ActionMetadata.Name)
+	ret.SetNamespace(serializedRequest.ActionMetadata.Namespace)
+	if actionHasRuntimeObjectBody { // TODO might be able to do something generally based on discovery if absolutely necessary
+		ret.SetGroupVersionKind(bodyObj.GetObjectKind().GroupVersionKind())
+	}
 	retBytes, err := json.Marshal(ret.Object)
 	if err != nil {
 		return nil, fmt.Errorf("unable to encode body: %w", err)
