@@ -327,6 +327,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		), 1)
 
 		if staticPodFallbackController, err := staticpodfallback.New(
+			b.operandName,
 			b.operandNamespace,
 			b.operandPodLabelSelector,
 			b.staticPodOperatorClient,
