@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/util/json"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/json"
+	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -113,6 +114,20 @@ func (mrt *manifestRoundTripper) getLegacyGroupResourceDiscovery(requestInfo *ap
 
 		for resourceName, apiResource := range apiResourcesForNamespace {
 			apiResources[resourceName] = apiResource
+		}
+
+		// Namespaces are special: each namespace is stored in its own file within the namespace directory
+		namespacePath := filepath.Join("namespaces", namespaceDirEntry.Name(), namespaceDirEntry.Name()+".yaml")
+		if namespaceObj, err := readIndividualFile(mrt.sourceFS, namespacePath); err == nil {
+			// It's currently not guaranteed that the file is always present
+			apiResources["namespaces"] = metav1.APIResource{
+				Name:       "namespaces",
+				Kind:       namespaceObj.GetKind(),
+				Group:      namespaceObj.GroupVersionKind().Group,
+				Version:    namespaceObj.GroupVersionKind().Version,
+				Namespaced: false,
+				Verbs:      []string{"get", "list", "watch"},
+			}
 		}
 	}
 
