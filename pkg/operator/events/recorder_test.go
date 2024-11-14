@@ -3,12 +3,14 @@ package events
 import (
 	"context"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	testclock "k8s.io/utils/clock/testing"
 )
 
 func fakeControllerRef(t *testing.T) *corev1.ObjectReference {
@@ -95,6 +97,35 @@ func TestRecorder(t *testing.T) {
 	}
 	if createdEvent.Source.Component != "test-operator" {
 		t.Errorf("expected event source to be test-operator, got %q", createdEvent.Source.Component)
+	}
+}
+
+func TestRecorderWithClock(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	fakeClock := &testclock.FakePassiveClock{}
+	r := NewRecorderWithOptions(client.CoreV1().Events("test-namespace"), Options{Clock: fakeClock}, "test-operator", fakeControllerRef(t))
+
+	wellKnownTimestamp := time.Date(2024, time.December, 24, 17, 30, 0, 0, time.UTC)
+	fakeClock.SetTime(wellKnownTimestamp)
+
+	r.Event("TestReason", "foo")
+
+	var createdEvent *corev1.Event
+	for _, action := range client.Actions() {
+		if action.Matches("create", "events") {
+			createAction := action.(clientgotesting.CreateAction)
+			createdEvent = createAction.GetObject().(*corev1.Event)
+			break
+		}
+	}
+	if createdEvent.Name != "test.18142d268a7df000" {
+		t.Errorf("expected event to have Name set to: %v, got %v", "test.18142d268a7df000", createdEvent.Name)
+	}
+	if !createdEvent.FirstTimestamp.Time.Equal(wellKnownTimestamp) {
+		t.Errorf("expected event to have FirstTimestamp set to: %v, got %v", wellKnownTimestamp, createdEvent.FirstTimestamp)
+	}
+	if !createdEvent.LastTimestamp.Time.Equal(wellKnownTimestamp) {
+		t.Errorf("expected event to have LastTimestamp set to: %v, got %v", wellKnownTimestamp, createdEvent.LastTimestamp)
 	}
 }
 

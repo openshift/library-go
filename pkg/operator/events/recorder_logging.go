@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
@@ -40,7 +41,7 @@ func (r *LoggingEventRecorder) WithComponentSuffix(suffix string) Recorder {
 }
 
 func (r *LoggingEventRecorder) Event(reason, message string) {
-	event := makeEvent(&inMemoryDummyObjectReference, "", corev1.EventTypeNormal, reason, message)
+	event := makeEvent(&inMemoryDummyObjectReference, time.Now(), "", corev1.EventTypeNormal, reason, message)
 	klog.Info(event.String())
 }
 
@@ -49,7 +50,7 @@ func (r *LoggingEventRecorder) Eventf(reason, messageFmt string, args ...interfa
 }
 
 func (r *LoggingEventRecorder) Warning(reason, message string) {
-	event := makeEvent(&inMemoryDummyObjectReference, "", corev1.EventTypeWarning, reason, message)
+	event := makeEvent(&inMemoryDummyObjectReference, time.Now(), "", corev1.EventTypeWarning, reason, message)
 	klog.Warning(event.String())
 }
 

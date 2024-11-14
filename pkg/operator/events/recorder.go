@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 )
 
 // Recorder is a simple event recording interface.
@@ -146,10 +146,28 @@ func guessControllerReferenceForNamespace(ctx context.Context, client corev1clie
 
 // NewRecorder returns new event recorder.
 func NewRecorder(client corev1client.EventInterface, sourceComponentName string, involvedObjectRef *corev1.ObjectReference) Recorder {
+	return NewRecorderWithOptions(client, Options{}, sourceComponentName, involvedObjectRef)
+}
+
+// Options holds additional options for the event recorder
+type Options struct {
+	// The clock used by the event recorder to allow for testing
+	// If not specified (zero value), clock.RealClock{} will be used
+	Clock clock.PassiveClock
+}
+
+// NewRecorderWithOptions returns a new event recorder with options.
+func NewRecorderWithOptions(client corev1client.EventInterface, options Options, sourceComponentName string, involvedObjectRef *corev1.ObjectReference) Recorder {
+	var c clock.PassiveClock
+	c = options.Clock
+	if c == nil {
+		c = clock.RealClock{}
+	}
 	return &recorder{
 		eventClient:       client,
 		involvedObjectRef: involvedObjectRef,
 		sourceComponent:   sourceComponentName,
+		clock:             c,
 	}
 }
 
@@ -160,7 +178,8 @@ type recorder struct {
 	sourceComponent   string
 
 	// TODO: This is not the right way to pass the context, but there is no other way without breaking event interface
-	ctx context.Context
+	ctx   context.Context
+	clock clock.PassiveClock
 }
 
 func (r *recorder) ComponentName() string {
@@ -196,7 +215,7 @@ func (r *recorder) Warningf(reason, messageFmt string, args ...interface{}) {
 
 // Event emits the normal type event.
 func (r *recorder) Event(reason, message string) {
-	event := makeEvent(r.involvedObjectRef, r.sourceComponent, corev1.EventTypeNormal, reason, message)
+	event := makeEvent(r.involvedObjectRef, r.clock.Now(), r.sourceComponent, corev1.EventTypeNormal, reason, message)
 	ctx := context.Background()
 	if r.ctx != nil {
 		ctx = r.ctx
@@ -208,7 +227,7 @@ func (r *recorder) Event(reason, message string) {
 
 // Warning emits the warning type event.
 func (r *recorder) Warning(reason, message string) {
-	event := makeEvent(r.involvedObjectRef, r.sourceComponent, corev1.EventTypeWarning, reason, message)
+	event := makeEvent(r.involvedObjectRef, r.clock.Now(), r.sourceComponent, corev1.EventTypeWarning, reason, message)
 	ctx := context.Background()
 	if r.ctx != nil {
 		ctx = r.ctx
@@ -218,8 +237,8 @@ func (r *recorder) Warning(reason, message string) {
 	}
 }
 
-func makeEvent(involvedObjRef *corev1.ObjectReference, sourceComponent string, eventType, reason, message string) *corev1.Event {
-	currentTime := metav1.Time{Time: time.Now()}
+func makeEvent(involvedObjRef *corev1.ObjectReference, ts time.Time, sourceComponent, eventType, reason, message string) *corev1.Event {
+	currentTime := metav1.Time{Time: ts}
 	event := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v.%x", involvedObjRef.Name, currentTime.UnixNano()),
