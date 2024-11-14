@@ -2,6 +2,7 @@ package csistorageclasscontroller
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -225,7 +226,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		coreInformerFactory,
 		fakeOperatorClient,
 		fakeOperatorInformer,
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		test.hooks...,
 	)
 
@@ -526,7 +527,7 @@ func TestSync(t *testing.T) {
 			ctx := newTestContext(test, t)
 
 			// Act
-			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName)))
+			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now()))))
 			if err != nil && !test.expectErr {
 				t.Errorf("Failed to sync StorageClass: %s", err)
 			}

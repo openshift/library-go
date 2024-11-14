@@ -3,6 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
@@ -333,7 +334,7 @@ func TestDegraded(t *testing.T) {
 					Duration:             time.Minute,
 				},
 			).Inertia)
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
@@ -469,7 +470,7 @@ func TestRelatedObjects(t *testing.T) {
 				})
 			}
 
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
@@ -579,7 +580,7 @@ func TestVersions(t *testing.T) {
 			if tc.allowRemoval {
 				controller = controller.WithVersionRemoval()
 			}
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}

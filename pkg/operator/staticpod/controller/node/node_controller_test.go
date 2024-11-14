@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -472,7 +473,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				nil,
 			)
 
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &NodeController{
 				operatorClient: fakeStaticPodOperatorClient,
@@ -595,7 +596,7 @@ func TestNewNodeController(t *testing.T) {
 				nil,
 			)
 
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &NodeController{
 				operatorClient: fakeStaticPodOperatorClient,

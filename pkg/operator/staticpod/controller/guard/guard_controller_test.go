@@ -3,6 +3,7 @@ package guard
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -483,7 +484,7 @@ func TestRenderGuardPod(t *testing.T) {
 				kubeClient.Tracker().Add(test.guardPod)
 			}
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			informer := FakeInfrastructureInformer{
 				Informer_: FakeInfrastructureSharedInformer{
@@ -617,7 +618,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod)
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	informer := FakeInfrastructureInformer{
 		Informer_: FakeInfrastructureSharedInformer{

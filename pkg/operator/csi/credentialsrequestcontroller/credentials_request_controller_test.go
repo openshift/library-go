@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"reflect"
 	"strconv"
@@ -131,7 +132,7 @@ func TestSync(t *testing.T) {
 			dynamicClient.credentialRequest = cr
 
 			operatorClient := v1helpers.NewFakeOperatorClient(&opv1.OperatorSpec{}, &opv1.OperatorStatus{}, nil)
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			controller := NewCredentialsRequestController(
 				controllerName,
 				operandNamespace,

@@ -3,8 +3,10 @@ package csidrivercontrollerservicecontroller
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -213,7 +215,7 @@ func TestDeploymentHook(t *testing.T) {
 	controller := NewCSIDriverControllerServiceController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
@@ -223,7 +225,7 @@ func TestDeploymentHook(t *testing.T) {
 	)
 
 	// Act
-	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 	if err != nil {
 		t.Fatalf("sync() returned unexpected error: %v", err)
 	}

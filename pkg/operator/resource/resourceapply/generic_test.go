@@ -2,7 +2,9 @@ package resourceapply
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -20,7 +22,7 @@ metadata:
     openshift.io/run-level: "1"
 `), nil
 	}
-	recorder := events.NewInMemoryRecorder("")
+	recorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 	ret := ApplyDirectly(context.TODO(), (&ClientHolder{}).WithKubernetes(fakeClient), recorder, nil, content, "pvc")
 	if ret[0].Error == nil {
 		t.Fatal("missing expected error")

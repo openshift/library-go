@@ -3,8 +3,10 @@ package resourceapply
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
@@ -322,7 +324,7 @@ func TestApplyConfigMap(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyConfigMap(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyConfigMap(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -535,7 +537,7 @@ func TestApplySecret(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existing...)
-			got, changed, err := ApplySecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.required)
+			got, changed, err := ApplySecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tc.required)
 			if !reflect.DeepEqual(tc.err, err) {
 				t.Errorf("expected error %v, got %v", tc.err, err)
 				return
@@ -684,7 +686,7 @@ func TestApplyNamespace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyNamespace(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyNamespace(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -815,7 +817,7 @@ func TestDeepCopyAvoidance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
 			cache := NewResourceCache()
-			_, actualModified, err := ApplyNamespaceImproved(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input, cache)
+			_, actualModified, err := ApplyNamespaceImproved(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input, cache)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1029,7 +1031,7 @@ func TestSyncSecret(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			secret, changed, err := SyncSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs)
+			secret, changed, err := SyncSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
@@ -1290,7 +1292,7 @@ func TestSyncPartialSync(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			secret, changed, err := SyncPartialSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.syncedKeys, tc.ownerRefs)
+			secret, changed, err := SyncPartialSecret(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.syncedKeys, tc.ownerRefs)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
@@ -1417,7 +1419,7 @@ func TestSyncSecretWithLabels(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			secret, changed, err := SyncSecretWithLabels(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs, tc.labels)
+			secret, changed, err := SyncSecretWithLabels(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs, tc.labels)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
@@ -1538,7 +1540,7 @@ func TestSyncConfigMapWithLabels(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.existingObjects...)
-			cm, changed, err := SyncConfigMapWithLabels(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs, tc.labels)
+			cm, changed, err := SyncConfigMapWithLabels(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tc.sourceNamespace, tc.sourceName, tc.targetNamespace, tc.targetName, tc.ownerRefs, tc.labels)
 
 			if !reflect.DeepEqual(err, tc.expectedErr) {
 				t.Errorf("expected error %v, got %v", tc.expectedErr, err)
@@ -1715,7 +1717,7 @@ func TestApplyService(t *testing.T) {
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existingObjects...)
-			_, actualModified, err := ApplyService(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyService(context.TODO(), client.CoreV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -2,9 +2,11 @@ package featuregates
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -296,7 +298,7 @@ func Test_defaultFeatureGateAccess_syncHandler(t *testing.T) {
 				started:                     true,
 				initialFeatures:             tt.fields.initialFeatures,
 				currentFeatures:             tt.fields.currentFeatures,
-				eventRecorder:               events.NewInMemoryRecorder("fakee"),
+				eventRecorder:               events.NewInMemoryRecorder("fakee", clocktesting.NewFakePassiveClock(time.Now())),
 			}
 
 			if c.AreInitialFeatureGatesObserved() {

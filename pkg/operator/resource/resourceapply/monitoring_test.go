@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -106,7 +108,7 @@ func TestApplyServiceMonitor(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dynamicClient := dynamicfake.NewSimpleDynamicClient(dynamicScheme, tc.existing)
-			got, modified, err := ApplyServiceMonitor(context.TODO(), dynamicClient, events.NewInMemoryRecorder("monitor-test"), unstructuredServiceMonitor)
+			got, modified, err := ApplyServiceMonitor(context.TODO(), dynamicClient, events.NewInMemoryRecorder("monitor-test", clocktesting.NewFakePassiveClock(time.Now())), unstructuredServiceMonitor)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

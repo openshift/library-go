@@ -2,7 +2,9 @@ package observer
 
 import (
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -136,7 +138,7 @@ func TestEncryptionConfigObserver(t *testing.T) {
 				}
 				listers.secretLister_ = corelistersv1.NewSecretLister(indexer)
 			}
-			eventRec := events.NewInMemoryRecorder("encryption-config-observer")
+			eventRec := events.NewInMemoryRecorder("encryption-config-observer", clocktesting.NewFakePassiveClock(time.Now()))
 
 			target := NewEncryptionConfigObserver("kms", "/etc/kubernetes/static-pod-resources/secrets/encryption-config/encryption-config")
 			result, err := target(listers, eventRec, scenario.input)

@@ -3,8 +3,10 @@ package etcd
 import (
 	"encoding/base64"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -55,10 +57,10 @@ func TestObserveStorageURLsAndObserveStorageURLsToArguments(t *testing.T) {
 				expected := map[string]interface{}{}
 				errs := []error{}
 				if useAPIServerArguments {
-					actual, errs = ObserveStorageURLsToArguments(listers, events.NewInMemoryRecorder("test"), tt.currentConfigFor("apiServerArguments", "etcd-servers"))
+					actual, errs = ObserveStorageURLsToArguments(listers, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.currentConfigFor("apiServerArguments", "etcd-servers"))
 					expected = tt.expectedConfigFor("apiServerArguments", "etcd-servers")
 				} else {
-					actual, errs = ObserveStorageURLs(listers, events.NewInMemoryRecorder("test"), tt.currentConfigFor("storageConfig", "urls"))
+					actual, errs = ObserveStorageURLs(listers, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.currentConfigFor("storageConfig", "urls"))
 					expected = tt.expectedConfigFor("storageConfig", "urls")
 				}
 				if tt.expectErrors && len(errs) == 0 {
@@ -208,7 +210,7 @@ func TestInnerObserveStorageURLs(t *testing.T) {
 			if tt.fallbackFor == nil {
 				tt.fallbackFor = fallbackFor(nil)
 			}
-			actual, errs := innerObserveStorageURLs(tt.fallbackFor(storageConfigURLsPath...), false, listers, events.NewInMemoryRecorder("test"), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
+			actual, errs := innerObserveStorageURLs(tt.fallbackFor(storageConfigURLsPath...), false, listers, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
 			if tt.expectErrors && len(errs) == 0 {
 				t.Errorf("errors expectedConfigFor")
 			}
@@ -340,7 +342,7 @@ func TestObserveStorageURLsFromOldEndPoint(t *testing.T) {
 				}
 			}
 			storageConfigURLsPath := []string{"storageConfig", "urls"}
-			actual, errs := innerObserveStorageURLsFromOldEndPoint(lister, events.NewInMemoryRecorder("test"), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
+			actual, errs := innerObserveStorageURLsFromOldEndPoint(lister, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.currentConfigFor(storageConfigURLsPath...), storageConfigURLsPath)
 			if tt.expectErrors && len(errs) == 0 {
 				t.Errorf("errors expectedConfigFor")
 			}

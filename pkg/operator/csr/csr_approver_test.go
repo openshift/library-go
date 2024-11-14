@@ -9,7 +9,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -122,7 +124,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 			}
 			if err := c.sync(
 				context.Background(),
-				fakeSyncContext{queueKey: tt.csrName, eventRecorder: events.NewInMemoryRecorder("csr-approver-test")},
+				fakeSyncContext{queueKey: tt.csrName, eventRecorder: events.NewInMemoryRecorder("csr-approver-test", clocktesting.NewFakePassiveClock(time.Now()))},
 			); (err != nil) != tt.wantErr {
 				t.Errorf("csrApproverController.sync() error = %v, wantErr %v", err, tt.wantErr)
 			}

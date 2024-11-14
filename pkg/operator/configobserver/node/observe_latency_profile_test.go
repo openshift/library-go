@@ -1,8 +1,10 @@
 package node
 
 import (
+	clocktesting "k8s.io/utils/clock/testing"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -59,7 +61,7 @@ func multiScenarioLatencyProfilesTest(t *testing.T, observeFn configobserver.Obs
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// test data
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			configNodeIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			configNodeIndexer.Add(&configv1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},

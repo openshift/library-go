@@ -2,7 +2,9 @@ package e2e_monitoring
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -59,7 +61,7 @@ func TestResourceVersionApplication(t *testing.T) {
 
 	// Initialize pre-requisites.
 	cache := resourceapply.NewResourceCache()
-	recorder := events.NewInMemoryRecorder("TestResourceVersionApplication")
+	recorder := events.NewInMemoryRecorder("TestResourceVersionApplication", clocktesting.NewFakePassiveClock(time.Now()))
 	dynamicClient, err := dynamic.NewForConfig(config)
 	require.NoError(t, err)
 

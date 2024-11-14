@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	clocktesting "k8s.io/utils/clock/testing"
 	"math/big"
 	"os"
 	"strings"
@@ -225,7 +226,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 
 				Client:        client.CoreV1(),
 				Lister:        corev1listers.NewConfigMapLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test"),
+				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
 			}
 
 			newCA, err := test.caFn()

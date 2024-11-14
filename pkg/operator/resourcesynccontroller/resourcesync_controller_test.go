@@ -2,6 +2,7 @@ package resourcesynccontroller
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -181,7 +182,7 @@ func TestSyncConfigMap(t *testing.T) {
 		&operatorv1.OperatorStatus{},
 		nil,
 	)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	kubeInformersForNamespaces := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{"other": configInformers})
 
@@ -288,7 +289,7 @@ func TestSyncConditionally(t *testing.T) {
 				&operatorv1.OperatorStatus{},
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewResourceSyncController(
 				"testing-instance",
