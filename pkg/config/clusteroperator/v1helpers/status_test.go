@@ -1,74 +1,76 @@
 package v1helpers
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/utils/ptr"
 	"reflect"
 	"strings"
 	"testing"
 
-	configv1 "github.com/openshift/api/config/v1"
+	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
 )
 
 func TestGetStatusConditionDiff(t *testing.T) {
 	tests := []struct {
 		name             string
-		newConditions    []configv1.ClusterOperatorStatusCondition
-		oldConditions    []configv1.ClusterOperatorStatusCondition
+		newConditions    []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration
+		oldConditions    []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration
 		expectedMessages []string
 	}{
 		{
 			name: "new condition",
-			newConditions: []configv1.ClusterOperatorStatusCondition{
+			newConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionTrue,
-					Message: "test",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionTrue),
+					Message: ptr.To("test"),
 				},
 			},
 			expectedMessages: []string{`RetrievedUpdates set to True ("test")`},
 		},
 		{
 			name: "condition status change",
-			newConditions: []configv1.ClusterOperatorStatusCondition{
+			newConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionFalse,
-					Message: "test",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionFalse),
+					Message: ptr.To("test"),
 				},
 			},
-			oldConditions: []configv1.ClusterOperatorStatusCondition{
+			oldConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionTrue,
-					Message: "test",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionTrue),
+					Message: ptr.To("test"),
 				},
 			},
 			expectedMessages: []string{`RetrievedUpdates changed from True to False ("test")`},
 		},
 		{
 			name: "condition message change",
-			newConditions: []configv1.ClusterOperatorStatusCondition{
+			newConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionTrue,
-					Message: "foo",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionTrue),
+					Message: ptr.To("foo"),
 				},
 			},
-			oldConditions: []configv1.ClusterOperatorStatusCondition{
+			oldConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionTrue,
-					Message: "bar",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionTrue),
+					Message: ptr.To("bar"),
 				},
 			},
 			expectedMessages: []string{`RetrievedUpdates message changed from "bar" to "foo"`},
 		},
 		{
 			name: "condition message deleted",
-			oldConditions: []configv1.ClusterOperatorStatusCondition{
+			oldConditions: []applyconfigv1.ClusterOperatorStatusConditionApplyConfiguration{
 				{
-					Type:    configv1.RetrievedUpdates,
-					Status:  configv1.ConditionTrue,
-					Message: "test",
+					Type:    ptr.To(configv1.RetrievedUpdates),
+					Status:  ptr.To(configv1.ConditionTrue),
+					Message: ptr.To("test"),
 				},
 			},
 			expectedMessages: []string{"RetrievedUpdates was removed"},
@@ -76,7 +78,9 @@ func TestGetStatusConditionDiff(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := GetStatusDiff(configv1.ClusterOperatorStatus{Conditions: test.oldConditions}, configv1.ClusterOperatorStatus{Conditions: test.newConditions})
+			result := GetStatusDiff(
+				&applyconfigv1.ClusterOperatorStatusApplyConfiguration{Conditions: test.oldConditions},
+				&applyconfigv1.ClusterOperatorStatusApplyConfiguration{Conditions: test.newConditions})
 			if !reflect.DeepEqual(test.expectedMessages, strings.Split(result, ",")) {
 				t.Errorf("expected %#v, got %#v", test.expectedMessages, result)
 			}
