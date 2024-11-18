@@ -18,7 +18,8 @@ const (
 	etcdEndpointName      = "etcd-endpoints"
 
 	// EtcdEndpointName points to the old host-etcd-2 endpoint applicable for clusters prior to 4.5
-	EtcdEndpointName = "host-etcd-2"
+	EtcdEndpointName         = "host-etcd-2"
+	BootstrapIPAnnotationKey = "alpha.installer.openshift.io/etcd-bootstrap"
 )
 
 var (
@@ -94,12 +95,19 @@ func innerObserveStorageURLs(fallbackObserver fallBackObserverFn, alwaysAppendLo
 		return previouslyObservedConfig, append(errs, err)
 	}
 
-	// note: etcd bootstrap should never be added to the in-cluster kube-apiserver
-	// this can result in some early pods crashlooping, but ensures that we never contact the bootstrap machine from
-	// the in-cluster kube-apiserver so we can safely teardown out of order.
-
+	allEtcdEnpoints := []string{}
 	for k := range etcdEndpoints.Data {
-		address := etcdEndpoints.Data[k]
+		allEtcdEnpoints = append(allEtcdEnpoints, etcdEndpoints.Data[k])
+	}
+
+	// include etcd bootstrap IP in the list
+	// this ensures that all masters use it and their local etcd can be torn down / updated
+	// and this won't block revision rollout
+	if bootstrapIP, found := etcdEndpoints.GetAnnotations()[BootstrapIPAnnotationKey]; found {
+		allEtcdEnpoints = append(allEtcdEnpoints, bootstrapIP)
+	}
+
+	for _, address := range allEtcdEnpoints {
 		ip := net.ParseIP(address)
 		if ip == nil {
 			ipErr := fmt.Errorf("configmaps/%s in the %s namespace: %v is not a valid IP address", etcdEndpointName, EtcdEndpointNamespace, address)
