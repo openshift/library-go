@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -353,7 +354,7 @@ func TestKeyController(t *testing.T) {
 			)
 
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialObjects...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			// pass informer for
 			// - target namespace: pods and secrets
 			// - openshift-config-managed: secrets

@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
@@ -90,7 +91,7 @@ func TestUpstreamRecorder_Correlator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset()
-			testRecorder := NewKubeRecorderWithOptions(client.CoreV1().Events("operator-namespace"), test.options, "test", fakeObjectReference).WithComponentSuffix("suffix")
+			testRecorder := NewKubeRecorderWithOptions(client.CoreV1().Events("operator-namespace"), test.options, "test", fakeObjectReference, clocktesting.NewFakePassiveClock(time.Now())).WithComponentSuffix("suffix")
 			test.runEvents(testRecorder)
 
 			events, err := client.CoreV1().Events("operator-namespace").List(context.TODO(), metav1.ListOptions{})

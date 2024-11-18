@@ -3,6 +3,7 @@ package revisioncontroller
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
@@ -536,7 +537,7 @@ func TestRevisionController(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.testName, func(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(tc.startingObjects...)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewRevisionController(
 				"testing",
@@ -615,7 +616,7 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 	)
 
 	kubeClient := fake.NewSimpleClientset(startingObjects...)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	c := NewRevisionController(
 		"testing",
@@ -811,7 +812,7 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.testName, func(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(tc.startingObjects...)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewRevisionController(
 				"testing",

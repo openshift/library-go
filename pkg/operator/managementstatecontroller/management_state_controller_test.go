@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -88,7 +90,7 @@ func TestOperatorManagementStateController(t *testing.T) {
 					Conditions: tc.initialConditions,
 				},
 			}
-			recorder := events.NewInMemoryRecorder("status")
+			recorder := events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now()))
 			controller := &ManagementStateController{
 				operatorName:   "OPERATOR_NAME",
 				operatorClient: statusClient,

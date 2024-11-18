@@ -2,6 +2,7 @@ package deploymentcontroller
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"time"
@@ -243,7 +244,7 @@ func TestDeploymentCreation(t *testing.T) {
 	controller := NewDeploymentController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
@@ -252,7 +253,7 @@ func TestDeploymentCreation(t *testing.T) {
 	)
 
 	// Act
-	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("dummy-controller")))
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("dummy-controller", clocktesting.NewFakePassiveClock(time.Now()))))
 	if err != nil {
 		t.Fatalf("sync() returned unexpected error: %v", err)
 	}
@@ -404,7 +405,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewDeploymentController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
@@ -631,7 +632,7 @@ func TestSync(t *testing.T) {
 			ctx := newTestContext(test, t)
 
 			// Act
-			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 
 			// Assert
 			// Check error

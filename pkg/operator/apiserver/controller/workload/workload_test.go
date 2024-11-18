@@ -3,6 +3,7 @@ package workload
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -583,7 +584,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				delegate:        delegate,
 			}
 
-			err := target.sync(context.TODO(), factory.NewSyncContext("workloadcontroller_test", events.NewInMemoryRecorder("workloadcontroller_test")))
+			err := target.sync(context.TODO(), factory.NewSyncContext("workloadcontroller_test", events.NewInMemoryRecorder("workloadcontroller_test", clocktesting.NewFakePassiveClock(time.Now()))))
 			if err != nil && len(scenario.errors) == 0 {
 				t.Fatal(err)
 			}

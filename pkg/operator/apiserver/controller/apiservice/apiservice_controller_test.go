@@ -3,6 +3,7 @@ package apiservice
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"time"
 
 	"sort"
@@ -191,7 +192,7 @@ func TestAvailableStatus(t *testing.T) {
 				kubeAggregatorClient.PrependReactor("*", "apiservices", tc.apiServiceReactor)
 			}
 
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 			fakeAuthOperatorIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			{
@@ -281,7 +282,7 @@ func TestDisabledAPIService(t *testing.T) {
 		kubeAggregatorClient.PrependReactor("*", "apiservices", apiServiceReactor)
 	}
 
-	eventRecorder := events.NewInMemoryRecorder("")
+	eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 	fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 	fakeAuthOperatorIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	{

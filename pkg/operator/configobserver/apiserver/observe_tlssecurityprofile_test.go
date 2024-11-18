@@ -1,8 +1,10 @@
 package apiserver
 
 import (
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -125,9 +127,9 @@ func TestObserveTLSSecurityProfile(t *testing.T) {
 					var result map[string]interface{}
 					var errs []error
 					if useAPIServerArgs {
-						result, errs = ObserveTLSSecurityProfileToArguments(listers, events.NewInMemoryRecorder(t.Name()), existingConfig)
+						result, errs = ObserveTLSSecurityProfileToArguments(listers, events.NewInMemoryRecorder(t.Name(), clocktesting.NewFakePassiveClock(time.Now())), existingConfig)
 					} else {
-						result, errs = ObserveTLSSecurityProfile(listers, events.NewInMemoryRecorder(t.Name()), existingConfig)
+						result, errs = ObserveTLSSecurityProfile(listers, events.NewInMemoryRecorder(t.Name(), clocktesting.NewFakePassiveClock(time.Now())), existingConfig)
 					}
 					if len(errs) > 0 {
 						t.Errorf("expected 0 errors, got %v", errs)

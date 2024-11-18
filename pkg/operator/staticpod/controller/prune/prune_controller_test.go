@@ -3,9 +3,11 @@ package prune
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -330,7 +332,7 @@ func TestSync(t *testing.T) {
 				prunerPod = action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
 				return false, nil, nil
 			})
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &PruneController{
 				targetNamespace:   tc.targetNamespace,

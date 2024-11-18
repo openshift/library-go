@@ -3,7 +3,9 @@ package staleconditions
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
@@ -122,7 +124,7 @@ func TestSync(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			operatorClient := v1helpers.NewFakeOperatorClient(&tc.initialObject.Spec.OperatorSpec, &tc.initialObject.Status.OperatorStatus, nil)
 
 			controller := NewRemoveStaleConditionsController(

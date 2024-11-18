@@ -3,6 +3,7 @@ package watchdog
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/clock"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -39,7 +40,10 @@ type FileWatcherOptions struct {
 
 	// Namespace to report events to
 	Namespace string
-	recorder  events.Recorder
+
+	Clock clock.PassiveClock
+
+	recorder events.Recorder
 
 	// Interval specifies how aggressive we want to be in file checks
 	Interval time.Duration
@@ -70,6 +74,7 @@ type FileWatcherOptions struct {
 
 func NewFileWatcherOptions() *FileWatcherOptions {
 	return &FileWatcherOptions{
+		Clock:                  clock.RealClock{},
 		findPidByNameFn:        FindProcessByName,
 		processExistsFn:        ProcessExists,
 		addProcPrefixToFilesFn: addProcPrefixToFiles,
@@ -164,7 +169,7 @@ func (o *FileWatcherOptions) Complete() error {
 	if err != nil {
 		klog.Warningf("unable to get owner reference (falling back to namespace): %v", err)
 	}
-	o.recorder = events.NewRecorder(kubeClient.CoreV1().Events(o.Namespace), "file-change-watchdog", eventTarget)
+	o.recorder = events.NewRecorder(kubeClient.CoreV1().Events(o.Namespace), "file-change-watchdog", eventTarget, o.Clock)
 
 	return nil
 }

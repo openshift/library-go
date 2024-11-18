@@ -2,7 +2,9 @@ package resourceapply_test
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -108,7 +110,7 @@ func TestApplyDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			fakeKubeClient := fake.NewSimpleClientset()
 			if tt.actualDeployment != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.actualDeployment)
@@ -159,7 +161,7 @@ func TestDeleteDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			fakeKubeClient := fake.NewSimpleClientset()
 			if tt.desiredDeployment != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDeployment)
@@ -209,7 +211,7 @@ func TestDeleteDaemonSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			fakeKubeClient := fake.NewSimpleClientset()
 			if tt.desiredDaemonSet != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.desiredDaemonSet)
@@ -280,7 +282,7 @@ func TestApplyDeploymentWithForce(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			fakeKubeClient := fake.NewSimpleClientset()
 			if tt.actualDeployment != nil {
 				fakeKubeClient = fake.NewSimpleClientset(tt.actualDeployment)

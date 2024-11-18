@@ -3,9 +3,11 @@ package configobserver
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
@@ -260,7 +262,7 @@ func TestSyncStatus(t *testing.T) {
 				observers:             tc.observers,
 				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
-			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
+			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))))
 			if tc.expectError && err == nil {
 				t.Fatal("error expected")
 			}
@@ -426,7 +428,7 @@ func TestWithPrefix(t *testing.T) {
 			// reset modified flag
 			defer func() { modified = false }()
 
-			gotConfig, errs := WithPrefix(tt.observer, tt.testedPrefix...)(nil, events.NewInMemoryRecorder("test"), tt.existingConfig)
+			gotConfig, errs := WithPrefix(tt.observer, tt.testedPrefix...)(nil, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.existingConfig)
 
 			if !reflect.DeepEqual(gotConfig, tt.wantConfig) {
 				t.Errorf("observed with prefix; got = %v, want %v", gotConfig, tt.wantConfig)
@@ -836,7 +838,7 @@ func TestSyncStatusWithNestedConfig(t *testing.T) {
 				nestedConfigPath:      tc.nestedConfigPath,
 				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
-			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
+			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))))
 			if tc.expectError && err == nil {
 				t.Fatal("error expected")
 			}

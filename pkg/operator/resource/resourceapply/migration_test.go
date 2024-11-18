@@ -2,7 +2,9 @@ package resourceapply
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -180,7 +182,7 @@ func TestApplyStorageVersionMigration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyStorageVersionMigration(context.TODO(), client, events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyStorageVersionMigration(context.TODO(), client, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil {
 				t.Fatal(err)
 			}

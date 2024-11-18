@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -737,7 +738,7 @@ func TestStateController(t *testing.T) {
 			)
 
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialResources...)
-			realEventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
+			realEventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			eventRecorder := eventstesting.NewEventRecorder(t, realEventRecorder)
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller

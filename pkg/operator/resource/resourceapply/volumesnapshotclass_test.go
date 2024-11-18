@@ -3,7 +3,9 @@ package resourceapply
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"sigs.k8s.io/yaml"
@@ -112,7 +114,7 @@ func TestApplyVolumeSnapshotClassUpdate(t *testing.T) {
 
 			required := resourceread.ReadUnstructuredOrDie([]byte(tc.required))
 
-			_, modified, err := ApplyVolumeSnapshotClass(context.TODO(), dynamicClient, events.NewInMemoryRecorder("volumesnapshotclass-test"), required)
+			_, modified, err := ApplyVolumeSnapshotClass(context.TODO(), dynamicClient, events.NewInMemoryRecorder("volumesnapshotclass-test", clocktesting.NewFakePassiveClock(time.Now())), required)
 			if tc.expectedErr {
 				if err != nil {
 					return

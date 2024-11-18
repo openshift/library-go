@@ -3,6 +3,7 @@ package certrotation
 import (
 	"context"
 	"crypto/x509/pkix"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
@@ -250,7 +251,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 
 				Client:        client.CoreV1(),
 				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test"),
+				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
 				AdditionalAnnotations: AdditionalAnnotations{
 					JiraComponent: "test",
 				},
@@ -447,7 +448,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 
 				Client:        client.CoreV1(),
 				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test"),
+				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
 			}
 
 			newCA, err := test.caFn()

@@ -2,6 +2,7 @@ package staticpod
 
 import (
 	"fmt"
+	"k8s.io/utils/clock"
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -39,6 +40,7 @@ type staticPodOperatorControllerBuilder struct {
 	kubeClient              kubernetes.Interface
 	kubeInformers           v1helpers.KubeInformersForNamespaces
 	configInformers         externalversions.SharedInformerFactory
+	clock                   clock.Clock
 	eventRecorder           events.Recorder
 
 	// resource information
@@ -84,12 +86,14 @@ func NewBuilder(
 	kubeClient kubernetes.Interface,
 	kubeInformers v1helpers.KubeInformersForNamespaces,
 	configInformers externalversions.SharedInformerFactory,
+	clock clock.Clock,
 ) Builder {
 	return &staticPodOperatorControllerBuilder{
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
 		kubeInformers:           kubeInformers,
 		configInformers:         configInformers,
+		clock:                   clock,
 	}
 }
 
@@ -209,7 +213,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	eventRecorder := b.eventRecorder
 	if eventRecorder == nil {
-		eventRecorder = events.NewLoggingEventRecorder("static-pod-operator-controller")
+		eventRecorder = events.NewLoggingEventRecorder("static-pod-operator-controller", b.clock)
 	}
 	versionRecorder := b.versionRecorder
 	if versionRecorder == nil {

@@ -2,7 +2,9 @@ package events
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +64,7 @@ func fakeReplicaSet(namespace, name string) *appsv1.ReplicaSet {
 
 func TestRecorder(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	r := NewRecorder(client.CoreV1().Events("test-namespace"), "test-operator", fakeControllerRef(t))
+	r := NewRecorder(client.CoreV1().Events("test-namespace"), "test-operator", fakeControllerRef(t), clocktesting.NewFakePassiveClock(time.Now()))
 
 	r.Event("TestReason", "foo")
 

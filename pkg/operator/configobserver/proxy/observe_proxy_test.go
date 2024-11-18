@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -84,7 +86,7 @@ func TestObserveProxyConfig(t *testing.T) {
 			listers := testLister{
 				lister: configlistersv1.NewProxyLister(indexer),
 			}
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 
 			initialExistingConfig := map[string]interface{}{}
 

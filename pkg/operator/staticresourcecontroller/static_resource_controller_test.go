@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 )
 
 func TestRelatedObjects(t *testing.T) {
@@ -52,7 +54,7 @@ metadata:
 		return []byte(assets[filename]), nil
 	}
 
-	src := NewStaticResourceController("", readBytesFromString, []string{"secret", "sa"}, nil, operatorClient, events.NewInMemoryRecorder(""))
+	src := NewStaticResourceController("", readBytesFromString, []string{"secret", "sa"}, nil, operatorClient, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))
 	src = src.AddRESTMapper(restMapper).AddCategoryExpander(expander)
 	res, _ := src.RelatedObjects()
 	assert.ElementsMatch(t, expected, res)

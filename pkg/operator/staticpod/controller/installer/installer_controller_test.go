@@ -548,7 +548,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				nil,
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			c := NewInstallerController(
 				"unit-test", "test", "test-pod",
 				[]revision.RevisionResource{{Name: "test-config"}},
@@ -682,7 +682,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		nil,
 	)
 
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 	podCommand := []string{"/bin/true", "--foo=test", "--bar"}
 	c := NewInstallerController(
 		"unit-test", "test", "test-pod",
@@ -1091,7 +1091,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		nil,
 		nil,
 	)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	c := NewInstallerController(
 		"unit-test", "test", "test-pod",
@@ -1260,7 +1260,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				nil,
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewInstallerController(
 				"unit-test", "test", "test-pod",
@@ -2003,7 +2003,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				nil,
 			)
 
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewInstallerController(
 				"unit-test", namespace, "test-pod",

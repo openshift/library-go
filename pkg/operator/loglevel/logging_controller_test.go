@@ -2,9 +2,11 @@ package loglevel
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -152,7 +154,7 @@ func TestClusterOperatorLoggingController(t *testing.T) {
 				})
 				return nil
 			}
-			recorder := events.NewInMemoryRecorder("")
+			recorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &LogLevelController{
 				operatorClient: fakeStaticPodOperatorClient,

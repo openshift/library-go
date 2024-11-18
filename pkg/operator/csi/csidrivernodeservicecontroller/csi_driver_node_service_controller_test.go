@@ -3,6 +3,7 @@ package csidrivernodeservicecontroller
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"strings"
@@ -111,7 +112,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		test.manifestFunc(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
@@ -366,7 +367,7 @@ func TestDaemonSetHook(t *testing.T) {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
@@ -375,7 +376,7 @@ func TestDaemonSetHook(t *testing.T) {
 	)
 
 	// Act
-	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 	if err != nil {
 		t.Fatalf("sync() returned unexpected error: %v", err)
 	}
@@ -670,7 +671,7 @@ func TestSync(t *testing.T) {
 			}
 
 			// Act
-			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 
 			// Assert
 			// Check error
