@@ -68,12 +68,6 @@ type RotatedSelfSignedCertKeySecret struct {
 	Lister        corev1listers.SecretLister
 	Client        corev1client.SecretsGetter
 	EventRecorder events.Recorder
-
-	// Deprecated: DO NOT eanble, it is intended as a short term hack for a very specific use case,
-	// and it works in tandem with a particular carry patch applied to the openshift kube-apiserver.
-	// we will remove this when we migrate all of the affected secret
-	// objects to their intended type: https://issues.redhat.com/browse/API-1800
-	UseSecretUpdateOnly bool
 }
 
 type TargetCertCreator interface {
@@ -118,16 +112,15 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		secretDoesntExist = true
 	}
 
-	applyFn := resourceapply.ApplySecret
-	if c.UseSecretUpdateOnly {
-		applyFn = resourceapply.ApplySecretDoNotUse
-	}
-
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	needsMetadataUpdate := ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-	needsSecretTypeUpdate := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
-	modified = needsMetadataUpdate || needsSecretTypeUpdate || modified
+	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) {
+		actualTargetCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
+		if err != nil {
+			return nil, err
+		}
+		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
+	}
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, secretDoesntExist); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
@@ -141,7 +134,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	}
 
 	if modified {
-		actualTargetCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
+		actualTargetCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
 		if err != nil {
 			return nil, err
 		}
