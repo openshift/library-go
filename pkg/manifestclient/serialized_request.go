@@ -2,6 +2,7 @@ package manifestclient
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -247,16 +248,16 @@ func (a FileOriginatedSerializedRequest) SuggestedFilenames() (string, string, s
 }
 
 func (a TrackedSerializedRequest) SuggestedFilenames() (string, string, string) {
-	return suggestedFilenames(a.SerializedRequest, a.RequestNumber)
+	return suggestedFilenames(a.SerializedRequest)
 }
 
 func (a SerializedRequest) SuggestedFilenames() (string, string, string) {
-	// this may very well conflict in some cases. Up to the caller to work out how to fix it.
-	uniqueNumber := 0 // chosen by fair dice roll. guaranteed to be random. :)
-	return suggestedFilenames(a, uniqueNumber)
+	return suggestedFilenames(a)
 }
 
-func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string, string) {
+func suggestedFilenames(a SerializedRequest) (string, string, string) {
+	bodyHash := hashRequestToPrefix(a.Body, a.Options)
+
 	groupName := a.ResourceType.Group
 	if len(groupName) == 0 {
 		groupName = "core"
@@ -275,7 +276,7 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string, 
 			scopingString,
 			groupName,
 			a.ResourceType.Resource,
-			fmt.Sprintf("%03d-metadata-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
+			fmt.Sprintf("%s-metadata-%s%s.yaml", bodyHash, a.Name, a.GenerateName),
 		),
 	)
 	bodyFilename := MakeFilenameGoModSafe(
@@ -284,7 +285,7 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string, 
 			scopingString,
 			groupName,
 			a.ResourceType.Resource,
-			fmt.Sprintf("%03d-body-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
+			fmt.Sprintf("%s-body-%s%s.yaml", bodyHash, a.Name, a.GenerateName),
 		),
 	)
 	optionsFilename := ""
@@ -295,11 +296,34 @@ func suggestedFilenames(a SerializedRequest, uniqueNumber int) (string, string, 
 				scopingString,
 				groupName,
 				a.ResourceType.Resource,
-				fmt.Sprintf("%03d-options-%s%s.yaml", uniqueNumber, a.Name, a.GenerateName),
+				fmt.Sprintf("%s-options-%s%s.yaml", bodyHash, a.Name, a.GenerateName),
 			),
 		)
 	}
 	return metadataFilename, bodyFilename, optionsFilename
+}
+
+func hashRequestToPrefix(data, options []byte) string {
+	switch {
+	case len(data) > 0:
+		return hashForFilenamePrefix(data)
+	case len(options) > 0:
+		return hashForFilenamePrefix(options)
+	default:
+		return "MISSING"
+	}
+}
+
+func hashForFilenamePrefix(data []byte) string {
+	if len(data) == 0 {
+		return "MISSING"
+	}
+	hash := sha256.New()
+	hash.Write(data)
+	hashBytes := hash.Sum(nil)
+
+	// we're looking to deconflict filenames, not protect the crown jewels
+	return fmt.Sprintf("%x", hashBytes[len(hashBytes)-2:])
 }
 
 func (a FileOriginatedSerializedRequest) DeepCopy() SerializedRequestish {

@@ -95,8 +95,8 @@ func readSerializedRequestsFromActionDirectory(action Action, actionFS fs.FS) ([
 }
 
 var (
-	bodyRegex    = regexp.MustCompile(`(\d\d\d)-body-(.+).yaml`)
-	optionsRegex = regexp.MustCompile(`(\d\d\d)-options-(.+).yaml`)
+	bodyRegex    = regexp.MustCompile(`.*-body-(.+).yaml`)
+	optionsRegex = regexp.MustCompile(`.*-options-(.+).yaml`)
 )
 
 func serializedRequestFromFile(action Action, actionFS fs.FS, bodyFilename string) (*FileOriginatedSerializedRequest, error) {
