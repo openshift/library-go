@@ -25,6 +25,7 @@ type NodeController struct {
 	controllerInstanceName string
 	operatorClient         v1helpers.StaticPodOperatorClient
 	nodeLister             corelisterv1.NodeLister
+	arbiterNodeSelector    labels.Selector
 }
 
 // NewNodeController creates a new node controller.
@@ -33,12 +34,23 @@ func NewNodeController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	eventRecorder events.Recorder,
+	withArbiter bool,
 ) factory.Controller {
 	c := &NodeController{
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "Node"),
 		operatorClient:         operatorClient,
 		nodeLister:             kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 	}
+
+	if withArbiter {
+		arbiterNodeRequirement, err := labels.NewRequirement("node-role.kubernetes.io/arbiter", selection.Equals, []string{""})
+		if err != nil {
+			panic(err)
+		}
+		selector := labels.NewSelector().Add(*arbiterNodeRequirement)
+		c.arbiterNodeSelector = selector
+	}
+
 	return factory.New().
 		WithInformers(
 			operatorClient.Informer(),
@@ -65,6 +77,14 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	nodes, err := c.nodeLister.List(labels.NewSelector().Add(*selector))
 	if err != nil {
 		return err
+	}
+
+	if c.arbiterNodeSelector != nil {
+		arbiterNodes, err := c.nodeLister.List(c.arbiterNodeSelector)
+		if err != nil {
+			return err
+		}
+		nodes = append(nodes, arbiterNodes...)
 	}
 
 	jsonPatch := jsonpatch.New()
