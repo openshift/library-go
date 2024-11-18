@@ -22,7 +22,7 @@ var serviceMonitorGVR = schema.GroupVersionResource{Group: "monitoring.coreos.co
 
 // ApplyAlertmanager applies the Alertmanager.
 func ApplyAlertmanager(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, alertmanagerGVR, nil, nil)
+	return ApplyUnstructuredResourceImprovedDeprecated(ctx, client, recorder, required, noCache, alertmanagerGVR, nil, nil)
 }
 
 // DeleteAlertmanager deletes the Alertmanager.
@@ -32,7 +32,7 @@ func DeleteAlertmanager(ctx context.Context, client dynamic.Interface, recorder 
 
 // ApplyPrometheus applies the Prometheus.
 func ApplyPrometheus(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusGVR, nil, nil)
+	return ApplyUnstructuredResourceImprovedDeprecated(ctx, client, recorder, required, noCache, prometheusGVR, nil, nil)
 }
 
 // DeletePrometheus deletes the Prometheus.
@@ -42,7 +42,7 @@ func DeletePrometheus(ctx context.Context, client dynamic.Interface, recorder ev
 
 // ApplyPrometheusRule applies the PrometheusRule.
 func ApplyPrometheusRule(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, prometheusRuleGVR, nil, nil)
+	return ApplyUnstructuredResourceImprovedDeprecated(ctx, client, recorder, required, noCache, prometheusRuleGVR, nil, nil)
 }
 
 // DeletePrometheusRule deletes the PrometheusRule.
@@ -52,7 +52,7 @@ func DeletePrometheusRule(ctx context.Context, client dynamic.Interface, recorde
 
 // ApplyServiceMonitor applies the ServiceMonitor.
 func ApplyServiceMonitor(ctx context.Context, client dynamic.Interface, recorder events.Recorder, required *unstructured.Unstructured) (*unstructured.Unstructured, bool, error) {
-	return ApplyUnstructuredResourceImproved(ctx, client, recorder, required, noCache, serviceMonitorGVR, nil, nil)
+	return ApplyUnstructuredResourceImprovedDeprecated(ctx, client, recorder, required, noCache, serviceMonitorGVR, nil, nil)
 }
 
 // DeleteServiceMonitor deletes the ServiceMonitor.
@@ -64,6 +64,26 @@ func DeleteServiceMonitor(ctx context.Context, client dynamic.Interface, recorde
 // NOTE: A `nil` defaultingFunc and equalityChecker are assigned resourceapply.noDefaulting and equality.Semantic,
 // respectively. Users are recommended to instantiate a cache to benefit from the memoization machinery.
 func ApplyUnstructuredResourceImproved(
+	ctx context.Context,
+	client dynamic.Interface,
+	recorder events.Recorder,
+	required *unstructured.Unstructured,
+	cache ResourceCache,
+	resourceGVR schema.GroupVersionResource,
+	defaultingFunc mimicDefaultingFunc,
+	equalityChecker equalityChecker,
+) (*unstructured.Unstructured, error) {
+	gotUnstructured, _, err := ApplyUnstructuredResourceImprovedDeprecated(ctx, client, recorder, required, cache, resourceGVR, defaultingFunc, equalityChecker)
+	return gotUnstructured, err
+}
+
+// Deprecated: Use ApplyUnstructuredResourceImproved instead.
+// NOTE: The return values (excluding the *unstructured.Unstructured one) establish the following matrix (w.r.t. the create or update verbs):
+// * true, nil   : verb action needed; operation successful
+// * false, nil  : verb action not needed; operation skipped
+// * true, error : verb action needed, operation unsuccessful
+// * false, error: verb action may or may not be needed; operation unsuccessful
+func ApplyUnstructuredResourceImprovedDeprecated(
 	ctx context.Context,
 	client dynamic.Interface,
 	recorder events.Recorder,
