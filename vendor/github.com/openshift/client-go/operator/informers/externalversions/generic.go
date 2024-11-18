@@ -3,7 +3,7 @@
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1 "github.com/openshift/api/operator/v1"
 	v1alpha1 "github.com/openshift/api/operator/v1alpha1"
@@ -70,6 +70,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().MachineConfigurations().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("networks"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().Networks().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("olms"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().OLMs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("openshiftapiservers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().OpenShiftAPIServers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("openshiftcontrollermanagers"):
