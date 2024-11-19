@@ -185,7 +185,7 @@ func (c *DeploymentController) ToController() (factory.Controller, error) {
 		c.operatorClient.Informer(),
 		c.deployInformer.Informer(),
 	)
-	controller := factory.New().WithInformers(
+	controller := factory.New().WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		informers...,
 	).WithSync(
 		c.sync,

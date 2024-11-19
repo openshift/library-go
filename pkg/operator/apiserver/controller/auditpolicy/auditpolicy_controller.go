@@ -54,7 +54,7 @@ func NewAuditPolicyController(
 		targetConfigMapName:    targetConfigMapName,
 	}
 
-	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
+	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(10*time.Second).WithInformers(
 		configInformers.Config().V1().APIServers().Informer(),
 		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),

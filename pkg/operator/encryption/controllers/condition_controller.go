@@ -66,6 +66,7 @@ func NewConditionController(
 		deployer,
 	).ResyncEvery(time.Minute).
 		WithSync(c.sync).
+		WithControllerInstanceName(c.controllerInstanceName).
 		ToController(
 			c.controllerInstanceName,
 			eventRecorder.WithComponentSuffix("encryption-condition-controller"),

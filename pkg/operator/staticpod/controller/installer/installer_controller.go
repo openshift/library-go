@@ -194,12 +194,13 @@ func NewInstallerController(
 	}
 
 	c.ownerRefsFn = c.setOwnerRefs
-	c.factory = factory.New().WithInformers(
-		operatorClient.Informer(),
-		// informers are needed here because their Getter are cached lister based
-		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
-		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
-		kubeInformersForTargetNamespace.Core().V1().Secrets().Informer())
+	c.factory = factory.New().
+		WithInformers(
+			operatorClient.Informer(),
+			// informers are needed here because their Getter are cached lister based
+			kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
+			kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
+			kubeInformersForTargetNamespace.Core().V1().Secrets().Informer())
 
 	return c
 }
@@ -214,6 +215,12 @@ func (c *InstallerController) Run(ctx context.Context, workers int) {
 }
 
 func (c InstallerController) Name() string {
+	return "Installer"
+}
+
+// ControllerInstanceName specifies the controller instance.
+// Useful when the same controller is used multiple times.
+func (c InstallerController) ControllerInstanceName() string {
 	return c.controllerInstanceName
 }
 

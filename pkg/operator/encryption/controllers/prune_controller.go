@@ -70,7 +70,7 @@ func NewPruneController(
 		secretClient:             secretClient,
 	}
 
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker

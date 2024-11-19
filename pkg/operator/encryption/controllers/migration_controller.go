@@ -96,7 +96,7 @@ func NewMigrationController(
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
 
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		migrator,
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
