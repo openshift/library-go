@@ -114,6 +114,8 @@ func NewCSIDriverNodeServiceController(
 		informers...,
 	).WithSync(
 		c.sync,
+	).WithControllerInstanceName(
+		c.controllerInstanceName,
 	).ResyncEvery(
 		time.Minute,
 	).WithSyncDegradedOnError(

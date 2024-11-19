@@ -50,6 +50,7 @@ func New(
 	}
 	return factory.New().
 		WithSync(fd.sync).
+		WithControllerInstanceName(fd.controllerInstanceName).
 		ResyncEvery(6*time.Minute).
 		WithInformers(kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer()).
 		ToController(

@@ -70,7 +70,7 @@ func NewAPIServiceController(
 		kubeClient:              kubeClient,
 	}
 
-	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
+	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(10*time.Second).WithInformers(
 		append(informers,
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Services().Informer(),
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Informer(),

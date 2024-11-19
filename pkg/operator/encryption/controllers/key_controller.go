@@ -106,6 +106,7 @@ func NewKeyController(
 
 	return factory.New().
 		WithSync(c.sync).
+		WithControllerInstanceName(c.controllerInstanceName).
 		ResyncEvery(time.Minute).
 		WithInformers(
 			apiServerInformer.Informer(),

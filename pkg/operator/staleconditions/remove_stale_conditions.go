@@ -31,6 +31,7 @@ func NewRemoveStaleConditionsController(
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(c.sync).
+		WithControllerInstanceName(c.controllerInstanceName).
 		WithInformers(operatorClient.Informer()).
 		ToController(
 			c.controllerInstanceName,

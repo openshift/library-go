@@ -111,6 +111,7 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 	}
 
 	return c.WithSync(controllerRef.sync).
+		WithControllerInstanceName(controllerRef.controllerInstanceName).
 		WithInformers(informers...).
 		ToController(
 			fmt.Sprintf("%sWorkloadController", controllerRef.controllerInstanceName),
