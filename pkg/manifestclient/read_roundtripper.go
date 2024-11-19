@@ -67,7 +67,7 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 
 	isDiscovery := isServerGroupResourceDiscovery(requestInfo.Path)
 	if !requestInfo.IsResourceRequest && !isDiscovery {
-		return nil, fmt.Errorf("non-resource requests are not supported by this implementation")
+		return nil, fmt.Errorf("non-resource requests are not supported by this implementation: %q", requestInfo.Path)
 	}
 	if len(requestInfo.Subresource) != 0 {
 		return nil, fmt.Errorf("subresource %v is not supported by this implementation", requestInfo.Subresource)
@@ -113,7 +113,9 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		return nil, fmt.Errorf("verb %v is not supported by this implementation", requestInfo.Verb)
 	}
 
-	resp := &http.Response{}
+	resp := &http.Response{
+		Header: map[string][]string{},
+	}
 	switch {
 	case apierrors.IsNotFound(returnErr):
 		resp.StatusCode = http.StatusNotFound
@@ -129,7 +131,11 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		resp.Body = io.NopCloser(bytes.NewReader(returnBody))
 		// We always return application/json. Avoid clients expecting proto for built-ins.
 		resp.Header = make(http.Header)
-		resp.Header.Set("Content-Type", "application/json")
+		if isDiscovery {
+			resp.Header.Set("Content-Type", "application/json;as=APIGroupDiscoveryList;v=v2;g=apidiscovery.k8s.io")
+		} else {
+			resp.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	return resp, nil
@@ -150,6 +156,9 @@ func isServerGroupResourceDiscovery(path string) bool {
 		return true
 	}
 	if path == "/api" {
+		return true
+	}
+	if path == "/apis" {
 		return true
 	}
 

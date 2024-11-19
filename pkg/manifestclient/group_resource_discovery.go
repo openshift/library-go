@@ -30,7 +30,7 @@ func (mrt *manifestRoundTripper) getGroupResourceDiscovery(requestInfo *apireque
 		return ret, err
 	default:
 		// TODO can probably do better
-		return mrt.getLegacyGroupResourceDiscovery(requestInfo)
+		return nil, fmt.Errorf("unsupported discovery path: %q", requestInfo.Path)
 	}
 }
 
