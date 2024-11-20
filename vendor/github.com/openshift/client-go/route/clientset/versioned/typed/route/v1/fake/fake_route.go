@@ -3,9 +3,9 @@
 package fake
 
 import (
-	"context"
+	context "context"
 	json "encoding/json"
-	"fmt"
+	fmt "fmt"
 
 	v1 "github.com/openshift/api/route/v1"
 	routev1 "github.com/openshift/client-go/route/applyconfigurations/route/v1"

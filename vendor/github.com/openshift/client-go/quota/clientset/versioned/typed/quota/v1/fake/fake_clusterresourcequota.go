@@ -3,9 +3,9 @@
 package fake
 
 import (
-	"context"
+	context "context"
 	json "encoding/json"
-	"fmt"
+	fmt "fmt"
 
 	v1 "github.com/openshift/api/quota/v1"
 	quotav1 "github.com/openshift/client-go/quota/applyconfigurations/quota/v1"

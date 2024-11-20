@@ -19,7 +19,7 @@ limitations under the License.
 package informers
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -110,6 +110,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer()}, nil
 
 		// Group=admissionregistration.k8s.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("mutatingadmissionpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Admissionregistration().V1alpha1().MutatingAdmissionPolicies().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("mutatingadmissionpolicybindings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"):
@@ -374,8 +378,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=resource.k8s.io, Version=v1alpha3
 	case v1alpha3.SchemeGroupVersion.WithResource("deviceclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Resource().V1alpha3().DeviceClasses().Informer()}, nil
-	case v1alpha3.SchemeGroupVersion.WithResource("podschedulingcontexts"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Resource().V1alpha3().PodSchedulingContexts().Informer()}, nil
 	case v1alpha3.SchemeGroupVersion.WithResource("resourceclaims"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Resource().V1alpha3().ResourceClaims().Informer()}, nil
 	case v1alpha3.SchemeGroupVersion.WithResource("resourceclaimtemplates"):
