@@ -290,7 +290,9 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 
 	// If the workload is up to date, then we are no longer progressing
 	workloadAtHighestGeneration := workload.ObjectMeta.Generation == workload.Status.ObservedGeneration
-	workloadIsBeingUpdated := workload.Status.UpdatedReplicas < desiredReplicas
+	// Update is done when all pods have been updated to the latest revision
+	// and the deployment controller has reported NewReplicaSetAvailable
+	workloadIsBeingUpdated := !workloadAtHighestGeneration || !hasDeploymentProgressed(workload.Status)
 	workloadIsBeingUpdatedTooLong, err := isUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
 	if !workloadAtHighestGeneration {
 		deploymentProgressingCondition = deploymentProgressingCondition.
@@ -301,8 +303,15 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("PodsUpdating").
-			WithMessage(fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas))
+			WithMessage(fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation and %d/%d pods are available", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas, workload.Status.AvailableReplicas, desiredReplicas))
 	} else {
+		// Terminating pods don't account for any of the other status fields but
+		// still can exist in a state when they are accepting connections and would
+		// contribute to unexpected behavior when we report Progressing=False.
+		// The case of too many pods might occur for example if `TerminationGracePeriodSeconds` is set
+		//
+		// The workload should ensure this does not happen by using for example EnsureAtMostOnePodPerNode
+		// so that the old pods terminate before the new ones are started.
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionFalse).
 			WithReason("AsExpected")
@@ -352,6 +361,17 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 func isUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
 	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
 	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(15*time.Minute)), nil
+}
+
+// hasDeploymentProgressed returns true if the deployment reports NewReplicaSetAvailable
+// via the DeploymentProgressing condition
+func hasDeploymentProgressed(status appsv1.DeploymentStatus) bool {
+	for _, cond := range status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			return cond.Status == corev1.ConditionTrue && cond.Reason == "NewReplicaSetAvailable"
+		}
+	}
+	return false
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
