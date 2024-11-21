@@ -240,7 +240,10 @@ func allPossibleListFileLocations(sourceFS fs.FS, requestInfo *apirequest.Reques
 		allPossibleListFileLocations = append(allPossibleListFileLocations, filepath.Join(clusterParts...))
 
 		namespaces, err := allNamespacesWithData(sourceFS)
-		if err != nil {
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			return allPossibleListFileLocations, nil
+		case err != nil:
 			return nil, fmt.Errorf("unable to read namespaces: %w", err)
 		}
 		for _, ns := range namespaces {
