@@ -561,6 +561,23 @@ func TestNoNamespacesContent(t *testing.T) {
 				}
 			},
 		},
+
+		{
+			name: "LIST-cluster-scoped-resource-with-multiple-items",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				apiServerConfigurations, err := configClient.ConfigV1().APIServers().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(apiServerConfigurations.Items) != 1 {
+					t.Fatal(spew.Sdump(apiServerConfigurations))
+				}
+			},
+		},
 	}
 
 	for _, test := range tests {
