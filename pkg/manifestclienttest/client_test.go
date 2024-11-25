@@ -3,6 +3,7 @@ package manifestclienttest
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"reflect"
@@ -16,6 +17,8 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -316,99 +319,44 @@ func TestWatchChecks(t *testing.T) {
 
 func TestDiscoveryChecks(t *testing.T) {
 	tests := []struct {
-		name   string
-		testFn func(*testing.T, *http.Client)
+		name     string
+		location string
+		testFn   func(*testing.T, *http.Client)
 	}{
 		{
-			name: "LIST-type-not-present",
+			// Should use aggregated discovery files from the provided must-gather
+			name:     "GET-discover-configmaps-resource",
+			location: "testdata/must-gather-02",
 			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-				obj, err := kubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(obj.Items) != 0 {
-					t.Fatal(len(obj.Items))
-				}
-			},
-		},
-		{
-			name: "LIST-namespace-scoped-configmap-from-missing-namespace",
-			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-				obj, err := kubeClient.CoreV1().ConfigMaps("non-existent-namespace").List(context.TODO(), metav1.ListOptions{})
-				// TODO decide if this is good.  We could rewrite them all to use "read namespace using field selector" to produce the same effect
-				// the real API server will report a 404.  We do not report the 404 so our informers will sync
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(obj.Items) != 0 {
-					t.Fatal(obj.Items)
-				}
-
-			},
-		},
-		{
-			name: "LIST-namespace-scoped-configmap-from-present-namespace",
-			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-				obj, err := kubeClient.CoreV1().ConfigMaps("present").List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(obj.Items) != 0 {
-					t.Fatal(len(obj.Items))
-				}
-			},
-		},
-		{
-			name: "GET-configmap-from-missing-namespace",
-			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = kubeClient.CoreV1().ConfigMaps("non-existent-namespace").Get(context.TODO(), "openshift-apiserver", metav1.GetOptions{})
-				if !apierrors.IsNotFound(err) {
+				gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+				if err := discoverResourceForGVK(httpClient, gvk, "configmaps"); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
 		{
-			name: "GET-missing-namespace",
+			// Should use aggregated discovery files from default-directory
+			name:     "GET-discover-with-invalid-must-gather-location",
+			location: "testdata/non-existent-must-gather",
 			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), "openshift-apiserver", metav1.GetOptions{})
-				if !apierrors.IsNotFound(err) {
+				gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+				if err := discoverResourceForGVK(httpClient, gvk, "configmaps"); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
 		{
-			name: "LIST-all-namespaces",
+			// Should return an error because requestInfo.Path == "/apis/apps/v1" is not supported
+			name:     "GET-discover-unsupported-path",
+			location: "testdata/must-gather-02",
 			testFn: func(t *testing.T, httpClient *http.Client) {
-				kubeClient, err := kubernetes.NewForConfigAndClient(&rest.Config{}, httpClient)
+				discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(&rest.Config{}, httpClient)
 				if err != nil {
 					t.Fatal(err)
 				}
-				obj, err := kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
+				_, err = discoveryClient.ServerResourcesForGroupVersion("apps/v1")
+				if err == nil {
 					t.Fatal(err)
-				}
-				if len(obj.Items) != 0 {
-					t.Fatal(obj)
 				}
 			},
 		},
@@ -416,15 +364,49 @@ func TestDiscoveryChecks(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			embeddedReadFS, err := fs.Sub(packageTestData, "testdata/must-gather-02")
+			embeddedReadFS, err := fs.Sub(packageTestData, test.location)
 			if err != nil {
 				t.Fatal(err)
 			}
 			testClient := manifestclient.NewTestingHTTPClient(embeddedReadFS)
-
 			test.testFn(t, testClient.GetHTTPClient())
 		})
 	}
+}
+
+func discoverResourceForGVK(httpClient *http.Client, gvk schema.GroupVersionKind, resource string) error {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(&rest.Config{}, httpClient)
+	if err != nil {
+		return err
+	}
+
+	_, gvToAPIResourceList, _, err := discoveryClient.GroupsAndMaybeResources()
+	if err != nil {
+		return err
+	}
+
+	if gvToAPIResourceList == nil {
+		return fmt.Errorf("gvToAPIResourceList is nil")
+	}
+
+	gv := gvk.GroupVersion()
+	if len(gvToAPIResourceList[gv].APIResources) == 0 {
+		return fmt.Errorf("no resources found for Group: %q, Version: %q", gv.Group, gv.Version)
+	}
+
+	found := false
+	for _, apiResource := range gvToAPIResourceList[gv].APIResources {
+		if apiResource.Kind == gvk.Kind {
+			if apiResource.Name == resource {
+				found = true
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("failed to find resource %q", resource)
+	}
+
+	return nil
 }
 
 func TestEmptyContent(t *testing.T) {
