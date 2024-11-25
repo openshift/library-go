@@ -38,7 +38,6 @@ func NewAuditPolicyController(
 	name string,
 	targetNamespace string,
 	targetConfigMapName string,
-	apiserverConfigLister configv1listers.APIServerLister,
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	configInformers configinformers.SharedInformerFactory,
@@ -48,13 +47,13 @@ func NewAuditPolicyController(
 	c := &auditPolicyController{
 		controllerInstanceName: factory.ControllerInstanceName(name, "AuditPolicy"),
 		operatorClient:         operatorClient,
-		apiserverConfigLister:  apiserverConfigLister,
+		apiserverConfigLister:  configInformers.Config().V1().APIServers().Lister(),
 		kubeClient:             kubeClient,
 		targetNamespace:        targetNamespace,
 		targetConfigMapName:    targetConfigMapName,
 	}
 
-	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(10*time.Second).WithInformers(
+	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(1*time.Minute).WithInformers(
 		configInformers.Config().V1().APIServers().Informer(),
 		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),

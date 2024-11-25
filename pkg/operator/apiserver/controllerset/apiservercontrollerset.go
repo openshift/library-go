@@ -11,7 +11,6 @@ import (
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
-	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
@@ -400,7 +399,6 @@ func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerContr
 func (cs *APIServerControllerSet) WithAuditPolicyController(
 	targetNamespace string,
 	targetConfigMapName string,
-	apiserverConfigLister configv1listers.APIServerLister,
 	configInformers configinformers.SharedInformerFactory,
 	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
@@ -409,7 +407,6 @@ func (cs *APIServerControllerSet) WithAuditPolicyController(
 		cs.name,
 		targetNamespace,
 		targetConfigMapName,
-		apiserverConfigLister,
 		cs.operatorClient,
 		kubeClient,
 		configInformers,
