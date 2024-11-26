@@ -2,18 +2,13 @@ package manifestclient
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
-
-	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,23 +31,16 @@ type manifestRoundTripper struct {
 	// requestInfoResolver is the same type constructed the same way as the kube-apiserver
 	requestInfoResolver *apirequest.RequestInfoFactory
 
-	lock            sync.RWMutex
-	kindForResource map[schema.GroupVersionResource]kindData
+	discoveryReader *discoveryReader
 }
 
-type kindData struct {
-	kind     schema.GroupVersionKind
-	listKind schema.GroupVersionKind
-	err      error
-}
-
-func newReadRoundTripper(content fs.FS) *manifestRoundTripper {
+func newReadRoundTripper(content fs.FS, discoveryRoundTripper *discoveryReader) *manifestRoundTripper {
 	return &manifestRoundTripper{
 		sourceFS: content,
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
-		kindForResource: make(map[schema.GroupVersionResource]kindData),
+		discoveryReader: discoveryRoundTripper,
 	}
 }
 
@@ -82,7 +70,7 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	switch requestInfo.Verb {
 	case "get":
 		if isDiscovery {
-			returnBody, returnErr = mrt.getGroupResourceDiscovery(requestInfo)
+			returnBody, returnErr = mrt.discoveryReader.getGroupResourceDiscovery(requestInfo)
 		} else {
 			// TODO handle label and field selectors because single item lists are GETs
 			returnBody, returnErr = mrt.get(requestInfo)
@@ -167,85 +155,4 @@ func isServerGroupResourceDiscovery(path string) bool {
 		return false
 	}
 	return parts[0] == "" && parts[1] == "apis"
-}
-
-//go:embed default-discovery
-var defaultDiscovery embed.FS
-
-func (mrt *manifestRoundTripper) getKindForResource(gvr schema.GroupVersionResource) (kindData, error) {
-	mrt.lock.RLock()
-	kindForGVR, ok := mrt.kindForResource[gvr]
-	if ok {
-		defer mrt.lock.RUnlock()
-		return kindForGVR, kindForGVR.err
-	}
-	mrt.lock.RUnlock()
-
-	mrt.lock.Lock()
-	defer mrt.lock.Unlock()
-
-	kindForGVR, ok = mrt.kindForResource[gvr]
-	if ok {
-		return kindForGVR, kindForGVR.err
-	}
-
-	discoveryPath := "/apis"
-	if len(gvr.Group) == 0 {
-		discoveryPath = "/api"
-	}
-	discoveryBytes, err := mrt.getGroupResourceDiscovery(&apirequest.RequestInfo{Path: discoveryPath})
-	if err != nil {
-		kindForGVR.err = fmt.Errorf("error reading discovery: %w", err)
-		mrt.kindForResource[gvr] = kindForGVR
-		return kindForGVR, kindForGVR.err
-	}
-
-	discoveryInfo := &apidiscoveryv2.APIGroupDiscoveryList{}
-	if err := json.Unmarshal(discoveryBytes, discoveryInfo); err != nil {
-		kindForGVR.err = fmt.Errorf("error unmarshalling discovery: %w", err)
-		mrt.kindForResource[gvr] = kindForGVR
-		return kindForGVR, kindForGVR.err
-	}
-
-	kindForGVR.err = fmt.Errorf("did not find kind for %v\n", gvr)
-	for _, groupInfo := range discoveryInfo.Items {
-		if groupInfo.Name != gvr.Group {
-			continue
-		}
-		for _, versionInfo := range groupInfo.Versions {
-			if versionInfo.Version != gvr.Version {
-				continue
-			}
-			for _, resourceInfo := range versionInfo.Resources {
-				if resourceInfo.Resource != gvr.Resource {
-					continue
-				}
-				if resourceInfo.ResponseKind == nil {
-					continue
-				}
-				kindForGVR.kind = schema.GroupVersionKind{
-					Group:   gvr.Group,
-					Version: gvr.Version,
-					Kind:    resourceInfo.ResponseKind.Kind,
-				}
-				if len(resourceInfo.ResponseKind.Group) > 0 {
-					kindForGVR.kind.Group = resourceInfo.ResponseKind.Group
-				}
-				if len(resourceInfo.ResponseKind.Version) > 0 {
-					kindForGVR.kind.Version = resourceInfo.ResponseKind.Version
-				}
-				kindForGVR.listKind = schema.GroupVersionKind{
-					Group:   kindForGVR.kind.Group,
-					Version: kindForGVR.kind.Version,
-					Kind:    resourceInfo.ResponseKind.Kind + "List",
-				}
-				kindForGVR.err = nil
-				mrt.kindForResource[gvr] = kindForGVR
-				return kindForGVR, kindForGVR.err
-			}
-		}
-	}
-
-	mrt.kindForResource[gvr] = kindForGVR
-	return kindForGVR, kindForGVR.err
 }
