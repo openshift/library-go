@@ -42,7 +42,7 @@ func (mrt *manifestRoundTripper) listAll(requestInfo *apirequest.RequestInfo) ([
 		Resource: requestInfo.Resource,
 	}
 
-	kind, err := mrt.getKindForResource(gvr)
+	kind, err := mrt.discoveryReader.getKindForResource(gvr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine list kind: %w", err)
 	}

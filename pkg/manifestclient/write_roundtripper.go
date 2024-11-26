@@ -28,18 +28,21 @@ type writeTrackingRoundTripper struct {
 	// requestInfoResolver is the same type constructed the same way as the kube-apiserver
 	requestInfoResolver *apirequest.RequestInfoFactory
 
+	discoveryReader *discoveryReader
+
 	lock              sync.RWMutex
 	nextRequestNumber int
 	actionTracker     *AllActionsTracker[TrackedSerializedRequest]
 }
 
-func newWriteRoundTripper() *writeTrackingRoundTripper {
+func newWriteRoundTripper(discoveryRoundTripper *discoveryReader) *writeTrackingRoundTripper {
 	return &writeTrackingRoundTripper{
 		nextRequestNumber: 1,
 		actionTracker:     &AllActionsTracker[TrackedSerializedRequest]{},
 		requestInfoResolver: server.NewRequestInfoResolver(&server.Config{
 			LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 		}),
+		discoveryReader: discoveryRoundTripper,
 	}
 }
 
@@ -213,8 +216,14 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	ret := &unstructured.Unstructured{Object: map[string]interface{}{}}
 	ret.SetName(serializedRequest.ActionMetadata.Name)
 	ret.SetNamespace(serializedRequest.ActionMetadata.Namespace)
-	if actionHasRuntimeObjectBody { // TODO might be able to do something generally based on discovery if absolutely necessary
+	if actionHasRuntimeObjectBody {
 		ret.SetGroupVersionKind(bodyObj.GetObjectKind().GroupVersionKind())
+	} else {
+		kindForResource, err := mrt.discoveryReader.getKindForResource(gvr)
+		if err != nil {
+			return nil, err
+		}
+		ret.SetGroupVersionKind(kindForResource.kind)
 	}
 	retBytes, err := json.Marshal(ret.Object)
 	if err != nil {
