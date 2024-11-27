@@ -3,22 +3,26 @@ package manifestclienttest
 import (
 	"context"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/types"
+	"net/http"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+
 	configv1 "github.com/openshift/api/config/v1"
 	applyconfigv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	"github.com/openshift/library-go/pkg/manifestclient"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
-	"net/http"
-	"testing"
 )
 
 func TestSimpleWritesChecks(t *testing.T) {
@@ -189,6 +193,31 @@ func TestSimpleWritesChecks(t *testing.T) {
 					metav1.PatchOptions{},
 					"status")
 				if err != nil {
+					t.Fatal(err)
+				}
+				if len(resultingObj.Name) == 0 {
+					t.Fatal(spew.Sdump(resultingObj))
+				}
+
+				// the dynamic client uses unstructured.UnstructuredJSONScheme decoder,
+				// which requires type info for decoding.
+				// TODO: refactor the test to exercise both clients.
+				dynamicClient, err := dynamic.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				unstructuredResultingObj, err := dynamicClient.Resource(configv1.GroupVersion.WithResource("featuregates")).Patch(
+					ctx,
+					"instance-name",
+					types.JSONPatchType,
+					[]byte("json-patch"),
+					metav1.PatchOptions{},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				resultingObj = &configv1.FeatureGate{}
+				if err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredResultingObj.Object, &resultingObj); err != nil {
 					t.Fatal(err)
 				}
 				if len(resultingObj.Name) == 0 {
