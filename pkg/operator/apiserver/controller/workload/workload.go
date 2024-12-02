@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -35,7 +36,7 @@ const (
 // Delegate captures a set of methods that hold a custom logic
 type Delegate interface {
 	// Sync a method that will be used for delegation. It should bring the desired workload into operation.
-	Sync(ctx context.Context, controllerContext factory.SyncContext) (*appsv1.Deployment, bool, []error)
+	Sync(ctx context.Context, controllerContext factory.SyncContext) (*appsv1.Deployment, bool, bool, []error)
 
 	// PreconditionFulfilled a method that indicates whether all prerequisites are met and we can Sync.
 	//
@@ -68,6 +69,11 @@ type Controller struct {
 	queue              workqueue.RateLimitingInterface
 	versionRecorder    status.VersionGetter
 	preRunCachesSynced []cache.InformerSynced
+
+	// deletionConditionFn checks whether the operand workload of the controller should be deleted;
+	// it also returns the name of said workload to be used for deletion
+	deletionConditionFn func() (bool, string, error)
+	deploymentLister    appsv1listers.DeploymentLister
 }
 
 // NewController creates a brand new Controller instance.
@@ -83,7 +89,7 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 	kubeClient kubernetes.Interface,
 	podLister corev1listers.PodLister,
 	informers []factory.Informer,
-	tagetNamespaceInformers []factory.Informer,
+	targetNamespaceInformers []factory.Informer,
 	delegate Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
@@ -102,12 +108,66 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		versionRecorder:              versionRecorder,
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), instanceName),
+		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), instanceName),
 	}
 
+	return newController(controllerRef, informers, targetNamespaceInformers, eventRecorder)
+}
+
+// NewControllerWithDeletion creates a brand new Controller instance, which includes a deletion condition.
+//
+// the "instanceName" param will be used to set conditions in the status field. It will be suffixed with "WorkloadController",
+// so it can end up in the condition in the form of "OAuthAPIWorkloadControllerDeploymentAvailable"
+//
+// the "operatorNamespace" is used to set "version-mapping" in the correct namespace
+//
+// the "targetNamespace" represent the namespace for the managed resource (DaemonSet)
+//
+// the "deletionConditionFn" will be used to check whether the workload specified by the
+// returned name which is part of targetNamespace must be deleted
+func NewControllerWithDeletion(instanceName, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
+	operatorClient v1helpers.OperatorClient,
+	kubeClient kubernetes.Interface,
+	podLister corev1listers.PodLister,
+	deploymentLister appsv1listers.DeploymentLister,
+	informers []factory.Informer,
+	targetNamespaceInformers []factory.Informer,
+	delegate Delegate,
+	deletionConditionFn func() (bool, string, error),
+	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
+	eventRecorder events.Recorder,
+	versionRecorder status.VersionGetter,
+) factory.Controller {
+	controllerRef := &Controller{
+		controllerInstanceName:       factory.ControllerInstanceName(instanceName, "Workload"),
+		operatorNamespace:            operatorNamespace,
+		targetNamespace:              targetNamespace,
+		targetOperandVersion:         targetOperandVersion,
+		operandNamePrefix:            operandNamePrefix,
+		conditionsPrefix:             conditionsPrefix,
+		operatorClient:               operatorClient,
+		kubeClient:                   kubeClient,
+		podsLister:                   podLister,
+		delegate:                     delegate,
+		deletionConditionFn:          deletionConditionFn,
+		deploymentLister:             deploymentLister,
+		openshiftClusterConfigClient: openshiftClusterConfigClient,
+		versionRecorder:              versionRecorder,
+		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), instanceName),
+	}
+
+	return newController(controllerRef, informers, targetNamespaceInformers, eventRecorder)
+}
+
+func newController(
+	controllerRef *Controller,
+	informers []factory.Informer,
+	targetNamespaceInformers []factory.Informer,
+	eventRecorder events.Recorder,
+) factory.Controller {
 	c := factory.New()
-	for _, nsi := range tagetNamespaceInformers {
-		c.WithNamespaceInformer(nsi, targetNamespace)
+	for _, nsi := range targetNamespaceInformers {
+		c.WithNamespaceInformer(nsi, controllerRef.targetNamespace)
 	}
 
 	return c.WithSync(controllerRef.sync).
@@ -129,15 +189,23 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); err != nil {
-		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
-	} else if !fulfilled {
-		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, nil)
+	if c.deletionConditionFn != nil {
+		if conditionMet, workload, err := c.deletionConditionFn(); err != nil {
+			return err
+		} else if conditionMet {
+			return c.deleteWorkload(ctx, workload)
+		}
 	}
 
-	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
+	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); err != nil {
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, false, []error{err})
+	} else if !fulfilled {
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, false, nil)
+	}
 
-	return c.updateOperatorStatus(ctx, operatorStatus, workload, operatorConfigAtHighestGeneration, true, errs)
+	workload, operatorConfigAtHighestGeneration, removeConditions, errs := c.delegate.Sync(ctx, controllerContext)
+
+	return c.updateOperatorStatus(ctx, operatorStatus, workload, operatorConfigAtHighestGeneration, true, removeConditions, errs)
 }
 
 // shouldSync checks ManagementState to determine if we can run this operator, probably set by a cluster administrator.
@@ -159,22 +227,29 @@ func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.Op
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
+func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration, preconditionsReady, removeConditions bool, errs []error) (err error) {
 	if errs == nil {
 		errs = []error{}
 	}
 
-	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable))
+	typeAvailable := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable)
+	typeDegraded := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeDegraded)
+	typeProgressing := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing)
+	typeWorkloadDegraded := fmt.Sprintf("%sWorkload%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeDegraded)
 
-	workloadDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix))
+	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().WithType(typeAvailable)
+	workloadDegradedCondition := applyoperatorv1.OperatorCondition().WithType(typeWorkloadDegraded)
+	deploymentDegradedCondition := applyoperatorv1.OperatorCondition().WithType(typeDegraded)
+	deploymentProgressingCondition := applyoperatorv1.OperatorCondition().WithType(typeProgressing)
 
-	deploymentDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeploymentDegraded", c.conditionsPrefix))
+	if removeConditions {
+		jsonPatch := v1helpers.RemoveConditionsJSONPatch(previousStatus, []string{typeAvailable, typeDegraded, typeProgressing, typeWorkloadDegraded})
+		if jsonPatch.IsEmpty() {
+			return nil
+		}
 
-	deploymentProgressingCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing))
+		return c.operatorClient.PatchOperatorStatus(ctx, jsonPatch)
+	}
 
 	status := applyoperatorv1.OperatorStatus()
 	if workload != nil {
@@ -353,6 +428,55 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	if len(errs) > 0 {
 		return kerrors.NewAggregate(errs)
 	}
+	return nil
+}
+
+func (c *Controller) deleteWorkload(ctx context.Context, workloadName string) (err error) {
+	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().
+		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable))
+
+	workloadDegradedCondition := applyoperatorv1.OperatorCondition().
+		WithType(fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix))
+
+	status := applyoperatorv1.OperatorStatus()
+	defer func() {
+		status = status.WithConditions(deploymentAvailableCondition, workloadDegradedCondition)
+		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
+			err = applyError
+		}
+	}()
+
+	if _, getErr := c.deploymentLister.Deployments(c.targetNamespace).Get(workloadName); getErr != nil && !apierrors.IsNotFound(getErr) {
+		deploymentAvailableCondition = deploymentAvailableCondition.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("DeletionError")
+
+		workloadDegradedCondition = workloadDegradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("DeletionError").
+			WithMessage(getErr.Error())
+		return getErr
+
+	} else if getErr == nil {
+		if deleteErr := c.kubeClient.AppsV1().Deployments(c.targetNamespace).Delete(ctx, workloadName, metav1.DeleteOptions{}); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			deploymentAvailableCondition = deploymentAvailableCondition.
+				WithStatus(operatorv1.ConditionFalse).
+				WithReason("DeletionError")
+
+			workloadDegradedCondition = workloadDegradedCondition.
+				WithStatus(operatorv1.ConditionTrue).
+				WithReason("DeletionError").
+				WithMessage(deleteErr.Error())
+			return deleteErr
+		}
+	}
+
+	deploymentAvailableCondition = deploymentAvailableCondition.
+		WithStatus(operatorv1.ConditionTrue).
+		WithReason("AsExpected")
+	workloadDegradedCondition = workloadDegradedCondition.
+		WithStatus(operatorv1.ConditionFalse)
+
 	return nil
 }
 

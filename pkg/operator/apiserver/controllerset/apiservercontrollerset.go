@@ -295,6 +295,46 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithWorkloadControllerWithDeletion(
+	name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
+	kubeClient kubernetes.Interface,
+	delegate workload.Delegate,
+	deletionConditionFn func() (bool, string, error),
+	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
+	versionRecorder status.VersionGetter,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	informers ...factory.Informer) *APIServerControllerSet {
+
+	workloadController := workload.NewControllerWithDeletion(
+		name,
+		operatorNamespace,
+		targetNamespace,
+		targetOperandVersion,
+		operandNamePrefix,
+		conditionsPrefix,
+		cs.operatorClient,
+		kubeClient,
+		kubeInformersForNamespaces.PodLister(),
+		kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Lister(),
+		append(informers,
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer(),
+			kubeInformersForNamespaces.InformersFor(targetNamespace).Apps().V1().Deployments().Informer(),
+			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().Nodes().Informer(),
+		),
+		[]factory.Informer{kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer()},
+
+		delegate,
+		deletionConditionFn,
+		openshiftClusterConfigClient,
+		cs.eventRecorder,
+		versionRecorder)
+
+	cs.workloadController.controller = workloadController
+	return cs
+}
+
 func (cs *APIServerControllerSet) WithoutWorkloadController() *APIServerControllerSet {
 	cs.workloadController.controller = nil
 	cs.workloadController.emptyAllowed = true
