@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -549,4 +550,31 @@ func IsConditionPresentAndEqual(conditions []metav1.Condition, conditionType str
 		}
 	}
 	return false
+}
+
+func RemoveConditionsJSONPatch(operatorStatus *operatorv1.OperatorStatus, conditionTypesToRemove []string) *jsonpatch.PatchSet {
+	if operatorStatus == nil {
+		return nil
+	}
+
+	var removedCount int
+	jsonPatch := jsonpatch.New()
+	for i, existingCondition := range operatorStatus.Conditions {
+		for _, conditionTypeToRemove := range conditionTypesToRemove {
+			if existingCondition.Type != conditionTypeToRemove {
+				continue
+			}
+			removeAtIndex := i
+			if !jsonPatch.IsEmpty() {
+				removeAtIndex = removeAtIndex - removedCount
+			}
+			jsonPatch.WithRemove(
+				fmt.Sprintf("/status/conditions/%d", removeAtIndex),
+				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionTypeToRemove),
+			)
+			removedCount++
+		}
+	}
+
+	return jsonPatch
 }
