@@ -286,7 +286,7 @@ func (r *repository) AddGlobalConfig(name, value string) error {
 
 // CloneWithOptions clones a remote git repository to a local directory
 func (r *repository) CloneWithOptions(location string, url string, args ...string) error {
-	gitArgs := []string{"clone"}
+	gitArgs := []string{"-c","protocol.file.allow=always","clone"}
 	gitArgs = append(gitArgs, args...)
 	gitArgs = append(gitArgs, url)
 	gitArgs = append(gitArgs, location)
@@ -362,7 +362,7 @@ func (r *repository) Checkout(location string, ref string) error {
 
 // SubmoduleUpdate updates submodules, optionally recursively
 func (r *repository) SubmoduleUpdate(location string, init, recursive bool) error {
-	updateArgs := []string{"submodule", "update"}
+	updateArgs := []string{"-c","protocol.file.allow=always","submodule", "update"}
 	if init {
 		updateArgs = append(updateArgs, "--init")
 	}
