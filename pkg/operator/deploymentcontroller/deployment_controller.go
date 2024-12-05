@@ -272,7 +272,11 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		availableCondition := applyoperatorv1.
 			OperatorCondition().WithType(c.instanceName + opv1.OperatorStatusTypeAvailable)
 		if deployment.Status.AvailableReplicas > 0 {
-			availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
+			availableCondition = availableCondition.
+				WithStatus(opv1.ConditionTrue).
+				WithMessage("Deployment is available").
+				WithReason("AsExpected")
+
 		} else {
 			availableCondition = availableCondition.
 				WithStatus(opv1.ConditionFalse).
@@ -286,7 +290,10 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
 		progressingCondition := applyoperatorv1.OperatorCondition().
 			WithType(c.instanceName + opv1.OperatorStatusTypeProgressing).
-			WithStatus(opv1.ConditionFalse)
+			WithStatus(opv1.ConditionFalse).
+			WithMessage("Deployment is not progressing").
+			WithReason("AsExpected")
+
 		if ok, msg := isProgressing(deployment); ok {
 			progressingCondition = progressingCondition.
 				WithStatus(opv1.ConditionTrue).

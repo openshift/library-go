@@ -197,7 +197,11 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		WithStatus(opv1.ConditionTrue)
 
 	if daemonSet.Status.NumberAvailable > 0 {
-		availableCondition = availableCondition.WithStatus(opv1.ConditionTrue)
+		availableCondition = availableCondition.
+			WithStatus(opv1.ConditionTrue).
+			WithMessage("DaemonSet is available").
+			WithReason("AsExpected")
+
 	} else {
 		availableCondition = availableCondition.
 			WithStatus(opv1.ConditionFalse).
@@ -209,7 +213,9 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 	// Set Progressing condition
 	progressingCondition := applyoperatorv1.OperatorCondition().
 		WithType(c.instanceName + opv1.OperatorStatusTypeProgressing).
-		WithStatus(opv1.ConditionFalse)
+		WithStatus(opv1.ConditionFalse).
+		WithMessage("DaemonSet is not progressing").
+		WithReason("AsExpected")
 
 	if ok, msg := isProgressing(opStatus, daemonSet); ok {
 		progressingCondition = progressingCondition.
