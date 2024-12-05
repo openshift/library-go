@@ -19,21 +19,7 @@ import (
 
 // ToKeyState converts a key secret to a key state.
 func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
-	data := s.Data[EncryptionSecretKeyDataKey]
-
-	keyID, validKeyID := state.NameToKeyID(s.Name)
-	if !validKeyID {
-		return state.KeyState{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
-	}
-
-	key := state.KeyState{
-		Key: apiserverconfigv1.Key{
-			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
-			Name:   strconv.FormatUint(keyID, 10),
-			Secret: base64.StdEncoding.EncodeToString(data),
-		},
-		Backed: true,
-	}
+	key := state.KeyState{Backed: true}
 
 	if v, ok := s.Annotations[EncryptionSecretMigratedTimestamp]; ok {
 		ts, err := time.Parse(time.RFC3339, v)
@@ -60,19 +46,44 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
-	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
+	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity, state.KMS:
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
 	}
-	if keyMode != state.Identity && len(data) == 0 {
+
+	data := s.Data[EncryptionSecretKeyDataKey]
+
+	// for non-KMS, non-identity key cannot not be empty
+	if keyMode != state.Identity && keyMode != state.KMS && len(data) == 0 {
 		return state.KeyState{}, fmt.Errorf("secret %s/%s of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
+	}
+
+	// kms does not populate keys, only uses kms key name
+	if keyMode == state.KMS {
+		kmsKeyName, exists := s.Data[EncryptionSecretKMSKeyName]
+		if !exists {
+			return state.KeyState{}, fmt.Errorf("secret %s/%s does not contain required data field %q", s.Namespace, s.Name, EncryptionSecretKMSKeyName)
+		}
+
+		key.KMSKeyName = string(kmsKeyName)
+	} else {
+		keyID, validKeyID := state.NameToKeyID(s.Name)
+		if !validKeyID && keyMode != state.KMS {
+			return state.KeyState{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
+		}
+
+		key.Key = apiserverconfigv1.Key{
+			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
+			Name:   strconv.FormatUint(keyID, 10),
+			Secret: base64.StdEncoding.EncodeToString(data),
+		}
 	}
 
 	return key, nil
 }
 
-// ToKeyState converts a key state to a key secret.
+// FromKeyState converts a key state to a key secret.
 func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	bs, err := base64.StdEncoding.DecodeString(ks.Key.Secret)
 	if err != nil {
@@ -111,6 +122,11 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+
+	if ks.Mode == state.KMS {
+		s.Name = fmt.Sprintf("encryption-key-%s-%s", component, ks.KMSKeyName)
+		s.Data[EncryptionSecretKMSKeyName] = []byte(ks.KMSKeyName)
 	}
 
 	return s, nil

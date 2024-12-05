@@ -124,6 +124,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	controllers, err := encryption.NewControllers(
 		component,
 		[]string{},
+		false,
 		provider,
 		deployer,
 		migrator,

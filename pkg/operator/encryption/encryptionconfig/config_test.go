@@ -4,10 +4,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
@@ -361,6 +363,64 @@ func TestToEncryptionState(t *testing.T) {
 				},
 			},
 		},
+
+		// feature-gated KMS (external managed keys)
+
+		// scenario 11
+		{
+			name: "KMS enabled",
+			input: func() *apiserverconfigv1.EncryptionConfiguration {
+				keysRes := encryptiontesting.EncryptionKeysResourceTuple{
+					Resource: "secrets",
+					Keys:     []apiserverconfigv1.Key{{}},
+					Modes:    []string{"KMS"},
+				}
+				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
+				return ec
+			}(),
+			output: map[schema.GroupResource]state.GroupResourceState{
+				{Group: "", Resource: "secrets"}: {
+					WriteKey: state.KeyState{
+						Mode:       state.KMS,
+						KMSKeyName: "cloud-kms",
+					},
+					ReadKeys: []state.KeyState{
+						{Mode: state.KMS, KMSKeyName: "cloud-kms"},
+					},
+				},
+			},
+		},
+		// scenario 12
+		{
+			name: "KMS enabled after aescbc",
+			input: func() *apiserverconfigv1.EncryptionConfiguration {
+				keysRes := encryptiontesting.EncryptionKeysResourceTuple{
+					Resource: "secrets",
+					Keys: []apiserverconfigv1.Key{
+						{},
+						{
+							Name:   "34",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
+					},
+					Modes: []string{"KMS", "aescbc"},
+				}
+				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
+				return ec
+			}(),
+			output: map[schema.GroupResource]state.GroupResourceState{
+				{Group: "", Resource: "secrets"}: {
+					WriteKey: state.KeyState{
+						Mode:       state.KMS,
+						KMSKeyName: "cloud-kms",
+					},
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "34", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, Mode: "aescbc"},
+						{Mode: state.KMS, KMSKeyName: "cloud-kms"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -522,6 +582,41 @@ func TestFromEncryptionState(t *testing.T) {
 
 		// scenario 6
 		// TODO: encryption on after being off
+
+		// scenario 7
+		{
+			name:       "turn on KMS for single resource",
+			grs:        []schema.GroupResource{{Group: "", Resource: "secrets"}},
+			targetNs:   "kms",
+			writeKeyIn: encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "KMS"),
+			readKeysIn: []*corev1.Secret{
+				encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "KMS"),
+			},
+			makeOutput: func(writeKey *corev1.Secret, readKeys []*corev1.Secret) []apiserverconfigv1.ResourceConfiguration {
+				rs := apiserverconfigv1.ResourceConfiguration{}
+				rs.Resources = []string{"secrets"}
+				rs.Providers = []apiserverconfigv1.ProviderConfiguration{
+					{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "cloud-kms-b7d9e546",
+							Endpoint:   "unix:///var/kms-plugin/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					}, // TODO: fix multiple providers, use a keyID to distinguish same writeKey and readKeys
+					{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "cloud-kms-b7d9e546",
+							Endpoint:   "unix:///var/kms-plugin/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					},
+					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
+				}
+				return []apiserverconfigv1.ResourceConfiguration{rs}
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

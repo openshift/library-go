@@ -27,6 +27,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -288,6 +289,12 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
+		return currentMode, reason, nil
+	case state.KMS:
+		// apiServer.Spec.Encryption.KMS
+		// TODO: pass to key backed secret
+		currentKeyId := encryptionconfig.HashKMSConfig(*apiServer.Spec.Encryption.KMS)
+		_ = currentKeyId
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, nil

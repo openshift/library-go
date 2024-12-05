@@ -111,6 +111,25 @@ func TestRoundtrip(t *testing.T) {
 				ExternalReason: "external",
 			},
 		},
+		// scenario: external KMSv2 provider
+		{
+			name:      "full KMSv2",
+			component: "kms",
+			ks: state.KeyState{
+				Backed: true,
+				Mode:   "KMS",
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "route.openshift.io", Resource: "routes"},
+						{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
+						{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

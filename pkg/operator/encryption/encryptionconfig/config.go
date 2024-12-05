@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
@@ -25,7 +26,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: stateToProviders(grKeys),
+			Providers: stateToProviders(gr, grKeys),
 		})
 	}
 
@@ -106,6 +107,18 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 					Mode: s,
 				}
 
+			case provider.KMS != nil:
+				// only KMSv2 is allowed
+				if provider.KMS.APIVersion != "v2" {
+					klog.Infof("skipping invalid KMS provider with APIVersion %s, expected KMS v2", provider.KMS.APIVersion)
+					continue // should never happen
+				}
+
+				ks = state.KeyState{
+					Mode:       state.KMS,
+					KMSKeyName: provider.KMS.Name,
+				}
+
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
@@ -119,7 +132,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 				}
 			}
 
-			if i == 0 || (ks.Mode == state.Identity && !grState.HasWriteKey()) {
+			if i == 0 || (ks.Mode == state.Identity && !grState.HasWriteKey()) || ks.Mode == state.KMS {
 				grState.WriteKey = ks
 			}
 
@@ -139,7 +152,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 // it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
+func stateToProviders(gr schema.GroupResource, desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
@@ -190,6 +203,19 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 			aesgcmProviders = append(aesgcmProviders, apiserverconfigv1.ProviderConfiguration{
 				AESGCM: &apiserverconfigv1.AESConfiguration{
 					Keys: []apiserverconfigv1.Key{key.Key},
+				},
+			})
+		case state.KMS:
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				KMS: &apiserverconfigv1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       generateKMSKeyName("cloud-kms", gr),
+
+					// TODO: fixed values today, in the future we can support tweaking them..
+					Endpoint: KMSPluginEndpoint,
+					Timeout: &metav1.Duration{
+						Duration: KMSPluginTimeout,
+					},
 				},
 			})
 		default:

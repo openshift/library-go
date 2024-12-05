@@ -26,7 +26,7 @@ type GroupResourceState struct {
 }
 
 func (k GroupResourceState) HasWriteKey() bool {
-	return len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0
+	return (len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0) || k.WriteKey.KMSKeyName != ""
 }
 
 type KeyState struct {
@@ -40,6 +40,9 @@ type KeyState struct {
 	InternalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	ExternalReason string
+
+	// only used when a KMS provider is used
+	KMSKeyName string
 }
 
 type MigrationState struct {
@@ -60,6 +63,8 @@ const (
 	AESGCM    Mode = "aesgcm"
 	SecretBox Mode = "secretbox" // available from the first release, see defaultMode below
 	Identity  Mode = "identity"  // available from the first release, see defaultMode below
+
+	KMS Mode = "KMS" // check if we can set this to "kms" in o/api to conform with upstream encryptionConfig
 
 	// Changing this value requires caution to not break downgrades.
 	// Specifically, if some new Mode is released in version X, that new Mode cannot

@@ -277,7 +277,9 @@ func (APIServer) SwaggerDoc() map[string]string {
 }
 
 var map_APIServerEncryption = map[string]string{
+	"":     "APIServerEncryption is used to encrypt sensitive resources on the cluster.",
 	"type": "type defines what encryption type should be used to encrypt resources at the datastore layer. When this field is unset (i.e. when it is set to the empty string), identity is implied. The behavior of unset can and will change over time.  Even if encryption is enabled by default, the meaning of unset may change to a different encryption type based on changes in best practices.\n\nWhen encryption is enabled, all sensitive resources shipped with the platform are encrypted. This list of sensitive resources can and will change over time.  The current authoritative list is:\n\n  1. secrets\n  2. configmaps\n  3. routes.route.openshift.io\n  4. oauthaccesstokens.oauth.openshift.io\n  5. oauthauthorizetokens.oauth.openshift.io",
+	"kms":  "kms defines the configuration for the external KMS instance that manages the encryption keys, when KMS encryption is enabled sensitive resources will be encrypted using keys managed by an externally configured KMS instance.\n\nThe Key Management Service (KMS) instance provides symmetric encryption and is responsible for managing the lifecyle of the encryption keys outside of the control plane. This allows integration with an external provider to manage the data encryption keys securely.",
 }
 
 func (APIServerEncryption) SwaggerDoc() map[string]string {
@@ -772,11 +774,12 @@ func (PromQLClusterCondition) SwaggerDoc() map[string]string {
 }
 
 var map_Release = map[string]string{
-	"":         "Release represents an OpenShift release image and associated metadata.",
-	"version":  "version is a semantic version identifying the update version. When this field is part of spec, version is optional if image is specified.",
-	"image":    "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
-	"url":      "url contains information about this release. This URL is set by the 'url' metadata property on a release or the metadata returned by the update API and should be displayed as a link in user interfaces. The URL field may not be set for test or nightly releases.",
-	"channels": "channels is the set of Cincinnati channels to which the release currently belongs.",
+	"":             "Release represents an OpenShift release image and associated metadata.",
+	"architecture": "architecture is an optional field that indicates the value of the cluster architecture. In this context cluster architecture means either a single architecture or a multi architecture. Valid values are 'Multi' and empty.",
+	"version":      "version is a semantic version identifying the update version. When this field is part of spec, version is optional if image is specified.",
+	"image":        "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
+	"url":          "url contains information about this release. This URL is set by the 'url' metadata property on a release or the metadata returned by the update API and should be displayed as a link in user interfaces. The URL field may not be set for test or nightly releases.",
+	"channels":     "channels is the set of Cincinnati channels to which the release currently belongs.",
 }
 
 func (Release) SwaggerDoc() map[string]string {
@@ -1519,7 +1522,7 @@ var map_NutanixFailureDomain = map[string]string{
 	"":        "NutanixFailureDomain configures failure domain information for the Nutanix platform.",
 	"name":    "name defines the unique name of a failure domain. Name is required and must be at most 64 characters in length. It must consist of only lower case alphanumeric characters and hyphens (-). It must start and end with an alphanumeric character. This value is arbitrary and is used to identify the failure domain within the platform.",
 	"cluster": "cluster is to identify the cluster (the Prism Element under management of the Prism Central), in which the Machine's VM will be created. The cluster identifier (uuid or name) can be obtained from the Prism Central console or using the prism_central API.",
-	"subnets": "subnets holds a list of identifiers (one or more) of the cluster's network subnets for the Machine's VM to connect to. The subnet identifiers (uuid or name) can be obtained from the Prism Central console or using the prism_central API.",
+	"subnets": "subnets holds a list of identifiers (one or more) of the cluster's network subnets If the feature gate NutanixMultiSubnets is enabled, up to 32 subnets may be configured. for the Machine's VM to connect to. The subnet identifiers (uuid or name) can be obtained from the Prism Central console or using the prism_central API.",
 }
 
 func (NutanixFailureDomain) SwaggerDoc() map[string]string {
@@ -1927,6 +1930,26 @@ var map_LoadBalancer = map[string]string{
 
 func (LoadBalancer) SwaggerDoc() map[string]string {
 	return map_LoadBalancer
+}
+
+var map_AWSKMSConfig = map[string]string{
+	"":       "AWSKMSConfig defines the KMS config specific to AWS KMS provider",
+	"keyARN": "keyARN specifies the Amazon Resource Name (ARN) of the AWS KMS key used for encryption. The value must adhere to the format `arn:aws:kms:<region>:<account_id>:key/<key_id>`, where: - `<region>` is the AWS region consisting of lowercase letters and hyphens followed by a number. - `<account_id>` is a 12-digit numeric identifier for the AWS account. - `<key_id>` is a unique identifier for the KMS key, consisting of lowercase hexadecimal characters and hyphens.",
+	"region": "region specifies the AWS region where the KMS instance exists, and follows the format `<region-prefix>-<region-name>-<number>`, e.g.: `us-east-1`. Only lowercase letters and hyphens followed by numbers are allowed.",
+}
+
+func (AWSKMSConfig) SwaggerDoc() map[string]string {
+	return map_AWSKMSConfig
+}
+
+var map_KMSConfig = map[string]string{
+	"":     "KMSConfig defines the configuration for the KMS instance that will be used with KMSEncryptionProvider encryption",
+	"type": "type defines the kind of platform for the KMS provider. Available provider types are AWS only.",
+	"aws":  "aws defines the key config for using an AWS KMS instance for the encryption. The AWS KMS instance is managed by the user outside the purview of the control plane.",
+}
+
+func (KMSConfig) SwaggerDoc() map[string]string {
+	return map_KMSConfig
 }
 
 var map_ClusterNetworkEntry = map[string]string{
