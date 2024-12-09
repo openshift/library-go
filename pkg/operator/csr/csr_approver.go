@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	certapiv1 "k8s.io/api/certificates/v1"
@@ -210,6 +212,37 @@ func (a *ServiceAccountApprover) Approve(csrObj *certapiv1.CertificateSigningReq
 
 	return CSRApproved, "", nil
 
+}
+
+// unionCSRApprover approver against a chain of CSRApprover
+type unionCSRApprover []CSRApprover
+
+func NewUnionCSRApprover(approvers ...CSRApprover) CSRApprover {
+	return unionCSRApprover(approvers)
+}
+
+func (u unionCSRApprover) Approve(csrObj *certapiv1.CertificateSigningRequest, x509CSR *x509.CertificateRequest) (approvalStatus CSRApprovalDecision, denyReason string, err error) {
+	var (
+		errs    []error
+		reasons []string
+	)
+
+	for _, approver := range u {
+		decision, reason, err := approver.Approve(csrObj, x509CSR)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if reason != "" {
+			reasons = append(reasons, reason)
+		}
+		switch decision {
+		case CSRApproved, CSRDenied:
+			return decision, reason, err
+		case CSRNoOpinion:
+		}
+	}
+
+	return CSRNoOpinion, strings.Join(reasons, "\n"), errors.Join(errs...)
 }
 
 type CSRFilter interface {
