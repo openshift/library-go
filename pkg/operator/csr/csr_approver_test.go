@@ -8,10 +8,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/stretchr/testify/require"
 
@@ -28,9 +30,9 @@ import (
 )
 
 func Test_csrApproverController_sync(t *testing.T) {
-	var alwaysApprove alwaysApproveApprover
-	var deny denyApprover
-	var noOpinion noOpinionApprover
+	var alwaysApprove = alwaysApproveApprover()
+	var deny = denyApprover()
+	var noOpinion = noOpinionApprover()
 
 	tests := []struct {
 		name           string
@@ -43,12 +45,12 @@ func Test_csrApproverController_sync(t *testing.T) {
 	}{
 		{
 			name:        "no CSRSs",
-			csrApprover: &alwaysApprove,
+			csrApprover: alwaysApprove,
 			csrName:     "testCSR",
 		},
 		{
 			name:        "CSR waiting for approval - approved",
-			csrApprover: &alwaysApprove,
+			csrApprover: alwaysApprove,
 			csrName:     "test-csr",
 			csrs: []*certapiv1.CertificateSigningRequest{
 				{
@@ -61,7 +63,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 		},
 		{
 			name:        "CSR waiting for approval - denied",
-			csrApprover: &deny,
+			csrApprover: deny,
 			csrName:     "test-csr",
 			csrs: []*certapiv1.CertificateSigningRequest{
 				{
@@ -74,7 +76,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 		},
 		{
 			name:        "CSR waiting for approval - no opinion",
-			csrApprover: &noOpinion,
+			csrApprover: noOpinion,
 			csrName:     "test-csr",
 			csrs: []*certapiv1.CertificateSigningRequest{
 				{
@@ -87,7 +89,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 		},
 		{
 			name:        "CSR waiting for approval - invalid CSR in request",
-			csrApprover: &noOpinion,
+			csrApprover: noOpinion,
 			csrName:     "test-csr",
 			csrs: []*certapiv1.CertificateSigningRequest{
 				{
@@ -281,20 +283,137 @@ func TestServiceAccountApprover(t *testing.T) {
 	}
 }
 
-type denyApprover func(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error)
-type alwaysApproveApprover func(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error)
-type noOpinionApprover func(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error)
+func TestUnionCSRApprover(t *testing.T) {
+	var alwaysApprove = alwaysApproveApprover()
+	var deny = denyApprover()
+	var noOpinion = noOpinionApprover()
 
-func (a *denyApprover) Approve(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error) {
-	return CSRDenied, "BecauseReasons", nil
+	tests := []struct {
+		name             string
+		approvers        []CSRApprover
+		expectedDecision CSRApprovalDecision
+		expectedReason   string
+		expectedError    string
+	}{
+		{
+			name:             "no approvers",
+			approvers:        []CSRApprover{},
+			expectedDecision: CSRNoOpinion,
+		},
+		{
+			name:             "alwaysApprove + alwaysApprove",
+			approvers:        []CSRApprover{alwaysApprove, alwaysApprove},
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "alwaysApprove + deny",
+			approvers:        []CSRApprover{alwaysApprove, deny},
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "alwaysApprove + noOpinion",
+			approvers:        []CSRApprover{alwaysApprove, noOpinion},
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "deny + deny",
+			approvers:        []CSRApprover{deny, deny},
+			expectedDecision: CSRDenied,
+			expectedReason:   "BecauseReasons",
+		},
+		{
+			name:             "deny + alwaysApprove",
+			approvers:        []CSRApprover{deny, alwaysApprove},
+			expectedDecision: CSRDenied,
+			expectedReason:   "BecauseReasons",
+		},
+		{
+			name:             "deny + noOpinion",
+			approvers:        []CSRApprover{deny, noOpinion},
+			expectedDecision: CSRDenied,
+			expectedReason:   "BecauseReasons",
+		},
+		{
+			name:             "noOpinion + noOpinion",
+			approvers:        []CSRApprover{noOpinion, noOpinion},
+			expectedDecision: CSRNoOpinion,
+		},
+		{
+			name:             "noOpinion + alwaysApprove",
+			approvers:        []CSRApprover{noOpinion, alwaysApprove},
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "noOpinion + deny",
+			approvers:        []CSRApprover{noOpinion, deny},
+			expectedDecision: CSRDenied,
+			expectedReason:   "BecauseReasons",
+		},
+		{
+			name: "noOpinion + noOpinion with reasons and errors",
+			approvers: []CSRApprover{
+				&mockApprover{
+					decision: CSRNoOpinion,
+					reason:   "foo",
+					err:      errors.New("foo error"),
+				},
+				&mockApprover{
+					decision: CSRNoOpinion,
+					reason:   "bar",
+					err:      errors.New("bar error"),
+				},
+			},
+			expectedDecision: CSRNoOpinion,
+			expectedReason:   "foo\nbar",
+			expectedError:    "foo error\nbar error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csr := &certapiv1.CertificateSigningRequest{}
+			x509CSR := &x509.CertificateRequest{}
+
+			u := NewUnionCSRApprover(tt.approvers...)
+			decision, reason, err := u.Approve(csr, x509CSR)
+			require.Equal(t, tt.expectedDecision, decision)
+			require.Equal(t, tt.expectedReason, reason)
+			if tt.expectedError != "" {
+				require.EqualError(t, err, tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
-func (a *alwaysApproveApprover) Approve(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error) {
-	return CSRApproved, "", nil
+type mockApprover struct {
+	decision CSRApprovalDecision
+	reason   string
+	err      error
 }
 
-func (a *noOpinionApprover) Approve(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error) {
-	return CSRNoOpinion, "", nil
+func (m *mockApprover) Approve(_ *certapiv1.CertificateSigningRequest, _ *x509.CertificateRequest) (CSRApprovalDecision, string, error) {
+	return m.decision, m.reason, m.err
+}
+
+func denyApprover() CSRApprover {
+	return &mockApprover{
+		decision: CSRDenied,
+		reason:   "BecauseReasons",
+	}
+}
+
+func alwaysApproveApprover() CSRApprover {
+	return &mockApprover{
+		decision: CSRApproved,
+	}
+}
+
+func noOpinionApprover() CSRApprover {
+	return &mockApprover{
+		decision: CSRNoOpinion,
+	}
 }
 
 func genCSR(t *testing.T, subjectCN string) []byte {
