@@ -10,6 +10,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca
 	github.com/evanphx/json-patch v4.12.0+incompatible
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/fvbommel/sortorder v1.1.0
 	github.com/go-ldap/ldap/v3 v3.4.3
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
@@ -66,7 +67,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
