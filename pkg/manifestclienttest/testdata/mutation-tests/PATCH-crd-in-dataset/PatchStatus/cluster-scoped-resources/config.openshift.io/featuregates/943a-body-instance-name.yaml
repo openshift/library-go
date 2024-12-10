@@ -1,0 +1,5 @@
+- op: test
+  path: /foo/path
+  value: bar
+- op: remove
+  path: /foo/path/2
