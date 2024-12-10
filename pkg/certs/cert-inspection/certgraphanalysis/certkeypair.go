@@ -108,6 +108,8 @@ func toCertKeyMetadata(certificate *x509.Certificate) certgraphapi.CertKeyMetada
 		},
 		SignatureAlgorithm: certificate.SignatureAlgorithm.String(),
 		PublicKeyAlgorithm: certificate.PublicKeyAlgorithm.String(),
+		NotBefore:          certificate.NotBefore.String(),
+		NotAfter:           certificate.NotAfter.String(),
 		ValidityDuration:   duration.HumanDuration(certificate.NotAfter.Sub(certificate.NotBefore)),
 	}
 
