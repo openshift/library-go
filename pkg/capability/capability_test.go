@@ -3,7 +3,10 @@ package capability
 import (
 	"errors"
 	"os"
+	"sort"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -16,7 +19,7 @@ func TestGetImplicitlyEnabledCapabilitiesInternal(t *testing.T) {
 		enabledManCaps []configv1.ClusterVersionCapability
 		updatedManCaps []configv1.ClusterVersionCapability
 		capabilities   ClusterCapabilities
-		wantImplicit   []string
+		wantImplicit   []configv1.ClusterVersionCapability
 	}{
 		{name: "implicitly enable capability",
 			enabledManCaps: []configv1.ClusterVersionCapability{"cap1", "cap3"},
@@ -24,16 +27,16 @@ func TestGetImplicitlyEnabledCapabilitiesInternal(t *testing.T) {
 			capabilities: ClusterCapabilities{
 				EnabledCapabilities: map[configv1.ClusterVersionCapability]struct{}{"cap1": {}},
 			},
-			wantImplicit: []string{"cap2"},
+			wantImplicit: []configv1.ClusterVersionCapability{"cap2"},
 		},
 		{name: "no prior caps, implicitly enabled capability",
 			updatedManCaps: []configv1.ClusterVersionCapability{"cap2"},
-			wantImplicit:   []string{"cap2"},
+			wantImplicit:   []configv1.ClusterVersionCapability{"cap2"},
 		},
 		{name: "multiple implicitly enable capability",
 			enabledManCaps: []configv1.ClusterVersionCapability{"cap1", "cap2", "cap3"},
 			updatedManCaps: []configv1.ClusterVersionCapability{"cap4", "cap5", "cap6"},
-			wantImplicit:   []string{"cap4", "cap5", "cap6"},
+			wantImplicit:   []configv1.ClusterVersionCapability{"cap4", "cap5", "cap6"},
 		},
 		{name: "no implicitly enable capability",
 			enabledManCaps: []configv1.ClusterVersionCapability{"cap1", "cap3"},
@@ -71,20 +74,8 @@ func TestGetImplicitlyEnabledCapabilitiesInternal(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			caps := getImplicitlyEnabledCapabilities(test.enabledManCaps, test.updatedManCaps, test.capabilities)
-			if len(caps) != len(test.wantImplicit) {
-				t.Errorf("Incorrect number of implicitly enabled keys, wanted: %d. Implicitly enabled capabilities returned: %v", len(test.wantImplicit), caps)
-			}
-			for _, wanted := range test.wantImplicit {
-				found := false
-				for _, have := range caps {
-					if wanted == string(have) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Missing implicitly enabled capability %q. Implicitly enabled capabilities returned : %v", wanted, caps)
-				}
+			if diff := cmp.Diff(test.wantImplicit, caps); diff != "" {
+				t.Errorf("%s: Returned capacities differ from expected:\n%s", test.name, diff)
 			}
 		})
 	}
@@ -101,10 +92,6 @@ func TestGetCapabilitiesStatus(t *testing.T) {
 				KnownCapabilities:   map[configv1.ClusterVersionCapability]struct{}{},
 				EnabledCapabilities: map[configv1.ClusterVersionCapability]struct{}{},
 			},
-			wantStatus: configv1.ClusterVersionCapabilitiesStatus{
-				EnabledCapabilities: []configv1.ClusterVersionCapability{},
-				KnownCapabilities:   []configv1.ClusterVersionCapability{},
-			},
 		},
 		{name: "capabilities",
 			caps: ClusterCapabilities{
@@ -120,37 +107,8 @@ func TestGetCapabilitiesStatus(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config := GetCapabilitiesStatus(test.caps)
-			if len(config.KnownCapabilities) != len(test.wantStatus.KnownCapabilities) {
-				t.Errorf("Incorrect number of KnownCapabilities keys, wanted: %q. KnownCapabilities returned: %v",
-					test.wantStatus.KnownCapabilities, config.KnownCapabilities)
-			}
-			for _, v := range test.wantStatus.KnownCapabilities {
-				vFound := false
-				for _, cv := range config.KnownCapabilities {
-					if v == cv {
-						vFound = true
-						break
-					}
-					if !vFound {
-						t.Errorf("Missing KnownCapabilities key %q. KnownCapabilities returned : %v", v, config.KnownCapabilities)
-					}
-				}
-			}
-			if len(config.EnabledCapabilities) != len(test.wantStatus.EnabledCapabilities) {
-				t.Errorf("Incorrect number of EnabledCapabilities keys, wanted: %q. EnabledCapabilities returned: %v",
-					test.wantStatus.EnabledCapabilities, config.EnabledCapabilities)
-			}
-			for _, v := range test.wantStatus.EnabledCapabilities {
-				vFound := false
-				for _, cv := range config.EnabledCapabilities {
-					if v == cv {
-						vFound = true
-						break
-					}
-					if !vFound {
-						t.Errorf("Missing EnabledCapabilities key %q. EnabledCapabilities returned : %v", v, config.EnabledCapabilities)
-					}
-				}
+			if diff := cmp.Diff(test.wantStatus, config); diff != "" {
+				t.Errorf("%s: Returned capacities status differ from expected:\n%s", test.name, diff)
 			}
 		})
 	}
@@ -166,7 +124,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 		currentAnnotations map[string]interface{}
 		capabilities       ClusterCapabilities
 		wantImplicit       []configv1.ClusterVersionCapability
-		wantImplicitLen    int
 	}{
 		{
 			name:    "basic",
@@ -178,7 +135,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap2"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			name:    "basic with unknown cap",
@@ -190,7 +146,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap2"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			name:    "different manifest",
@@ -223,7 +178,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap2"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			name:    "only add cap once",
@@ -235,7 +189,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap2"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			/*
@@ -289,7 +242,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 				configv1.ClusterVersionCapability("cap1115"),
 				configv1.ClusterVersionCapability("cap1116"),
 			},
-			wantImplicitLen: 17,
 		},
 		{
 			name:    "no update manifests",
@@ -302,7 +254,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap1"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			name:    "no current manifests",
@@ -315,7 +266,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap1"),
 			},
-			wantImplicitLen: 1,
 		},
 		{
 			name:    "duplicate manifests",
@@ -327,7 +277,6 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			wantImplicit: []configv1.ClusterVersionCapability{
 				configv1.ClusterVersionCapability("cap2"),
 			},
-			wantImplicitLen: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -346,21 +295,10 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 			if tt.pathExt == "test10" {
 				updateMans = append(updateMans, updateMans[0])
 			}
+			sort.Sort(capabilitiesSort(tt.wantImplicit))
 			caps := GetImplicitlyEnabledCapabilities(updateMans, currentMans, tt.capabilities)
-			if len(caps) != tt.wantImplicitLen {
-				t.Errorf("Incorrect number of implicitly enabled keys, wanted: %d. Implicitly enabled capabilities returned: %v", tt.wantImplicitLen, caps)
-			}
-			for _, wanted := range tt.wantImplicit {
-				found := false
-				for _, have := range caps {
-					if wanted == have {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Missing implicitly enabled capability %q. Implicitly enabled capabilities returned : %v", wanted, caps)
-				}
+			if diff := cmp.Diff(tt.wantImplicit, caps); diff != "" {
+				t.Errorf("%s: Returned capacities differ from expected:\n%s", tt.name, diff)
 			}
 		})
 	}
@@ -368,21 +306,17 @@ func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
 
 func readManifestFiles(path string) ([]manifest.Manifest, error) {
 	readFiles, err := os.ReadDir(path)
-
 	// no dir for nil tests
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
-	files := []string{}
+	var files []string
 	for _, f := range readFiles {
 		if !f.IsDir() {
 			files = append(files, path+"/"+f.Name())
 		}
-	}
-	if len(files) == 0 {
-		return nil, nil
 	}
 	return manifest.ManifestsFromFiles(files)
 }
