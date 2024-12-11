@@ -171,12 +171,13 @@ func TestSimpleWritesChecks(t *testing.T) {
 				}
 
 				ctx := manifestclient.WithControllerInstanceNameFromContext(context.TODO(), "fooController")
+				jsonPatchPayload := []byte(`[{"op":"test","path":"/foo/path","value":"bar"},{"op":"remove","path":"/foo/path/2"}]`)
 
 				resultingObj, err := configClient.ConfigV1().FeatureGates().Patch(
 					ctx,
 					"instance-name",
 					types.JSONPatchType,
-					[]byte("json-patch"),
+					jsonPatchPayload,
 					metav1.PatchOptions{})
 				if err != nil {
 					t.Fatal(err)
@@ -189,7 +190,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 					ctx,
 					"instance-name",
 					types.JSONPatchType,
-					[]byte("json-patch"),
+					jsonPatchPayload,
 					metav1.PatchOptions{},
 					"status")
 				if err != nil {
@@ -210,7 +211,7 @@ func TestSimpleWritesChecks(t *testing.T) {
 					ctx,
 					"instance-name",
 					types.JSONPatchType,
-					[]byte("json-patch"),
+					jsonPatchPayload,
 					metav1.PatchOptions{},
 				)
 				if err != nil {

@@ -175,6 +175,18 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		}
 		generatedName = bodyObj.(*unstructured.Unstructured).GetGenerateName()
 		kindType = bodyObj.GetObjectKind().GroupVersionKind()
+	} else if (action == ActionPatch || action == ActionPatchStatus) && patchType == string(types.JSONPatchType) {
+		// the following code gives nice formatting for
+		// JSON patches that will be stored in files.
+		var jsonPatchOperations []map[string]interface{}
+		err = json.Unmarshal(bodyOutputBytes, &jsonPatchOperations)
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode JSONPatch body: %w", err)
+		}
+		bodyOutputBytes, err = yaml.Marshal(jsonPatchOperations)
+		if err != nil {
+			return nil, fmt.Errorf("unable to encode JSONPatch body: %w", err)
+		}
 	}
 
 	fieldManagerName := ""
