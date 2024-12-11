@@ -35,7 +35,7 @@ const (
 // Delegate captures a set of methods that hold a custom logic
 type Delegate interface {
 	// Sync a method that will be used for delegation. It should bring the desired workload into operation.
-	Sync(ctx context.Context, controllerContext factory.SyncContext) (*appsv1.Deployment, bool, []error)
+	Sync(ctx context.Context, controllerContext factory.SyncContext) (*appsv1.Deployment, bool, bool, []error)
 
 	// PreconditionFulfilled a method that indicates whether all prerequisites are met and we can Sync.
 	//
@@ -83,7 +83,7 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 	kubeClient kubernetes.Interface,
 	podLister corev1listers.PodLister,
 	informers []factory.Informer,
-	tagetNamespaceInformers []factory.Informer,
+	targetNamespaceInformers []factory.Informer,
 	delegate Delegate,
 	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
@@ -102,11 +102,11 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 		delegate:                     delegate,
 		openshiftClusterConfigClient: openshiftClusterConfigClient,
 		versionRecorder:              versionRecorder,
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), instanceName),
+		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), instanceName),
 	}
 
 	c := factory.New()
-	for _, nsi := range tagetNamespaceInformers {
+	for _, nsi := range targetNamespaceInformers {
 		c.WithNamespaceInformer(nsi, targetNamespace)
 	}
 
@@ -130,14 +130,14 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 	}
 
 	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); err != nil {
-		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, false, []error{err})
 	} else if !fulfilled {
-		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, nil)
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, false, nil)
 	}
 
-	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
+	workload, operatorConfigAtHighestGeneration, removeConditions, errs := c.delegate.Sync(ctx, controllerContext)
 
-	return c.updateOperatorStatus(ctx, operatorStatus, workload, operatorConfigAtHighestGeneration, true, errs)
+	return c.updateOperatorStatus(ctx, operatorStatus, workload, operatorConfigAtHighestGeneration, true, removeConditions, errs)
 }
 
 // shouldSync checks ManagementState to determine if we can run this operator, probably set by a cluster administrator.
@@ -159,22 +159,30 @@ func (c *Controller) shouldSync(ctx context.Context, operatorSpec *operatorv1.Op
 }
 
 // updateOperatorStatus updates the status based on the actual workload and errors that might have occurred during synchronization.
-func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration bool, preconditionsReady bool, errs []error) (err error) {
+func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *operatorv1.OperatorStatus, workload *appsv1.Deployment, operatorConfigAtHighestGeneration, preconditionsReady, removeConditions bool, errs []error) (err error) {
 	if errs == nil {
 		errs = []error{}
 	}
 
-	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable))
+	typeAvailable := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeAvailable)
+	typeDegraded := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeDegraded)
+	typeProgressing := fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing)
+	typeWorkloadDegraded := fmt.Sprintf("%sWorkload%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeDegraded)
 
-	workloadDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sWorkloadDegraded", c.conditionsPrefix))
+	deploymentAvailableCondition := applyoperatorv1.OperatorCondition().WithType(typeAvailable)
+	workloadDegradedCondition := applyoperatorv1.OperatorCondition().WithType(typeWorkloadDegraded)
+	deploymentDegradedCondition := applyoperatorv1.OperatorCondition().WithType(typeDegraded)
+	deploymentProgressingCondition := applyoperatorv1.OperatorCondition().WithType(typeProgressing)
 
-	deploymentDegradedCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeploymentDegraded", c.conditionsPrefix))
+	if preconditionsReady && removeConditions && workload == nil {
+		jsonPatch := v1helpers.RemoveConditionsJSONPatch(previousStatus, []string{typeAvailable, typeDegraded, typeProgressing, typeWorkloadDegraded})
+		if jsonPatch.IsEmpty() {
+			return kerrors.NewAggregate(errs)
+		}
 
-	deploymentProgressingCondition := applyoperatorv1.OperatorCondition().
-		WithType(fmt.Sprintf("%sDeployment%s", c.conditionsPrefix, operatorv1.OperatorStatusTypeProgressing))
+		err = c.operatorClient.PatchOperatorStatus(ctx, jsonPatch)
+		return kerrors.NewAggregate(append(errs, err))
+	}
 
 	status := applyoperatorv1.OperatorStatus()
 	if workload != nil {
