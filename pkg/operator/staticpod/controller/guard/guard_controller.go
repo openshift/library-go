@@ -53,6 +53,8 @@ type GuardController struct {
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn   func() string
 	createConditionalFunc func() (bool, bool, error)
+
+	arbiterNodeSelector labels.Selector
 }
 
 func NewGuardController(
@@ -70,6 +72,7 @@ func NewGuardController(
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	eventRecorder events.Recorder,
 	createConditionalFunc func() (bool, bool, error),
+	withArbiter bool,
 ) (factory.Controller, error) {
 	if operandPodLabelSelector == nil {
 		return nil, fmt.Errorf("GuardController: missing required operandPodLabelSelector")
@@ -101,6 +104,15 @@ func NewGuardController(
 		pdbLister:                     kubeInformersForTargetNamespace.Policy().V1().PodDisruptionBudgets().Lister(),
 		installerPodImageFn:           getInstallerPodImageFromEnv,
 		createConditionalFunc:         createConditionalFunc,
+	}
+
+	if withArbiter {
+		arbiterNodeRequirement, err := labels.NewRequirement("node-role.kubernetes.io/arbiter", selection.Equals, []string{""})
+		if err != nil {
+			panic(err)
+		}
+		selector := labels.NewSelector().Add(*arbiterNodeRequirement)
+		c.arbiterNodeSelector = selector
 	}
 
 	return factory.New().
@@ -231,6 +243,14 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		nodes, err := c.nodeLister.List(labels.NewSelector().Add(*selector))
 		if err != nil {
 			return err
+		}
+
+		if c.arbiterNodeSelector != nil {
+			arbiterNodes, err := c.nodeLister.List(c.arbiterNodeSelector)
+			if err != nil {
+				return err
+			}
+			nodes = append(nodes, arbiterNodes...)
 		}
 
 		pods, err := c.podLister.Pods(c.targetNamespace).List(c.operandPodLabelSelector)
