@@ -1,0 +1,11 @@
+{
+  "kind": "Diff",
+  "apiVersion": "k8s.io/v1",
+  "metadata": {
+    "name": "name1",
+    "namespace": "ns1",
+    "annotations": {
+      "capability.openshift.io/name": "cap2"
+    }
+  }
+}

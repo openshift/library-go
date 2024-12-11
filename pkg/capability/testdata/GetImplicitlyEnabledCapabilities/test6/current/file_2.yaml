@@ -1,0 +1,11 @@
+{
+  "kind": "Test",
+  "apiVersion": "k8s.io/v1",
+  "metadata": {
+    "name": "name2",
+    "namespace": "ns1",
+    "annotations": {
+      "capability.openshift.io/name": "cap1"
+    }
+  }
+}

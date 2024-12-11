@@ -105,8 +105,12 @@ func (m *Manifest) String() string {
 	return m.id.String()
 }
 
-func (m Manifest) SameResourceID(manifest Manifest) bool {
+func (m *Manifest) SameResourceID(manifest Manifest) bool {
 	return m.id.equal(manifest.id)
+}
+
+func (m *Manifest) GetManifestResourceId() string {
+	return m.id.String()
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for the Manifest
