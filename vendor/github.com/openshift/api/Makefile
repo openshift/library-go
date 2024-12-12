@@ -4,7 +4,7 @@ all: build
 update: update-codegen-crds
 
 RUNTIME ?= podman
-RUNTIME_IMAGE_NAME ?= registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.22-openshift-4.17
+RUNTIME_IMAGE_NAME ?= registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.23-openshift-4.19
 
 EXCLUDE_DIRS := _output/ dependencymagnet/ hack/ third_party/ tls/ tools/ vendor/ tests/
 GO_PACKAGES :=$(addsuffix ...,$(addprefix ./,$(filter-out $(EXCLUDE_DIRS), $(wildcard */))))
@@ -39,6 +39,21 @@ update-codegen-crds: update-scripts
 #
 #####################
 
+# When not otherwise set, diff/lint against the local master branch
+PULL_BASE_SHA ?= master
+
+.PHONY: lint
+lint:
+	hack/golangci-lint.sh run --new-from-rev=${PULL_BASE_SHA}
+
+# While https://github.com/golangci/golangci-lint/issues/1779 is not fixed,
+# we need to run the fix separately from the lint command.
+# GolangCI-Lint will not actually run the fixer for us.
+# In the future we can remove this and have the linter auto-fix.
+.PHONY: lint-fix
+lint-fix:
+	hack/lint-fix.sh
+
 .PHONY: verify-scripts
 verify-scripts:
 	bash -x hack/verify-deepcopy.sh
@@ -56,7 +71,7 @@ verify-scripts:
 	hack/verify-promoted-features-pass-tests.sh
 
 .PHONY: verify
-verify: verify-scripts verify-crd-schema verify-codegen-crds
+verify: verify-scripts lint verify-crd-schema verify-codegen-crds
 
 .PHONY: verify-codegen-crds
 verify-codegen-crds:
