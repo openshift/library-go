@@ -635,6 +635,7 @@ func TestRenderGuardPod(t *testing.T) {
 				podResourcePrefix:       "operand",
 				operatorName:            "operator",
 				operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+				masterNodesSelector:     masterNodesSelector(t),
 				readyzPort:              "99999",
 				nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
 				podLister:               kubeInformers.Core().V1().Pods().Lister(),
@@ -772,6 +773,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		targetNamespace:         "test",
 		podResourcePrefix:       "operand",
 		operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+		masterNodesSelector:     masterNodesSelector(t),
 		operatorName:            "operator",
 		readyzPort:              "99999",
 		readyzEndpoint:          "readyz",
@@ -862,4 +864,12 @@ func TestGuardPodTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func masterNodesSelector(t *testing.T) labels.Selector {
+	selector, err := labels.Parse("node-role.kubernetes.io/master=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return selector
 }

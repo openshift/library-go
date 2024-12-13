@@ -7,7 +7,6 @@ import (
 
 	coreapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/informers"
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 
@@ -26,6 +25,7 @@ type NodeController struct {
 	operatorClient         v1helpers.StaticPodOperatorClient
 	nodeLister             corelisterv1.NodeLister
 	extraNodeSelector      labels.Selector
+	masterNodesSelector    labels.Selector
 }
 
 // NewNodeController creates a new node controller.
@@ -42,6 +42,12 @@ func NewNodeController(
 		nodeLister:             kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 		extraNodeSelector:      extraNodeSelector,
 	}
+
+	masterNodesSelector, err := labels.Parse("node-role.kubernetes.io/master=")
+	if err != nil {
+		panic(err)
+	}
+	c.masterNodesSelector = masterNodesSelector
 
 	return factory.New().
 		WithInformers(
@@ -62,11 +68,7 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		return err
 	}
 
-	selector, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Equals, []string{""})
-	if err != nil {
-		panic(err)
-	}
-	nodes, err := c.nodeLister.List(labels.NewSelector().Add(*selector))
+	nodes, err := c.nodeLister.List(c.masterNodesSelector)
 	if err != nil {
 		return err
 	}
