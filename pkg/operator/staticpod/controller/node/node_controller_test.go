@@ -3,15 +3,17 @@ package node
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func fakeMasterNode(name string) *corev1.Node {
@@ -30,6 +33,13 @@ func fakeMasterNode(name string) *corev1.Node {
 		"node-role.kubernetes.io/master": "",
 	}
 
+	return n
+}
+
+func fakeArbiterNode(name string) *corev1.Node {
+	n := fakeMasterNode(name)
+	delete(n.Labels, "node-role.kubernetes.io/master")
+	n.Labels["node-role.kubernetes.io/arbiter"] = ""
 	return n
 }
 
@@ -92,6 +102,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 		verifyNodeStatus        func([]operatorv1.OperatorCondition) error
 		verifyJSONPatch         func(*jsonpatch.PatchSet) error
 		verifyKubeClientActions func(actions []clientgotesting.Action) error
+		withArbiter             bool
 	}{
 		{
 			name:        "scenario 1: one unhealthy master node is reported",
@@ -106,10 +117,38 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
 			},
 		},
+		{
+			name:        "scenario 1 with arbiter: one unhealthy arbiter node is reported",
+			withArbiter: true,
+			masterNodes: []runtime.Object{makeNodeNotReady(fakeArbiterNode("arbiter")), makeNodeReady(fakeMasterNode("test-node-2"))},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "arbiter" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message)`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
 
 		{
 			name:        "scenario 2: all master nodes are healthy",
 			masterNodes: []runtime.Object{makeNodeReady(fakeMasterNode("test-node-1")), makeNodeReady(fakeMasterNode("test-node-2"))},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = "All master nodes are ready"
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+
+		{
+			name:        "scenario 2 with arbiter: all master nodes are healthy",
+			masterNodes: []runtime.Object{makeNodeReady(fakeMasterNode("test-node-1")), makeNodeReady(fakeMasterNode("test-node-2")), makeNodeReady(fakeArbiterNode("test-arbiter-node-0"))},
 			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
 				var expectedCondition operatorv1.OperatorCondition
 				expectedCondition.Type = condition.NodeControllerDegradedConditionType
@@ -479,6 +518,15 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				operatorClient: fakeStaticPodOperatorClient,
 				nodeLister:     fakeLister,
 			}
+
+			if scenario.withArbiter {
+				arbiterNodeRequirement, err := labels.NewRequirement("node-role.kubernetes.io/arbiter", selection.Equals, []string{""})
+				if err != nil {
+					panic(err)
+				}
+				selector := labels.NewSelector().Add(*arbiterNodeRequirement)
+				c.extraNodeSelector = selector
+			}
 			if err := c.sync(context.TODO(), factory.NewSyncContext("NodeController", eventRecorder)); err != nil {
 				t.Fatal(err)
 			}
@@ -506,6 +554,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 func TestNewNodeController(t *testing.T) {
 	tests := []struct {
 		name               string
+		withArbiter        bool
 		startNodes         []runtime.Object
 		startNodeStatus    []operatorv1.NodeStatus
 		evaluateNodeStatus func([]operatorv1.NodeStatus) error
@@ -545,6 +594,31 @@ func TestNewNodeController(t *testing.T) {
 			},
 		},
 		{
+			name:       "multi-node with arbiter",
+			startNodes: []runtime.Object{fakeMasterNode("test-node-1"), fakeMasterNode("test-node-2"), fakeArbiterNode("test-arbiter-node-1")},
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+				},
+			},
+			withArbiter: true,
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus) error {
+				if len(s) != 3 {
+					return fmt.Errorf("expected 3 node status, got %d", len(s))
+				}
+				if s[0].NodeName != "test-node-1" {
+					return fmt.Errorf("expected first node to be test-node-1, got %q", s[0].NodeName)
+				}
+				if s[1].NodeName != "test-node-2" {
+					return fmt.Errorf("expected second node to be test-node-2, got %q", s[1].NodeName)
+				}
+				if s[2].NodeName != "test-arbiter-node-1" {
+					return fmt.Errorf("expected second node to be test-arbiter-node-1, got %q", s[1].NodeName)
+				}
+				return nil
+			},
+		},
+		{
 			name:       "single-node-removed",
 			startNodes: []runtime.Object{},
 			startNodeStatus: []operatorv1.NodeStatus{
@@ -569,6 +643,25 @@ func TestNewNodeController(t *testing.T) {
 			},
 			evaluateNodeStatus: func(s []operatorv1.NodeStatus) error {
 				if len(s) != 1 {
+					return fmt.Errorf("expected one node status, got %d", len(s))
+				}
+				return nil
+			},
+		},
+		{
+			name:        "no-op with arbiter",
+			startNodes:  []runtime.Object{fakeMasterNode("test-node-1"), fakeArbiterNode("test-arbiter-node-1")},
+			withArbiter: true,
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+				},
+				{
+					NodeName: "test-arbiter-node-1",
+				},
+			},
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus) error {
+				if len(s) != 2 {
 					return fmt.Errorf("expected one node status, got %d", len(s))
 				}
 				return nil
@@ -602,6 +695,16 @@ func TestNewNodeController(t *testing.T) {
 				operatorClient: fakeStaticPodOperatorClient,
 				nodeLister:     fakeLister,
 			}
+
+			if test.withArbiter {
+				arbiterNodeRequirement, err := labels.NewRequirement("node-role.kubernetes.io/arbiter", selection.Equals, []string{""})
+				if err != nil {
+					panic(err)
+				}
+				selector := labels.NewSelector().Add(*arbiterNodeRequirement)
+				c.extraNodeSelector = selector
+			}
+
 			// override the lister so we don't have to run the informer to list nodes
 			c.nodeLister = fakeLister
 			if err := c.sync(context.TODO(), factory.NewSyncContext("NodeController", eventRecorder)); err != nil {
