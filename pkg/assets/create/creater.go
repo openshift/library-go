@@ -196,12 +196,8 @@ func create(ctx context.Context, manifests map[string]*unstructured.Unstructured
 			if err == nil && options.Verbose {
 				fmt.Fprintf(options.StdErr, "Created %q %s\n", path, resourceString)
 			}
-			if kerrors.IsAlreadyExists(err) {
-				if options.Verbose {
-					fmt.Fprintf(options.StdErr, "Skipped creating %q %s as it already exists\n", path, resourceString)
-				}
-				// fall through as if it was just created
-			} else if err != nil {
+			// when err is not nil, the incluster could be nil
+			if err != nil {
 				if options.Verbose {
 					fmt.Fprintf(options.StdErr, "Failed to create %q %s: %v\n", path, resourceString, err)
 				}
