@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	clocktesting "k8s.io/utils/clock/testing"
-
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
@@ -23,7 +23,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 func fakeMasterNode(name string) *corev1.Node {
@@ -41,6 +40,14 @@ func fakeArbiterNode(name string) *corev1.Node {
 	delete(n.Labels, "node-role.kubernetes.io/master")
 	n.Labels["node-role.kubernetes.io/arbiter"] = ""
 	return n
+}
+
+func masterNodesSelector(t *testing.T) labels.Selector {
+	selector, err := labels.Parse("node-role.kubernetes.io/master=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return selector
 }
 
 func makeNodeNotReady(node *corev1.Node) *corev1.Node {
@@ -515,8 +522,9 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &NodeController{
-				operatorClient: fakeStaticPodOperatorClient,
-				nodeLister:     fakeLister,
+				operatorClient:      fakeStaticPodOperatorClient,
+				nodeLister:          fakeLister,
+				masterNodesSelector: masterNodesSelector(t),
 			}
 
 			if scenario.withArbiter {
@@ -692,8 +700,9 @@ func TestNewNodeController(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &NodeController{
-				operatorClient: fakeStaticPodOperatorClient,
-				nodeLister:     fakeLister,
+				operatorClient:      fakeStaticPodOperatorClient,
+				nodeLister:          fakeLister,
+				masterNodesSelector: masterNodesSelector(t),
 			}
 
 			if test.withArbiter {
