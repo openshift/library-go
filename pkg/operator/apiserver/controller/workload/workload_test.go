@@ -3,16 +3,17 @@ package workload
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -36,6 +37,7 @@ type testDelegate struct {
 	// for Sync
 	syncWorkload            *appsv1.Deployment
 	syncIsAtHighestRevision bool
+	operandWorkloadDeleted  bool
 	syncErrrors             []error
 }
 
@@ -43,8 +45,8 @@ func (d *testDelegate) PreconditionFulfilled(_ context.Context) (bool, error) {
 	return d.preconditionReady, d.preconditionErr
 }
 
-func (d *testDelegate) Sync(_ context.Context, _ factory.SyncContext) (*appsv1.Deployment, bool, []error) {
-	return d.syncWorkload, d.syncIsAtHighestRevision, d.syncErrrors
+func (d *testDelegate) Sync(_ context.Context, _ factory.SyncContext) (*appsv1.Deployment, bool, bool, []error) {
+	return d.syncWorkload, d.syncIsAtHighestRevision, d.operandWorkloadDeleted, d.syncErrrors
 }
 
 func TestUpdateOperatorStatus(t *testing.T) {
@@ -55,11 +57,13 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		pods                            []*corev1.Pod
 		operatorConfigAtHighestRevision bool
 		operatorPreconditionsNotReady   bool
+		operatorOperandWorkloadDeleted  bool
 		preconditionError               error
 		errors                          []error
 		previousConditions              []operatorv1.OperatorCondition
 
-		validateOperatorStatus func(*operatorv1.OperatorStatus) error
+		validateOperatorStatus          func(*operatorv1.OperatorStatus) error
+		validateOperatorStatusJSONPatch func(*jsonpatch.PatchSet) error
 	}{
 		{
 			name: "scenario: no workload, no errors thus we are degraded and we are progressing",
@@ -672,6 +676,44 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
 			},
 		},
+		{
+			name:                           "the delegate controller deletes its operand workload and we remove the conditions",
+			workload:                       nil,
+			operatorOperandWorkloadDeleted: true,
+			previousConditions: []operatorv1.OperatorCondition{
+				{
+					Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
+					Status:  operatorv1.ConditionTrue,
+					Reason:  "AsExpected",
+					Message: "",
+				},
+				{
+					Type:   fmt.Sprintf("%sWorkloadDegraded", defaultControllerName),
+					Status: operatorv1.ConditionFalse,
+				},
+				{
+					Type:    fmt.Sprintf("%sDeploymentDegraded", defaultControllerName),
+					Status:  operatorv1.ConditionFalse,
+					Reason:  "AsExpected",
+					Message: "",
+				},
+				{
+					Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
+					Status:  operatorv1.ConditionFalse,
+					Reason:  "AsExpected",
+					Message: "",
+				},
+			},
+			validateOperatorStatusJSONPatch: func(actualJSONPatch *jsonpatch.PatchSet) error {
+				path := "/status/conditions/0"
+				expectedJSONPatch := jsonpatch.New().
+					WithRemove(path, jsonpatch.NewTestCondition(path+"/type", "DeploymentAvailable")).
+					WithRemove(path, jsonpatch.NewTestCondition(path+"/type", "WorkloadDegraded")).
+					WithRemove(path, jsonpatch.NewTestCondition(path+"/type", "DeploymentDegraded")).
+					WithRemove(path, jsonpatch.NewTestCondition(path+"/type", "DeploymentProgressing"))
+				return validateJSONPatch(expectedJSONPatch, actualJSONPatch)
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -697,6 +739,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 
 				syncWorkload:            scenario.workload,
 				syncIsAtHighestRevision: scenario.operatorConfigAtHighestRevision,
+				operandWorkloadDeleted:  scenario.operatorOperandWorkloadDeleted,
 				syncErrrors:             scenario.errors,
 			}
 
@@ -718,9 +761,17 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = scenario.validateOperatorStatus(actualOperatorStatus)
-			if err != nil {
-				t.Fatal(err)
+
+			if scenario.validateOperatorStatus != nil {
+				if err := scenario.validateOperatorStatus(actualOperatorStatus); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if scenario.validateOperatorStatusJSONPatch != nil {
+				if err := scenario.validateOperatorStatusJSONPatch(fakeOperatorClient.GetPatchedOperatorStatus()); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}
@@ -768,6 +819,24 @@ func areCondidtionsEqual(expectedConditions []operatorv1.OperatorCondition, actu
 		if !equality.Semantic.DeepEqual(actualCondition, expectedCondition) {
 			return fmt.Errorf("conditions mismatch, diff = %s", diff.ObjectDiff(actualCondition, expectedCondition))
 		}
+	}
+	return nil
+}
+
+func validateJSONPatch(expected, actual *jsonpatch.PatchSet) error {
+	expectedSerializedPatch, err := expected.Marshal()
+	if err != nil {
+		return err
+	}
+	actualSerializedPatch := []byte("null")
+	if actual != nil {
+		actualSerializedPatch, err = actual.Marshal()
+		if err != nil {
+			return err
+		}
+	}
+	if string(expectedSerializedPatch) != string(actualSerializedPatch) {
+		return fmt.Errorf("incorrect JSONPatch, expected = %s, got = %s", string(expectedSerializedPatch), string(actualSerializedPatch))
 	}
 	return nil
 }
