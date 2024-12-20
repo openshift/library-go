@@ -84,7 +84,8 @@ func NewMigrationController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &migrationController{
-		instanceName:           instanceName,
+		instanceName: instanceName,
+
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionMigration"),
 		operatorClient:         operatorClient,
 
