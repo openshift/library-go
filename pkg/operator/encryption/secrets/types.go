@@ -45,6 +45,14 @@ const (
 	// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
 	EncryptionSecretKeyDataKey = "encryption.apiserver.operator.openshift.io-key"
 
+	// In the data field of the secret API object, this (map) key is used to hold the name of the external
+	// KMS key that is to be used for a specific KMS provider.
+	EncryptionSecretKMSKeyId = "encryption.apiserver.operator.openshift.io-kms-key-id"
+
+	// In the data field of the secret API object, this (map) key is used to hold the KMS config which
+	// is used to connect to the external KMS instance.
+	EncryptionSecretKMSConfig = "encryption.apiserver.operator.openshift.io-kms-config"
+
 	// encryptionSecretFinalizer is a finalizer attached to all secrets generated
 	// by the encryption controllers.  Its sole purpose is to prevent the accidental
 	// deletion of secrets by enforcing a two phase delete.
