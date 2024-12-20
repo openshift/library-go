@@ -27,6 +27,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -191,6 +192,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
+		// TODO: refactor this entirely to make it KMS aware
 		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
 		if !needed {
 			continue
@@ -242,6 +244,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 		return err
 	}
 
+	// TODO: change it, make it KMS aware
 	actualKeyID, ok := state.NameToKeyID(actualKeySecret.Name)
 	if !ok || actualKeyID != keyID {
 		// TODO we can just get stuck in degraded here ...
@@ -288,6 +291,12 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
+		return currentMode, reason, nil
+	case state.KMS:
+		// apiServer.Spec.Encryption.KMS
+		// TODO: pass to key backed secret
+		currentKeyId := encryptionconfig.HashKMSConfig(*apiServer.Spec.Encryption.KMS)
+		_ = currentKeyId
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, nil
