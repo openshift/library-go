@@ -248,12 +248,14 @@ func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName st
 
 	switch pod.Status.Phase {
 	case corev1.PodRunning, corev1.PodSucceeded:
-		for _, c := range pod.Status.Conditions {
-			if c.Type == corev1.PodReady {
-				if c.Status == corev1.ConditionTrue {
-					return staticPodStateReady, revision, "static pod is ready", nil, c.LastTransitionTime.Time, nil
+		if pod.Status.Phase == corev1.PodRunning {
+			for _, c := range pod.Status.Conditions {
+				if c.Type == corev1.PodReady {
+					if c.Status == corev1.ConditionTrue {
+						return staticPodStateReady, revision, "static pod is ready", nil, c.LastTransitionTime.Time, nil
+					}
+					return staticPodStatePending, revision, "static pod is not ready", nil, c.LastTransitionTime.Time, nil
 				}
-				return staticPodStatePending, revision, "static pod is not ready", nil, c.LastTransitionTime.Time, nil
 			}
 		}
 		ts := pod.CreationTimestamp.Time
