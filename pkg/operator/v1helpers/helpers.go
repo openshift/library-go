@@ -23,6 +23,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	progressingConditionTimeout = 15 * time.Minute
+)
+
 // SetOperandVersion sets the new version and returns the previous value.
 func SetOperandVersion(versions *[]configv1.OperandVersion, operandVersion configv1.OperandVersion) string {
 	if versions == nil {
@@ -555,5 +559,5 @@ func IsConditionPresentAndEqual(conditions []metav1.Condition, conditionType str
 // it returns true if the progressing condition has been set to True for at least 15 minutes
 func IsUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
 	progressing := FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
-	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(15*time.Minute)), nil
+	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(progressingConditionTimeout)), nil
 }
