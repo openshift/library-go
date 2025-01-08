@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +14,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"strings"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -293,7 +291,7 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	// Update is done when all pods have been updated to the latest revision
 	// and the deployment controller has reported NewReplicaSetAvailable
 	workloadIsBeingUpdated := !workloadAtHighestGeneration || !hasDeploymentProgressed(workload.Status)
-	workloadIsBeingUpdatedTooLong, err := isUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
+	workloadIsBeingUpdatedTooLong, err := v1helpers.IsUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
 	if !workloadAtHighestGeneration {
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -354,13 +352,6 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		return kerrors.NewAggregate(errs)
 	}
 	return nil
-}
-
-// isUpdatingTooLong determines if updating operands takes too long.
-// it returns true if the progressing condition has been set to True for at least 15 minutes
-func isUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) (bool, error) {
-	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
-	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(15*time.Minute)), nil
 }
 
 // hasDeploymentProgressed returns true if the deployment reports NewReplicaSetAvailable
