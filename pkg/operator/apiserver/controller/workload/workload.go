@@ -291,7 +291,7 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	// Update is done when all pods have been updated to the latest revision
 	// and the deployment controller has reported NewReplicaSetAvailable
 	workloadIsBeingUpdated := !workloadAtHighestGeneration || !hasDeploymentProgressed(workload.Status)
-	workloadIsBeingUpdatedTooLong, err := v1helpers.IsUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
+	workloadIsBeingUpdatedTooLong := v1helpers.IsUpdatingTooLong(previousStatus, *deploymentProgressingCondition.Type)
 	if !workloadAtHighestGeneration {
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionTrue).
