@@ -350,8 +350,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 	cnd := applyoperatorv1.OperatorCondition().
 		WithType(fmt.Sprintf("%sDegraded", c.instanceName)).
 		WithStatus(operatorv1.ConditionFalse).
-		WithReason("AsExpected").
-		WithMessage("")
+		WithReason("AsExpected")
 
 	if len(errors) > 0 {
 		message := ""
