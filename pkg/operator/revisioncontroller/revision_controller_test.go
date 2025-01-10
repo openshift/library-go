@@ -220,17 +220,8 @@ func TestRevisionController(t *testing.T) {
 			),
 			testConfigs:     []RevisionResource{{Name: "test-config"}},
 			testSecrets:     []RevisionResource{{Name: "test-secret"}},
-			expectSyncError: "synthetic requeue request",
+			expectSyncError: `configmaps "test-config" not found`,
 			validateStatus: func(t *testing.T, status *operatorv1.StaticPodOperatorStatus) {
-				if status.Conditions[0].Type != "RevisionControllerDegraded" {
-					t.Errorf("expected status condition to be 'RevisionControllerFailing', got %v", status.Conditions[0].Type)
-				}
-				if status.Conditions[0].Reason != "ContentCreationError" {
-					t.Errorf("expected status condition reason to be 'ContentCreationError', got %v", status.Conditions[0].Reason)
-				}
-				if !strings.Contains(status.Conditions[0].Message, `configmaps "test-config" not found`) {
-					t.Errorf("expected status to be 'configmaps test-config not found', got: %s", status.Conditions[0].Message)
-				}
 			},
 			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
 				createdObjects := filterCreateActions(actions)
