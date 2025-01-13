@@ -51,6 +51,7 @@ func KeysWithPotentiallyPersistedDataAndNextReadKey(grs []schema.GroupResource, 
 	return recentFirstSortedKeys
 }
 
+// TODO: make sure sort takes into account for KMS keys
 func SortRecentFirst(unsorted []KeyState) []KeyState {
 	ret := make([]KeyState, len(unsorted))
 	copy(ret, unsorted)
@@ -74,7 +75,16 @@ func NameToKeyID(name string) (uint64, bool) {
 }
 
 func EqualKeyAndEqualID(s1, s2 *KeyState) bool {
-	if s1.Mode != s2.Mode || s1.Key.Secret != s2.Key.Secret {
+	if s1.Mode != s2.Mode {
+		return false
+	}
+
+	if s1.Mode == KMS {
+		return s1.KMSKeyID == s2.KMSKeyID
+	}
+
+	// onwards for non-KMS checks
+	if s1.Key.Secret != s2.Key.Secret {
 		return false
 	}
 
