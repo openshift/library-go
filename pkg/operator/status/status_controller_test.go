@@ -29,9 +29,10 @@ import (
 
 func TestDegraded(t *testing.T) {
 
-	threeMinutesAgo := metav1.NewTime(time.Now().Add(-3 * time.Minute))
-	fiveSecondsAgo := metav1.NewTime(time.Now().Add(-2 * time.Second))
-	yesterday := metav1.NewTime(time.Now().Add(-24 * time.Hour))
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+	threeMinutesAgo := metav1.NewTime(fakeClock.Now().Add(-3 * time.Minute))
+	fiveSecondsAgo := metav1.NewTime(fakeClock.Now().Add(-2 * time.Second))
+	yesterday := metav1.NewTime(fakeClock.Now().Add(-24 * time.Hour))
 
 	testCases := []struct {
 		name             string
@@ -322,6 +323,7 @@ func TestDegraded(t *testing.T) {
 				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:        statusClient,
 				versionGetter:         NewVersionGetter(),
+				clock:                 fakeClock,
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -367,6 +369,8 @@ func TestDegraded(t *testing.T) {
 }
 
 func TestRelatedObjects(t *testing.T) {
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+
 	// save typing
 	ref := func(name string) configv1.ObjectReference {
 		return configv1.ObjectReference{
@@ -448,6 +452,7 @@ func TestRelatedObjects(t *testing.T) {
 				operatorClient:        statusClient,
 				versionGetter:         NewVersionGetter(),
 				relatedObjects:        tc.staticRO,
+				clock:                 fakeClock,
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -482,6 +487,8 @@ func TestRelatedObjects(t *testing.T) {
 }
 
 func TestVersions(t *testing.T) {
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+
 	foo1 := configv1.OperandVersion{
 		Name:    "foo",
 		Version: "1",
@@ -576,6 +583,7 @@ func TestVersions(t *testing.T) {
 				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:        statusClient,
 				versionGetter:         versionGetter,
+				clock:                 fakeClock,
 			}
 			if tc.allowRemoval {
 				controller = controller.WithVersionRemoval()
