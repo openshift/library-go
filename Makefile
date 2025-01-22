@@ -28,7 +28,5 @@ test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 
 test-e2e-monitoring: GO_TEST_PACKAGES :=./test/e2e-monitoring/...
 test-e2e-monitoring: GO_TEST_FLAGS += -v
-test-e2e-monitoring: GO_TEST_FLAGS += -timeout 5m
-test-e2e-monitoring: GO_TEST_FLAGS += -p 1
 test-e2e-monitoring: test-unit
 .PHONY: test-e2e-monitoring
