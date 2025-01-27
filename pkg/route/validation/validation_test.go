@@ -1088,6 +1088,29 @@ func TestValidateRoute(t *testing.T) {
 	}
 }
 
+// TestFakeSimpleValidation tests the fakeSimpleValidation function.
+func TestFakeSimpleValidation(t *testing.T) {
+	cases := []struct {
+		path     string
+		expected bool
+	}{
+		{path: "/validPath", expected: true},
+		{path: "/invalid#Path", expected: false},
+		{path: `"/valid'Path"`, expected: true},
+		{path: `"'invalid"Path'`, expected: false},
+		{path: "/path with space", expected: false},
+		{path: `"/path\"with\"escaped\"quotes"`, expected: true},
+		{path: `'/path\"with\'mixed\'quotes'`, expected: true},
+		{path: `/path\ with\ escaped\ space`, expected: true},
+	}
+
+	for _, c := range cases {
+		result := fakeSimpleValidation(c.path)
+		if result != c.expected {
+			t.Errorf("fakeSimpleValidation(%q) == %v, expected %v", c.path, result, c.expected)
+		}
+	}
+}
 // TestValidateHeaders verifies that validateHeaders correctly validates
 // response and request header actions in the route spec and returns the
 // appropriate error messages.

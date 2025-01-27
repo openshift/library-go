@@ -227,35 +227,50 @@ func validateRoute(ctx context.Context, route *routev1.Route, checkHostname bool
 // behavior caused by the bug.
 func ValidatePathWithRewriteTargetAnnotation(route *routev1.Route, fldPath *field.Path) field.ErrorList {
 	result := field.ErrorList{}
-	if rewriteVal, ok := route.Annotations[rewriteTargetAnnotation]; ok {
-		// Since regex compilation is expensive, first determine if there are any regex meta characters in spec.path.
-		if containsRegexMetaChars(route.Spec.Path) {
-			// Replicate the regex used in the haproxy-config.template.
-			var regex string
-			if rewriteVal == "/" {
-				regex = fmt.Sprintf("^%s/?(.*)$", route.Spec.Path)
-			} else {
-				regex = fmt.Sprintf("^%s?(.*)$", route.Spec.Path)
-			}
-			if _, err := regexp.Compile(regex); err != nil {
-				result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain invalid regex characters while %s is specified", rewriteTargetAnnotation)))
-			}
-		}
-		// These validations are to protect against HAProxy config file level errors.
-		if hasUnmatchedSingleQuotes(route.Spec.Path) {
-			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain unmatched ' while %s is specified", rewriteTargetAnnotation)))
-		}
-		if hasUnmatchedDoubleQuotes(route.Spec.Path) {
-			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain unmatched \" while %s is specified", rewriteTargetAnnotation)))
-		}
-		if strings.Contains(route.Spec.Path, "#") {
-			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain # while %s is specified", rewriteTargetAnnotation)))
-		}
-		if strings.Contains(route.Spec.Path, "\n") || strings.Contains(route.Spec.Path, "\r") {
-			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain newlines while %s is specified", rewriteTargetAnnotation)))
+	if _, ok := route.Annotations[rewriteTargetAnnotation]; ok {
+		if !fakeSimpleValidation(route.Spec.Path) {
+			result = append(result, field.Invalid(fldPath, route.Spec.Path, fmt.Sprintf("cannot contain invalid characters while %s is specified", rewriteTargetAnnotation)))
 		}
 	}
 	return result
+}
+
+// fakeSimpleValidation checks for invalid characters in the route path.
+func fakeSimpleValidation(routePath string) bool {
+	inDoubleQuotes := false
+	inSingleQuotes := false
+	for i := 0; i < len(routePath); i++ {
+		c := routePath[i]
+		if c == '"' {
+			// Toggle double-quote state.
+			if !inSingleQuotes {
+				inDoubleQuotes = !inDoubleQuotes
+			}
+			continue
+		}
+
+		if c == '\'' {
+			// Toggle single-quote state.
+			if !inDoubleQuotes {
+				inSingleQuotes = !inSingleQuotes
+			}
+			continue
+		}
+
+		if c == '\\' && i+1 < len(routePath) {
+			// Skip the next escaped character.
+			i++
+			continue
+		}
+
+		if !inDoubleQuotes && !inSingleQuotes && (c == ' ' || c == '#') {
+			// Reject if space or # is outside double or single quotes.
+			return false
+		}
+	}
+
+	// Reject if there are unmatched quotes.
+	return !(inDoubleQuotes || inSingleQuotes)
 }
 
 func ValidateRouteUpdate(ctx context.Context, route *routev1.Route, older *routev1.Route, sarc routecommon.SubjectAccessReviewCreator, secrets corev1client.SecretsGetter, opts routecommon.RouteValidationOptions) field.ErrorList {
