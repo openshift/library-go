@@ -14,15 +14,18 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/utils/ptr"
 	migrationv1alpha1 "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
 	migrationclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -83,7 +86,7 @@ func (c *ClientHolder) WithMigrationClient(client migrationclient.Interface) *Cl
 }
 
 // ApplyDirectly applies the given manifest files to API server.
-func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
+func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, extraOwnerReferences []metav1.OwnerReference, manifests AssetFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -101,6 +104,18 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 			continue
 		}
 		result.Type = fmt.Sprintf("%T", requiredObj)
+
+		if len(extraOwnerReferences) > 0 {
+			if metaObj, ok := requiredObj.(metav1.ObjectMetaAccessor); ok {
+				requiredOwnerRefs := metaObj.GetObjectMeta().GetOwnerReferences()
+				resourcemerge.MergeOwnerRefs(ptr.To(false), &requiredOwnerRefs, extraOwnerReferences)
+				metaObj.GetObjectMeta().SetOwnerReferences(requiredOwnerRefs)
+			} else if unstructuredObj, ok := requiredObj.(*unstructured.Unstructured); ok {
+				requiredOwnerRefs := unstructuredObj.GetOwnerReferences()
+				resourcemerge.MergeOwnerRefs(ptr.To(false), &requiredOwnerRefs, extraOwnerReferences)
+				unstructuredObj.SetOwnerReferences(requiredOwnerRefs)
+			}
+		}
 
 		// NOTE: Do not add CR resources into this switch otherwise the protobuf client can cause problems.
 		switch t := requiredObj.(type) {

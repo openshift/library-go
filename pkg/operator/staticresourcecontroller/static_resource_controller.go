@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
 
@@ -61,11 +62,12 @@ func init() {
 type StaticResourcesPreconditionsFuncType func(ctx context.Context) (bool, error)
 
 type StaticResourceController struct {
-	instanceName           string
-	controllerInstanceName string
-	manifests              []conditionalManifests
-	ignoreNotFoundOnCreate bool
-	preconditions          []StaticResourcesPreconditionsFuncType
+	instanceName            string
+	controllerInstanceName  string
+	manifests               []conditionalManifests
+	ignoreNotFoundOnCreate  bool
+	preconditions           []StaticResourcesPreconditionsFuncType
+	ownerReferencesSupplier func() ([]metav1.OwnerReference, error)
 
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
@@ -180,6 +182,12 @@ func (c *StaticResourceController) WithConditionalResources(manifests resourceap
 		manifests:      manifests,
 		files:          files,
 	})
+	return c
+}
+
+// WithOwnerReferences add additional OwnerReferences to each resource
+func (c *StaticResourceController) WithOwnerReferences(ownerReferencesSupplier func() ([]metav1.OwnerReference, error)) *StaticResourceController {
+	c.ownerReferencesSupplier = ownerReferencesSupplier
 	return c
 }
 
@@ -314,6 +322,14 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 		}
 	}
 
+	var ownerReferences []metav1.OwnerReference
+	if c.ownerReferencesSupplier != nil {
+		ownerReferences, err = c.ownerReferencesSupplier()
+		if err != nil {
+			return err
+		}
+	}
+
 	errors := []error{}
 	var notFoundErrorsCount int
 	for _, conditionalManifest := range c.manifests {
@@ -331,7 +347,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			continue
 
 		case shouldCreate:
-			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, ownerReferences, conditionalManifest.manifests, conditionalManifest.files...)
 		case shouldDelete:
 			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
 		}
