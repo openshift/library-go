@@ -2651,3 +2651,121 @@ func metav1TimestampPtr(s string) *metav1.Time {
 	t := metav1Timestamp(s)
 	return &t
 }
+
+type GenericStaticPodOperator struct {
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              operatorv1.StaticPodOperatorSpec   `json:"spec"`
+	Status            operatorv1.StaticPodOperatorStatus `json:"status"`
+}
+
+type StubOperatorClient struct {
+	live    *GenericStaticPodOperator
+	cached  *GenericStaticPodOperator
+	onApply func()
+}
+
+func (stub *StubOperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
+	return &stub.cached.Spec, &stub.cached.Status, stub.cached.ResourceVersion, nil
+}
+
+func (stub *StubOperatorClient) GetStaticPodOperatorStateWithQuorum(context.Context) (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
+	return &stub.live.Spec, &stub.live.Status, stub.live.ResourceVersion, nil
+}
+
+func (stub *StubOperatorClient) ApplyStaticPodOperatorStatus(context.Context, string, *applyoperatorv1.StaticPodOperatorStatusApplyConfiguration) error {
+	stub.onApply()
+	return nil
+}
+
+func TestWaitToObserveWrites(t *testing.T) {
+	live := GenericStaticPodOperator{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "1",
+		},
+		Status: operatorv1.StaticPodOperatorStatus{
+			NodeStatuses: []operatorv1.NodeStatus{
+				{NodeName: "test-node"},
+			},
+		},
+	}
+	cached := GenericStaticPodOperator{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "1",
+		},
+		Status: operatorv1.StaticPodOperatorStatus{
+			NodeStatuses: []operatorv1.NodeStatus{
+				{NodeName: "test-node"},
+			},
+		},
+	}
+
+	nApplies := 0
+	operatorClient := StubOperatorClient{
+		live:   &live,
+		cached: &cached,
+		onApply: func() {
+			nApplies++
+			live = GenericStaticPodOperator{
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion: "2",
+				},
+				Status: operatorv1.StaticPodOperatorStatus{
+					NodeStatuses: []operatorv1.NodeStatus{
+						{NodeName: "test-node", TargetRevision: 1},
+					},
+				},
+			}
+		},
+	}
+
+	ctrl := InstallerController{
+		operatorClient: &operatorClient,
+		ensureRequiredResourcesExistFn: func(context.Context, int32) error {
+			return nil
+		},
+		manageInstallationPodsFn: func(context.Context, *operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus) (bool, time.Duration, *operatorv1.NodeStatus, func(), error) {
+			return false, 0, &operatorv1.NodeStatus{NodeName: "test-node", TargetRevision: 1}, func() {}, nil
+		},
+	}
+
+	recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakeClock(time.Date(1, 2, 3, 4, 5, 6, 7, time.UTC)))
+
+	// Write TargetRevision change.
+	if err := ctrl.Sync(context.TODO(), factory.NewSyncContext("test", recorder)); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := 1; nApplies != want {
+		t.Fatalf("expected %d status apply, got %d", want, nApplies)
+	}
+
+	// Cache has not observed the previous write!
+	if err := ctrl.Sync(context.TODO(), factory.NewSyncContext("test", recorder)); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := 1; nApplies != want {
+		t.Fatalf("expected %d status apply, got %d", want, nApplies)
+	}
+
+	// Cache observes the write.
+	cached = GenericStaticPodOperator{
+		ObjectMeta: metav1.ObjectMeta{
+			ResourceVersion: "2",
+		},
+		Status: operatorv1.StaticPodOperatorStatus{
+			NodeStatuses: []operatorv1.NodeStatus{
+				{NodeName: "test-node", TargetRevision: 1},
+			},
+		},
+	}
+
+	// Sync can continue with the next state transition now.
+	if err := ctrl.Sync(context.TODO(), factory.NewSyncContext("test", recorder)); err != nil {
+		t.Fatal(err)
+	}
+
+	if want := 2; nApplies != want {
+		t.Fatalf("expected %d status apply, got %d", want, nApplies)
+	}
+}
