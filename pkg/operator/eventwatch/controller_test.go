@@ -2,6 +2,7 @@ package eventwatch
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func TestControllerEventCount(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{
 		Namespace: "test",
-	})
+	}, clocktesting.NewFakePassiveClock(time.Now()))
 	informer := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
 	processCount := 0
@@ -242,7 +243,7 @@ func TestController(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset()
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{
 				Namespace: "test",
-			})
+			}, clocktesting.NewFakePassiveClock(time.Now()))
 			informer := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 
 			controller := b.ToController(informer, kubeClient.CoreV1(), eventRecorder)

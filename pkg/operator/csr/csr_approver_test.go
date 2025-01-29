@@ -10,6 +10,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"testing"
+	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/stretchr/testify/require"
 
@@ -122,7 +125,7 @@ func Test_csrApproverController_sync(t *testing.T) {
 			}
 			if err := c.sync(
 				context.Background(),
-				fakeSyncContext{queueKey: tt.csrName, eventRecorder: events.NewInMemoryRecorder("csr-approver-test")},
+				fakeSyncContext{queueKey: tt.csrName, eventRecorder: events.NewInMemoryRecorder("csr-approver-test", clocktesting.NewFakePassiveClock(time.Now()))},
 			); (err != nil) != tt.wantErr {
 				t.Errorf("csrApproverController.sync() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -237,7 +240,7 @@ func TestServiceAccountApprover(t *testing.T) {
 				},
 			},
 			expectDecision: CSRDenied,
-			expectReason:   "expected the CSR's subject to be \"CN=therealyou\", but it is \"CN=unexpectedsubject\"",
+			expectReason:   "expected the CSR's subject to be one of [\"CN=therealyou\"], but it is \"CN=unexpectedsubject\"",
 		},
 		{
 			name: "this CSR is fine",
@@ -275,6 +278,61 @@ func TestServiceAccountApprover(t *testing.T) {
 			} else {
 				require.NoError(t, gotErr)
 			}
+		})
+	}
+}
+
+func TestServiceAccountMultiSubjectsApprover(t *testing.T) {
+	approver := NewServiceAccountMultiSubjectsApprover("test", "test-sa", []string{"CN=sub-1", "CN=sub-2"})
+
+	tests := []struct {
+		name             string
+		subject          string
+		expectedDecision CSRApprovalDecision
+		expectedReason   string
+	}{
+		{
+			name:             "sub-1",
+			subject:          "sub-1",
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "sub-2",
+			subject:          "sub-2",
+			expectedDecision: CSRApproved,
+		},
+		{
+			name:             "unfamiliar",
+			subject:          "unfamiliar",
+			expectedDecision: CSRDenied,
+			expectedReason:   "expected the CSR's subject to be one of [\"CN=sub-1\" \"CN=sub-2\"], but it is \"CN=unfamiliar\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csr := &certapiv1.CertificateSigningRequest{
+				Spec: certapiv1.CertificateSigningRequestSpec{
+					Username: "system:serviceaccount:test:test-sa",
+					Groups: []string{
+						"system:serviceaccounts",
+						"system:serviceaccounts:test",
+						"system:authenticated",
+					},
+					Request: genCSR(t, tt.subject),
+				},
+			}
+
+			csrPEM, _ := pem.Decode(csr.Spec.Request)
+			require.NotNil(t, csrPEM)
+
+			x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
+			require.NoError(t, err)
+
+			decision, reason, err := approver.Approve(csr, x509CSR)
+			require.Equal(t, tt.expectedDecision, decision)
+			require.Equal(t, tt.expectedReason, reason)
+			require.NoError(t, err)
 		})
 	}
 }

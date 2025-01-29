@@ -5,39 +5,29 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
-	"k8s.io/klog/v2"
-
-	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/condition"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/management"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
-
-// LatestRevisionClient is an operator client for an operator status with a latest revision field.
-type LatestRevisionClient interface {
-	v1helpers.OperatorClient
-
-	// GetLatestRevisionState returns the spec, status and latest revision.
-	GetLatestRevisionState() (spec *operatorv1.OperatorSpec, status *operatorv1.OperatorStatus, rev int32, rv string, err error)
-	// UpdateLatestRevisionOperatorStatus updates the status with the given latestAvailableRevision and the by applying the given updateFuncs.
-	UpdateLatestRevisionOperatorStatus(ctx context.Context, latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error)
-}
 
 // RevisionController is a controller that watches a set of configmaps and secrets and them against a revision snapshot
 // of them. If the original resources changes, the revision counter is increased, stored in LatestAvailableRevision
 // field of the operator config and new snapshots suffixed by the revision are created.
 type RevisionController struct {
+	controllerInstanceName string
+
 	targetNamespace string
 	// configMaps is the list of configmaps that are directly copied.A different actor/controller modifies these.
 	// the first element should be the configmap that contains the static pod manifest
@@ -45,9 +35,11 @@ type RevisionController struct {
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 	secrets []RevisionResource
 
-	operatorClient  LatestRevisionClient
+	operatorClient  v1helpers.OperatorClient
 	configMapGetter corev1client.ConfigMapsGetter
 	secretGetter    corev1client.SecretsGetter
+
+	revisionPrecondition PreconditionFunc
 }
 
 type RevisionResource struct {
@@ -55,45 +47,67 @@ type RevisionResource struct {
 	Optional bool
 }
 
+// PreconditionFunc checks if revision precondition is met (is true) and then proceeeds with the creation of new revision
+type PreconditionFunc func(ctx context.Context) (bool, error)
+
 // NewRevisionController create a new revision controller.
 func NewRevisionController(
+	instanceName string,
 	targetNamespace string,
 	configMaps []RevisionResource,
 	secrets []RevisionResource,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	operatorClient LatestRevisionClient,
+	operatorClient v1helpers.OperatorClient,
 	configMapGetter corev1client.ConfigMapsGetter,
 	secretGetter corev1client.SecretsGetter,
 	eventRecorder events.Recorder,
+	revisionPrecondition PreconditionFunc,
 ) factory.Controller {
-	c := &RevisionController{
-		targetNamespace: targetNamespace,
-		configMaps:      configMaps,
-		secrets:         secrets,
-
-		operatorClient:  operatorClient,
-		configMapGetter: configMapGetter,
-		secretGetter:    secretGetter,
+	if revisionPrecondition == nil {
+		revisionPrecondition = func(ctx context.Context) (bool, error) {
+			return true, nil
+		}
 	}
 
-	return factory.New().WithInformers(
-		operatorClient.Informer(),
-		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
-		kubeInformersForTargetNamespace.Core().V1().Secrets().Informer()).WithSync(c.sync).ToController("RevisionController", eventRecorder)
+	c := &RevisionController{
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "RevisionController"),
+		targetNamespace:        targetNamespace,
+		configMaps:             configMaps,
+		secrets:                secrets,
+
+		operatorClient:       operatorClient,
+		configMapGetter:      configMapGetter,
+		secretGetter:         secretGetter,
+		revisionPrecondition: revisionPrecondition,
+	}
+
+	return factory.New().
+		WithInformers(
+			operatorClient.Informer(),
+			kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
+			kubeInformersForTargetNamespace.Core().V1().Secrets().Informer(),
+		).
+		WithSync(c.sync).
+		WithSyncDegradedOnError(operatorClient).
+		ResyncEvery(1*time.Minute).
+		ToController(
+			"RevisionController",
+			eventRecorder,
+		)
 }
 
 // createRevisionIfNeeded takes care of creating content for the static pods to use.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder events.Recorder, latestAvailableRevision int32, resourceVersion string) (bool, error) {
-	isLatestRevisionCurrent, requiredIsNotFound, reason := c.isLatestRevisionCurrent(ctx, latestAvailableRevision)
+func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder events.Recorder, currentLastAvailableRevision int32) error {
+	isLatestRevisionCurrent, requiredIsNotFound, reason := c.isLatestRevisionCurrent(ctx, currentLastAvailableRevision)
 
 	// check to make sure that the latestRevision has the exact content we expect.  No mutation here, so we start creating the next Revision only when it is required
 	if isLatestRevisionCurrent {
-		klog.V(4).Infof("Returning early, %d triggered and up to date", latestAvailableRevision)
-		return false, nil
+		klog.V(4).Infof("Returning early, %d triggered and up to date", currentLastAvailableRevision)
+		return nil
 	}
 
-	nextRevision := latestAvailableRevision + 1
+	nextRevision := currentLastAvailableRevision + 1
 	var createdNewRevision bool
 	var err error
 	// check to make sure no new revision is created when a required object is missing
@@ -105,36 +119,24 @@ func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder
 	}
 
 	if err != nil {
-		cond := operatorv1.OperatorCondition{
-			Type:    "RevisionControllerDegraded",
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "ContentCreationError",
-			Message: err.Error(),
-		}
-		if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
-			recorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
-			return true, updateError
-		}
-		return true, nil
+		return err
 	}
 
 	if !createdNewRevision {
 		klog.V(4).Infof("Revision %v not created", nextRevision)
-		return false, nil
+		return nil
 	}
+
 	recorder.Eventf("RevisionTriggered", "new revision %d triggered by %q", nextRevision, reason)
 
-	cond := operatorv1.OperatorCondition{
-		Type:   "RevisionControllerDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
-	if _, updated, updateError := c.operatorClient.UpdateLatestRevisionOperatorStatus(ctx, nextRevision, v1helpers.UpdateConditionFn(cond)); updateError != nil {
-		return true, updateError
-	} else if updated {
-		recorder.Eventf("RevisionCreate", "Revision %d created because %s", nextRevision, reason)
+	status := applyoperatorv1.OperatorStatus().
+		WithLatestAvailableRevision(nextRevision)
+	updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
+	if updateError != nil {
+		return updateError
 	}
 
-	return false, nil
+	return nil
 }
 
 func nameFor(name string, revision int32) string {
@@ -234,6 +236,9 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 			Annotations: map[string]string{
 				"operator.openshift.io/revision-ready": "false",
 			},
+			Labels: map[string]string{
+				"operator.openshift.io/controller-instance-name": c.controllerInstanceName,
+			},
 		},
 		Data: map[string]string{
 			"revision": fmt.Sprintf("%d", revision),
@@ -243,13 +248,11 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 	createdStatus, err := c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Create(ctx, desiredStatusConfigMap, metav1.CreateOptions{})
 	switch {
 	case apierrors.IsAlreadyExists(err):
-		if createdStatus == nil || len(createdStatus.UID) == 0 {
-			createdStatus, err = c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Get(ctx, desiredStatusConfigMap.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-		}
 		// take a live GET here to get current status to check the annotation
+		createdStatus, err = c.configMapGetter.ConfigMaps(desiredStatusConfigMap.Namespace).Get(ctx, desiredStatusConfigMap.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 		if createdStatus.Annotations["operator.openshift.io/revision-ready"] == "true" {
 			// no work to do because our cache is out of date and when we're updated, we will be able to see the result
 			klog.Infof("down the branch indicating that our cache was out of date and we're trying to recreate a revision.")
@@ -268,7 +271,17 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 	}}
 
 	for _, cm := range c.configMaps {
-		obj, _, err := resourceapply.SyncConfigMap(ctx, c.configMapGetter, recorder, c.targetNamespace, cm.Name, c.targetNamespace, nameFor(cm.Name, revision), ownerRefs)
+		obj, _, err := resourceapply.SyncConfigMapWithLabels(
+			ctx,
+			c.configMapGetter,
+			recorder,
+			c.targetNamespace,
+			cm.Name,
+			c.targetNamespace,
+			nameFor(cm.Name, revision),
+			ownerRefs,
+			map[string]string{"operator.openshift.io/controller-instance-name": c.controllerInstanceName},
+		)
 		if err != nil {
 			return false, err
 		}
@@ -277,7 +290,17 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 		}
 	}
 	for _, s := range c.secrets {
-		obj, _, err := resourceapply.SyncSecret(ctx, c.secretGetter, recorder, c.targetNamespace, s.Name, c.targetNamespace, nameFor(s.Name, revision), ownerRefs)
+		obj, _, err := resourceapply.SyncSecretWithLabels(
+			ctx,
+			c.secretGetter,
+			recorder,
+			c.targetNamespace,
+			s.Name,
+			c.targetNamespace,
+			nameFor(s.Name, revision),
+			ownerRefs,
+			map[string]string{"operator.openshift.io/controller-instance-name": c.controllerInstanceName},
+		)
 		if err != nil {
 			return false, err
 		}
@@ -286,7 +309,14 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 		}
 	}
 
+	if createdStatus.Annotations == nil {
+		createdStatus.Annotations = map[string]string{}
+	}
+	if createdStatus.Labels == nil {
+		createdStatus.Labels = map[string]string{}
+	}
 	createdStatus.Annotations["operator.openshift.io/revision-ready"] = "true"
+	createdStatus.Labels["operator.openshift.io/controller-instance-name"] = c.controllerInstanceName
 	if _, err := c.configMapGetter.ConfigMaps(createdStatus.Namespace).Update(ctx, createdStatus, metav1.UpdateOptions{}); err != nil {
 		return false, err
 	}
@@ -305,6 +335,11 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 	var latestRevision int32
 	for _, configMap := range configMaps.Items {
 		if !strings.HasPrefix(configMap.Name, "revision-status-") {
+			// if it's not a revision status configmap, skip
+			continue
+		}
+		if configMap.Annotations["operator.openshift.io/revision-ready"] != "true" {
+			// we only want to include ready revisions.
 			continue
 		}
 		if revision, ok := configMap.Data["revision"]; ok {
@@ -322,7 +357,7 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 }
 
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	operatorSpec, _, latestAvailableRevisionSeenByOperator, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
+	operatorSpec, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
 	}
@@ -332,41 +367,33 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 	}
 
 	// If the operator status's latest available revision is not the same as the observed latest revision, update the operator.
+	// This needs to be done even if the revision precondition is not required because it ensures our operator status is
+	// correct for all consumers.
+	// This is what is going to allow us to move where the state is stored in authentications.openshift.io.
 	latestObservedRevision, err := c.getLatestAvailableRevision(ctx)
 	if err != nil {
 		return err
 	}
-	if latestObservedRevision != 0 && latestAvailableRevisionSeenByOperator != latestObservedRevision {
+	if latestObservedRevision != 0 && operatorStatus.LatestAvailableRevision != latestObservedRevision {
 		// Then make sure that revision number is what's in the operator status
-		_, _, err := c.operatorClient.UpdateLatestRevisionOperatorStatus(ctx, latestObservedRevision)
+		status := applyoperatorv1.OperatorStatus().
+			WithLatestAvailableRevision(latestObservedRevision)
+		err := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 		if err != nil {
 			return err
 		}
-		// regardless of whether we made a change, requeue to rerun the sync with updated status
-		return factory.SyntheticRequeueError
+		// we will be called again because the update will self-feed the informer
+		return nil
 	}
 
-	requeue, syncErr := c.createRevisionIfNeeded(ctx, syncCtx.Recorder(), latestAvailableRevisionSeenByOperator, resourceVersion)
-	if requeue && syncErr == nil {
-		return factory.SyntheticRequeueError
-	}
-	err = syncErr
-
-	// update failing condition
-	cond := operatorv1.OperatorCondition{
-		Type:   condition.RevisionControllerDegradedConditionType,
-		Status: operatorv1.ConditionFalse,
-	}
-	if err != nil {
-		cond.Status = operatorv1.ConditionTrue
-		cond.Reason = "Error"
-		cond.Message = err.Error()
-	}
-	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
-		if err == nil {
-			return updateError
-		}
+	if shouldCreateNewRevision, err := c.revisionPrecondition(ctx); err != nil || !shouldCreateNewRevision {
+		return err
 	}
 
-	return err
+	syncErr := c.createRevisionIfNeeded(ctx, syncCtx.Recorder(), operatorStatus.LatestAvailableRevision)
+	if syncErr != nil {
+		return syncErr
+	}
+
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
@@ -604,7 +605,7 @@ func TestMigrationController(t *testing.T) {
 				allResources = append(allResources, initialSecret)
 			}
 			fakeKubeClient := fake.NewSimpleClientset(allResources...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("operator"), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("operator"), "test-encryptionKeyController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)

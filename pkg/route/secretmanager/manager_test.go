@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/secret"
 	"github.com/openshift/library-go/pkg/secret/fake"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +86,7 @@ func TestRegisterRoute(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			mgr := &manager{
-				registeredHandlers: make(map[string]secret.SecretEventHandlerRegistration),
+				registeredHandlers: map[string]referencedSecret{},
 				monitor:            &s.sm,
 			}
 
@@ -162,7 +161,7 @@ func TestUnregisterRoute(t *testing.T) {
 	}
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
-			mgr := &manager{registeredHandlers: make(map[string]secret.SecretEventHandlerRegistration)}
+			mgr := &manager{registeredHandlers: map[string]referencedSecret{}}
 			// register
 			mgr.monitor = &fake.SecretMonitor{} // avoid error from AddSecretEventHandler
 			for _, rs := range s.register {
@@ -238,7 +237,7 @@ func TestGetSecret(t *testing.T) {
 	}
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
-			mgr := manager{registeredHandlers: make(map[string]secret.SecretEventHandlerRegistration)}
+			mgr := manager{registeredHandlers: map[string]referencedSecret{}}
 			// register
 			mgr.monitor = &fake.SecretMonitor{} // avoid error from AddSecretEventHandler
 			for _, rs := range s.register {
@@ -261,32 +260,33 @@ func TestGetSecret(t *testing.T) {
 	}
 }
 
-func TestIsRouteRegistered(t *testing.T) {
+func TestLookupRouteSecret(t *testing.T) {
 	var (
 		namespace = "ns"
 		routeName = "route"
 	)
 
 	scenarios := []struct {
-		name     string
-		register []routeSecret
-		expect   bool
+		name             string
+		register         []routeSecret
+		expectExist      bool
+		expectSecretName string
 	}{
 		{
 			name:     "when route is not registered",
 			register: []routeSecret{},
-			expect:   false,
 		},
 		{
-			name:     "when route is registered",
-			register: []routeSecret{{routeName, "secretName"}},
-			expect:   true,
+			name:             "when route is registered",
+			register:         []routeSecret{{routeName, "secretName"}},
+			expectExist:      true,
+			expectSecretName: "secretName",
 		},
 	}
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			mgr := &manager{
-				registeredHandlers: make(map[string]secret.SecretEventHandlerRegistration),
+				registeredHandlers: map[string]referencedSecret{},
 				monitor:            &fake.SecretMonitor{},
 			}
 			// register
@@ -296,10 +296,13 @@ func TestIsRouteRegistered(t *testing.T) {
 				}
 			}
 
-			got := mgr.IsRouteRegistered(namespace, routeName)
+			secret, exist := mgr.LookupRouteSecret(namespace, routeName)
 
-			if got != s.expect {
-				t.Fatalf("expected %t, but got %t", s.expect, got)
+			if exist != s.expectExist {
+				t.Fatalf("expected %t, but got %t", s.expectExist, exist)
+			}
+			if secret != s.expectSecretName {
+				t.Fatalf("expected secret %s, but got %s", s.expectSecretName, secret)
 			}
 		})
 	}

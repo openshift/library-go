@@ -3,8 +3,10 @@ package resourceapply
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -171,7 +173,7 @@ func TestApplyMutatingConfiguration(t *testing.T) {
 			if test.existing != nil {
 				client.PrependReactor("update", "*", injectGeneration(test.existing().GetGeneration()+1))
 			}
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 			testApply := func(expectModify bool) {
 				updatedHook, modified, err := ApplyMutatingWebhookConfigurationImproved(
@@ -355,7 +357,7 @@ func TestApplyValidatingConfiguration(t *testing.T) {
 			if test.existing != nil {
 				client.PrependReactor("update", "*", injectGeneration(test.existing().GetGeneration()+1))
 			}
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 			testApply := func(expectModify bool) {
 				updatedHook, modified, err := ApplyValidatingWebhookConfigurationImproved(
@@ -425,7 +427,7 @@ func TestDeleteValidatingConfiguration(t *testing.T) {
 				existingHooks = append(existingHooks, test.existing())
 			}
 			client := fake.NewSimpleClientset(existingHooks...)
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 			testApply := func(expectModify bool) {
 				updatedHook, modified, err := DeleteValidatingWebhookConfiguration(
@@ -533,7 +535,7 @@ func TestApplyValidatingAdmissionPolicyConfiguration(t *testing.T) {
 			if test.existing != nil {
 				client.PrependReactor("update", "*", injectGeneration(test.existing().GetGeneration()+1))
 			}
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 			testApply := func(expectModify bool) {
 				updatedPolicy, modified, err := ApplyValidatingAdmissionPolicyV1beta1(

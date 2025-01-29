@@ -3,6 +3,7 @@ package missingstaticpodcontroller
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/clock"
 	"strconv"
 	"testing"
 	"time"
@@ -279,7 +280,7 @@ func TestMissingStaticPodControllerSync(t *testing.T) {
 				nil,
 			)
 			kubeClient := fake.NewSimpleClientset()
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "missing-static-pod-controller", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "missing-static-pod-controller", &corev1.ObjectReference{}, clock.RealClock{} /*events are created based on time timestamp so names collided*/)
 			syncCtx := factory.NewSyncContext("MissingStaticPodController", eventRecorder)
 
 			podIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})

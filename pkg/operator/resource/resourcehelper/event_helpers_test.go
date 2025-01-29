@@ -2,7 +2,9 @@ package resourcehelper
 
 import (
 	"errors"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +52,7 @@ func TestReportCreateEvent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			ReportCreateEvent(recorder, test.object, test.err)
 			recordedEvents := recorder.Events()
 
@@ -123,7 +125,7 @@ func TestReportUpdateEvent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			if len(test.details) == 0 {
 				ReportUpdateEvent(recorder, test.object, test.err)
 			} else {
@@ -200,7 +202,7 @@ func TestReportDeleteEvent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			recorder := events.NewInMemoryRecorder("test")
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			if len(test.details) == 0 {
 				ReportDeleteEvent(recorder, test.object, test.err)
 			} else {

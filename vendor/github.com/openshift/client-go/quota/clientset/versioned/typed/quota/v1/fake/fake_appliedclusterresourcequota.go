@@ -3,53 +3,34 @@
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/openshift/api/quota/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	testing "k8s.io/client-go/testing"
+	quotav1 "github.com/openshift/client-go/quota/clientset/versioned/typed/quota/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeAppliedClusterResourceQuotas implements AppliedClusterResourceQuotaInterface
-type FakeAppliedClusterResourceQuotas struct {
+// fakeAppliedClusterResourceQuotas implements AppliedClusterResourceQuotaInterface
+type fakeAppliedClusterResourceQuotas struct {
+	*gentype.FakeClientWithList[*v1.AppliedClusterResourceQuota, *v1.AppliedClusterResourceQuotaList]
 	Fake *FakeQuotaV1
-	ns   string
 }
 
-var appliedclusterresourcequotasResource = v1.SchemeGroupVersion.WithResource("appliedclusterresourcequotas")
-
-var appliedclusterresourcequotasKind = v1.SchemeGroupVersion.WithKind("AppliedClusterResourceQuota")
-
-// Get takes name of the appliedClusterResourceQuota, and returns the corresponding appliedClusterResourceQuota object, and an error if there is any.
-func (c *FakeAppliedClusterResourceQuotas) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.AppliedClusterResourceQuota, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(appliedclusterresourcequotasResource, c.ns, name), &v1.AppliedClusterResourceQuota{})
-
-	if obj == nil {
-		return nil, err
+func newFakeAppliedClusterResourceQuotas(fake *FakeQuotaV1, namespace string) quotav1.AppliedClusterResourceQuotaInterface {
+	return &fakeAppliedClusterResourceQuotas{
+		gentype.NewFakeClientWithList[*v1.AppliedClusterResourceQuota, *v1.AppliedClusterResourceQuotaList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("appliedclusterresourcequotas"),
+			v1.SchemeGroupVersion.WithKind("AppliedClusterResourceQuota"),
+			func() *v1.AppliedClusterResourceQuota { return &v1.AppliedClusterResourceQuota{} },
+			func() *v1.AppliedClusterResourceQuotaList { return &v1.AppliedClusterResourceQuotaList{} },
+			func(dst, src *v1.AppliedClusterResourceQuotaList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.AppliedClusterResourceQuotaList) []*v1.AppliedClusterResourceQuota {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.AppliedClusterResourceQuotaList, items []*v1.AppliedClusterResourceQuota) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.AppliedClusterResourceQuota), err
-}
-
-// List takes label and field selectors, and returns the list of AppliedClusterResourceQuotas that match those selectors.
-func (c *FakeAppliedClusterResourceQuotas) List(ctx context.Context, opts metav1.ListOptions) (result *v1.AppliedClusterResourceQuotaList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(appliedclusterresourcequotasResource, appliedclusterresourcequotasKind, c.ns, opts), &v1.AppliedClusterResourceQuotaList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.AppliedClusterResourceQuotaList{ListMeta: obj.(*v1.AppliedClusterResourceQuotaList).ListMeta}
-	for _, item := range obj.(*v1.AppliedClusterResourceQuotaList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
 }

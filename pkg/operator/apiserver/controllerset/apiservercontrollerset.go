@@ -3,6 +3,7 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/clock"
 	"regexp"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
-	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
@@ -44,26 +44,23 @@ import (
 )
 
 type preparedAPIServerControllerSet struct {
-	controllers []controller
+	controllers []factory.Controller
 }
 
 type controllerWrapper struct {
 	emptyAllowed bool
 	// creationError allows for reporting errors that occurred during object creation
 	creationError error
-	controller
+	controller    factory.Controller
 }
 
-type controller interface {
-	Run(ctx context.Context, workers int)
-}
-
-func (cw *controllerWrapper) prepare() (controller, error) {
-	if !cw.emptyAllowed && cw.controller == nil {
-		return nil, fmt.Errorf("missing controller")
-	}
+func (cw *controllerWrapper) prepare() (factory.Controller, error) {
 	if cw.creationError != nil {
 		return nil, cw.creationError
+	}
+
+	if !cw.emptyAllowed && cw.controller == nil {
+		return nil, fmt.Errorf("missing controller")
 	}
 
 	return cw.controller, nil
@@ -71,6 +68,7 @@ func (cw *controllerWrapper) prepare() (controller, error) {
 
 // APIServerControllerSet is a set of controllers that maintain a deployment of an API server and the namespace it's running in
 type APIServerControllerSet struct {
+	name           string
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 
@@ -85,15 +83,20 @@ type APIServerControllerSet struct {
 	revisionController              controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
+	clock                           clock.PassiveClock
 }
 
 func NewAPIServerControllerSet(
+	name string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
+	clock clock.PassiveClock,
 ) *APIServerControllerSet {
 	apiServerControllerSet := &APIServerControllerSet{
+		name:           name,
 		operatorClient: operatorClient,
 		eventRecorder:  eventRecorder,
+		clock:          clock,
 	}
 
 	return apiServerControllerSet
@@ -102,7 +105,7 @@ func NewAPIServerControllerSet(
 // WithConfigUpgradableController adds a controller for the operator to check for presence of
 // unsupported configuration and to set the Upgradable condition to false if it finds any
 func (cs *APIServerControllerSet) WithConfigUpgradableController() *APIServerControllerSet {
-	cs.configUpgradableController.controller = unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(cs.operatorClient, cs.eventRecorder)
+	cs.configUpgradableController.controller = unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(cs.name, cs.operatorClient, cs.eventRecorder)
 	return cs
 }
 
@@ -140,6 +143,7 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 		cs.operatorClient,
 		versionRecorder,
 		cs.eventRecorder,
+		cs.clock,
 	)
 	for _, opt := range options {
 		s = opt(s)
@@ -307,19 +311,21 @@ func (cs *APIServerControllerSet) WithRevisionController(
 	configMaps []revisioncontroller.RevisionResource,
 	secrets []revisioncontroller.RevisionResource,
 	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
-	revisionClient revisioncontroller.LatestRevisionClient,
+	operatorClient v1helpers.OperatorClient,
 	configMapGetter corev1client.ConfigMapsGetter,
 	secretGetter corev1client.SecretsGetter,
 ) *APIServerControllerSet {
 	cs.revisionController.controller = revisioncontroller.NewRevisionController(
+		cs.name,
 		targetNamespace,
 		configMaps,
 		secrets,
 		kubeInformersForTargetNamespace,
-		revisionClient,
+		operatorClient,
 		configMapGetter,
 		secretGetter,
 		cs.eventRecorder,
+		nil,
 	)
 	return cs
 }
@@ -398,15 +404,14 @@ func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerContr
 func (cs *APIServerControllerSet) WithAuditPolicyController(
 	targetNamespace string,
 	targetConfigMapName string,
-	apiserverConfigLister configv1listers.APIServerLister,
 	configInformers configinformers.SharedInformerFactory,
 	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 ) *APIServerControllerSet {
 	cs.auditPolicyController.controller = auditpolicy.NewAuditPolicyController(
+		cs.name,
 		targetNamespace,
 		targetConfigMapName,
-		apiserverConfigLister,
 		cs.operatorClient,
 		kubeClient,
 		configInformers,
@@ -423,22 +428,31 @@ func (cs *APIServerControllerSet) WithoutAuditPolicyController() *APIServerContr
 }
 
 func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, error) {
-	prepared := []controller{}
+	prepared := []factory.Controller{}
 	errs := []error{}
 
-	for name, cw := range map[string]controllerWrapper{
+	controllerWrapperMap := map[string]controllerWrapper{
 		"apiServiceController":            cs.apiServiceController,
 		"auditPolicyController":           cs.auditPolicyController,
 		"clusterOperatorStatusController": cs.clusterOperatorStatusController,
 		"configUpgradableController":      cs.configUpgradableController,
-		"encryptionControllers":           cs.encryptionControllers.build(),
 		"finalizerController":             cs.finalizerController,
 		"logLevelController":              cs.logLevelController,
 		"pruneController":                 cs.pruneController,
 		"revisionController":              cs.revisionController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
-	} {
+	}
+
+	for _, encryptionControllerWrapper := range cs.encryptionControllers.build() {
+		if _, ok := controllerWrapperMap[encryptionControllerWrapper.controller.Name()]; ok {
+			errs = append(errs, fmt.Errorf("encryption controller with name: %s already registered", encryptionControllerWrapper.controller.Name()))
+			continue
+		}
+		controllerWrapperMap[encryptionControllerWrapper.controller.Name()] = encryptionControllerWrapper
+	}
+
+	for name, cw := range controllerWrapperMap {
 		c, err := cw.prepare()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %v", name, err))
@@ -456,6 +470,10 @@ func (cs *preparedAPIServerControllerSet) Run(ctx context.Context) {
 	for i := range cs.controllers {
 		go cs.controllers[i].Run(ctx, 1)
 	}
+}
+
+func (cs *preparedAPIServerControllerSet) Controllers() []factory.Controller {
+	return cs.controllers
 }
 
 type encryptionControllerBuilder struct {
@@ -477,11 +495,12 @@ type encryptionControllerBuilder struct {
 	unsupportedConfigPrefix []string
 }
 
-func (e *encryptionControllerBuilder) build() controllerWrapper {
+func (e *encryptionControllerBuilder) build() []controllerWrapper {
 	if e.emptyAllowed {
-		return e.controllerWrapper
+		return []controllerWrapper{e.controllerWrapper}
 	}
-	e.controllerWrapper.controller, e.controllerWrapper.creationError = encryption.NewControllers(
+
+	controllers, err := encryption.NewControllers(
 		e.component,
 		e.unsupportedConfigPrefix,
 		e.provider,
@@ -495,6 +514,15 @@ func (e *encryptionControllerBuilder) build() controllerWrapper {
 		e.eventRecorder,
 		e.resourceSyncer,
 	)
+	if err != nil {
+		e.creationError = err
+		return []controllerWrapper{e.controllerWrapper}
+	}
 
-	return e.controllerWrapper
+	controllerWrappers := []controllerWrapper{}
+	for _, controller := range controllers {
+		cw := controllerWrapper{controller: controller}
+		controllerWrappers = append(controllerWrappers, cw)
+	}
+	return controllerWrappers
 }

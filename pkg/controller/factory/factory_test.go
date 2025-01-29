@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"sync"
 	"testing"
 	"time"
@@ -108,7 +109,7 @@ func TestResyncController(t *testing.T) {
 		}
 		t.Logf("controller sync called (%d)", syncCallCount)
 		return nil
-	}).ToController("PeriodicController", events.NewInMemoryRecorder("periodic-controller"))
+	}).ToController("PeriodicController", events.NewInMemoryRecorder("periodic-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	go controller.Run(ctx, 1)
 	time.Sleep(1 * time.Second) // Give controller time to start
@@ -155,7 +156,7 @@ func TestMultiWorkerControllerShutdown(t *testing.T) {
 		workersShutdownMutex.Unlock()
 
 		return nil
-	}).ToController("ShutdownController", events.NewInMemoryRecorder("shutdown-controller"))
+	}).ToController("ShutdownController", events.NewInMemoryRecorder("shutdown-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	// wait for all workers to be busy, then signal shutdown
 	go func() {
@@ -192,7 +193,7 @@ func TestControllerWithInformer(t *testing.T) {
 			t.Errorf("expected queue key to be 'key', got %q", syncContext.QueueKey())
 		}
 		return nil
-	}).ToController("FakeController", events.NewInMemoryRecorder("fake-controller"))
+	}).ToController("FakeController", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	go controller.Run(ctx, 1)
 	time.Sleep(1 * time.Second) // Give controller time to start
@@ -214,7 +215,7 @@ func TestControllerScheduled(t *testing.T) {
 	controller := New().ResyncSchedule("@every 1s").WithSync(func(ctx context.Context, controllerContext SyncContext) error {
 		syncCalled <- struct{}{}
 		return nil
-	}).ToController("test", events.NewInMemoryRecorder("fake-controller"))
+	}).ToController("test", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -256,7 +257,7 @@ func TestControllerSyncAfterStart(t *testing.T) {
 	controller := New().ResyncEvery(10*time.Second).WithSync(func(ctx context.Context, controllerContext SyncContext) error {
 		close(syncCalled)
 		return nil
-	}).ToController("test", events.NewInMemoryRecorder("fake-controller"))
+	}).ToController("test", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	go controller.Run(context.TODO(), 1)
 	select {
@@ -294,7 +295,7 @@ func TestControllerWithQueueFunction(t *testing.T) {
 			t.Errorf("expected queue key to be 'test/test-secret', got %q", syncContext.QueueKey())
 		}
 		return nil
-	}).ToController("FakeController", events.NewInMemoryRecorder("fake-controller"))
+	}).ToController("FakeController", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	go controller.Run(ctx, 1)
 	time.Sleep(1 * time.Second) // Give controller time to start

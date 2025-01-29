@@ -28,8 +28,8 @@ func (mrt *manifestRoundTripper) get(requestInfo *apirequest.RequestInfo) ([]byt
 		requiredAPIVersion = fmt.Sprintf("%s", requestInfo.APIVersion)
 	}
 
-	individualFilePath := individualFileLocation(requestInfo)
-	individualObj, individualErr := readIndividualFile(mrt.contentReader, individualFilePath)
+	individualFilePath := individualGetFileLocation(requestInfo)
+	individualObj, individualErr := readIndividualFile(mrt.sourceFS, individualFilePath)
 	switch {
 	case errors.Is(individualErr, fs.ErrNotExist):
 		// try for the list
@@ -46,8 +46,8 @@ func (mrt *manifestRoundTripper) get(requestInfo *apirequest.RequestInfo) ([]byt
 		return []byte(ret), nil
 	}
 
-	listFilePath := listFileLocation(requestInfo)
-	listObj, listErr := readListFile(mrt.contentReader, listFilePath)
+	listFilePath := listGetFileLocation(requestInfo)
+	listObj, listErr := readListFile(mrt.sourceFS, listFilePath)
 	switch {
 	case errors.Is(listErr, fs.ErrNotExist):
 		// we need this to be a not-found when sent back
@@ -72,8 +72,18 @@ func (mrt *manifestRoundTripper) get(requestInfo *apirequest.RequestInfo) ([]byt
 	}
 }
 
-func individualFileLocation(requestInfo *apirequest.RequestInfo) string {
+func individualGetFileLocation(requestInfo *apirequest.RequestInfo) string {
 	fileParts := []string{}
+
+	if len(requestInfo.APIGroup) == 0 &&
+		requestInfo.APIVersion == "v1" &&
+		requestInfo.Resource == "namespaces" &&
+		len(requestInfo.Subresource) == 0 &&
+		requestInfo.Namespace == requestInfo.Name { // namespaces are weird. They list their own namespace in requestInfo.namespace
+
+		fileParts = append(fileParts, "namespaces", requestInfo.Name, requestInfo.Name+".yaml")
+		return filepath.Join(fileParts...)
+	}
 
 	if len(requestInfo.Namespace) > 0 {
 		fileParts = append(fileParts, "namespaces", requestInfo.Namespace)
@@ -92,7 +102,7 @@ func individualFileLocation(requestInfo *apirequest.RequestInfo) string {
 	return filepath.Join(fileParts...)
 }
 
-func listFileLocation(requestInfo *apirequest.RequestInfo) string {
+func listGetFileLocation(requestInfo *apirequest.RequestInfo) string {
 	fileParts := []string{}
 
 	if len(requestInfo.Namespace) > 0 {

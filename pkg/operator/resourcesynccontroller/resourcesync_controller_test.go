@@ -2,6 +2,7 @@ package resourcesynccontroller
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -94,6 +95,7 @@ func TestSyncSecret(t *testing.T) {
 	)
 	eventRecorder := eventstesting.NewTestingEventRecorder(t)
 	c := NewResourceSyncController(
+		"testing-instance",
 		fakeStaticPodOperatorClient,
 		v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 			"config":   secretInformers,
@@ -180,11 +182,12 @@ func TestSyncConfigMap(t *testing.T) {
 		&operatorv1.OperatorStatus{},
 		nil,
 	)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	kubeInformersForNamespaces := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{"other": configInformers})
 
 	c := NewResourceSyncController(
+		"testing-instance",
 		fakeStaticPodOperatorClient,
 		v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 			"config":         configInformers,
@@ -286,9 +289,10 @@ func TestSyncConditionally(t *testing.T) {
 				&operatorv1.OperatorStatus{},
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewResourceSyncController(
+				"testing-instance",
 				fakeStaticPodOperatorClient,
 				v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
 					"config":   configInformers,

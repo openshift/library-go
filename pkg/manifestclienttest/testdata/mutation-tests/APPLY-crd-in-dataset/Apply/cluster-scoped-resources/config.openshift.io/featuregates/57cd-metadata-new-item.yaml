@@ -1,0 +1,9 @@
+action: Apply
+controllerInstanceName: ""
+fieldManager: the-client
+generateName: ""
+mame: new-item
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

@@ -53,7 +53,10 @@ func NewFinalizerController(
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 		kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer(),
-	).ToController(fullname, eventRecorder.WithComponentSuffix("finalizer-controller"))
+	).ToController(
+		fullname, // don't change what is passed here unless you also remove the old FooDegraded condition
+		eventRecorder.WithComponentSuffix("finalizer-controller"),
+	)
 }
 
 func (c finalizerController) sync(ctx context.Context, syncCtx factory.SyncContext) error {

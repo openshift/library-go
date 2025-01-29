@@ -76,7 +76,10 @@ func (b *Builder) ToController(kubeInformersForTargetNamespace informers.SharedI
 			}
 			return eventKeyFunc(event.Namespace, event.Name, event.Reason)
 		}, kubeInformersForTargetNamespace.Core().V1().Events().Informer()).
-		ToController("EventWatchController", recorder)
+		ToController(
+			"EventWatchController", // don't change what is passed here unless you also remove the old FooDegraded condition
+			recorder,
+		)
 }
 
 func eventKeyFunc(namespace, name, reason string) string {

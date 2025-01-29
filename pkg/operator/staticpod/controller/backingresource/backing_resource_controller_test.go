@@ -3,8 +3,10 @@ package backingresource
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -174,7 +176,7 @@ func TestBackingResourceController(t *testing.T) {
 			for _, r := range tc.prependReactors {
 				kubeClient.PrependReactor(r.verb, r.resource, r.reaction)
 			}
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			c := staticresourcecontroller.NewStaticResourceController(
 				"BackingResourceController",
 				StaticPodManifests(tc.targetNamespace),

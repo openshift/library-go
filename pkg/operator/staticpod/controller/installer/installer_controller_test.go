@@ -11,6 +11,7 @@ import (
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -539,15 +540,17 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: test.latestAvailableRevision,
-					NodeStatuses:            []operatorv1.NodeStatus{test.current},
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: test.latestAvailableRevision,
+					},
+					NodeStatuses: []operatorv1.NodeStatus{test.current},
 				},
 				nil,
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			c := NewInstallerController(
-				"test", "test-pod",
+				"unit-test", "test", "test-pod",
 				[]revision.RevisionResource{{Name: "test-config"}},
 				[]revision.RevisionResource{{Name: "test-secret"}},
 				[]string{"/bin/true", "--foo=test", "--bar"},
@@ -664,7 +667,9 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 3,
+			OperatorStatus: operatorv1.OperatorStatus{
+				LatestAvailableRevision: 3,
+			},
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
@@ -677,10 +682,10 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		nil,
 	)
 
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 	podCommand := []string{"/bin/true", "--foo=test", "--bar"}
 	c := NewInstallerController(
-		"test", "test-pod",
+		"unit-test", "test", "test-pod",
 		[]revision.RevisionResource{{Name: "test-config"}},
 		[]revision.RevisionResource{{Name: "test-secret"}},
 		podCommand,
@@ -1072,7 +1077,9 @@ func TestCreateInstallerPod(t *testing.T) {
 			},
 		},
 		&operatorv1.StaticPodOperatorStatus{
-			LatestAvailableRevision: 1,
+			OperatorStatus: operatorv1.OperatorStatus{
+				LatestAvailableRevision: 1,
+			},
 			NodeStatuses: []operatorv1.NodeStatus{
 				{
 					NodeName:        "test-node-1",
@@ -1084,10 +1091,10 @@ func TestCreateInstallerPod(t *testing.T) {
 		nil,
 		nil,
 	)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	c := NewInstallerController(
-		"test", "test-pod",
+		"unit-test", "test", "test-pod",
 		[]revision.RevisionResource{{Name: "test-config"}},
 		[]revision.RevisionResource{{Name: "test-secret"}},
 		[]string{"/bin/true"},
@@ -1239,7 +1246,9 @@ func TestEnsureInstallerPod(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: 1,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
 					NodeStatuses: []operatorv1.NodeStatus{
 						{
 							NodeName:        "test-node-1",
@@ -1251,10 +1260,10 @@ func TestEnsureInstallerPod(t *testing.T) {
 				nil,
 				nil,
 			)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewInstallerController(
-				"test", "test-pod",
+				"unit-test", "test", "test-pod",
 				tt.configs,
 				tt.secrets,
 				[]string{"/bin/true"},
@@ -1985,17 +1994,19 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 					},
 				},
 				&operatorv1.StaticPodOperatorStatus{
-					LatestAvailableRevision: test.latestAvailableRevision,
-					NodeStatuses:            test.nodeStatuses,
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: test.latestAvailableRevision,
+					},
+					NodeStatuses: test.nodeStatuses,
 				},
 				statusUpdateErrorFunc,
 				nil,
 			)
 
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := NewInstallerController(
-				namespace, "test-pod",
+				"unit-test", namespace, "test-pod",
 				[]revision.RevisionResource{{Name: "test-config"}},
 				[]revision.RevisionResource{{Name: "test-secret"}},
 				[]string{"/bin/true"},
@@ -2100,7 +2111,7 @@ func TestInstallerController_manageInstallationPods(t *testing.T) {
 				eventRecorder:       tt.fields.eventRecorder,
 				installerPodImageFn: tt.fields.installerPodImageFn,
 			}
-			got, _, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
+			got, _, _, _, err := c.manageInstallationPods(context.TODO(), tt.args.operatorSpec, tt.args.originalOperatorStatus)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InstallerController.manageInstallationPods() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -2328,7 +2339,9 @@ func TestSetConditions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := &operatorv1.StaticPodOperatorStatus{
-				LatestAvailableRevision: tc.latestAvailableRevision,
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: tc.latestAvailableRevision,
+				},
 			}
 			for _, current := range tc.currentRevisions {
 				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{
@@ -2339,7 +2352,28 @@ func TestSetConditions(t *testing.T) {
 					TargetRevision:     tc.targetRevision,
 				})
 			}
-			setAvailableProgressingNodeInstallerFailingConditions(status)
+			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				status,
+				nil,
+				nil,
+			)
+
+			nodeStatusApplyConfigurations := prepareNodeStatusApplyConfigurationFor(status.NodeStatuses, nil)
+			operatorConditionApplyConfigurations := prepareNodeInstallerConditionApplyConfiguration(nodeStatusApplyConfigurations, status.LatestAvailableRevision)
+			statusApplyConfiguration := applyoperatorv1.StaticPodOperatorStatus().WithConditions(operatorConditionApplyConfigurations...)
+			err := fakeStaticPodOperatorClient.ApplyStaticPodOperatorStatus(context.TODO(), tc.name, statusApplyConfiguration)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, status, _, err = fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.StaticPodsAvailableConditionType)
 			if availableCondition == nil {

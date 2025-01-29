@@ -2,15 +2,21 @@ package managementstatecontroller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/management"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
-
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestOperatorManagementStateController(t *testing.T) {
@@ -84,7 +90,7 @@ func TestOperatorManagementStateController(t *testing.T) {
 					Conditions: tc.initialConditions,
 				},
 			}
-			recorder := events.NewInMemoryRecorder("status")
+			recorder := events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now()))
 			controller := &ManagementStateController{
 				operatorName:   "OPERATOR_NAME",
 				operatorClient: statusClient,
@@ -146,4 +152,25 @@ func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.O
 func (c *statusClient) UpdateOperatorStatus(ctx context.Context, version string, s *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = *s
 	return &c.status, nil
+}
+
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	return nil
+}
+
+func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	applyJSON, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return fmt.Errorf("marshal failure: %w", err)
+	}
+	status := &operatorv1.OperatorStatus{}
+	if err := json.Unmarshal(applyJSON, status); err != nil {
+		return fmt.Errorf("unmarshal failure: %w", err)
+	}
+	c.status = *status
+	return nil
+}
+
+func (c *statusClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
+	return nil
 }

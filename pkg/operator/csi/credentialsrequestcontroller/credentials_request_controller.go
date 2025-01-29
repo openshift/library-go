@@ -3,6 +3,7 @@ package credentialsrequestcontroller
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"os"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func NewCredentialsRequestController(
 	).WithSyncDegradedOnError(
 		operatorClient,
 	).ToController(
-		c.name,
+		c.name, // don't change what is passed here unless you also remove the old FooDegraded condition
 		recorder.WithComponentSuffix("credentials-request-controller-"+strings.ToLower(name)),
 	)
 }
@@ -89,13 +90,11 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 		return err
 	}
 
-	clusterCloudCredential, err := c.operatorLister.Get(clusterCloudCredentialName)
+	sync, err := shouldSync(c.operatorLister)
 	if err != nil {
 		return err
 	}
-
-	// if clusterCloudCredential is in manual mode without STS, do not sync cloud credentials
-	if clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual && os.Getenv("ROLEARN") == "" {
+	if !sync {
 		return nil
 	}
 
@@ -192,4 +191,30 @@ func isProvisioned(cr *unstructured.Unstructured) (bool, error) {
 	}
 
 	return provisionedValBool, nil
+}
+
+func shouldSync(cloudCredentialLister operatorv1lister.CloudCredentialLister) (bool, error) {
+	clusterCloudCredential, err := cloudCredentialLister.Get(clusterCloudCredentialName)
+	if err != nil {
+		klog.Errorf("Failed to get cluster cloud credential: %v", err)
+		return false, err
+	}
+
+	isManualMode := clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual
+
+	isAWSSTSEnabled := os.Getenv("ROLEARN") != ""
+
+	poolID := os.Getenv("POOL_ID")
+	providerID := os.Getenv("PROVIDER_ID")
+	serviceAccountEmail := os.Getenv("SERVICE_ACCOUNT_EMAIL")
+	projectNumber := os.Getenv("PROJECT_NUMBER")
+
+	isGCPWIFEnabled := poolID != "" && providerID != "" && serviceAccountEmail != "" && projectNumber != ""
+
+	// If cluster is in manual mode without short-term credentials enabled, do not sync cloud credentials.
+	if isManualMode && !isAWSSTSEnabled && !isGCPWIFEnabled {
+		return false, nil
+	}
+
+	return true, nil
 }

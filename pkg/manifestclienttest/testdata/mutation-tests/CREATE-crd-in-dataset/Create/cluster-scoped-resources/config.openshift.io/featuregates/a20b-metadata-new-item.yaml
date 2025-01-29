@@ -1,0 +1,8 @@
+action: Create
+controllerInstanceName: ""
+generateName: ""
+mame: new-item
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

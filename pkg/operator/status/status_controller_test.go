@@ -3,32 +3,36 @@ package status
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/client-go/tools/cache"
+	"github.com/stretchr/testify/assert"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/stretchr/testify/assert"
-
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestDegraded(t *testing.T) {
 
-	threeMinutesAgo := metav1.NewTime(time.Now().Add(-3 * time.Minute))
-	fiveSecondsAgo := metav1.NewTime(time.Now().Add(-2 * time.Second))
-	yesterday := metav1.NewTime(time.Now().Add(-24 * time.Hour))
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+	threeMinutesAgo := metav1.NewTime(fakeClock.Now().Add(-3 * time.Minute))
+	fiveSecondsAgo := metav1.NewTime(fakeClock.Now().Add(-2 * time.Second))
+	yesterday := metav1.NewTime(fakeClock.Now().Add(-24 * time.Hour))
 
 	testCases := []struct {
 		name             string
@@ -319,6 +323,7 @@ func TestDegraded(t *testing.T) {
 				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:        statusClient,
 				versionGetter:         NewVersionGetter(),
+				clock:                 fakeClock,
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -331,7 +336,7 @@ func TestDegraded(t *testing.T) {
 					Duration:             time.Minute,
 				},
 			).Inertia)
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
@@ -364,6 +369,8 @@ func TestDegraded(t *testing.T) {
 }
 
 func TestRelatedObjects(t *testing.T) {
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+
 	// save typing
 	ref := func(name string) configv1.ObjectReference {
 		return configv1.ObjectReference{
@@ -445,6 +452,7 @@ func TestRelatedObjects(t *testing.T) {
 				operatorClient:        statusClient,
 				versionGetter:         NewVersionGetter(),
 				relatedObjects:        tc.staticRO,
+				clock:                 fakeClock,
 			}
 			controller = controller.WithDegradedInertia(MustNewInertia(
 				2*time.Minute,
@@ -467,7 +475,7 @@ func TestRelatedObjects(t *testing.T) {
 				})
 			}
 
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
@@ -479,6 +487,8 @@ func TestRelatedObjects(t *testing.T) {
 }
 
 func TestVersions(t *testing.T) {
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+
 	foo1 := configv1.OperandVersion{
 		Name:    "foo",
 		Version: "1",
@@ -573,11 +583,12 @@ func TestVersions(t *testing.T) {
 				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
 				operatorClient:        statusClient,
 				versionGetter:         versionGetter,
+				clock:                 fakeClock,
 			}
 			if tc.allowRemoval {
 				controller = controller.WithVersionRemoval()
 			}
-			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status"))); err != nil {
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
 				return
 			}
@@ -616,6 +627,18 @@ func (c *statusClient) UpdateOperatorSpec(context.Context, string, *operatorv1.O
 }
 
 func (c *statusClient) UpdateOperatorStatus(context.Context, string, *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
+	panic("missing")
+}
+
+func (c *statusClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	panic("missing")
+}
+
+func (c *statusClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	panic("missing")
+}
+
+func (c *statusClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
 	panic("missing")
 }
 

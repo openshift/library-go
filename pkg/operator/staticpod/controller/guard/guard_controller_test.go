@@ -6,11 +6,14 @@ import (
 	"testing"
 	"time"
 
+	clocktesting "k8s.io/utils/clock/testing"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
@@ -217,6 +220,13 @@ func fakeMasterNode(name string) *corev1.Node {
 	return n
 }
 
+func fakeArbiterNode(name string) *corev1.Node {
+	n := fakeMasterNode(name)
+	delete(n.Labels, "node-role.kubernetes.io/master")
+	n.Labels["node-role.kubernetes.io/arbiter"] = ""
+	return n
+}
+
 type FakeSyncContext struct {
 	recorder events.Recorder
 }
@@ -252,6 +262,7 @@ func TestRenderGuardPod(t *testing.T) {
 		guardExists           bool
 		guardPod              *corev1.Pod
 		createConditionalFunc func() (bool, bool, error)
+		withArbiter           bool
 	}{
 		{
 			name: "Operand pod missing",
@@ -320,6 +331,31 @@ func TestRenderGuardPod(t *testing.T) {
 			guardExists: true,
 		},
 		{
+			name: "Operand guard pod created on arbiter",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "arbiter",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			node:        fakeArbiterNode("arbiter"),
+			guardExists: true,
+			withArbiter: true,
+		},
+		{
 			name: "Master node not schedulable",
 			infraObject: &configv1.Infrastructure{
 				ObjectMeta: v1.ObjectMeta{
@@ -385,6 +421,47 @@ func TestRenderGuardPod(t *testing.T) {
 			node: fakeMasterNode("master1"),
 		},
 		{
+			name: "Operand guard pod deleted on arbiter",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					ControlPlaneTopology: configv1.TopologyMode("HighlyAvailableArbiter"),
+				},
+			},
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "arbiter",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			guardPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "arbiter"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+				Spec: corev1.PodSpec{
+					Hostname: "guard-arbiter",
+					NodeName: "arbiter",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			//createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
+			node:        fakeArbiterNode("arbiter"),
+			withArbiter: true,
+		},
+		{
 			name: "Guard pod is not pending nor running",
 			infraObject: &configv1.Infrastructure{
 				ObjectMeta: v1.ObjectMeta{
@@ -440,6 +517,60 @@ func TestRenderGuardPod(t *testing.T) {
 			guardExists: true,
 		},
 		{
+			name: "Guard pod is not pending nor running on arbiter",
+			infraObject: &configv1.Infrastructure{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			operandPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "operand1",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "operand"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "arbiter",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			},
+			guardPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "arbiter"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Host: "1.1.1.1",
+										Port: intstr.FromInt(99999),
+										Path: "",
+									},
+								},
+							},
+						},
+					},
+					Hostname: getGuardPodHostname("test", "arbiter"),
+					NodeName: "arbiter",
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+					Phase: corev1.PodSucceeded,
+				},
+			},
+			createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
+			node:                  fakeArbiterNode("arbiter"),
+			guardExists:           true,
+			withArbiter:           true,
+		},
+		{
 			name: "Conditional return precheckSucceeded is false",
 			infraObject: &configv1.Infrastructure{
 				ObjectMeta: v1.ObjectMeta{
@@ -483,7 +614,7 @@ func TestRenderGuardPod(t *testing.T) {
 				kubeClient.Tracker().Add(test.guardPod)
 			}
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
-			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			informer := FakeInfrastructureInformer{
 				Informer_: FakeInfrastructureSharedInformer{
@@ -504,6 +635,7 @@ func TestRenderGuardPod(t *testing.T) {
 				podResourcePrefix:       "operand",
 				operatorName:            "operator",
 				operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+				masterNodesSelector:     masterNodesSelector(t),
 				readyzPort:              "99999",
 				nodeLister:              kubeInformers.Core().V1().Nodes().Lister(),
 				podLister:               kubeInformers.Core().V1().Pods().Lister(),
@@ -512,6 +644,15 @@ func TestRenderGuardPod(t *testing.T) {
 				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
 				installerPodImageFn:     getInstallerPodImageFromEnv,
 				createConditionalFunc:   createConditionalFunc,
+			}
+
+			if test.withArbiter {
+				arbiterNodeRequirement, err := labels.NewRequirement("node-role.kubernetes.io/arbiter", selection.Equals, []string{""})
+				if err != nil {
+					panic(err)
+				}
+				selector := labels.NewSelector().Add(*arbiterNodeRequirement)
+				ctrl.extraNodeSelector = selector
 			}
 
 			ctx, cancel := context.WithCancel(context.TODO())
@@ -527,7 +668,7 @@ func TestRenderGuardPod(t *testing.T) {
 				}
 			} else {
 				if test.guardExists {
-					p, err := kubeClient.CoreV1().Pods("test").Get(ctx, getGuardPodName("operand", "master1"), metav1.GetOptions{})
+					p, err := kubeClient.CoreV1().Pods("test").Get(ctx, getGuardPodName("operand", test.node.Name), metav1.GetOptions{})
 					if err != nil {
 						t.Errorf("%s: unexpected error: %v", test.name, err)
 					} else {
@@ -617,7 +758,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod)
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
-	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})
+	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 	informer := FakeInfrastructureInformer{
 		Informer_: FakeInfrastructureSharedInformer{
@@ -632,6 +773,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		targetNamespace:         "test",
 		podResourcePrefix:       "operand",
 		operandPodLabelSelector: labels.Set{"app": "operand"}.AsSelector(),
+		masterNodesSelector:     masterNodesSelector(t),
 		operatorName:            "operator",
 		readyzPort:              "99999",
 		readyzEndpoint:          "readyz",
@@ -722,4 +864,12 @@ func TestGuardPodTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func masterNodesSelector(t *testing.T) labels.Selector {
+	selector, err := labels.Parse("node-role.kubernetes.io/master=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return selector
 }

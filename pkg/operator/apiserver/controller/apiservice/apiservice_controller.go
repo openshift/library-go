@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -32,6 +34,7 @@ type GetAPIServicesToMangeFunc func() (enabled []*apiregistrationv1.APIService, 
 type apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool, error)
 
 type APIServiceController struct {
+	controllerInstanceName   string
 	getAPIServicesToManageFn GetAPIServicesToMangeFunc
 	// preconditionsForEnabledAPIServices must return true before the apiservices will be created
 	preconditionsForEnabledAPIServices apiServicesPreconditionFuncType
@@ -43,7 +46,7 @@ type APIServiceController struct {
 }
 
 func NewAPIServiceController(
-	name, targetNamespace string,
+	instanceName, targetNamespace string,
 	getAPIServicesToManageFunc GetAPIServicesToMangeFunc,
 	operatorClient v1helpers.OperatorClient,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
@@ -54,6 +57,7 @@ func NewAPIServiceController(
 	informers ...factory.Informer,
 ) factory.Controller {
 	c := &APIServiceController{
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "APIService"),
 		preconditionsForEnabledAPIServices: preconditionsForEnabledAPIServices(
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Lister(),
 			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Lister(),
@@ -66,14 +70,14 @@ func NewAPIServiceController(
 		kubeClient:              kubeClient,
 	}
 
-	return factory.New().WithSync(c.sync).ResyncEvery(10*time.Second).WithInformers(
+	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(1*time.Minute).WithInformers(
 		append(informers,
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Services().Informer(),
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Informer(),
 			kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Informer(),
 			apiregistrationInformers.Apiregistration().V1().APIServices().Informer(),
 		)...,
-	).ToController("APIServiceController_"+name, eventRecorder.WithComponentSuffix("apiservice-"+name+"-controller"))
+	).ToController(c.controllerInstanceName, eventRecorder.WithComponentSuffix("apiservice-"+instanceName+"-controller"))
 }
 
 func (c *APIServiceController) updateOperatorStatus(
@@ -84,14 +88,13 @@ func (c *APIServiceController) updateOperatorStatus(
 	syncEnabledAPIServicesErr error,
 ) (err error) {
 	errs := []error{}
-	conditionAPIServicesDegraded := operatorv1.OperatorCondition{
-		Type:   "APIServicesDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
-	conditionAPIServicesAvailable := operatorv1.OperatorCondition{
-		Type:   "APIServicesAvailable",
-		Status: operatorv1.ConditionTrue,
-	}
+	conditionAPIServicesDegraded := applyoperatorv1.OperatorCondition().
+		WithType("APIServicesDegraded").
+		WithStatus(operatorv1.ConditionFalse)
+
+	conditionAPIServicesAvailable := applyoperatorv1.OperatorCondition().
+		WithType("APIServicesAvailable").
+		WithStatus(operatorv1.ConditionTrue)
 
 	if syncDisabledAPIServicesErr != nil || preconditionReadyErr != nil || syncEnabledAPIServicesErr != nil {
 		// a closed context indicates that the process has been requested to shutdown
@@ -116,40 +119,42 @@ func (c *APIServiceController) updateOperatorStatus(
 	}
 
 	defer func() {
-		updates := []v1helpers.UpdateStatusFunc{
-			v1helpers.UpdateConditionFn(conditionAPIServicesDegraded),
-			v1helpers.UpdateConditionFn(conditionAPIServicesAvailable),
-		}
-
-		if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, updates...); updateError != nil {
+		status := applyoperatorv1.OperatorStatus().
+			WithConditions(conditionAPIServicesDegraded, conditionAPIServicesAvailable)
+		updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
+		if updateError != nil {
 			// overrides error returned through 'return <ERROR>' statement
 			err = updateError
 		}
 	}()
 
 	if syncDisabledAPIServicesErr != nil {
-		conditionAPIServicesDegraded.Status = operatorv1.ConditionTrue
-		conditionAPIServicesDegraded.Reason = "DisabledAPIServicesPresent"
-		conditionAPIServicesDegraded.Message = syncDisabledAPIServicesErr.Error()
+		conditionAPIServicesDegraded = conditionAPIServicesDegraded.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("DisabledAPIServicesPresent").
+			WithMessage(syncDisabledAPIServicesErr.Error())
 		errs = append(errs, syncDisabledAPIServicesErr)
 	}
 
 	if preconditionReadyErr != nil {
-		conditionAPIServicesAvailable.Status = operatorv1.ConditionFalse
-		conditionAPIServicesAvailable.Reason = "ErrorCheckingPrecondition"
-		conditionAPIServicesAvailable.Message = preconditionReadyErr.Error()
+		conditionAPIServicesAvailable = conditionAPIServicesAvailable.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("ErrorCheckingPrecondition").
+			WithMessage(preconditionReadyErr.Error())
 		errs = append(errs, preconditionReadyErr)
 	} else if !preconditionsReady {
-		conditionAPIServicesAvailable.Status = operatorv1.ConditionFalse
-		conditionAPIServicesAvailable.Reason = "PreconditionNotReady"
-		conditionAPIServicesAvailable.Message = "PreconditionNotReady"
+		conditionAPIServicesAvailable = conditionAPIServicesAvailable.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("PreconditionNotReady").
+			WithMessage("PreconditionNotReady")
 		return errors.NewAggregate(errs)
 	}
 
 	if syncEnabledAPIServicesErr != nil {
-		conditionAPIServicesAvailable.Status = operatorv1.ConditionFalse
-		conditionAPIServicesAvailable.Reason = "Error"
-		conditionAPIServicesAvailable.Message = syncEnabledAPIServicesErr.Error()
+		conditionAPIServicesAvailable = conditionAPIServicesAvailable.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("Error").
+			WithMessage(syncEnabledAPIServicesErr.Error())
 		return errors.NewAggregate(append(errs, syncEnabledAPIServicesErr))
 	}
 

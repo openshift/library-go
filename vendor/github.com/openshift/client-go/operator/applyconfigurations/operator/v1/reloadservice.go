@@ -3,16 +3,16 @@
 package v1
 
 import (
-	v1 "github.com/openshift/api/operator/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
-// ReloadServiceApplyConfiguration represents an declarative configuration of the ReloadService type for use
+// ReloadServiceApplyConfiguration represents a declarative configuration of the ReloadService type for use
 // with apply.
 type ReloadServiceApplyConfiguration struct {
-	ServiceName *v1.NodeDisruptionPolicyServiceName `json:"serviceName,omitempty"`
+	ServiceName *operatorv1.NodeDisruptionPolicyServiceName `json:"serviceName,omitempty"`
 }
 
-// ReloadServiceApplyConfiguration constructs an declarative configuration of the ReloadService type for use with
+// ReloadServiceApplyConfiguration constructs a declarative configuration of the ReloadService type for use with
 // apply.
 func ReloadService() *ReloadServiceApplyConfiguration {
 	return &ReloadServiceApplyConfiguration{}
@@ -21,7 +21,7 @@ func ReloadService() *ReloadServiceApplyConfiguration {
 // WithServiceName sets the ServiceName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ServiceName field is set to the value of the last call.
-func (b *ReloadServiceApplyConfiguration) WithServiceName(value v1.NodeDisruptionPolicyServiceName) *ReloadServiceApplyConfiguration {
+func (b *ReloadServiceApplyConfiguration) WithServiceName(value operatorv1.NodeDisruptionPolicyServiceName) *ReloadServiceApplyConfiguration {
 	b.ServiceName = &value
 	return b
 }

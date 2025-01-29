@@ -2,9 +2,11 @@ package featuregates
 
 import (
 	"errors"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -153,7 +155,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			initialExistingConfig := map[string]interface{}{}
 			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath, tc.accessor)
 

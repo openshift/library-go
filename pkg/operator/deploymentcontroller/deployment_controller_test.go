@@ -2,6 +2,7 @@ package deploymentcontroller
 
 import (
 	"context"
+	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"time"
@@ -243,7 +244,7 @@ func TestDeploymentCreation(t *testing.T) {
 	controller := NewDeploymentController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
@@ -252,7 +253,7 @@ func TestDeploymentCreation(t *testing.T) {
 	)
 
 	// Act
-	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("dummy-controller")))
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("dummy-controller", clocktesting.NewFakePassiveClock(time.Now()))))
 	if err != nil {
 		t.Fatalf("sync() returned unexpected error: %v", err)
 	}
@@ -267,16 +268,6 @@ func TestDeploymentCreation(t *testing.T) {
 	// since it got created from a manifest
 	if _, ok := actualDeployment.ObjectMeta.Annotations[specHashAnnotation]; !ok {
 		t.Fatalf("expected deployment created from manifest to have %s annotation", specHashAnnotation)
-	}
-}
-
-func withGeneration(generations ...int64) operatorModifier {
-	return func(i *fakeOperatorInstance) *fakeOperatorInstance {
-		i.Generation = generations[0]
-		if len(generations) > 1 {
-			i.Status.ObservedGeneration = generations[1]
-		}
-		return i
 	}
 }
 
@@ -414,7 +405,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewDeploymentController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().Deployments(),
@@ -590,7 +581,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -601,7 +591,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionProgressing), // The operator is Progressing
 					withFalseConditions(conditionAvailable)), // The operator is not Available (controller not running...)
 			},
@@ -616,7 +605,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -627,7 +615,6 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
 			},
 		},
@@ -645,7 +632,7 @@ func TestSync(t *testing.T) {
 			ctx := newTestContext(test, t)
 
 			// Act
-			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 
 			// Assert
 			// Check error

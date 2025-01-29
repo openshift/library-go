@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -169,7 +170,7 @@ func TestPruneController(t *testing.T) {
 				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
@@ -185,6 +186,7 @@ func TestPruneController(t *testing.T) {
 			provider := newTestProvider(scenario.targetGRs)
 
 			target := NewPruneController(
+				"EncryptionPruneController",
 				provider,
 				deployer,
 				alwaysFulfilledPreconditions,

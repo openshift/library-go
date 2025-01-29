@@ -3,6 +3,7 @@ package resourceapply
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
@@ -412,7 +413,7 @@ func TestApplyStorageClass(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(test.existing...)
-			_, actualModified, err := ApplyStorageClass(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyStorageClass(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil && !test.expectedFailure {
 				t.Fatal(err)
 			}
@@ -728,7 +729,7 @@ func TestApplyCSIDriver(t *testing.T) {
 			}
 
 			client := fake.NewSimpleClientset(objs...)
-			_, actualModified, err := ApplyCSIDriver(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test"), test.input)
+			_, actualModified, err := ApplyCSIDriver(context.TODO(), client.StorageV1(), events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), test.input)
 			if err != nil {
 				if test.expectedError == nil {
 					t.Fatalf("%s: returned error: %v", test.name, err)

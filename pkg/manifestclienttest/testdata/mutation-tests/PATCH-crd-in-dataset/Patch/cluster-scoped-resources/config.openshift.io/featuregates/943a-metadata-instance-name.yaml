@@ -1,0 +1,9 @@
+action: Patch
+controllerInstanceName: fooController
+generateName: ""
+mame: instance-name
+patchType: application/json-patch+json
+resourceType:
+  Group: config.openshift.io
+  Resource: featuregates
+  Version: v1

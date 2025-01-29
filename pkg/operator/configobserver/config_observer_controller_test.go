@@ -3,9 +3,14 @@ package configobserver
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/imdario/mergo"
@@ -15,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -57,6 +63,32 @@ func (c *fakeOperatorClient) UpdateOperatorSpec(ctx context.Context, rv string, 
 func (c *fakeOperatorClient) UpdateOperatorStatus(ctx context.Context, rv string, in *operatorv1.OperatorStatus) (status *operatorv1.OperatorStatus, err error) {
 	c.status = in
 	return in, nil
+}
+
+func (c *fakeOperatorClient) ApplyOperatorSpec(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorSpecApplyConfiguration) (err error) {
+	if c.specUpdateFailure != nil {
+		return c.specUpdateFailure
+	}
+
+	return nil
+}
+
+func (c *fakeOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) (err error) {
+	applyJSON, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return fmt.Errorf("marshal failure: %w", err)
+	}
+	status := &operatorv1.OperatorStatus{}
+	if err := json.Unmarshal(applyJSON, status); err != nil {
+		return fmt.Errorf("unmarshal failure: %w", err)
+	}
+	c.status = status
+
+	return nil
+}
+
+func (c *fakeOperatorClient) PatchOperatorStatus(ctx context.Context, jsonPatch *jsonpatch.PatchSet) (err error) {
+	return nil
 }
 
 type fakeOperatorClient struct {
@@ -230,7 +262,7 @@ func TestSyncStatus(t *testing.T) {
 				observers:             tc.observers,
 				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
-			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
+			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))))
 			if tc.expectError && err == nil {
 				t.Fatal("error expected")
 			}
@@ -396,7 +428,7 @@ func TestWithPrefix(t *testing.T) {
 			// reset modified flag
 			defer func() { modified = false }()
 
-			gotConfig, errs := WithPrefix(tt.observer, tt.testedPrefix...)(nil, events.NewInMemoryRecorder("test"), tt.existingConfig)
+			gotConfig, errs := WithPrefix(tt.observer, tt.testedPrefix...)(nil, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), tt.existingConfig)
 
 			if !reflect.DeepEqual(gotConfig, tt.wantConfig) {
 				t.Errorf("observed with prefix; got = %v, want %v", gotConfig, tt.wantConfig)
@@ -806,7 +838,7 @@ func TestSyncStatusWithNestedConfig(t *testing.T) {
 				nestedConfigPath:      tc.nestedConfigPath,
 				degradedConditionType: condition.ConfigObservationDegradedConditionType,
 			}
-			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{})))
+			err := configObserver.sync(context.TODO(), factory.NewSyncContext("test", events.NewRecorder(eventClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))))
 			if tc.expectError && err == nil {
 				t.Fatal("error expected")
 			}

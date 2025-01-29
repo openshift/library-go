@@ -3,6 +3,7 @@ package csidrivernodeservicecontroller
 import (
 	"context"
 	"fmt"
+	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"strings"
@@ -111,7 +112,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		test.manifestFunc(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
@@ -156,16 +157,6 @@ func makeFakeDriverInstance(modifiers ...driverModifier) *fakeDriverInstance {
 func withLogLevel(logLevel opv1.LogLevel) driverModifier {
 	return func(i *fakeDriverInstance) *fakeDriverInstance {
 		i.Spec.LogLevel = logLevel
-		return i
-	}
-}
-
-func withGeneration(generations ...int64) driverModifier {
-	return func(i *fakeDriverInstance) *fakeDriverInstance {
-		i.Generation = generations[0]
-		if len(generations) > 1 {
-			i.Status.ObservedGeneration = generations[1]
-		}
 		return i
 	}
 }
@@ -376,7 +367,7 @@ func TestDaemonSetHook(t *testing.T) {
 	controller := NewCSIDriverNodeServiceController(
 		controllerName,
 		makeFakeManifest(),
-		events.NewInMemoryRecorder(operandName),
+		events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
 		fakeOperatorClient,
 		coreClient,
 		coreInformerFactory.Apps().V1().DaemonSets(),
@@ -385,7 +376,7 @@ func TestDaemonSetHook(t *testing.T) {
 	)
 
 	// Act
-	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+	err := controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 	if err != nil {
 		t.Fatalf("sync() returned unexpected error: %v", err)
 	}
@@ -473,7 +464,6 @@ func TestSync(t *testing.T) {
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -486,7 +476,6 @@ func TestSync(t *testing.T) {
 				driver: makeFakeDriverInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionProgressing), // The operator is Progressing
 					withFalseConditions(conditionAvailable)), // The operator is not Available (node not running...)
 			},
@@ -505,7 +494,6 @@ func TestSync(t *testing.T) {
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
 			},
@@ -518,7 +506,6 @@ func TestSync(t *testing.T) {
 				driver: makeFakeDriverInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withGeneration(1, 1),
 					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
 			},
 		},
@@ -535,8 +522,7 @@ func TestSync(t *testing.T) {
 					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
-					withLogLevel(opv1.Trace), // User changed the log level...
-					withGeneration(2, 1)),    //... which caused the Generation to increase
+					withLogLevel(opv1.Trace)), // User changed the log level...
 			},
 			expectedObjects: testObjects{
 				daemonSet: getDaemonSet(
@@ -548,7 +534,6 @@ func TestSync(t *testing.T) {
 					// withStatus(replica1),
 					withLogLevel(opv1.Trace),
 					withGenerations(2),
-					withGeneration(2, 1), // TODO: should I increase the observed generation?
 					withTrueConditions(conditionAvailable, conditionProgressing)), // Progressing due to Generation change
 			},
 		},
@@ -686,7 +671,7 @@ func TestSync(t *testing.T) {
 			}
 
 			// Act
-			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver")))
+			err := ctx.controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder("test-csi-driver", clocktesting.NewFakePassiveClock(time.Now()))))
 
 			// Assert
 			// Check error
