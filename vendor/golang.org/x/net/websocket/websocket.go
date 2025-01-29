@@ -8,7 +8,7 @@
 // This package currently lacks some features found in an alternative
 // and more actively maintained WebSocket package:
 //
-//	https://pkg.go.dev/github.com/coder/websocket
+//	https://pkg.go.dev/nhooyr.io/websocket
 package websocket // import "golang.org/x/net/websocket"
 
 import (
@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -207,7 +208,7 @@ again:
 	n, err = ws.frameReader.Read(msg)
 	if err == io.EOF {
 		if trailer := ws.frameReader.TrailerReader(); trailer != nil {
-			io.Copy(io.Discard, trailer)
+			io.Copy(ioutil.Discard, trailer)
 		}
 		ws.frameReader = nil
 		goto again
@@ -329,7 +330,7 @@ func (cd Codec) Receive(ws *Conn, v interface{}) (err error) {
 	ws.rio.Lock()
 	defer ws.rio.Unlock()
 	if ws.frameReader != nil {
-		_, err = io.Copy(io.Discard, ws.frameReader)
+		_, err = io.Copy(ioutil.Discard, ws.frameReader)
 		if err != nil {
 			return err
 		}
@@ -361,7 +362,7 @@ again:
 		return ErrFrameTooLarge
 	}
 	payloadType := frame.PayloadType()
-	data, err := io.ReadAll(frame)
+	data, err := ioutil.ReadAll(frame)
 	if err != nil {
 		return err
 	}
