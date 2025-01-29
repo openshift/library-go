@@ -54,7 +54,7 @@ metadata:
 		return []byte(assets[filename]), nil
 	}
 
-	src := NewStaticResourceController("", readBytesFromString, []string{"secret", "sa"}, nil, operatorClient, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))
+	src := NewStaticResourceController("", readBytesFromString, []string{"secret", "sa"}, nil, nil, operatorClient, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))
 	src = src.AddRESTMapper(restMapper).AddCategoryExpander(expander)
 	res, _ := src.RelatedObjects()
 	assert.ElementsMatch(t, expected, res)

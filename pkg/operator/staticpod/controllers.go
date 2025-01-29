@@ -373,6 +373,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			"manifests/installer-sa.yaml",
 			"manifests/installer-cluster-rolebinding.yaml",
 		},
+		nil,
 		resourceapply.NewKubeClientHolder(b.kubeClient),
 		b.staticPodOperatorClient,
 		eventRecorder,

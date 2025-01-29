@@ -41,6 +41,8 @@ type ApplyResult struct {
 // a resource. This conditional function can also be used to delete the resource when not needed
 type ConditionalFunction func() bool
 
+type ObjectModifierFunc func(runtime.Object) (runtime.Object, error)
+
 type ClientHolder struct {
 	kubeClient          kubernetes.Interface
 	apiExtensionsClient apiextensionsclient.Interface
@@ -83,7 +85,8 @@ func (c *ClientHolder) WithMigrationClient(client migrationclient.Interface) *Cl
 }
 
 // ApplyDirectly applies the given manifest files to API server.
-func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache, manifests AssetFunc, files ...string) []ApplyResult {
+func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.Recorder, cache ResourceCache,
+	manifests AssetFunc, manifestObjModifier ObjectModifierFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -99,6 +102,14 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 			result.Error = fmt.Errorf("cannot decode %q: %v", file, err)
 			ret = append(ret, result)
 			continue
+		}
+		if manifestObjModifier != nil {
+			requiredObj, err = manifestObjModifier(requiredObj)
+			if err != nil {
+				result.Error = fmt.Errorf("cannot modify %q: %v", file, err)
+				ret = append(ret, result)
+				continue
+			}
 		}
 		result.Type = fmt.Sprintf("%T", requiredObj)
 
@@ -237,7 +248,7 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 }
 
 func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recorder, manifests AssetFunc,
-	files ...string) []ApplyResult {
+	manifestObjModifier ObjectModifierFunc, files ...string) []ApplyResult {
 	ret := []ApplyResult{}
 
 	for _, file := range files {
@@ -253,6 +264,14 @@ func DeleteAll(ctx context.Context, clients *ClientHolder, recorder events.Recor
 			result.Error = fmt.Errorf("cannot decode %q: %v", file, err)
 			ret = append(ret, result)
 			continue
+		}
+		if manifestObjModifier != nil {
+			requiredObj, err = manifestObjModifier(requiredObj)
+			if err != nil {
+				result.Error = fmt.Errorf("cannot modify %q: %v", file, err)
+				ret = append(ret, result)
+				continue
+			}
 		}
 		result.Type = fmt.Sprintf("%T", requiredObj)
 		// NOTE: Do not add CR resources into this switch otherwise the protobuf client can cause problems.

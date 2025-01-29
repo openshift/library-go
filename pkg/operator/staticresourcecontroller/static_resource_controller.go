@@ -88,6 +88,11 @@ type conditionalManifests struct {
 
 	manifests resourceapply.AssetFunc
 
+	// manifestObjModifier is called on manifest resources. Can be used, e.g. for setting a namespace or an owner reference.
+	// The function calls should not result in a different name/namespace on successive calls for the same object,
+	// as migration e.g. from one ns to another is not supported.
+	manifestObjModifier resourceapply.ObjectModifierFunc
+
 	files []string
 }
 
@@ -96,10 +101,15 @@ type conditionalManifests struct {
 // By default, the controller sets <name>Degraded condition on error when syncing a manifest.
 // Optionally, the controller can ignore NotFound errors. This is useful when syncing CRs for CRDs that may not yet exist
 // when the controller runs, such as ServiceMonitor.
+//
+// manifestObjModifier is called on manifest resources. Can be used, e.g. for setting a namespace or an owner reference.
+// The function calls should not result in a different name/namespace on successive calls for the same object,
+// as migration e.g. from one ns to another is not supported.
 func NewStaticResourceController(
 	instanceName string,
 	manifests resourceapply.AssetFunc,
 	files []string,
+	manifestObjModifier resourceapply.ObjectModifierFunc,
 	clients *resourceapply.ClientHolder,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
@@ -118,7 +128,7 @@ func NewStaticResourceController(
 		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
 		performanceCache: resourceapply.NewResourceCache(),
 	}
-	c.WithConditionalResources(manifests, files, nil, nil)
+	c.WithConditionalResources(manifests, files, nil, nil, manifestObjModifier)
 
 	return c
 }
@@ -155,7 +165,11 @@ func (c *StaticResourceController) WithPrecondition(precondition StaticResources
 //  2. shouldCreateFnArg == false && shouldDeleteFnArg == false - does nothing as expected
 //  3. shouldCreateFnArg == true applies the manifests
 //  4. shouldDeleteFnArg == true deletes the manifests
-func (c *StaticResourceController) WithConditionalResources(manifests resourceapply.AssetFunc, files []string, shouldCreateFnArg, shouldDeleteFnArg resourceapply.ConditionalFunction) *StaticResourceController {
+//
+// manifestObjModifier is called on manifest resources. Can be used, e.g. for setting a namespace or an owner reference.
+// The function calls should not result in a different name/namespace on successive calls for the same object,
+// as migration e.g. from one ns to another is not supported.
+func (c *StaticResourceController) WithConditionalResources(manifests resourceapply.AssetFunc, files []string, shouldCreateFnArg, shouldDeleteFnArg resourceapply.ConditionalFunction, manifestObjModifier resourceapply.ObjectModifierFunc) *StaticResourceController {
 	var shouldCreateFn resourceapply.ConditionalFunction
 	if shouldCreateFnArg == nil {
 		shouldCreateFn = func() bool {
@@ -175,10 +189,11 @@ func (c *StaticResourceController) WithConditionalResources(manifests resourceap
 	}
 
 	c.manifests = append(c.manifests, conditionalManifests{
-		shouldCreateFn: shouldCreateFn,
-		shouldDeleteFn: shouldDeleteFn,
-		manifests:      manifests,
-		files:          files,
+		shouldCreateFn:      shouldCreateFn,
+		shouldDeleteFn:      shouldDeleteFn,
+		manifests:           manifests,
+		files:               files,
+		manifestObjModifier: manifestObjModifier,
 	})
 	return c
 }
@@ -199,6 +214,13 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("cannot decode %q: %v", file, err))
 				continue
+			}
+			if conditionalManifest.manifestObjModifier != nil {
+				requiredObj, err = conditionalManifest.manifestObjModifier(requiredObj)
+				if err != nil {
+					utilruntime.HandleError(fmt.Errorf("cannot modify %q: %v", file, err))
+					continue
+				}
 			}
 			metadata, err := meta.Accessor(requiredObj)
 			if err != nil {
@@ -331,9 +353,9 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			continue
 
 		case shouldCreate:
-			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.manifestObjModifier, conditionalManifest.files...)
 		case shouldDelete:
-			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.manifestObjModifier, conditionalManifest.files...)
 		}
 
 		for _, currResult := range directResourceResults {
@@ -412,6 +434,13 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 			if err != nil {
 				errors = append(errors, err)
 				continue
+			}
+			if conditionalManifest.manifestObjModifier != nil {
+				requiredObj, err = conditionalManifest.manifestObjModifier(requiredObj)
+				if err != nil {
+					errors = append(errors, err)
+					continue
+				}
 			}
 			metadata, err := meta.Accessor(requiredObj)
 			if err != nil {
