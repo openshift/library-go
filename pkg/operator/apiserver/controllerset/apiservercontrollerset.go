@@ -3,7 +3,6 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"regexp"
 	"time"
 
@@ -41,6 +40,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
+	"k8s.io/utils/clock"
 )
 
 type preparedAPIServerControllerSet struct {
@@ -230,6 +230,7 @@ func (cs *APIServerControllerSet) WithoutFinalizerController() *APIServerControl
 type ConditionalFiles struct {
 	Files                          []string
 	ShouldCreateFn, ShouldDeleteFn resourceapply.ConditionalFunction
+	manifestObjModifier            resourceapply.ObjectModifierFunc
 }
 
 func (cs *APIServerControllerSet) WithStaticResourcesController(
@@ -243,13 +244,14 @@ func (cs *APIServerControllerSet) WithStaticResourcesController(
 		controllerName,
 		manifests,
 		nil,
+		nil,
 		resourceapply.NewKubeClientHolder(kubeClient),
 		cs.operatorClient,
 		cs.eventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
 
 	for _, conditionalFile := range conditionalFiles {
-		ctrl.WithConditionalResources(manifests, conditionalFile.Files, conditionalFile.ShouldCreateFn, conditionalFile.ShouldDeleteFn)
+		ctrl.WithConditionalResources(manifests, conditionalFile.Files, conditionalFile.ShouldCreateFn, conditionalFile.ShouldDeleteFn, conditionalFile.manifestObjModifier)
 	}
 
 	cs.staticResourceController.controller = ctrl

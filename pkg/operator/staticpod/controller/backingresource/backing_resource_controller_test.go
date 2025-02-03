@@ -184,6 +184,7 @@ func TestBackingResourceController(t *testing.T) {
 					"manifests/installer-sa.yaml",
 					"manifests/installer-cluster-rolebinding.yaml",
 				},
+				nil,
 				resourceapply.NewKubeClientHolder(kubeClient),
 				tc.operatorClient,
 				eventRecorder,

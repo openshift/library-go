@@ -95,11 +95,13 @@ func (c *CSIControllerSet) WithConditionalStaticResourcesController(
 	manifests resourceapply.AssetFunc,
 	files []string,
 	shouldCreateFnArg, shouldDeleteFnArg resourceapply.ConditionalFunction,
+	manifestObjModifier resourceapply.ObjectModifierFunc,
 ) *CSIControllerSet {
 	c.conditionalStaticResourcesControllers = append(c.conditionalStaticResourcesControllers, staticresourcecontroller.NewStaticResourceController(
 		name,
 		manifests,
-		[]string{},
+		nil,
+		nil,
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithDynamicClient(dynamicClient),
 		c.operatorClient,
 		c.eventRecorder,
@@ -108,6 +110,7 @@ func (c *CSIControllerSet) WithConditionalStaticResourcesController(
 		files,
 		shouldCreateFnArg,
 		shouldDeleteFnArg,
+		manifestObjModifier,
 	).AddKubeInformers(kubeInformersForNamespace))
 	return c
 }
@@ -120,11 +123,13 @@ func (c *CSIControllerSet) WithStaticResourcesController(
 	kubeInformersForNamespace v1helpers.KubeInformersForNamespaces,
 	manifests resourceapply.AssetFunc,
 	files []string,
+	manifestObjModifier resourceapply.ObjectModifierFunc,
 ) *CSIControllerSet {
 	c.staticResourcesController = staticresourcecontroller.NewStaticResourceController(
 		name,
 		manifests,
 		files,
+		manifestObjModifier,
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithDynamicClient(dynamicClient),
 		c.operatorClient,
 		c.eventRecorder,
@@ -232,6 +237,7 @@ func (c *CSIControllerSet) WithServiceMonitorController(
 	dynamicClient dynamic.Interface,
 	assetFunc resourceapply.AssetFunc,
 	file string,
+	manifestObjModifier resourceapply.ObjectModifierFunc,
 ) *CSIControllerSet {
 	// Use StaticResourceController to apply ServiceMonitors.
 	// Ensure that NotFound errors are ignored, e.g. when ServiceMonitor CRD missing.
@@ -239,6 +245,7 @@ func (c *CSIControllerSet) WithServiceMonitorController(
 		name,
 		assetFunc,
 		[]string{file},
+		manifestObjModifier,
 		(&resourceapply.ClientHolder{}).WithDynamicClient(dynamicClient),
 		c.operatorClient,
 		c.eventRecorder,
