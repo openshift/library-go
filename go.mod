@@ -135,3 +135,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
+
+replace github.com/openshift/api => github.com/rvanderp3/api v0.0.0-20250217155916-ff9d1455081c
