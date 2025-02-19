@@ -51,6 +51,9 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
+// This replace is to get https://github.com/openshift/api/pull/2209 into the library-go
+replace github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20250219082239-76e884b3184d
+
 require (
 	cel.dev/expr v0.18.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e // indirect
