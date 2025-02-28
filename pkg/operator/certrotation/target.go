@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/certs"
@@ -136,6 +137,10 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	} else if updateRequired {
 		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
+		if err != nil && strings.Contains(err.Error(), genericregistry.OptimisticLockErrorMsg) {
+			// ignore error if its attempting to update outdated version of the secret
+			return nil, nil
+		}
 		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err)
 		if err != nil {
 			return nil, err
