@@ -78,10 +78,12 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		creationRequired = true
 	}
 
-	// run Update if metadata needs changing
-	needsMetadataUpdate := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-	needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
-	updateRequired = needsMetadataUpdate || needsTypeChange
+	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	if !c.RefreshOnlyWhenExpired {
+		needsMetadataUpdate := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
+		updateRequired = needsMetadataUpdate || needsTypeChange
+	}
 
 	// run Update if signer content needs changing
 	signerUpdated := false

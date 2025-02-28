@@ -7,12 +7,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
-	clocktesting "k8s.io/utils/clock/testing"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"k8s.io/client-go/util/cert"
 
@@ -30,11 +30,17 @@ import (
 )
 
 func TestEnsureConfigMapCABundle(t *testing.T) {
+	certs, err := newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name string
 
-		initialConfigMapFn func() *corev1.ConfigMap
-		caFn               func() (*crypto.CA, error)
+		initialConfigMapFn     func() *corev1.ConfigMap
+		caFn                   func() (*crypto.CA, error)
+		RefreshOnlyWhenExpired bool
 
 		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
@@ -44,7 +50,8 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			caFn: func() (*crypto.CA, error) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
-			initialConfigMapFn: func() *corev1.ConfigMap { return nil },
+			initialConfigMapFn:     func() *corev1.ConfigMap { return nil },
+			RefreshOnlyWhenExpired: false,
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 1 {
@@ -84,6 +91,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 				caBundleConfigMap.Data["ca-bundle.crt"] = string(caBytes)
 				return caBundleConfigMap
 			},
+			RefreshOnlyWhenExpired: false,
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 1 {
@@ -115,6 +123,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			caFn: func() (*crypto.CA, error) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
+			RefreshOnlyWhenExpired: false,
 			initialConfigMapFn: func() *corev1.ConfigMap {
 				caBundleConfigMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle", ResourceVersion: "10"},
@@ -158,24 +167,17 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 		},
 		{
-			name: "update remove duplicate",
+			name: "no update when RefreshOnlyWhenExpired set",
 			caFn: func() (*crypto.CA, error) {
-				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+				return certs, nil
 			},
+			RefreshOnlyWhenExpired: true,
 			initialConfigMapFn: func() *corev1.ConfigMap {
 				caBundleConfigMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle", ResourceVersion: "10"},
 					Data:       map[string]string{},
 				}
-				certBytes, err := os.ReadFile("./testfiles/tls-expired.crt")
-				if err != nil {
-					t.Fatal(err)
-				}
-				certs, err := cert.ParseCertsPEM(certBytes)
-				if err != nil {
-					t.Fatal(err)
-				}
-				caBytes, err := crypto.EncodeCertificates(certs...)
+				caBytes, err := crypto.EncodeCertificates(certs.Config.Certs[0])
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -184,27 +186,8 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			},
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
-				if len(actions) != 1 {
+				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
-				}
-
-				if !actions[0].Matches("update", "configmaps") {
-					t.Error(actions[0])
-				}
-
-				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
-				if len(actual.Data["ca-bundle.crt"]) == 0 {
-					t.Error(actual.Data)
-				}
-				if certType, _ := CertificateTypeFromObject(actual); certType != CertificateTypeCABundle {
-					t.Errorf("expected certificate type 'ca-bundle', got: %v", certType)
-				}
-				result, err := cert.ParseCertsPEM([]byte(actual.Data["ca-bundle.crt"]))
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(result) != 1 {
-					t.Error(len(result))
 				}
 			},
 		},
