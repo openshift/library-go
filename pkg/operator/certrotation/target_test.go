@@ -137,8 +137,9 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 	tests := []struct {
 		name string
 
-		initialSecretFn func() *corev1.Secret
-		caFn            func() (*crypto.CA, error)
+		initialSecretFn        func() *corev1.Secret
+		caFn                   func() (*crypto.CA, error)
+		RefreshOnlyWhenExpired bool
 
 		verifyActions func(t *testing.T, client *kubefake.Clientset)
 		expectedError string
@@ -148,7 +149,8 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			caFn: func() (*crypto.CA, error) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
-			initialSecretFn: func() *corev1.Secret { return nil },
+			RefreshOnlyWhenExpired: false,
+			initialSecretFn:        func() *corev1.Secret { return nil },
 			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
 				actions := client.Actions()
 				if len(actions) != 1 {
@@ -185,6 +187,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			caFn: func() (*crypto.CA, error) {
 				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
 			},
+			RefreshOnlyWhenExpired: false,
 			initialSecretFn: func() *corev1.Secret {
 				caBundleSecret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
@@ -228,6 +231,37 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "no update when RefreshOnlyWhenExpired set",
+			caFn: func() (*crypto.CA, error) {
+				return newTestCACertificate(pkix.Name{CommonName: "signer-tests"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, time.Now)
+			},
+			RefreshOnlyWhenExpired: true,
+			initialSecretFn: func() *corev1.Secret {
+				caBundleSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:       "ns",
+						Name:            "target-secret",
+						ResourceVersion: "10",
+						Annotations: map[string]string{
+							"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
+							"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
+							"auth.openshift.io/certificate-issuer":     "signer-tests",
+							"auth.openshift.io/certificate-hostnames":  "foo,bar",
+						},
+					},
+					Data: map[string][]byte{},
+					Type: corev1.SecretTypeTLS,
+				}
+				return caBundleSecret
+			},
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+				actions := client.Actions()
+				if len(actions) != 0 {
+					t.Fatal(spew.Sdump(actions))
+				}
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -258,6 +292,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				Owner: &metav1.OwnerReference{
 					Name: "operator",
 				},
+				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
 			}
 
 			newCA, err := test.caFn()
