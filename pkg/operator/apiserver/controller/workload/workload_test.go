@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,6 +39,8 @@ type testDelegate struct {
 	syncWorkload            *appsv1.Deployment
 	syncIsAtHighestRevision bool
 	operandWorkloadDeleted  bool
+	deletedOperandName      string
+	deletedOperandNamespace string
 	syncErrrors             []error
 }
 
@@ -45,8 +48,8 @@ func (d *testDelegate) PreconditionFulfilled(_ context.Context) (bool, error) {
 	return d.preconditionReady, d.preconditionErr
 }
 
-func (d *testDelegate) Sync(_ context.Context, _ factory.SyncContext) (*appsv1.Deployment, bool, bool, []error) {
-	return d.syncWorkload, d.syncIsAtHighestRevision, d.operandWorkloadDeleted, d.syncErrrors
+func (d *testDelegate) Sync(_ context.Context, _ factory.SyncContext) (*appsv1.Deployment, bool, bool, string, string, []error) {
+	return d.syncWorkload, d.syncIsAtHighestRevision, d.operandWorkloadDeleted, d.deletedOperandName, d.deletedOperandNamespace, d.syncErrrors
 }
 
 func TestUpdateOperatorStatus(t *testing.T) {
@@ -57,10 +60,14 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		pods                            []*corev1.Pod
 		operatorConfigAtHighestRevision bool
 		operatorPreconditionsNotReady   bool
-		operatorOperandWorkloadDeleted  bool
-		preconditionError               error
-		errors                          []error
-		previousConditions              []operatorv1.OperatorCondition
+
+		operatorOperandWorkloadDeleted bool
+		deletedOperandName             string
+		deletedOperandNamespace        string
+
+		preconditionError  error
+		errors             []error
+		previousConditions []operatorv1.OperatorCondition
 
 		validateOperatorStatus          func(*operatorv1.OperatorStatus) error
 		validateOperatorStatusJSONPatch func(*jsonpatch.PatchSet) error
@@ -680,6 +687,8 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			name:                           "the delegate controller deletes its operand workload and we remove the conditions",
 			workload:                       nil,
 			operatorOperandWorkloadDeleted: true,
+			deletedOperandName:             "apiserver",
+			deletedOperandNamespace:        "openshift-apiserver",
 			previousConditions: []operatorv1.OperatorCondition{
 				{
 					Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeAvailable),
@@ -740,15 +749,19 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				syncWorkload:            scenario.workload,
 				syncIsAtHighestRevision: scenario.operatorConfigAtHighestRevision,
 				operandWorkloadDeleted:  scenario.operatorOperandWorkloadDeleted,
+				deletedOperandName:      scenario.deletedOperandName,
+				deletedOperandNamespace: scenario.deletedOperandNamespace,
 				syncErrrors:             scenario.errors,
 			}
 
 			// act
+			versionRecorder := status.NewVersionGetter()
 			target := &Controller{
 				operatorClient:  fakeOperatorClient,
 				targetNamespace: targetNs,
 				podsLister:      &fakePodLister{pods: scenario.pods},
 				delegate:        delegate,
+				versionRecorder: versionRecorder,
 			}
 
 			err := target.sync(context.TODO(), factory.NewSyncContext("workloadcontroller_test", events.NewInMemoryRecorder("workloadcontroller_test", clocktesting.NewFakePassiveClock(time.Now()))))

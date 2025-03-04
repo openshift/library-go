@@ -43,7 +43,7 @@ func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext f
 		return err
 	}
 
-	jsonPatch := v1helpers.RemoveConditionsJSONPatch(operatorStatus, c.conditionTypesToRemove)
+	jsonPatch := v1helpers.RemoveConditionsJSONPatch(operatorStatus, c.conditionTypesToRemove, nil)
 	if jsonPatch.IsEmpty() {
 		return nil
 	}

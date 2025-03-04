@@ -567,16 +567,19 @@ func IsUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingCon
 	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(progressingConditionTimeout))
 }
 
-func RemoveConditionsJSONPatch(operatorStatus *operatorv1.OperatorStatus, conditionTypesToRemove []string) *jsonpatch.PatchSet {
+func RemoveConditionsJSONPatch(operatorStatus *operatorv1.OperatorStatus, conditionTypesToRemove []string, jsonPatch *jsonpatch.PatchSet) *jsonpatch.PatchSet {
 	if operatorStatus == nil {
-		return nil
+		return jsonPatch
+	}
+
+	if jsonPatch == nil {
+		jsonPatch = jsonpatch.New()
 	}
 
 	var removedCount int
-	jsonPatch := jsonpatch.New()
-	for i, existingCondition := range operatorStatus.Conditions {
+	for i, cond := range operatorStatus.Conditions {
 		for _, conditionTypeToRemove := range conditionTypesToRemove {
-			if existingCondition.Type != conditionTypeToRemove {
+			if cond.Type != conditionTypeToRemove {
 				continue
 			}
 			removeAtIndex := i
@@ -589,6 +592,36 @@ func RemoveConditionsJSONPatch(operatorStatus *operatorv1.OperatorStatus, condit
 			)
 			removedCount++
 		}
+	}
+
+	return jsonPatch
+}
+
+func RemoveWorkloadGenerationsJSONPatch(operatorStatus *operatorv1.OperatorStatus, name, namespace string, jsonPatch *jsonpatch.PatchSet) *jsonpatch.PatchSet {
+	if operatorStatus == nil {
+		return jsonPatch
+	}
+
+	if jsonPatch == nil {
+		jsonPatch = jsonpatch.New()
+	}
+
+	var removedCount int
+	for i, gen := range operatorStatus.Generations {
+		if gen.Name != name || gen.Namespace != namespace || gen.Group != "apps" || gen.Resource != "deployments" {
+			continue
+		}
+		removeAtIndex := i
+		if !jsonPatch.IsEmpty() {
+			removeAtIndex = removeAtIndex - removedCount
+		}
+
+		path := fmt.Sprintf("/status/generations/%d", removeAtIndex)
+		jsonPatch.WithRemove(path, jsonpatch.NewTestCondition(path+"/name", name))
+		jsonPatch.WithTest(path+"/namespace", namespace)
+		jsonPatch.WithTest(path+"/group", "apps")
+		jsonPatch.WithTest(path+"/resource", "deployments")
+		removedCount++
 	}
 
 	return jsonPatch
