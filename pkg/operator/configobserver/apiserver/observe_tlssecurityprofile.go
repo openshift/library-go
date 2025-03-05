@@ -62,6 +62,9 @@ func innerTLSSecurityProfileObservations(genericListers configobserver.Listers, 
 
 	observedConfig := map[string]interface{}{}
 	observedMinTLSVersion, observedCipherSuites := getSecurityProfileCiphers(apiServer.Spec.TLSSecurityProfile)
+	if len(observedMinTLSVersion) == 0 {
+		observedMinTLSVersion = crypto.TLSVersionToNameOrDie(crypto.DefaultTLSVersion())
+	}
 	if err = unstructured.SetNestedField(observedConfig, observedMinTLSVersion, minTLSVersionPath...); err != nil {
 		return existingConfig, append(errs, err)
 	}
@@ -94,6 +97,11 @@ func getSecurityProfileCiphers(profile *configv1.TLSSecurityProfile) (string, []
 	if profileType == configv1.TLSProfileCustomType {
 		if profile.Custom != nil {
 			profileSpec = &profile.Custom.TLSProfileSpec
+			if len(profileSpec.MinTLSVersion) == 0 {
+				profileSpec.MinTLSVersion = configv1.TLSProtocolVersion(
+					crypto.TLSVersionToNameOrDie(crypto.DefaultTLSVersion()),
+				)
+			}
 		}
 	} else {
 		profileSpec = configv1.TLSProfiles[profileType]
