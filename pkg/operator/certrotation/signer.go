@@ -112,6 +112,10 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	} else if updateRequired {
 		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, signingCertKeyPairSecret, metav1.UpdateOptions{})
+		if apierrors.IsConflict(err) {
+			// ignore error if its attempting to update outdated version of the secret
+			return nil, false, nil
+		}
 		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
 		if err != nil {
 			return nil, false, err
