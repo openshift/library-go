@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
 	"strings"
 	"sync"
 
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,9 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
-	"net/http"
 	"sigs.k8s.io/yaml"
 )
+
+const protoBufHeader = "application/vnd.kubernetes.protobuf"
 
 // Saves all mutations for later serialization and/or inspection.
 // In the case of updating the same thing multiple times, all mutations are stored and it's up to the caller to decide
@@ -139,42 +141,49 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 		}
 	}
 
-	var bodyObj runtime.Object
-	actionHasRuntimeObjectBody := action != ActionPatch && action != ActionPatchStatus
-	if actionHasRuntimeObjectBody {
-		bodyObj, err = runtime.Decode(unstructured.UnstructuredJSONScheme, bodyContent)
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode body: %w", err)
-		}
-		if requestInfo.Namespace != bodyObj.(*unstructured.Unstructured).GetNamespace() {
-			return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
-		}
-		if action != ActionCreate && action != ActionDelete && requestInfo.Name != bodyObj.(*unstructured.Unstructured).GetName() {
-			return nil, fmt.Errorf("request name %q does not equal body name %q", requestInfo.Namespace, bodyObj.(*unstructured.Unstructured).GetNamespace())
-		}
-	}
-
 	gvr := schema.GroupVersionResource{
 		Group:    requestInfo.APIGroup,
 		Version:  requestInfo.APIVersion,
 		Resource: requestInfo.Resource,
 	}
+
+	kindForResource, err := mrt.discoveryReader.getKindForResource(gvr)
+	if err != nil {
+		return nil, fmt.Errorf("error getting kind for resource: %w", err)
+	}
+
+	var unstructuredObj *unstructured.Unstructured
+	actionHasRuntimeObjectBody := action != ActionPatch && action != ActionPatchStatus
+	if actionHasRuntimeObjectBody {
+		isProtobufEncoded := req.Header.Get("Content-Type") == protoBufHeader
+		unstructuredObj, err = decodeRequestBody(isProtobufEncoded, bodyContent, kindForResource.kind)
+		if err != nil {
+			return nil, err
+		}
+		if requestInfo.Namespace != unstructuredObj.GetNamespace() {
+			return nil, fmt.Errorf("request namespace %q does not equal body namespace %q", requestInfo.Namespace, unstructuredObj.GetNamespace())
+		}
+		if action != ActionCreate && action != ActionDelete && requestInfo.Name != unstructuredObj.GetName() {
+			return nil, fmt.Errorf("request name %q does not equal body name %q", requestInfo.Namespace, unstructuredObj.GetNamespace())
+		}
+	}
+
 	metadataName := requestInfo.Name
 	if action == ActionCreate {
 		// in this case, the name isn't in the URL, it's in the body
-		metadataName = bodyObj.(*unstructured.Unstructured).GetName()
+		metadataName = unstructuredObj.GetName()
 	}
 
 	bodyOutputBytes := bodyContent
 	generatedName := ""
 	kindType := schema.GroupVersionKind{}
 	if actionHasRuntimeObjectBody {
-		bodyOutputBytes, err = yaml.Marshal(bodyObj.(*unstructured.Unstructured).Object)
+		bodyOutputBytes, err = yaml.Marshal(unstructuredObj.Object)
 		if err != nil {
 			return nil, fmt.Errorf("unable to encode body: %w", err)
 		}
-		generatedName = bodyObj.(*unstructured.Unstructured).GetGenerateName()
-		kindType = bodyObj.GetObjectKind().GroupVersionKind()
+		generatedName = unstructuredObj.GetGenerateName()
+		kindType = unstructuredObj.GetObjectKind().GroupVersionKind()
 	} else if (action == ActionPatch || action == ActionPatchStatus) && patchType == string(types.JSONPatchType) {
 		// the following code gives nice formatting for
 		// JSON patches that will be stored in files.
@@ -229,12 +238,8 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	ret.SetName(serializedRequest.ActionMetadata.Name)
 	ret.SetNamespace(serializedRequest.ActionMetadata.Namespace)
 	if actionHasRuntimeObjectBody {
-		ret.SetGroupVersionKind(bodyObj.GetObjectKind().GroupVersionKind())
+		ret.SetGroupVersionKind(unstructuredObj.GetObjectKind().GroupVersionKind())
 	} else {
-		kindForResource, err := mrt.discoveryReader.getKindForResource(gvr)
-		if err != nil {
-			return nil, err
-		}
 		ret.SetGroupVersionKind(kindForResource.kind)
 	}
 	retBytes, err := json.Marshal(ret.Object)
