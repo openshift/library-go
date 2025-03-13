@@ -14,7 +14,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 )
 
-func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister corev1listers.ConfigMapLister, additionalAnnotations certrotation.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, error) {
+func CombineCABundleConfigMaps(destinationConfigMap *corev1.ConfigMap, lister corev1listers.ConfigMapLister, additionalAnnotations certrotation.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, bool, error) {
+
+	var cm *corev1.ConfigMap
+	if destinationConfigMap == nil {
+		cm = &corev1.ConfigMap{}
+	} else {
+		cm = destinationConfigMap.DeepCopy()
+	}
 	certificates := []*x509.Certificate{}
 	for _, input := range inputConfigMaps {
 		inputConfigMap, err := lister.ConfigMaps(input.Namespace).Get(input.Name)
@@ -22,7 +29,7 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 			continue
 		}
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		// configmaps must conform to this
@@ -32,7 +39,7 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 		}
 		inputCerts, err := cert.ParseCertsPEM([]byte(inputContent))
 		if err != nil {
-			return nil, fmt.Errorf("configmap/%s in %q is malformed: %v", input.Name, input.Namespace, err)
+			return nil, false, fmt.Errorf("configmap/%s in %q is malformed: %v", input.Name, input.Namespace, err)
 		}
 		certificates = append(certificates, inputCerts...)
 	}
@@ -55,18 +62,12 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 
 	caBytes, err := crypto.EncodeCertificates(finalCertificates...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	cm := &corev1.ConfigMap{
-		ObjectMeta: certrotation.NewTLSArtifactObjectMeta(
-			destinationConfigMap.Name,
-			destinationConfigMap.Namespace,
-			additionalAnnotations,
-		),
-		Data: map[string]string{
-			"ca-bundle.crt": string(caBytes),
-		},
+	modified := additionalAnnotations.EnsureTLSMetadataUpdate(&cm.ObjectMeta)
+	cm.Data = map[string]string{
+		"ca-bundle.crt": string(caBytes),
 	}
-	return cm, nil
+	return cm, modified, nil
 }
