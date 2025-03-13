@@ -24,13 +24,15 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 	tests := []struct {
 		name string
 
-		initialSecret *corev1.Secret
+		initialSecret          *corev1.Secret
+		RefreshOnlyWhenExpired bool
 
 		verifyActions func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool)
 		expectedError string
 	}{
 		{
-			name: "initial create",
+			name:                   "initial create",
+			RefreshOnlyWhenExpired: false,
 			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
@@ -78,6 +80,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type:       corev1.SecretTypeTLS,
 				Data:       map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
+			RefreshOnlyWhenExpired: false,
 			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
@@ -131,6 +134,32 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
 			},
+			RefreshOnlyWhenExpired: false,
+			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				t.Helper()
+				actions := client.Actions()
+				if len(actions) != 0 {
+					t.Fatal(spew.Sdump(actions))
+				}
+			},
+			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
+		},
+		{
+			name: "update with RefreshOnlyWhenExpired set",
+			initialSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       "ns",
+					Name:            "signer",
+					ResourceVersion: "10",
+					Annotations: map[string]string{
+						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
+						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
+					},
+				},
+				Type: corev1.SecretTypeTLS,
+				Data: map[string][]byte{"tls.crt": {}, "tls.key": {}},
+			},
+			RefreshOnlyWhenExpired: true,
 			verifyActions: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				t.Helper()
 				actions := client.Actions()
@@ -166,6 +195,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Owner: &metav1.OwnerReference{
 					Name: "operator",
 				},
+				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
 			}
 
 			_, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
