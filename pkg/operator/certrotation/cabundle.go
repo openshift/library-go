@@ -98,6 +98,10 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		caBundleConfigMap = actualCABundleConfigMap
 	} else if updateRequired {
 		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap, metav1.UpdateOptions{})
+		if apierrors.IsConflict(err) {
+			// ignore error if its attempting to update outdated version of the configmap
+			return nil, nil
+		}
 		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err)
 		if err != nil {
 			return nil, err
