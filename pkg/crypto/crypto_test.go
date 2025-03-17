@@ -6,6 +6,7 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"go/importer"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,7 +18,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const certificateLifetime = 365 * 2
+const certificateLifetime = time.Hour * 24 * 365 * 2
 
 func TestDefaultCipherSuite(t *testing.T) {
 	// Ensure that conversion of the default cipher suite to names
@@ -153,19 +154,17 @@ func TestCrypto(t *testing.T) {
 }
 
 // Can be used for CA or intermediate signing certs
-func newSigningCertificateTemplate(subject pkix.Name, expireDays int, currentTime func() time.Time) *x509.Certificate {
-	var caLifetimeInDays = DefaultCACertificateLifetimeInDays
-	if expireDays > 0 {
-		caLifetimeInDays = expireDays
+func newSigningCertificateTemplate(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
+	if lifetime <= 0 {
+		lifetime = DefaultCACertificateLifetimeDuration
+		fmt.Fprintf(os.Stderr, "Validity period of the certificate for %q is unset, resetting to %d years!\n", subject.CommonName, lifetime)
 	}
 
-	if caLifetimeInDays > DefaultCACertificateLifetimeInDays {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeInDays)
+	if lifetime > DefaultCACertificateLifetimeDuration {
+		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeDuration)
 	}
 
-	caLifetime := time.Duration(caLifetimeInDays) * 24 * time.Hour
-
-	return newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, nil, nil)
+	return newSigningCertificateTemplateForDuration(subject, lifetime, currentTime, nil, nil)
 }
 
 func buildCA(t *testing.T) (crypto.PrivateKey, *x509.Certificate) {
@@ -265,30 +264,32 @@ func TestValidityPeriodOfClientCertificate(t *testing.T) {
 	}
 
 	tests := []struct {
-		passedExpireDays int
-		realExpireDays   int
+		passedExpireDuration time.Duration
+		realExpireDuration   time.Duration
 	}{
 		{
-			passedExpireDays: 100,
-			realExpireDays:   100,
+			passedExpireDuration: time.Hour,
+			realExpireDuration:   time.Hour,
 		},
 		{
-			passedExpireDays: 0,
-			realExpireDays:   DefaultCertificateLifetimeInDays,
+			passedExpireDuration: 0,
+			realExpireDuration:   DefaultCertificateLifetimeDuration,
 		},
 		{
-			passedExpireDays: -1,
-			realExpireDays:   DefaultCertificateLifetimeInDays,
+			passedExpireDuration: -time.Hour,
+			realExpireDuration:   DefaultCertificateLifetimeDuration,
 		},
 	}
 
 	for _, test := range tests {
-		cert := NewClientCertificateTemplate(pkix.Name{CommonName: "client"}, test.passedExpireDays, currentFakeTime)
-		expirationDate := cert.NotAfter
-		expectedExpirationDate := currentTime.Add(time.Duration(test.realExpireDays) * 24 * time.Hour)
-		if expectedExpirationDate != expirationDate {
-			t.Errorf("expected that client certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
-		}
+		t.Run(fmt.Sprintf("passed=%v,real=%v", test.passedExpireDuration, test.realExpireDuration), func(t *testing.T) {
+			cert := NewClientCertificateTemplate(pkix.Name{CommonName: "client"}, test.passedExpireDuration, currentFakeTime)
+			expirationDate := cert.NotAfter
+			expectedExpirationDate := currentTime.Add(test.realExpireDuration)
+			if expectedExpirationDate != expirationDate {
+				t.Errorf("expected that client certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
+			}
+		})
 	}
 }
 
@@ -300,20 +301,20 @@ func TestValidityPeriodOfServerCertificate(t *testing.T) {
 	}
 
 	tests := []struct {
-		passedExpireDays int
-		realExpireDays   int
+		passedDuration time.Duration
+		realDuration   time.Duration
 	}{
 		{
-			passedExpireDays: 100,
-			realExpireDays:   100,
+			passedDuration: time.Hour,
+			realDuration:   time.Hour,
 		},
 		{
-			passedExpireDays: 0,
-			realExpireDays:   DefaultCertificateLifetimeInDays,
+			passedDuration: 0,
+			realDuration:   DefaultCertificateLifetimeDuration,
 		},
 		{
-			passedExpireDays: -1,
-			realExpireDays:   DefaultCertificateLifetimeInDays,
+			passedDuration: -time.Hour,
+			realDuration:   DefaultCertificateLifetimeDuration,
 		},
 	}
 
@@ -321,13 +322,13 @@ func TestValidityPeriodOfServerCertificate(t *testing.T) {
 		cert := newServerCertificateTemplate(
 			pkix.Name{CommonName: "server"},
 			[]string{"www.example.com"},
-			test.passedExpireDays,
+			test.passedDuration,
 			currentFakeTime,
 			nil,
 			nil,
 		)
 		expirationDate := cert.NotAfter
-		expectedExpirationDate := currentTime.Add(time.Duration(test.realExpireDays) * 24 * time.Hour)
+		expectedExpirationDate := currentTime.Add(test.realDuration)
 		if expectedExpirationDate != expirationDate {
 			t.Errorf("expected that server certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
 		}
@@ -342,27 +343,27 @@ func TestValidityPeriodOfSigningCertificate(t *testing.T) {
 	}
 
 	tests := []struct {
-		passedExpireDays int
-		realExpireDays   int
+		passedDuration time.Duration
+		realDuration   time.Duration
 	}{
 		{
-			passedExpireDays: 100,
-			realExpireDays:   100,
+			passedDuration: time.Hour,
+			realDuration:   time.Hour,
 		},
 		{
-			passedExpireDays: 0,
-			realExpireDays:   DefaultCACertificateLifetimeInDays,
+			passedDuration: 0,
+			realDuration:   DefaultCACertificateLifetimeDuration,
 		},
 		{
-			passedExpireDays: -1,
-			realExpireDays:   DefaultCACertificateLifetimeInDays,
+			passedDuration: -time.Hour,
+			realDuration:   DefaultCACertificateLifetimeDuration,
 		},
 	}
 
 	for _, test := range tests {
-		cert := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, test.passedExpireDays, currentFakeTime)
+		cert := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, test.passedDuration, currentFakeTime)
 		expirationDate := cert.NotAfter
-		expectedExpirationDate := currentTime.Add(time.Duration(test.realExpireDays) * 24 * time.Hour)
+		expectedExpirationDate := currentTime.Add(test.realDuration)
 		if expectedExpirationDate != expirationDate {
 			t.Errorf("expected that CA certificate will expire at %v but found %v", expectedExpirationDate, expirationDate)
 		}
