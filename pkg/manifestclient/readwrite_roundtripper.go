@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"os"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // RecommendedRESTConfig is meant to be paired with the HTTPClients below
@@ -15,10 +18,19 @@ func RecommendedRESTConfig() *rest.Config {
 	return &rest.Config{
 		QPS:   1000,
 		Burst: 10000,
+		ContentConfig: rest.ContentConfig{
+			ContentType: runtime.ContentTypeJSON,
+		},
 	}
 }
 
+// RecommendedKubernetesWithClient kubernetes client to be used with the HTTPClients below
+func RecommendedKubernetesWithClient(httpClient *http.Client) (*kubernetes.Clientset, error) {
+	return kubernetes.NewForConfigAndClient(RecommendedRESTConfig(), httpClient)
+}
+
 // Enter here and call `NewForConfigAndClient(manifestclient.RecommendedRESTConfig(), httpClient)`
+// For Kubernetes built in clients, use `manifestclient.RecommendedKubernetesWithClient(httpClient)`
 func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
 	mutationTrackingRoundTripper := newReadWriteRoundTripper(os.DirFS(mustGatherDir))
 	return &mutationTrackingClient{
@@ -30,6 +42,7 @@ func NewHTTPClient(mustGatherDir string) MutationTrackingClient {
 }
 
 // Enter here and call `NewForConfigAndClient(manifestclient.RecommendedRESTConfig(), httpClient)`
+// For Kubernetes built in clients, use `manifestclient.RecommendedKubernetesWithClient(httpClient)`
 func NewTestingHTTPClient(embedFS fs.FS) MutationTrackingClient {
 	mutationTrackingRoundTripper := newReadWriteRoundTripper(embedFS)
 	return &mutationTrackingClient{

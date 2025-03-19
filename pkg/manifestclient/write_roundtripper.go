@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
 	"strings"
 	"sync"
 
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,8 +18,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
-	"net/http"
 	"sigs.k8s.io/yaml"
+)
+
+var validHeaders = sets.New(
+	runtime.ContentTypeJSON,
+	string(types.ApplyPatchType),
+	string(types.JSONPatchType),
+	string(types.MergePatchType),
+	string(types.StrategicMergePatchType),
 )
 
 // Saves all mutations for later serialization and/or inspection.
@@ -79,6 +87,9 @@ func (mrt *writeTrackingRoundTripper) roundTrip(req *http.Request) ([]byte, erro
 	}
 	if len(requestInfo.Subresource) != 0 && requestInfo.Subresource != "status" {
 		return nil, fmt.Errorf("subresource %v is not supported by this implementation", requestInfo.Subresource)
+	}
+	if contentType := req.Header.Get("Content-Type"); !validHeaders.Has(contentType) {
+		return nil, fmt.Errorf("incorrect Content-Type header, expected one of: [%s] but got: %s", strings.Join(validHeaders.UnsortedList(), ", "), contentType)
 	}
 
 	patchType := ""
