@@ -20,6 +20,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -421,4 +422,85 @@ func addIfNotDuplicateResource(manifest Manifest, resourceIds map[resourceId]boo
 		return nil
 	}
 	return fmt.Errorf("duplicate resource: (%s)", manifest.id)
+}
+
+// InclusionConfiguration configures manifest inclusion, so
+// callers can opt in to new filtering options instead of having to
+// update existing call-sites, even if they do not need a new
+// filtering option.
+type InclusionConfiguration struct {
+	// ExcludeIdentifier, if non-nil, excludes manifests that match the exclusion identifier.
+	ExcludeIdentifier *string
+
+	// RequiredFeatureSet, if non-nil, excludes manifests unless they match the desired feature set.
+	RequiredFeatureSet *string
+
+	// Profile, if non-nil, excludes manifests unless they match the cluster profile.
+	Profile *string
+
+	// Capabilities, if non-nil, excludes manifests unless they match the enabled cluster capabilities.
+	Capabilities *configv1.ClusterVersionCapabilitiesStatus
+
+	// Overrides excludes manifests for overridden resources.
+	Overrides []configv1.ComponentOverride
+
+	// Platform, if non-nil, excludes CredentialsRequests manifests unless they match the infrastructure platform.
+	Platform *string
+}
+
+// GetImplicitlyEnabledCapabilities returns a set of capabilities that are implicitly enabled after a cluster update.
+// The arguments are two sets of manifests, manifest inclusion configuration, and
+// a set of capabilities that are implicitly enabled on the cluster, i.e., the capabilities
+// that are NOT specified in the cluster version but has to considered enabled on the cluster.
+// The manifest inclusion configuration is used to determine if a manifest should be included.
+// In other words, whether, or not the cluster version operator reconcile that manifest on the cluster.
+// The two sets of manifests are respectively from the release that the cluster is updated to and the
+// release that is currently running on the cluster.
+func GetImplicitlyEnabledCapabilities(
+	updatePayloadManifests []Manifest,
+	currentPayloadManifests []Manifest,
+	manifestInclusionConfiguration InclusionConfiguration,
+	currentImplicitlyEnabled sets.Set[configv1.ClusterVersionCapability],
+) sets.Set[configv1.ClusterVersionCapability] {
+	ret := currentImplicitlyEnabled.Clone()
+	for _, updateManifest := range updatePayloadManifests {
+		updateManErr := updateManifest.IncludeAllowUnknownCapabilities(
+			manifestInclusionConfiguration.ExcludeIdentifier,
+			manifestInclusionConfiguration.RequiredFeatureSet,
+			manifestInclusionConfiguration.Profile,
+			manifestInclusionConfiguration.Capabilities,
+			manifestInclusionConfiguration.Overrides,
+			true,
+		)
+		// update manifest is enabled, no need to check
+		if updateManErr == nil {
+			continue
+		}
+		for _, currentManifest := range currentPayloadManifests {
+			if !updateManifest.SameResourceID(currentManifest) {
+				continue
+			}
+			// current manifest is disabled, no need to check
+			if err := currentManifest.IncludeAllowUnknownCapabilities(
+				manifestInclusionConfiguration.ExcludeIdentifier,
+				manifestInclusionConfiguration.RequiredFeatureSet,
+				manifestInclusionConfiguration.Profile,
+				manifestInclusionConfiguration.Capabilities,
+				manifestInclusionConfiguration.Overrides,
+				true,
+			); err != nil {
+				continue
+			}
+			newImplicitlyEnabled := sets.New[configv1.ClusterVersionCapability](updateManifest.GetManifestCapabilities()...).
+				Difference(sets.New[configv1.ClusterVersionCapability](currentManifest.GetManifestCapabilities()...)).
+				Difference(currentImplicitlyEnabled).
+				Difference(sets.New[configv1.ClusterVersionCapability](manifestInclusionConfiguration.Capabilities.EnabledCapabilities...))
+			ret = ret.Union(newImplicitlyEnabled)
+			if newImplicitlyEnabled.Len() > 0 {
+				klog.V(2).Infof("%s has changed and is now part of one or more disabled capabilities. The following capabilities will be implicitly enabled: %s",
+					updateManifest.String(), sets.List(newImplicitlyEnabled))
+			}
+		}
+	}
+	return ret
 }
