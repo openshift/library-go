@@ -94,6 +94,11 @@ func getSecurityProfileCiphers(profile *configv1.TLSSecurityProfile) (string, []
 	if profileType == configv1.TLSProfileCustomType {
 		if profile.Custom != nil {
 			profileSpec = &profile.Custom.TLSProfileSpec
+			if len(profileSpec.MinTLSVersion) == 0 {
+				profileSpec.MinTLSVersion = configv1.TLSProtocolVersion(
+					crypto.TLSVersionToNameOrDie(crypto.DefaultTLSVersion()),
+				)
+			}
 		}
 	} else {
 		profileSpec = configv1.TLSProfiles[profileType]
