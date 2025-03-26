@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-ldap/ldap/v3"
@@ -177,6 +178,33 @@ func TestNewSearchRequest(t *testing.T) {
 			attributes:      DefaultAttributes,
 			expectedRequest: nil,
 			expectedError:   true,
+		},
+		{
+			name: "dn query should not be out of bounds",
+			options: LDAPQueryOnAttribute{
+				LDAPQuery: LDAPQuery{
+					BaseDN:       strings.ToUpper(DefaultBaseDN),
+					Scope:        DefaultScope,
+					DerefAliases: DefaultDerefAliases,
+					TimeLimit:    DefaultTimeLimit,
+					Filter:       DefaultFilter,
+				},
+				QueryAttribute: "DN",
+			},
+			attributeValue: "uid=john,o=users,dc=example,dc=com",
+			attributes:     DefaultAttributes,
+			expectedRequest: &ldap.SearchRequest{
+				BaseDN:       "uid=john,o=users,dc=example,dc=com",
+				Scope:        ldap.ScopeBaseObject,
+				DerefAliases: int(DefaultDerefAliases),
+				SizeLimit:    DefaultSizeLimit,
+				TimeLimit:    DefaultTimeLimit,
+				TypesOnly:    DefaultTypesOnly,
+				Filter:       "(objectClass=*)",
+				Attributes:   DefaultAttributes,
+				Controls:     DefaultControls,
+			},
+			expectedError: false,
 		},
 		{
 			name: "attribute query no attributes with paging",
