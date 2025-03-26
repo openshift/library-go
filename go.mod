@@ -17,7 +17,6 @@ require (
 	github.com/imdario/mergo v0.3.7
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/runc v1.1.13
 	github.com/opencontainers/selinux v1.11.0
 	github.com/openshift/api v0.0.0-20250124212313-a770960d61e0
 	github.com/openshift/build-machinery-go v0.0.0-20250102153059-e85a1a7ecb5c

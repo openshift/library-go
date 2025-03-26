@@ -5,9 +5,10 @@ package certgraphanalysis
 
 import (
 	"os"
+	"os/user"
+	"strconv"
 	"syscall"
 
-	"github.com/opencontainers/runc/libcontainer/user"
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
@@ -24,10 +25,10 @@ func getOnDiskLocationMetadata(path string) *certgraphapi.OnDiskLocationWithMeta
 	if info, err := os.Stat(path); err == nil {
 		ret.Permissions = info.Mode().Perm().String()
 		if statt, ok := info.Sys().(*syscall.Stat_t); ok {
-			if u, err := user.LookupUid(int(statt.Uid)); err == nil {
+			if u, err := user.LookupId(strconv.FormatUint(uint64(statt.Uid), 10)); err == nil {
 				ret.User = u.Name
 			}
-			if g, err := user.LookupGid(int(statt.Gid)); err == nil {
+			if g, err := user.LookupGroupId(strconv.FormatUint(uint64(statt.Gid), 10)); err == nil {
 				ret.Group = g.Name
 			}
 		}
