@@ -140,6 +140,8 @@ func (c *pruneController) deleteOldMigratedSecrets(ctx context.Context, syncCont
 		return err
 	}
 
+	// TODO: verify if prune behaviour works with KMS because we use NameToKeyID
+
 	// sort by keyID
 	encryptionSecrets := make([]*corev1.Secret, 0, len(allSecrets.Items))
 	for _, s := range allSecrets.Items {
