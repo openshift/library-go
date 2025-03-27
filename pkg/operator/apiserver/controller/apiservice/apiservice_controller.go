@@ -246,7 +246,7 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 	}
 	if len(availableConditionMessages) > 0 {
 		sort.Sort(sort.StringSlice(availableConditionMessages))
-		return fmt.Errorf(strings.Join(availableConditionMessages, "\n"))
+		return fmt.Errorf("%s", strings.Join(availableConditionMessages, "\n"))
 	}
 
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
@@ -258,7 +258,7 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 
 	if len(availableConditionMessages) > 0 {
 		sort.Sort(sort.StringSlice(availableConditionMessages))
-		return fmt.Errorf(strings.Join(availableConditionMessages, "\n"))
+		return fmt.Errorf("%s", strings.Join(availableConditionMessages, "\n"))
 	}
 
 	return nil

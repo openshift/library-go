@@ -3,8 +3,9 @@ package latencyprofilecontroller
 import (
 	"context"
 	"fmt"
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"time"
+
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -147,7 +148,7 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 			if err != nil {
 				return err
 			}
-			return fmt.Errorf(rejectMsg)
+			return fmt.Errorf("%s", rejectMsg)
 		}
 	}
 
