@@ -73,12 +73,12 @@ import (
 	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/client-go/informers"
 	restclient "k8s.io/client-go/rest"
+	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/metrics/features"
 	"k8s.io/component-base/metrics/prometheus/slis"
 	"k8s.io/component-base/tracing"
-	utilversion "k8s.io/component-base/version"
 	"k8s.io/component-base/zpages/flagz"
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
@@ -153,7 +153,7 @@ type Config struct {
 
 	// EffectiveVersion determines which apis and features are available
 	// based on when the api/feature lifecyle.
-	EffectiveVersion utilversion.EffectiveVersion
+	EffectiveVersion basecompatibility.EffectiveVersion
 	// FeatureGate is a way to plumb feature gate through if you have them.
 	FeatureGate featuregate.FeatureGate
 	// AuditBackend is where audit events are sent to.
@@ -845,14 +845,12 @@ func (c completedConfig) New(name string, delegationTarget DelegationTarget) (*G
 		muxAndDiscoveryCompleteSignals: map[string]<-chan struct{}{},
 	}
 
-	if c.FeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
-		manager := c.AggregatedDiscoveryGroupManager
-		if manager == nil {
-			manager = discoveryendpoint.NewResourceManager("apis")
-		}
-		s.AggregatedDiscoveryGroupManager = manager
-		s.AggregatedLegacyDiscoveryGroupManager = discoveryendpoint.NewResourceManager("api")
+	manager := c.AggregatedDiscoveryGroupManager
+	if manager == nil {
+		manager = discoveryendpoint.NewResourceManager("apis")
 	}
+	s.AggregatedDiscoveryGroupManager = manager
+	s.AggregatedLegacyDiscoveryGroupManager = discoveryendpoint.NewResourceManager("api")
 	for {
 		if c.JSONPatchMaxCopyBytes <= 0 {
 			break
@@ -1111,12 +1109,8 @@ func installAPI(name string, s *GenericAPIServer, c *Config) {
 	routes.Version{Version: c.EffectiveVersion.BinaryVersion().Info()}.Install(s.Handler.GoRestfulContainer)
 
 	if c.EnableDiscovery {
-		if c.FeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
-			wrapped := discoveryendpoint.WrapAggregatedDiscoveryToHandler(s.DiscoveryGroupManager, s.AggregatedDiscoveryGroupManager)
-			s.Handler.GoRestfulContainer.Add(wrapped.GenerateWebService("/apis", metav1.APIGroupList{}))
-		} else {
-			s.Handler.GoRestfulContainer.Add(s.DiscoveryGroupManager.WebService())
-		}
+		wrapped := discoveryendpoint.WrapAggregatedDiscoveryToHandler(s.DiscoveryGroupManager, s.AggregatedDiscoveryGroupManager)
+		s.Handler.GoRestfulContainer.Add(wrapped.GenerateWebService("/apis", metav1.APIGroupList{}))
 	}
 	if c.FlowControl != nil {
 		c.FlowControl.Install(s.Handler.NonGoRestfulMux)

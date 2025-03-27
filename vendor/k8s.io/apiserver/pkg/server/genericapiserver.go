@@ -54,8 +54,8 @@ import (
 	"k8s.io/apiserver/pkg/storageversion"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	restclient "k8s.io/client-go/rest"
+	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
-	utilversion "k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 	openapibuilder3 "k8s.io/kube-openapi/pkg/builder3"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
@@ -244,7 +244,7 @@ type GenericAPIServer struct {
 
 	// EffectiveVersion determines which apis and features are available
 	// based on when the api/feature lifecyle.
-	EffectiveVersion utilversion.EffectiveVersion
+	EffectiveVersion basecompatibility.EffectiveVersion
 	// FeatureGate is a way to plumb feature gate through if you have them.
 	FeatureGate featuregate.FeatureGate
 
@@ -785,28 +785,26 @@ func (s *GenericAPIServer) installAPIResources(apiPrefix string, apiGroupInfo *A
 		}
 		resourceInfos = append(resourceInfos, r...)
 
-		if s.FeatureGate.Enabled(features.AggregatedDiscoveryEndpoint) {
-			// Aggregated discovery only aggregates resources under /apis
-			if apiPrefix == APIGroupPrefix {
-				s.AggregatedDiscoveryGroupManager.AddGroupVersion(
-					groupVersion.Group,
-					apidiscoveryv2.APIVersionDiscovery{
-						Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent,
-						Version:   groupVersion.Version,
-						Resources: discoveryAPIResources,
-					},
-				)
-			} else {
-				// There is only one group version for legacy resources, priority can be defaulted to 0.
-				s.AggregatedLegacyDiscoveryGroupManager.AddGroupVersion(
-					groupVersion.Group,
-					apidiscoveryv2.APIVersionDiscovery{
-						Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent,
-						Version:   groupVersion.Version,
-						Resources: discoveryAPIResources,
-					},
-				)
-			}
+		// Aggregated discovery only aggregates resources under /apis
+		if apiPrefix == APIGroupPrefix {
+			s.AggregatedDiscoveryGroupManager.AddGroupVersion(
+				groupVersion.Group,
+				apidiscoveryv2.APIVersionDiscovery{
+					Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent,
+					Version:   groupVersion.Version,
+					Resources: discoveryAPIResources,
+				},
+			)
+		} else {
+			// There is only one group version for legacy resources, priority can be defaulted to 0.
+			s.AggregatedLegacyDiscoveryGroupManager.AddGroupVersion(
+				groupVersion.Group,
+				apidiscoveryv2.APIVersionDiscovery{
+					Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent,
+					Version:   groupVersion.Version,
+					Resources: discoveryAPIResources,
+				},
+			)
 		}
 
 	}
@@ -844,12 +842,8 @@ func (s *GenericAPIServer) InstallLegacyAPIGroup(apiPrefix string, apiGroupInfo 
 	// Install the version handler.
 	// Add a handler at /<apiPrefix> to enumerate the supported api versions.
 	legacyRootAPIHandler := discovery.NewLegacyRootAPIHandler(s.discoveryAddresses, s.Serializer, apiPrefix)
-	if s.FeatureGate.Enabled(features.AggregatedDiscoveryEndpoint) {
-		wrapped := discoveryendpoint.WrapAggregatedDiscoveryToHandler(legacyRootAPIHandler, s.AggregatedLegacyDiscoveryGroupManager)
-		s.Handler.GoRestfulContainer.Add(wrapped.GenerateWebService("/api", metav1.APIVersions{}))
-	} else {
-		s.Handler.GoRestfulContainer.Add(legacyRootAPIHandler.WebService())
-	}
+	wrapped := discoveryendpoint.WrapAggregatedDiscoveryToHandler(legacyRootAPIHandler, s.AggregatedLegacyDiscoveryGroupManager)
+	s.Handler.GoRestfulContainer.Add(wrapped.GenerateWebService("/api", metav1.APIVersions{}))
 	s.registerStorageReadinessCheck("", apiGroupInfo)
 
 	return nil
@@ -991,8 +985,15 @@ func (s *GenericAPIServer) newAPIGroupVersion(apiGroupInfo *APIGroupInfo, groupV
 // NewDefaultAPIGroupInfo returns an APIGroupInfo stubbed with "normal" values
 // exposed for easier composition from other packages
 func NewDefaultAPIGroupInfo(group string, scheme *runtime.Scheme, parameterCodec runtime.ParameterCodec, codecs serializer.CodecFactory) APIGroupInfo {
+	opts := []serializer.CodecFactoryOptionsMutator{}
 	if utilfeature.DefaultFeatureGate.Enabled(features.CBORServingAndStorage) {
-		codecs = serializer.NewCodecFactory(scheme, serializer.WithSerializer(cbor.NewSerializerInfo))
+		opts = append(opts, serializer.WithSerializer(cbor.NewSerializerInfo))
+	}
+	if utilfeature.DefaultFeatureGate.Enabled(features.StreamingCollectionEncodingToJSON) {
+		opts = append(opts, serializer.WithStreamingCollectionEncodingToJSON())
+	}
+	if len(opts) != 0 {
+		codecs = serializer.NewCodecFactory(scheme, opts...)
 	}
 	return APIGroupInfo{
 		PrioritizedVersions:          scheme.PrioritizedVersionsForGroup(group),
