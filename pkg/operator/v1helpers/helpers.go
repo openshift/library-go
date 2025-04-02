@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -564,4 +565,64 @@ func IsConditionPresentAndEqual(conditions []metav1.Condition, conditionType str
 func IsUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingConditionType string) bool {
 	progressing := FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
 	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(progressingConditionTimeout))
+}
+
+func RemoveConditionsJSONPatch(operatorStatus *operatorv1.OperatorStatus, conditionTypesToRemove []string, jsonPatch *jsonpatch.PatchSet) *jsonpatch.PatchSet {
+	if operatorStatus == nil {
+		return jsonPatch
+	}
+
+	if jsonPatch == nil {
+		jsonPatch = jsonpatch.New()
+	}
+
+	var removedCount int
+	for i, cond := range operatorStatus.Conditions {
+		for _, conditionTypeToRemove := range conditionTypesToRemove {
+			if cond.Type != conditionTypeToRemove {
+				continue
+			}
+			removeAtIndex := i
+			if !jsonPatch.IsEmpty() {
+				removeAtIndex = removeAtIndex - removedCount
+			}
+			jsonPatch.WithRemove(
+				fmt.Sprintf("/status/conditions/%d", removeAtIndex),
+				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionTypeToRemove),
+			)
+			removedCount++
+		}
+	}
+
+	return jsonPatch
+}
+
+func RemoveWorkloadGenerationsJSONPatch(operatorStatus *operatorv1.OperatorStatus, name, namespace string, jsonPatch *jsonpatch.PatchSet) *jsonpatch.PatchSet {
+	if operatorStatus == nil {
+		return jsonPatch
+	}
+
+	if jsonPatch == nil {
+		jsonPatch = jsonpatch.New()
+	}
+
+	var removedCount int
+	for i, gen := range operatorStatus.Generations {
+		if gen.Name != name || gen.Namespace != namespace || gen.Group != "apps" || gen.Resource != "deployments" {
+			continue
+		}
+		removeAtIndex := i
+		if !jsonPatch.IsEmpty() {
+			removeAtIndex = removeAtIndex - removedCount
+		}
+
+		path := fmt.Sprintf("/status/generations/%d", removeAtIndex)
+		jsonPatch.WithRemove(path, jsonpatch.NewTestCondition(path+"/name", name))
+		jsonPatch.WithTest(path+"/namespace", namespace)
+		jsonPatch.WithTest(path+"/group", "apps")
+		jsonPatch.WithTest(path+"/resource", "deployments")
+		removedCount++
+	}
+
+	return jsonPatch
 }
