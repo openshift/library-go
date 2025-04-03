@@ -448,7 +448,7 @@ func TestDeleteValidatingConfiguration(t *testing.T) {
 	}
 }
 
-func TestApplyValidatingAdmissionPolicyConfiguration(t *testing.T) {
+func TestApplyValidatingAdmissionPolicy(t *testing.T) {
 	defaultPolicy := &admissionregistrationv1beta1.ValidatingAdmissionPolicy{}
 	defaultPolicy.SetName("test")
 	createEvent := "ValidatingAdmissionPolicyCreated"
@@ -553,6 +553,138 @@ func TestApplyValidatingAdmissionPolicyConfiguration(t *testing.T) {
 					if err = test.checkUpdated(updatedPolicy); err != nil {
 						t.Errorf("Expected modification: %v", err)
 					}
+				}
+			}
+
+			testApply(test.expectModified)
+			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
+		})
+	}
+}
+
+func TestDeleteValidatingAdmissionPolicy(t *testing.T) {
+	defaultPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	defaultPolicy.SetName("test")
+	deleteEvent := "ValidatingAdmissionPolicyDeleted"
+
+	tests := []struct {
+		name           string
+		expectModified bool
+		existing       func() *admissionregistrationv1.ValidatingAdmissionPolicy
+		input          func() *admissionregistrationv1.ValidatingAdmissionPolicy
+		checkUpdated   func(*admissionregistrationv1.ValidatingAdmissionPolicy) error
+		expectedEvents []string
+	}{
+		{
+			name:           "Should delete policy if it exists",
+			expectModified: true,
+			input: func() *admissionregistrationv1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				return policy
+			},
+			existing: func() *admissionregistrationv1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				return policy
+			},
+			expectedEvents: []string{deleteEvent},
+		},
+		{
+			name:           "Should do nothing if policy does not exist",
+			expectModified: false,
+			input: func() *admissionregistrationv1.ValidatingAdmissionPolicy {
+				policy := defaultPolicy.DeepCopy()
+				return policy
+			},
+			expectedEvents: []string{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			existingHooks := []runtime.Object{}
+			if test.existing != nil {
+				existingHooks = append(existingHooks, test.existing())
+			}
+			client := fake.NewSimpleClientset(existingHooks...)
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+
+			testApply := func(expectModify bool) {
+				updatedHook, modified, err := DeleteValidatingAdmissionPolicyV1(
+					context.TODO(),
+					client.AdmissionregistrationV1(),
+					recorder, test.input())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if expectModify != modified {
+					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedHook)
+				}
+			}
+
+			testApply(test.expectModified)
+			assertEvents(t, test.name, test.expectedEvents, recorder.Events())
+		})
+	}
+}
+
+func TestDeleteValidatingAdmissionPolicyBinding(t *testing.T) {
+	defaultPolicyBinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
+	defaultPolicyBinding.SetName("test")
+	deleteEvent := "ValidatingAdmissionPolicyBindingDeleted"
+
+	tests := []struct {
+		name           string
+		expectModified bool
+		existing       func() *admissionregistrationv1.ValidatingAdmissionPolicyBinding
+		input          func() *admissionregistrationv1.ValidatingAdmissionPolicyBinding
+		checkUpdated   func(*admissionregistrationv1.ValidatingAdmissionPolicyBinding) error
+		expectedEvents []string
+	}{
+		{
+			name:           "Should delete policy binding if it exists",
+			expectModified: true,
+			input: func() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+				policyBinding := defaultPolicyBinding.DeepCopy()
+				return policyBinding
+			},
+			existing: func() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+				policyBinding := defaultPolicyBinding.DeepCopy()
+				return policyBinding
+			},
+			expectedEvents: []string{deleteEvent},
+		},
+		{
+			name:           "Should do nothing if policy binding does not exist",
+			expectModified: false,
+			input: func() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+				policyBinding := defaultPolicyBinding.DeepCopy()
+				return policyBinding
+			},
+			expectedEvents: []string{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			existingHooks := []runtime.Object{}
+			if test.existing != nil {
+				existingHooks = append(existingHooks, test.existing())
+			}
+			client := fake.NewSimpleClientset(existingHooks...)
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+
+			testApply := func(expectModify bool) {
+				updatedHook, modified, err := DeleteValidatingAdmissionPolicyBindingV1(
+					context.TODO(),
+					client.AdmissionregistrationV1(),
+					recorder, test.input())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if expectModify != modified {
+					t.Errorf("expected modified to be equal %v, got %v: %#v", expectModify, modified, updatedHook)
 				}
 			}
 
