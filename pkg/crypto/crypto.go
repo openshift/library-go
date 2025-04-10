@@ -223,8 +223,8 @@ func CipherSuite(cipherName string) (uint16, error) {
 		return cipher, nil
 	}
 
-	if _, ok := ciphersTLS13[cipherName]; ok {
-		return 0, fmt.Errorf("all golang TLSv1.3 ciphers are always used for TLSv1.3 flows")
+	if cipherTLS13, ok := ciphersTLS13[cipherName]; ok {
+		return cipherTLS13, nil
 	}
 
 	return 0, fmt.Errorf("unknown cipher name %q", cipherName)
