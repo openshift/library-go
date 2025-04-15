@@ -129,7 +129,7 @@ func TestRoundtrip(t *testing.T) {
 						{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 					},
 				},
-				KMSKeyID:  "key-hash-foo",
+				KMSKeyID:  "key-hash-foo-1",
 				KMSConfig: &configv1.KMSConfig{},
 			},
 		},

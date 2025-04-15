@@ -71,8 +71,8 @@ func DecodeKMSConfig(encodedBytes []byte) (config *configv1.KMSConfig, err error
 	return config, nil
 }
 
-// HashKMSConfig returns a short FNV 64-bit hash for a KMSConfig struct
-func HashKMSConfig(config configv1.KMSConfig) (string, error) {
+// hashKMSConfig returns a short FNV 64-bit hash for a KMSConfig struct
+func hashKMSConfig(config configv1.KMSConfig) (string, error) {
 	// TODO: also track collision count, only if reqd.
 	// refer upstream PodTemplateHash implementation in kcm deployment controller
 	hasher := fnv.New64a()
@@ -85,4 +85,14 @@ func HashKMSConfig(config configv1.KMSConfig) (string, error) {
 
 	fmt.Fprintf(hasher, "%s", encoded)
 	return hex.EncodeToString(hasher.Sum(nil)[0:]), nil
+}
+
+// GenerateNewKeyId generates a hash-ed KMS key id appended with an id integer
+func GenerateKMSKeyId(kmsConfig configv1.KMSConfig, nonce uint64) (keyId string, err error) {
+	hash, err := hashKMSConfig(kmsConfig)
+	if err != nil {
+		return "", fmt.Errorf("could not generate KMS config hash: %v", err)
+	}
+
+	return fmt.Sprintf("%s-%d", hash, nonce), nil
 }

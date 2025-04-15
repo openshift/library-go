@@ -382,11 +382,11 @@ func TestToEncryptionState(t *testing.T) {
 				{Group: "", Resource: "secrets"}: {
 					WriteKey: state.KeyState{
 						Mode:      state.KMS,
-						KMSKeyID:  "cloud-foo",
+						KMSKeyID:  "cloud-foo-1",
 						KMSConfig: nil,
 					},
 					ReadKeys: []state.KeyState{
-						{Mode: state.KMS, KMSKeyID: "cloud-foo", KMSConfig: nil},
+						{Mode: state.KMS, KMSKeyID: "cloud-foo-1", KMSConfig: nil},
 					},
 				},
 			},
@@ -413,12 +413,12 @@ func TestToEncryptionState(t *testing.T) {
 				{Group: "", Resource: "secrets"}: {
 					WriteKey: state.KeyState{
 						Mode:      state.KMS,
-						KMSKeyID:  "cloud-foo",
+						KMSKeyID:  "cloud-foo-1",
 						KMSConfig: nil,
 					},
 					ReadKeys: []state.KeyState{
 						{Key: apiserverconfigv1.Key{Name: "34", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, Mode: "aescbc"},
-						{Mode: state.KMS, KMSKeyID: "cloud-foo", KMSConfig: nil},
+						{Mode: state.KMS, KMSKeyID: "cloud-foo-1", KMSConfig: nil},
 					},
 				},
 			},
@@ -612,10 +612,10 @@ func TestFromEncryptionState(t *testing.T) {
 				rs.Providers = []apiserverconfigv1.ProviderConfiguration{
 					{
 						KMS: &apiserverconfigv1.KMSConfiguration{
-							// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo" from test setting, grHash=32FNV1a-hash("secrets")
-							Name: "kms-cloud-foo-b7d9e546",
-							// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo"
-							Endpoint: "unix:///var/kube-kms/cloud-foo/socket.sock",
+							// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo-1" from test setting, grHash=32FNV1a-hash("secrets")
+							Name: "kms-cloud-foo-1-b7d9e546",
+							// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo-1"
+							Endpoint: "unix:///var/kube-kms/cloud-foo-1/socket.sock",
 
 							APIVersion: "v2",
 							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
@@ -641,10 +641,10 @@ func TestFromEncryptionState(t *testing.T) {
 					Providers: []apiserverconfigv1.ProviderConfiguration{
 						{
 							KMS: &apiserverconfigv1.KMSConfiguration{
-								// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo" from test setting, grHash=32FNV1a-hash("secrets")
-								Name: "kms-cloud-foo-b7d9e546",
-								// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo"
-								Endpoint: "unix:///var/kube-kms/cloud-foo/socket.sock",
+								// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo-1" from test setting, grHash=32FNV1a-hash("secrets")
+								Name: "kms-cloud-foo-1-b7d9e546",
+								// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo-1"
+								Endpoint: "unix:///var/kube-kms/cloud-foo-1/socket.sock",
 
 								APIVersion: "v2",
 								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
@@ -659,10 +659,10 @@ func TestFromEncryptionState(t *testing.T) {
 					Providers: []apiserverconfigv1.ProviderConfiguration{
 						{
 							KMS: &apiserverconfigv1.KMSConfiguration{
-								// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo" from test setting, grHash=32FNV1a-hash("routes.route.openshift.io")
-								Name: "kms-cloud-foo-f6269648",
-								// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo"
-								Endpoint: "unix:///var/kube-kms/cloud-foo/socket.sock",
+								// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo-1" from test setting, grHash=32FNV1a-hash("routes.route.openshift.io")
+								Name: "kms-cloud-foo-1-f6269648",
+								// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo-1"
+								Endpoint: "unix:///var/kube-kms/cloud-foo-1/socket.sock",
 
 								APIVersion: "v2",
 								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
@@ -694,10 +694,10 @@ func TestFromEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{
 							{
 								KMS: &apiserverconfigv1.KMSConfiguration{
-									// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo" from test setting, grHash=32FNV1a-hash(grString)
-									Name: "kms-cloud-foo-" + knownGRHashes[i],
-									// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo"
-									Endpoint: "unix:///var/kube-kms/cloud-foo/socket.sock",
+									// format: "kms-%s-%s", kmsKeyID, grHash; kmsKeyID="cloud-foo-1" from test setting, grHash=32FNV1a-hash(grString)
+									Name: "kms-cloud-foo-1-" + knownGRHashes[i],
+									// format: "unix:///var/kube-kms/%s/socket.sock", kmsKeyID; kmsKeyID="cloud-foo-1"
+									Endpoint: "unix:///var/kube-kms/cloud-foo-1/socket.sock",
 
 									APIVersion: "v2",
 									Timeout:    &metav1.Duration{Duration: 5 * time.Second},

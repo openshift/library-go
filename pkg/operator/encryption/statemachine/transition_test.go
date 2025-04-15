@@ -987,6 +987,61 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		},
 
 		// TODO: add a KMS test for getDesiredEncryptionState()
+		{
+			"external KMS has converged after applying aescbc",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-cloud-foo-2-b7d9e546",
+								Endpoint:   "unix:///var/kube-kms/cloud-foo-2/socket.sock",
+								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("11ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, "KMS"),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-cloud-foo-2-b7d9e546",
+							Endpoint:   "unix:///var/kube-kms/cloud-foo-2/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					}, {
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "1",
+								Secret: base64.StdEncoding.EncodeToString([]byte("11ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
