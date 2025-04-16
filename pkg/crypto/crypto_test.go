@@ -34,16 +34,12 @@ func TestConstantMaps(t *testing.T) {
 	}
 	discoveredVersions := map[string]bool{}
 	discoveredCiphers := map[string]bool{}
-	discoveredCiphersTLS13 := map[string]bool{}
 	for _, declName := range pkg.Scope().Names() {
 		if strings.HasPrefix(declName, "VersionTLS") {
 			discoveredVersions[declName] = true
 		}
-		if strings.HasPrefix(declName, "TLS_RSA_") || strings.HasPrefix(declName, "TLS_ECDHE_") {
+		if strings.HasPrefix(declName, "TLS_RSA_") || strings.HasPrefix(declName, "TLS_ECDHE_") || strings.HasPrefix(declName, "TLS_AES_") || strings.HasPrefix(declName, "TLS_CHACHA20_") {
 			discoveredCiphers[declName] = true
-		}
-		if strings.HasPrefix(declName, "TLS_AES_") || strings.HasPrefix(declName, "TLS_CHACHA20_") {
-			discoveredCiphersTLS13[declName] = true
 		}
 	}
 
@@ -55,17 +51,6 @@ func TestConstantMaps(t *testing.T) {
 	for k := range ciphers {
 		if _, ok := discoveredCiphers[k]; !ok {
 			t.Errorf("ciphers map has %s not in tls package", k)
-		}
-	}
-
-	for k := range discoveredCiphersTLS13 {
-		if _, ok := ciphersTLS13[k]; !ok {
-			t.Errorf("discovered cipher tls.%s not in ciphers map", k)
-		}
-	}
-	for k := range ciphersTLS13 {
-		if _, ok := discoveredCiphersTLS13[k]; !ok {
-			t.Errorf("ciphersTLS13 map has %s not in tls package", k)
 		}
 	}
 
