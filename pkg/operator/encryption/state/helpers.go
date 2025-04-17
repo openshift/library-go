@@ -56,19 +56,9 @@ func SortRecentFirst(unsorted []KeyState) []KeyState {
 	ret := make([]KeyState, len(unsorted))
 	copy(ret, unsorted)
 	sort.Slice(ret, func(i, j int) bool {
-		iKey := ret[i].Key.Name
-		if ret[i].KMSKeyID != "" {
-			iKey = ret[i].KMSKeyID
-		}
-
-		jKey := ret[j].Key.Name
-		if ret[j].KMSKeyID != "" {
-			jKey = ret[j].KMSKeyID
-		}
-
 		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
-		iKeyID, _ := NameToKeyID(iKey)
-		jKeyID, _ := NameToKeyID(jKey)
+		iKeyID, _ := NameToKeyID(ret[i].Key.Name)
+		jKeyID, _ := NameToKeyID(ret[j].Key.Name)
 		return iKeyID > jKeyID
 	})
 	return ret

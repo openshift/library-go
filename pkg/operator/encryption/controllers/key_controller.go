@@ -201,14 +201,11 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 			continue
 		}
 
-		if ks.Mode == state.KMS {
-			latestKeyID, ok = state.NameToKeyID(ks.KMSKeyID)
-		} else {
+		if ks.Mode != state.KMS {
 			latestKeyID, ok = state.NameToKeyID(ks.Key.Name)
-		}
-
-		if !ok {
-			latestKeyID = 0
+			if !ok {
+				latestKeyID = 0
+			}
 		}
 
 		if commonReason == nil {
@@ -219,8 +216,9 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 		newKeyRequired = true
 
+		// tracking the newKeyID is only required for non-KMS
 		nextKeyID := latestKeyID + 1
-		if newKeyID < nextKeyID {
+		if ks.Mode != state.KMS && newKeyID < nextKeyID {
 			newKeyID = nextKeyID
 		}
 
@@ -238,7 +236,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var keySecret *corev1.Secret
 	if currentKeyState.Mode == state.KMS {
-		keySecret, err = c.generateKMSKeySecret(currentKeyState.KMSConfig, newKeyID, currentKeyState.InternalReason, currentKeyState.ExternalReason)
+		keySecret, err = c.generateKMSKeySecret(currentKeyState.KMSConfig, currentKeyState.InternalReason, currentKeyState.ExternalReason)
 	} else {
 		keySecret, err = c.generateLocalKeySecret(newKeyID, currentKeyState.Mode, currentKeyState.InternalReason, currentKeyState.ExternalReason)
 	}
@@ -305,10 +303,10 @@ func (c *keyController) generateLocalKeySecret(keyID uint64, currentMode state.M
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) generateKMSKeySecret(kmsConfig *configv1.KMSConfig, keyIDNonce uint64, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKMSKeySecret(kmsConfig *configv1.KMSConfig, internalReason, externalReason string) (*corev1.Secret, error) {
 	kmsConfig = kmsConfig.DeepCopy()
 
-	kmsKeyID, err := encryptionconfig.GenerateKMSKeyId(*kmsConfig, keyIDNonce)
+	kmsKeyID, err := encryptionconfig.HashKMSConfig(*kmsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -346,8 +344,14 @@ func (c *keyController) getCurrentEncryptionModeWithExternalReason(ctx context.C
 	case state.KMS:
 		kmsConfig := apiServer.Spec.Encryption.KMS.DeepCopy()
 
+		kmsKeyID, err := encryptionconfig.HashKMSConfig(*kmsConfig)
+		if err != nil {
+			return state.KeyState{}, fmt.Errorf("encryption mode configured: %s, but provided kms config could not generate required kms key id %v", currentMode, err)
+		}
+
 		ks := state.KeyState{
 			Mode:           state.KMS,
+			KMSKeyID:       kmsKeyID,
 			KMSConfig:      kmsConfig,
 			ExternalReason: reason,
 		}

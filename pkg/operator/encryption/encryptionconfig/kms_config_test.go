@@ -28,9 +28,9 @@ func TestHashKMSConfig(t *testing.T) {
 		},
 	}
 	t.Run("equality and ordering", func(t *testing.T) {
-		k1, err := hashKMSConfig(kms1)
+		k1, err := HashKMSConfig(kms1)
 		require.NoError(t, err)
-		k2, err := hashKMSConfig(kms2)
+		k2, err := HashKMSConfig(kms2)
 		require.NoError(t, err)
 
 		assert.Equal(t, k1, k2, "hashes should match irrespective of ordering")
@@ -50,9 +50,9 @@ func TestHashKMSConfig(t *testing.T) {
 		},
 	}
 	t.Run("inequality", func(t *testing.T) {
-		k1, err := hashKMSConfig(kms1)
+		k1, err := HashKMSConfig(kms1)
 		require.NoError(t, err)
-		k2, err := hashKMSConfig(kms2)
+		k2, err := HashKMSConfig(kms2)
 		require.NoError(t, err)
 
 		assert.NotEqual(t, k1, k2, "config with inequal values should yield different hash")
@@ -73,9 +73,9 @@ func TestHashKMSConfig(t *testing.T) {
 		},
 	}
 	t.Run("identical size", func(t *testing.T) {
-		k1, err := hashKMSConfig(kms1)
+		k1, err := HashKMSConfig(kms1)
 		require.NoError(t, err)
-		k2, err := hashKMSConfig(kms2)
+		k2, err := HashKMSConfig(kms2)
 		require.NoError(t, err)
 
 		assert.Equal(t, len(k1), len(k2), "length of hashes should match irrespective of contents")
@@ -86,9 +86,9 @@ func TestHashKMSConfig(t *testing.T) {
 		kms1.AWS = &configv1.AWSKMSConfig{}
 		kms2.AWS = nil
 
-		k1, err := hashKMSConfig(kms1)
+		k1, err := HashKMSConfig(kms1)
 		require.NoError(t, err)
-		k2, err := hashKMSConfig(kms2)
+		k2, err := HashKMSConfig(kms2)
 		require.NoError(t, err)
 
 		assert.NotEqual(t, k1, k2, "hash should not yield identical for nil pointer and empty object")
@@ -170,10 +170,10 @@ func TestKMSConfigEncodeDecode(t *testing.T) {
 }
 
 func TestKMSKeyId(t *testing.T) {
-	keyId, err := GenerateKMSKeyId(configv1.KMSConfig{
+	keyId, err := HashKMSConfig(configv1.KMSConfig{
 		Type: configv1.AWSKMSProvider,
 		AWS:  &configv1.AWSKMSConfig{},
-	}, 1)
+	})
 	require.NoError(t, err)
 
 	generated := generateKMSProviderName(keyId, schema.GroupResource{Resource: "secrets"})
