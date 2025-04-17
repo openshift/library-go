@@ -57,13 +57,13 @@ func extractKMSKeyIdFromProviderName(generated string) (keyId string) {
 	return strings.Join(v[:len(v)-1], "-")
 }
 
-// EncodeKMSConfig encodes kms config into json format
-func EncodeKMSConfig(config *configv1.KMSConfig) ([]byte, error) {
+// encodeConfig is type unaware, re-used in tests
+func encodeConfig[T any](config *T) ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// EncodeKMSConfig encodes kms config into json format
-func DecodeKMSConfig(encodedBytes []byte) (config *configv1.KMSConfig, err error) {
+// decodeConfig is type unaware, re-used in tests
+func decodeConfig[T any](encodedBytes []byte) (config *T, err error) {
 	err = json.Unmarshal(encodedBytes, &config)
 	if err != nil {
 		return nil, err
@@ -71,14 +71,24 @@ func DecodeKMSConfig(encodedBytes []byte) (config *configv1.KMSConfig, err error
 	return config, nil
 }
 
+// EncodeKMSConfig encodes kms config into json format
+func EncodeKMSConfig(cfg *configv1.KMSConfig) ([]byte, error) {
+	return encodeConfig(cfg)
+}
+
+// DecodeKMSConfig decodes json into a kms config
+func DecodeKMSConfig(encodedBytes []byte) (cfg *configv1.KMSConfig, err error) {
+	return decodeConfig[configv1.KMSConfig](encodedBytes)
+}
+
 // HashKMSConfig returns a short FNV 64-bit hash for a KMSConfig struct
-func HashKMSConfig(config configv1.KMSConfig) (string, error) {
+func HashKMSConfig[T any](cfg T) (string, error) {
 	// TODO: also track collision count, only if reqd.
 	// refer upstream PodTemplateHash implementation in kcm deployment controller
 	hasher := fnv.New64a()
 	hasher.Reset()
 
-	encoded, err := EncodeKMSConfig(&config)
+	encoded, err := encodeConfig(&cfg)
 	if err != nil {
 		return "", fmt.Errorf("could not generate hash for KMS config: %v", err)
 	}

@@ -93,6 +93,37 @@ func TestHashKMSConfig(t *testing.T) {
 
 		assert.NotEqual(t, k1, k2, "hash should not yield identical for nil pointer and empty object")
 	})
+
+	// FutureKMSConfig holds existing kms config fields plus a few newly added fields,
+	// this mocks a future event of adding a new kms provider platform to configv1.KMSConfig api
+	type FutureKMSConfig struct {
+		configv1.KMSConfig
+
+		CustomPlatform *struct {
+			AccessPoint string `json:"accessPoint"`
+		} `json:"custom,omitempty"`
+	}
+
+	kms1 = configv1.KMSConfig{
+		Type: configv1.AWSKMSProvider,
+		AWS: &configv1.AWSKMSConfig{
+			KeyARN: "arn:aws:kms:us-east-1:999999999999:key/6b512e30-0f99-4cf5-8174-fc1a5b22cd6a",
+			Region: "us-east-1",
+		},
+	}
+	kmsFut := FutureKMSConfig{
+		KMSConfig:      *kms1.DeepCopy(),
+		CustomPlatform: nil,
+	}
+	t.Run("hash should be identical even when new fields are added", func(t *testing.T) {
+		k1, err := HashKMSConfig(kms1)
+		require.NoError(t, err)
+
+		k2, err := HashKMSConfig(kmsFut)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "hash cannot change when new fields with empty values are added to KMSConfig struct")
+	})
 }
 
 func TestGRHash(t *testing.T) {
