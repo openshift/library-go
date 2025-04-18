@@ -185,7 +185,6 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		newKeyRequired bool
 		newKeyID       uint64
 		latestKeyID    uint64
-		ok             bool
 		reasons        []string
 	)
 
@@ -196,17 +195,12 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
 		// if kmsKeyID in GR ReadKey is not the same as current kmsKeyID, needed is true.
-		ks, needed := needsNewKeyWithInternalReason(grKeys, currentKeyState.Mode, currentKeyState.KMSKeyID, currentKeyState.ExternalReason, encryptedGRs)
+		ks, needed := needsNewKeyWithInternalReason(grKeys, currentKeyState.Mode, currentKeyState.KMSPluginHash, currentKeyState.ExternalReason, encryptedGRs)
 		if !needed {
 			continue
 		}
 
-		if ks.Mode != state.KMS {
-			latestKeyID, ok = state.NameToKeyID(ks.Key.Name)
-			if !ok {
-				latestKeyID = 0
-			}
-		}
+		latestKeyID = ks.Generation
 
 		if commonReason == nil {
 			commonReason = &ks.InternalReason
@@ -216,9 +210,8 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 		newKeyRequired = true
 
-		// tracking the newKeyID is only required for non-KMS
 		nextKeyID := latestKeyID + 1
-		if ks.Mode != state.KMS && newKeyID < nextKeyID {
+		if newKeyID < nextKeyID {
 			newKeyID = nextKeyID
 		}
 
@@ -236,7 +229,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var keySecret *corev1.Secret
 	if currentKeyState.Mode == state.KMS {
-		keySecret, err = c.generateKMSKeySecret(currentKeyState.KMSConfig, currentKeyState.InternalReason, currentKeyState.ExternalReason)
+		keySecret, err = c.generateKMSKeySecret(newKeyID, currentKeyState.KMSConfig, currentKeyState.InternalReason, currentKeyState.ExternalReason)
 	} else {
 		keySecret, err = c.generateLocalKeySecret(newKeyID, currentKeyState.Mode, currentKeyState.InternalReason, currentKeyState.ExternalReason)
 	}
@@ -270,16 +263,19 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 		return fmt.Errorf("secret %s/%s is invalid, new keys cannot be created for encryption target", keySecret.Namespace, keySecret.Name)
 	}
 
-	if ks.Mode == state.KMS && ks.KMSKeyID != "" {
+	if ks.Generation == 0 {
+		return fmt.Errorf("secret %s/%s is invalid, key generation id cannot be zero", keySecret.Namespace, keySecret.Name)
+	}
+
+	if ks.Mode == state.KMS && ks.KMSPluginHash != "" {
 		return nil
 	}
 
-	if ks.Mode == state.KMS && ks.KMSKeyID == "" {
+	if ks.Mode == state.KMS && ks.KMSPluginHash == "" {
 		// kmsKeyID is mandatory in case of KMS
-		return fmt.Errorf("secret %s/%s is invalid, new KMS keys cannot be created for encryption target", keySecret.Namespace, keySecret.Name)
+		return fmt.Errorf("secret %s/%s is invalid, new KMS config keys cannot be created for encryption target", keySecret.Namespace, keySecret.Name)
 	}
 
-	// checks for local aes (non-KMS) keys only
 	actualKeyID, ok := state.NameToKeyID(actualKeySecret.Name)
 	if !ok || actualKeyID != keyID {
 		// TODO we can just get stuck in degraded here ...
@@ -292,6 +288,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 func (c *keyController) generateLocalKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
+		Generation: keyID,
 		Key: apiserverv1.Key{
 			Name:   fmt.Sprintf("%d", keyID),
 			Secret: base64.StdEncoding.EncodeToString(bs),
@@ -303,19 +300,20 @@ func (c *keyController) generateLocalKeySecret(keyID uint64, currentMode state.M
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) generateKMSKeySecret(kmsConfig *configv1.KMSConfig, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKMSKeySecret(keyID uint64, kmsConfig *configv1.KMSConfig, internalReason, externalReason string) (*corev1.Secret, error) {
 	kmsConfig = kmsConfig.DeepCopy()
 
-	kmsKeyID, err := encryptionconfig.HashKMSConfig(*kmsConfig)
+	kmsPluginHash, err := encryptionconfig.HashKMSConfig(*kmsConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	ks := state.KeyState{
+		Generation:     keyID,
 		Mode:           state.KMS,
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
-		KMSKeyID:       kmsKeyID,
+		KMSPluginHash:  kmsPluginHash,
 		KMSConfig:      kmsConfig,
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
@@ -344,16 +342,17 @@ func (c *keyController) getCurrentEncryptionModeWithExternalReason(ctx context.C
 	case state.KMS:
 		kmsConfig := apiServer.Spec.Encryption.KMS.DeepCopy()
 
-		kmsKeyID, err := encryptionconfig.HashKMSConfig(*kmsConfig)
+		kmsPluginHash, err := encryptionconfig.HashKMSConfig(*kmsConfig)
 		if err != nil {
-			return state.KeyState{}, fmt.Errorf("encryption mode configured: %s, but provided kms config could not generate required kms key id %v", currentMode, err)
+			return state.KeyState{}, fmt.Errorf("encryption mode configured: %s, but provided kms config could not generate required kms plugin hash %v", currentMode, err)
 		}
 
 		ks := state.KeyState{
 			Mode:           state.KMS,
-			KMSKeyID:       kmsKeyID,
-			KMSConfig:      kmsConfig,
 			ExternalReason: reason,
+
+			KMSPluginHash: kmsPluginHash,
+			KMSConfig:     kmsConfig,
 		}
 		return ks, nil
 	case "": // unspecified means use the default (which can change over time)
@@ -365,15 +364,16 @@ func (c *keyController) getCurrentEncryptionModeWithExternalReason(ctx context.C
 
 // needsNewKeyWithInternalReason checks whether a new key must be created for the given resource. If true, it also returns the latest
 // used key ID and a reason string.
-func needsNewKeyWithInternalReason(grKeys state.GroupResourceState, currentMode state.Mode, optionalCurrentKMSKeyID string, externalReason string, encryptedGRs []schema.GroupResource) (state.KeyState, bool) {
+func needsNewKeyWithInternalReason(grKeys state.GroupResourceState, currentMode state.Mode, optionalCurrentKMSHash string, externalReason string, encryptedGRs []schema.GroupResource) (state.KeyState, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
 		return state.KeyState{InternalReason: "key-does-not-exist"}, currentMode != state.Identity
 	}
 
 	latestKey := grKeys.ReadKeys[0]
-	latestKeyID, ok := state.NameToKeyID(latestKey.Key.Name)
-	if !ok {
+	latestKeyID := latestKey.Generation
+
+	if latestKeyID == 0 {
 		latestKey.InternalReason = fmt.Sprintf("key-secret-%d-is-invalid", latestKeyID)
 		return latestKey, true
 	}
@@ -411,8 +411,8 @@ func needsNewKeyWithInternalReason(grKeys state.GroupResourceState, currentMode 
 		return state.KeyState{}, false
 	}
 
-	// if the hash of the kms config (kmsKeyID) has updated, we need a new KMS backing secret
-	if currentMode == state.KMS && latestKey.KMSKeyID != optionalCurrentKMSKeyID {
+	// if the hash of the kms config has updated, we need a new KMS backing secret
+	if currentMode == state.KMS && latestKey.KMSPluginHash != optionalCurrentKMSHash {
 		latestKey.InternalReason = "kms-config-changed"
 		return latestKey, true
 	}

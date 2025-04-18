@@ -60,13 +60,19 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		return state.KeyState{}, fmt.Errorf("secret %s/%s of mode %q must have non-empty key %q", s.Namespace, s.Name, keyMode, EncryptionSecretKeyDataKey)
 	}
 
+	keyID, validKeyID := state.NameToKeyID(s.Name)
+	if !validKeyID {
+		return state.KeyState{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
+	}
+	key.Generation = keyID
+
 	// kms does not populate keys, only uses kms key id and config
 	if keyMode == state.KMS {
-		kmsKeyID, exists := s.Data[EncryptionSecretKMSKeyId]
+		kmsHash, exists := s.Data[EncryptionSecretKMSPluginHash]
 		if !exists {
-			return state.KeyState{}, fmt.Errorf("secret %s/%s does not contain required data field %q", s.Namespace, s.Name, EncryptionSecretKMSKeyId)
+			return state.KeyState{}, fmt.Errorf("secret %s/%s does not contain required data field %q", s.Namespace, s.Name, EncryptionSecretKMSPluginHash)
 		}
-		key.KMSKeyID = string(kmsKeyID)
+		key.KMSPluginHash = string(kmsHash)
 
 		kmsConfigJsonData, exists := s.Data[EncryptionSecretKMSConfig]
 		if !exists {
@@ -79,11 +85,6 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			return state.KeyState{}, fmt.Errorf("could not load KMS config from secret %s/%s at data field %q: %v", s.Namespace, s.Name, EncryptionSecretKMSConfig, err)
 		}
 	} else {
-		keyID, validKeyID := state.NameToKeyID(s.Name)
-		if !validKeyID && keyMode != state.KMS {
-			return state.KeyState{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
-		}
-
 		key.Key = apiserverconfigv1.Key{
 			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
 			Name:   strconv.FormatUint(keyID, 10),
@@ -103,7 +104,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("encryption-key-%s-%s", component, ks.Key.Name),
+			Name:      fmt.Sprintf("encryption-key-%s-%d", component, ks.Generation),
 			Namespace: "openshift-config-managed",
 			Labels: map[string]string{
 				EncryptionKeySecretsLabel: component,
@@ -134,13 +135,11 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 
 	if ks.Mode == state.KMS {
-		// use kms key id instead of key.Name in case of kms
-		s.Name = fmt.Sprintf("encryption-key-%s-%s-%s", component, "kms", ks.KMSKeyID)
-		s.Data[EncryptionSecretKMSKeyId] = []byte(ks.KMSKeyID)
+		s.Data[EncryptionSecretKMSPluginHash] = []byte(ks.KMSPluginHash)
 
 		kmsConfigJsonData, err := json.Marshal(ks.KMSConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode kms config with key id %q: %v", ks.KMSKeyID, err)
+			return nil, fmt.Errorf("failed to encode kms config with kms plugin hash %q: %v", ks.KMSPluginHash, err)
 		}
 		s.Data[EncryptionSecretKMSConfig] = kmsConfigJsonData
 	} else {

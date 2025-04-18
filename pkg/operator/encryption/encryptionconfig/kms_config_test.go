@@ -201,14 +201,18 @@ func TestKMSConfigEncodeDecode(t *testing.T) {
 }
 
 func TestKMSKeyId(t *testing.T) {
-	keyId, err := HashKMSConfig(configv1.KMSConfig{
+	actualKMSHash, err := HashKMSConfig(configv1.KMSConfig{
 		Type: configv1.AWSKMSProvider,
 		AWS:  &configv1.AWSKMSConfig{},
 	})
 	require.NoError(t, err)
 
-	generated := generateKMSProviderName(keyId, schema.GroupResource{Resource: "secrets"})
-	extractedKeyId := extractKMSKeyIdFromProviderName(generated)
+	actualKeyGeneration := uint64(10)
 
-	assert.Equal(t, keyId, extractedKeyId, "extracted key id does not match original key id")
+	generated := generateKMSProviderName(actualKeyGeneration, actualKMSHash, schema.GroupResource{Resource: "secrets"})
+	expectedKMSHash, expectedKeyGeneration, ok := extractKMSFromProviderName(generated)
+	require.Equal(t, ok, true)
+
+	assert.Equal(t, actualKMSHash, expectedKMSHash, "extracted kms hash does not match original kms hash")
+	assert.Equal(t, actualKeyGeneration, expectedKeyGeneration, "extracted key generation does not match original generation")
 }

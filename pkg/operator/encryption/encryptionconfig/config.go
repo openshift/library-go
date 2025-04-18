@@ -116,13 +116,20 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 				}
 
 				ks = state.KeyState{
-					Mode:     state.KMS,
-					KMSKeyID: extractKMSKeyIdFromProviderName(provider.KMS.Name),
+					Mode: state.KMS,
 				}
+
+				ks.KMSPluginHash, ks.Generation, _ = extractKMSFromProviderName(provider.KMS.Name)
 
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
+			}
+
+			// fill generation for non-KMS,
+			// KMS already has filled in above
+			if ks.Mode != state.KMS {
+				ks.Generation, _ = state.NameToKeyID(ks.Key.Name)
 			}
 
 			// enrich KeyState with values from secrets
@@ -210,8 +217,8 @@ func stateToProviders(gr schema.GroupResource, desired state.GroupResourceState)
 			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 				KMS: &apiserverconfigv1.KMSConfiguration{
 					APIVersion: "v2",
-					Name:       generateKMSProviderName(key.KMSKeyID, gr),
-					Endpoint:   fmt.Sprintf(KMSPluginEndpoint, key.KMSKeyID),
+					Name:       generateKMSProviderName(key.Generation, key.KMSPluginHash, gr),
+					Endpoint:   fmt.Sprintf(KMSPluginEndpoint, key.KMSPluginHash),
 					Timeout: &metav1.Duration{
 						Duration: KMSPluginTimeout,
 					},

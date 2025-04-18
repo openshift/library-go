@@ -26,6 +26,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "full aescbc",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -48,6 +49,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "sparse aescbc",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -60,6 +62,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "full aesgcm",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -82,6 +85,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "sparse aesgcm",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -94,6 +98,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "identity",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: "",
@@ -117,8 +122,9 @@ func TestRoundtrip(t *testing.T) {
 			name:      "full KMSv2",
 			component: "kms",
 			ks: state.KeyState{
-				Backed: true,
-				Mode:   "KMS",
+				Generation: 10,
+				Backed:     true,
+				Mode:       "KMS",
 				Migrated: state.MigrationState{
 					Timestamp: now,
 					Resources: []schema.GroupResource{
@@ -129,8 +135,8 @@ func TestRoundtrip(t *testing.T) {
 						{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 					},
 				},
-				KMSKeyID:  "key-hash-foo",
-				KMSConfig: &configv1.KMSConfig{},
+				KMSPluginHash: "key-hash-foo",
+				KMSConfig:     &configv1.KMSConfig{},
 			},
 		},
 	}

@@ -28,7 +28,7 @@ type GroupResourceState struct {
 }
 
 func (k GroupResourceState) HasWriteKey() bool {
-	return (len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0) || k.WriteKey.KMSKeyID != ""
+	return (len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0) || k.WriteKey.KMSPluginHash != ""
 }
 
 type KeyState struct {
@@ -44,8 +44,12 @@ type KeyState struct {
 	ExternalReason string
 
 	// only used when a KMS provider is used
-	KMSKeyID  string
-	KMSConfig *configv1.KMSConfig
+	KMSPluginHash string
+	KMSConfig     *configv1.KMSConfig
+
+	// uniquely identify the key over time,
+	// is the same as keyId for non-KMS local aes keys.
+	Generation uint64
 }
 
 type MigrationState struct {
