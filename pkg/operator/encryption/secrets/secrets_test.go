@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -25,6 +26,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "full aescbc",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -47,6 +49,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "sparse aescbc",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -59,6 +62,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "full aesgcm",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -81,6 +85,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "sparse aesgcm",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
@@ -93,6 +98,7 @@ func TestRoundtrip(t *testing.T) {
 			name:      "identity",
 			component: "kms",
 			ks: state.KeyState{
+				Generation: 54,
 				Key: v1.Key{
 					Name:   "54",
 					Secret: "",
@@ -109,6 +115,28 @@ func TestRoundtrip(t *testing.T) {
 				},
 				InternalReason: "internal",
 				ExternalReason: "external",
+			},
+		},
+		// scenario: external KMSv2 provider
+		{
+			name:      "full KMSv2",
+			component: "kms",
+			ks: state.KeyState{
+				Generation: 10,
+				Backed:     true,
+				Mode:       "KMS",
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "route.openshift.io", Resource: "routes"},
+						{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
+						{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+					},
+				},
+				KMSPluginHash: "key-hash-foo",
+				KMSConfig:     &configv1.KMSConfig{},
 			},
 		},
 	}

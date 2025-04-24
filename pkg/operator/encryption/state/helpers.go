@@ -55,10 +55,7 @@ func SortRecentFirst(unsorted []KeyState) []KeyState {
 	ret := make([]KeyState, len(unsorted))
 	copy(ret, unsorted)
 	sort.Slice(ret, func(i, j int) bool {
-		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
-		iKeyID, _ := NameToKeyID(ret[i].Key.Name)
-		jKeyID, _ := NameToKeyID(ret[j].Key.Name)
-		return iKeyID > jKeyID
+		return ret[i].Generation > ret[j].Generation
 	})
 	return ret
 }
@@ -74,11 +71,14 @@ func NameToKeyID(name string) (uint64, bool) {
 }
 
 func EqualKeyAndEqualID(s1, s2 *KeyState) bool {
-	if s1.Mode != s2.Mode || s1.Key.Secret != s2.Key.Secret {
+	if s1.Mode != s2.Mode || s1.Generation != s2.Generation {
 		return false
 	}
 
-	id1, valid1 := NameToKeyID(s1.Key.Name)
-	id2, valid2 := NameToKeyID(s2.Key.Name)
-	return valid1 && valid2 && id1 == id2
+	if s1.Mode == KMS {
+		return s1.KMSPluginHash == s2.KMSPluginHash
+	}
+
+	// non-KMS: key data matches
+	return s1.Key.Secret == s2.Key.Secret
 }

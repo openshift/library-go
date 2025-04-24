@@ -69,7 +69,8 @@ func (pc *preconditionChecker) encryptionWasEnabled() (bool, error) {
 		return false, err // unknown error
 	}
 
-	if currentMode := state.Mode(apiServerConfig.Spec.Encryption.Type); len(currentMode) > 0 && currentMode != state.Identity {
+	currentMode := state.Mode(apiServerConfig.Spec.Encryption.Type)
+	if len(currentMode) > 0 && currentMode != state.Identity {
 		return true, nil // encryption might be actually in progress
 	}
 

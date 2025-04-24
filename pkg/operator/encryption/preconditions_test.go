@@ -72,6 +72,13 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			},
 			expectedPreconditionsToBeReady: true,
 		},
+
+		// scenario 6: KMS enabled
+		{
+			name:                           "encryption on, currentMode set to KMS",
+			encryptionType:                 configv1.EncryptionTypeKMS,
+			expectedPreconditionsToBeReady: true,
+		},
 	}
 
 	for _, scenario := range scenarios {

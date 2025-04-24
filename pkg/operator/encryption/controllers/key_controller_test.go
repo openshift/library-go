@@ -282,11 +282,11 @@ func TestKeyController(t *testing.T) {
 					Type:    "EncryptionKeyControllerDegraded",
 					Status:  "True",
 					Reason:  "Error",
-					Message: "secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target",
+					Message: "secret openshift-config-managed/encryption-key-kms-1 is invalid, new keys cannot be created for encryption target",
 				}
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
-			expectedError: errors.New("secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target"),
+			expectedError: errors.New("secret openshift-config-managed/encryption-key-kms-1 is invalid, new keys cannot be created for encryption target"),
 		},
 
 		{
@@ -495,7 +495,8 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			ks, err := target.getCurrentEncryptionModeWithExternalReason(context.TODO())
+			externalReason := ks.ExternalReason
 
 			// validate
 			if err != nil {
