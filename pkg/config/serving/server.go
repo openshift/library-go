@@ -14,8 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	"k8s.io/client-go/kubernetes"
-	kasversion "k8s.io/component-base/version"
+	kasversioncompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -110,13 +111,14 @@ func assertAPIConnection(ctx context.Context, kubeClient *kubernetes.Clientset, 
 // DefaultBuildEffectiveVersion returns the MutableEffectiveVersion based on the
 // current build information.
 // Similar to version.DefaultBuildEffectiveVersion
-func defaultBuildEffectiveVersion(versionInfo *version.Info) kasversion.MutableEffectiveVersion {
+// See https://github.com/kubernetes/apiserver/commit/9bb4aa730abaf73aaef17dc9e9608cceb4f904ed#diff-bc93e77a314d3da08bb793695b142f4f32d4e3fdd186fe22c87725d8dec62130R51-R55
+func defaultBuildEffectiveVersion(versionInfo *version.Info) kasversioncompatibility.MutableEffectiveVersion {
 	if versionInfo != nil {
 		// major.minor passed through gitVersion
 		parsedVersion, err := utilversion.Parse(versionInfo.String())
 		if err == nil && (parsedVersion.Major() != 0 || parsedVersion.Minor() != 0) {
-			return kasversion.NewEffectiveVersion(versionInfo.String())
+			return kasversioncompatibility.NewEffectiveVersionFromString(versionInfo.String(), "", "")
 		}
 	}
-	return kasversion.DefaultKubeEffectiveVersion()
+	return compatibility.DefaultBuildEffectiveVersion()
 }
