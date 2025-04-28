@@ -104,7 +104,7 @@ func TestSetOperatorSpecFromUnstructured(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(test.in, test.expected) {
-				t.Errorf(diff.ObjectDiff(test.in, test.expected))
+				t.Errorf("%s", diff.ObjectDiff(test.in, test.expected))
 			}
 		})
 	}
@@ -208,7 +208,7 @@ func TestSetOperatorStatusFromUnstructured(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(test.in, test.expected) {
-				t.Errorf(diff.ObjectGoPrintDiff(test.in, test.expected))
+				t.Errorf("%s", diff.ObjectGoPrintDiff(test.in, test.expected))
 			}
 		})
 	}

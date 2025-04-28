@@ -96,7 +96,7 @@ func TestSetOperatorCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Errorf("%s", diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -143,7 +143,7 @@ func TestRemoveOperatorCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Errorf("%s", diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -234,7 +234,7 @@ func TestSetCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Errorf("%s", diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -281,7 +281,7 @@ func TestRemoveCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Errorf("%s", diff.ObjectDiff(expected, actual))
 				}
 			}
 		})

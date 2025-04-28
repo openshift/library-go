@@ -77,12 +77,19 @@ func (i FakeInfrastructureSharedInformer) AddEventHandler(handler cache.Resource
 func (i FakeInfrastructureSharedInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) (cache.ResourceEventHandlerRegistration, error) {
 	return nil, nil
 }
-func (i FakeInfrastructureSharedInformer) GetStore() cache.Store           { return nil }
-func (i FakeInfrastructureSharedInformer) GetController() cache.Controller { return nil }
-func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})      {}
-func (i FakeInfrastructureSharedInformer) HasSynced() bool                 { return i.HasSynced_ }
-func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { return "" }
+func (i FakeInfrastructureSharedInformer) AddEventHandlerWithOptions(handler cache.ResourceEventHandler, options cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
+}
+func (i FakeInfrastructureSharedInformer) GetStore() cache.Store              { return nil }
+func (i FakeInfrastructureSharedInformer) GetController() cache.Controller    { return nil }
+func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})         {}
+func (i FakeInfrastructureSharedInformer) RunWithContext(ctx context.Context) {}
+func (i FakeInfrastructureSharedInformer) HasSynced() bool                    { return i.HasSynced_ }
+func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string    { return "" }
 func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
+	return nil
+}
+func (i FakeInfrastructureSharedInformer) SetWatchErrorHandlerWithContext(handler cache.WatchErrorHandlerWithContext) error {
 	return nil
 }
 func (i FakeInfrastructureSharedInformer) SetTransform(f cache.TransformFunc) error {

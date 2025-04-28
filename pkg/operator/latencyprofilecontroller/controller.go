@@ -147,7 +147,7 @@ func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.Syn
 			if err != nil {
 				return err
 			}
-			return fmt.Errorf(rejectMsg)
+			return fmt.Errorf("%s", rejectMsg)
 		}
 	}
 
