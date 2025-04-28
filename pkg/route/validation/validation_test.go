@@ -112,6 +112,18 @@ func TestValidateRoute(t *testing.T) {
 	var headerNameXSS string = "X-XSS-Protection"
 	invalidNumRequests := make([]routev1.RouteHTTPHeader, maxRequestHeaderList+1)
 	invalidNumResponses := make([]routev1.RouteHTTPHeader, maxResponseHeaderList+1)
+	routeWithPath := func(path string) *routev1.Route {
+		return &routev1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wildcardpolicy",
+				Namespace: "foo",
+			},
+			Spec: routev1.RouteSpec{
+				To:   createRouteSpecTo("serviceName", "Service"),
+				Path: path,
+			},
+		}
+	}
 	tests := []struct {
 		name           string
 		route          *routev1.Route
@@ -1007,13 +1019,34 @@ func TestValidateRoute(t *testing.T) {
 			},
 			expectedErrors: 1,
 		},
+		{
+			name:           "spec.path should not contain hash symbol in the spec.path",
+			route:          routeWithPath("/new-path#"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain whitespace in the spec.path",
+			route:          routeWithPath("/new path"),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path should not contain whitespace or # in the spec.path",
+			route:          routeWithPath("/invalid-path # "),
+			expectedErrors: 1,
+		},
+		{
+			name:           "spec.path is valid", //accepts a valid spec.path
+			route:          routeWithPath("/valid-path"),
+			expectedErrors: 0,
+		},
 	}
-
 	for _, tc := range tests {
-		errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
-		if len(errs) != tc.expectedErrors {
-			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
+			if len(errs) != tc.expectedErrors {
+				t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
+			}
+		})
 	}
 }
 
@@ -2446,6 +2479,111 @@ func TestValidateRouteUpdate(t *testing.T) {
 			change: func(route *routev1.Route) {
 				route.Spec.Host = "name-namespace-1234567890-1234567890-1234567890-1234567890-12345.test.com"
 			}, // new route is invalid - do labels check
+			expectedErrors: 1,
+		},
+		{
+			name: "Reject update to spec.path containing #",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "valid-route",
+					Namespace:       "foo",
+					ResourceVersion: "1",
+				},
+				Spec: routev1.RouteSpec{
+					Path: "/valid-path", // Initial valid path
+					To: routev1.RouteTargetReference{
+						Name: "serviceName",
+						Kind: "Service",
+					},
+				},
+			},
+			change: func(route *routev1.Route) {
+				route.Spec.Path = "/path#invalid" // Introduce #
+			},
+			expectedErrors: 1,
+		},
+		{
+			name: "Reject update to spec.path containing whitespace",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "valid-route",
+					Namespace:       "foo",
+					ResourceVersion: "1",
+				},
+				Spec: routev1.RouteSpec{
+					Path: "/valid-path",
+					To: routev1.RouteTargetReference{
+						Name: "serviceName",
+						Kind: "Service",
+					},
+				},
+			},
+			change: func(route *routev1.Route) {
+				route.Spec.Path = "/invalid path" // Introduce whitespace
+			},
+			expectedErrors: 1,
+		},
+		{
+			name: "Allow update without changing spec.path",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "valid-route",
+					Namespace:       "foo",
+					ResourceVersion: "1",
+				},
+				Spec: routev1.RouteSpec{
+					Path: "/valid-path",
+					To: routev1.RouteTargetReference{
+						Name: "serviceName",
+						Kind: "Service",
+					},
+				},
+			},
+			change: func(route *routev1.Route) {
+				route.Spec.Host = "new.host.example.com" // Change unrelated field
+			},
+			expectedErrors: 0,
+		},
+		{
+			name: "Allow updates without modifying invalid spec.path",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "valid-route",
+					Namespace:       "foo",
+					ResourceVersion: "1",
+				},
+				Spec: routev1.RouteSpec{
+					Path: "/path#invalid", // Pre-existing invalid path
+					To: routev1.RouteTargetReference{
+						Name: "serviceName",
+						Kind: "Service",
+					},
+				},
+			},
+			change: func(route *routev1.Route) {
+				route.Spec.Host = "new.host.example.com"
+			},
+			expectedErrors: 0,
+		},
+		{
+			name: "Reject update that modifies invalid spec.path to another invalid value",
+			route: &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "invalid-route",
+					Namespace:       "foo",
+					ResourceVersion: "1",
+				},
+				Spec: routev1.RouteSpec{
+					Path: "/path with space", // Pre-existing invalid path
+					To: routev1.RouteTargetReference{
+						Name: "serviceName",
+						Kind: "Service",
+					},
+				},
+			},
+			change: func(route *routev1.Route) {
+				route.Spec.Path = "/path#invalid" // Change to another invalid path
+			},
 			expectedErrors: 1,
 		},
 	}
