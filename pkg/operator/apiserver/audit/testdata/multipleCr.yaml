@@ -34,6 +34,8 @@ rules:
     resources: ["tokenreviews", "tokenrequests"]
   - group: "oauth.openshift.io"
     resources: ["oauthclients", "tokenreviews"]
+  - group: "machineconfiguration.openshift.io"
+    resource: ["machineconfig", "controllerconfig"]
   userGroups:
   - system:authenticated:oauth
 # log request and response payloads for all write requests
@@ -64,6 +66,8 @@ rules:
       resources: ["tokenreviews", "tokenrequests"]
     - group: "oauth.openshift.io"
       resources: ["oauthclients", "tokenreviews"]
+    - group: "machineconfiguration.openshift.io"
+      resource: ["machineconfig", "controllerconfig"]
   userGroups:
     - system:authenticated
 - level: RequestResponse
