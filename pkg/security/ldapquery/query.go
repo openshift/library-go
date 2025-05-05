@@ -112,7 +112,7 @@ func (o *LDAPQueryOnAttribute) NewSearchRequest(attributeValue string, attribute
 		if err != nil {
 			return nil, fmt.Errorf("could not search by dn, invalid dn value: %v", err)
 		}
-		if !baseDN.AncestorOf(dn) && !baseDN.Equal(dn) {
+		if !baseDN.AncestorOfFold(dn) && !baseDN.EqualFold(dn) {
 			return nil, NewQueryOutOfBoundsError(attributeValue, o.BaseDN)
 		}
 		return o.buildDNQuery(attributeValue, attributes), nil
