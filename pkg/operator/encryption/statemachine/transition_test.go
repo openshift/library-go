@@ -985,6 +985,156 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 			}),
 		},
+		{
+			"external KMS applied and converged",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-1-foocloudhash-b7d9e546",
+								Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "KMS"),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-1-foocloudhash-b7d9e546",
+							Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
+		{
+			"aescbc has converged after once applying external KMS",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-1-foocloudhash-b7d9e546",
+								Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "KMS"),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "2",
+								Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}, {
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-1-foocloudhash-b7d9e546",
+							Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
+		{
+			"external kms has converged after once applying aescbc",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-2-foocloudhash-b7d9e546",
+								Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+								Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretForKMS("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, "KMS"),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-2-foocloudhash-b7d9e546",
+							Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+							Timeout:    &metav1.Duration{Duration: 5 * time.Second},
+						},
+					}, {
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "1",
+								Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
