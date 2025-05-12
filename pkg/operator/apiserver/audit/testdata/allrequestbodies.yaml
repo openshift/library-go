@@ -34,5 +34,7 @@ rules:
     resources: ["tokenreviews", "tokenrequests"]
   - group: "oauth.openshift.io"
     resources: ["oauthclients", "tokenreviews"]
+  - group: "machineconfiguration.openshift.io"
+    resource: ["machineconfig", "controllerconfig"]
 # catch-all rule to log all other requests with request and response payloads
 - level: RequestResponse
