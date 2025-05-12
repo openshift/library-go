@@ -174,7 +174,7 @@ func TestMultiWorkerControllerShutdown(t *testing.T) {
 	workersShutdownMutex.Unlock()
 }
 
-func TestControllerWithInformer(t *testing.T) {
+func testControllerWithInformer(t *testing.T, once bool) {
 	kubeClient := fake.NewSimpleClientset()
 
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Second, informers.WithNamespace("test"))
@@ -182,6 +182,9 @@ func TestControllerWithInformer(t *testing.T) {
 	go kubeInformers.Core().V1().Secrets().Informer().Run(ctx.Done())
 
 	factory := New().WithInformers(kubeInformers.Core().V1().Secrets().Informer())
+	if !once {
+		factory = factory.WithInformers(kubeInformers.Core().V1().Secrets().Informer())
+	}
 
 	controllerSynced := make(chan struct{})
 	controller := factory.WithSync(func(ctx context.Context, syncContext SyncContext) error {
@@ -208,6 +211,15 @@ func TestControllerWithInformer(t *testing.T) {
 	case <-time.After(30 * time.Second):
 		t.Fatal("test timeout")
 	}
+}
+
+func TestControllerWithInformer(t *testing.T) {
+	testControllerWithInformer(t, true)
+}
+
+// The same as above, but registers the same informer twice (OCPBUGS-54385)
+func TestControllerWithInformer2(t *testing.T) {
+	testControllerWithInformer(t, false)
 }
 
 func TestControllerScheduled(t *testing.T) {
