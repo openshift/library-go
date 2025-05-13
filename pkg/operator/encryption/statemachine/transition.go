@@ -196,7 +196,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// Note: because read-keys are consistent, currentlyEncryptedGRs equals toBeEncryptedGRs
 	allMigrated, _, reason := state.MigratedFor(currentlyEncryptedGRs, writeKey)
 	if !allMigrated {
-		klog.V(4).Infof(reason)
+		klog.V(4).Infof("%s", reason)
 		return desiredEncryptionState
 	}
 	for gr := range desiredEncryptionState {
