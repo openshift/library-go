@@ -1780,7 +1780,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 1, corev1.PodRunning, true),
 				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 1, corev1.PodSucceeded, true),
 			},
-			expectedUpgradeOrder: []int{1, 2},
+			expectedUpgradeOrder: []int{2, 1},
 		},
 		{
 			name:                    "two nodes at different revisions behind and 1 node on latest available revision",
