@@ -426,7 +426,7 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	}
 
 	klog.Infof("Waiting for installer revisions to settle for node %s", o.NodeName)
-	if err := o.waitForOtherInstallerRevisionsToSettle(ctx); err != nil {
+	if err := o.waitForOtherInstallerRevisionsToSettle(ctx, 30*time.Second); err != nil {
 		return err
 	}
 
@@ -456,7 +456,7 @@ func (o *InstallOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Context) error {
+func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Context, settledGracePeriod time.Duration) error {
 	currRevision64, err := strconv.ParseInt(o.Revision, 10, 32)
 	if err != nil {
 		return fmt.Errorf("bad local revision %v: %w", o.Revision, err)
@@ -514,7 +514,7 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	// once there are no other running revisions, wait Xs.
 	// In an extreme case, this can be grace period seconds+1.  Trying 30s to start. Etcd has been the worst off since
 	// it requires 2 out 3 to be functioning.
-	time.Sleep(30 * time.Second)
+	time.Sleep(settledGracePeriod)
 
 	klog.Infof("Getting installer pods for node %s", o.NodeName)
 	installerPods, err := o.getInstallerPodsOnThisNode(ctx)

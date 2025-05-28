@@ -504,9 +504,9 @@ func TestWaitForOtherInstallerRevisionsToSettle(t *testing.T) {
 				NodeName: "foo",
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
-			err := installOptions.waitForOtherInstallerRevisionsToSettle(ctx)
+			err := installOptions.waitForOtherInstallerRevisionsToSettle(ctx, time.Second)
 			if err != tc.expected {
 				t.Errorf("error returned by waitForOtherInstallerRevisionsToSettle did not match expected - actual: %v | expected: %v", err, tc.expected)
 			}
