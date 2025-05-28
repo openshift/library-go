@@ -3,13 +3,14 @@ package installerpod
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"os"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/utils/clock"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -217,7 +218,8 @@ func (o *InstallOptions) kubeletVersion(ctx context.Context) (string, error) {
 }
 
 func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceDir string,
-	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.Set[string], prefixed bool) error {
+	secretNames, optionalSecretNames, configNames, optionalConfigNames sets.Set[string], prefixed bool,
+) error {
 	klog.Infof("Creating target resource directory %q ...", resourceDir)
 	if err := os.MkdirAll(resourceDir, 0755); err != nil && !os.IsExist(err) {
 		return err
@@ -368,7 +370,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	// then write the required pod and all optional
 	// the key must be pod.yaml or has a -pod.yaml suffix to be considered
 	for rawPodKey, rawPod := range podsConfigMap.Data {
-		var manifestFileName = rawPodKey
+		manifestFileName := rawPodKey
 		if manifestFileName == "pod.yaml" {
 			// TODO: update kas-o to update the key to a fully qualified name
 			manifestFileName = o.PodConfigMapNamePrefix + ".yaml"
@@ -495,17 +497,10 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 			if podRevision == currRevision {
 				continue
 			}
-			// wait until we have at least one container status to check
-			if len(pod.Status.ContainerStatuses) == 0 {
-				klog.Infof("Pod container statuses for node %s are empty, waiting", o.NodeName)
+
+			if terminated, msg := isInstallerPodTerminated(pod.Status); !terminated {
+				klog.Infof("installer pod %q for node %q is not terminated: %s - waiting", pod.Name, o.NodeName, msg)
 				return false, nil
-			}
-			for _, container := range pod.Status.ContainerStatuses {
-				// if the container isn't terminated, we need this installer pod to wait until it is.
-				if container.State.Terminated == nil {
-					klog.Infof("Pod container: %s state for node %s is not terminated, waiting", container.Name, o.NodeName)
-					return false, nil
-				}
 			}
 		}
 
@@ -542,6 +537,34 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	klog.Infof("Latest installer revision for node %s is: %v", o.NodeName, latestRevision)
 
 	return nil
+}
+
+// isInstallerPodTerminated checks whether or not a PodStatus indicates
+// that the installer pod has entered a terminal state.
+func isInstallerPodTerminated(podStatus corev1.PodStatus) (bool, string) {
+	// If the pod is in a failed state with no container statuses, it is likely a fatal failure
+	// in which no containers will be running. Because installer pods have a restartPolicy of Never,
+	// the pod will never be restarted and the containers will thus never run.
+	// Consider this case a terminated state.
+	// TODO: Open Question - Should this be more nuanced? Under what conditions should this logic
+	// _not_ apply?
+	if podStatus.Phase == corev1.PodFailed && len(podStatus.ContainerStatuses) == 0 {
+		return true, ""
+	}
+
+	// Otherwise:
+	// wait until we have at least one container status to check
+	if len(podStatus.ContainerStatuses) == 0 {
+		return false, "no container statuses found"
+	}
+	for _, container := range podStatus.ContainerStatuses {
+		// if the container isn't terminated, we need this installer pod to wait until it is.
+		if container.State.Terminated == nil {
+			return false, fmt.Sprintf("container %q is not in a terminated state", container.Name)
+		}
+	}
+
+	return true, ""
 }
 
 func (o *InstallOptions) getInstallerPodsOnThisNode(ctx context.Context) ([]*corev1.Pod, error) {

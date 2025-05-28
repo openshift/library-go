@@ -12,6 +12,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -291,5 +293,223 @@ func checkFileContentMatchesPod(t *testing.T, file, expected string) {
 
 	if !equality.Semantic.DeepEqual(actualPod, expectedPod) {
 		t.Errorf("unexpected pod was written %v", actualPod)
+	}
+}
+
+func TestWaitForOtherInstallerRevisionsToSettle(t *testing.T) {
+	type testcase struct {
+		name          string
+		installerPods []runtime.Object
+		expected      error
+	}
+
+	testcases := []testcase{
+		{
+			name: "installer pods with phase Failed and no container statuses",
+			installerPods: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodFailed,
+						Reason:  "NodeShutdown",
+						Message: "Node is being shut down",
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-retry-1-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodFailed,
+						Reason:  "NodeNotReady",
+						Message: "Node is not yet ready",
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "installer pods with phase Succeeded and no container statuses",
+			installerPods: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-retry-1-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+					},
+				},
+			},
+			expected: wait.ErrWaitTimeout,
+		},
+		{
+			name: "installer pods with phase Succeeded and container statuses that are all terminated",
+			installerPods: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name: "starter",
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-retry-1-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name: "starter",
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "installer pods with phase Succeeded and container statuses that are not all terminated",
+			installerPods: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name: "starter",
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{},
+								},
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "installer-0-retry-1-foo",
+						Namespace: "foo",
+						Labels: map[string]string{
+							"app": "installer",
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "foo",
+					},
+					Status: corev1.PodStatus{
+						Phase:   corev1.PodSucceeded,
+						Reason:  "Success",
+						Message: "Succeeded",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name: "starter",
+							},
+						},
+					},
+				},
+			},
+			expected: wait.ErrWaitTimeout,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			installOptions := &InstallOptions{
+				Revision: "1",
+				KubeClient: fake.NewSimpleClientset(tc.installerPods...),
+				Namespace: "foo",
+				NodeName: "foo",
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := installOptions.waitForOtherInstallerRevisionsToSettle(ctx)
+			if err != tc.expected {
+				t.Errorf("error returned by waitForOtherInstallerRevisionsToSettle did not match expected - actual: %v | expected: %v", err, tc.expected)
+			}
+		})
 	}
 }
