@@ -498,10 +498,10 @@ func TestWaitForOtherInstallerRevisionsToSettle(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			installOptions := &InstallOptions{
-				Revision: "1",
+				Revision:   "1",
 				KubeClient: fake.NewSimpleClientset(tc.installerPods...),
-				Namespace: "foo",
-				NodeName: "foo",
+				Namespace:  "foo",
+				NodeName:   "foo",
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
