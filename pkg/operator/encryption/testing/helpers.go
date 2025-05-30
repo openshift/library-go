@@ -24,6 +24,11 @@ const (
 	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
+
+	encryptionSecretKMSHashKeyForTest       = "encryption.apiserver.operator.openshift.io-kms-plugin-hash"
+	encryptionKMSHashValueForTest           = "foocloudhash"
+	encryptionSecretKMSConfigDataKeyForTest = "encryption.apiserver.operator.openshift.io-kms-config"
+	encryptionKMSConfigJsonValueForTest     = "null" // i.e. refers to an empty KMS config struct
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -69,6 +74,13 @@ func CreateEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupReso
 func CreateEncryptionKeySecretWithRawKeyWithMode(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, mode string) *corev1.Secret {
 	secret := CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, mode)
 	secret.Data[encryptionSecretKeyDataForTest] = rawKey
+	return secret
+}
+
+func CreateEncryptionKeySecretForKMS(targetNS string, grs []schema.GroupResource, keyID uint64, mode string) *corev1.Secret {
+	secret := CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, mode)
+	secret.Data[encryptionSecretKMSHashKeyForTest] = []byte(encryptionKMSHashValueForTest)
+	secret.Data[encryptionSecretKMSConfigDataKeyForTest] = []byte(encryptionKMSConfigJsonValueForTest)
 	return secret
 }
 
@@ -242,6 +254,17 @@ func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv
 	case "identity":
 		return &apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
+		}
+	case "KMS":
+		return &apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("kms-%s-%s-b7d9e546", key.Name, encryptionKMSHashValueForTest),
+				Endpoint:   "unix:///var/kube-kms/foocloudhash/socket.sock",
+				Timeout: &metav1.Duration{
+					Duration: 5 * time.Second,
+				},
+			},
 		}
 	default:
 		return &apiserverconfigv1.ProviderConfiguration{
