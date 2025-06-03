@@ -245,19 +245,6 @@ func TestCopyContent(t *testing.T) {
 	}
 }
 
-func TestKubeletVersion(t *testing.T) {
-	o := &InstallOptions{}
-	o.KubeletVersion = "1.23.1+1b2affc"
-	if o.installerPodNeedUUID() {
-		t.Fatalf("kubelet \"v1.22.1+1b2affc\" does not need UID")
-	}
-
-	o.KubeletVersion = "1.20.0+b12afff"
-	if !o.installerPodNeedUUID() {
-		t.Fatalf("kubelet \"v1.20.0+1b2affc\" need UID")
-	}
-}
-
 func checkFileContent(t *testing.T, file, expected string) {
 	actual, err := os.ReadFile(file)
 	if err != nil {
