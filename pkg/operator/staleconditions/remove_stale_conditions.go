@@ -2,10 +2,8 @@ package staleconditions
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/apiserver/jsonpatch"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -45,25 +43,7 @@ func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext f
 		return err
 	}
 
-	var removedCount int
-	jsonPatch := jsonpatch.New()
-	for i, existingCondition := range operatorStatus.Conditions {
-		for _, conditionTypeToRemove := range c.conditionTypesToRemove {
-			if existingCondition.Type != conditionTypeToRemove {
-				continue
-			}
-			removeAtIndex := i
-			if !jsonPatch.IsEmpty() {
-				removeAtIndex = removeAtIndex - removedCount
-			}
-			jsonPatch.WithRemove(
-				fmt.Sprintf("/status/conditions/%d", removeAtIndex),
-				jsonpatch.NewTestCondition(fmt.Sprintf("/status/conditions/%d/type", removeAtIndex), conditionTypeToRemove),
-			)
-			removedCount++
-		}
-	}
-
+	jsonPatch := v1helpers.RemoveConditionsJSONPatch(operatorStatus, c.conditionTypesToRemove)
 	if jsonPatch.IsEmpty() {
 		return nil
 	}
