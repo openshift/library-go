@@ -3,12 +3,13 @@ package status
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -503,11 +504,12 @@ func TestVersions(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name             string
-		allowRemoval     bool
-		initialVersions  []configv1.OperandVersion
-		getterVersions   map[string]string
-		expectedVersions []configv1.OperandVersion
+		name              string
+		allowRemoval      bool
+		allowEmptyRemoval bool
+		initialVersions   []configv1.OperandVersion
+		getterVersions    map[string]string
+		expectedVersions  []configv1.OperandVersion
 	}{
 		{
 			name:             "empty version",
@@ -553,6 +555,52 @@ func TestVersions(t *testing.T) {
 			getterVersions:   map[string]string{"foo": "1"},
 			expectedVersions: []configv1.OperandVersion{foo1},
 		},
+		{
+			name:              "no vesion changed (allow empty removable)",
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar2},
+			getterVersions:    map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions:  []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:              "empty version removed",
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar2},
+			getterVersions:    map[string]string{"foo": "1", "bar": ""},
+			expectedVersions:  []configv1.OperandVersion{foo1},
+		},
+		{
+			name:              "no vesion changed (allow empty and removable)",
+			allowRemoval:      true,
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar2},
+			getterVersions:    map[string]string{"foo": "1", "bar": "2"},
+			expectedVersions:  []configv1.OperandVersion{foo1, bar2},
+		},
+		{
+			name:              "removable version removed (allow empty removable)",
+			allowRemoval:      true,
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar1},
+			getterVersions:    map[string]string{"foo": "1"},
+			expectedVersions:  []configv1.OperandVersion{foo1},
+		},
+		{
+			name:              "empty version removed (allow removable)",
+			allowRemoval:      true,
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar2},
+			getterVersions:    map[string]string{"foo": "1", "bar": ""},
+			expectedVersions:  []configv1.OperandVersion{foo1},
+		},
+		{
+			name:              "empty and removable versions removed",
+			allowRemoval:      true,
+			allowEmptyRemoval: true,
+			initialVersions:   []configv1.OperandVersion{foo1, bar2},
+			getterVersions:    map[string]string{"bar": ""},
+			expectedVersions:  []configv1.OperandVersion{},
+		},
 	}
 	for idx, tc := range testCases {
 		t.Run(fmt.Sprintf("%d/%s", idx, tc.name), func(t *testing.T) {
@@ -587,6 +635,9 @@ func TestVersions(t *testing.T) {
 			}
 			if tc.allowRemoval {
 				controller = controller.WithVersionRemoval()
+			}
+			if tc.allowEmptyRemoval {
+				controller = controller.WithEmptyVersionRemoval()
 			}
 			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
 				t.Errorf("unexpected sync error: %v", err)
