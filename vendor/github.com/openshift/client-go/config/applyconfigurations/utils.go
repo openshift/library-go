@@ -5,8 +5,10 @@ package applyconfigurations
 import (
 	v1 "github.com/openshift/api/config/v1"
 	v1alpha1 "github.com/openshift/api/config/v1alpha1"
+	v1alpha2 "github.com/openshift/api/config/v1alpha2"
 	configv1 "github.com/openshift/client-go/config/applyconfigurations/config/v1"
 	configv1alpha1 "github.com/openshift/client-go/config/applyconfigurations/config/v1alpha1"
+	configv1alpha2 "github.com/openshift/client-go/config/applyconfigurations/config/v1alpha2"
 	internal "github.com/openshift/client-go/config/applyconfigurations/internal"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,6 +48,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.AWSDNSSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("AWSIngressSpec"):
 		return &configv1.AWSIngressSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("AWSKMSConfig"):
+		return &configv1.AWSKMSConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("AWSPlatformSpec"):
 		return &configv1.AWSPlatformSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("AWSPlatformStatus"):
@@ -146,6 +150,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.ExternalPlatformSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ExternalPlatformStatus"):
 		return &configv1.ExternalPlatformStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ExtraMapping"):
+		return &configv1.ExtraMappingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("FeatureGate"):
 		return &configv1.FeatureGateApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("FeatureGateAttributes"):
@@ -164,6 +170,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.GCPResourceLabelApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GCPResourceTag"):
 		return &configv1.GCPResourceTagApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GCPServiceEndpoint"):
+		return &configv1.GCPServiceEndpointApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GitHubIdentityProvider"):
 		return &configv1.GitHubIdentityProviderApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GitLabIdentityProvider"):
@@ -176,6 +184,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.HubSourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("HubSourceStatus"):
 		return &configv1.HubSourceStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IBMCloudPlatformSpec"):
+		return &configv1.IBMCloudPlatformSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IBMCloudPlatformStatus"):
 		return &configv1.IBMCloudPlatformStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IBMCloudServiceEndpoint"):
@@ -224,6 +234,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.IngressStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("KeystoneIdentityProvider"):
 		return &configv1.KeystoneIdentityProviderApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("KMSConfig"):
+		return &configv1.KMSConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("KubevirtPlatformStatus"):
 		return &configv1.KubevirtPlatformStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LDAPAttributeMapping"):
@@ -368,6 +380,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.TokenClaimMappingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TokenClaimMappings"):
 		return &configv1.TokenClaimMappingsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("TokenClaimOrExpressionMapping"):
+		return &configv1.TokenClaimOrExpressionMappingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TokenClaimValidationRule"):
 		return &configv1.TokenClaimValidationRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TokenConfig"):
@@ -440,6 +454,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1alpha1.InsightsDataGatherApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("InsightsDataGatherSpec"):
 		return &configv1alpha1.InsightsDataGatherSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PersistentVolumeClaimReference"):
+		return &configv1alpha1.PersistentVolumeClaimReferenceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PersistentVolumeConfig"):
+		return &configv1alpha1.PersistentVolumeConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PKI"):
+		return &configv1alpha1.PKIApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PKICertificateSubject"):
+		return &configv1alpha1.PKICertificateSubjectApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Policy"):
 		return &configv1alpha1.PolicyApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("PolicyFulcioSubject"):
@@ -460,8 +482,30 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1alpha1.RetentionPolicyApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("RetentionSizeConfig"):
 		return &configv1alpha1.RetentionSizeConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Storage"):
+		return &configv1alpha1.StorageApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("UserDefinedMonitoring"):
 		return &configv1alpha1.UserDefinedMonitoringApplyConfiguration{}
+
+		// Group=config.openshift.io, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithKind("Custom"):
+		return &configv1alpha2.CustomApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("GatherConfig"):
+		return &configv1alpha2.GatherConfigApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("GathererConfig"):
+		return &configv1alpha2.GathererConfigApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("Gatherers"):
+		return &configv1alpha2.GatherersApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("InsightsDataGather"):
+		return &configv1alpha2.InsightsDataGatherApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("InsightsDataGatherSpec"):
+		return &configv1alpha2.InsightsDataGatherSpecApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PersistentVolumeClaimReference"):
+		return &configv1alpha2.PersistentVolumeClaimReferenceApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PersistentVolumeConfig"):
+		return &configv1alpha2.PersistentVolumeConfigApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("Storage"):
+		return &configv1alpha2.StorageApplyConfiguration{}
 
 	}
 	return nil
