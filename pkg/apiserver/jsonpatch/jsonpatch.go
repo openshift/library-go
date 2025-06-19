@@ -26,6 +26,22 @@ func New() *PatchSet {
 	return &PatchSet{}
 }
 
+func Merge(patches ...*PatchSet) *PatchSet {
+	merged := New()
+
+	if len(patches) == 0 {
+		return merged
+	}
+
+	for _, p := range patches {
+		if p != nil && !p.IsEmpty() {
+			merged.patches = append(merged.patches, p.patches...)
+		}
+	}
+
+	return merged
+}
+
 func (p *PatchSet) WithRemove(path string, test TestCondition) *PatchSet {
 	p.WithTest(test.path, test.value)
 	p.addOperation(patchRemoveOperation, path, nil)

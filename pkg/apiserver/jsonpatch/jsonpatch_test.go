@@ -94,7 +94,67 @@ func TestJSONPatch(t *testing.T) {
 				t.Fatal(err)
 			}
 			if string(patchBytes) != scenario.expectedOutput {
-				t.Fatalf("expected = %s, got = %s", scenario.expectedOutput, patchBytes)
+				t.Fatalf("expected = %s, got = %s", scenario.expectedOutput, string(patchBytes))
+			}
+		})
+	}
+}
+
+func TestJSONPatchMerge(t *testing.T) {
+	for _, scenario := range []struct {
+		name           string
+		patches        []*PatchSet
+		expectedOutput string
+	}{
+		{
+			name:           "nil patch slice to merge",
+			patches:        nil,
+			expectedOutput: `null`,
+		},
+		{
+			name:           "empty patch slice to merge",
+			patches:        []*PatchSet{},
+			expectedOutput: `null`,
+		},
+		{
+			name:           "one empty patch to merge",
+			patches:        []*PatchSet{{}},
+			expectedOutput: `null`,
+		},
+		{
+			name: "merge one patch",
+			patches: []*PatchSet{
+				New().WithRemove("/path1", NewTestCondition("/path1", "value1")),
+			},
+			expectedOutput: `[{"op":"test","path":"/path1","value":"value1"},{"op":"remove","path":"/path1"}]`,
+		},
+		{
+			name: "merge multiple patches",
+			patches: []*PatchSet{
+				New().WithRemove("/path1", NewTestCondition("/path1", "value1")),
+				New().WithRemove("/path2", NewTestCondition("/path2", "value2")),
+			},
+			expectedOutput: `[{"op":"test","path":"/path1","value":"value1"},{"op":"remove","path":"/path1"},{"op":"test","path":"/path2","value":"value2"},{"op":"remove","path":"/path2"}]`,
+		},
+		{
+			name: "merge multiple patches ignoring empty ones",
+			patches: []*PatchSet{
+				{},
+				New().WithRemove("/path1", NewTestCondition("/path1", "value1")),
+				{},
+				New().WithRemove("/path2", NewTestCondition("/path2", "value2")),
+				{},
+			},
+			expectedOutput: `[{"op":"test","path":"/path1","value":"value1"},{"op":"remove","path":"/path1"},{"op":"test","path":"/path2","value":"value2"},{"op":"remove","path":"/path2"}]`,
+		},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			patchBytes, err := Merge(scenario.patches...).Marshal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(patchBytes) != scenario.expectedOutput {
+				t.Fatalf("expected = %s, got = %s", scenario.expectedOutput, string(patchBytes))
 			}
 		})
 	}
