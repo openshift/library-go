@@ -28,7 +28,7 @@ func TestFakeRemoteValueGenerator(t *testing.T) {
 
 	value, err := generator.GenerateValue("[GET:http://127.0.0.1:12345/v1/value/generate]")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("%s", err.Error())
 	}
 	if value != "NewRandomString" {
 		t.Errorf("Failed to fetch remote value using GET.")
