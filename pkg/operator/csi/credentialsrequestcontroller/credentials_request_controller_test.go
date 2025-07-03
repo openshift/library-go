@@ -131,7 +131,9 @@ func TestSync(t *testing.T) {
 			unstructured.SetNestedField(cr.Object, tc.inputSecretProvisioned, "status", "provisioned")
 			dynamicClient.credentialRequest = cr
 
-			operatorClient := v1helpers.NewFakeOperatorClient(&opv1.OperatorSpec{}, &opv1.OperatorStatus{}, nil)
+			operatorClient := v1helpers.NewFakeOperatorClient(&opv1.OperatorSpec{
+				ManagementState: opv1.Managed,
+			}, &opv1.OperatorStatus{}, nil)
 			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 			controller := NewCredentialsRequestController(
 				controllerName,

@@ -89,6 +89,9 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 	if err != nil {
 		return err
 	}
+	if spec.ManagementState != opv1.Managed {
+		return nil
+	}
 
 	sync, err := shouldSync(c.operatorLister)
 	if err != nil {
