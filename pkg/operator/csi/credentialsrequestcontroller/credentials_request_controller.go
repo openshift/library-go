@@ -3,10 +3,11 @@ package credentialsrequestcontroller
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"os"
 	"strings"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +27,7 @@ import (
 
 const (
 	clusterCloudCredentialName = "cluster"
+	EnvVarsAnnotationKey       = "credentials.openshift.io/role-arns-vars"
 )
 
 // CredentialsRequestController is a simple controller that maintains a CredentialsRequest static manifest.
@@ -34,6 +36,13 @@ const (
 // <name>Available: indicates that the secret was successfully provisioned by cloud-credential-operator.
 // <name>Progressing: indicates that the secret is yet to be provisioned by cloud-credential-operator.
 // <name>Degraded: produced when the sync() method returns an error.
+// The controller does not sync the CredentialsRequest if the cloud-credential-operator is in manual mode and
+// STS (or other short-term credentials) are not enabled, or STS is enabled, but the controller does not see
+// required env. vars set.
+// For AWS STS, the controller needs ROLEARN env. var set.
+// For GCP WIF, the controller needs POOL_ID, PROVIDER_ID, SERVICE_ACCOUNT_EMAIL, PROJECT_NUMBER env. vars set.
+// The controller also supports a custom annotation "credentials.openshift.io/role-arns-vars" on the CredentialsRequest
+// that allows to specify the comma-separated list of env. vars that should be used to set the role ARNs.
 type CredentialsRequestController struct {
 	name            string
 	operatorClient  v1helpers.OperatorClientWithFinalizers
@@ -93,15 +102,17 @@ func (c CredentialsRequestController) sync(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	sync, err := shouldSync(c.operatorLister)
+	cr := resourceread.ReadCredentialRequestsOrDie(c.manifest)
+
+	sync, err := shouldSync(c.operatorLister, cr)
 	if err != nil {
 		return err
 	}
 	if !sync {
-		return nil
+		return c.cleanConditions(ctx)
 	}
 
-	cr, err := c.syncCredentialsRequest(ctx, spec, status, syncContext)
+	cr, err = c.syncCredentialsRequest(ctx, spec, status, cr, syncContext)
 	if err != nil {
 		return err
 	}
@@ -143,9 +154,9 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	ctx context.Context,
 	spec *opv1.OperatorSpec,
 	status *opv1.OperatorStatus,
+	cr *unstructured.Unstructured,
 	syncContext factory.SyncContext,
 ) (*unstructured.Unstructured, error) {
-	cr := resourceread.ReadCredentialRequestsOrDie(c.manifest)
 	err := unstructured.SetNestedField(cr.Object, c.targetNamespace, "spec", "secretRef", "namespace")
 	if err != nil {
 		return nil, err
@@ -174,6 +185,30 @@ func (c CredentialsRequestController) syncCredentialsRequest(
 	return cr, err
 }
 
+// cleanConditions cleans up the conditions when the controller does not sync any credentials request.
+func (c CredentialsRequestController) cleanConditions(ctx context.Context) error {
+	availableCondition := opv1.OperatorCondition{
+		Type:    c.name + opv1.OperatorStatusTypeAvailable,
+		Status:  opv1.ConditionTrue,
+		Message: "No role for short time token provided",
+		Reason:  "CredentialsDisabled",
+	}
+
+	progressingCondition := opv1.OperatorCondition{
+		Type:    c.name + opv1.OperatorStatusTypeProgressing,
+		Status:  opv1.ConditionFalse,
+		Message: "",
+		Reason:  "AsExpected",
+	}
+	_, _, err := v1helpers.UpdateStatus(
+		ctx,
+		c.operatorClient,
+		v1helpers.UpdateConditionFn(availableCondition),
+		v1helpers.UpdateConditionFn(progressingCondition),
+	)
+	return err
+}
+
 func isProvisioned(cr *unstructured.Unstructured) (bool, error) {
 	provisionedVal, found, err := unstructured.NestedFieldNoCopy(cr.Object, "status", "provisioned")
 	if err != nil {
@@ -196,7 +231,7 @@ func isProvisioned(cr *unstructured.Unstructured) (bool, error) {
 	return provisionedValBool, nil
 }
 
-func shouldSync(cloudCredentialLister operatorv1lister.CloudCredentialLister) (bool, error) {
+func shouldSync(cloudCredentialLister operatorv1lister.CloudCredentialLister, cr *unstructured.Unstructured) (bool, error) {
 	clusterCloudCredential, err := cloudCredentialLister.Get(clusterCloudCredentialName)
 	if err != nil {
 		klog.Errorf("Failed to get cluster cloud credential: %v", err)
@@ -205,19 +240,55 @@ func shouldSync(cloudCredentialLister operatorv1lister.CloudCredentialLister) (b
 
 	isManualMode := clusterCloudCredential.Spec.CredentialsMode == opv1.CloudCredentialsModeManual
 
-	isAWSSTSEnabled := os.Getenv("ROLEARN") != ""
+	if !isManualMode {
+		// Return early, always sync in non-manual mode
+		return true, nil
+	}
 
+	// Manual mode. Sync only when env. vars with the role ARNs are present.
+
+	if envVars := getEnvVarsFromAnnotations(cr); envVars != nil {
+		allEnvVarsFound := true
+		for _, envVar := range envVars {
+			if os.Getenv(envVar) == "" {
+				allEnvVarsFound = false
+				break
+			}
+		}
+		// The CredentialsRequest has explicitly asked for some env. vars. via the annotation.
+		// Don't check the default env. vars below, because they are not relevant for thiss CredentialsRequest.
+		return allEnvVarsFound, nil
+	}
+
+	// Default env. vars for AWS STS
+	isAWSSTSEnabled := os.Getenv("ROLEARN") != ""
+	if isAWSSTSEnabled {
+		return true, nil
+	}
+
+	// Default env. vars for GCE WIF
 	poolID := os.Getenv("POOL_ID")
 	providerID := os.Getenv("PROVIDER_ID")
 	serviceAccountEmail := os.Getenv("SERVICE_ACCOUNT_EMAIL")
 	projectNumber := os.Getenv("PROJECT_NUMBER")
-
 	isGCPWIFEnabled := poolID != "" && providerID != "" && serviceAccountEmail != "" && projectNumber != ""
-
-	// If cluster is in manual mode without short-term credentials enabled, do not sync cloud credentials.
-	if isManualMode && !isAWSSTSEnabled && !isGCPWIFEnabled {
-		return false, nil
+	if isGCPWIFEnabled {
+		return true, nil
 	}
 
-	return true, nil
+	// CCO is in manual mode, but some ARN env. vars are missing -> don't sync
+	return false, nil
+}
+
+func getEnvVarsFromAnnotations(cr *unstructured.Unstructured) []string {
+	annotations := cr.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	envVars, found := annotations[EnvVarsAnnotationKey]
+	if !found {
+		return nil
+	}
+	envVarsList := strings.Split(envVars, ",")
+	return envVarsList
 }
