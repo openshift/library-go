@@ -96,7 +96,7 @@ func TestSetOperatorCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Error(diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -143,7 +143,7 @@ func TestRemoveOperatorCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Error(diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -234,7 +234,7 @@ func TestSetCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Error(diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
@@ -281,9 +281,191 @@ func TestRemoveCondition(t *testing.T) {
 					actual.LastTransitionTime = metav1.Time{}
 				}
 				if !equality.Semantic.DeepEqual(expected, actual) {
-					t.Errorf(diff.ObjectDiff(expected, actual))
+					t.Error(diff.ObjectDiff(expected, actual))
 				}
 			}
 		})
 	}
+}
+
+func TestRemoveConditionsJSONPatch(t *testing.T) {
+	operatorStatus := &operatorsv1.OperatorStatus{
+		Conditions: []operatorsv1.OperatorCondition{
+			newOperatorCondition("one", "True", "my-reason", "my-message", nil),
+			newOperatorCondition("two", "True", "my-reason", "my-message", nil),
+			newOperatorCondition("three", "True", "my-reason", "my-message", nil),
+		},
+	}
+
+	t.Run("nil status", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(nil, []string{"four", "five"})
+		if jsonPatch != nil {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("no conditions", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(&operatorsv1.OperatorStatus{}, []string{"four", "five"})
+		if !jsonPatch.IsEmpty() {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected empty patch; got: %s", string(raw))
+		}
+	})
+
+	t.Run("no conditions but patch not empty", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(&operatorsv1.OperatorStatus{}, []string{"four", "five"})
+		if !jsonPatch.IsEmpty() {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected empty patch; got: %s", string(raw))
+		}
+	})
+
+	t.Run("nothing to remove", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(operatorStatus, []string{})
+		if jsonPatch != nil {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("no conditions found to remove", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(operatorStatus, []string{"four", "five"})
+		if !jsonPatch.IsEmpty() {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected empty patch; got: %s", string(raw))
+		}
+	})
+
+	t.Run("remove one", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(operatorStatus, []string{"two", "four"})
+		raw, err := jsonPatch.Marshal()
+		if err != nil {
+			tt.Fatalf("could not marshal json patch: %v", err)
+		}
+
+		expectedJSONPatch := `[{"op":"test","path":"/status/conditions/1/type","value":"two"},{"op":"remove","path":"/status/conditions/1"}]`
+		if expectedJSONPatch != string(raw) {
+			tt.Errorf("unexpected json patch: %s", diff.ObjectDiff(expectedJSONPatch, string(raw)))
+		}
+	})
+
+	t.Run("remove all", func(tt *testing.T) {
+		jsonPatch := RemoveConditionsJSONPatch(operatorStatus, []string{"one", "two", "three", "four"})
+		raw, err := jsonPatch.Marshal()
+		if err != nil {
+			tt.Fatalf("could not marshal json patch: %v", err)
+		}
+
+		expectedJSONPatch := `[{"op":"test","path":"/status/conditions/0/type","value":"one"},{"op":"remove","path":"/status/conditions/0"},{"op":"test","path":"/status/conditions/0/type","value":"two"},{"op":"remove","path":"/status/conditions/0"},{"op":"test","path":"/status/conditions/0/type","value":"three"},{"op":"remove","path":"/status/conditions/0"}]`
+		if expectedJSONPatch != string(raw) {
+			tt.Errorf("unexpected json patch: %s", diff.ObjectDiff(expectedJSONPatch, string(raw)))
+		}
+	})
+}
+
+func TestRemoveWorkloadGenerationsJSONPatch(t *testing.T) {
+	operatorStatus := &operatorsv1.OperatorStatus{
+		Generations: []operatorsv1.GenerationStatus{
+			{
+				Group:     "apps",
+				Resource:  "deployments",
+				Name:      "test",
+				Namespace: "test-ns",
+			},
+			{
+				Group:     "apps2",
+				Resource:  "deployments2",
+				Name:      "test2",
+				Namespace: "test-ns2",
+			},
+		},
+	}
+
+	t.Run("nil status", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(nil, "test", "test")
+		if jsonPatch != nil {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("empty name arg", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(operatorStatus, "", "test")
+		if jsonPatch != nil {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("empty namespace arg", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(operatorStatus, "test", "")
+		if jsonPatch != nil {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("no generations to remove group and resource matching", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(operatorStatus, "test1", "test1-ns")
+		if !jsonPatch.IsEmpty() {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("no generations to remove group and resource different", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(operatorStatus, "test2", "test2-ns")
+		if !jsonPatch.IsEmpty() {
+			raw, err := jsonPatch.Marshal()
+			if err != nil {
+				tt.Fatalf("could not marshal json patch: %v", err)
+			}
+			tt.Errorf("expected nil patch, got: %s", string(raw))
+		}
+	})
+
+	t.Run("remove one", func(tt *testing.T) {
+		jsonPatch := RemoveWorkloadGenerationsJSONPatch(operatorStatus, "test", "test-ns")
+		if jsonPatch.IsEmpty() {
+			t.Errorf("expected non-empty patch, got empty")
+		}
+
+		raw, err := jsonPatch.Marshal()
+		if err != nil {
+			tt.Fatalf("could not marshal json patch: %v", err)
+		}
+
+		expectedJSONPatch := `[{"op":"test","path":"/status/generations/0/namespace","value":"test-ns"},{"op":"test","path":"/status/generations/0/group","value":"apps"},{"op":"test","path":"/status/generations/0/resource","value":"deployments"},{"op":"test","path":"/status/generations/0/name","value":"test"},{"op":"remove","path":"/status/generations/0"}]`
+		if expectedJSONPatch != string(raw) {
+			tt.Errorf("unexpected json patch: %s", diff.ObjectDiff(expectedJSONPatch, string(raw)))
+		}
+	})
 }
