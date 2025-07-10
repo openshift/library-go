@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"reflect"
 	"strconv"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -325,15 +326,29 @@ func (fake *fakeDynamicClient) ApplyStatus(ctx context.Context, name string, obj
 }
 
 func TestShouldSync(t *testing.T) {
+	defaultCRManifest := makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace)
+	defaultCR := resourceread.ReadCredentialRequestsOrDie(defaultCRManifest)
+
+	emptyAnnotationCR := defaultCR.DeepCopy()
+	emptyAnnotationCR.SetAnnotations(map[string]string{EnvVarsAnnotationKey: ""})
+
+	singleEnvVarAnnotationCR := emptyAnnotationCR.DeepCopy()
+	singleEnvVarAnnotationCR.SetAnnotations(map[string]string{EnvVarsAnnotationKey: "NODE_ROLEARN"})
+
+	multipleEnvVarAnnotationCR := emptyAnnotationCR.DeepCopy()
+	multipleEnvVarAnnotationCR.SetAnnotations(map[string]string{EnvVarsAnnotationKey: "NODE_POOL_ID,NODE_PROVIDER_ID,NODE_SERVICE_ACCOUNT_EMAIL,NODE_PROJECT_NUMBER"})
+
 	tests := []struct {
 		name               string
+		credentialsRequest *unstructured.Unstructured
 		cloudCredential    *opv1.CloudCredential
 		envVars            map[string]string
 		expectedShouldSync bool
 		expectedError      bool
 	}{
 		{
-			name: "Default mode",
+			name:               "Default mode",
+			credentialsRequest: defaultCR,
 			cloudCredential: &opv1.CloudCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCloudCredentialName,
@@ -346,7 +361,8 @@ func TestShouldSync(t *testing.T) {
 			expectedError:      false,
 		},
 		{
-			name: "Manual mode without short-term credentials",
+			name:               "Manual mode without short-term credentials",
+			credentialsRequest: defaultCR,
 			cloudCredential: &opv1.CloudCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCloudCredentialName,
@@ -359,7 +375,8 @@ func TestShouldSync(t *testing.T) {
 			expectedError:      false,
 		},
 		{
-			name: "Manual mode with AWS STS enabled",
+			name:               "Manual mode with AWS STS enabled",
+			credentialsRequest: defaultCR,
 			cloudCredential: &opv1.CloudCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCloudCredentialName,
@@ -375,7 +392,8 @@ func TestShouldSync(t *testing.T) {
 			expectedError:      false,
 		},
 		{
-			name: "Manual mode with GCP WIF enabled",
+			name:               "Manual mode with GCP WIF enabled",
+			credentialsRequest: defaultCR,
 			cloudCredential: &opv1.CloudCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCloudCredentialName,
@@ -394,7 +412,8 @@ func TestShouldSync(t *testing.T) {
 			expectedError:      false,
 		},
 		{
-			name: "Manual mode with partial GCP WIF configuration",
+			name:               "Manual mode with partial GCP WIF configuration",
+			credentialsRequest: defaultCR,
 			cloudCredential: &opv1.CloudCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCloudCredentialName,
@@ -413,9 +432,112 @@ func TestShouldSync(t *testing.T) {
 		},
 		{
 			name:               "Error getting cloud credential",
+			credentialsRequest: defaultCR,
 			cloudCredential:    nil,
 			expectedShouldSync: false,
 			expectedError:      true,
+		},
+		{
+			name:               "Empty annotation",
+			credentialsRequest: emptyAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			expectedShouldSync: false, //  CredentialsRequest has the annotation, but it's empty
+			expectedError:      false,
+		},
+		{
+			name:               "Single annotation with env. var set",
+			credentialsRequest: singleEnvVarAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"NODE_ROLEARN": "arn:aws:iam::123456789012:role/test-role",
+			},
+			expectedShouldSync: true, //  The env. var is set, so we should sync
+			expectedError:      false,
+		},
+		{
+			name:               "Single annotation with env. var unset",
+			credentialsRequest: singleEnvVarAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars:            map[string]string{},
+			expectedShouldSync: false,
+			expectedError:      false,
+		},
+		{
+			name:               "Single annotation with ROLEARN env. var set",
+			credentialsRequest: singleEnvVarAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"ROLEARN": "arn:aws:iam::123456789012:role/test-role",
+			},
+			expectedShouldSync: false, // The CredentialsRequests annotation asked for NODE_ROLEARN and that one is not set. It takes precedence over ROLEARN.
+			expectedError:      false,
+		},
+		{
+			name:               "Multiple annotations with env. var set",
+			credentialsRequest: multipleEnvVarAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"NODE_POOL_ID":               "test-pool",
+				"NODE_PROVIDER_ID":           "test-provider",
+				"NODE_SERVICE_ACCOUNT_EMAIL": "test@example.com",
+				"NODE_PROJECT_NUMBER":        "123456789",
+			},
+			expectedShouldSync: true, //  All env. var are set
+			expectedError:      false,
+		},
+		{
+			name:               "Multiple annotations with some env. var unset",
+			credentialsRequest: multipleEnvVarAnnotationCR,
+			cloudCredential: &opv1.CloudCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterCloudCredentialName,
+				},
+				Spec: opv1.CloudCredentialSpec{
+					CredentialsMode: opv1.CloudCredentialsModeManual,
+				},
+			},
+			envVars: map[string]string{
+				"NODE_POOL_ID":               "test-pool",
+				"NODE_PROVIDER_ID":           "test-provider",
+				"NODE_SERVICE_ACCOUNT_EMAIL": "test@example.com",
+			},
+			expectedShouldSync: false, //  NODE_PROJECT_NUMBER is not set
+			expectedError:      false,
 		},
 	}
 
@@ -443,7 +565,7 @@ func TestShouldSync(t *testing.T) {
 			}()
 
 			// Act
-			shouldSync, err := shouldSync(cloudCredentialInformer.Operator().V1().CloudCredentials().Lister())
+			shouldSync, err := shouldSync(cloudCredentialInformer.Operator().V1().CloudCredentials().Lister(), tc.credentialsRequest)
 
 			// Assert
 			if tc.expectedError && err == nil {
