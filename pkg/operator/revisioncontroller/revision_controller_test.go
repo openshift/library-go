@@ -148,12 +148,18 @@ func TestRevisionController(t *testing.T) {
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
 				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
-					Data:       map[string]string{"revision": "1"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-1", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
+					Data: map[string]string{"revision": "1"},
 				},
 				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-2", Namespace: targetNamespace},
-					Data:       map[string]string{"revision": "2"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-2", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
+					Data: map[string]string{"revision": "2"},
 				},
 			},
 			validateStatus: func(t *testing.T, status *operatorv1.StaticPodOperatorStatus) {
