@@ -61,7 +61,7 @@ func TestFlagsFromUnstructured(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(actualOutput, scenario.expectedOutput) {
-				t.Errorf(diff.ObjectDiff(actualOutput, scenario.expectedOutput))
+				t.Errorf("%s", diff.ObjectDiff(actualOutput, scenario.expectedOutput))
 			}
 		})
 	}
@@ -97,7 +97,7 @@ func TestToFlagSlice(t *testing.T) {
 
 			// validate
 			if !equality.Semantic.DeepEqual(actualOutput, scenario.expectedOutput) {
-				t.Errorf(diff.ObjectDiff(actualOutput, scenario.expectedOutput))
+				t.Errorf("%s", diff.ObjectDiff(actualOutput, scenario.expectedOutput))
 			}
 		})
 	}

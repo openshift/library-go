@@ -71,7 +71,7 @@ func TestFilterByLabelSelector(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(result, tc.expectedOutput) {
-				t.Errorf(diff.ObjectDiff(tc.expectedOutput, result))
+				t.Errorf("%s", diff.ObjectDiff(tc.expectedOutput, result))
 			}
 		})
 	}
