@@ -326,6 +326,39 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 	return latestRevision, nil
 }
 
+// fixOperatorLatestAvailableRevision checks the revision-status configmap
+// corresponding to the LatestAvailableRevision seen by the operator and fix it
+// if needed. There are two issues addressed by this function:
+//  1. In previous versions of OCP, the LatestAvailableRevision could be set to a
+//     revision with "operator.openshift.io/revision-ready": "false".
+//  2. The revision-status was deleted.
+func (c RevisionController) fixOperatorLatestAvailableRevision(ctx context.Context, recorder events.Recorder, revision int32) error {
+	if revision == 0 {
+		return nil
+	}
+
+	configMap, err := c.configMapGetter.ConfigMaps(c.targetNamespace).Get(ctx, fmt.Sprintf("revision-status-%d", revision), metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		// Re-create the configmap and complete the revision.
+		_, err := c.createNewRevision(ctx, recorder, revision, "revision-status configmap missing")
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// If revision-ready is false, call createNewRevision to complete the revision.
+	if configMap.Annotations["operator.openshift.io/revision-ready"] != "true" {
+		_, err := c.createNewRevision(ctx, recorder, revision, configMap.Data["reason"])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	operatorSpec, _, latestAvailableRevisionSeenByOperator, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
 	if err != nil {
@@ -334,6 +367,14 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 
 	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
+	}
+
+	// Past oversights caused the LatestAvailableRevision of the operator to
+	// target incomplete revisions. Calling fixOperatorLatestAvailableRevision
+	// will patch them so the revision controller can continue to operate.
+	err = c.fixOperatorLatestAvailableRevision(ctx, syncCtx.Recorder(), latestAvailableRevisionSeenByOperator)
+	if err != nil {
+		return err
 	}
 
 	// If the operator status's latest available revision is not the same as the observed latest revision, update the operator.
