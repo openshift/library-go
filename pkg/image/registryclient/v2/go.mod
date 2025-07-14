@@ -5,12 +5,14 @@ go 1.24.0
 require (
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/distribution/reference v0.6.0
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.18.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/openshift/library-go v0.0.0-20250711143941-47604345e7ea
+	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/time v0.12.0
 	k8s.io/client-go v0.33.2
 	k8s.io/klog/v2 v2.130.1
@@ -36,7 +38,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
