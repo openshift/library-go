@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +16,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"strings"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -41,6 +42,12 @@ type Delegate interface {
 	// operator will be degraded, not available and not progressing
 	// returned errors (if any) will be added to the Message field
 	PreconditionFulfilled(ctx context.Context) (bool, error)
+
+	// WorkloadDeleted indicates whether the delegate workload has been deleted or not. It returns a bool
+	// flag to indicate this, a string representing the workload's name and an error. When true, this
+	// controller will remove any fields from the operator status that the controller is managing, and
+	// will also remove the version field.
+	WorkloadDeleted(ctx context.Context) (bool, string, error)
 }
 
 // Controller is a generic workload controller that deals with Deployment resource.
@@ -131,6 +138,20 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
 	} else if !fulfilled {
 		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, nil)
+	}
+
+	if deleted, operandName, err := c.delegate.WorkloadDeleted(ctx); err != nil {
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
+	} else if deleted {
+		// Server-Side-Apply with an empty operator status for the specific field manager will effectively
+		// remove any conditions and generations owned by it, because the respective API fields have 'map'
+		// as the list type where field managers can be list element-specific
+		if err := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, applyoperatorv1.OperatorStatus()); err != nil {
+			return err
+		}
+
+		c.versionRecorder.UnsetVersion(c.constructOperandNameFor(operandName))
+		return nil
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
@@ -341,17 +362,21 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	// which should immediately result in a deployment generation diff, which should cause this block to be skipped until it is ready.
 	workloadHasAllPodsUpdated := workload.Status.UpdatedReplicas == desiredReplicas
 	if workloadAtHighestGeneration && workloadHasAllPodsAvailable && workloadHasAllPodsUpdated && operatorConfigAtHighestGeneration {
-		operandName := workload.Name
-		if len(c.operandNamePrefix) > 0 {
-			operandName = fmt.Sprintf("%s-%s", c.operandNamePrefix, workload.Name)
-		}
-		c.versionRecorder.SetVersion(operandName, c.targetOperandVersion)
+		c.versionRecorder.SetVersion(c.constructOperandNameFor(workload.Name), c.targetOperandVersion)
 	}
 
 	if len(errs) > 0 {
 		return kerrors.NewAggregate(errs)
 	}
 	return nil
+}
+
+func (c *Controller) constructOperandNameFor(name string) string {
+	if len(c.operandNamePrefix) > 0 {
+		return fmt.Sprintf("%s-%s", c.operandNamePrefix, name)
+	}
+
+	return name
 }
 
 // hasDeploymentProgressed returns true if the deployment reports NewReplicaSetAvailable
