@@ -107,8 +107,11 @@ func TestRevisionController(t *testing.T) {
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
 				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
-					Data:       map[string]string{"revision": "1"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-1", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
+					Data: map[string]string{"revision": "1"},
 				},
 			},
 			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
@@ -218,6 +221,16 @@ func TestRevisionController(t *testing.T) {
 				nil,
 				nil,
 			),
+			startingObjects: []runtime.Object{
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
+				&v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-1", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
+					Data: map[string]string{"revision": "1"},
+				},
+			},
 			testConfigs:     []RevisionResource{{Name: "test-config"}},
 			testSecrets:     []RevisionResource{{Name: "test-secret"}},
 			expectSyncError: `configmaps "test-config" not found`,
@@ -520,6 +533,52 @@ func TestRevisionController(t *testing.T) {
 				createdObjects := filterCreateActions(actions)
 				if createdObjectCount := len(createdObjects); createdObjectCount != 0 {
 					t.Errorf("expected no objects to be created, got %d", createdObjectCount)
+				}
+			},
+		},
+		{
+			testName:        "latest-revision-ready-annotation-set",
+			targetNamespace: targetNamespace,
+			staticPodOperatorClient: v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				&operatorv1.StaticPodOperatorStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
+					NodeStatuses: []operatorv1.NodeStatus{
+						{
+							NodeName:        "test-node-1",
+							CurrentRevision: 0,
+							TargetRevision:  0,
+						},
+					},
+				},
+				nil,
+				nil,
+			),
+			startingObjects: []runtime.Object{
+				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
+				&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret-1", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config-1", Namespace: targetNamespace}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace}},
+			},
+			testConfigs: []RevisionResource{{Name: "test-config"}},
+			testSecrets: []RevisionResource{{Name: "test-secret"}},
+			validateActions: func(t *testing.T, actions []clienttesting.Action, kclient *fake.Clientset) {
+				revisionStatus, err := kclient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-1", metav1.GetOptions{})
+				if err != nil {
+					t.Errorf("expected revision-status-1 configmap to exist, got error: %v", err)
+					return
+				}
+
+				revisionReady := revisionStatus.Annotations["operator.openshift.io/revision-ready"]
+				if revisionReady != "true" {
+					t.Errorf("expected revision-status-1 configmap to have annotation 'operator.openshift.io/revision-ready' set to 'true', got %q", revisionReady)
 				}
 			},
 		},
