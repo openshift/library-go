@@ -114,7 +114,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
 		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
 		updateRequired = needsMetadataUpdate || needsTypeChange
 	}
