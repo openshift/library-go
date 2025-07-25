@@ -27,6 +27,7 @@ import (
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 
+	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/config/configdefaults"
 	"github.com/openshift/library-go/pkg/controller/fileobserver"
 	"github.com/openshift/library-go/pkg/crypto"
@@ -44,7 +45,8 @@ type ControllerCommandConfig struct {
 	version       version.Info
 	clock         clock.Clock
 
-	basicFlags *ControllerFlags
+	basicFlags          *ControllerFlags
+	kubeConfigOverrides *client.ClientConnectionOverrides
 
 	// DisableServing disables serving metrics, debug and health checks and so on.
 	DisableServing bool
@@ -111,6 +113,12 @@ func (c *ControllerCommandConfig) WithTopologyDetector(topologyDetector Topology
 
 func (c *ControllerCommandConfig) WithEventRecorderOptions(eventRecorderOptions record.CorrelatorOptions) *ControllerCommandConfig {
 	c.eventRecorderOptions = eventRecorderOptions
+	return c
+}
+
+// WithKubeConfigOverrides sets overrides that are applied to the loaded the kube config before the controller is started.
+func (c *ControllerCommandConfig) WithKubeConfigOverrides(overrides *client.ClientConnectionOverrides) *ControllerCommandConfig {
+	c.kubeConfigOverrides = overrides
 	return c
 }
 
@@ -325,15 +333,9 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 	config.LeaderElection.RenewDeadline = c.RenewDeadline
 	config.LeaderElection.RetryPeriod = c.RetryPeriod
 
-	builder := NewController(c.componentName, c.startFunc, c.clock).
-		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
-		WithComponentNamespace(c.basicFlags.Namespace).
+	builder := c.initBuilder().
 		WithLeaderElection(config.LeaderElection, c.basicFlags.Namespace, c.componentName+"-lock").
-		WithVersion(c.version).
-		WithHealthChecks(c.healthChecks...).
-		WithEventRecorderOptions(c.eventRecorderOptions).
-		WithRestartOnChange(exitOnChangeReactorCh, startingFileContent, observedFiles...).
-		WithComponentOwnerReference(c.ComponentOwnerReference)
+		WithRestartOnChange(exitOnChangeReactorCh, startingFileContent, observedFiles...)
 
 	if !c.DisableServing {
 		builder = builder.WithServer(config.ServingInfo, config.Authentication, config.Authorization)
@@ -347,4 +349,14 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 	}
 
 	return builder.Run(controllerCtx, unstructuredConfig)
+}
+
+func (c *ControllerCommandConfig) initBuilder() *ControllerBuilder {
+	return NewController(c.componentName, c.startFunc, c.clock).
+		WithKubeConfigFile(c.basicFlags.KubeConfigFile, c.kubeConfigOverrides).
+		WithComponentNamespace(c.basicFlags.Namespace).
+		WithVersion(c.version).
+		WithHealthChecks(c.healthChecks...).
+		WithEventRecorderOptions(c.eventRecorderOptions).
+		WithComponentOwnerReference(c.ComponentOwnerReference)
 }
