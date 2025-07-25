@@ -221,9 +221,9 @@ func (b *ControllerBuilder) WithHealthChecks(healthChecks ...healthz.HealthCheck
 }
 
 // WithKubeConfigFile sets an optional kubeconfig file. inclusterconfig will be used if filename is empty
-func (b *ControllerBuilder) WithKubeConfigFile(kubeConfigFilename string, defaults *client.ClientConnectionOverrides) *ControllerBuilder {
+func (b *ControllerBuilder) WithKubeConfigFile(kubeConfigFilename string, overrides *client.ClientConnectionOverrides) *ControllerBuilder {
 	b.kubeAPIServerConfigFile = &kubeConfigFilename
-	b.clientOverrides = defaults
+	b.clientOverrides = overrides
 	return b
 }
 
