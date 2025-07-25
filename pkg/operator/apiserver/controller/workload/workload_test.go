@@ -3,13 +3,13 @@ package workload
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -37,6 +37,10 @@ type testDelegate struct {
 	syncWorkload            *appsv1.Deployment
 	syncIsAtHighestRevision bool
 	syncErrrors             []error
+}
+
+func (d *testDelegate) WorkloadDeleted(_ context.Context) (bool, string, error) {
+	return false, "", nil
 }
 
 func (d *testDelegate) PreconditionFulfilled(_ context.Context) (bool, error) {
