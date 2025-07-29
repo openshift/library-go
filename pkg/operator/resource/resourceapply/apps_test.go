@@ -69,7 +69,7 @@ func TestApplyDeployment(t *testing.T) {
 			actualDeployment: workloadWithDefaultSpecHash(),
 			expectedDeployment: func() *appsv1.Deployment {
 				w := workload()
-				w.Annotations["operator.openshift.io/spec-hash"] = "5322a9feed3671ec5e7bc72c86c9b7e2f628b00e9c7c8c4c93a48ee63e8db47a"
+				w.Annotations["operator.openshift.io/spec-hash"] = "0c4e1cc4d475df8bd73d71d0c56fcf95774c9f4d8bcc676eec369aef3b13a570"
 				w.Spec.Template.Finalizers = []string{"newFinalizer"}
 				return w
 			}(),
@@ -367,7 +367,7 @@ func daemonSet() *appsv1.DaemonSet {
 
 func workloadWithDefaultSpecHash() *appsv1.Deployment {
 	w := workload()
-	w.Annotations["operator.openshift.io/spec-hash"] = "32a23216b08c6b04f6c367de919931543f2620ea68e1eee5f5ef203b533d99aa"
+	w.Annotations["operator.openshift.io/spec-hash"] = "1c48130600d2fc7512e0f327dc696bd279f5442b840a6df66c3fd0be33564de2"
 	return w
 }
 
