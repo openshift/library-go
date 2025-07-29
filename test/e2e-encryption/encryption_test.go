@@ -26,12 +26,14 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/clock"
 	"sigs.k8s.io/yaml"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
@@ -81,8 +83,20 @@ func TestEncryptionIntegration(tt *testing.T) {
 
 	// create operator client and create instance with ManagementState="Managed"
 	operatorGVR := schema.GroupVersionResource{Group: operatorCRD.Spec.Group, Version: "v1", Resource: operatorCRD.Spec.Names.Plural}
-	operatorv1.GroupVersion.WithResource("encryptiontests")
-	operatorClient, operatorInformer, err := genericoperatorclient.NewClusterScopedOperatorClient(kubeConfig, operatorGVR)
+	operatorGVK := schema.GroupVersionKind{Group: operatorCRD.Spec.Group, Version: "v1", Kind: operatorCRD.Spec.Names.Kind}
+	clk := clock.RealClock{}
+
+	// minimal extract functions returning empty configurations
+	extractApplySpec := func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error) {
+		return applyoperatorv1.OperatorSpec(), nil
+	}
+
+	extractApplyStatus := func(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error) {
+		return applyoperatorv1.OperatorStatus(), nil
+	}
+
+	operatorClient, operatorInformer, err := genericoperatorclient.NewClusterScopedOperatorClient(clk, kubeConfig, operatorGVR, operatorGVK, extractApplySpec, extractApplyStatus)
+	require.NoError(t, err)
 	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 	err = wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
@@ -112,7 +126,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
 	// create controllers
-	eventRecorder := events.NewLoggingEventRecorder(component)
+	eventRecorder := events.NewLoggingEventRecorder(component, clk)
 	deployer := NewInstantDeployer(t, stopCh, kubeClient.CoreV1(), fmt.Sprintf("encryption-config-%s", component))
 	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.DiscoveryClient)
 	provider := newProvider([]schema.GroupResource{
