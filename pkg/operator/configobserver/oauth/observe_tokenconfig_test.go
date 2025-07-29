@@ -144,7 +144,7 @@ func TestObserveAccessTokenMaxAgeSeconds(t *testing.T) {
 				t.Errorf("Expected 0 errors, got %v.", len(errs))
 			}
 			if !equality.Semantic.DeepEqual(tt.expected, got) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(tt.expected, got))
+				t.Errorf("result does not match expected config: %s", diff.Diff(tt.expected, got))
 			}
 		})
 	}
@@ -165,7 +165,7 @@ func TestObserveAccessTokenMaxAgeSeconds(t *testing.T) {
 	}
 
 	if !equality.Semantic.DeepEqual(got, existingConfig) {
-		t.Errorf("result does not match expected config: %s", diff.ObjectDiff(existingConfig, got))
+		t.Errorf("result does not match expected config: %s", diff.Diff(existingConfig, got))
 	}
 }
 
@@ -342,7 +342,7 @@ func TestObserveAccessTokenInactivityTimeout(t *testing.T) {
 				t.Errorf("Expected %d errors, got %d.", len(tt.errors), errs)
 			}
 			if !equality.Semantic.DeepEqual(tt.expected, got) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(tt.expected, got))
+				t.Errorf("result does not match expected config: %s", diff.Diff(tt.expected, got))
 			}
 		})
 	}
@@ -363,7 +363,7 @@ func TestObserveAccessTokenInactivityTimeout(t *testing.T) {
 	}
 
 	if !equality.Semantic.DeepEqual(got, existingConfig) {
-		t.Errorf("result does not match expected config: %s", diff.ObjectDiff(existingConfig, got))
+		t.Errorf("result does not match expected config: %s", diff.Diff(existingConfig, got))
 	}
 
 }

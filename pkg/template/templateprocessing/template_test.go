@@ -226,7 +226,7 @@ func TestProcessValue(t *testing.T) {
 	stringResult := strings.TrimSpace(string(result))
 	if expect != stringResult {
 		//t.Errorf("unexpected output, expected: \n%s\nGot:\n%s\n", expect, stringResult)
-		t.Errorf("unexpected output: %s", diff.StringDiff(expect, stringResult))
+		t.Errorf("unexpected output: %s", diff.Diff(expect, stringResult))
 	}
 }
 
@@ -402,7 +402,7 @@ func TestEvaluateLabels(t *testing.T) {
 		expect = trailingWhitespace.ReplaceAllString(expect, "")
 		stringResult := strings.TrimSpace(string(result))
 		if expect != stringResult {
-			t.Errorf("%s: unexpected output: %s", k, diff.StringDiff(expect, stringResult))
+			t.Errorf("%s: unexpected output: %s", k, diff.Diff(expect, stringResult))
 			continue
 		}
 	}
@@ -440,7 +440,7 @@ func TestProcessTemplateParameters(t *testing.T) {
 	exp, _ := runtime.Encode(codecFactory.LegacyCodec(templatev1.GroupVersion), &expectedTemplate)
 
 	if string(result) != string(exp) {
-		t.Errorf("unexpected output: %s", diff.StringDiff(string(exp), string(result)))
+		t.Errorf("unexpected output: %s", diff.Diff(string(exp), string(result)))
 	}
 }
 

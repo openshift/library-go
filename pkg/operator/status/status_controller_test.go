@@ -362,7 +362,7 @@ func TestDegraded(t *testing.T) {
 
 			actual := v1helpers.FindStatusCondition(result.Status.Conditions, tc.expectedType)
 			if !reflect.DeepEqual(expectedCondition, actual) {
-				t.Error(diff.ObjectDiff(expectedCondition, actual))
+				t.Error(diff.Diff(expectedCondition, actual))
 			}
 		})
 	}
