@@ -33,3 +33,45 @@ func TestVersionGetterBasic(t *testing.T) {
 	}
 
 }
+
+func TestVersionGetterUnset(t *testing.T) {
+	versionGetter := NewVersionGetter()
+
+	versionGetter.UnsetVersion("nonexistent")
+	expected := map[string]string{}
+	versions := versionGetter.GetVersions()
+	if !reflect.DeepEqual(expected, versions) {
+		t.Fatalf("Expected %v, got %v", expected, versions)
+	}
+
+	versionGetter.SetVersion("foo", "1.0.0")
+	versionGetter.SetVersion("bar", "2.0.0")
+
+	versions = versionGetter.GetVersions()
+	expected = map[string]string{"foo": "1.0.0", "bar": "2.0.0"}
+	if !reflect.DeepEqual(expected, versions) {
+		t.Fatalf("wanted: %v; got: %v", expected, versions)
+	}
+
+	ch := versionGetter.VersionChangedChannel()
+	versionGetter.UnsetVersion("foo")
+
+	select {
+	case <-ch:
+		// we got notified
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected change notification after UnsetVersion but didn't get any")
+	}
+
+	versions = versionGetter.GetVersions()
+	expected = map[string]string{"bar": "2.0.0"}
+	if !reflect.DeepEqual(expected, versions) {
+		t.Fatalf("Expected %v, got %v", expected, versions)
+	}
+
+	versionGetter.UnsetVersion("nonexistent")
+	versions = versionGetter.GetVersions()
+	if !reflect.DeepEqual(expected, versions) {
+		t.Fatalf("Expected %v, got %v", expected, versions)
+	}
+}
