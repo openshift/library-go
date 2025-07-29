@@ -117,7 +117,7 @@ func TestMergeConfig(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(test.expected, test.curr) {
-				t.Error(diff.ObjectDiff(test.expected, test.curr))
+				t.Error(diff.Diff(test.expected, test.curr))
 			}
 		})
 	}
@@ -206,7 +206,7 @@ bravo: two
 			}
 
 			if test.expected != string(actual) {
-				t.Error(diff.StringDiff(test.expected, string(actual)))
+				t.Error(diff.Diff(test.expected, string(actual)))
 			}
 		})
 	}
@@ -266,7 +266,7 @@ consolePublicURL: http://foo/bar
 			}
 
 			if test.expected != string(actual) {
-				t.Error(diff.StringDiff(test.expected, string(actual)))
+				t.Error(diff.Diff(test.expected, string(actual)))
 			}
 		})
 	}

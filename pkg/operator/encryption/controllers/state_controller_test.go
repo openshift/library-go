@@ -801,7 +801,7 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 	}
 
 	if !equality.Semantic.DeepEqual(expectedEncryptionCfg, actualEncryptionCfg) {
-		return fmt.Errorf("%s", diff.ObjectDiff(expectedEncryptionCfg, actualEncryptionCfg))
+		return fmt.Errorf("%s", diff.Diff(expectedEncryptionCfg, actualEncryptionCfg))
 	}
 
 	// rewrite the payload and compare the rest
@@ -831,7 +831,7 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 	}
 
 	if !equality.Semantic.DeepEqual(expectedSecret, actualSecret) {
-		return fmt.Errorf("%s", diff.ObjectDiff(expectedSecret, actualSecret))
+		return fmt.Errorf("%s", diff.Diff(expectedSecret, actualSecret))
 	}
 
 	return nil
