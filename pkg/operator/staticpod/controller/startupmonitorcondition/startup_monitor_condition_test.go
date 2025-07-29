@@ -216,7 +216,7 @@ func areCondidtionsEqual(expectedConditions []operatorv1.OperatorCondition, actu
 		expectedCondition.Message = actualCondition.Message
 
 		if !equality.Semantic.DeepEqual(actualCondition, expectedCondition) {
-			return fmt.Errorf("conditions mismatch, diff = %s", diff.ObjectDiff(actualCondition, expectedCondition))
+			return fmt.Errorf("conditions mismatch, diff = %s", diff.Diff(actualCondition, expectedCondition))
 		}
 	}
 	return nil

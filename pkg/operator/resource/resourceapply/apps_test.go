@@ -130,7 +130,7 @@ func TestApplyDeployment(t *testing.T) {
 				t.Fatal("expected ApplyDeployment to report updated=false")
 			}
 			if tt.expectedUpdate && !equality.Semantic.DeepEqual(updatedDeployment, tt.expectedDeployment) {
-				t.Errorf("created Deployment is different from the expected one (file) : %s", diff.ObjectDiff(updatedDeployment, tt.expectedDeployment))
+				t.Errorf("created Deployment is different from the expected one (file) : %s", diff.Diff(updatedDeployment, tt.expectedDeployment))
 			}
 		})
 	}
@@ -306,7 +306,7 @@ func TestApplyDeploymentWithForce(t *testing.T) {
 				tt.expectedDeployment.Spec.Template.Annotations["operator.openshift.io/force"] = updatedDeployment.Spec.Template.Annotations["operator.openshift.io/force"]
 			}
 			if tt.expectedUpdate && !equality.Semantic.DeepEqual(updatedDeployment, tt.expectedDeployment) {
-				t.Errorf("created Deployment is different from the expected one (file) : %s", diff.ObjectDiff(updatedDeployment, tt.expectedDeployment))
+				t.Errorf("created Deployment is different from the expected one (file) : %s", diff.Diff(updatedDeployment, tt.expectedDeployment))
 			}
 		})
 	}

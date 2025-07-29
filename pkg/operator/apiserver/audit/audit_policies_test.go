@@ -154,7 +154,7 @@ func TestGetAuditPolicy(t *testing.T) {
 				}
 
 				if !equality.Semantic.DeepEqual(policy, expected) {
-					t.Errorf("policy differs: %s", diff.ObjectDiff(expected, policy))
+					t.Errorf("policy differs: %s", diff.Diff(expected, policy))
 				}
 			}
 		})
