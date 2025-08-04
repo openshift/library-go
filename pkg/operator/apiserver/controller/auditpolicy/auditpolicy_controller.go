@@ -59,11 +59,20 @@ func NewAuditPolicyController(
 		targetConfigMapName:    targetConfigMapName,
 	}
 
-	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(1*time.Minute).WithInformers(
-		configInformers.Config().V1().APIServers().Informer(),
-		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
-		operatorClient.Informer(),
-	).ToController(
+	return factory.New().
+		WithSync(c.sync).
+		WithControllerInstanceName(c.controllerInstanceName).
+		ResyncEvery(1*time.Minute).
+		WithFilteredEventsInformers(func(obj interface{}) bool {
+			if cm, ok := obj.(*v1.ConfigMap); ok {
+				return cm.Namespace == targetNamespace && cm.Name == targetConfigMapName
+			}
+			return true
+		},
+			configInformers.Config().V1().APIServers().Informer(),
+			kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
+			operatorClient.Informer(),
+		).ToController(
 		"auditPolicyController", // don't change what is passed here unless you also remove the old FooDegraded condition
 		eventRecorder.WithComponentSuffix("audit-policy-controller"),
 	)
@@ -138,7 +147,6 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 	actualConfigMap, err := c.configMapLister.Get(c.targetConfigMapName)
 	if !apierrors.IsNotFound(err) {
 		if err != nil {
-			_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, desiredConfigMap)
 			return err
 		}
 		actualPolicy, ok := actualConfigMap.Data["policy.yaml"]

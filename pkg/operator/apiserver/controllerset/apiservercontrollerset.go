@@ -3,9 +3,10 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"regexp"
 	"time"
+
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -405,7 +407,8 @@ func (cs *APIServerControllerSet) WithAuditPolicyController(
 	targetNamespace string,
 	targetConfigMapName string,
 	configInformers configinformers.SharedInformerFactory,
-	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
+	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
+	configMapLister corev1listers.ConfigMapNamespaceLister,
 	kubeClient kubernetes.Interface,
 ) *APIServerControllerSet {
 	cs.auditPolicyController.controller = auditpolicy.NewAuditPolicyController(
@@ -415,7 +418,8 @@ func (cs *APIServerControllerSet) WithAuditPolicyController(
 		cs.operatorClient,
 		kubeClient,
 		configInformers,
-		kubeInformersForTargetNamesace,
+		kubeInformersForTargetNamespace,
+		configMapLister,
 		cs.eventRecorder,
 	)
 	return cs
