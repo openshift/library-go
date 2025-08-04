@@ -2,6 +2,7 @@ package auditpolicy
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -17,10 +18,12 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -28,6 +31,7 @@ type auditPolicyController struct {
 	controllerInstanceName               string
 	apiserverConfigLister                configv1listers.APIServerLister
 	kubeClient                           kubernetes.Interface
+	configMapLister                      corev1listers.ConfigMapNamespaceLister
 	operatorClient                       v1helpers.OperatorClient
 	targetNamespace, targetConfigMapName string
 }
@@ -41,7 +45,8 @@ func NewAuditPolicyController(
 	operatorClient v1helpers.OperatorClient,
 	kubeClient kubernetes.Interface,
 	configInformers configinformers.SharedInformerFactory,
-	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
+	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
+	configMapLister corev1listers.ConfigMapNamespaceLister,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &auditPolicyController{
@@ -49,13 +54,14 @@ func NewAuditPolicyController(
 		operatorClient:         operatorClient,
 		apiserverConfigLister:  configInformers.Config().V1().APIServers().Lister(),
 		kubeClient:             kubeClient,
+		configMapLister:        configMapLister,
 		targetNamespace:        targetNamespace,
 		targetConfigMapName:    targetConfigMapName,
 	}
 
 	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(1*time.Minute).WithInformers(
 		configInformers.Config().V1().APIServers().Informer(),
-		kubeInformersForTargetNamesace.Core().V1().ConfigMaps().Informer(),
+		kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),
 	).ToController(
 		"auditPolicyController", // don't change what is passed here unless you also remove the old FooDegraded condition
@@ -120,7 +126,7 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 		return err
 	}
 
-	cm := &v1.ConfigMap{
+	desiredConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.targetNamespace,
 			Name:      c.targetConfigMapName,
@@ -129,7 +135,18 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 			"policy.yaml": string(bs),
 		},
 	}
+	actualConfigMap, err := c.configMapLister.Get(c.targetConfigMapName)
+	if !apierrors.IsNotFound(err) {
+		if err != nil {
+			_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, desiredConfigMap)
+			return err
+		}
+		actualPolicy, ok := actualConfigMap.Data["policy.yaml"]
+		if ok && reflect.DeepEqual(actualPolicy, string(bs)) {
+			return nil
+		}
+	}
 
-	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, cm)
+	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, desiredConfigMap)
 	return err
 }
