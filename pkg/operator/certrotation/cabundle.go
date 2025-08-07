@@ -68,12 +68,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 
 	// run Update if metadata needs changing unless running in RefreshOnlyWhenExpired mode
 	if !c.RefreshOnlyWhenExpired {
-		needsOwnerUpdate := false
-		if c.Owner != nil {
-			needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
-		}
-		needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
-		updateRequired = needsOwnerUpdate || needsMetadataUpdate
+		updateRequired = ensureOwnerRefAndTLSAnnotationsForConfigMap(caBundleConfigMap, c.Owner, c.AdditionalAnnotations)
 	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
