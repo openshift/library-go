@@ -67,8 +67,12 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	}
 
 	// run Update if metadata needs changing unless running in RefreshOnlyWhenExpired mode
+	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
 		updateRequired = ensureOwnerRefAndTLSAnnotationsForConfigMap(caBundleConfigMap, c.Owner, c.AdditionalAnnotations)
+		if updateRequired {
+			updateDetail = fmt.Sprintf("annotations set to %#v", c.AdditionalAnnotations)
+		}
 	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
@@ -85,6 +89,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 			reason = fmt.Sprintf("signer update %s", signingCertKeyPairLocation)
 		}
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert: %s", c.Name, c.Namespace, reason)
+		updateReasons = append(updateReasons, fmt.Sprintf("content change: %s", reason))
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
 		updateRequired = true
@@ -96,7 +101,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name, certs.CertificateBundleToString(updatedCerts))
 		caBundleConfigMap = actualCABundleConfigMap
 	} else if updateRequired {
 		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap, metav1.UpdateOptions{})
@@ -104,11 +109,12 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 			// ignore error if its attempting to update outdated version of the configmap
 			return nil, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err)
+		updateReasonsJoined := strings.Join(updateReasons, ", ")
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err, updateReasonsJoined)
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s due to %s with:\n%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name, updateReasonsJoined, certs.CertificateBundleToString(updatedCerts))
 		caBundleConfigMap = actualCABundleConfigMap
 	}
 
