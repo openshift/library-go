@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -81,15 +82,11 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
 	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotationsForSecret(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		if needsMetadataUpdate {
-			updateDetail = fmt.Sprintf("annotations update: %v", c.AdditionalAnnotations)
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&signingCertKeyPairSecret.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		if reason := ensureSecretTLSTypeSet(signingCertKeyPairSecret); len(reason) > 0 {
+			updateReasons = append(updateReasons, reason)
 		}
-		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
-		if needsTypeChange {
-			updateDetail = "secret type update"
-		}
-		updateRequired = needsMetadataUpdate || needsTypeChange
+		updateRequired = len(updateReasons) > 0
 	}
 
 	// run Update if signer content needs changing

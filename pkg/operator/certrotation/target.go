@@ -115,15 +115,11 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
 	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotationsForSecret(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		if needsMetadataUpdate {
-			updateDetail = fmt.Sprintf("annotations update: %v", c.AdditionalAnnotations)
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&targetCertKeyPairSecret.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		if reason := ensureSecretTLSTypeSet(targetCertKeyPairSecret); len(reason) > 0 {
+			updateReasons = append(updateReasons, reason)
 		}
-		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
-		if needsTypeChange {
-			updateDetail = "secret type update"
-		}
-		updateRequired = needsMetadataUpdate || needsTypeChange
+		updateRequired = len(updateReasons) > 0
 	}
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, creationRequired); len(reason) > 0 {

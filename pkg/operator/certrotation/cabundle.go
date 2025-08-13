@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -69,10 +70,8 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	// run Update if metadata needs changing unless running in RefreshOnlyWhenExpired mode
 	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		updateRequired = ensureOwnerRefAndTLSAnnotationsForConfigMap(caBundleConfigMap, c.Owner, c.AdditionalAnnotations)
-		if updateRequired {
-			updateDetail = fmt.Sprintf("annotations set to %#v", c.AdditionalAnnotations)
-		}
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&caBundleConfigMap.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		updateRequired = len(updateReasons) > 0
 	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
