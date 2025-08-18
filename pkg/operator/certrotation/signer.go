@@ -158,6 +158,7 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
 	annotations := secret.Annotations
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+
 	if len(reason) > 0 {
 		return true, reason
 	}
@@ -191,15 +192,15 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	}
 	notAfter, err := time.Parse(time.RFC3339, notAfterString)
 	if err != nil {
-		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notAfterString)
+		return notBefore, notAfter, fmt.Sprintf("bad notAfter expiry: %q", notAfterString)
 	}
 	notBeforeString := annotations[CertificateNotBeforeAnnotation]
-	if len(notAfterString) == 0 {
+	if len(notBeforeString) == 0 {
 		return notBefore, notAfter, "missing notBefore"
 	}
 	notBefore, err = time.Parse(time.RFC3339, notBeforeString)
 	if err != nil {
-		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notBeforeString)
+		return notBefore, notAfter, fmt.Sprintf("bad notBefore expiry: %q", notBeforeString)
 	}
 
 	return notBefore, notAfter, ""

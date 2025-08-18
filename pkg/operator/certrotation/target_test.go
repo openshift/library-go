@@ -3,10 +3,11 @@ package certrotation
 import (
 	"context"
 	"crypto/x509/pkix"
-	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -64,7 +65,7 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 				return nowCert, nil
 			},
 			refresh:  50 * time.Minute,
-			expected: `bad expiry: "malformed"`,
+			expected: `bad notAfter expiry: "malformed"`,
 		},
 		{
 			name: "past midpoint and cert is ready",
