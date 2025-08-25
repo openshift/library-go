@@ -2,11 +2,13 @@ package certrotation
 
 import (
 	"context"
+	"crypto/x509"
 	"crypto/x509/pkix"
-	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -501,6 +503,204 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			}
 
 			test.verifyActions(t, client)
+		})
+	}
+}
+
+func TestNeedNewTargetCertKeyPair(t *testing.T) {
+	now := time.Now()
+	nowFn := func() time.Time { return now }
+
+	// Create a test CA certificate
+	testCA, err := newTestCACertificate(pkix.Name{CommonName: "test-ca"}, int64(1), metav1.Duration{Duration: time.Hour * 24 * 60}, nowFn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create another CA certificate with different name
+	otherCA, err := newTestCACertificate(pkix.Name{CommonName: "other-ca"}, int64(2), metav1.Duration{Duration: time.Hour * 24 * 60}, nowFn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name                   string
+		secret                 *corev1.Secret
+		signer                 *crypto.CA
+		caBundleCerts          []*x509.Certificate
+		refresh                time.Duration
+		refreshOnlyWhenExpired bool
+		creationRequired       bool
+		expected               string
+	}{
+		{
+			name:             "secret doesn't exist",
+			creationRequired: true,
+			signer:           testCA,
+			caBundleCerts:    testCA.Config.Certs,
+			refresh:          time.Hour,
+			expected:         "secret doesn't exist",
+		},
+		{
+			name:             "valid secret",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: testCA.Config.Certs,
+			refresh:       time.Hour,
+			expected:      "",
+		},
+		{
+			name:             "expired secret",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(-1 * time.Minute).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(2 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: testCA.Config.Certs,
+			refresh:       time.Hour,
+			expected:      "already expired",
+		},
+		{
+			name:             "refreshOnlyWhenExpired=true, valid secret",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339), // not expired
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+					},
+				},
+			},
+			signer:                 testCA,
+			caBundleCerts:          testCA.Config.Certs,
+			refresh:                30 * time.Minute,
+			refreshOnlyWhenExpired: true,
+			expected:               "", // should not refresh
+		},
+		{
+			name:             "refreshOnlyWhenExpired=true, expired secret",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(-1 * time.Hour).Format(time.RFC3339), // expired
+						CertificateNotBeforeAnnotation: now.Add(1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+					},
+				},
+			},
+			signer:                 testCA,
+			caBundleCerts:          testCA.Config.Certs,
+			refresh:                30 * time.Minute,
+			refreshOnlyWhenExpired: true,
+			expected:               "already expired", // needs refresh
+		},
+		{
+			name:             "missing issuer name",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						// CertificateIssuer unset
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: testCA.Config.Certs,
+			refresh:       time.Hour,
+			expected:      "missing issuer name",
+		},
+		{
+			name:             "issuer in ca bundle - valid cert",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: testCA.Config.Certs, // test-ca is in the bundle
+			refresh:       time.Hour,
+			expected:      "", // no refresh needed
+		},
+		{
+			name:             "issuer not in ca bundle - expired cert",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "old-ca-name", // not in bundle
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: testCA.Config.Certs, // only contains test-ca
+			refresh:       time.Hour,
+			expected:      `issuer "old-ca-name", not in ca bundle:`,
+		},
+		{
+			name:             "issuer in ca bundle with multiple certs",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateIssuer:              "other-ca",
+					},
+				},
+			},
+			signer:        testCA,
+			caBundleCerts: append(testCA.Config.Certs, otherCA.Config.Certs...), // both test-ca and other-ca
+			refresh:       time.Hour,
+			expected:      "", // other-ca is in the bundle
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := needNewTargetCertKeyPair(
+				test.secret,
+				test.signer,
+				test.caBundleCerts,
+				test.refresh,
+				test.refreshOnlyWhenExpired,
+				test.creationRequired,
+			)
+
+			if test.expected == "" {
+				if actual != "" {
+					t.Errorf("expected no refresh needed, got: %v", actual)
+				}
+			} else {
+				if !strings.Contains(actual, test.expected) {
+					t.Errorf("expected result to contain %q, got: %v", test.expected, actual)
+				}
+			}
 		})
 	}
 }
