@@ -3,10 +3,11 @@ package resourceapply
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -619,6 +620,45 @@ func TestApplyCSIDriver(t *testing.T) {
 			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
 				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "exempt label with missing labels on original object",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+						Labels: map[string]string{
+							csiInlineVolProfileLabel: "restricted",
+						},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecyclePersistent,
+						},
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecyclePersistent,
+					},
+				},
+			},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
 				}
 			},
 		},
