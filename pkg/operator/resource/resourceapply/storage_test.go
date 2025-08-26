@@ -622,6 +622,45 @@ func TestApplyCSIDriver(t *testing.T) {
 			},
 		},
 		{
+			name: "exempt label with missing labels on original object",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+						Labels: map[string]string{
+							csiInlineVolProfileLabel: "restricted",
+						},
+					},
+					Spec: storagev1.CSIDriverSpec{
+						VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+							storagev1.VolumeLifecyclePersistent,
+						},
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo",
+					Annotations: map[string]string{"my.csi.driver/foo": "bar"},
+				},
+				Spec: storagev1.CSIDriverSpec{
+					VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
+						storagev1.VolumeLifecyclePersistent,
+					},
+				},
+			},
+			expectedModified: false,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+			},
+		},
+		{
 			name: "exempt label with differing value should not be overwritten during update",
 			existing: []*storagev1.CSIDriver{
 				{
