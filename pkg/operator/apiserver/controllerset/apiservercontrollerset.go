@@ -9,7 +9,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -267,7 +266,6 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 	name, operatorNamespace, targetNamespace, targetOperandVersion, operandNamePrefix, conditionsPrefix string,
 	kubeClient kubernetes.Interface,
 	delegate workload.Delegate,
-	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	versionRecorder status.VersionGetter,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	informers ...factory.Informer) *APIServerControllerSet {
@@ -292,7 +290,6 @@ func (cs *APIServerControllerSet) WithWorkloadController(
 		[]factory.Informer{kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Namespaces().Informer()},
 
 		delegate,
-		openshiftClusterConfigClient,
 		cs.eventRecorder,
 		versionRecorder)
 
