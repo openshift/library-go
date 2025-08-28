@@ -18,7 +18,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/apps/deployment"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -65,9 +64,8 @@ type Controller struct {
 
 	podsLister corev1listers.PodLister
 
-	operatorClient               v1helpers.OperatorClient
-	kubeClient                   kubernetes.Interface
-	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface
+	operatorClient v1helpers.OperatorClient
+	kubeClient     kubernetes.Interface
 
 	delegate           Delegate
 	queue              workqueue.RateLimitingInterface
@@ -90,24 +88,22 @@ func NewController(instanceName, operatorNamespace, targetNamespace, targetOpera
 	informers []factory.Informer,
 	tagetNamespaceInformers []factory.Informer,
 	delegate Delegate,
-	openshiftClusterConfigClient openshiftconfigclientv1.ClusterOperatorInterface,
 	eventRecorder events.Recorder,
 	versionRecorder status.VersionGetter,
 ) factory.Controller {
 	controllerRef := &Controller{
-		controllerInstanceName:       factory.ControllerInstanceName(instanceName, "Workload"),
-		operatorNamespace:            operatorNamespace,
-		targetNamespace:              targetNamespace,
-		targetOperandVersion:         targetOperandVersion,
-		operandNamePrefix:            operandNamePrefix,
-		conditionsPrefix:             conditionsPrefix,
-		operatorClient:               operatorClient,
-		kubeClient:                   kubeClient,
-		podsLister:                   podLister,
-		delegate:                     delegate,
-		openshiftClusterConfigClient: openshiftClusterConfigClient,
-		versionRecorder:              versionRecorder,
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), instanceName),
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "Workload"),
+		operatorNamespace:      operatorNamespace,
+		targetNamespace:        targetNamespace,
+		targetOperandVersion:   targetOperandVersion,
+		operandNamePrefix:      operandNamePrefix,
+		conditionsPrefix:       conditionsPrefix,
+		operatorClient:         operatorClient,
+		kubeClient:             kubeClient,
+		podsLister:             podLister,
+		delegate:               delegate,
+		versionRecorder:        versionRecorder,
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), instanceName),
 	}
 
 	c := factory.New()
