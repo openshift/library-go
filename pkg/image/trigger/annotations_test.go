@@ -284,7 +284,7 @@ func TestAnnotationsReactor(t *testing.T) {
 		initial := test.obj.DeepCopy()
 		err := r.ImageChanged(test.obj, fakeTagRetriever(test.tags))
 		if !equality.Semantic.DeepEqual(initial, test.obj) {
-			t.Errorf("%d: should not have mutated: %s", i, diff.ObjectReflectDiff(initial, test.obj))
+			t.Errorf("%d: should not have mutated: %s", i, diff.Diff(initial, test.obj))
 		}
 		switch {
 		case err == nil && test.expectedErr, err != nil && !test.expectedErr:
@@ -299,7 +299,7 @@ func TestAnnotationsReactor(t *testing.T) {
 				continue
 			}
 			if !reflect.DeepEqual(test.expected, u.Object) {
-				t.Errorf("%d: not equal: %s", i, diff.ObjectReflectDiff(test.expected, u.Object))
+				t.Errorf("%d: not equal: %s", i, diff.Diff(test.expected, u.Object))
 				continue
 			}
 		} else {
