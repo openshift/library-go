@@ -1,7 +1,7 @@
 action: Patch
 controllerInstanceName: fooController
 generateName: ""
-mame: instance-name
+name: instance-name
 patchType: application/json-patch+json
 resourceType:
   Group: config.openshift.io
