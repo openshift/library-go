@@ -2,7 +2,7 @@ action: ApplyStatus
 controllerInstanceName: ""
 fieldManager: the-client
 generateName: ""
-mame: new-item
+name: new-item
 resourceType:
   Group: config.openshift.io
   Resource: featuregates
