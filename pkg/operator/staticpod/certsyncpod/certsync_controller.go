@@ -115,7 +115,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 
 		contentDir := getConfigMapDir(c.destinationDir, cm.Name)
 
-		data := map[string]string{}
+		data := make(map[string]string, len(configMap.Data))
 		for filename := range configMap.Data {
 			fullFilename := filepath.Join(contentDir, filename)
 
@@ -152,27 +152,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		klog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil && !os.IsExist(err) {
-			c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed creating directory for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
-			errors = append(errors, err)
-			continue
-		}
-		for filename, content := range configMap.Data {
-			fullFilename := filepath.Join(contentDir, filename)
-			// if the existing is the same, do nothing
-			if reflect.DeepEqual(data[fullFilename], content) {
-				continue
-			}
-
-			klog.Infof("Writing configmap manifest %q ...", fullFilename)
-			if err := staticpod.WriteFileAtomic([]byte(content), 0644, fullFilename); err != nil {
-				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
-				errors = append(errors, err)
-				continue
-			}
-		}
-		c.eventRecorder.Eventf("CertificateUpdated", "Wrote updated configmap: %s/%s", configMap.Namespace, configMap.Name)
+		errors = append(errors, writeFiles(&realFS, c.eventRecorder, configMap.Namespace, configMap.Name, "configmap", contentDir, data, 0644)...)
 	}
 
 	klog.Infof("Syncing secrets: %v", c.secrets)
@@ -220,7 +200,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 
 		contentDir := getSecretDir(c.destinationDir, s.Name)
 
-		data := map[string][]byte{}
+		data := make(map[string][]byte, len(secret.Data))
 		for filename := range secret.Data {
 			fullFilename := filepath.Join(contentDir, filename)
 
@@ -257,29 +237,80 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		klog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil && !os.IsExist(err) {
-			c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed creating directory for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
-			errors = append(errors, err)
-			continue
-		}
-		for filename, content := range secret.Data {
-			// TODO fix permissions
-			fullFilename := filepath.Join(contentDir, filename)
-			// if the existing is the same, do nothing
-			if reflect.DeepEqual(data[fullFilename], content) {
-				continue
-			}
-
-			klog.Infof("Writing secret manifest %q ...", fullFilename)
-			if err := staticpod.WriteFileAtomic(content, 0600, fullFilename); err != nil {
-				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
-				errors = append(errors, err)
-				continue
-			}
-		}
-		c.eventRecorder.Eventf("CertificateUpdated", "Wrote updated secret: %s/%s", secret.Namespace, secret.Name)
+		errors = append(errors, writeFiles(&realFS, c.eventRecorder, secret.Namespace, secret.Name, "secret", contentDir, data, 0600)...)
 	}
 
 	return utilerrors.NewAggregate(errors)
+}
+
+type fileSystem struct {
+	MkdirAll              func(path string, perm os.FileMode) error
+	MkdirTemp             func(dir, pattern string) (string, error)
+	RemoveAll             func(path string) error
+	WriteFile             func(name string, data []byte, perm os.FileMode) error
+	SwapDirectoriesAtomic func(dirA, dirB string) error
+}
+
+var realFS = fileSystem{
+	MkdirAll:              os.MkdirAll,
+	MkdirTemp:             os.MkdirTemp,
+	RemoveAll:             os.RemoveAll,
+	WriteFile:             os.WriteFile,
+	SwapDirectoriesAtomic: staticpod.SwapDirectoriesAtomic,
+}
+
+func writeFiles[C string | []byte](
+	fs *fileSystem, eventRecorder events.Recorder,
+	objectNamespace, objectName, kind string,
+	contentDir string, files map[string]C, filePerm os.FileMode,
+) []error {
+	var errors []error
+
+	// We are going to atomically swap the new data directory for the old one.
+	// In case the target directory does not exist, create it so that the directory not existing is not a special case.
+	klog.Infof("Ensuring directory %q exists ...", contentDir)
+	if err := fs.MkdirAll(contentDir, 0755); err != nil && !os.IsExist(err) {
+		eventRecorder.Warningf("CertificateUpdateFailed",
+			"Failed creating content directory for %s: %s/%s: %v", kind, objectNamespace, objectName, err)
+		errors = append(errors, err)
+		return errors
+	}
+
+	// Create a tmp source directory to be swapped.
+	srcDir, err := fs.MkdirTemp(filepath.Dir(contentDir), filepath.Base(contentDir)+"-*")
+	if err != nil {
+		eventRecorder.Warningf("CertificateUpdateFailed",
+			"Failed to create source %s directory for %s/%s: %v", kind, objectNamespace, objectName, err)
+		errors = append(errors, err)
+		return errors
+	}
+	defer fs.RemoveAll(srcDir)
+
+	// Populate the tmp directory with files.
+	for filename, content := range files {
+		fullFilename := filepath.Join(srcDir, filename)
+		klog.Infof("Writing %s manifest %q ...", kind, fullFilename)
+
+		if err := fs.WriteFile(fullFilename, []byte(content), filePerm); err != nil {
+			eventRecorder.Warningf("CertificateUpdateFailed",
+				"Failed writing file for %s: %s/%s: %v", kind, objectNamespace, objectName, err)
+			errors = append(errors, err)
+			continue
+		}
+	}
+	if len(errors) > 0 {
+		return errors
+	}
+
+	// Swap directories atomically.
+	if err := fs.SwapDirectoriesAtomic(contentDir, srcDir); err != nil {
+		eventRecorder.Warningf("CertificateUpdateFailed",
+			"Failed to enable new %s directory for %s/%s: %v", kind, objectNamespace, objectName, err)
+		errors = append(errors, err)
+		return errors
+	}
+
+	eventRecorder.Eventf("CertificateUpdated",
+		"Wrote updated %s: %s/%s", kind, objectNamespace, objectName)
+	return nil
 }
