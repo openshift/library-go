@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/sys/unix"
 )
 
 func WriteFileAtomic(content []byte, filePerms os.FileMode, fullFilename string) error {
@@ -30,4 +32,17 @@ func writeTemporaryFile(content []byte, filePerms os.FileMode, fullFilename stri
 		return "", err
 	}
 	return tmpfile.Name(), nil
+}
+
+// SwapDirectoriesAtomic can be used to swap two directories atomically.
+//
+// This function requires absolute paths and will return an error if that's not the case.
+func SwapDirectoriesAtomic(dirA, dirB string) error {
+	if !filepath.IsAbs(dirA) {
+		return fmt.Errorf("not an absolute path: %q", dirA)
+	}
+	if !filepath.IsAbs(dirB) {
+		return fmt.Errorf("not an absolute path: %q", dirB)
+	}
+	return unix.Renameat2(0, dirA, 0, dirB, unix.RENAME_EXCHANGE)
 }
