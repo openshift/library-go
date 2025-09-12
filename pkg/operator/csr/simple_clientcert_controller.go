@@ -46,5 +46,6 @@ func NewSimpleClientCertificateController(
 		kubeClient.CoreV1(),
 		recorder,
 		controllerName,
+		nil, // defaultKeyGenerator
 	)
 }

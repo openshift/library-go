@@ -95,6 +95,26 @@ type clientCertificateController struct {
 	//   3. csrName set, keyData set: we are waiting for a new cert to be signed.
 	//   4. csrName empty, keydata set: the CSR failed to create, this shouldn't happen, it's a bug.
 	keyData []byte
+
+	keyGenerator KeyGenerator
+}
+
+// KeyGenerator defines the interface for generating private key data for CSRs.
+// This abstraction allows for different key generation strategies in production
+// vs testing environments.
+type KeyGenerator interface {
+	// GenerateKeyData creates a new private key.
+	GenerateKeyData() ([]byte, error)
+}
+
+type defaultKeyGenerator struct{}
+
+func (k *defaultKeyGenerator) GenerateKeyData() ([]byte, error) {
+	return keyutil.MakeEllipticPrivateKeyPEM()
+}
+
+func NewDefaultKeyGenerator() KeyGenerator {
+	return &defaultKeyGenerator{}
 }
 
 // NewClientCertificateController return an instance of clientCertificateController
@@ -107,6 +127,7 @@ func NewClientCertificateController(
 	spokeCoreClient corev1client.CoreV1Interface,
 	recorder events.Recorder,
 	controllerName string,
+	keyGeneratorFunc KeyGenerator,
 ) (factory.Controller, error) {
 	if len(csrOption.ObjectMeta.Name) > 0 {
 		return nil, fmt.Errorf("the CSR controller does not allow specifying static names for the CSRs")
@@ -119,6 +140,11 @@ func NewClientCertificateController(
 		hubCSRClient:     hubCSRClient,
 		spokeCoreClient:  spokeCoreClient,
 		controllerName:   controllerName,
+		keyGenerator:     keyGeneratorFunc,
+	}
+
+	if c.keyGenerator == nil {
+		c.keyGenerator = NewDefaultKeyGenerator()
 	}
 
 	return factory.New().
@@ -224,7 +250,7 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 	}
 
 	// create a new private key
-	c.keyData, err = keyutil.MakeEllipticPrivateKeyPEM()
+	c.keyData, err = c.keyGenerator.GenerateKeyData()
 	if err != nil {
 		return err
 	}

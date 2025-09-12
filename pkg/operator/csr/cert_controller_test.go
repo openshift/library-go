@@ -235,6 +235,7 @@ func newTestController(client *fake.Clientset) *clientCertificateController {
 		"test-controller",
 		"",
 		[]byte{},
+		NewDefaultKeyGenerator(),
 	}
 }
 
