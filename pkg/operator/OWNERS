@@ -1,9 +1,10 @@
 reviewers:
-  - mfojtik
   - deads2k
-  - sttts
-  - soltysh
   - hexfusion
+  - p0lyn0mial
+  - bertinatto
+  - jsafrane
 approvers:
-  - mfojtik
-  - soltysh
+  - p0lyn0mial
+  - bertinatto
+  - jsafrane
