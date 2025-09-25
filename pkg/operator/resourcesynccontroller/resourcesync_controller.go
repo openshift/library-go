@@ -47,10 +47,52 @@ type ResourceSyncController struct {
 
 	runFn   func(ctx context.Context, workers int)
 	syncCtx factory.SyncContext
+
+	// see NewResourceSyncControllerWithArtificialDelay for more info
+	artificialDelay bool
 }
 
 var _ ResourceSyncer = &ResourceSyncController{}
 var _ factory.Controller = &ResourceSyncController{}
+
+// NewResourceSyncControllerWithArtificialDelay creates a ResourceSyncController
+// which intentionally introduces a sleep to slow down resyncs.
+//
+// Context:
+//   - The controller watches multiple namespaces.
+//   - Within those namespaces it observes both Secrets and ConfigMaps.
+//   - This leads to a very high number of updates.
+//   - When informers lag behind, resyncs are triggered too frequently,
+//     causing update bursts and event spam.
+//
+// Analysis showed this is not a constant fight (not a permanent loop).
+//
+// TODO:
+//   - Filter events to process only those relevant to this controller,
+//     instead of all updates in watched namespaces.
+//   - Consider introducing a work queue with backoff strategy
+//     to better handle event bursts.
+//     Before adding backoff, measure the actual frequency
+//     of Sync method invocations to make informed adjustments.
+func NewResourceSyncControllerWithArtificialDelay(
+	instanceName string,
+	operatorConfigClient v1helpers.OperatorClient,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	secretsGetter corev1client.SecretsGetter,
+	configMapsGetter corev1client.ConfigMapsGetter,
+	eventRecorder events.Recorder,
+) *ResourceSyncController {
+	c := NewResourceSyncController(
+		instanceName,
+		operatorConfigClient,
+		kubeInformersForNamespaces,
+		secretsGetter,
+		configMapsGetter,
+		eventRecorder,
+	)
+	c.artificialDelay = true
+	return c
+}
 
 // NewResourceSyncController creates ResourceSyncController.
 func NewResourceSyncController(
@@ -188,6 +230,9 @@ func errorWithProvider(provider string, err error) error {
 }
 
 func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	if c.artificialDelay {
+		time.Sleep(12 * time.Second)
+	}
 	operatorSpec, _, _, err := c.operatorConfigClient.GetOperatorState()
 	if err != nil {
 		return err
