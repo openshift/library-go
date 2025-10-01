@@ -770,7 +770,7 @@ func areCondidtionsEqual(expectedConditions []operatorv1.OperatorCondition, actu
 		// so that we don't compare ref vs value types
 		actualCondition := *actualConditionPtr
 		if !equality.Semantic.DeepEqual(actualCondition, expectedCondition) {
-			return fmt.Errorf("conditions mismatch, diff = %s", diff.ObjectDiff(actualCondition, expectedCondition))
+			return fmt.Errorf("conditions mismatch, diff = %s", diff.Diff(actualCondition, expectedCondition))
 		}
 	}
 	return nil
