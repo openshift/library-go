@@ -45,6 +45,8 @@ type ResourceSyncController struct {
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	operatorConfigClient       v1helpers.OperatorClient
 
+	degradedConditionType string
+
 	runFn   func(ctx context.Context, workers int)
 	syncCtx factory.SyncContext
 }
@@ -69,6 +71,7 @@ func NewResourceSyncController(
 		secretSyncRules:            syncRules{},
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		knownNamespaces:            kubeInformersForNamespaces.Namespaces(),
+		degradedConditionType:      condition.ResourceSyncControllerDegradedConditionType,
 
 		configMapGetter: v1helpers.CachedConfigMapGetter(configMapsGetter, kubeInformersForNamespaces),
 		secretGetter:    v1helpers.CachedSecretGetter(secretsGetter, kubeInformersForNamespaces),
@@ -262,7 +265,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 	if len(errors) > 0 {
 		condition := applyoperatorv1.OperatorStatus().
 			WithConditions(applyoperatorv1.OperatorCondition().
-				WithType(condition.ResourceSyncControllerDegradedConditionType).
+				WithType(c.degradedConditionType).
 				WithStatus(operatorv1.ConditionTrue).
 				WithReason("Error").
 				WithMessage(v1helpers.NewMultiLineAggregate(errors).Error()))
@@ -275,7 +278,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 
 	condition := applyoperatorv1.OperatorStatus().
 		WithConditions(applyoperatorv1.OperatorCondition().
-			WithType(condition.ResourceSyncControllerDegradedConditionType).
+			WithType(c.degradedConditionType).
 			WithStatus(operatorv1.ConditionFalse))
 	updateErr := c.operatorConfigClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, condition)
 	if updateErr != nil {
