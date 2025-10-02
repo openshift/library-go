@@ -112,6 +112,14 @@ func (c *ResourceSyncController) Name() string {
 	return c.controllerInstanceName
 }
 
+// WithConditionPrefix sets a prefix for the controller's condition types.
+// This is useful when multiple operators reuse the same controller but would like to have
+// distinct conditions.
+func (c *ResourceSyncController) WithConditionPrefix(prefix string) *ResourceSyncController {
+	c.degradedConditionType = fmt.Sprintf("%s%s", prefix, c.degradedConditionType)
+	return c
+}
+
 func (c *ResourceSyncController) SyncConfigMap(destination, source ResourceLocation) error {
 	return c.syncConfigMap(destination, source, alwaysFulfilledPreconditions)
 }
