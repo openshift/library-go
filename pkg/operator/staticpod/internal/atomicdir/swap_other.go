@@ -2,6 +2,8 @@
 
 package atomicdir
 
+import "errors"
+
 // swap can be used to exchange two directories atomically.
 //
 // This function is only implemented for Linux and returns an error on other platforms.
