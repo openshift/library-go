@@ -13,9 +13,9 @@ require (
 	github.com/google/gnostic-models v0.6.9
 	github.com/google/go-cmp v0.7.0
 	github.com/imdario/mergo v0.3.7
+	github.com/moby/sys/user v0.4.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/runc v1.1.13
 	github.com/opencontainers/selinux v1.11.0
 	github.com/openshift/api v0.0.0-20251002150504-230d0e045316
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
