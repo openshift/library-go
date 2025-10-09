@@ -45,6 +45,8 @@ type ResourceSyncController struct {
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	operatorConfigClient       v1helpers.OperatorClient
 
+	degradedConditionType string
+
 	runFn   func(ctx context.Context, workers int)
 	syncCtx factory.SyncContext
 }
@@ -69,6 +71,7 @@ func NewResourceSyncController(
 		secretSyncRules:            syncRules{},
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		knownNamespaces:            kubeInformersForNamespaces.Namespaces(),
+		degradedConditionType:      condition.ResourceSyncControllerDegradedConditionType,
 
 		configMapGetter: v1helpers.CachedConfigMapGetter(configMapsGetter, kubeInformersForNamespaces),
 		secretGetter:    v1helpers.CachedSecretGetter(secretsGetter, kubeInformersForNamespaces),
@@ -107,6 +110,14 @@ func (c *ResourceSyncController) Run(ctx context.Context, workers int) {
 
 func (c *ResourceSyncController) Name() string {
 	return c.controllerInstanceName
+}
+
+// WithConditionPrefix sets a prefix for the controller's condition types.
+// This is useful when multiple operators reuse the same controller but would like to have
+// distinct conditions.
+func (c *ResourceSyncController) WithConditionPrefix(prefix string) *ResourceSyncController {
+	c.degradedConditionType = fmt.Sprintf("%s%s", prefix, c.degradedConditionType)
+	return c
 }
 
 func (c *ResourceSyncController) SyncConfigMap(destination, source ResourceLocation) error {
@@ -262,7 +273,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 	if len(errors) > 0 {
 		condition := applyoperatorv1.OperatorStatus().
 			WithConditions(applyoperatorv1.OperatorCondition().
-				WithType(condition.ResourceSyncControllerDegradedConditionType).
+				WithType(c.degradedConditionType).
 				WithStatus(operatorv1.ConditionTrue).
 				WithReason("Error").
 				WithMessage(v1helpers.NewMultiLineAggregate(errors).Error()))
@@ -275,7 +286,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 
 	condition := applyoperatorv1.OperatorStatus().
 		WithConditions(applyoperatorv1.OperatorCondition().
-			WithType(condition.ResourceSyncControllerDegradedConditionType).
+			WithType(c.degradedConditionType).
 			WithStatus(operatorv1.ConditionFalse))
 	updateErr := c.operatorConfigClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, condition)
 	if updateErr != nil {
