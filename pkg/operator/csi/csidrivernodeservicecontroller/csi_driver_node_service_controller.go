@@ -269,7 +269,7 @@ func (c *CSIDriverNodeServiceController) isProgressing(daemonSet *appsv1.DaemonS
 	// Any subsequent missing replicas must be caused by a node added / removed / rebooted /
 	// pod manually killed, which then does not result in Progressing=true.
 	lastStableGeneration := daemonSet.Annotations[stableGenerationAnnotationName]
-	currentGeneration := strconv.FormatInt(int64(daemonSet.Generation), 10)
+	currentGeneration := strconv.FormatInt(daemonSet.Generation, 10)
 	if lastStableGeneration == currentGeneration {
 		// The previous reconfiguration has completed in the past.
 		return false, ""
@@ -339,7 +339,7 @@ func (c *CSIDriverNodeServiceController) syncDeleting(ctx context.Context, opSpe
 
 func (c *CSIDriverNodeServiceController) storeLastStableGeneration(ctx context.Context, syncContext factory.SyncContext, daemonSet *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
 	lastStableGeneration := daemonSet.Annotations[stableGenerationAnnotationName]
-	currentGeneration := strconv.FormatInt(int64(daemonSet.Generation), 10)
+	currentGeneration := strconv.FormatInt(daemonSet.Generation, 10)
 	if lastStableGeneration == currentGeneration {
 		return daemonSet, nil
 	}
