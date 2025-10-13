@@ -223,7 +223,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		WithMessage("DaemonSet is not progressing").
 		WithReason("AsExpected")
 
-	if ok, msg := c.isProgressing(daemonSet); ok {
+	if ok, msg := isProgressing(daemonSet); ok {
 		progressingCondition = progressingCondition.
 			WithStatus(opv1.ConditionTrue).
 			WithMessage(msg).
@@ -259,7 +259,7 @@ func (c *CSIDriverNodeServiceController) getDaemonSet(opSpec *opv1.OperatorSpec)
 	return required, nil
 }
 
-func (c *CSIDriverNodeServiceController) isProgressing(daemonSet *appsv1.DaemonSet) (bool, string) {
+func isProgressing(daemonSet *appsv1.DaemonSet) (bool, string) {
 	// Progressing means "[the component] is actively rolling out new code, propagating config
 	// changes (e.g, a version change), or otherwise moving from one steady state to another."
 	// This controller expects that all "config changes" result in increased DaemonSet generation
@@ -344,7 +344,7 @@ func (c *CSIDriverNodeServiceController) storeLastStableGeneration(ctx context.C
 		return daemonSet, nil
 	}
 
-	if isProgressing, _ := c.isProgressing(daemonSet); isProgressing {
+	if isProgressing, _ := isProgressing(daemonSet); isProgressing {
 		return daemonSet, nil
 	}
 
