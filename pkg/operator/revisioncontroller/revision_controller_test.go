@@ -107,7 +107,10 @@ func TestRevisionController(t *testing.T) {
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
 				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
 				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-1", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
 					Data:       map[string]string{"revision": "1"},
 				},
 			},
@@ -218,6 +221,16 @@ func TestRevisionController(t *testing.T) {
 				nil,
 				nil,
 			),
+			startingObjects: []runtime.Object{
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
+				&v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "revision-status-1", Namespace: targetNamespace,
+						Annotations: map[string]string{"operator.openshift.io/revision-ready": "true"},
+					},
+					Data: map[string]string{"revision": "1"},
+				},
+			},
 			testConfigs:     []RevisionResource{{Name: "test-config"}},
 			testSecrets:     []RevisionResource{{Name: "test-secret"}},
 			expectSyncError: `configmaps "test-config" not found`,
