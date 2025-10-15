@@ -256,7 +256,7 @@ func TestAvailableStatus(t *testing.T) {
 				sort.Strings(a)
 				sort.Strings(b)
 				if !equality.Semantic.DeepEqual(a, b) {
-					t.Error("\n" + diff.ObjectDiff(a, b))
+					t.Error("\n" + diff.Diff(a, b))
 				}
 			}
 		})
