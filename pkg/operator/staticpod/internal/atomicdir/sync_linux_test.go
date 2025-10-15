@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestSync(t *testing.T) {
@@ -24,11 +22,11 @@ func TestSync(t *testing.T) {
 		newFS func() *fileSystem
 		// existingFiles is used to populate the target directory state before testing.
 		// An empty map will cause the directory to be created, a nil map will cause no directory to be created.
-		existingFiles map[string][]byte
+		existingFiles map[string]File
 		// filesToSync will be synchronized into the target directory.
-		filesToSync map[string][]byte
+		filesToSync map[string]File
 		// expectedFiles contains the files that are expected to be in the target directory after sync is called.
-		expectedFiles map[string][]byte
+		expectedFiles map[string]File
 		// expectSyncError check the return value from Sync.
 		expectSyncError bool
 		// expectLingeringStagingDirectory can be set to true to expect the temporary directory not to be removed.
@@ -39,17 +37,17 @@ func TestSync(t *testing.T) {
 		return testCase{
 			name:  name,
 			newFS: newFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"api.crt": []byte("rotated TLS cert"),
-				"api.key": []byte("rotated TLS key"),
+			filesToSync: map[string]File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 			expectSyncError: true,
 		}
@@ -60,183 +58,183 @@ func TestSync(t *testing.T) {
 			name:          "target directory does not exist",
 			newFS:         newRealFS,
 			existingFiles: nil,
-			filesToSync: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			filesToSync: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:          "target directory is empty",
 			newFS:         newRealFS,
-			existingFiles: map[string][]byte{},
-			filesToSync: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{},
+			filesToSync: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "target directory already synchronized",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			filesToSync: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "change file contents preserving the filenames",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"tls.crt": []byte("rotated TLS cert"),
-				"tls.key": []byte("rotated TLS key"),
+			filesToSync: map[string]File{
+				"tls.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("rotated TLS cert"),
-				"tls.key": []byte("rotated TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "change filenames preserving the file contents",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"api.crt": []byte("TLS cert"),
-				"api.key": []byte("TLS key"),
+			filesToSync: map[string]File{
+				"api.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"api.crt": []byte("TLS cert"),
-				"api.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"api.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "change filenames and file contents",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"api.crt": []byte("rotated TLS cert"),
-				"api.key": []byte("rotated TLS key"),
+			filesToSync: map[string]File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"api.crt": []byte("rotated TLS cert"),
-				"api.key": []byte("rotated TLS key"),
+			expectedFiles: map[string]File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "replace a single file content",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("2"),
+			existingFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("3"),
+			filesToSync: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("3"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("3"),
+			expectedFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("3"), Perm: 0600},
 			},
 		},
 		{
 			name:  "replace a single file",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("2"),
+			existingFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"1.txt": []byte("1"),
-				"3.txt": []byte("3"),
+			filesToSync: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"3.txt": {Content: []byte("3"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"3.txt": []byte("3"),
+			expectedFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"3.txt": {Content: []byte("3"), Perm: 0600},
 			},
 		},
 		{
 			name:  "rename a single file",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("2"),
+			existingFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"1.txt": []byte("1"),
-				"3.txt": []byte("2"),
+			filesToSync: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"3.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"3.txt": []byte("2"),
+			expectedFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"3.txt": {Content: []byte("2"), Perm: 0600},
 			},
 		},
 		{
 			name:  "add new files",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"tls.crt":         []byte("TLS cert"),
-				"tls.key":         []byte("TLS key"),
-				"another_tls.crt": []byte("another TLS cert"),
-				"another_tls.key": []byte("another TLS key"),
+			filesToSync: map[string]File{
+				"tls.crt":         {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key":         {Content: []byte("TLS key"), Perm: 0600},
+				"another_tls.crt": {Content: []byte("another TLS cert"), Perm: 0600},
+				"another_tls.key": {Content: []byte("another TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt":         []byte("TLS cert"),
-				"tls.key":         []byte("TLS key"),
-				"another_tls.crt": []byte("another TLS cert"),
-				"another_tls.key": []byte("another TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt":         {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key":         {Content: []byte("TLS key"), Perm: 0600},
+				"another_tls.crt": {Content: []byte("another TLS cert"), Perm: 0600},
+				"another_tls.key": {Content: []byte("another TLS key"), Perm: 0600},
 			},
 		},
 		{
 			name:  "delete a single file",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("2"),
+			existingFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"1.txt": []byte("1"),
+			filesToSync: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"1.txt": []byte("1"),
+			expectedFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
 			},
 		},
 		{
 			name:  "delete all files",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"1.txt": []byte("1"),
-				"2.txt": []byte("2"),
+			existingFiles: map[string]File{
+				"1.txt": {Content: []byte("1"), Perm: 0600},
+				"2.txt": {Content: []byte("2"), Perm: 0600},
 			},
-			filesToSync:   map[string][]byte{},
-			expectedFiles: map[string][]byte{},
+			filesToSync:   map[string]File{},
+			expectedFiles: map[string]File{},
 		},
 		errorTestCase("directory unchanged on failed to create object directory", func() *fileSystem {
 			fs := newRealFS()
@@ -288,17 +286,17 @@ func TestSync(t *testing.T) {
 				}
 				return fs
 			},
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"api.crt": []byte("rotated TLS cert"),
-				"api.key": []byte("rotated TLS key"),
+			filesToSync: map[string]File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"api.crt": []byte("rotated TLS cert"),
-				"api.key": []byte("rotated TLS key"),
+			expectedFiles: map[string]File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
 			expectSyncError:                 true,
 			expectLingeringStagingDirectory: true,
@@ -306,36 +304,36 @@ func TestSync(t *testing.T) {
 		{
 			name:  "invalid filename specified (relative path)",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
+			filesToSync: map[string]File{
 				// This fails even though the actual resolved path is just "api.crt".
 				// We simply do not handle paths in any way, we expect filenames.
-				"home/../api.crt": []byte("rotated TLS cert"),
-				"api.key":         []byte("rotated TLS key"),
+				"home/../api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key":         {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 			expectSyncError: true,
 		},
 		{
 			name:  "invalid filename specified (absolute path)",
 			newFS: newRealFS,
-			existingFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			existingFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
-			filesToSync: map[string][]byte{
-				"/api.crt": []byte("rotated TLS cert"),
-				"api.key":  []byte("rotated TLS key"),
+			filesToSync: map[string]File{
+				"/api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key":  {Content: []byte("rotated TLS key"), Perm: 0600},
 			},
-			expectedFiles: map[string][]byte{
-				"tls.crt": []byte("TLS cert"),
-				"tls.key": []byte("TLS key"),
+			expectedFiles: map[string]File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
 			},
 			expectSyncError: true,
 		},
@@ -346,24 +344,15 @@ func TestSync(t *testing.T) {
 			// Write the current directory contents.
 			contentDir := filepath.Join(t.TempDir(), "secrets", "tls-cert")
 			if tc.existingFiles != nil {
-				if err := os.MkdirAll(contentDir, 0700); err != nil {
-					t.Fatalf("Failed to create content directory %q: %v", contentDir, err)
-				}
-
-				for filename, content := range tc.existingFiles {
-					targetPath := filepath.Join(contentDir, filename)
-					if err := os.WriteFile(targetPath, content, 0600); err != nil {
-						t.Fatalf("Failed to populate file %q: %v", targetPath, err)
-					}
-				}
+				directoryState(tc.existingFiles).Write(t, contentDir, 0755)
 			}
 
 			// Replace with the object data.
 			stagingDir := filepath.Join(t.TempDir(), "staging", "secrets", "tls-cert")
-			err := sync(tc.newFS(), contentDir, 0700, stagingDir, tc.filesToSync, 0600)
+			err := sync(tc.newFS(), contentDir, 0755, stagingDir, tc.filesToSync)
 
 			// Check the resulting state.
-			checkDirectoryContents(t, contentDir, 0700, tc.expectedFiles, 0600)
+			directoryState(tc.expectedFiles).CheckDirectoryMatches(t, contentDir, 0755)
 
 			if (err != nil) != tc.expectSyncError {
 				t.Errorf("Expected error from sync = %v, got %v", tc.expectSyncError, err)
@@ -388,42 +377,6 @@ func failToWriteNth(writeFile writeFileFunc, n int) writeFileFunc {
 			return errors.New("nuked")
 		}
 		return writeFile(path, data, perm)
-	}
-}
-
-func checkDirectoryContents(t *testing.T, contentDir string, contentDirPerm os.FileMode, files map[string][]byte, filePerm os.FileMode) {
-	// Ensure the content directory permissions match.
-	stat, err := os.Stat(contentDir)
-	if err != nil {
-		t.Fatalf("Failed to stat %q: %v", contentDir, err)
-	}
-	if perm := stat.Mode().Perm(); perm != contentDirPerm {
-		t.Errorf("Permissions mismatch detected for %q: expected %v, got %v", contentDir, contentDirPerm, perm)
-	}
-
-	// Ensure the content directory is in sync.
-	entries, err := os.ReadDir(contentDir)
-	if err != nil {
-		t.Fatalf("Failed to read directory %q: %v", contentDir, err)
-	}
-	writtenData := make(map[string][]byte, len(entries))
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			t.Fatalf("Failed to read file information for %q: %v", entry.Name(), err)
-		}
-		if perm := info.Mode().Perm(); perm != filePerm {
-			t.Errorf("Unexpected file permissions for %q: %v", entry.Name(), perm)
-		}
-
-		content, err := os.ReadFile(filepath.Join(contentDir, entry.Name()))
-		if err != nil {
-			t.Fatalf("Failed to read file %q: %v", entry.Name(), err)
-		}
-		writtenData[entry.Name()] = content
-	}
-	if !cmp.Equal(writtenData, files) {
-		t.Errorf("Unexpected directory content:\n%s\n", cmp.Diff(files, writtenData))
 	}
 }
 
