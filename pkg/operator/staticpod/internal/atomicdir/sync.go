@@ -8,6 +8,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// File represents file content together with the associated permissions.
+type File struct {
+	Content []byte
+	Perm    os.FileMode
+}
+
 // Sync can be used to atomically synchronize target directory with the given file content map.
 // This is done by populating a staging directory, then atomically swapping it with the target directory.
 // This effectively means that any extra files in the target directory are pruned.
@@ -15,8 +21,8 @@ import (
 // The staging directory needs to be explicitly specified. It is initially created using os.MkdirAll with targetDirPerm.
 // It is then populated using files with filePerm. Once the atomic swap is performed, the staging directory
 // (which is now the original target directory) is removed.
-func Sync(targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string][]byte, filePerm os.FileMode) error {
-	return sync(&realFS, targetDir, targetDirPerm, stagingDir, files, filePerm)
+func Sync(targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]File) error {
+	return sync(&realFS, targetDir, targetDirPerm, stagingDir, files)
 }
 
 type fileSystem struct {
@@ -43,7 +49,7 @@ var realFS = fileSystem{
 // In other words, it's for compatibility reasons. And if we were to migrate to the symlink approach,
 // we would anyway need to atomically turn the current data directory into a symlink.
 // This would all just increase complexity and require atomic swap on the OS level anyway.
-func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string][]byte, filePerm os.FileMode) (retErr error) {
+func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]File) (retErr error) {
 	klog.Infof("Ensuring target directory %q exists ...", targetDir)
 	if err := fs.MkdirAll(targetDir, targetDirPerm); err != nil {
 		return fmt.Errorf("failed creating target directory: %w", err)
@@ -63,7 +69,7 @@ func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDi
 		}
 	}()
 
-	for filename, content := range files {
+	for filename, file := range files {
 		// Make sure filename is a plain filename, not a path.
 		// This also ensures the staging directory cannot be escaped.
 		if filename != filepath.Base(filename) {
@@ -73,7 +79,7 @@ func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDi
 		fullFilename := filepath.Join(stagingDir, filename)
 		klog.Infof("Writing file %q ...", fullFilename)
 
-		if err := fs.WriteFile(fullFilename, content, filePerm); err != nil {
+		if err := fs.WriteFile(fullFilename, file.Content, file.Perm); err != nil {
 			return fmt.Errorf("failed writing %q: %w", fullFilename, err)
 		}
 	}
