@@ -51,7 +51,7 @@ func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDi
 		return fmt.Errorf("failed creating target directory: %w", err)
 	}
 
-	klog.Infof("Creating staging directory to swap for %q ...", targetDir)
+	klog.Infof("Creating staging directory %q ...", stagingDir)
 	if err := fs.MkdirAll(stagingDir, targetDirPerm); err != nil {
 		return fmt.Errorf("failed creating staging directory: %w", err)
 	}
@@ -80,7 +80,7 @@ func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDi
 		}
 	}
 
-	klog.Infof("Atomically swapping target directory %q with staging directory %q ...", targetDir, stagingDir)
+	klog.Infof("Atomically swapping staging directory %q with target directory %q ...", stagingDir, targetDir)
 	if err := fs.SwapDirectories(targetDir, stagingDir); err != nil {
 		return fmt.Errorf("failed swapping target directory %q with staging directory %q: %w", targetDir, stagingDir, err)
 	}
