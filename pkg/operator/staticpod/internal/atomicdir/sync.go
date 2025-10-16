@@ -6,13 +6,9 @@ import (
 	"path/filepath"
 
 	"k8s.io/klog/v2"
-)
 
-// File represents file content together with the associated permissions.
-type File struct {
-	Content []byte
-	Perm    os.FileMode
-}
+	"github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir/types"
+)
 
 // Sync can be used to atomically synchronize target directory with the given file content map.
 // This is done by populating a staging directory, then atomically swapping it with the target directory.
@@ -21,7 +17,7 @@ type File struct {
 // The staging directory needs to be explicitly specified. It is initially created using os.MkdirAll with targetDirPerm.
 // It is then populated using files with filePerm. Once the atomic swap is performed, the staging directory
 // (which is now the original target directory) is removed.
-func Sync(targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]File) error {
+func Sync(targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]types.File) error {
 	return sync(&realFS, targetDir, targetDirPerm, stagingDir, files)
 }
 
@@ -49,7 +45,7 @@ var realFS = fileSystem{
 // In other words, it's for compatibility reasons. And if we were to migrate to the symlink approach,
 // we would anyway need to atomically turn the current data directory into a symlink.
 // This would all just increase complexity and require atomic swap on the OS level anyway.
-func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]File) (retErr error) {
+func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDir string, files map[string]types.File) (retErr error) {
 	klog.Infof("Ensuring target directory %q exists ...", targetDir)
 	if err := fs.MkdirAll(targetDir, targetDirPerm); err != nil {
 		return fmt.Errorf("failed creating target directory: %w", err)
