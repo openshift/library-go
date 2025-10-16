@@ -3,14 +3,11 @@
 package atomicdir
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestSwap(t *testing.T) {
@@ -44,8 +41,8 @@ func TestSwap(t *testing.T) {
 		expectNoError(t, err)
 
 		// Make sure the contents are swapped.
-		stateFirst.CheckDirectoryMatches(t, pathSecond)
-		stateSecond.CheckDirectoryMatches(t, pathFirst)
+		stateFirst.CheckDirectoryMatches(t, pathSecond, 0755)
+		stateSecond.CheckDirectoryMatches(t, pathFirst, 0755)
 	}
 
 	testCases := []struct {
@@ -59,8 +56,8 @@ func TestSwap(t *testing.T) {
 				pathFirst := filepath.Join(tmpDir, "first")
 				pathSecond := filepath.Join(tmpDir, "second")
 
-				stateFirst.Write(t, pathFirst)
-				stateSecond.Write(t, pathSecond)
+				stateFirst.Write(t, pathFirst, 0755)
+				stateSecond.Write(t, pathSecond, 0755)
 
 				return pathFirst, stateFirst, pathSecond, stateSecond
 			},
@@ -72,8 +69,8 @@ func TestSwap(t *testing.T) {
 				pathFirst := filepath.Join(tmpDir, "first")
 				pathSecond := filepath.Join(tmpDir, "second")
 
-				stateFirst.Write(t, pathFirst)
-				stateSecond.Write(t, pathSecond)
+				stateFirst.Write(t, pathFirst, 0755)
+				stateSecond.Write(t, pathSecond, 0755)
 
 				cwd, err := os.Getwd()
 				expectNoError(t, err)
@@ -91,8 +88,8 @@ func TestSwap(t *testing.T) {
 				pathFirst := filepath.Join(tmpDir, "first")
 				pathSecond := filepath.Join(tmpDir, "second")
 
-				stateFirst.Write(t, pathFirst)
-				stateSecond.Write(t, pathSecond)
+				stateFirst.Write(t, pathFirst, 0755)
+				stateSecond.Write(t, pathSecond, 0755)
 
 				cwd, err := os.Getwd()
 				expectNoError(t, err)
@@ -110,8 +107,8 @@ func TestSwap(t *testing.T) {
 				pathFirst := filepath.Join(tmpDir, "first")
 				pathSecond := filepath.Join(tmpDir, "second")
 
-				stateFirst.Write(t, pathFirst)
-				stateEmpty.Write(t, pathSecond)
+				stateFirst.Write(t, pathFirst, 0755)
+				stateEmpty.Write(t, pathSecond, 0755)
 
 				return pathFirst, stateFirst, pathSecond, stateEmpty
 			},
@@ -123,8 +120,8 @@ func TestSwap(t *testing.T) {
 				pathFirst := filepath.Join(tmpDir, "first")
 				pathSecond := filepath.Join(tmpDir, "second")
 
-				stateEmpty.Write(t, pathFirst)
-				stateEmpty.Write(t, pathSecond)
+				stateEmpty.Write(t, pathFirst, 0755)
+				stateEmpty.Write(t, pathSecond, 0755)
 
 				return pathFirst, stateEmpty, pathSecond, stateEmpty
 			},
@@ -186,66 +183,62 @@ func TestSwap(t *testing.T) {
 	}
 }
 
-type fileState struct {
-	Content []byte
-	Perm    os.FileMode
-}
+type directoryState map[string]File
 
-type directoryState map[string]fileState
-
-func (dir directoryState) Write(t *testing.T, path string) {
-	if err := os.MkdirAll(path, 0755); err != nil && !os.IsExist(err) {
-		t.Fatalf("Failed to create directory %q: %v", path, err)
+func (dir directoryState) Write(tb testing.TB, dirPath string, dirPerm os.FileMode) {
+	if err := os.MkdirAll(dirPath, dirPerm); err != nil {
+		tb.Fatalf("Failed to create directory %q: %v", dirPath, err)
 	}
 
 	for filename, state := range dir {
-		fullFilename := filepath.Join(path, filename)
+		fullFilename := filepath.Join(dirPath, filename)
 		if err := os.WriteFile(fullFilename, state.Content, state.Perm); err != nil {
-			t.Fatalf("Failed to write file %q: %v", fullFilename, err)
+			tb.Fatalf("Failed to write file %q: %v", fullFilename, err)
 		}
 	}
 }
 
-func (dir directoryState) CheckDirectoryMatches(t *testing.T, path string) {
-	entries, err := os.ReadDir(path)
+func (dir directoryState) CheckDirectoryMatches(tb testing.TB, dirPath string, dirPerm os.FileMode) {
+	// Ensure the directory permissions match.
+	stat, err := os.Stat(dirPath)
 	if err != nil {
-		t.Fatalf("Failed to read directory %q: %v", path, err)
+		tb.Fatalf("Failed to stat %q: %v", dirPath, err)
+	}
+	if perm := stat.Mode().Perm(); perm != dirPerm {
+		tb.Errorf("Permissions mismatch detected for %q: expected %v, got %v", dirPath, dirPerm, perm)
 	}
 
-	expectedFiles := sets.KeySet(dir)
+	// Ensure all files are in sync.
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		tb.Fatalf("Failed to read directory %q: %v", dirPath, err)
+	}
+
+	actualState := make(directoryState, len(entries))
 	for _, entry := range entries {
-		// Mark the file as visited.
-		expectedFiles.Delete(entry.Name())
+		filePath := filepath.Join(dirPath, entry.Name())
 
-		// Get the expected state.
-		state, ok := dir[entry.Name()]
-		if !ok {
-			t.Errorf("Directory %q contains unexpected file %q", path, entry.Name())
-			continue
-		}
-
-		// Check permissions.
 		info, err := entry.Info()
 		if err != nil {
-			t.Errorf("Failed to stat file %q: %v", entry.Name(), err)
+			tb.Fatalf("Failed to stat %q: %v", filePath, err)
+		}
+
+		if info.IsDir() {
+			tb.Errorf("Unexpected directory detected: %q", filePath)
 			continue
 		}
 
-		if info.Mode() != state.Perm {
-			t.Errorf("Unexpected permissions on file %q: expected %v, got %v", entry.Name(), state.Perm, info.Mode())
-		}
-
-		// Check file content.
-		content, err := os.ReadFile(filepath.Join(path, entry.Name()))
+		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Errorf("Failed to read file %q: %v", entry.Name(), err)
-			continue
+			tb.Fatalf("Failed to read %q: %v", filePath, err)
 		}
-		if !bytes.Equal(state.Content, content) {
-			t.Errorf("Unexpected content in file %q:\n%v", entry.Name(), cmp.Diff(string(state.Content), string(content)))
+
+		actualState[entry.Name()] = File{
+			Content: content,
+			Perm:    info.Mode(),
 		}
 	}
-	if expectedFiles.Len() != 0 {
-		t.Errorf("Some expected files were not found in directory %q: %s", path, expectedFiles.UnsortedList())
+	if !cmp.Equal(dir, actualState) {
+		tb.Errorf("Unexpected directory content for %q:\n%s\n", dirPath, cmp.Diff(dir, actualState))
 	}
 }
