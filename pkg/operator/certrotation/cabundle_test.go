@@ -204,12 +204,12 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			}
 
 			c := &CABundleConfigMap{
-				Namespace: "ns",
-				Name:      "trust-bundle",
-
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewConfigMapLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				Namespace:              "ns",
+				Name:                   "trust-bundle",
+				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				Client:                 client.CoreV1(),
+				Lister:                 corev1listers.NewConfigMapLister(indexer),
+				EventRecorder:          events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
 			}
 
 			newCA, err := test.caFn()
