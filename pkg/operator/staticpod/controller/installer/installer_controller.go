@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -118,6 +119,7 @@ type InstallerController struct {
 	podOperatorStatusApplied bool
 	// resource version of the last StaticPodOperatorStatus applied
 	lastPodOperatorAppliedRV uint64
+	lastMissingEvent         map[string]time.Time
 }
 
 // InstallerPodMutationFunc is a function that has a chance at changing the installer pod before it is created
@@ -1119,7 +1121,22 @@ func (c InstallerController) ensureRequiredResourcesExist(ctx context.Context, r
 	for _, err := range aggregatedErr.Errors() {
 		eventMessages = append(eventMessages, err.Error())
 	}
-	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
+	sort.Strings(eventMessages)
+	key := strings.Join(eventMessages, ",")
+
+	if c.lastMissingEvent == nil {
+		c.lastMissingEvent = make(map[string]time.Time)
+	}
+
+	now := time.Now()
+	if c.now != nil {
+		now = c.now()
+	}
+
+	if lastTime, exists := c.lastMissingEvent[key]; !exists || now.Sub(lastTime) > 30*time.Second {
+		c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
+		c.lastMissingEvent[key] = now
+	}
 	return fmt.Errorf("missing required resources: %v", aggregatedErr)
 }
 
