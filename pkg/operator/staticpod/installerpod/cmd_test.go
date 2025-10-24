@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 	"path"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +51,8 @@ func TestCopyContent(t *testing.T) {
 				Revision:               "006",
 				Namespace:              "some-ns",
 				PodConfigMapNamePrefix: "kube-apiserver-pod",
-				SecretNamePrefixes:     []string{"first", "second"},
-				ConfigMapNamePrefixes:  []string{"alpha", "bravo"},
+				SecretNamePrefixes:     []string{"first", "second", "third"},
+				ConfigMapNamePrefixes:  []string{"alpha", "bravo", "delta"},
 			},
 			client: func() *fake.Clientset {
 				return fake.NewSimpleClientset(
@@ -68,6 +68,12 @@ func TestCopyContent(t *testing.T) {
 						Data: map[string][]byte{
 							"uno-B.crt": []byte("uno"),
 							"dos-B.crt": []byte("dos"),
+						},
+					},
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "some-ns", Name: "third-006"},
+						Data: map[string][]byte{
+							"run-third.sh": []byte("echo third"),
 						},
 					},
 					&corev1.ConfigMap{
@@ -90,23 +96,31 @@ func TestCopyContent(t *testing.T) {
 							"pod.yaml": podYaml,
 						},
 					},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "some-ns", Name: "delta-006"},
+						Data: map[string]string{
+							"run-delta.sh": "echo delta",
+						},
+					},
 				)
 			},
 			expected: func(t *testing.T, resourceDir, podDir string) {
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "one-A.crt"), "one")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "two-A.crt"), "two")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "uno-B.crt"), "uno")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "dos-B.crt"), "dos")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "apple-A.crt"), "apple")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "one-A.crt"), "one", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "two-A.crt"), "two", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "uno-B.crt"), "uno", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "dos-B.crt"), "dos", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "third", "run-third.sh"), "echo third", 0700)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "apple-A.crt"), "apple", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "delta", "run-delta.sh"), "echo delta", 0755)
 				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
 				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
 			},
 		},
 		{
-			name: "optional-secrets-confmaps",
+			name: "optional-secrets-configmaps",
 			o: InstallOptions{
 				Revision:                      "006",
 				Namespace:                     "some-ns",
@@ -169,18 +183,18 @@ func TestCopyContent(t *testing.T) {
 				)
 			},
 			expected: func(t *testing.T, resourceDir, podDir string) {
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "one-A.crt"), "one")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "two-A.crt"), "two")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "uno-B.crt"), "uno")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "dos-B.crt"), "dos")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "third", "tres-C.crt"), "tres")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "third", "cuatro-C.crt"), "cuatro")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "apple-A.crt"), "apple")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "apple-C.crt"), "apple")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "banana-C.crt"), "banana")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "one-A.crt"), "one", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "two-A.crt"), "two", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "uno-B.crt"), "uno", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "dos-B.crt"), "dos", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "third", "tres-C.crt"), "tres", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "third", "cuatro-C.crt"), "cuatro", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "apple-A.crt"), "apple", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "apple-C.crt"), "apple", 0600)
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "charlie", "banana-C.crt"), "banana", 0600)
 				checkFileContentMatchesPod(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
 				checkFileContentMatchesPod(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
 			},
@@ -215,13 +229,7 @@ func TestCopyContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testDir, err := os.MkdirTemp("", "copy-content-test")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				os.Remove(testDir)
-			}()
+			testDir := t.TempDir()
 
 			o := test.o
 			o.KubeClient = test.client()
@@ -230,7 +238,7 @@ func TestCopyContent(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			err = o.copyContent(ctx)
+			err := o.copyContent(ctx)
 			switch {
 			case err == nil && len(test.expectedErr) == 0:
 			case err != nil && len(test.expectedErr) == 0:
@@ -258,15 +266,25 @@ func TestKubeletVersion(t *testing.T) {
 	}
 }
 
-func checkFileContent(t *testing.T, file, expected string) {
-	actual, err := os.ReadFile(file)
+func checkFileContent(t *testing.T, file, expected string, expectedPerm os.FileMode) {
+	actualBytes, err := os.ReadFile(file)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	actual := string(actualBytes)
 
-	if !reflect.DeepEqual(expected, string(actual)) {
-		t.Errorf("%q: expected %q, got %q", file, expected, string(actual))
+	stat, err := os.Stat(file)
+	if err != nil {
+		t.Errorf("Failed to stat %q: %v", file, err)
+		return
+	}
+	if gotPerm := stat.Mode().Perm(); gotPerm != expectedPerm {
+		t.Errorf("File permissions mismatch for %q: expected %v, got %v", file, gotPerm, expectedPerm)
+	}
+
+	if !cmp.Equal(expected, actual) {
+		t.Errorf("File content mismatch for %q:\n%s", file, cmp.Diff(expected, actual))
 	}
 }
 
