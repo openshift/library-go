@@ -74,10 +74,22 @@ func NameToKeyID(name string) (uint64, bool) {
 }
 
 func EqualKeyAndEqualID(s1, s2 *KeyState) bool {
-	if s1.Mode != s2.Mode || s1.Key.Secret != s2.Key.Secret {
+	if s1.Mode != s2.Mode {
 		return false
 	}
 
+	// For KMS mode, endpoint (via KMSConfigHash) is the distinguishable part (like Secret for other types)
+	// No key ID matching needed since KMS providers in config don't have key names
+	if s1.Mode == KMS {
+		return s1.KMSConfigHash == s2.KMSConfigHash
+	}
+
+	// For non-KMS modes, compare the secret data
+	if s1.Key.Secret != s2.Key.Secret {
+		return false
+	}
+
+	// For non-KMS modes, also verify key IDs match
 	id1, valid1 := NameToKeyID(s1.Key.Name)
 	id2, valid2 := NameToKeyID(s2.Key.Name)
 	return valid1 && valid2 && id1 == id2
