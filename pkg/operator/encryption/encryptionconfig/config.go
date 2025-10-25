@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -106,6 +107,18 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 					Mode: s,
 				}
 
+			case provider.KMS != nil:
+				// Extract the config hash from the KMS endpoint path
+				configHash := kms.ExtractHashFromSocketPath(provider.KMS.Endpoint)
+				ks = state.KeyState{
+					Key: apiserverconfigv1.Key{
+						// TODO: we must set key.Name
+						Secret: "",
+					},
+					Mode:          state.KMS,
+					KMSConfigHash: configHash,
+				}
+
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
@@ -190,6 +203,17 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 			aesgcmProviders = append(aesgcmProviders, apiserverconfigv1.ProviderConfiguration{
 				AESGCM: &apiserverconfigv1.AESConfiguration{
 					Keys: []apiserverconfigv1.Key{key.Key},
+				},
+			})
+		case state.KMS:
+			// Generate unix socket endpoint from the config hash
+			endpoint := kms.GenerateUnixSocketPathFromHash(key.KMSConfigHash)
+			providerName := "kms-provider-" + key.KMSConfigHash[:8]
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				KMS: &apiserverconfigv1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       providerName,
+					Endpoint:   endpoint,
 				},
 			})
 		default:

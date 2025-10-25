@@ -58,14 +58,21 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.ExternalReason = v
 	}
 
+	if v, ok := s.Annotations[EncryptionSecretKMSConfigHash]; ok && len(v) > 0 {
+		key.KMSConfigHash = v
+	}
+	if v, ok := s.Annotations[EncryptionSecretKMSKeyIDHash]; ok && len(v) > 0 {
+		key.KMSKeyIDHash = v
+	}
+
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
-	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
+	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity, state.KMS:
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
 	}
-	if keyMode != state.Identity && len(data) == 0 {
+	if keyMode != state.Identity && keyMode != state.KMS && len(data) == 0 {
 		return state.KeyState{}, fmt.Errorf("secret %s/%s of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
 	}
 
@@ -111,6 +118,13 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+
+	if len(ks.KMSConfigHash) > 0 {
+		s.Annotations[EncryptionSecretKMSConfigHash] = ks.KMSConfigHash
+	}
+	if len(ks.KMSKeyIDHash) > 0 {
+		s.Annotations[EncryptionSecretKMSKeyIDHash] = ks.KMSKeyIDHash
 	}
 
 	return s, nil

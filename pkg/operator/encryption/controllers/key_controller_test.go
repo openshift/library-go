@@ -495,7 +495,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, _, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {
@@ -505,5 +505,49 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 				t.Errorf("unexpected reason read from the config: %q, expected: %q", externalReason, scenario.expectedReasonFromCfg)
 			}
 		})
+	}
+}
+
+func TestGetCurrentModeAndExternalReasonWithKMS(t *testing.T) {
+	apiServerWithKMS := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			Encryption: configv1.APIServerEncryption{
+				Type: "kms",
+				KMS: &configv1.KMSConfig{
+					Type: configv1.AWSKMSProvider,
+					AWS: &configv1.AWSKMSConfig{
+						KeyARN: "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012",
+						Region: "us-east-1",
+					},
+				},
+			},
+		},
+	}
+
+	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{
+			OperatorSpec: operatorv1.OperatorSpec{},
+		}, &operatorv1.StaticPodOperatorStatus{}, nil, nil,
+	)
+	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServerWithKMS)
+	fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
+
+	// act
+	target := keyController{operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
+	mode, _, kmsConfig, err := target.getCurrentModeAndExternalReason(context.TODO())
+
+	// validate
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if mode != "kms" {
+		t.Errorf("expected mode to be 'kms', got %q", mode)
+	}
+	if kmsConfig == nil {
+		t.Error("expected kmsConfig to be returned, got nil")
+	}
+	if kmsConfig != nil && kmsConfig.Type != configv1.AWSKMSProvider {
+		t.Errorf("expected AWS KMS provider, got %v", kmsConfig.Type)
 	}
 }
