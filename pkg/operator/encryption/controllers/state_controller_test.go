@@ -707,6 +707,78 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
 		},
+		{
+			name:            "secret with EncryptionConfig is created for KMS mode with proper KMS provider configuration",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "kms")
+					// Set KMS-specific annotations with config hash and key ID hash
+					s.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] = "1234567890abcdef"
+					s.Annotations["encryption.apiserver.operator.openshift.io/kms-key-id-hash"] = "fedcba0987654321"
+					return s
+				}(),
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				return &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{
+						{
+							Resources: []string{"secrets"},
+							Providers: []apiserverconfigv1.ProviderConfiguration{
+								{
+									Identity: &apiserverconfigv1.IdentityConfiguration{},
+								},
+								{
+									KMS: &apiserverconfigv1.KMSConfiguration{
+										APIVersion: "v2",
+										Name:       "kms-provider-fedcba0987654321-1", // kms-provider-{keyIDHash16}-{key ID}
+										Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
+										Timeout: &metav1.Duration{
+											Duration: 10 * time.Second,
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+			}(),
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verify the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

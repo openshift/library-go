@@ -566,6 +566,226 @@ func TestMigrationController(t *testing.T) {
 			},
 		},
 
+		// KMS mode test case - validates that migration completes when KMSKeyIDHash changes
+		{
+			name:            "KMS key rotation: all migrations finished when KMSKeyIDHash changes",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetAPIResources: []metav1.APIResource{
+				{
+					Name:       "secrets",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+			},
+			initialSecrets: []*corev1.Secret{
+				// Old KMS key with old KMSKeyIDHash
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 1, "kms")
+					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef"
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "0123456789abcdef" // 16 hex chars
+					s.Kind = "Secret"
+					s.APIVersion = corev1.SchemeGroupVersion.String()
+					return s
+				}(),
+				// New KMS key with new KMSKeyIDHash (simulating KMS key rotation)
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
+					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210" // different key ID hash (16 hex chars)
+					s.Kind = "Secret"
+					s.APIVersion = corev1.SchemeGroupVersion.String()
+					return s
+				}(),
+				// Encryption config with new key as write key (KMS mode)
+				func() *corev1.Secret {
+					ec := &apiserverconfigv1.EncryptionConfiguration{
+						Resources: []apiserverconfigv1.ResourceConfiguration{
+							{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{
+									{
+										KMS: &apiserverconfigv1.KMSConfiguration{
+											APIVersion: "v2",
+											Name:       "kms-provider-fedcba9876543210-2", // new key ID hash (16 hex chars)
+											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
+											Timeout: &metav1.Duration{
+												Duration: 10 * time.Second,
+											},
+										},
+									},
+									{
+										KMS: &apiserverconfigv1.KMSConfiguration{
+											APIVersion: "v2",
+											Name:       "kms-provider-0123456789abcdef-1", // old key ID hash (16 hex chars)
+											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
+											Timeout: &metav1.Duration{
+												Duration: 10 * time.Second,
+											},
+										},
+									},
+									{
+										Identity: &apiserverconfigv1.IdentityConfiguration{},
+									},
+								},
+							},
+						},
+					}
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs.APIVersion = corev1.SchemeGroupVersion.String()
+					return ecs
+				}(),
+			},
+			migratorEnsureReplies: map[schema.GroupResource]map[string]finishedResultErr{
+				{Group: "", Resource: "secrets"}: {"2": {finished: true}},
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:operator",
+			},
+			expectedMigratorCalls: []string{
+				"ensure:secrets:2",
+			},
+			validateFunc: func(ts *testing.T, actionsKube []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object) {
+				// Verify that the new key (key 2) was migrated
+				validateSecretsWereAnnotated(ts, targetGRs, actionsKube, []*corev1.Secret{initialSecrets[1]}, nil)
+			},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:   "EncryptionMigrationControllerDegraded",
+						Status: "False",
+					},
+					{
+						Type:   "EncryptionMigrationControllerProgressing",
+						Status: "False",
+					},
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, expectedConditions)
+			},
+		},
+
+		// KMS mode test case - validates that migration is in progress (not finished)
+		{
+			name:            "KMS key rotation: migration in progress when KMSKeyIDHash changes",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetAPIResources: []metav1.APIResource{
+				{
+					Name:       "secrets",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+			},
+			initialSecrets: []*corev1.Secret{
+				// Old KMS key with old KMSKeyIDHash
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 1, "kms")
+					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef"
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "0123456789abcdef" // 16 hex chars
+					s.Kind = "Secret"
+					s.APIVersion = corev1.SchemeGroupVersion.String()
+					return s
+				}(),
+				// New KMS key with new KMSKeyIDHash (simulating KMS key rotation)
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
+					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210" // different key ID hash (16 hex chars)
+					s.Kind = "Secret"
+					s.APIVersion = corev1.SchemeGroupVersion.String()
+					return s
+				}(),
+				// Encryption config with new key as write key (KMS mode)
+				func() *corev1.Secret {
+					ec := &apiserverconfigv1.EncryptionConfiguration{
+						Resources: []apiserverconfigv1.ResourceConfiguration{
+							{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{
+									{
+										KMS: &apiserverconfigv1.KMSConfiguration{
+											APIVersion: "v2",
+											Name:       "kms-provider-fedcba9876543210-2", // new key ID hash (16 hex chars)
+											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
+											Timeout: &metav1.Duration{
+												Duration: 10 * time.Second,
+											},
+										},
+									},
+									{
+										KMS: &apiserverconfigv1.KMSConfiguration{
+											APIVersion: "v2",
+											Name:       "kms-provider-0123456789abcdef-1", // old key ID hash (16 hex chars)
+											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
+											Timeout: &metav1.Duration{
+												Duration: 10 * time.Second,
+											},
+										},
+									},
+									{
+										Identity: &apiserverconfigv1.IdentityConfiguration{},
+									},
+								},
+							},
+						},
+					}
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs.APIVersion = corev1.SchemeGroupVersion.String()
+					return ecs
+				}(),
+			},
+			migratorEnsureReplies: map[schema.GroupResource]map[string]finishedResultErr{
+				{Group: "", Resource: "secrets"}: {"2": {finished: false}}, // Migration NOT finished
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"list:secrets:openshift-config-managed",
+			},
+			expectedMigratorCalls: []string{
+				"ensure:secrets:2",
+			},
+			validateFunc: func(ts *testing.T, actionsKube []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object) {
+				// Verify that the secret was NOT annotated as migrated (since migration is in progress)
+				validateSecretsWereAnnotated(ts, []schema.GroupResource{}, actionsKube, nil, []*corev1.Secret{initialSecrets[1]})
+			},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedConditions := []operatorv1.OperatorCondition{
+					{
+						Type:   "EncryptionMigrationControllerDegraded",
+						Status: "False",
+					},
+					{
+						Type:    "EncryptionMigrationControllerProgressing",
+						Reason:  "Migrating",
+						Message: "migrating resources to a new write key: [core/secrets]",
+						Status:  "True",
+					},
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, expectedConditions)
+			},
+		},
+
 		// TODO: add more tests for not so happy paths
 	}
 

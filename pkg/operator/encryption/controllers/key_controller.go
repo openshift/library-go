@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -159,9 +161,18 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, err := c.getCurrentModeAndExternalReason(ctx)
+	currentMode, externalReason, kmsConfig, err := c.getCurrentModeAndExternalReason(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Compute KMS hashes if using KMS mode
+	var kmsConfigHash, kmsKeyIDHash string
+	if currentMode == state.KMS && kmsConfig != nil {
+		kmsConfigHash, kmsKeyIDHash, err = c.getKMSHashes(ctx, kmsConfig)
+		if err != nil {
+			return err
+		}
 	}
 
 	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
@@ -191,7 +202,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, kmsConfigHash, kmsKeyIDHash)
 		if !needed {
 			continue
 		}
@@ -218,7 +229,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason, kmsConfigHash, kmsKeyIDHash)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -255,7 +266,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason, kmsConfigHash, kmsKeyIDHash string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -265,40 +276,69 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		Mode:           currentMode,
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
+		KMSConfigHash:  kmsConfigHash,
+		KMSKeyIDHash:   kmsKeyIDHash,
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, error) {
+func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, *configv1.KMSConfig, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
-		return currentMode, reason, nil
+		return currentMode, reason, nil, nil
+	case state.KMS:
+		return currentMode, reason, apiServer.Spec.Encryption.KMS, nil
 	case "": // unspecified means use the default (which can change over time)
-		return state.DefaultMode, reason, nil
+		return state.DefaultMode, reason, nil, nil
 	default:
-		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", nil, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
+}
+
+func (c *keyController) getKMSHashes(ctx context.Context, kmsConfig *configv1.KMSConfig) (string, string, error) {
+	// Generate unix socket path from KMS config and get the hash
+	socketPath, configHash, err := kms.GenerateUnixSocketPath(kmsConfig)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate KMS unix socket path: %w", err)
+	}
+
+	kmsClient, err := kms.NewKMSClient(socketPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create KMS client: %w", err)
+	}
+	defer kmsClient.Close()
+
+	statusResp, err := kmsClient.Status(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to call KMS Status endpoint: %w", err)
+	}
+
+	if statusResp.Healthz != "ok" {
+		return "", "", fmt.Errorf("KMS plugin is unhealthy: %s", statusResp.Healthz)
+	}
+
+	return configHash, kms.ComputeKMSKeyIDHash(statusResp.KeyID), nil
 }
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
 // used key ID and a reason string.
-func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, kmsConfigHash, kmsKeyIDHash string) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
 		return 0, "key-does-not-exist", currentMode != state.Identity
@@ -344,6 +384,21 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
 	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {
 		return latestKeyID, "external-reason-changed", true
+	}
+
+	// if we are using KMS, check if the KMS configuration or key ID hash has changed
+	if currentMode == state.KMS {
+		if latestKey.KMSConfigHash != kmsConfigHash && len(kmsConfigHash) != 0 {
+			return latestKeyID, "kms-config-changed", true
+		}
+
+		if latestKey.KMSKeyIDHash != kmsKeyIDHash && len(kmsKeyIDHash) != 0 {
+			return latestKeyID, "kms-key-id-changed", true
+		}
+
+		// For KMS mode, we don't do time-based rotation
+		// KMS keys are rotated externally by the KMS system
+		return 0, "", false
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed

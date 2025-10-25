@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"sort"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
@@ -106,6 +107,25 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 					Mode: s,
 				}
 
+			case provider.KMS != nil:
+				configHash, keyIDHash, keyName, err := kms.ExtractKMSHashAndKeyName(provider)
+				if err != nil {
+					klog.Warningf("skipping invalid encryption KMS config for resource %v", provider)
+					continue // should never happen
+				}
+
+				ks = state.KeyState{
+					Key: apiserverconfigv1.Key{
+						Name: keyName,
+						// We set this unused secret just to align with what we set initially.
+						// This is unused.
+						Secret: base64.StdEncoding.EncodeToString(crypto.ModeToNewKeyFunc[state.KMS]()),
+					},
+					Mode:          state.KMS,
+					KMSConfigHash: configHash,
+					KMSKeyIDHash:  keyIDHash,
+				}
+
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
@@ -192,6 +212,8 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 					Keys: []apiserverconfigv1.Key{key.Key},
 				},
 			})
+		case state.KMS:
+			providers = append(providers, kms.GenerateKMSProviderConfigurationFromKey(key))
 		default:
 			// this should never happen because our input should always be valid
 			klog.Infof("skipping key %s as it has invalid mode %s", key.Key.Name, key.Mode)

@@ -495,7 +495,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, _, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {

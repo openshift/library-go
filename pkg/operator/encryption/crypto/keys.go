@@ -12,6 +12,7 @@ var (
 		state.AESGCM:    NewAES256Key,
 		state.SecretBox: NewAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
 		state.Identity:  NewIdentityKey,
+		state.KMS:       NewIdentityKey, // this is not used in KMS
 	}
 )
 
