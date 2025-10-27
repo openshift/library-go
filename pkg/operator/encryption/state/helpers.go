@@ -74,23 +74,10 @@ func NameToKeyID(name string) (uint64, bool) {
 }
 
 func EqualKeyAndEqualID(s1, s2 *KeyState) bool {
-	if s1.Mode != s2.Mode {
+	if s1.Mode != s2.Mode || s1.Key.Secret != s2.Key.Secret {
 		return false
 	}
 
-	// For KMS mode, compare both KMSConfigHash and KMSKeyIDHash to detect config or key rotation
-	if s1.Mode == KMS {
-		if s1.KMSConfigHash != s2.KMSConfigHash {
-			return false
-		}
-		if s1.KMSKeyIDHash != s2.KMSKeyIDHash {
-			return false
-		}
-	} else if s1.Key.Secret != s2.Key.Secret {
-		return false
-	}
-
-	// Verify key IDs match (for both KMS and non-KMS modes)
 	id1, valid1 := NameToKeyID(s1.Key.Name)
 	id2, valid2 := NameToKeyID(s2.Key.Name)
 	return valid1 && valid2 && id1 == id2

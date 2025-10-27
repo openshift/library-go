@@ -100,3 +100,29 @@ func TestGenerateUnixSocketPath(t *testing.T) {
 		}
 	})
 }
+
+func TestComputeKMSKeyHash(t *testing.T) {
+	tests := []struct {
+		name       string
+		configHash string
+		keyID      string
+		wantHash   string
+	}{
+		{
+			name:       "valid config hash and key ID",
+			configHash: "2e55e11c0b187f2d",
+			keyID:      "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012",
+			wantHash:   "26f87255a78a26fb93d8da5f7b1ada0c",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHash := ComputeKMSKeyHash(tt.configHash, tt.keyID)
+
+			if string(gotHash) != tt.wantHash {
+				t.Fatalf("ComputeKMSKeyHash() gotHash = %v, want %v", string(gotHash), tt.wantHash)
+			}
+		})
+	}
+}

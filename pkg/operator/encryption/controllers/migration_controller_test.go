@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -585,20 +586,32 @@ func TestMigrationController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
 			initialSecrets: []*corev1.Secret{
-				// Old KMS key with old KMSKeyIDHash
+				// Old KMS key with old keyHash
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 1, "kms")
+					// For KMS mode, Secret field contains the hex-encoded combined hash (32 chars)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode(
+						"kms",
+						nil,
+						1,
+						[]byte("0123456789abcdef0123456789abcdef"), // 32-char hex hash
+						"kms",
+					)
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef"
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "0123456789abcdef" // 16 hex chars
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
 				}(),
-				// New KMS key with new KMSKeyIDHash (simulating KMS key rotation)
+				// New KMS key with new keyHash (simulating KMS key rotation)
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
+					// For KMS mode, Secret field contains the hex-encoded combined hash (32 chars)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode(
+						"kms",
+						nil,
+						2,
+						[]byte("fedcba9876543210fedcba9876543210"), // 32-char hex hash
+						"kms",
+					)
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210"  // different key ID hash (16 hex chars)
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
@@ -613,7 +626,7 @@ func TestMigrationController(t *testing.T) {
 									{
 										KMS: &apiserverconfigv1.KMSConfiguration{
 											APIVersion: "v2",
-											Name:       "kms-provider-fedcba9876543210-2", // new key ID hash (16 hex chars)
+											Name:       "kms-provider-fedcba9876543210fedcba9876543210-2", // hex key hash (32 chars)
 											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
 											Timeout: &metav1.Duration{
 												Duration: 10 * time.Second,
@@ -623,7 +636,7 @@ func TestMigrationController(t *testing.T) {
 									{
 										KMS: &apiserverconfigv1.KMSConfiguration{
 											APIVersion: "v2",
-											Name:       "kms-provider-0123456789abcdef-1", // old key ID hash (16 hex chars)
+											Name:       "kms-provider-0123456789abcdef0123456789abcdef-1", // hex key hash (32 chars)
 											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
 											Timeout: &metav1.Duration{
 												Duration: 10 * time.Second,
@@ -696,20 +709,32 @@ func TestMigrationController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
 			initialSecrets: []*corev1.Secret{
-				// Old KMS key with old KMSKeyIDHash
+				// Old KMS key with old keyHash
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 1, "kms")
+					// For KMS mode, Secret field contains the hex-encoded combined hash (32 chars)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode(
+						"kms",
+						nil,
+						1,
+						[]byte("0123456789abcdef0123456789abcdef"), // 32-char hex hash
+						"kms",
+					)
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef"
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "0123456789abcdef" // 16 hex chars
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
 				}(),
-				// New KMS key with new KMSKeyIDHash (simulating KMS key rotation)
+				// New KMS key with new keyHash (simulating KMS key rotation)
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
+					// For KMS mode, Secret field contains the hex-encoded combined hash (32 chars)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode(
+						"kms",
+						nil,
+						2,
+						[]byte("fedcba9876543210fedcba9876543210"), // 32-char hex hash
+						"kms",
+					)
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210"  // different key ID hash (16 hex chars)
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
@@ -724,7 +749,7 @@ func TestMigrationController(t *testing.T) {
 									{
 										KMS: &apiserverconfigv1.KMSConfiguration{
 											APIVersion: "v2",
-											Name:       "kms-provider-fedcba9876543210-2", // new key ID hash (16 hex chars)
+											Name:       "kms-provider-fedcba9876543210fedcba9876543210-2", // hex key hash (32 chars)
 											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
 											Timeout: &metav1.Duration{
 												Duration: 10 * time.Second,
@@ -734,7 +759,7 @@ func TestMigrationController(t *testing.T) {
 									{
 										KMS: &apiserverconfigv1.KMSConfiguration{
 											APIVersion: "v2",
-											Name:       "kms-provider-0123456789abcdef-1", // old key ID hash (16 hex chars)
+											Name:       "kms-provider-0123456789abcdef0123456789abcdef-1", // hex key hash (32 chars)
 											Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
 											Timeout: &metav1.Duration{
 												Duration: 10 * time.Second,

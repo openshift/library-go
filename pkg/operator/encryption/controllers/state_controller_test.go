@@ -5,9 +5,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -716,10 +717,16 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, "kms")
-					// Set KMS-specific annotations with config hash and key ID hash
+					// For KMS mode, Secret field contains the hex-encoded combined hash (32 chars)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode(
+						"kms",
+						[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+						1,
+						[]byte("1234567890abcdef1234567890abcdef"), // 32-char hex hash
+						"kms",
+					)
+					// Set KMS-specific annotations with config hash
 					s.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] = "1234567890abcdef"
-					s.Annotations["encryption.apiserver.operator.openshift.io/kms-key-id-hash"] = "fedcba0987654321"
 					return s
 				}(),
 			},
@@ -748,7 +755,7 @@ func TestStateController(t *testing.T) {
 								{
 									KMS: &apiserverconfigv1.KMSConfiguration{
 										APIVersion: "v2",
-										Name:       "kms-provider-fedcba0987654321-1", // kms-provider-{keyIDHash16}-{key ID}
+										Name:       "kms-provider-1234567890abcdef1234567890abcdef-1", // kms-provider-{keyHash32}-{key ID}
 										Endpoint:   "unix://var/run/kms/kms-1234567890abcdef.sock",
 										Timeout: &metav1.Duration{
 											Duration: 10 * time.Second,

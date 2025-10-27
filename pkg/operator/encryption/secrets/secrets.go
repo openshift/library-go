@@ -61,9 +61,6 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	if v, ok := s.Annotations[EncryptionSecretKMSConfigHash]; ok && len(v) > 0 {
 		key.KMSConfigHash = v
 	}
-	if v, ok := s.Annotations[EncryptionSecretKMSKeyIDHash]; ok && len(v) > 0 {
-		key.KMSKeyIDHash = v
-	}
 
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
@@ -122,9 +119,6 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 
 	if len(ks.KMSConfigHash) > 0 {
 		s.Annotations[EncryptionSecretKMSConfigHash] = ks.KMSConfigHash
-	}
-	if len(ks.KMSKeyIDHash) > 0 {
-		s.Annotations[EncryptionSecretKMSKeyIDHash] = ks.KMSKeyIDHash
 	}
 
 	return s, nil

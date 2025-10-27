@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(crypto.NewIdentityKey())
+	emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(crypto.NewIdentityKey(nil))
 )
 
 // FromEncryptionState converts state to config.
@@ -108,7 +108,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 				}
 
 			case provider.KMS != nil:
-				configHash, keyIDHash, keyName, err := kms.ExtractKMSHashAndKeyName(provider)
+				configHash, keyHash, keyName, err := kms.ExtractKMSHashAndKeyName(provider)
 				if err != nil {
 					klog.Warningf("skipping invalid encryption KMS config for resource %v", provider)
 					continue // should never happen
@@ -116,14 +116,11 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 
 				ks = state.KeyState{
 					Key: apiserverconfigv1.Key{
-						Name: keyName,
-						// We set this unused secret just to align with what we set initially.
-						// This is unused.
-						Secret: base64.StdEncoding.EncodeToString(crypto.ModeToNewKeyFunc[state.KMS]()),
+						Name:   keyName,
+						Secret: keyHash,
 					},
 					Mode:          state.KMS,
 					KMSConfigHash: configHash,
-					KMSKeyIDHash:  keyIDHash,
 				}
 
 			default:

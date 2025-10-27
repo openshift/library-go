@@ -26,7 +26,7 @@ type GroupResourceState struct {
 }
 
 func (k GroupResourceState) HasWriteKey() bool {
-	return (len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0) || k.WriteKey.KMSConfigHash != ""
+	return len(k.WriteKey.Key.Name) > 0 && len(k.WriteKey.Key.Secret) > 0
 }
 
 type KeyState struct {
@@ -42,8 +42,6 @@ type KeyState struct {
 	ExternalReason string
 	// hash of the KMS configuration to detect changes
 	KMSConfigHash string
-	// hash of the KMS key ID to detect changes
-	KMSKeyIDHash string
 }
 
 type MigrationState struct {

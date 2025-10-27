@@ -2,6 +2,7 @@ package kms
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"regexp"
@@ -21,7 +22,7 @@ const (
 // GenerateUnixSocketPath generates a unique unix socket path from KMS configuration
 // by hashing the provider-specific configuration.
 // Returns the socket path and the hash value (first 16 characters).
-func GenerateUnixSocketPath(kmsConfig *configv1.KMSConfig) (socketPath string, hash string, err error) {
+func GenerateUnixSocketPath(kmsConfig *configv1.KMSConfig) (string, string, error) {
 	if kmsConfig == nil {
 		return "", "", fmt.Errorf("kmsConfig cannot be nil")
 	}
@@ -64,26 +65,27 @@ func generateAWSUnixSocketPath(awsConfig *configv1.AWSKMSConfig) (string, string
 	return socketPath, shortHash, nil
 }
 
-// ComputeKMSKeyIDHash computes a hash of the KMS key ID returned from the Status endpoint.
-// Returns the first 16 characters of the SHA256 hash.
-func ComputeKMSKeyIDHash(keyID string) string {
+// ComputeKMSKeyHash computes a hash of the KMS key ID returned from the Status endpoint.
+// Returns the first 32 characters of the SHA256 hash.
+func ComputeKMSKeyHash(configHash, keyID string) []byte {
 	if keyID == "" {
-		return ""
+		return nil
 	}
 
+	combined := configHash + ":" + keyID
 	// Compute SHA256 hash
-	hash := sha256.Sum256([]byte(keyID))
+	hash := sha256.Sum256([]byte(combined))
 	hashStr := hex.EncodeToString(hash[:])
 
-	return hashStr[:16]
+	return []byte(hashStr[:32])
 }
 
 var (
 	// endpointHashRegex matches the config hash in endpoint path: unix://var/run/kms/kms-{configHash16}.sock
 	endpointHashRegex = regexp.MustCompile(`kms-([a-f0-9]{16})\.sock$`)
-	// providerNameRegex matches the key ID hash and key ID in provider name: kms-provider-{keyIDHash16}-{keyID}
-	// Example: kms-provider-abcdef1234567890-1
-	providerNameRegex = regexp.MustCompile(`^kms-provider-([a-f0-9]{16})-(.+)$`)
+	// providerNameRegex matches the key ID hash and key ID in provider name: kms-provider-{keyIDHash32}-{keyID}
+	// Example: kms-provider-abcdef1234567890abcdef1234567890-1
+	providerNameRegex = regexp.MustCompile(`^kms-provider-([a-f0-9]{32})-(.+)$`)
 )
 
 // ExtractKMSHashAndKeyName extracts the KMSConfigHash, KMSKeyIDHash, and key.Name embedded into provider
@@ -99,17 +101,17 @@ func ExtractKMSHashAndKeyName(provider v1.ProviderConfiguration) (string, string
 	}
 
 	// Extract the key ID hash and key ID from the provider name: kms-provider-{keyIDHash16}-{keyID}
-	// Example: kms-provider-abcdef1234567890-1
-	var keyIDHash, keyName string
+	// Example: kms-provider-abcdef1234567890abcdef1234567890-1
+	var keyHash, keyName string
 	providerName := provider.KMS.Name
 	if matches := providerNameRegex.FindStringSubmatch(providerName); len(matches) == 3 {
-		keyIDHash = matches[1]
+		keyHash = matches[1]
 		keyName = matches[2]
 	} else {
 		return "", "", "", fmt.Errorf("invalid KMS provider name format: %s", providerName)
 	}
 
-	return configHash, keyIDHash, keyName, nil
+	return configHash, base64.StdEncoding.EncodeToString([]byte(keyHash)), keyName, nil
 }
 
 // GenerateKMSProviderConfigurationFromKey generates the compatible ProviderConfiguration with
@@ -122,9 +124,10 @@ func GenerateKMSProviderConfigurationFromKey(key state.KeyState) v1.ProviderConf
 	// This must generate the same format as GenerateUnixSocketPath
 	socketPath := fmt.Sprintf("%s/kms-%s.sock", unixSocketBaseDir, key.KMSConfigHash)
 	// Embed KMSKeyIDHash and key ID in the provider name so we can extract them when reading back
-	// Format: kms-provider-{keyIDHash16}-{keyID}
+	// Format: kms-provider-{keyIDHash32}-{keyID}
 	// This must match the providerNameRegex
-	providerName := fmt.Sprintf("kms-provider-%s-%s", key.KMSKeyIDHash, key.Key.Name)
+	decoded, _ := base64.StdEncoding.DecodeString(key.Key.Secret)
+	providerName := fmt.Sprintf("kms-provider-%s-%s", decoded, key.Key.Name)
 
 	return v1.ProviderConfiguration{
 		KMS: &v1.KMSConfiguration{

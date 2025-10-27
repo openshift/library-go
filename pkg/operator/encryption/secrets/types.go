@@ -45,10 +45,6 @@ const (
 	// This is used to detect changes in the KMS configuration that would require a new key.
 	EncryptionSecretKMSConfigHash = "encryption.apiserver.operator.openshift.io/kms-config-hash"
 
-	// EncryptionSecretKMSKeyIDHash is the annotation that stores the hash of the KMS key ID.
-	// This is used to detect changes in the KMS key ID (e.g., after key rotation in the KMS system).
-	EncryptionSecretKMSKeyIDHash = "encryption.apiserver.operator.openshift.io/kms-key-id-hash"
-
 	// In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 	// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
 	EncryptionSecretKeyDataKey = "encryption.apiserver.operator.openshift.io-key"
