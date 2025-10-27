@@ -41,6 +41,9 @@ import (
 // greater than the last key's ID (the first key has a key ID of 1).
 const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 
+// kmsHashesGetter is a function type for getting KMS config and key ID hashes
+var kmsHashesGetterFunc func(ctx context.Context, kmsConfig *configv1.KMSConfig) (configHash string, keyIDHash string, err error)
+
 // keyController creates new keys if necessary. It
 // * watches
 //   - secrets in openshift-config-managed
@@ -106,6 +109,8 @@ func NewKeyController(
 		secretClient:             secretClient,
 	}
 
+	kmsHashesGetterFunc = defaultGetKMSHashes
+
 	return factory.New().
 		WithSync(c.sync).
 		WithControllerInstanceName(c.controllerInstanceName).
@@ -169,7 +174,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	// Compute KMS hashes if using KMS mode
 	var kmsConfigHash, kmsKeyIDHash string
 	if currentMode == state.KMS && kmsConfig != nil {
-		kmsConfigHash, kmsKeyIDHash, err = c.getKMSHashes(ctx, kmsConfig)
+		kmsConfigHash, kmsKeyIDHash, err = kmsHashesGetterFunc(ctx, kmsConfig)
 		if err != nil {
 			return err
 		}
@@ -311,7 +316,9 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 	}
 }
 
-func (c *keyController) getKMSHashes(ctx context.Context, kmsConfig *configv1.KMSConfig) (string, string, error) {
+// defaultGetKMSHashes is the default implementation of getting KMS hashes
+// It calls the real KMS client to get the status and compute hashes
+func defaultGetKMSHashes(ctx context.Context, kmsConfig *configv1.KMSConfig) (string, string, error) {
 	// Generate unix socket path from KMS config and get the hash
 	socketPath, configHash, err := kms.GenerateUnixSocketPath(kmsConfig)
 	if err != nil {

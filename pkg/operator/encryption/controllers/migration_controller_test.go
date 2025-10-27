@@ -598,7 +598,7 @@ func TestMigrationController(t *testing.T) {
 				func() *corev1.Secret {
 					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210" // different key ID hash (16 hex chars)
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210"  // different key ID hash (16 hex chars)
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
@@ -709,7 +709,7 @@ func TestMigrationController(t *testing.T) {
 				func() *corev1.Secret {
 					s := encryptiontesting.CreateEncryptionKeySecretNoDataWithMode("kms", nil, 2, "kms")
 					s.Annotations[secrets.EncryptionSecretKMSConfigHash] = "1234567890abcdef" // same config
-					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210" // different key ID hash (16 hex chars)
+					s.Annotations[secrets.EncryptionSecretKMSKeyIDHash] = "fedcba9876543210"  // different key ID hash (16 hex chars)
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
