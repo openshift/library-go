@@ -3,7 +3,6 @@ package csidrivernodeservicecontroller
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"strings"
@@ -19,6 +18,8 @@ import (
 	coreinformers "k8s.io/client-go/informers"
 	fakecore "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/google/go-cmp/cmp"
 	opv1 "github.com/openshift/api/operator/v1"
@@ -100,7 +101,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 	}
 
 	// Add global reactors
-	addGenerationReactor(coreClient)
+	addGenerationReactor(coreClient, coreInformerFactory.Apps().V1().DaemonSets().Informer().GetStore())
 
 	// fakeDriverInstance also fulfils the OperatorClient interface
 	fakeOperatorClient := v1helpers.NewFakeOperatorClientWithObjectMeta(
@@ -331,8 +332,18 @@ func withDaemonSetTLSConfig() daemonSetModifier {
 	}
 }
 
+func withDaemonSetAnnotation(annotation string, value string) daemonSetModifier {
+	return func(instance *appsv1.DaemonSet) *appsv1.DaemonSet {
+		if instance.Annotations == nil {
+			instance.Annotations = map[string]string{}
+		}
+		instance.Annotations[annotation] = value
+		return instance
+	}
+}
+
 // This reactor is always enabled and bumps DaemonSet generation when they get updated.
-func addGenerationReactor(client *fakecore.Clientset) {
+func addGenerationReactor(client *fakecore.Clientset, store cache.Store) {
 	client.PrependReactor("*", "daemonsets", func(action core.Action) (handled bool, ret runtime.Object, err error) {
 		switch a := action.(type) {
 		case core.CreateActionImpl:
@@ -343,7 +354,20 @@ func addGenerationReactor(client *fakecore.Clientset) {
 		case core.UpdateActionImpl:
 			object := a.GetObject()
 			ds := object.(*appsv1.DaemonSet)
-			ds.Generation++
+
+			// Bump generation only when the spec changes.
+			// Explicitly, do not bump it on annotation change - the API server does not do it either.
+			oldDSObject, exists, err := store.GetByKey(ds.Namespace + "/" + ds.Name)
+			if err != nil {
+				return false, nil, err
+			}
+			if !exists {
+				return false, nil, fmt.Errorf("DaemonSet %s not found", cache.MetaObjectToName(ds))
+			}
+			oldDS := oldDSObject.(*appsv1.DaemonSet)
+			if !equality.Semantic.DeepEqual(oldDS.Spec, ds.Spec) {
+				ds.Generation++
+			}
 			return false, ds, nil
 		}
 		return false, nil, nil
@@ -426,6 +450,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			name: "no change",
 			// DaemonSet is fully deployed and its status is synced to CR
 			manifestFunc: makeFakeManifest,
 			images:       defaultImages(),
@@ -434,7 +459,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")),
 				driver: makeFakeDriverInstance(withGenerations(1)),
 			},
 			expectedObjects: testObjects{
@@ -442,7 +468,36 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")),
+				driver: makeFakeDriverInstance(
+					// withStatus(replica1),
+					withGenerations(1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+		},
+		{
+			name: "finished progressing",
+			// DaemonSet is fully deployed and its status is synced to CR
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "0")),
+				driver: makeFakeDriverInstance(withGenerations(1)),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // The current generation has reached stability
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withGenerations(1),
@@ -490,7 +545,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica1, replica1)), // the DaemonSet is updating 1 pod
+					withDaemonSetStatus(replica0, replica0, replica1, replica1),   // the DaemonSet is updating 1 pod
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "0")), // and the current generation was not stable yet
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withGenerations(1),
@@ -502,7 +558,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica0, replica0, replica1, replica1)), // no change to the DaemonSet
+					withDaemonSetStatus(replica0, replica0, replica1, replica1),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "0")), // and the current generation was not stable yet
 				driver: makeFakeDriverInstance(
 					// withStatus(replica0),
 					withGenerations(1),
@@ -656,6 +713,38 @@ func TestSync(t *testing.T) {
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
 					withFalseConditions(conditionAvailable)), // Degraded is set later on
+			},
+		},
+		{
+			// DaemonSet is updating pods
+			name:         "missing pods - not progressing",
+			manifestFunc: makeFakeManifest,
+			images:       defaultImages(),
+			initialObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica0, replica0, replica1, replica1),   // the DaemonSet is updating 1 pod
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // But the current generation was stable in the past
+				driver: makeFakeDriverInstance(
+					// withStatus(replica1),
+					withGenerations(1),
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)),
+			},
+			expectedObjects: testObjects{
+				daemonSet: getDaemonSet(
+					argsLevel2,
+					defaultImages(),
+					withDaemonSetGeneration(1, 1),
+					withDaemonSetStatus(replica0, replica0, replica1, replica1),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // no change to the DaemonSet
+				driver: makeFakeDriverInstance(
+					// withStatus(replica0),
+					withGenerations(1), // But the current generation was stable in the past
+					withTrueConditions(conditionAvailable),
+					withFalseConditions(conditionProgressing)), // The operator is not Progressing
 			},
 		},
 	}
