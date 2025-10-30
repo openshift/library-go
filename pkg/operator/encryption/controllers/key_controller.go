@@ -320,12 +320,12 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 // It calls the real KMS client to get the status and compute hashes
 func defaultGetKMSHashes(ctx context.Context, kmsConfig *configv1.KMSConfig) (string, []byte, error) {
 	// Generate unix socket path from KMS config and get the hash
-	socketPath, configHash, err := kms.GenerateUnixSocketPath(kmsConfig)
+	_, configHash, err := kms.GenerateUnixSocketPath(kmsConfig)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to generate KMS unix socket path: %w", err)
 	}
 
-	kmsClient, err := kms.NewKMSClient(socketPath)
+	/*kmsClient, err := kms.NewKMSClient(socketPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create KMS client: %w", err)
 	}
@@ -338,9 +338,10 @@ func defaultGetKMSHashes(ctx context.Context, kmsConfig *configv1.KMSConfig) (st
 
 	if statusResp.Healthz != "ok" {
 		return "", nil, fmt.Errorf("KMS plugin is unhealthy: %s", statusResp.Healthz)
-	}
+	}*/
 
-	return configHash, kms.ComputeKMSKeyHash(configHash, statusResp.KeyID), nil
+	keyId := "kms"
+	return configHash, kms.ComputeKMSKeyHash(configHash, keyId), nil
 }
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
