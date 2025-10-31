@@ -16,7 +16,7 @@ import (
 
 const (
 	// unixSocketBaseDir is the base directory for KMS unix sockets
-	unixSocketBaseDir = "unix://var/run/kms"
+	unixSocketBaseDir = "unix:///var/run/kms"
 )
 
 // GenerateUnixSocketPath generates a unique unix socket path from KMS configuration
