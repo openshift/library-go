@@ -41,6 +41,10 @@ const (
 	// determine if a new key should be created even if encryptionSecretMigrationInterval has not been reached.
 	encryptionSecretExternalReason = "encryption.apiserver.operator.openshift.io/external-reason"
 
+	// EncryptionSecretKMSConfigHash is the annotation that stores the hash of the KMS configuration.
+	// This is used to detect changes in the KMS configuration that would require a new key.
+	EncryptionSecretKMSConfigHash = "encryption.apiserver.operator.openshift.io/kms-config-hash"
+
 	// In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 	// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
 	EncryptionSecretKeyDataKey = "encryption.apiserver.operator.openshift.io-key"
