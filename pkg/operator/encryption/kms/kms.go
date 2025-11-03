@@ -83,9 +83,9 @@ func ComputeKMSKeyHash(configHash, keyID string) []byte {
 var (
 	// endpointHashRegex matches the config hash in endpoint path: unix://var/run/kms/kms-{configHash16}.sock
 	endpointHashRegex = regexp.MustCompile(`kms-([a-f0-9]{16})\.sock$`)
-	// providerNameRegex matches the key ID hash and key ID in provider name: kms-provider-{keyIDHash32}-{keyID}
-	// Example: kms-provider-abcdef1234567890abcdef1234567890-1
-	providerNameRegex = regexp.MustCompile(`^kms-provider-([a-f0-9]{32})-(.+)$`)
+	// providerNameRegex matches the key ID hash, key ID, and resource in provider name: kms-provider-{keyIDHash32}-{keyID}-{resource}
+	// Example: kms-provider-abcdef1234567890abcdef1234567890-1-secrets
+	providerNameRegex = regexp.MustCompile(`^kms-provider-([a-f0-9]{32})-([^-]+)-(.+)$`)
 )
 
 // ExtractKMSHashAndKeyName extracts the KMSConfigHash, KMSKeyIDHash, and key.Name embedded into provider
@@ -100,13 +100,14 @@ func ExtractKMSHashAndKeyName(provider v1.ProviderConfiguration) (string, string
 		return "", "", "", fmt.Errorf("invalid KMS endpoint format: %s", endpoint)
 	}
 
-	// Extract the key ID hash and key ID from the provider name: kms-provider-{keyIDHash16}-{keyID}
-	// Example: kms-provider-abcdef1234567890abcdef1234567890-1
+	// Extract the key ID hash, key ID, and resource from the provider name: kms-provider-{keyIDHash32}-{keyID}-{resource}
+	// Example: kms-provider-abcdef1234567890abcdef1234567890-1-secrets
 	var keyHash, keyName string
 	providerName := provider.KMS.Name
-	if matches := providerNameRegex.FindStringSubmatch(providerName); len(matches) == 3 {
+	if matches := providerNameRegex.FindStringSubmatch(providerName); len(matches) == 4 {
 		keyHash = matches[1]
 		keyName = matches[2]
+		// matches[3] is the resource, but we don't need to return it
 	} else {
 		return "", "", "", fmt.Errorf("invalid KMS provider name format: %s", providerName)
 	}
@@ -117,17 +118,18 @@ func ExtractKMSHashAndKeyName(provider v1.ProviderConfiguration) (string, string
 // GenerateKMSProviderConfigurationFromKey generates the compatible ProviderConfiguration with
 // opinionated and extractable fields. We embed:
 // - KMSConfigHash in the socket path (endpoint)
-// - KMSKeyIDHash and key.Name in the provider name
+// - KMSKeyIDHash, key.Name, and resource in the provider name
 // This allows us to extract all three values and detect both config changes and key rotations.
-func GenerateKMSProviderConfigurationFromKey(key state.KeyState) v1.ProviderConfiguration {
+// The resource parameter ensures uniqueness when the same KMS config is used for multiple resources.
+func GenerateKMSProviderConfigurationFromKey(resource string, key state.KeyState) v1.ProviderConfiguration {
 	// Embed KMSConfigHash in the endpoint so we can extract it
 	// This must generate the same format as GenerateUnixSocketPath
 	socketPath := fmt.Sprintf("%s/kms-%s.sock", unixSocketBaseDir, key.KMSConfigHash)
-	// Embed KMSKeyIDHash and key ID in the provider name so we can extract them when reading back
-	// Format: kms-provider-{keyIDHash32}-{keyID}
+	// Embed KMSKeyIDHash, key ID, and resource in the provider name so we can extract them when reading back
+	// Format: kms-provider-{keyIDHash32}-{keyID}-{resource}
 	// This must match the providerNameRegex
 	decoded, _ := base64.StdEncoding.DecodeString(key.Key.Secret)
-	providerName := fmt.Sprintf("kms-provider-%s-%s", decoded, key.Key.Name)
+	providerName := fmt.Sprintf("kms-provider-%s-%s-%s", decoded, key.Key.Name, resource)
 
 	return v1.ProviderConfiguration{
 		KMS: &v1.KMSConfiguration{

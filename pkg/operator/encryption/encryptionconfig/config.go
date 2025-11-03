@@ -26,7 +26,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: stateToProviders(grKeys),
+			Providers: stateToProviders(gr.Resource, grKeys),
 		})
 	}
 
@@ -156,7 +156,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 // it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
+func stateToProviders(resource string, desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
@@ -210,7 +210,7 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 				},
 			})
 		case state.KMS:
-			providers = append(providers, kms.GenerateKMSProviderConfigurationFromKey(key))
+			providers = append(providers, kms.GenerateKMSProviderConfigurationFromKey(resource, key))
 		default:
 			// this should never happen because our input should always be valid
 			klog.Infof("skipping key %s as it has invalid mode %s", key.Key.Name, key.Mode)
