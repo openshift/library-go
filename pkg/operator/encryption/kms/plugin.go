@@ -11,6 +11,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// from https://github.com/flavianmissi/library-go/tree/kms-plugin-sidecars
+
 const (
 	// defaultKMSPluginImage is the default AWS KMS plugin image
 	// This should be overridden by the operator with the actual image reference
