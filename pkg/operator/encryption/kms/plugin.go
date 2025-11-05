@@ -2,6 +2,7 @@ package kms
 
 import (
 	"fmt"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -87,7 +88,7 @@ func (c *ContainerConfig) setDefaults() {
 		if err != nil {
 			panic(err)
 		}
-		c.SocketPath = socket
+		c.SocketPath = strings.Replace(socket, "unix://", "", 1)
 	}
 	if c.HealthPort == 0 {
 		c.HealthPort = defaultHealthPort
