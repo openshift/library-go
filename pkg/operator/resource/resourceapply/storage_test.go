@@ -434,6 +434,9 @@ func TestApplyCSIDriver(t *testing.T) {
 		name     string
 		existing []*storagev1.CSIDriver
 		input    *storagev1.CSIDriver
+		// Compute hash of input.Spec and use it as the existing.annotations[specHashAnnotation]
+		// Useful for simulating the API server clearing some alpha/beta fields in existing.Spec.
+		existingHashFromInput bool
 
 		expectedModified bool
 		expectedError    error
@@ -757,13 +760,61 @@ func TestApplyCSIDriver(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "alphaFieldsSaved: same spec hash but missing alpha field triggers update",
+			existing: []*storagev1.CSIDriver{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: storagev1.CSIDriverSpec{
+						AttachRequired: ptr.To(true),
+						PodInfoOnMount: ptr.To(true),
+						// NodeAllocatableUpdatePeriodSeconds is missing (simulating API server cleared it)
+					},
+				},
+			},
+			input: &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: storagev1.CSIDriverSpec{
+					AttachRequired:                     ptr.To(true),
+					PodInfoOnMount:                     ptr.To(true),
+					NodeAllocatableUpdatePeriodSeconds: ptr.To[int64](30),
+				},
+			},
+			existingHashFromInput: true,
+			expectedModified:      true,
+			verifyActions: func(actions []clienttesting.Action, t *testing.T) {
+				if len(actions) != 2 {
+					t.Fatal(spew.Sdump(actions))
+				}
+				if !actions[0].Matches("get", "csidrivers") || actions[0].(clienttesting.GetAction).GetName() != "foo" {
+					t.Error(spew.Sdump(actions))
+				}
+				if !actions[1].Matches("update", "csidrivers") {
+					t.Error(spew.Sdump(actions))
+				}
+				// Verify that the update includes the alpha field
+				actual := actions[1].(clienttesting.UpdateAction).GetObject().(*storagev1.CSIDriver)
+				if actual.Spec.NodeAllocatableUpdatePeriodSeconds == nil || *actual.Spec.NodeAllocatableUpdatePeriodSeconds != 30 {
+					t.Errorf("expected NodeAllocatableUpdatePeriodSeconds to be 30, got %v", actual.Spec.NodeAllocatableUpdatePeriodSeconds)
+				}
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			objs := make([]runtime.Object, len(test.existing))
 			for i, csiDriver := range test.existing {
 				// Add spec hash annotation
-				SetSpecHashAnnotation(&csiDriver.ObjectMeta, csiDriver.Spec)
+				if test.existingHashFromInput {
+					SetSpecHashAnnotation(&csiDriver.ObjectMeta, test.input.Spec)
+				} else {
+					// Add spec hash annotation based on existing spec
+					SetSpecHashAnnotation(&csiDriver.ObjectMeta, csiDriver.Spec)
+				}
 				// Convert *CSIDriver to *Object
 				objs[i] = csiDriver
 			}
