@@ -2,34 +2,33 @@ package deploymentcontroller
 
 import (
 	"context"
-	clocktesting "k8s.io/utils/clock/testing"
 	"os"
 	"sort"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	opv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/management"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	core "k8s.io/client-go/testing"
-
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
+	opv1 "github.com/openshift/api/operator/v1"
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	coreinformers "k8s.io/client-go/informers"
 	fakecore "k8s.io/client-go/kubernetes/fake"
+	core "k8s.io/client-go/testing"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 const (
@@ -454,6 +453,7 @@ func sanitizeObjectMeta(meta *metav1.ObjectMeta) {
 }
 
 func TestSync(t *testing.T) {
+	const replica0 = 0
 	const replica1 = 1
 	testCases := []testCase{
 		{
@@ -535,18 +535,63 @@ func TestSync(t *testing.T) {
 			initialObjects: testObjects{
 				deployment: makeDeployment(
 					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentStatus(replica1, replica1, replica1),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionTrue)), // Deployment is fully deployed
 				operator: makeFakeOperatorInstance(withGenerations(1)),
 			},
 			expectedObjects: testObjects{
 				deployment: makeDeployment(
 					withDeploymentGeneration(1, 1),
-					withDeploymentStatus(replica1, replica1, replica1)),
+					withDeploymentStatus(replica1, replica1, replica1),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionTrue)), // Deployment is fully deployed
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
 					withFalseConditions(conditionProgressing)),
+			},
+		},
+		{
+			// Deployment is fully deployed with a missing pod and its status is synced to CR
+			name: "pod missing after fully deployed",
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionTrue)), // Deployment is fully deployed
+				operator: makeFakeOperatorInstance(withGenerations(1)),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionTrue)), // Deployment is fully deployed
+				operator: makeFakeOperatorInstance(
+					// withStatus(replica1),
+					withGenerations(1),
+					withFalseConditions(conditionAvailable),    // No pod is running
+					withFalseConditions(conditionProgressing)), // Despite missing pod, the operator is not progressing
+			},
+		},
+		{
+			name: "pod missing before fully deployed",
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionFalse)), // Deployment is not fully deployed
+				operator: makeFakeOperatorInstance(withGenerations(1)),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditions(appsv1.DeploymentProgressing, "NewReplicaSetAvailable", corev1.ConditionFalse)), // Deployment is not fully deployed
+				operator: makeFakeOperatorInstance(
+					// withStatus(replica1),
+					withGenerations(1),
+					withFalseConditions(conditionAvailable),   // No pod is running
+					withTrueConditions(conditionProgressing)), // A pod is missing, the operator is progressing
 			},
 		},
 		{
