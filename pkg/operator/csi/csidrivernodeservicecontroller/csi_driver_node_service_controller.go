@@ -34,6 +34,7 @@ const (
 	nodeDriverRegistrarImageEnvName = "NODE_DRIVER_REGISTRAR_IMAGE"
 	livenessProbeImageEnvName       = "LIVENESS_PROBE_IMAGE"
 	kubeRBACProxyImageEnvName       = "KUBE_RBAC_PROXY_IMAGE"
+	stableGenerationAnnotationName  = "storage.openshift.io/stable-generation"
 )
 
 // DaemonSetHookFunc is a hook function to modify the DaemonSet.
@@ -181,6 +182,11 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		return err
 	}
 
+	daemonSet, err = c.storeLastStableGeneration(ctx, syncContext, daemonSet)
+	if err != nil {
+		return err
+	}
+
 	// Create an OperatorStatusApplyConfiguration with generations
 	status := applyoperatorv1.OperatorStatus().
 		WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
@@ -217,7 +223,7 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		WithMessage("DaemonSet is not progressing").
 		WithReason("AsExpected")
 
-	if ok, msg := isProgressing(opStatus, daemonSet); ok {
+	if ok, msg := isProgressing(daemonSet); ok {
 		progressingCondition = progressingCondition.
 			WithStatus(opv1.ConditionTrue).
 			WithMessage(msg).
@@ -253,7 +259,22 @@ func (c *CSIDriverNodeServiceController) getDaemonSet(opSpec *opv1.OperatorSpec)
 	return required, nil
 }
 
-func isProgressing(status *opv1.OperatorStatus, daemonSet *appsv1.DaemonSet) (bool, string) {
+func isProgressing(daemonSet *appsv1.DaemonSet) (bool, string) {
+	// Progressing means "[the component] is actively rolling out new code, propagating config
+	// changes (e.g, a version change), or otherwise moving from one steady state to another."
+	// This controller expects that all "config changes" result in increased DaemonSet generation
+	// (i.e. DaemonSet .spec changes)
+	// The controller stores the last "stable" DS generation in an annotation.
+	// Stable means that all DS replicas are available and at the latest version.
+	// Any subsequent missing replicas must be caused by a node added / removed / rebooted /
+	// pod manually killed, which then does not result in Progressing=true.
+	lastStableGeneration := daemonSet.Annotations[stableGenerationAnnotationName]
+	currentGeneration := strconv.FormatInt(daemonSet.Generation, 10)
+	if lastStableGeneration == currentGeneration {
+		// The previous reconfiguration has completed in the past.
+		return false, ""
+	}
+
 	switch {
 	case daemonSet.Generation != daemonSet.Status.ObservedGeneration:
 		return true, "Waiting for DaemonSet to act on changes"
@@ -314,4 +335,21 @@ func (c *CSIDriverNodeServiceController) syncDeleting(ctx context.Context, opSpe
 
 	// All removed, remove the finalizer as the last step
 	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.instanceName)
+}
+
+func (c *CSIDriverNodeServiceController) storeLastStableGeneration(ctx context.Context, syncContext factory.SyncContext, daemonSet *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	lastStableGeneration := daemonSet.Annotations[stableGenerationAnnotationName]
+	currentGeneration := strconv.FormatInt(daemonSet.Generation, 10)
+	if lastStableGeneration == currentGeneration {
+		return daemonSet, nil
+	}
+
+	if isProgressing, _ := isProgressing(daemonSet); isProgressing {
+		return daemonSet, nil
+	}
+
+	klog.V(2).Infof("DaemonSet %s/%s generation %d is stable", daemonSet.Namespace, daemonSet.Name, daemonSet.Generation)
+	daemonSet.Annotations[stableGenerationAnnotationName] = currentGeneration
+	daemonSet, _, err := resourceapply.ApplyDaemonSet(ctx, c.kubeClient.AppsV1(), syncContext.Recorder(), daemonSet, daemonSet.Generation)
+	return daemonSet, err
 }
