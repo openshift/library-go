@@ -49,6 +49,10 @@ const (
 	// by the encryption controllers.  Its sole purpose is to prevent the accidental
 	// deletion of secrets by enforcing a two phase delete.
 	EncryptionSecretFinalizer = "encryption.apiserver.operator.openshift.io/deletion-protection"
+
+	// EncryptionSecretKMSConfigHash is the annotation that stores the hash of the KMS configuration.
+	// This is used to detect changes in the KMS configuration that would require a new key.
+	EncryptionSecretKMSConfigHash = "encryption.apiserver.operator.openshift.io/kms-config-hash"
 )
 
 // MigratedGroupResources is the data structured stored in the

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -53,6 +54,8 @@ func TestKeyController(t *testing.T) {
 		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource)
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.OperatorClient)
 		expectedError              error
+		kmsConfigHash              string
+		kmsKeyIDHash               string
 	}{
 		{
 			name: "no apiservers config",
@@ -324,6 +327,211 @@ func TestKeyController(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "KMS: creates first encryption key when none exists",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			kmsConfigHash: "config-hash-12345678",
+			kmsKeyIDHash:  "key-id-hash-abcdefgh",
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+			},
+			apiServerObjects: []runtime.Object{
+				func() *configv1.APIServer {
+					apiServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+					apiServer.Spec.Encryption = configv1.APIServerEncryption{
+						Type: configv1.EncryptionTypeKMS,
+						KMS: &configv1.KMSConfig{
+							Type: configv1.AWSKMSProvider,
+							AWS: &configv1.AWSKMSConfig{
+								KeyARN: "arn:aws:kms:us-east-1:123456789012:key/test-key",
+								Region: "us-east-1",
+							},
+						},
+					}
+					return apiServer
+				}(),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify KMS annotations are set
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] == "" {
+							ts.Error("expected KMS config hash annotation to be set")
+						}
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != string(state.KMS) {
+							ts.Errorf("expected mode to be 'kms', got '%s'", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "KMS: no-op when only KMS config hash changes but key ID hash is the same",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			kmsConfigHash: "new-config-hash-xyz",
+			kmsKeyIDHash:  "key-id-hash-abcd1234",
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					// Secret with the same key ID hash (stored in Data)
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("key-id-hash-abcd1234"), string(state.KMS))
+					s.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] = "old-config-hash-1234"
+					return s
+				}(),
+			},
+			apiServerObjects: []runtime.Object{
+				func() *configv1.APIServer {
+					apiServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+					apiServer.Spec.Encryption = configv1.APIServerEncryption{
+						Type: configv1.EncryptionTypeKMS,
+						KMS: &configv1.KMSConfig{
+							Type: configv1.AWSKMSProvider,
+							AWS: &configv1.AWSKMSConfig{
+								KeyARN: "arn:aws:kms:us-east-1:123456789012:key/new-key", // Different key ARN
+								Region: "us-east-1",
+							},
+						},
+					}
+					return apiServer
+				}(),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+			},
+		},
+
+		{
+			name: "KMS: creates new key when KMS key ID hash changes (key rotation)",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			kmsConfigHash: "config-hash-12345678",
+			kmsKeyIDHash:  "new-key-id-hash-xyz",
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					// Secret with old key ID hash stored in Data
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("old-key-id-hash-abc"), string(state.KMS))
+					s.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] = "config-hash-12345678"
+					return s
+				}(),
+			},
+			apiServerObjects: []runtime.Object{
+				func() *configv1.APIServer {
+					apiServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+					apiServer.Spec.Encryption = configv1.APIServerEncryption{
+						Type: configv1.EncryptionTypeKMS,
+						KMS: &configv1.KMSConfig{
+							Type: configv1.AWSKMSProvider,
+							AWS: &configv1.AWSKMSConfig{
+								KeyARN: "arn:aws:kms:us-east-1:123456789012:key/test-key",
+								Region: "us-east-1",
+							},
+						},
+					}
+					return apiServer
+				}(),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify config hash stays the same
+						configHash := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"]
+						if configHash != "config-hash-12345678" {
+							ts.Errorf("expected config hash to remain 'config-hash-12345678', got '%s'", configHash)
+						}
+
+						// Verify internal reason mentions KMS key change
+						internalReason := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"]
+						if internalReason != "secrets-kms-key-changed" {
+							ts.Errorf("expected internal reason 'secrets-kms-key-changed', got '%s'", internalReason)
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+		{
+			name: "KMS: no-op when hashes match and key is migrated",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			kmsConfigHash: "config-hash-12345678",
+			kmsKeyIDHash:  "key-id-hash-abcdefgh",
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("key-id-hash-abcdefgh"), string(state.KMS))
+					s.Annotations["encryption.apiserver.operator.openshift.io/kms-config-hash"] = "config-hash-12345678"
+					return s
+				}(),
+			},
+			apiServerObjects: []runtime.Object{
+				func() *configv1.APIServer {
+					apiServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+					apiServer.Spec.Encryption = configv1.APIServerEncryption{
+						Type: configv1.EncryptionTypeKMS,
+						KMS: &configv1.KMSConfig{
+							Type: configv1.AWSKMSProvider,
+							AWS: &configv1.AWSKMSConfig{
+								KeyARN: "arn:aws:kms:us-east-1:123456789012:key/test-key",
+								Region: "us-east-1",
+							},
+						},
+					}
+					return apiServer
+				}(),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -374,6 +582,12 @@ func TestKeyController(t *testing.T) {
 			provider := newTestProvider(scenario.targetGRs)
 
 			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder)
+
+			if scenario.kmsConfigHash != "" || scenario.kmsKeyIDHash != "" {
+				kmsHashesGetterFunc = func(ctx context.Context, kmsConfig *configv1.KMSConfig) (string, []byte, error) {
+					return scenario.kmsConfigHash, []byte(scenario.kmsKeyIDHash), nil
+				}
+			}
 
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
@@ -495,7 +709,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, _, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {
