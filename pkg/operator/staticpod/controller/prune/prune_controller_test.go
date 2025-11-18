@@ -3,7 +3,6 @@ package prune
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -58,7 +58,7 @@ func TestSync(t *testing.T) {
 			objects:           []int32{1, 2, 3, 4},
 			expectedObjects:   []int32{2, 4},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=4 --protected-revisions=2,4 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=4 --protected-revisions=2,4 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 		{
 			name:            "prunes api resources with multiple nodes based on failedLimit 1, succeedLimit 1",
@@ -87,7 +87,7 @@ func TestSync(t *testing.T) {
 			objects:           []int32{1, 2, 3, 4, 5, 6},
 			expectedObjects:   []int32{2, 3, 4, 5, 6},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=5 --protected-revisions=2,3,4,5 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=5 --protected-revisions=2,3,4,5 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 		{
 			name:            "prunes api resources without nodes",
@@ -124,7 +124,7 @@ func TestSync(t *testing.T) {
 			objects:           []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 			expectedObjects:   []int32{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=10 --protected-revisions=2,3,4,5,6,7,8,9,10 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=10 --protected-revisions=2,3,4,5,6,7,8,9,10 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 		{
 			name:            "prunes api resources based on failedLimit 2, succeedLimit 3 and all relevant revisions set",
@@ -147,7 +147,7 @@ func TestSync(t *testing.T) {
 			objects:           int32Range(1, 50),
 			expectedObjects:   []int32{8, 9, 10, 19, 20, 28, 29, 30, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=40 --protected-revisions=8,9,10,19,20,28,29,30,38,39,40 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=40 --protected-revisions=8,9,10,19,20,28,29,30,38,39,40 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 		{
 			name:            "prunes api resources based on failedLimit 0, succeedLimit 0",
@@ -170,7 +170,7 @@ func TestSync(t *testing.T) {
 			objects:           int32Range(1, 50),
 			expectedObjects:   []int32{6, 7, 8, 9, 10, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=40 --protected-revisions=6,7,8,9,10,16,17,18,19,20,26,27,28,29,30,36,37,38,39,40 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=40 --protected-revisions=6,7,8,9,10,16,17,18,19,20,26,27,28,29,30,36,37,38,39,40 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 		{
 			name:            "protects all",
@@ -302,7 +302,7 @@ func TestSync(t *testing.T) {
 			objects:           []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 			expectedObjects:   []int32{5, 6, 7, 8, 9, 10},
 			expectedPrunePod:  true,
-			expectedPruneArgs: "-v=4 --max-eligible-revision=5 --protected-revisions=5 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
+			expectedPruneArgs: "-v=4 --max-eligible-revision=5 --protected-revisions=5 --resource-dir=/etc/kubernetes/static-pod-resources --static-pod-name=test-pod",
 		},
 	}
 	for _, tc := range tests {
