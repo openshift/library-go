@@ -72,6 +72,8 @@ func NewDeploymentVersionController(
 	}
 	return factory.New().WithSync(
 		c.Sync,
+	).WithSyncDegradedOnError(
+		operatorClient,
 	).WithInformers(
 		c.deploymentInformer.Informer(),
 	).ResyncEvery(
