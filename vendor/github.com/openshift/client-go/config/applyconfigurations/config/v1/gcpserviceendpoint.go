@@ -8,9 +8,26 @@ import (
 
 // GCPServiceEndpointApplyConfiguration represents a declarative configuration of the GCPServiceEndpoint type for use
 // with apply.
+//
+// GCPServiceEndpoint store the configuration of a custom url to
+// override existing defaults of GCP Services.
 type GCPServiceEndpointApplyConfiguration struct {
+	// name is the name of the GCP service whose endpoint is being overridden.
+	// This must be provided and cannot be empty.
+	//
+	// Allowed values are Compute, Container, CloudResourceManager, DNS, File, IAM, ServiceUsage,
+	// Storage, and TagManager.
+	//
+	// As an example, when setting the name to Compute all requests made by the caller to the GCP Compute
+	// Service will be directed to the endpoint specified in the url field.
 	Name *configv1.GCPServiceEndpointName `json:"name,omitempty"`
-	URL  *string                          `json:"url,omitempty"`
+	// url is a fully qualified URI that overrides the default endpoint for a client using the GCP service specified
+	// in the name field.
+	// url is required, must use the scheme https, must not be more than 253 characters in length,
+	// and must be a valid URL according to Go's net/url package (https://pkg.go.dev/net/url#URL)
+	//
+	// An example of a valid endpoint that overrides the Compute Service: "https://compute-myendpoint1.p.googleapis.com"
+	URL *string `json:"url,omitempty"`
 }
 
 // GCPServiceEndpointApplyConfiguration constructs a declarative configuration of the GCPServiceEndpoint type for use with
