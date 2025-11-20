@@ -101,8 +101,8 @@ func hasFinishedProgressing(deployment *appsv1.Deployment) bool {
 }
 
 func (c *DeploymentVersionController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	klog.Infof("DeploymentVersionController sync started")
-	defer klog.Infof("DeploymentVersionController sync finished")
+	klog.V(4).Infof("DeploymentVersionController sync started")
+	defer klog.V(4).Infof("DeploymentVersionController sync finished")
 
 	opSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
