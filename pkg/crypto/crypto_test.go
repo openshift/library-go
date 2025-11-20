@@ -2,8 +2,11 @@ package crypto
 
 import (
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"go/importer"
 	"os"
@@ -548,4 +551,131 @@ func TestServerCertRegeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, serverCert)
 	require.True(t, created)
+}
+
+//go:embed testfiles/mozilla-guidelines.json
+var guidelinesJSON []byte
+
+// TestDefaultCiphersAgainstMozillaGuidelines compares our DefaultCiphers() with the Mozilla TLS
+// configuration guidelines stored in testfiles/mozilla-guidelines.json.
+func TestDefaultCiphersAgainstMozillaGuidelines(t *testing.T) {
+
+	// Parse the JSON
+	var guidelines struct {
+		Version        float64 `json:"version"`
+		Configurations map[string]struct {
+			TLSVersions  []string            `json:"tls_versions"`
+			Ciphers      map[string][]string `json:"ciphers"`
+			Ciphersuites []string            `json:"ciphersuites"` // TLS 1.3 ciphers
+		} `json:"configurations"`
+	}
+	if err := json.Unmarshal(guidelinesJSON, &guidelines); err != nil {
+		t.Fatalf("Failed to parse Mozilla guidelines JSON: %v", err)
+	}
+
+	// Get Intermediate profile
+	intermediate, ok := guidelines.Configurations["intermediate"]
+	if !ok {
+		t.Fatalf("Mozilla guidelines missing 'intermediate' configuration")
+	}
+
+	// Get Go cipher names from Mozilla (they use IANA names)
+	mozillaCipherNames := sets.New[string]()
+	mozillaCipherIDs := sets.New[uint16]()
+	unknownCiphers := []string{}
+
+	// Process TLS 1.2 ciphers (from "go" field)
+	goCiphers := intermediate.Ciphers["go"]
+	for _, cipherName := range goCiphers {
+		mozillaCipherNames.Insert(cipherName)
+
+		// Convert IANA name to cipher suite ID
+		cipherID, ok := ciphers[cipherName]
+		if ok {
+			mozillaCipherIDs.Insert(cipherID)
+		} else {
+			unknownCiphers = append(unknownCiphers, cipherName)
+		}
+	}
+
+	// Process TLS 1.3 ciphersuites
+	for _, cipherName := range intermediate.Ciphersuites {
+		mozillaCipherNames.Insert(cipherName)
+
+		// Convert IANA name to cipher suite ID
+		cipherID, ok := ciphers[cipherName]
+		if ok {
+			mozillaCipherIDs.Insert(cipherID)
+		} else {
+			unknownCiphers = append(unknownCiphers, cipherName)
+		}
+	}
+
+	// Get our default ciphers
+	ourCiphers := DefaultCiphers()
+	ourCipherIDs := sets.New[uint16](ourCiphers...)
+	ourCipherNames := sets.New[string]()
+	for _, id := range ourCiphers {
+		ourCipherNames.Insert(CipherSuiteToNameOrDie(id))
+	}
+
+	// Find discrepancies
+	deprecated := ourCipherIDs.Difference(mozillaCipherIDs)
+	missing := mozillaCipherIDs.Difference(ourCipherIDs)
+
+	// Report findings
+	t.Logf("Mozilla SSL Configuration Guidelines Version: %.1f", guidelines.Version)
+	t.Logf("Mozilla Intermediate Profile: TLS Versions %v", intermediate.TLSVersions)
+	t.Logf("Mozilla Intermediate Profile: %d cipher suites", len(intermediate.Ciphers["go"])+len(intermediate.Ciphersuites))
+	t.Logf("DefaultCiphers(): %d cipher suites", len(ourCiphers))
+
+	if len(unknownCiphers) > 0 {
+		t.Errorf("Mozilla recommends %d cipher(s) that are not in our cipher mapping", len(unknownCiphers))
+		for _, cipher := range unknownCiphers {
+			t.Errorf("  - %s (OpenSSL name)", cipher)
+		}
+		t.Errorf("To fix: Add these ciphers to DefaultCiphers() in crypto.go, or update the cached guidelines file with 'make update-mozilla-guidelines'")
+	}
+
+	if len(deprecated) > 0 {
+		t.Errorf("DefaultCiphers() includes %d deprecated cipher(s) not in Mozilla Intermediate recommendations", len(deprecated))
+		var deprecatedNames []string
+		for id := range deprecated {
+			name := CipherSuiteToNameOrDie(id)
+			deprecatedNames = append(deprecatedNames, name)
+		}
+		sort.Strings(deprecatedNames)
+		for _, name := range deprecatedNames {
+			t.Errorf("  - %s", name)
+		}
+		t.Errorf("To fix: Remove these ciphers from DefaultCiphers() in crypto.go, or update the cached guidelines file with 'make update-mozilla-guidelines'")
+	}
+
+	if len(missing) > 0 {
+		t.Errorf("DefaultCiphers() is missing %d cipher(s) recommended by Mozilla Intermediate profile", len(missing))
+		var missingNames []string
+		for id := range missing {
+			// Use tls.CipherSuiteName if available, otherwise lookup in our map
+			name := tls.CipherSuiteName(id)
+			if name == "" || !strings.HasPrefix(name, "TLS_") {
+				// Fallback to our mapping
+				for k, v := range ciphers {
+					if v == id {
+						name = k
+						break
+					}
+				}
+			}
+			missingNames = append(missingNames, name)
+		}
+		sort.Strings(missingNames)
+		for _, name := range missingNames {
+			t.Errorf("  - %s", name)
+		}
+		t.Errorf("To fix: Add these ciphers to the ciphers map in crypto.go, or update the cached guidelines file with 'make update-mozilla-guidelines'")
+	}
+
+	if len(deprecated) == 0 && len(missing) == 0 {
+		t.Logf("DefaultCiphers() is perfectly aligned with Mozilla Intermediate profile")
+	}
 }
