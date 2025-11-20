@@ -4,13 +4,36 @@ package v1
 
 // OvirtPlatformStatusApplyConfiguration represents a declarative configuration of the OvirtPlatformStatus type for use
 // with apply.
+//
+// OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.
 type OvirtPlatformStatusApplyConfiguration struct {
-	APIServerInternalIP  *string                                      `json:"apiServerInternalIP,omitempty"`
-	APIServerInternalIPs []string                                     `json:"apiServerInternalIPs,omitempty"`
-	IngressIP            *string                                      `json:"ingressIP,omitempty"`
-	IngressIPs           []string                                     `json:"ingressIPs,omitempty"`
-	NodeDNSIP            *string                                      `json:"nodeDNSIP,omitempty"`
-	LoadBalancer         *OvirtPlatformLoadBalancerApplyConfiguration `json:"loadBalancer,omitempty"`
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	//
+	// Deprecated: Use APIServerInternalIPs instead.
+	APIServerInternalIP *string `json:"apiServerInternalIP,omitempty"`
+	// apiServerInternalIPs are the IP addresses to contact the Kubernetes API
+	// server that can be used by components inside the cluster, like kubelets
+	// using the infrastructure rather than Kubernetes networking. These are the
+	// IPs for a self-hosted load balancer in front of the API servers. In dual
+	// stack clusters this list contains two IPs otherwise only one.
+	APIServerInternalIPs []string `json:"apiServerInternalIPs,omitempty"`
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	//
+	// Deprecated: Use IngressIPs instead.
+	IngressIP *string `json:"ingressIP,omitempty"`
+	// ingressIPs are the external IPs which route to the default ingress
+	// controller. The IPs are suitable targets of a wildcard DNS record used to
+	// resolve default route host names. In dual stack clusters this list
+	// contains two IPs otherwise only one.
+	IngressIPs []string `json:"ingressIPs,omitempty"`
+	// deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.
+	NodeDNSIP *string `json:"nodeDNSIP,omitempty"`
+	// loadBalancer defines how the load balancer used by the cluster is configured.
+	LoadBalancer *OvirtPlatformLoadBalancerApplyConfiguration `json:"loadBalancer,omitempty"`
 }
 
 // OvirtPlatformStatusApplyConfiguration constructs a declarative configuration of the OvirtPlatformStatus type for use with

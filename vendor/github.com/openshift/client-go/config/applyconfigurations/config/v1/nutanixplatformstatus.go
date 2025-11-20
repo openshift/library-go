@@ -4,12 +4,34 @@ package v1
 
 // NutanixPlatformStatusApplyConfiguration represents a declarative configuration of the NutanixPlatformStatus type for use
 // with apply.
+//
+// NutanixPlatformStatus holds the current status of the Nutanix infrastructure provider.
 type NutanixPlatformStatusApplyConfiguration struct {
-	APIServerInternalIP  *string                                        `json:"apiServerInternalIP,omitempty"`
-	APIServerInternalIPs []string                                       `json:"apiServerInternalIPs,omitempty"`
-	IngressIP            *string                                        `json:"ingressIP,omitempty"`
-	IngressIPs           []string                                       `json:"ingressIPs,omitempty"`
-	LoadBalancer         *NutanixPlatformLoadBalancerApplyConfiguration `json:"loadBalancer,omitempty"`
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	//
+	// Deprecated: Use APIServerInternalIPs instead.
+	APIServerInternalIP *string `json:"apiServerInternalIP,omitempty"`
+	// apiServerInternalIPs are the IP addresses to contact the Kubernetes API
+	// server that can be used by components inside the cluster, like kubelets
+	// using the infrastructure rather than Kubernetes networking. These are the
+	// IPs for a self-hosted load balancer in front of the API servers. In dual
+	// stack clusters this list contains two IPs otherwise only one.
+	APIServerInternalIPs []string `json:"apiServerInternalIPs,omitempty"`
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	//
+	// Deprecated: Use IngressIPs instead.
+	IngressIP *string `json:"ingressIP,omitempty"`
+	// ingressIPs are the external IPs which route to the default ingress
+	// controller. The IPs are suitable targets of a wildcard DNS record used to
+	// resolve default route host names. In dual stack clusters this list
+	// contains two IPs otherwise only one.
+	IngressIPs []string `json:"ingressIPs,omitempty"`
+	// loadBalancer defines how the load balancer used by the cluster is configured.
+	LoadBalancer *NutanixPlatformLoadBalancerApplyConfiguration `json:"loadBalancer,omitempty"`
 }
 
 // NutanixPlatformStatusApplyConfiguration constructs a declarative configuration of the NutanixPlatformStatus type for use with
