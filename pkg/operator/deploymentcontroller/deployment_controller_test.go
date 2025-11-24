@@ -470,7 +470,8 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable),
+					// Per OpenShift API contract, Available remains True during normal upgrades/deployments
+					withTrueConditions(conditionAvailable),
 					withFinalizers(finalizerName),
 				),
 			},
@@ -526,7 +527,8 @@ func TestSync(t *testing.T) {
 					// withStatus(replica0),
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable)), // Degraded is set later on
+					// Per OpenShift API contract, Available remains True during normal upgrades/deployments
+					withTrueConditions(conditionAvailable)),
 			},
 		},
 		{

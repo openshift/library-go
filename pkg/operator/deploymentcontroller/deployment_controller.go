@@ -268,20 +268,33 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 		})
 
 	// Set Available condition
+	// Per OpenShift API contract (config/v1/types_cluster_operator.go:156):
+	// "A component must not report Available=False during the course of a normal upgrade."
+	// Available should only be False when the deployment has actually failed, not during
+	// normal rolling updates or when temporarily waiting for pods to become ready.
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
 		availableCondition := applyoperatorv1.
 			OperatorCondition().WithType(c.instanceName + opv1.OperatorStatusTypeAvailable)
+
 		if deployment.Status.AvailableReplicas > 0 {
+			// Deployment has available replicas - clearly available
 			availableCondition = availableCondition.
 				WithStatus(opv1.ConditionTrue).
 				WithMessage("Deployment is available").
 				WithReason("AsExpected")
-
-		} else {
+		} else if isDeploymentAvailableDuringRollout(deployment) {
+			// Deployment is progressing normally (rolling update, initial deployment)
+			// Per API contract, remain Available=True during normal operations
 			availableCondition = availableCondition.
-				WithStatus(opv1.ConditionFalse).
+				WithStatus(opv1.ConditionTrue).
 				WithMessage("Waiting for Deployment").
 				WithReason("Deploying")
+		} else {
+			// Deployment appears to have failed - no available replicas and not progressing normally
+			availableCondition = availableCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithMessage("Deployment has failed").
+				WithReason("DeploymentFailed")
 		}
 		status = status.WithConditions(availableCondition)
 	}
@@ -387,5 +400,97 @@ func hasFinishedProgressing(deployment *appsv1.Deployment) bool {
 			return cond.Status == corev1.ConditionTrue && cond.Reason == "NewReplicaSetAvailable"
 		}
 	}
+	return false
+}
+
+// isDeploymentAvailableDuringRollout determines if a deployment should be considered Available
+// even when it has zero AvailableReplicas. This is true when the deployment is actively
+// progressing (rolling update, scaling, initial deployment) and has not failed.
+//
+// Per OpenShift API contract (config/v1/types_cluster_operator.go:156):
+// "A component must not report Available=False during the course of a normal upgrade."
+// Available should remain True during normal operations like upgrades, but should go False
+// when the deployment has actually failed or when pods disappear after successful deployment.
+func isDeploymentAvailableDuringRollout(deployment *appsv1.Deployment) bool {
+	// First, check for hard failures
+	for _, cond := range deployment.Status.Conditions {
+		// ProgressDeadlineExceeded means the deployment has failed
+		if cond.Type == appsv1.DeploymentProgressing &&
+			cond.Status == corev1.ConditionFalse &&
+			cond.Reason == "ProgressDeadlineExceeded" {
+			return false
+		}
+		// ReplicaFailure means pods are failing to start
+		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Status == corev1.ConditionTrue {
+			return false
+		}
+	}
+
+	// Check if deployment is actively being updated (spec change being rolled out)
+	// This is the primary indicator of a "normal upgrade" in progress
+	if deployment.Generation != deployment.Status.ObservedGeneration {
+		// Spec has changed, deployment controller is working on rolling it out
+		// Per API contract, remain Available during this normal upgrade
+		return true
+	}
+
+	// Check if we're in an active rollout (not just missing pods after successful deployment)
+	var isProgressing bool
+	var isRollingOut bool
+	var hasFinishedRollout bool
+
+	for _, cond := range deployment.Status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			if cond.Status == corev1.ConditionTrue {
+				isProgressing = true
+				// ReplicaSetUpdated means we're actively rolling out new pods
+				if cond.Reason == "ReplicaSetUpdated" {
+					isRollingOut = true
+				}
+			}
+			// NewReplicaSetAvailable means rollout completed successfully
+			if cond.Status == corev1.ConditionTrue && cond.Reason == "NewReplicaSetAvailable" {
+				hasFinishedRollout = true
+			}
+		}
+	}
+
+	// If we're actively rolling out, remain Available per API contract
+	if isRollingOut {
+		return true
+	}
+
+	// If rollout has finished successfully (NewReplicaSetAvailable) but pods are now missing,
+	// this is NOT a normal upgrade - it's an operational issue (node failure, etc.)
+	// In this case, we should report Available=False
+	if hasFinishedRollout {
+		return false
+	}
+
+	// If we have updated replicas being created, we're in a rollout
+	var expectedReplicas int32
+	if deployment.Spec.Replicas != nil {
+		expectedReplicas = *deployment.Spec.Replicas
+	}
+
+	if deployment.Status.UpdatedReplicas > 0 && deployment.Status.UpdatedReplicas <= expectedReplicas {
+		// We have updated replicas being created, this is a normal rollout
+		return true
+	}
+
+	// If progressing but no updated replicas yet, we're in early stages of rollout
+	if isProgressing {
+		return true
+	}
+
+	// Special case: brand new deployment with no status conditions yet
+	// This happens during initial deployment before Kubernetes has had a chance to update status
+	if len(deployment.Status.Conditions) == 0 && deployment.Status.ObservedGeneration == 0 {
+		// Deployment just created, is progressing normally
+		return true
+	}
+
+	// If we get here with zero replicas and no signs of progress or rollout,
+	// this is likely a failure or pods disappeared after deployment
 	return false
 }
