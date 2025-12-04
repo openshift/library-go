@@ -649,7 +649,7 @@ func MakeSelfSignedCAConfigForDuration(name string, caLifetime time.Duration) (*
 	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime)
 }
 
-func UnsafeMakeSelfSignedCAConfigForDurationAtTime(name string, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
+func MakeSelfSignedCAConfigForDurationAtTime(name string, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	subject := pkix.Name{CommonName: name}
 	return makeSelfSignedCAConfigForSubjectAndDuration(subject, currentTime, caLifetime)
 }

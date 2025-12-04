@@ -221,7 +221,7 @@ func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *core
 // setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
 func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, clock clock.Clock, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, clock.Now().Unix())
-	ca, err := crypto.UnsafeMakeSelfSignedCAConfigForDurationAtTime(signerName, clock.Now, validity)
+	ca, err := crypto.MakeSelfSignedCAConfigForDurationAtTime(signerName, clock.Now, validity)
 	if err != nil {
 		return nil, err
 	}
