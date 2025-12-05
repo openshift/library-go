@@ -2,29 +2,28 @@ package resourcesynccontroller
 
 import (
 	"context"
-	clocktesting "k8s.io/utils/clock/testing"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	ktesting "k8s.io/client-go/testing"
-
-	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func TestSyncSecret(t *testing.T) {
@@ -366,5 +365,77 @@ func TestServeHTTP(t *testing.T) {
 	response := writer.Body.String()
 	if response != expected {
 		t.Errorf("Expected:%+v\n Got: %+v\n", expected, response)
+	}
+}
+
+func TestWithConditionPrefix(t *testing.T) {
+	tests := []struct {
+		name                  string
+		customConditionPrefix string
+		expectedCondition     string
+	}{
+		{
+			name:              "Without ConditionPrefix",
+			expectedCondition: condition.ResourceSyncControllerDegradedConditionType,
+		},
+		{
+			name:                  "WithConditionPrefix",
+			customConditionPrefix: "RecoveryPod",
+			expectedCondition:     fmt.Sprintf("RecoveryPod%s", condition.ResourceSyncControllerDegradedConditionType),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			informerFactory := informers.NewSharedInformerFactoryWithOptions(nil, 1*time.Minute, informers.WithNamespace("foo"))
+			fakeStaticPodOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
+				&operatorv1.OperatorStatus{},
+				nil,
+			)
+			eventRecorder := eventstesting.NewTestingEventRecorder(t)
+
+			c := NewResourceSyncController(
+				"testing-instance",
+				fakeStaticPodOperatorClient,
+				v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
+					"foo": informerFactory,
+				}),
+				nil,
+				nil,
+				eventRecorder,
+			)
+			if len(test.customConditionPrefix) > 0 {
+				c.WithConditionPrefix(test.customConditionPrefix)
+			}
+
+			if err := c.Sync(context.TODO(), c.syncCtx); err != nil {
+				t.Fatal(err)
+			}
+			_, status, _, err := fakeStaticPodOperatorClient.GetOperatorState()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !v1helpers.IsOperatorConditionFalse(status.Conditions, test.expectedCondition) {
+				t.Errorf("expected resource sync condition: %q to NOT be degraded", test.expectedCondition)
+			}
+
+			if err = c.SyncSecretConditionally(ResourceLocation{Namespace: "foo", Name: "secret"}, ResourceLocation{Namespace: "foo", Name: "secret2"}, func() (bool, error) {
+				return false, fmt.Errorf("nasty err")
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err = c.Sync(context.TODO(), c.syncCtx); err != nil {
+				t.Fatal(err)
+			}
+			_, status, _, err = fakeStaticPodOperatorClient.GetOperatorState()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !v1helpers.IsOperatorConditionTrue(status.Conditions, test.expectedCondition) {
+				t.Errorf("expected resource sync condition: %q to be degraded", test.expectedCondition)
+			}
+		})
 	}
 }
