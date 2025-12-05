@@ -43,39 +43,39 @@ const (
 // Currently, this controller is supposed to be used only for Deployments residing in HyperShift
 // control planes.
 type DeploymentVersionController struct {
-	name                     string
-	controlPlaneNamespace    string
-	controllerDeploymentName string
-	deploymentInformer       appsinformersv1.DeploymentInformer
-	operatorClient           v1helpers.OperatorClientWithFinalizers
-	controlPlaneKubeClient   kubernetes.Interface
-	eventRecorder            events.Recorder
+	name                                string
+	controlPlaneNamespace               string
+	controllerDeploymentName            string
+	managementClusterDeploymentInformer appsinformersv1.DeploymentInformer
+	guestClusterOperatorClient          v1helpers.OperatorClientWithFinalizers
+	managementClusterKubeClient         kubernetes.Interface
+	eventRecorder                       events.Recorder
 }
 
 func NewDeploymentVersionController(
 	name string,
 	controlPlaneNamespace string,
 	controllerDeploymentName string,
-	deploymentInformer appsinformersv1.DeploymentInformer,
-	operatorClient v1helpers.OperatorClientWithFinalizers,
-	controlPlaneKubeClient kubernetes.Interface,
+	managementClusterDeploymentInformer appsinformersv1.DeploymentInformer,
+	guestClusterOperatorClient v1helpers.OperatorClientWithFinalizers,
+	managementClusterKubeClient kubernetes.Interface,
 	eventRecorder events.Recorder) factory.Controller {
 
 	c := &DeploymentVersionController{
-		name:                     name,
-		controlPlaneNamespace:    controlPlaneNamespace,
-		controllerDeploymentName: controllerDeploymentName,
-		deploymentInformer:       deploymentInformer,
-		operatorClient:           operatorClient,
-		controlPlaneKubeClient:   controlPlaneKubeClient,
-		eventRecorder:            eventRecorder,
+		name:                                name,
+		controlPlaneNamespace:               controlPlaneNamespace,
+		controllerDeploymentName:            controllerDeploymentName,
+		managementClusterDeploymentInformer: managementClusterDeploymentInformer,
+		guestClusterOperatorClient:          guestClusterOperatorClient,
+		managementClusterKubeClient:         managementClusterKubeClient,
+		eventRecorder:                       eventRecorder,
 	}
 	return factory.New().WithSync(
 		c.Sync,
 	).WithSyncDegradedOnError(
-		operatorClient,
+		guestClusterOperatorClient,
 	).WithInformers(
-		c.deploymentInformer.Informer(),
+		c.managementClusterDeploymentInformer.Informer(),
 	).ResyncEvery(
 		defaultReSyncPeriod,
 	).ToController(
@@ -104,7 +104,7 @@ func (c *DeploymentVersionController) Sync(ctx context.Context, syncCtx factory.
 	klog.V(4).Infof("DeploymentVersionController sync started")
 	defer klog.V(4).Infof("DeploymentVersionController sync finished")
 
-	opSpec, _, _, err := c.operatorClient.GetOperatorState()
+	opSpec, _, _, err := c.guestClusterOperatorClient.GetOperatorState()
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (c *DeploymentVersionController) Sync(ctx context.Context, syncCtx factory.
 		return nil
 	}
 
-	deployment, err := c.deploymentInformer.Lister().Deployments(c.controlPlaneNamespace).Get(c.controllerDeploymentName)
+	deployment, err := c.managementClusterDeploymentInformer.Lister().Deployments(c.controlPlaneNamespace).Get(c.controllerDeploymentName)
 	if err != nil {
 		return fmt.Errorf("could not get Deployment %s in Namespace %s: %w", c.controllerDeploymentName, c.controlPlaneNamespace, err)
 	}
@@ -149,7 +149,7 @@ func (c *DeploymentVersionController) Sync(ctx context.Context, syncCtx factory.
 }
 
 func (c *DeploymentVersionController) updateDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
-	_, err := c.controlPlaneKubeClient.AppsV1().Deployments(c.controlPlaneNamespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	_, err := c.managementClusterKubeClient.AppsV1().Deployments(c.controlPlaneNamespace).Update(ctx, deployment, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("error updating deployment object %s in namespace %s: %v", deployment.Name, c.controlPlaneNamespace, err)
 		return err

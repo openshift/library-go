@@ -35,9 +35,9 @@ const (
 )
 
 type testContext struct {
-	controller             factory.Controller
-	controlPlaneKubeClient kubernetes.Interface
-	deploymentInformer     appsinformersv1.DeploymentInformer
+	controller                          factory.Controller
+	managementClusterKubeClient         kubernetes.Interface
+	managementClusterDeploymentInformer appsinformersv1.DeploymentInformer
 }
 
 type syncTestCase struct {
@@ -54,13 +54,13 @@ func newTestContext(test syncTestCase, t *testing.T) *testContext {
 	if test.inputDeployment != nil {
 		initialObjects = append(initialObjects, test.inputDeployment)
 	}
-	controlPlaneKubeClient := fakecore.NewSimpleClientset(initialObjects...)
+	managementClusterKubeClient := fakecore.NewSimpleClientset(initialObjects...)
 
-	coreInformerFactory := coreinformers.NewSharedInformerFactory(controlPlaneKubeClient, 0 /*no resync */)
-	deploymentInformer := coreInformerFactory.Apps().V1().Deployments()
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(managementClusterKubeClient, 0 /*no resync */)
+	managementClusterDeploymentInformer := coreInformerFactory.Apps().V1().Deployments()
 
 	if test.inputDeployment != nil {
-		deploymentInformer.Informer().GetIndexer().Add(test.inputDeployment)
+		managementClusterDeploymentInformer.Informer().GetIndexer().Add(test.inputDeployment)
 	}
 
 	managementState := operatorapi.Managed
@@ -79,15 +79,15 @@ func newTestContext(test syncTestCase, t *testing.T) *testContext {
 		controllerName,
 		operandNamespace,
 		operandName,
-		deploymentInformer,
+		managementClusterDeploymentInformer,
 		fakeOperatorClient,
-		controlPlaneKubeClient,
+		managementClusterKubeClient,
 		eventRecorder)
 
 	return &testContext{
-		controller:             controller,
-		controlPlaneKubeClient: controlPlaneKubeClient,
-		deploymentInformer:     deploymentInformer,
+		controller:                          controller,
+		managementClusterKubeClient:         managementClusterKubeClient,
+		managementClusterDeploymentInformer: managementClusterDeploymentInformer,
 	}
 }
 
@@ -214,7 +214,7 @@ func TestSync(t *testing.T) {
 			}
 
 			// Assert
-			deployment, err := ctx.controlPlaneKubeClient.AppsV1().Deployments(operandNamespace).Get(context.TODO(), operandName, metav1.GetOptions{})
+			deployment, err := ctx.managementClusterKubeClient.AppsV1().Deployments(operandNamespace).Get(context.TODO(), operandName, metav1.GetOptions{})
 			if err != nil {
 				if test.expectedDeployment == nil && apierrors.IsNotFound(err) {
 					return
