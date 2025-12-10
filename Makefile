@@ -23,6 +23,11 @@ verify: verify-podnetworkconnectivitychecks
 verify-podnetworkconnectivitychecks:
 	$(MAKE) -C pkg/operator/connectivitycheckcontroller verify
 
+.PHONY: update-mozilla-guidelines
+update-mozilla-guidelines:
+	curl -sS -o pkg/crypto/testfiles/mozilla-guidelines.json https://ssl-config.mozilla.org/guidelines/latest.json
+	@echo "Mozilla TLS configuration guidelines updated to latest version"
+
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 .PHONY: test-e2e-encryption
 
