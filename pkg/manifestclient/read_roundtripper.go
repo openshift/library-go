@@ -80,7 +80,6 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		returnBody, returnErr = mrt.list(requestInfo)
 
 	case "watch":
-		// our watches do nothing.  We keep the connection alive (I  think), but nothing else.
 		timeoutSecondsString := req.URL.Query().Get("timeoutSeconds")
 		timeoutDuration := 10 * time.Minute
 		if len(timeoutSecondsString) > 0 {
@@ -91,6 +90,24 @@ func (mrt *manifestRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 			}
 			timeoutDuration = time.Duration(currSeconds) * time.Second
 		}
+
+		// handle sendInitialEvents=true (ensures that consumers get a BOOKMARK event, see KEP-3157)
+		sendInitialEvents := req.URL.Query().Get("sendInitialEvents")
+		if sendInitialEvents == "true" {
+			listBody, listErr := mrt.list(requestInfo)
+			if listErr != nil {
+				returnErr = listErr
+				break
+			}
+
+			resp := &http.Response{}
+			resp.StatusCode = http.StatusOK
+			resp.Status = http.StatusText(resp.StatusCode)
+			resp.Body = newWatchStreamWithInitialEvents(listBody, timeoutDuration)
+			return resp, nil
+		}
+
+		// else: keep connection alive but send nothing
 		resp := &http.Response{}
 		resp.StatusCode = http.StatusOK
 		resp.Status = http.StatusText(resp.StatusCode)
