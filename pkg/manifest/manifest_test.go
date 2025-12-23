@@ -873,7 +873,7 @@ func Test_include(t *testing.T) {
 			err := m.populateFromObj()
 			assert.Equal(t, nil, err)
 
-			err = m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates)
+			err = m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates, nil)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
@@ -933,7 +933,7 @@ func TestIncludeAllowUnknownCapabilities(t *testing.T) {
 					},
 				},
 			}
-			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates, tt.allowUnknown)
+			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates, nil, tt.allowUnknown)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
@@ -1196,7 +1196,7 @@ func TestManifestIncludeWithFeatureGates(t *testing.T) {
 			}
 
 			// Test only feature gates, set all other filters to nil
-			err := manifest.Include(nil, nil, nil, nil, nil, tt.enabledGates)
+			err := manifest.Include(nil, nil, nil, nil, nil, tt.enabledGates, nil)
 			if tt.expectedErr == "" {
 				if err != nil {
 					t.Errorf("manifest.Include() expected no error, got %v", err)
@@ -1209,5 +1209,302 @@ func TestManifestIncludeWithFeatureGates(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestMajorVersionFiltering tests the major version filtering functionality in manifest.Include
+func TestMajorVersionFiltering(t *testing.T) {
+	tests := []struct {
+		name                  string
+		annotations           map[string]string
+		clusterMajorVersion   *uint64
+		expectIncluded        bool
+		expectedErrorContains string
+	}{
+		{
+			name:                "no major version annotation should include",
+			annotations:         map[string]string{},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "nil major version should include all",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4"},
+			clusterMajorVersion: nil,
+			expectIncluded:      true,
+		},
+		{
+			name:                "single inclusion - matching version",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "single inclusion - non-matching version",
+			annotations:           map[string]string{"release.openshift.io/major-version": "5"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 does not match any required versions",
+		},
+		{
+			name:                "multiple inclusions - first matches",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4,5,6"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "multiple inclusions - middle matches",
+			annotations:         map[string]string{"release.openshift.io/major-version": "3,4,5"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "multiple inclusions - last matches",
+			annotations:         map[string]string{"release.openshift.io/major-version": "5,6,4"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "multiple inclusions - none match",
+			annotations:           map[string]string{"release.openshift.io/major-version": "5,6,7"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 does not match any required versions",
+		},
+		{
+			name:                  "single exclusion - matching version (should exclude)",
+			annotations:           map[string]string{"release.openshift.io/major-version": "-4"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 matches excluded version 4",
+		},
+		{
+			name:                "single exclusion - non-matching version (should include)",
+			annotations:         map[string]string{"release.openshift.io/major-version": "-5"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "multiple exclusions - first matches (should exclude)",
+			annotations:           map[string]string{"release.openshift.io/major-version": "-4,-5,-6"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 matches excluded version 4",
+		},
+		{
+			name:                "multiple exclusions - none match (should include)",
+			annotations:         map[string]string{"release.openshift.io/major-version": "-5,-6,-7"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "mixed inclusion and exclusion - inclusion matches, exclusion doesn't",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4,-5"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "mixed inclusion and exclusion - exclusion matches",
+			annotations:           map[string]string{"release.openshift.io/major-version": "4,-4"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "inclusion and exclusion requirements overlap: [4]",
+		},
+		{
+			name:                  "mixed inclusion and exclusion - inclusion doesn't match",
+			annotations:           map[string]string{"release.openshift.io/major-version": "5,-6"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 does not match any required versions",
+		},
+		{
+			name:                "whitespace handling",
+			annotations:         map[string]string{"release.openshift.io/major-version": " 4 , 5 , -6 "},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "empty requirement should be ignored",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4,,5"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "invalid inclusion version format",
+			annotations:           map[string]string{"release.openshift.io/major-version": "abc"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "invalid included major version \"abc\" in annotation: strconv.ParseUint: parsing \"abc\": invalid syntax",
+		},
+		{
+			name:                  "invalid exclusion version format",
+			annotations:           map[string]string{"release.openshift.io/major-version": "-abc"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "invalid excluded major version \"abc\" in annotation: strconv.ParseUint: parsing \"abc\": invalid syntax",
+		},
+		{
+			name:                "zero version",
+			annotations:         map[string]string{"release.openshift.io/major-version": "0"},
+			clusterMajorVersion: ptr.To(uint64(0)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "large version number",
+			annotations:         map[string]string{"release.openshift.io/major-version": "999"},
+			clusterMajorVersion: ptr.To(uint64(999)),
+			expectIncluded:      true,
+		},
+		{
+			name:                "complex real-world scenario",
+			annotations:         map[string]string{"release.openshift.io/major-version": "4,5,-3"},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			expectIncluded:      true,
+		},
+		{
+			name:                  "complex real-world scenario - excluded version",
+			annotations:           map[string]string{"release.openshift.io/major-version": "4,5,-3"},
+			clusterMajorVersion:   ptr.To(uint64(3)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 3 matches excluded version 3",
+		},
+		{
+			name:                  "future-proofing scenario",
+			annotations:           map[string]string{"release.openshift.io/major-version": "5,6,7,8,9,10"},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 does not match any required versions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := createTestManifest(tt.annotations)
+
+			// Test through the Include method which calls checkMajorVersion
+			err := manifest.Include(nil, nil, nil, nil, nil, nil, tt.clusterMajorVersion)
+
+			if tt.expectIncluded {
+				if err != nil {
+					t.Errorf("Expected manifest to be included, but got error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected manifest to be excluded, but it was included")
+				} else if tt.expectedErrorContains != "" {
+					if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+						t.Errorf("Expected error to contain %q, but got: %v", tt.expectedErrorContains, err)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestMajorVersionFilteringInteractionWithOtherFilters tests that major version filtering works alongside other filters
+func TestMajorVersionFilteringInteractionWithOtherFilters(t *testing.T) {
+	tests := []struct {
+		name                  string
+		annotations           map[string]string
+		clusterMajorVersion   *uint64
+		requiredFeatureSet    *string
+		enabledFeatureGates   sets.Set[string]
+		expectIncluded        bool
+		expectedErrorContains string
+	}{
+		{
+			name: "major version passes but feature gate fails",
+			annotations: map[string]string{
+				"release.openshift.io/major-version": "4",
+				"release.openshift.io/feature-gates": "RequiredFeature",
+			},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			enabledFeatureGates:   sets.New[string](), // Empty set - feature gate not enabled
+			expectIncluded:        false,
+			expectedErrorContains: "feature gate RequiredFeature is required but not enabled",
+		},
+		{
+			name: "feature gate passes but major version fails",
+			annotations: map[string]string{
+				"release.openshift.io/major-version": "5",
+				"release.openshift.io/feature-gates": "RequiredFeature",
+			},
+			clusterMajorVersion:   ptr.To(uint64(4)),
+			enabledFeatureGates:   sets.New("RequiredFeature"),
+			expectIncluded:        false,
+			expectedErrorContains: "major version 4 does not match any required versions",
+		},
+		{
+			name: "both major version and feature gate pass",
+			annotations: map[string]string{
+				"release.openshift.io/major-version": "4",
+				"release.openshift.io/feature-gates": "RequiredFeature",
+			},
+			clusterMajorVersion: ptr.To(uint64(4)),
+			enabledFeatureGates: sets.New("RequiredFeature"),
+			expectIncluded:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := createTestManifest(tt.annotations)
+
+			err := manifest.Include(nil, tt.requiredFeatureSet, nil, nil, nil, tt.enabledFeatureGates, tt.clusterMajorVersion)
+
+			if tt.expectIncluded {
+				if err != nil {
+					t.Errorf("Expected manifest to be included, but got error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected manifest to be excluded, but it was included")
+				} else if tt.expectedErrorContains != "" {
+					if !strings.Contains(err.Error(), tt.expectedErrorContains) {
+						t.Errorf("Expected error to contain %q, but got: %v", tt.expectedErrorContains, err)
+					}
+				}
+			}
+		})
+	}
+}
+
+// Helper functions
+func createTestManifest(annotations map[string]string) Manifest {
+	obj := &unstructured.Unstructured{}
+	obj.SetAPIVersion("v1")
+	obj.SetKind("ConfigMap")
+	obj.SetName("test-manifest")
+	obj.SetNamespace("test-namespace")
+	obj.SetAnnotations(annotations)
+
+	// Add the required annotation that manifest.Include expects
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	// Add a minimal required annotation to pass the basic validation
+	allAnnotations := make(map[string]string)
+	for k, v := range annotations {
+		allAnnotations[k] = v
+	}
+	if len(allAnnotations) == 0 {
+		allAnnotations["test"] = "test"
+	}
+	obj.SetAnnotations(allAnnotations)
+
+	raw := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-manifest
+  namespace: test-namespace
+  annotations:`
+	for k, v := range allAnnotations {
+		raw += "\n    " + k + ": " + v
+	}
+
+	return Manifest{
+		Raw: []byte(raw),
+		GVK: obj.GroupVersionKind(),
+		Obj: obj,
 	}
 }
