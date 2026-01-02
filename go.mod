@@ -7,6 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/fvbommel/sortorder v1.1.0
 	github.com/go-ldap/ldap/v3 v3.4.11
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
@@ -62,7 +63,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
-	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
