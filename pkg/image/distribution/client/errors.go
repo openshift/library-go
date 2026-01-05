@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/distribution/distribution/v3/registry/api/errcode"
-	"github.com/distribution/distribution/v3/registry/client/auth/challenge"
+	"github.com/openshift/library-go/pkg/image/distribution/client/auth/challenge"
 )
 
 // ErrNoErrorsInBody is returned when an HTTP response body parses to an empty

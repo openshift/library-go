@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openshift/library-go/pkg/image/distribution/client/auth"
 	"golang.org/x/time/rate"
 
 	"k8s.io/client-go/rest"
@@ -23,8 +24,7 @@ import (
 	"github.com/distribution/distribution/v3/manifest/schema2"
 	"github.com/distribution/distribution/v3/reference"
 	"github.com/distribution/distribution/v3/registry/api/errcode"
-	registryclient "github.com/distribution/distribution/v3/registry/client"
-	"github.com/distribution/distribution/v3/registry/client/auth"
+	registryclient "github.com/openshift/library-go/pkg/image/distribution/client"
 	"github.com/opencontainers/go-digest"
 	imagereference "github.com/openshift/library-go/pkg/image/reference"
 )

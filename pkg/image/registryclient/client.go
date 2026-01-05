@@ -13,6 +13,10 @@ import (
 	"sync"
 	"time"
 
+	registryclient "github.com/openshift/library-go/pkg/image/distribution/client"
+	"github.com/openshift/library-go/pkg/image/distribution/client/auth"
+	"github.com/openshift/library-go/pkg/image/distribution/client/auth/challenge"
+	"github.com/openshift/library-go/pkg/image/distribution/client/transport"
 	"golang.org/x/time/rate"
 
 	"k8s.io/klog/v2"
@@ -20,10 +24,6 @@ import (
 	"github.com/distribution/distribution/v3"
 	"github.com/distribution/distribution/v3/reference"
 	"github.com/distribution/distribution/v3/registry/api/errcode"
-	registryclient "github.com/distribution/distribution/v3/registry/client"
-	"github.com/distribution/distribution/v3/registry/client/auth"
-	"github.com/distribution/distribution/v3/registry/client/auth/challenge"
-	"github.com/distribution/distribution/v3/registry/client/transport"
 	"github.com/opencontainers/go-digest"
 
 	"github.com/openshift/library-go/pkg/image/distribution/manifest/schema1"
