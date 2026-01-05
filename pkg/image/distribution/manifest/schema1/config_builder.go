@@ -13,6 +13,7 @@ import (
 	"github.com/distribution/reference"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type diffID digest.Digest
@@ -42,7 +43,7 @@ type ConfigManifestBuilder struct {
 	// ref contains the name and optional tag provided to NewConfigManifestBuilder.
 	ref reference.Named
 	// descriptors is the set of descriptors referencing the layers.
-	descriptors []distribution.Descriptor
+	descriptors []v1.Descriptor
 	// emptyTarDigest is set to a valid digest if an empty tar has been
 	// put in the blob store; otherwise it is empty.
 	emptyTarDigest digest.Digest
@@ -249,14 +250,8 @@ func (mb *ConfigManifestBuilder) emptyTar(ctx context.Context) (digest.Digest, e
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func (mb *ConfigManifestBuilder) AppendReference(d distribution.Describable) error {
-	descriptor := d.Descriptor()
-
-	if err := descriptor.Digest.Validate(); err != nil {
-		return err
-	}
-
-	mb.descriptors = append(mb.descriptors, descriptor)
+func (mb *ConfigManifestBuilder) AppendReference(d v1.Descriptor) error {
+	mb.descriptors = append(mb.descriptors, d)
 	return nil
 }
 
@@ -264,7 +259,7 @@ func (mb *ConfigManifestBuilder) AppendReference(d distribution.Describable) err
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func (mb *ConfigManifestBuilder) References() []distribution.Descriptor {
+func (mb *ConfigManifestBuilder) References() []v1.Descriptor {
 	return mb.descriptors
 }
 
