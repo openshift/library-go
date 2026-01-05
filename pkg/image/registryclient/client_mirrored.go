@@ -17,7 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/image/reference"
 	"k8s.io/klog/v2"
 
-	distributionreference "github.com/distribution/distribution/v3/reference"
+	distributionreference "github.com/distribution/reference"
 )
 
 // AlternateBlobSourceStrategy is consulted when a repository cannot be reached to find alternate
