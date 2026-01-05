@@ -10,6 +10,7 @@ import (
 	"github.com/distribution/reference"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // ReferenceManifestBuilder is a type for constructing manifests from schema1
@@ -61,7 +62,7 @@ func (mb *ReferenceManifestBuilder) Build(ctx context.Context) (distribution.Man
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func (mb *ReferenceManifestBuilder) AppendReference(d distribution.Describable) error {
+func (mb *ReferenceManifestBuilder) AppendReference(d v1.Descriptor) error {
 	r, ok := d.(Reference)
 	if !ok {
 		return fmt.Errorf("unable to add non-reference type to v1 builder")
@@ -103,8 +104,8 @@ type Reference struct {
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func (r Reference) Descriptor() distribution.Descriptor {
-	return distribution.Descriptor{
+func (r Reference) Descriptor() v1.Descriptor {
+	return v1.Descriptor{
 		MediaType: MediaTypeManifestLayer,
 		Digest:    r.Digest,
 		Size:      r.Size,
