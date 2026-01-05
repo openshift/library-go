@@ -78,8 +78,8 @@ func (mb *ReferenceManifestBuilder) AppendReference(d v1.Descriptor) error {
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func (mb *ReferenceManifestBuilder) References() []distribution.Descriptor {
-	refs := make([]distribution.Descriptor, len(mb.Manifest.FSLayers))
+func (mb *ReferenceManifestBuilder) References() []v1.Descriptor {
+	refs := make([]v1.Descriptor, len(mb.Manifest.FSLayers))
 	for i := range mb.Manifest.FSLayers {
 		layerDigest := mb.Manifest.FSLayers[i].BlobSum
 		history := mb.Manifest.History[i]

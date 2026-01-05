@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/openshift/library-go/pkg/image/distribution/client/auth"
 	"golang.org/x/time/rate"
 
@@ -22,10 +23,10 @@ import (
 	"github.com/distribution/distribution/v3"
 	"github.com/distribution/distribution/v3/manifest/manifestlist"
 	"github.com/distribution/distribution/v3/manifest/schema2"
-	"github.com/distribution/reference"
 	"github.com/distribution/distribution/v3/registry/api/errcode"
-	registryclient "github.com/openshift/library-go/pkg/image/distribution/client"
+	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
+	registryclient "github.com/openshift/library-go/pkg/image/distribution/client"
 	imagereference "github.com/openshift/library-go/pkg/image/reference"
 )
 
@@ -88,8 +89,8 @@ type mockBlobStore struct {
 	statErr, serveErr, openErr error
 }
 
-func (r *mockBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
-	return distribution.Descriptor{}, r.statErr
+func (r *mockBlobStore) Stat(ctx context.Context, dgst digest.Digest) (v1.Descriptor, error) {
+	return v1.Descriptor{}, r.statErr
 }
 
 func (r *mockBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, req *http.Request, dgst digest.Digest) error {
@@ -114,19 +115,19 @@ type mockTagService struct {
 	repo *mockRepository
 }
 
-func (r *mockTagService) Get(ctx context.Context, tag string) (distribution.Descriptor, error) {
+func (r *mockTagService) Get(ctx context.Context, tag string) (v1.Descriptor, error) {
 	v, ok := r.repo.tags[tag]
 	if !ok {
-		return distribution.Descriptor{}, r.repo.getTagErr
+		return v1.Descriptor{}, r.repo.getTagErr
 	}
 	dgst, err := digest.Parse(v)
 	if err != nil {
 		panic(err)
 	}
-	return distribution.Descriptor{Digest: dgst}, r.repo.getTagErr
+	return v1.Descriptor{Digest: dgst}, r.repo.getTagErr
 }
 
-func (r *mockTagService) Tag(ctx context.Context, tag string, desc distribution.Descriptor) error {
+func (r *mockTagService) Tag(ctx context.Context, tag string, desc v1.Descriptor) error {
 	r.repo.tags[tag] = desc.Digest.String()
 	return r.repo.tagErr
 }
@@ -146,7 +147,7 @@ func (r *mockTagService) All(ctx context.Context) (res []string, err error) {
 	return
 }
 
-func (r *mockTagService) Lookup(ctx context.Context, digest distribution.Descriptor) ([]string, error) {
+func (r *mockTagService) Lookup(ctx context.Context, digest v1.Descriptor) ([]string, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -627,7 +628,7 @@ type fakeManifest struct {
 	err       error
 }
 
-func (m *fakeManifest) References() []distribution.Descriptor {
+func (m *fakeManifest) References() []v1.Descriptor {
 	panic("not implemented")
 }
 
@@ -816,7 +817,7 @@ type fakeBlobStore struct {
 	err   error
 }
 
-func (s *fakeBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
+func (s *fakeBlobStore) Stat(ctx context.Context, dgst digest.Digest) (v1.Descriptor, error) {
 	panic("not implemented")
 }
 
@@ -828,7 +829,7 @@ func (s *fakeBlobStore) Open(ctx context.Context, dgst digest.Digest) (io.ReadSe
 	return fakeSeekCloser{bytes.NewBuffer(s.bytes)}, s.err
 }
 
-func (s *fakeBlobStore) Put(ctx context.Context, mediaType string, p []byte) (distribution.Descriptor, error) {
+func (s *fakeBlobStore) Put(ctx context.Context, mediaType string, p []byte) (v1.Descriptor, error) {
 	panic("not implemented")
 }
 
