@@ -3,7 +3,6 @@ package schema1
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/distribution/distribution/v3"
 	"github.com/distribution/distribution/v3/manifest"
@@ -63,14 +62,8 @@ func (mb *ReferenceManifestBuilder) Build(ctx context.Context) (distribution.Man
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
 func (mb *ReferenceManifestBuilder) AppendReference(d v1.Descriptor) error {
-	r, ok := d.(Reference)
-	if !ok {
-		return fmt.Errorf("unable to add non-reference type to v1 builder")
-	}
-
 	// Entries need to be prepended
-	mb.Manifest.FSLayers = append([]FSLayer{{BlobSum: r.Digest}}, mb.Manifest.FSLayers...)
-	mb.Manifest.History = append([]History{r.History}, mb.Manifest.History...)
+	mb.Manifest.FSLayers = append([]FSLayer{{BlobSum: d.Digest}}, mb.Manifest.FSLayers...)
 	return nil
 }
 
