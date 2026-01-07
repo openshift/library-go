@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -278,6 +279,25 @@ func TestWatchChecks(t *testing.T) {
 		name   string
 		testFn func(*testing.T, *http.Client)
 	}{
+		{
+			name: "WATCH-send-initial-events-unsupported",
+			testFn: func(t *testing.T, httpClient *http.Client) {
+				sendInitialEvents := true
+				configClient, err := configclient.NewForConfigAndClient(&rest.Config{}, httpClient)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = configClient.ConfigV1().FeatureGates().Watch(context.TODO(), metav1.ListOptions{
+					SendInitialEvents: &sendInitialEvents,
+				})
+				if err == nil {
+					t.Fatal("expected WatchList error, got nil")
+				}
+				if !strings.Contains(err.Error(), "manifest client does not support WatchList feature") {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			},
+		},
 		{
 			name: "WATCH-from-individual-file-success-server-close",
 			testFn: func(t *testing.T, httpClient *http.Client) {
