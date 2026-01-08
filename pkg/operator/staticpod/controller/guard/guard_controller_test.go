@@ -651,6 +651,8 @@ func TestRenderGuardPod(t *testing.T) {
 				podGetter:               kubeClient.CoreV1(),
 				pdbGetter:               kubeClient.PolicyV1(),
 				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+				saGetter:                kubeClient.CoreV1(),
+				saLister:                kubeInformers.Core().V1().ServiceAccounts().Lister(),
 				installerPodImageFn:     getInstallerPodImageFromEnv,
 				createConditionalFunc:   createConditionalFunc,
 			}
@@ -695,6 +697,11 @@ func TestRenderGuardPod(t *testing.T) {
 
 						if p.Status.Phase != "" {
 							t.Errorf("%s: unexpected pod status: %v, expected no status set", test.name, p.Status.Phase)
+						}
+						// check to ensure service account is created for pod.
+						expectedSAName := getGuardPodName("operand", test.node.Name)
+						if p.Spec.ServiceAccountName != expectedSAName {
+							t.Errorf("%s: expected ServiceAccountName %q, got %q", test.name, expectedSAName, p.Spec.ServiceAccountName)
 						}
 					}
 				} else {
@@ -791,6 +798,8 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		podGetter:               kubeClient.CoreV1(),
 		pdbGetter:               kubeClient.PolicyV1(),
 		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+		saGetter:                kubeClient.CoreV1(),
+		saLister:                kubeInformers.Core().V1().ServiceAccounts().Lister(),
 		installerPodImageFn:     getInstallerPodImageFromEnv,
 		createConditionalFunc:   staticcontrollercommon.NewIsSingleNodePlatformFn(informer),
 	}
