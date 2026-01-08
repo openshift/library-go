@@ -9,6 +9,7 @@ import (
 	clocktesting "k8s.io/utils/clock/testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -270,8 +271,10 @@ func TestRenderGuardPod(t *testing.T) {
 		node                  *corev1.Node
 		guardExists           bool
 		guardPod              *corev1.Pod
+		guardServiceAccount   *corev1.ServiceAccount
 		createConditionalFunc func() (bool, bool, error)
 		withArbiter           bool
+		expectSADeleted       bool
 	}{
 		{
 			name: "Operand pod missing",
@@ -400,6 +403,7 @@ func TestRenderGuardPod(t *testing.T) {
 					ControlPlaneTopology: configv1.HighlyAvailableTopologyMode,
 				},
 			},
+			expectSADeleted: true,
 			operandPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "operand1",
@@ -427,6 +431,13 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "guard-sa",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			node: fakeMasterNode("master1"),
 		},
 		{
@@ -439,6 +450,7 @@ func TestRenderGuardPod(t *testing.T) {
 					ControlPlaneTopology: configv1.TopologyMode("HighlyAvailableArbiter"),
 				},
 			},
+			expectSADeleted: true,
 			operandPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "operand1",
@@ -464,6 +476,13 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 				Status: corev1.PodStatus{
 					PodIP: "1.1.1.1",
+				},
+			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "guard-sa",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
 				},
 			},
 			//createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
@@ -522,6 +541,13 @@ func TestRenderGuardPod(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "guard-sa",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			node:        fakeMasterNode("master1"),
 			guardExists: true,
 		},
@@ -574,6 +600,13 @@ func TestRenderGuardPod(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "guard-sa",
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
 			node:                  fakeArbiterNode("arbiter"),
 			guardExists:           true,
@@ -622,6 +655,9 @@ func TestRenderGuardPod(t *testing.T) {
 			if test.guardPod != nil {
 				kubeClient.Tracker().Add(test.guardPod)
 			}
+			if test.guardServiceAccount != nil {
+				kubeClient.Tracker().Add(test.guardServiceAccount)
+			}
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
@@ -651,6 +687,8 @@ func TestRenderGuardPod(t *testing.T) {
 				podGetter:               kubeClient.CoreV1(),
 				pdbGetter:               kubeClient.PolicyV1(),
 				pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+				saGetter:                kubeClient.CoreV1(),
+				saLister:                kubeInformers.Core().V1().ServiceAccounts().Lister(),
 				installerPodImageFn:     getInstallerPodImageFromEnv,
 				createConditionalFunc:   createConditionalFunc,
 			}
@@ -696,11 +734,27 @@ func TestRenderGuardPod(t *testing.T) {
 						if p.Status.Phase != "" {
 							t.Errorf("%s: unexpected pod status: %v, expected no status set", test.name, p.Status.Phase)
 						}
+						// check to ensure service account is created for pod.
+						expectedSAName := "guard-sa"
+						if p.Spec.ServiceAccountName != expectedSAName {
+							t.Errorf("%s: expected ServiceAccountName %q, got %q", test.name, expectedSAName, p.Spec.ServiceAccountName)
+						}
+						_, saErr := kubeClient.CoreV1().ServiceAccounts("test").Get(ctx, expectedSAName, metav1.GetOptions{})
+						if saErr != nil {
+							t.Errorf("%s: expected ServiceAccount %q to exist, got error instead: %q", test.name, expectedSAName, saErr)
+						}
 					}
 				} else {
 					_, err := kubeClient.CoreV1().Pods("test").Get(ctx, getGuardPodName("operand", "master1"), metav1.GetOptions{})
 					if !apierrors.IsNotFound(err) {
 						t.Errorf("%s: expected 'pods \"%v\" not found' error, got %q instead", test.name, getGuardPodName("operand", "master1"), err)
+					}
+					// verify service account deletion based on expectSADeleted flag
+					if test.expectSADeleted {
+						_, err = kubeClient.CoreV1().ServiceAccounts("test").Get(ctx, "guard-sa", metav1.GetOptions{})
+						if !apierrors.IsNotFound(err) {
+							t.Errorf("%s: expected 'service account \"guard-sa\" not found' error, but got %q instead", test.name, err)
+						}
 					}
 				}
 			}
@@ -759,13 +813,20 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 			PodIP: "1.1.1.1",
 		},
 	}
+	guardServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "guard-sa",
+			Namespace: "test",
+			Labels:    map[string]string{"app": "guard"},
+		},
+	}
 
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	if err := indexer.Add(infraObject); err != nil {
 		t.Fatal(err.Error())
 	}
 
-	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod)
+	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod, guardServiceAccount)
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
@@ -791,6 +852,8 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 		podGetter:               kubeClient.CoreV1(),
 		pdbGetter:               kubeClient.PolicyV1(),
 		pdbLister:               kubeInformers.Policy().V1().PodDisruptionBudgets().Lister(),
+		saGetter:                kubeClient.CoreV1(),
+		saLister:                kubeInformers.Core().V1().ServiceAccounts().Lister(),
 		installerPodImageFn:     getInstallerPodImageFromEnv,
 		createConditionalFunc:   staticcontrollercommon.NewIsSingleNodePlatformFn(informer),
 	}
@@ -872,6 +935,27 @@ func TestGuardPodTemplate(t *testing.T) {
 				t.Error(err)
 			}
 		})
+	}
+}
+
+func TestGuardServiceAccountManifestStability(t *testing.T) {
+	sa := resourceread.ReadServiceAccountV1OrDie(serviceAccountTemplate)
+
+	expected := &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ServiceAccount",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "guard-sa",
+			Labels: map[string]string{"app": "guard"},
+		},
+	}
+
+	if !equality.Semantic.DeepEqual(sa, expected) {
+		t.Fatalf("guard-pod-sa.yaml manifest has changed. " +
+			"The controller only creates the SA, it does not update existing ones. " +
+			"If the manifest changed, add update logic and update the expected value in this test.")
 	}
 }
 
