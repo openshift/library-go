@@ -26,7 +26,7 @@ func fakeSecretInformer(ctx context.Context, fakeKubeClient *fake.Clientset, nam
 	fieldSelector := fields.OneTermEqualSelector("metadata.name", name).String()
 	klog.Info(fieldSelector)
 	return cache.NewSharedInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = fieldSelector
 				return fakeKubeClient.CoreV1().Secrets(namespace).List(ctx, options)
@@ -35,7 +35,7 @@ func fakeSecretInformer(ctx context.Context, fakeKubeClient *fake.Clientset, nam
 				options.FieldSelector = fieldSelector
 				return fakeKubeClient.CoreV1().Secrets(namespace).Watch(ctx, options)
 			},
-		},
+		}, fakeKubeClient),
 		&corev1.Secret{},
 		0,
 	)
