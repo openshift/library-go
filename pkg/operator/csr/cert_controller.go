@@ -7,8 +7,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"math/rand"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
@@ -151,6 +155,9 @@ func NewClientCertificateController(
 func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	// get secret containing client certificate
 	secret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Get(ctx, c.SecretName, metav1.GetOptions{})
+
+	var originalAnnotations map[string]string
+
 	switch {
 	case errors.IsNotFound(err):
 		secret = &corev1.Secret{
@@ -162,6 +169,9 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 		}
 	case err != nil:
 		return fmt.Errorf("unable to get secret %q: %w", c.SecretNamespace+"/"+c.SecretName, err)
+	default:
+		originalAnnotations = make(map[string]string, len(secret.Annotations))
+		maps.Copy(originalAnnotations, secret.Annotations)
 	}
 
 	needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta)
@@ -188,14 +198,14 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 		_ = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta)
 
 		// save the changes into secret
-		if err := c.saveSecret(secret); err != nil {
+		if err := c.saveSecret(secret, originalAnnotations); err != nil {
 			return err
 		}
 		syncCtx.Recorder().Eventf("ClientCertificateCreated", "A new client certificate for %s is available", c.controllerName)
 		c.reset()
 		return nil
 	} else if needsMetadataUpdate && len(secret.ResourceVersion) > 0 {
-		if err := c.saveSecret(secret); err != nil {
+		if err := c.saveSecret(secret, originalAnnotations); err != nil {
 			return err
 		}
 	}
@@ -326,14 +336,36 @@ func (c *clientCertificateController) createCSR(ctx context.Context) (string, er
 	return req.Name, nil
 }
 
-func (c *clientCertificateController) saveSecret(secret *corev1.Secret) error {
-	var err error
+func (c *clientCertificateController) saveSecret(secret *corev1.Secret, oldAnnotations map[string]string) error {
 	if secret.ResourceVersion == "" {
-		_, err = c.spokeCoreClient.Secrets(c.SecretNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Created secret %s/%s", actualSecret.Namespace, actualSecret.Name)
+			if diff := cmp.Diff(nil, actualSecret.Annotations, cmpopts.EquateEmpty()); len(diff) > 0 {
+				klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualSecret.Namespace, actualSecret.Name, diff)
+			}
+		}
+
+		return nil
+	}
+
+	actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+	if err != nil {
 		return err
 	}
-	_, err = c.spokeCoreClient.Secrets(c.SecretNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
-	return err
+
+	if klog.V(2).Enabled() {
+		klog.V(2).Infof("Updated secret %s/%s", actualSecret.Namespace, actualSecret.Name)
+		if diff := cmp.Diff(oldAnnotations, actualSecret.Annotations, cmpopts.EquateEmpty()); len(diff) > 0 {
+			klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualSecret.Namespace, actualSecret.Name, diff)
+		}
+	}
+
+	return nil
 }
 
 func (c *clientCertificateController) reset() {
