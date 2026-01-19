@@ -19,6 +19,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+const (
+	machineConfigDaemonPostConfigAction = "machineconfiguration.openshift.io/post-config-action"
+	machineConfigDaemonStateRebooting   = "Rebooting"
+)
+
 // NodeController watches for new master nodes and adds them to the node status list in the operator config status.
 type NodeController struct {
 	controllerInstanceName string
@@ -145,28 +150,43 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		}
 	}
 
-	// detect and report master nodes that are not ready
-	notReadyNodes := []string{}
+	// Detect and report master nodes that are not ready.
+	// Nodes currently rebooting for upgrade do not cause Degraded condition to be set.
+	var notReadyNodes []string
+	var notReadyRebootingNodes []string
 	for _, node := range nodes {
 		nodeReadyCondition := nodeConditionFinder(&node.Status, coreapiv1.NodeReady)
 
 		// If a "Ready" condition is not found, that node should be deemed as not Ready by default.
-		if nodeReadyCondition == nil {
+		var notReady bool
+		switch {
+		case nodeReadyCondition == nil:
 			notReadyNodes = append(notReadyNodes, fmt.Sprintf("node %q not ready, no Ready condition found in status block", node.Name))
-			continue
-		}
+			notReady = true
 
-		if nodeReadyCondition.Status != coreapiv1.ConditionTrue {
+		case nodeReadyCondition.Status != coreapiv1.ConditionTrue:
 			notReadyNodes = append(notReadyNodes, fmt.Sprintf("node %q not ready since %s because %s (%s)", node.Name, nodeReadyCondition.LastTransitionTime, nodeReadyCondition.Reason, nodeReadyCondition.Message))
+			notReady = true
+		}
+		if notReady && nodeRebootingForUpgrade(node) {
+			notReadyRebootingNodes = append(notReadyRebootingNodes, node.Name)
 		}
 	}
 
-	if len(notReadyNodes) > 0 {
+	switch {
+	case len(notReadyNodes) > len(notReadyRebootingNodes):
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("MasterNodesReady").
 			WithMessage(fmt.Sprintf("The master nodes not ready: %s", strings.Join(notReadyNodes, ", ")))
-	} else {
+
+	case len(notReadyRebootingNodes) > 0:
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionFalse).
+			WithReason("MasterNodesReady").
+			WithMessage(fmt.Sprintf("The master nodes rebooting for upgrade: %s", strings.Join(notReadyRebootingNodes, ", ")))
+
+	default:
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionFalse).
 			WithReason("MasterNodesReady").
@@ -195,4 +215,8 @@ func nodeConditionFinder(status *coreapiv1.NodeStatus, condType coreapiv1.NodeCo
 	}
 
 	return nil
+}
+
+func nodeRebootingForUpgrade(node *coreapiv1.Node) bool {
+	return node.Annotations[machineConfigDaemonPostConfigAction] == machineConfigDaemonStateRebooting
 }
