@@ -54,6 +54,14 @@ func makeNodeNotReady(node *corev1.Node) *corev1.Node {
 	return addNodeReadyCondition(node, corev1.ConditionFalse)
 }
 
+func makeNodeRebooting(node *corev1.Node) *corev1.Node {
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+	node.Annotations[machineConfigDaemonPostConfigAction] = machineConfigDaemonStateRebooting
+	return node
+}
+
 func makeNodeReady(node *corev1.Node) *corev1.Node {
 	return addNodeReadyCondition(node, corev1.ConditionTrue)
 }
@@ -488,6 +496,38 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				expectedCondition.Reason = "MasterNodesReady"
 				expectedCondition.Status = operatorv1.ConditionFalse
 				expectedCondition.Message = "All master nodes are ready"
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 13: one unhealthy but rebooting master node is reported",
+			masterNodes: []runtime.Object{
+				makeNodeRebooting(makeNodeNotReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `The master nodes rebooting for upgrade: test-node-1`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 14: one healthy but rebooting master node is reported",
+			masterNodes: []runtime.Object{
+				makeNodeRebooting(makeNodeReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `All master nodes are ready`
 
 				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
 			},
