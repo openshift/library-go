@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1006,6 +1008,181 @@ func TestSameResourceID(t *testing.T) {
 				id: tt.otherId,
 			}
 			assert.Equal(t, tt.want, man.SameResourceID(otherMan))
+		})
+	}
+}
+
+func getManifest(kind, name, caps string) Manifest {
+	return Manifest{
+		id: resourceId{Kind: kind, Name: name, Namespace: "ns1"},
+		Obj: &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":        name,
+					"namespace":   "ns1",
+					"annotations": map[string]interface{}{"capability.openshift.io/name": caps},
+				},
+			},
+		},
+	}
+}
+
+func TestGetImplicitlyEnabledCapabilities(t *testing.T) {
+	tests := []struct {
+		name string
+
+		currentPayloadManifests  []Manifest
+		updatePayloadManifests   []Manifest
+		status                   *configv1.ClusterVersionCapabilitiesStatus
+		currentImplicitlyEnabled sets.Set[configv1.ClusterVersionCapability]
+		expected                 sets.Set[configv1.ClusterVersionCapability]
+	}{
+		{
+			name:                    "basic",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			expected: sets.New[configv1.ClusterVersionCapability]("cap2"),
+		},
+		{
+			name:                    "basic with unknown cap",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			expected: sets.New[configv1.ClusterVersionCapability]("cap2"),
+		},
+		{
+			name:                    "different manifest",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Diff", "name1", "cap2")},
+		},
+		{
+			name:                    "current manifest not enabled",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap2"},
+			},
+		},
+		{
+			name:                    "new cap already enabled",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1", "cap2"},
+			},
+		},
+		{
+			name:                    "already implicitly enabled",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests:  []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			currentImplicitlyEnabled: sets.New[configv1.ClusterVersionCapability]("cap2"),
+			expected:                 sets.New[configv1.ClusterVersionCapability]("cap2"),
+		},
+		{
+			name: "only add cap once",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1"),
+				getManifest("Test", "name2", "cap1")},
+			updatePayloadManifests: []Manifest{getManifest("Test", "name1", "cap2"),
+				getManifest("Test", "name2", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			expected: sets.New[configv1.ClusterVersionCapability]("cap2"),
+		},
+		{
+			name: "complex",
+			currentPayloadManifests: []Manifest{
+				getManifest("Test", "name1", "cap1+cap3+cap5+cap7"),
+				getManifest("Test", "name2", "cap1+cap2+cap4+cap6+cap8"),
+				getManifest("Test", "name3", "cap2+cap9+cap11+cap13+cap15"),
+				getManifest("Test", "name4", "cap10+cap12+cap14+cap16"),
+				getManifest("Test", "name5", "cap17+cap19+cap21+cap23"),
+				getManifest("Test", "name6", "cap18+cap20+cap22+cap24"),
+			},
+			updatePayloadManifests: []Manifest{
+				getManifest("Test", "name1", "cap111+cap113+cap115+cap117"),
+				getManifest("Test", "name2", "cap111+cap112+cap114+cap116+cap118"),
+				getManifest("Test", "name3", "cap112+cap119+cap1111+cap1113+cap1115"),
+				getManifest("Test", "name4", "cap1110+cap1112+cap1114+cap1116"),
+				getManifest("Test", "name5", "cap17+cap19+cap21+cap23"),
+				getManifest("Test", "name6", "cap18+cap20+cap22+cap24"),
+			},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities: []configv1.ClusterVersionCapability{
+					"cap1", "cap2", "cap3", "cap4", "cap5", "cap6",
+					"cap7", "cap8", "cap9", "cap10", "cap11", "cap12",
+					"cap13", "cap14", "cap15", "cap16", "cap17", "cap18",
+					"cap19", "cap20", "cap21", "cap22", "cap23", "cap24",
+					"cap111", "cap112", "cap113", "cap114", "cap115", "cap116",
+					"cap117", "cap118", "cap119", "cap1111", "cap1113", "cap1115",
+					"cap1110", "cap1112", "cap1114", "cap1116"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{
+					"cap1", "cap2", "cap3", "cap4", "cap5", "cap6",
+					"cap7", "cap8", "cap9", "cap10", "cap11", "cap12",
+					"cap13", "cap14", "cap15", "cap16", "cap17", "cap18",
+					"cap19", "cap20", "cap21", "cap22", "cap23", "cap24"},
+			},
+			currentImplicitlyEnabled: sets.New[configv1.ClusterVersionCapability](
+				"cap000", "cap111", "cap112", "cap113", "cap114"),
+			expected: sets.New[configv1.ClusterVersionCapability](
+				"cap000", "cap111", "cap112", "cap113", "cap114",
+				"cap115", "cap116", "cap117", "cap118", "cap119",
+				"cap1110", "cap1111", "cap1112", "cap1113", "cap1114",
+				"cap1115", "cap1116"),
+		},
+		{
+			name:                    "no update manifests",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			currentImplicitlyEnabled: sets.New[configv1.ClusterVersionCapability]("cap1"),
+			expected:                 sets.New[configv1.ClusterVersionCapability]("cap1"),
+		},
+		{
+			name:                   "no current manifests",
+			updatePayloadManifests: []Manifest{getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			currentImplicitlyEnabled: sets.New[configv1.ClusterVersionCapability]("cap1"),
+			expected:                 sets.New[configv1.ClusterVersionCapability]("cap1"),
+		},
+		{
+			name:                    "duplicate manifests",
+			currentPayloadManifests: []Manifest{getManifest("Test", "name1", "cap1")},
+			updatePayloadManifests: []Manifest{getManifest("Test", "name1", "cap2"),
+				getManifest("Test", "name1", "cap2")},
+			status: &configv1.ClusterVersionCapabilitiesStatus{
+				KnownCapabilities:   []configv1.ClusterVersionCapability{"cap1", "cap2"},
+				EnabledCapabilities: []configv1.ClusterVersionCapability{"cap1"},
+			},
+			expected: sets.New[configv1.ClusterVersionCapability]("cap2"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := GetImplicitlyEnabledCapabilities(test.updatePayloadManifests, test.currentPayloadManifests, InclusionConfiguration{Capabilities: test.status}, test.currentImplicitlyEnabled)
+			if diff := cmp.Diff(test.expected, actual); diff != "" {
+				t.Errorf("%s: actual differs from expected:\n%s", test.name, diff)
+			}
+
 		})
 	}
 }
