@@ -111,6 +111,42 @@ func TestRoundtrip(t *testing.T) {
 				ExternalReason: "external",
 			},
 		},
+		{
+			name:      "full kms",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "1",
+					Secret: base64.StdEncoding.EncodeToString([]byte("kms-checksum-123")),
+				},
+				Backed:    true, // this will be set by ToKeyState()
+				Mode:      "KMS",
+				KMSConfig: []byte(`{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "networking.openshift.io", Resource: "routes"},
+					},
+				},
+				InternalReason: "internal",
+				ExternalReason: "external",
+			},
+		},
+		{
+			name:      "sparse kms",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "2",
+					Secret: base64.StdEncoding.EncodeToString([]byte("kms-checksum-456")),
+				},
+				Backed:    true, // this will be set by ToKeyState()
+				Mode:      "KMS",
+				KMSConfig: []byte(`{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -985,6 +985,305 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 			}),
 		},
+		{
+			"no config, KMS secret exists => first config is created with KMS",
+			args{
+				nil,
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 1, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{
+					{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-1-a21zLWNoZWNrc3VtLWRhdGE=",
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}},
+					},
+				}}),
+		},
+		{
+			"config exists with AESCBC, KMS secret added => KMS added as read key (migration scenario)",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("11ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 2, []byte("kms-checksum-2"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{
+					{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("11ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					},
+				},
+			}),
+		},
+		{
+			"config exists with KMS, read keys are consistent => new write key is set",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 1, []byte("kms-checksum-1"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 2, []byte("kms-checksum-2"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{
+					{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					},
+				},
+			}),
+		},
+		{
+			"config exists with KMS, read+write keys consistent, not migrated => nothing changes",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 1, []byte("kms-checksum-1"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 2, []byte("kms-checksum-2"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+							Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+						},
+					}, {
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+							Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
+		{
+			"KMS has converged after migrating from AESCBC => nothing changes",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, []byte("kms-checksum-2"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-secrets-2-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-2")),
+							Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+						},
+					}, {
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "1",
+								Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
+		{
+			"AESCBC has converged after migrating back from KMS => nothing changes",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "2",
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+								Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				[]*corev1.Secret{
+					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("kms-checksum-1"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+				},
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "2",
+								Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}, {
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "kms-secrets-1-" + base64.StdEncoding.EncodeToString([]byte("kms-checksum-1")),
+							Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			}),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

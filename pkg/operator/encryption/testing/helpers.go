@@ -24,6 +24,7 @@ const (
 	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretKMSConfigForTest         = "encryption.apiserver.operator.openshift.io/kms-config"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -92,6 +93,22 @@ func CreateMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.G
 
 func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+}
+
+func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, kmsConfig string) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, rawKey, "KMS")
+	secret.Annotations[encryptionSecretKMSConfigForTest] = kmsConfig
+	return secret
+}
+
+func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, kmsConfig string, ts time.Time) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, rawKey, kmsConfig)
+	secret.Annotations[encryptionSecretMigratedTimestampForTest] = ts.Format(time.RFC3339)
+	return secret
+}
+
+func CreateExpiredMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, kmsConfig string) *corev1.Secret {
+	return CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, rawKey, kmsConfig, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
@@ -242,6 +259,17 @@ func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv
 	case "identity":
 		return &apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
+		}
+	case "KMS":
+		// For KMS, key.Secret contains the MD5 checksum in base64
+		// key.Name contains the key ID
+		return &apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("kms-secrets-%s-%s", key.Name, key.Secret),
+				Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+			},
 		}
 	default:
 		return &apiserverconfigv1.ProviderConfiguration{

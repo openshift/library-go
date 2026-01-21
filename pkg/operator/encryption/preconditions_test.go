@@ -72,6 +72,21 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			},
 			expectedPreconditionsToBeReady: true,
 		},
+
+		// scenario 6
+		{
+			name:                           "encryption on, currentMode set to KMS",
+			encryptionType:                 configv1.EncryptionTypeKMS,
+			expectedPreconditionsToBeReady: true,
+		},
+
+		// scenario 7
+		{
+			name:                           "encryption off on previously KMS enabled cluster, with existing KMS key secret",
+			encryptionType:                 configv1.EncryptionTypeIdentity,
+			existingSecret:                 encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("oas", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			expectedPreconditionsToBeReady: true,
+		},
 	}
 
 	for _, scenario := range scenarios {

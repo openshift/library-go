@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"sort"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
@@ -15,7 +17,7 @@ import (
 )
 
 var (
-	emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(crypto.NewIdentityKey())
+	emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(crypto.NewIdentityKey(nil))
 )
 
 // FromEncryptionState converts state to config.
@@ -25,7 +27,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: stateToProviders(grKeys),
+			Providers: stateToProviders(gr.Resource, grKeys),
 		})
 	}
 
@@ -106,6 +108,22 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 					Mode: s,
 				}
 
+			case provider.KMS != nil:
+				s := state.KMS
+				keyID, kmsKey, err := kms.FromProviderName(provider.KMS.Name)
+				if err != nil {
+					klog.Warningf("skipping invalid KMS provider %s: %v", provider.KMS.Name, err)
+					continue
+				}
+
+				ks = state.KeyState{
+					// We must generate exact Key with correct Name and Secret to find our matching backed Secret
+					Key: apiserverconfigv1.Key{
+						Name:   keyID,
+						Secret: kmsKey,
+					},
+					Mode: s,
+				}
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
@@ -139,7 +157,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 // it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
+func stateToProviders(resource string, desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
@@ -192,6 +210,25 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 					Keys: []apiserverconfigv1.Key{key.Key},
 				},
 			})
+		case state.KMS:
+			kmsConfig, err := kms.FromBytes(key.KMSConfig)
+			if err != nil {
+				klog.Warningf("skipping provider as kms config is invalid: %v", err)
+				continue
+			}
+			provider := apiserverconfigv1.ProviderConfiguration{
+				// This generated KMSConfiguration can be convertible to KeyState,
+				// since provider name contains the key id and secret.
+				KMS: &apiserverconfigv1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       kms.ToProviderName(resource, key.Key),
+					Endpoint:   kmsConfig.Endpoint,
+					Timeout: &metav1.Duration{
+						Duration: kms.DefaultTimeout,
+					},
+				},
+			}
+			providers = append(providers, provider)
 		default:
 			// this should never happen because our input should always be valid
 			klog.Infof("skipping key %s as it has invalid mode %s", key.Key.Name, key.Mode)
