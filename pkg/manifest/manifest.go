@@ -26,6 +26,7 @@ const (
 	CapabilityAnnotation  = "capability.openshift.io/name"
 	DefaultClusterProfile = "self-managed-high-availability"
 	featureSetAnnotation  = "release.openshift.io/feature-set"
+	featureGateAnnotation = "release.openshift.io/feature-gate"
 )
 
 var knownFeatureSets = sets.Set[string]{}
@@ -171,6 +172,16 @@ func getFeatureSets(annotations map[string]string) (sets.Set[string], bool, erro
 	return ret, specified, nil
 }
 
+func hasFeatureSetAnnotation(annotations map[string]string) bool {
+	_, ok := annotations[featureSetAnnotation]
+	return ok
+}
+
+func hasFeatureGateAnnotation(annotations map[string]string) bool {
+	_, ok := annotations[featureGateAnnotation]
+	return ok
+}
+
 func checkFeatureSets(requiredFeatureSet string, annotations map[string]string) error {
 	requiredAnnotationValue := requiredFeatureSet
 	if len(requiredFeatureSet) == 0 {
@@ -187,12 +198,46 @@ func checkFeatureSets(requiredFeatureSet string, annotations map[string]string) 
 	return nil
 }
 
+// checkFeatureGates validates if manifest should be included based on feature gate requirements
+func checkFeatureGates(enabledGates sets.Set[string], annotations map[string]string) error {
+	if annotations == nil {
+		return nil // No annotations, include by default
+	}
+	gateRequirements, ok := annotations[featureGateAnnotation]
+	if !ok {
+		return nil // No requirements, include by default
+	}
+
+	requirements := strings.Split(gateRequirements, ",")
+	for _, req := range requirements {
+		req = strings.TrimSpace(req)
+		if req == "" {
+			continue
+		}
+
+		if strings.HasPrefix(req, "-") {
+			// Exclusion: gate must NOT be enabled
+			gate := req[1:]
+			if enabledGates.Has(gate) {
+				return fmt.Errorf("feature gate %s is enabled but manifest requires it to be disabled", gate)
+			}
+		} else {
+			// Inclusion: gate must be enabled
+			if !enabledGates.Has(req) {
+				return fmt.Errorf("feature gate %s is required but not enabled", req)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Include returns an error if the manifest fails an inclusion filter and should be excluded from further
 // processing by cluster version operator. Pointer arguments can be set nil to avoid excluding based on that
 // filter. For example, setting profile non-nil and capabilities nil will return an error if the manifest's
 // profile does not match, but will never return an error about capability issues.
-func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride) error {
-	return m.IncludeAllowUnknownCapabilities(excludeIdentifier, requiredFeatureSet, profile, capabilities, overrides, false)
+func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string]) error {
+	return m.IncludeAllowUnknownCapabilities(excludeIdentifier, requiredFeatureSet, profile, capabilities, overrides, enabledFeatureGates, false)
 }
 
 // IncludeAllowUnknownCapabilities returns an error if the manifest fails an inclusion filter and should be excluded from
@@ -202,7 +247,7 @@ func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string
 // to capabilities filtering. When set to true a manifest will not be excluded simply because it contains an unknown
 // capability. This is necessary to allow updates to an OCP version containing newly defined capabilities.
 func (m *Manifest) IncludeAllowUnknownCapabilities(excludeIdentifier *string, requiredFeatureSet *string, profile *string,
-	capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, allowUnknownCapabilities bool) error {
+	capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string], allowUnknownCapabilities bool) error {
 
 	annotations := m.Obj.GetAnnotations()
 	if annotations == nil {
@@ -216,8 +261,22 @@ func (m *Manifest) IncludeAllowUnknownCapabilities(excludeIdentifier *string, re
 		}
 	}
 
+	if requiredFeatureSet != nil && enabledFeatureGates != nil {
+		if hasFeatureSetAnnotation(annotations) && hasFeatureGateAnnotation(annotations) {
+			return fmt.Errorf("both feature set and feature gate annotations are present: manifests may specify either a feature set or a feature gate, but not both")
+		}
+	}
+
 	if requiredFeatureSet != nil {
 		err := checkFeatureSets(*requiredFeatureSet, annotations)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Feature gate filtering
+	if enabledFeatureGates != nil {
+		err := checkFeatureGates(enabledFeatureGates, annotations)
 		if err != nil {
 			return err
 		}

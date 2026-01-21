@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 )
 
@@ -599,13 +600,14 @@ func Test_include(t *testing.T) {
 	singleNodeProfile := "single-node"
 
 	tests := []struct {
-		name               string
-		exclude            *string
-		requiredFeatureSet *string
-		profile            *string
-		annotations        map[string]interface{}
-		caps               *configv1.ClusterVersionCapabilitiesStatus
-		overrides          []configv1.ComponentOverride
+		name                string
+		exclude             *string
+		requiredFeatureSet  *string
+		profile             *string
+		annotations         map[string]interface{}
+		caps                *configv1.ClusterVersionCapabilitiesStatus
+		overrides           []configv1.ComponentOverride
+		enabledFeatureGates sets.Set[string]
 
 		expected error
 	}{
@@ -810,6 +812,39 @@ func Test_include(t *testing.T) {
 			expected: fmt.Errorf("overridden"),
 		},
 		{
+			name:                "feature gate required but not enabled",
+			enabledFeatureGates: sets.New("FeatureGate1"),
+			annotations: map[string]interface{}{
+				"release.openshift.io/feature-gate": "FeatureGate2",
+			},
+			expected: fmt.Errorf("feature gate FeatureGate2 is required but not enabled"),
+		},
+		{
+			name:                "feature gate enabled but manifest requires it to be disabled",
+			enabledFeatureGates: sets.New("FeatureGate1"),
+			annotations: map[string]interface{}{
+				"release.openshift.io/feature-gate": "-FeatureGate1",
+			},
+			expected: fmt.Errorf("feature gate FeatureGate1 is enabled but manifest requires it to be disabled"),
+		},
+		{
+			name:                "feature gate required and is enabled",
+			enabledFeatureGates: sets.New("FeatureGate1"),
+			annotations: map[string]interface{}{
+				"release.openshift.io/feature-gate": "FeatureGate1",
+			},
+		},
+		{
+			name:                "feature set required and feature gate specified",
+			requiredFeatureSet:  ptr.To("FeatureSet1"),
+			enabledFeatureGates: sets.New("FeatureGate1"),
+			annotations: map[string]interface{}{
+				"release.openshift.io/feature-set":  "FeatureSet1",
+				"release.openshift.io/feature-gate": "FeatureGate1",
+			},
+			expected: fmt.Errorf("both feature set and feature gate annotations are present: manifests may specify either a feature set or a feature gate, but not both"),
+		},
+		{
 			name:        "all nil",
 			profile:     nil,
 			annotations: nil,
@@ -838,7 +873,7 @@ func Test_include(t *testing.T) {
 			err := m.populateFromObj()
 			assert.Equal(t, nil, err)
 
-			err = m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides)
+			err = m.Include(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
@@ -847,14 +882,15 @@ func Test_include(t *testing.T) {
 func TestIncludeAllowUnknownCapabilities(t *testing.T) {
 
 	tests := []struct {
-		name               string
-		exclude            *string
-		requiredFeatureSet *string
-		profile            *string
-		annotations        map[string]interface{}
-		caps               *configv1.ClusterVersionCapabilitiesStatus
-		overrides          []configv1.ComponentOverride
-		allowUnknown       bool
+		name                string
+		exclude             *string
+		requiredFeatureSet  *string
+		profile             *string
+		annotations         map[string]interface{}
+		caps                *configv1.ClusterVersionCapabilitiesStatus
+		overrides           []configv1.ComponentOverride
+		enabledFeatureGates sets.Set[string]
+		allowUnknown        bool
 
 		expected error
 	}{
@@ -897,7 +933,7 @@ func TestIncludeAllowUnknownCapabilities(t *testing.T) {
 					},
 				},
 			}
-			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.allowUnknown)
+			err := m.IncludeAllowUnknownCapabilities(tt.exclude, tt.requiredFeatureSet, tt.profile, tt.caps, tt.overrides, tt.enabledFeatureGates, tt.allowUnknown)
 			assert.Equal(t, tt.expected, err)
 		})
 	}
@@ -1006,6 +1042,172 @@ func TestSameResourceID(t *testing.T) {
 				id: tt.otherId,
 			}
 			assert.Equal(t, tt.want, man.SameResourceID(otherMan))
+		})
+	}
+}
+
+func TestCheckFeatureGates(t *testing.T) {
+	tests := []struct {
+		name         string
+		enabledGates sets.Set[string]
+		annotations  map[string]string
+		expectedErr  string
+	}{
+		{
+			name:         "no feature gate annotation",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{},
+			expectedErr:  "",
+		},
+		{
+			name:         "empty feature gate annotation",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: ""},
+			expectedErr:  "",
+		},
+		{
+			name:         "required gate is enabled - should include",
+			enabledGates: sets.New("TechPreviewFeatureGate", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: "TechPreviewFeatureGate"},
+			expectedErr:  "",
+		},
+		{
+			name:         "required gate is not enabled - should exclude",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: "TechPreviewFeatureGate"},
+			expectedErr:  "feature gate TechPreviewFeatureGate is required but not enabled",
+		},
+		{
+			name:         "excluded gate is not enabled - should include",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: "-TechPreviewFeatureGate"},
+			expectedErr:  "",
+		},
+		{
+			name:         "excluded gate is enabled - should exclude",
+			enabledGates: sets.New("TechPreviewFeatureGate", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: "-TechPreviewFeatureGate"},
+			expectedErr:  "feature gate TechPreviewFeatureGate is enabled but manifest requires it to be disabled",
+		},
+		{
+			name:         "multiple requirements - all satisfied",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: "gate1,gate2,-gate3"},
+			expectedErr:  "",
+		},
+		{
+			name:         "multiple requirements - inclusion not satisfied",
+			enabledGates: sets.New("gate1"),
+			annotations:  map[string]string{featureGateAnnotation: "gate1,gate2,-gate3"},
+			expectedErr:  "feature gate gate2 is required but not enabled",
+		},
+		{
+			name:         "multiple requirements - exclusion not satisfied",
+			enabledGates: sets.New("gate1", "gate2", "gate3"),
+			annotations:  map[string]string{featureGateAnnotation: "gate1,gate2,-gate3"},
+			expectedErr:  "feature gate gate3 is enabled but manifest requires it to be disabled",
+		},
+		{
+			name:         "whitespace handling",
+			enabledGates: sets.New("gate1", "gate2"),
+			annotations:  map[string]string{featureGateAnnotation: " gate1 , gate2 , -gate3 "},
+			expectedErr:  "",
+		},
+		{
+			name:         "empty requirements in list",
+			enabledGates: sets.New("gate1"),
+			annotations:  map[string]string{featureGateAnnotation: "gate1,,"},
+			expectedErr:  "",
+		},
+		{
+			name:         "complex scenario - OR logic for inclusion",
+			enabledGates: sets.New("NewStorageFeature"),
+			annotations:  map[string]string{featureGateAnnotation: "NewStorageFeature,AlternativeStorageFeature"},
+			expectedErr:  "feature gate AlternativeStorageFeature is required but not enabled",
+		},
+		{
+			name:         "complex scenario - AND logic for mixed requirements",
+			enabledGates: sets.New("FeatureA"),
+			annotations:  map[string]string{featureGateAnnotation: "FeatureA,-FeatureB"},
+			expectedErr:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkFeatureGates(tt.enabledGates, tt.annotations)
+			if tt.expectedErr == "" {
+				if err != nil {
+					t.Errorf("checkFeatureGates() expected no error, got %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("checkFeatureGates() expected error %q, got nil", tt.expectedErr)
+				} else if err.Error() != tt.expectedErr {
+					t.Errorf("checkFeatureGates() expected error %q, got %q", tt.expectedErr, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestManifestIncludeWithFeatureGates(t *testing.T) {
+	// Test just the feature gate functionality by testing manifest with no other filtering requirements
+	tests := []struct {
+		name         string
+		enabledGates sets.Set[string]
+		annotations  map[string]interface{}
+		expectedErr  string
+	}{
+		{
+			name:         "manifest included when feature gate enabled",
+			enabledGates: sets.New("TechPreviewFeatureGate"),
+			annotations: map[string]interface{}{
+				featureGateAnnotation: "TechPreviewFeatureGate",
+			},
+			expectedErr: "",
+		},
+		{
+			name:         "manifest excluded when feature gate disabled",
+			enabledGates: sets.New("SomeOtherGate"),
+			annotations: map[string]interface{}{
+				featureGateAnnotation: "TechPreviewFeatureGate",
+			},
+			expectedErr: "feature gate TechPreviewFeatureGate is required but not enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		metadata := map[string]interface{}{
+			"name":      "test",
+			"namespace": "test",
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.annotations != nil {
+				metadata["annotations"] = tt.annotations
+			}
+			manifest := Manifest{
+				Obj: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": metadata,
+					},
+				},
+			}
+
+			// Test only feature gates, set all other filters to nil
+			err := manifest.Include(nil, nil, nil, nil, nil, tt.enabledGates)
+			if tt.expectedErr == "" {
+				if err != nil {
+					t.Errorf("manifest.Include() expected no error, got %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("manifest.Include() expected error containing %q, got nil", tt.expectedErr)
+				} else if !strings.Contains(err.Error(), tt.expectedErr) {
+					t.Errorf("manifest.Include() expected error containing %q, got %q", tt.expectedErr, err.Error())
+				}
+			}
 		})
 	}
 }
