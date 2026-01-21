@@ -16,6 +16,8 @@ import (
 func TestRoundtrip(t *testing.T) {
 	now, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
+	emptyKey := make([]byte, 16)
+
 	tests := []struct {
 		name      string
 		component string
@@ -109,6 +111,50 @@ func TestRoundtrip(t *testing.T) {
 				},
 				InternalReason: "internal",
 				ExternalReason: "external",
+			},
+		},
+		{
+			name:      "full kms",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "1",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true, // this will be set by ToKeyState()
+				Mode:   "KMS",
+				KMSConfiguration: &v1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       "kms-plugin",
+					Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				},
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "networking.openshift.io", Resource: "routes"},
+					},
+				},
+				InternalReason: "internal",
+				ExternalReason: "external",
+			},
+		},
+		{
+			name:      "sparse kms",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "2",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true, // this will be set by ToKeyState()
+				Mode:   "KMS",
+				KMSConfiguration: &v1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       "kms-plugin",
+					Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				},
 			},
 		},
 	}

@@ -4,8 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -361,6 +364,67 @@ func TestToEncryptionState(t *testing.T) {
 				},
 			},
 		},
+
+		// scenario 11
+		{
+			name: "kms write key",
+			input: encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{
+				{
+					Resource: "secrets",
+					Keys: []apiserverconfigv1.Key{
+						{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+					},
+					Modes: []string{"KMS"},
+				},
+			}),
+			output: map[schema.GroupResource]state.GroupResourceState{
+				{Group: "", Resource: "secrets"}: {
+					WriteKey: state.KeyState{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: "KMS",
+					},
+					ReadKeys: []state.KeyState{
+						{
+							Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+							Mode: "KMS",
+						},
+					},
+				},
+			},
+		},
+
+		// scenario 12
+		{
+			name: "kms write key and aescbc read key",
+			input: encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{
+				{
+					Resource: "secrets",
+					Keys: []apiserverconfigv1.Key{
+						{Name: "2", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						{Name: "1", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, // # notsecret
+					},
+					Modes: []string{"KMS", "aescbc"},
+				},
+			}),
+			output: map[schema.GroupResource]state.GroupResourceState{
+				{Group: "", Resource: "secrets"}: {
+					WriteKey: state.KeyState{
+						Key:  apiserverconfigv1.Key{Name: "2", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: "KMS",
+					},
+					ReadKeys: []state.KeyState{
+						{
+							Key:  apiserverconfigv1.Key{Name: "2", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+							Mode: "KMS",
+						},
+						{
+							Key:  apiserverconfigv1.Key{Name: "1", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="}, // # notsecret
+							Mode: "aescbc",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -522,6 +586,44 @@ func TestFromEncryptionState(t *testing.T) {
 
 		// scenario 6
 		// TODO: encryption on after being off
+
+		// scenario 7
+		{
+			name:       "kms write key",
+			grs:        []schema.GroupResource{{Group: "", Resource: "secrets"}},
+			targetNs:   "kms",
+			writeKeyIn: encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			makeOutput: func(writeKey *corev1.Secret, readKeys []*corev1.Secret) []apiserverconfigv1.ResourceConfiguration {
+				rs := apiserverconfigv1.ResourceConfiguration{}
+				rs.Resources = []string{"secrets"}
+				rs.Providers = []apiserverconfigv1.ProviderConfiguration{
+					{KMS: keyToKMSConfiguration(writeKey, "secrets")},
+					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
+				}
+				return []apiserverconfigv1.ResourceConfiguration{rs}
+			},
+		},
+
+		// scenario 8
+		{
+			name:       "kms write key and aescbc read key",
+			grs:        []schema.GroupResource{{Group: "", Resource: "secrets"}},
+			targetNs:   "kms",
+			writeKeyIn: encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
+			readKeysIn: []*corev1.Secret{
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			makeOutput: func(writeKey *corev1.Secret, readKeys []*corev1.Secret) []apiserverconfigv1.ResourceConfiguration {
+				rs := apiserverconfigv1.ResourceConfiguration{}
+				rs.Resources = []string{"secrets"}
+				rs.Providers = []apiserverconfigv1.ProviderConfiguration{
+					{KMS: keyToKMSConfiguration(writeKey, "secrets")},
+					{AESCBC: keyToAESConfiguration(readKeys[0])},
+					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
+				}
+				return []apiserverconfigv1.ResourceConfiguration{rs}
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -556,8 +658,10 @@ func TestFromEncryptionState(t *testing.T) {
 			actualOutput := FromEncryptionState(grState)
 			expectedOutput := scenario.makeOutput(scenario.writeKeyIn, scenario.readKeysIn)
 
-			if !cmp.Equal(expectedOutput, actualOutput.Resources) {
-				t.Fatal(fmt.Errorf("%s", cmp.Diff(expectedOutput, actualOutput.Resources)))
+			// Ignore KMS Name field since it contains a random suffix
+			ignoreKMSName := cmpopts.IgnoreFields(apiserverconfigv1.KMSConfiguration{}, "Name")
+			if !cmp.Equal(expectedOutput, actualOutput.Resources, ignoreKMSName) {
+				t.Fatal(fmt.Errorf("%s", cmp.Diff(expectedOutput, actualOutput.Resources, ignoreKMSName)))
 			}
 		})
 	}
@@ -574,6 +678,21 @@ func keyToAESConfiguration(key *corev1.Secret) *apiserverconfigv1.AESConfigurati
 				Name:   fmt.Sprintf("%d", id),
 				Secret: base64.StdEncoding.EncodeToString(key.Data[secrets.EncryptionSecretKeyDataKey]),
 			},
+		},
+	}
+}
+
+func keyToKMSConfiguration(key *corev1.Secret, resource string) *apiserverconfigv1.KMSConfiguration {
+	keyID, ok := state.NameToKeyID(key.Name)
+	if !ok {
+		panic(fmt.Sprintf("invalid test secret name %q", key.Name))
+	}
+	return &apiserverconfigv1.KMSConfiguration{
+		APIVersion: "v2",
+		Name:       fmt.Sprintf("%d-test%d", keyID, keyID),
+		Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+		Timeout: &metav1.Duration{
+			Duration: 10 * time.Second,
 		},
 	}
 }

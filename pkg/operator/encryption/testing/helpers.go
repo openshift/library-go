@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ const (
 	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretKMSConfigForTest         = "encryption.apiserver.operator.openshift.io/kms-config"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -92,6 +94,30 @@ func CreateMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.G
 
 func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+}
+
+func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	emptyKey := make([]byte, 16)
+	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
+	kmsConfig := &apiserverconfigv1.KMSConfiguration{
+		APIVersion: "v2",
+		Name:       fmt.Sprintf("%d", keyID),
+		Endpoint:   kms.DefaultEndpoint,
+		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+	}
+	kmsConfigJSON, _ := json.Marshal(kmsConfig)
+	secret.Annotations[encryptionSecretKMSConfigForTest] = string(kmsConfigJSON)
+	return secret
+}
+
+func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID)
+	secret.Annotations[encryptionSecretMigratedTimestampForTest] = ts.Format(time.RFC3339)
+	return secret
+}
+
+func CreateExpiredMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	return CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
@@ -242,6 +268,17 @@ func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv
 	case "identity":
 		return &apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
+		}
+	case "KMS":
+		// key.Name contains the key ID
+		// Use a deterministic suffix for testing
+		return &apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("%s-test%s", key.Name, key.Name),
+				Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+			},
 		}
 	default:
 		return &apiserverconfigv1.ProviderConfiguration{

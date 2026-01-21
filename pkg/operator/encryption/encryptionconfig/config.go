@@ -2,7 +2,9 @@ package encryptionconfig
 
 import (
 	"encoding/base64"
+	"fmt"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,7 +17,7 @@ import (
 )
 
 var (
-	emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(crypto.NewIdentityKey())
+	emptyStaticKey = base64.StdEncoding.EncodeToString(crypto.NewEmptyKey())
 )
 
 // FromEncryptionState converts state to config.
@@ -25,7 +27,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: stateToProviders(grKeys),
+			Providers: stateToProviders(gr.Resource, grKeys),
 		})
 	}
 
@@ -97,7 +99,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 
 			case provider.AESGCM != nil && len(provider.AESGCM.Keys) == 1:
 				s := state.AESGCM
-				if provider.AESGCM.Keys[0].Secret == emptyStaticIdentityKey {
+				if provider.AESGCM.Keys[0].Secret == emptyStaticKey {
 					s = state.Identity
 				}
 
@@ -106,6 +108,17 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 					Mode: s,
 				}
 
+			case provider.KMS != nil:
+				// Name and Secret must match to find our backed Secret
+				ks = state.KeyState{
+					Key: apiserverconfigv1.Key{
+						Name: getKeyIDFromProviderName(provider.KMS.Name),
+						// Since in v1 we don't support kms -> kms migrations, we can use empty key.
+						// Because we don't need to compare secrets to detect change.
+						Secret: emptyStaticKey,
+					},
+					Mode: state.KMS,
+				}
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
 				continue // should never happen
@@ -139,7 +152,7 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 // it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
+func stateToProviders(resource string, desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
@@ -192,6 +205,14 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 					Keys: []apiserverconfigv1.Key{key.Key},
 				},
 			})
+		case state.KMS:
+			// In order to preserve the uniqueness, we should insert resource name
+			kmsCopy := key.KMSConfiguration.DeepCopy()
+			kmsCopy.Name = createKMSProviderName(key.Key.Name, resource)
+			provider := apiserverconfigv1.ProviderConfiguration{
+				KMS: kmsCopy,
+			}
+			providers = append(providers, provider)
 		default:
 			// this should never happen because our input should always be valid
 			klog.Infof("skipping key %s as it has invalid mode %s", key.Key.Name, key.Mode)
@@ -209,4 +230,17 @@ func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.Prov
 	providers = append(providers, aesgcmProviders...)
 
 	return providers
+}
+
+func createKMSProviderName(keyID, resource string) string {
+	// Ideally we should have used keyId simply in kms provider name.
+	// However, this is an upstream constraint that every provider name must be unique.
+	// To maintain uniqueness while still allowing access to the keyId, we generate provider name in this format.
+	return fmt.Sprintf("%s-%s", keyID, resource)
+}
+
+func getKeyIDFromProviderName(providerName string) string {
+	// We just need to obtain the keyID to find our backed secret
+	// e.g. "1-secrets"
+	return strings.Split(providerName, "-")[0]
 }

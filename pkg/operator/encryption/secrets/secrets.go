@@ -58,9 +58,17 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.ExternalReason = v
 	}
 
+	if v, ok := s.Annotations[EncryptionSecretKMSConfig]; ok && len(v) > 0 {
+		kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
+		if err := json.Unmarshal([]byte(v), kmsConfiguration); err != nil {
+			return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, EncryptionSecretKMSConfig, err)
+		}
+		key.KMSConfiguration = kmsConfiguration
+	}
+
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
-	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
+	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity, state.KMS:
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
@@ -111,6 +119,14 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+
+	if ks.KMSConfiguration != nil {
+		ks, err := json.Marshal(ks.KMSConfiguration)
+		if err != nil {
+			return nil, err
+		}
+		s.Annotations[EncryptionSecretKMSConfig] = string(ks)
 	}
 
 	return s, nil
