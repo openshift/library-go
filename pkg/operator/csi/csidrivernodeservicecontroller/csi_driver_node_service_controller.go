@@ -171,6 +171,11 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		return err
 	}
 
+	err = c.updateLastStableGeneration(required)
+	if err != nil {
+		return err
+	}
+
 	daemonSet, _, err := resourceapply.ApplyDaemonSet(
 		ctx,
 		c.kubeClient.AppsV1(),
@@ -178,11 +183,6 @@ func (c *CSIDriverNodeServiceController) syncManaged(ctx context.Context, opSpec
 		required,
 		resourcemerge.ExpectedDaemonSetGeneration(required, opStatus.Generations),
 	)
-	if err != nil {
-		return err
-	}
-
-	daemonSet, err = c.storeLastStableGeneration(ctx, syncContext, daemonSet)
 	if err != nil {
 		return err
 	}
@@ -337,19 +337,28 @@ func (c *CSIDriverNodeServiceController) syncDeleting(ctx context.Context, opSpe
 	return v1helpers.RemoveFinalizer(ctx, c.operatorClient, c.instanceName)
 }
 
-func (c *CSIDriverNodeServiceController) storeLastStableGeneration(ctx context.Context, syncContext factory.SyncContext, daemonSet *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	lastStableGeneration := daemonSet.Annotations[stableGenerationAnnotationName]
-	currentGeneration := strconv.FormatInt(daemonSet.Generation, 10)
-	if lastStableGeneration == currentGeneration {
-		return daemonSet, nil
+func (c *CSIDriverNodeServiceController) updateLastStableGeneration(required *appsv1.DaemonSet) error {
+	// `required` does not have .status. Read the actual status from the informer cache.
+	cachedDaemonSet, err := c.dsInformer.Lister().DaemonSets(required.Namespace).Get(required.Name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// the DaemonSet will be created soon
+			return nil
+		}
+		return err
 	}
 
-	if isProgressing, _ := isProgressing(daemonSet); isProgressing {
-		return daemonSet, nil
+	if isProgressing, _ := isProgressing(cachedDaemonSet); isProgressing {
+		return nil
 	}
 
-	klog.V(2).Infof("DaemonSet %s/%s generation %d is stable", daemonSet.Namespace, daemonSet.Name, daemonSet.Generation)
-	daemonSet.Annotations[stableGenerationAnnotationName] = currentGeneration
-	daemonSet, _, err := resourceapply.ApplyDaemonSet(ctx, c.kubeClient.AppsV1(), syncContext.Recorder(), daemonSet, daemonSet.Generation)
-	return daemonSet, err
+	// The DaemonSet status shows that progressing has finished. Record the last stable generation in `required`,
+	// which is going to be saved in the API server.
+	cachedGeneration := strconv.FormatInt(cachedDaemonSet.Generation, 10)
+	klog.V(2).Infof("DaemonSet %s/%s generation %s is stable", required.Namespace, required.Name, cachedGeneration)
+	if required.Annotations == nil {
+		required.Annotations = make(map[string]string)
+	}
+	required.Annotations[stableGenerationAnnotationName] = cachedGeneration
+	return nil
 }
