@@ -13,9 +13,6 @@ github.com/Azure/go-ntlmssp
 # github.com/NYTimes/gziphandler v1.1.1
 ## explicit; go 1.11
 github.com/NYTimes/gziphandler
-# github.com/RangelReale/osincli v0.0.0-20160924135400-fababb0555f2
-## explicit
-github.com/RangelReale/osincli
 # github.com/antlr4-go/antlr/v4 v4.13.0
 ## explicit; go 1.20
 github.com/antlr4-go/antlr/v4
@@ -445,6 +442,9 @@ github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
 github.com/openshift/client-go/user/informers/externalversions/internalinterfaces
 github.com/openshift/client-go/user/informers/externalversions/user/v1
 github.com/openshift/client-go/user/listers/user/v1
+# github.com/openshift/osincli v0.0.0-20160924135400-fababb0555f2
+## explicit
+github.com/openshift/osincli
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
