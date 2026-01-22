@@ -576,7 +576,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // the DaemonSet is fully deployed
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
 					withLogLevel(opv1.Trace)), // User changed the log level...
@@ -586,7 +587,8 @@ func TestSync(t *testing.T) {
 					argsLevel6,      // New log level
 					defaultImages(), // And the same goes for the DaemonSet
 					withDaemonSetGeneration(2, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")),
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withLogLevel(opv1.Trace),
@@ -604,7 +606,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					oldImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // the DaemonSet is fully deployed
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),k
 					withGenerations(1),
@@ -616,7 +619,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(2, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")),
 				driver: makeFakeDriverInstance(
 					// withStatus(replica1),
 					withGenerations(2),
@@ -657,7 +661,8 @@ func TestSync(t *testing.T) {
 					argsLevel2,
 					defaultImages(),
 					withDaemonSetGeneration(1, 1),
-					withDaemonSetStatus(replica1, replica1, replica1, replica0)),
+					withDaemonSetStatus(replica1, replica1, replica1, replica0),
+					withDaemonSetAnnotation(stableGenerationAnnotationName, "1")), // the DaemonSet is fully deployed
 				driver: makeFakeDriverInstance(
 					withGenerations(1),
 					withFinalizers(finalizerName),
