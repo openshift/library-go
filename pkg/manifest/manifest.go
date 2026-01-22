@@ -235,13 +235,18 @@ func checkFeatureGates(enabledGates sets.Set[string], annotations map[string]str
 }
 
 // checkMajorVersion validates if manifest should be included based on major version requirements
-func checkMajorVersion(clusterMajorVersion uint64, annotations map[string]string) error {
+func checkMajorVersion(gvk schema.GroupVersionKind, clusterMajorVersion uint64, annotations map[string]string) error {
 	if annotations == nil {
 		return nil // No annotations, include by default
 	}
 	majorVersionRequirements, ok := annotations[majorVersionAnnotation]
 	if !ok {
 		return nil // No requirements, include by default
+	}
+
+	if !isFeatureGate(gvk) && !isCustomResource(gvk) {
+		// Has a requirement, but is not of the expected kind
+		return fmt.Errorf("major version filtering is only supported for feature gates and custom resources")
 	}
 
 	requirements := strings.Split(majorVersionRequirements, ",")
@@ -338,7 +343,7 @@ func (m *Manifest) IncludeAllowUnknownCapabilities(excludeIdentifier *string, re
 
 	// Major version filtering
 	if majorVersion != nil {
-		err := checkMajorVersion(*majorVersion, annotations)
+		err := checkMajorVersion(m.GVK, *majorVersion, annotations)
 		if err != nil {
 			return err
 		}
@@ -542,4 +547,12 @@ func addIfNotDuplicateResource(manifest Manifest, resourceIds map[resourceId]boo
 		return nil
 	}
 	return fmt.Errorf("duplicate resource: (%s)", manifest.id)
+}
+
+func isFeatureGate(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "config.openshift.io" && gvk.Kind == "FeatureGate"
+}
+
+func isCustomResource(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "apiextensions.k8s.io" && gvk.Kind == "CustomResourceDefinition"
 }

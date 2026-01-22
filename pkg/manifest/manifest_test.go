@@ -1380,6 +1380,7 @@ func TestMajorVersionFiltering(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := createTestManifest(tt.annotations)
+			manifest.GVK = schema.GroupVersionKind{Group: "config.openshift.io", Kind: "FeatureGate"}
 
 			// Test through the Include method which calls checkMajorVersion
 			err := manifest.Include(nil, nil, nil, nil, nil, nil, tt.clusterMajorVersion)
@@ -1416,7 +1417,7 @@ func TestMajorVersionFilteringInteractionWithOtherFilters(t *testing.T) {
 			name: "major version passes but feature gate fails",
 			annotations: map[string]string{
 				"release.openshift.io/major-version": "4",
-				"release.openshift.io/feature-gates": "RequiredFeature",
+				"release.openshift.io/feature-gate":  "RequiredFeature",
 			},
 			clusterMajorVersion:   ptr.To(uint64(4)),
 			enabledFeatureGates:   sets.New[string](), // Empty set - feature gate not enabled
@@ -1427,7 +1428,7 @@ func TestMajorVersionFilteringInteractionWithOtherFilters(t *testing.T) {
 			name: "feature gate passes but major version fails",
 			annotations: map[string]string{
 				"release.openshift.io/major-version": "5",
-				"release.openshift.io/feature-gates": "RequiredFeature",
+				"release.openshift.io/feature-gate":  "RequiredFeature",
 			},
 			clusterMajorVersion:   ptr.To(uint64(4)),
 			enabledFeatureGates:   sets.New("RequiredFeature"),
@@ -1438,7 +1439,7 @@ func TestMajorVersionFilteringInteractionWithOtherFilters(t *testing.T) {
 			name: "both major version and feature gate pass",
 			annotations: map[string]string{
 				"release.openshift.io/major-version": "4",
-				"release.openshift.io/feature-gates": "RequiredFeature",
+				"release.openshift.io/feature-gate":  "RequiredFeature",
 			},
 			clusterMajorVersion: ptr.To(uint64(4)),
 			enabledFeatureGates: sets.New("RequiredFeature"),
@@ -1449,6 +1450,7 @@ func TestMajorVersionFilteringInteractionWithOtherFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := createTestManifest(tt.annotations)
+			manifest.GVK = schema.GroupVersionKind{Group: "config.openshift.io", Kind: "FeatureGate"}
 
 			err := manifest.Include(nil, tt.requiredFeatureSet, nil, nil, nil, tt.enabledFeatureGates, tt.clusterMajorVersion)
 
