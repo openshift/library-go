@@ -107,7 +107,8 @@ func DefaultTLSVersion() uint16 {
 	// Can't use SSLv3 because of POODLE and BEAST
 	// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
 	// Can't use TLSv1.1 because of RC4 cipher usage
-	return tls.VersionTLS12
+	// TLS 1.3 is required now for post-quantum cryptography.
+	return tls.VersionTLS13
 }
 
 var ciphers = map[string]uint16{
