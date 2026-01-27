@@ -690,7 +690,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-set":                            "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,DevPreviewNoUpgrade,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,DevPreviewNoUpgrade,OKD,TechPreviewNoUpgrade"),
 		},
 		{
 			name:               "incorrect techpreview value is not excluded if techpreview on using feature-set",
@@ -700,7 +700,7 @@ func Test_include(t *testing.T) {
 				"include.release.openshift.io/self-managed-high-availability": "true",
 				"release.openshift.io/feature-set":                            "Other",
 			},
-			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,DevPreviewNoUpgrade,TechPreviewNoUpgrade"),
+			expected: fmt.Errorf("unrecognized value \"Other\" in release.openshift.io/feature-set=Other; known values are: CustomNoUpgrade,Default,DevPreviewNoUpgrade,OKD,TechPreviewNoUpgrade"),
 		},
 		{
 			name:        "default profile selection excludes without annotation",
