@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k8s-mock-kms-plugin
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: k8s-mock-kms-plugin
+  template:
+    metadata:
+      labels:
+        app: k8s-mock-kms-plugin
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      priorityClassName: system-node-critical
+      serviceAccountName: k8s-mock-kms-plugin
+      tolerations:
+        - operator: Exists
+      initContainers:
+        # Init container script adapted from upstream Kubernetes:
+        # https://github.com/kubernetes/kubernetes/blob/5a6a1fe908cfc64cf8ffe6264e8d830a85579ed9/staging/src/k8s.io/kms/internal/plugins/_mock/kms.yaml
+        - name: init-softhsm
+          image: {{ .Image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -e
+              set -x
+
+              # if token exists, skip initialization
+              if [ $(ls -1 /var/lib/softhsm/tokens 2>/dev/null | wc -l) -ge 1 ]; then
+                echo "Skipping initialization of softhsm"
+                exit 0
+              fi
+
+              mkdir -p /var/lib/softhsm/tokens
+              apk add --update --no-cache ca-certificates jq
+              apk add --no-cache ccid opensc softhsm
+
+              TOKEN_LABEL=$(jq -r '.TokenLabel' /etc/softhsm-config.json)
+              PIN=$(jq -r '.Pin' /etc/softhsm-config.json)
+              MODULE_PATH=$(jq -r '.Path' /etc/softhsm-config.json)
+
+              softhsm2-util --init-token --free --label $TOKEN_LABEL --pin $PIN --so-pin $PIN
+              pkcs11-tool --module $MODULE_PATH --keygen --key-type aes:32 --pin $PIN --token-label $TOKEN_LABEL --label kms-test
+          volumeMounts:
+            - mountPath: /var/lib/softhsm/tokens
+              name: softhsm-tokens
+            - mountPath: /etc/softhsm-config.json
+              name: softhsm-config
+              subPath: softhsm-config.json
+      containers:
+        - name: kms-plugin
+          image: {{ .Image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          args:
+            - "-listen-addr=unix:///var/run/kmsplugin/socket.sock"
+            - "-config-file-path=/etc/softhsm-config.json"
+          volumeMounts:
+            - name: socket
+              mountPath: /var/run/kmsplugin
+            - name: softhsm-config
+              mountPath: /etc/softhsm-config.json
+              subPath: softhsm-config.json
+            - name: softhsm-tokens
+              mountPath: /var/lib/softhsm/tokens
+      volumes:
+        - name: socket
+          hostPath:
+            path: /var/run/kmsplugin
+            type: DirectoryOrCreate
+        - name: softhsm-tokens
+          hostPath:
+            path: /var/lib/softhsm/tokens
+            type: DirectoryOrCreate
+        - name: softhsm-config
+          configMap:
+            name: k8s-mock-kms-plugin

@@ -1,0 +1,16 @@
+# RoleBinding to grant the k8s-mock-kms-plugin ServiceAccount access to the
+# privileged SCC. This is required because the KMS plugin needs privileged
+# access to create the Unix socket on the host filesystem.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8s-mock-kms-plugin
+  namespace: {{ .Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+  - kind: ServiceAccount
+    name: k8s-mock-kms-plugin
+    namespace: {{ .Namespace }}

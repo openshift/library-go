@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-mock-kms-plugin
+  namespace: {{ .Namespace }}
+data:
+  softhsm-config.json: |
+    {
+      "Path": "/usr/lib/softhsm/libsofthsm2.so",
+      "TokenLabel": "kms-test",
+      "Pin": "1234"
+    }
