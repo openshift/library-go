@@ -348,13 +348,22 @@ func (c *CSIDriverNodeServiceController) updateLastStableGeneration(required *ap
 		return err
 	}
 
+	cachedGeneration := strconv.FormatInt(cachedDaemonSet.Generation, 10)
+	var cachedStableGerationAnnotation string
+	if cachedDaemonSet.Annotations != nil {
+		cachedStableGerationAnnotation = cachedDaemonSet.Annotations[stableGenerationAnnotationName]
+	}
+	if cachedStableGerationAnnotation == cachedGeneration {
+		// The previous DaemonSet reconfiguration has completed and is recorded in the annotation.
+		return nil
+	}
+
 	if isProgressing, _ := isProgressing(cachedDaemonSet); isProgressing {
 		return nil
 	}
 
 	// The DaemonSet status shows that progressing has finished. Record the last stable generation in `required`,
 	// which is going to be saved in the API server.
-	cachedGeneration := strconv.FormatInt(cachedDaemonSet.Generation, 10)
 	klog.V(2).Infof("DaemonSet %s/%s generation %s is stable", required.Namespace, required.Name, cachedGeneration)
 	if required.Annotations == nil {
 		required.Annotations = make(map[string]string)
