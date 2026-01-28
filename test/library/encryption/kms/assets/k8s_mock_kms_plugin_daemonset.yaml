@@ -63,7 +63,7 @@ spec:
           securityContext:
             privileged: true
           args:
-            - "-listen-addr=unix:///var/run/kmsplugin/socket.sock"
+            - "-listen-addr=unix:///var/run/kmsplugin/kms.sock"
             - "-config-file-path=/etc/softhsm-config.json"
           volumeMounts:
             - name: socket
