@@ -354,11 +354,6 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return 0, "", false
 	}
 
-	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
-	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {
-		return latestKeyID, "external-reason-changed", true
-	}
-
 	if currentMode == state.KMS {
 		// We are here because Encryption Mode is not changed
 		secret := crypto.ModeToNewKeyFunc[state.KMS](kmsConfig)
@@ -368,8 +363,15 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 			return latestKeyID, "kms-config-changed", true
 		}
 		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
-		// KMS keys are rotated externally by the KMS system
+		// KMS keys are rotated externally by the KMS system.
+		// Moreover, we don't trigger new key when external reason is changed.
+		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
+	}
+
+	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
+	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {
+		return latestKeyID, "external-reason-changed", true
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
