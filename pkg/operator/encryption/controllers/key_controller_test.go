@@ -41,6 +41,9 @@ func TestKeyController(t *testing.T) {
 	apiServerWithAESGCM := simpleAPIServer.DeepCopy()
 	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
+	apiServerWithKMS := simpleAPIServer.DeepCopy()
+	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS"}
+
 	scenarios := []struct {
 		name                     string
 		initialObjects           []runtime.Object
@@ -324,6 +327,321 @@ func TestKeyController(t *testing.T) {
 				}
 			},
 		},
+
+		{
+			name: "checks if a KMS secret is created when KMS encryption is enabled",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify mode annotation is KMS
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
+							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						// Verify KMS config annotation exists
+						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
+						if kmsConfig == "" {
+							ts.Error("expected kms-config annotation to be present")
+						}
+						if kmsConfig != `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}` {
+							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						}
+
+						// Verify internal reason
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-key-does-not-exist" {
+							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "no-op when a valid KMS write key exists",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 1, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
+
+		{
+			name: "creates a new KMS key when switching from AESCBC to KMS",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865"), "aescbc"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify mode changed to KMS
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
+							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						// Verify KMS config annotation exists
+						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
+						if kmsConfig != `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}` {
+							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						}
+
+						// Verify internal reason is mode changed
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-encryption-mode-changed" {
+							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "no-op when KMS key is migrated but not expired (no time-based rotation for KMS)",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 6, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			// Should be no-op because KMS keys don't have time-based rotation
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
+
+		{
+			name: "creates a new KMS key when KMS configuration changes",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("old-kms-checksum"), `{"endpoint":"unix:///var/run/kmsplugin/old-kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify mode is still KMS
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
+							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						// Verify new KMS config annotation
+						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
+						if kmsConfig != `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}` {
+							ts.Errorf("unexpected kms-config: %s, expected default config", kmsConfig)
+						}
+
+						// Verify internal reason is kms-config-changed
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-kms-config-changed" {
+							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
+						}
+
+						// Verify key ID incremented
+						if actualSecret.Name != "encryption-key-kms-6" {
+							ts.Errorf("expected key ID 6, got %s", actualSecret.Name)
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "no-op when latest KMS key is not migrated yet",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 3, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			// Should be no-op because migration hasn't completed yet
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
+
+		{
+			name: "creates a new KMS key when switching from Identity to KMS",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("identity-key"), "identity"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify mode changed to KMS
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
+							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						// Verify KMS config annotation exists
+						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
+						if kmsConfig != `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}` {
+							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						}
+
+						// Verify internal reason is mode changed
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-encryption-mode-changed" {
+							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
+						}
+
+						// Verify key ID incremented
+						if actualSecret.Name != "encryption-key-kms-6" {
+							ts.Errorf("expected key ID 6, got %s", actualSecret.Name)
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "creates a new AESCBC key when switching from KMS to AESCBC",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("kms-checksum-data"), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithAESCBC},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+
+						// Verify mode changed to aescbc
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "aescbc" {
+							ts.Errorf("expected mode to be aescbc, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
+						}
+
+						// Verify KMS config annotation is removed (not present for AESCBC)
+						if kmsConfig, exists := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]; exists {
+							ts.Errorf("expected kms-config annotation to be absent, got: %s", kmsConfig)
+						}
+
+						// Verify internal reason is mode changed
+						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-encryption-mode-changed" {
+							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
+						}
+
+						// Verify key ID incremented to 8
+						if actualSecret.Name != "encryption-key-kms-8" {
+							ts.Errorf("expected key ID 8, got %s", actualSecret.Name)
+						}
+
+						// Verify it's a valid 32-byte AES key
+						if err := encryptiontesting.ValidateEncryptionKey(actualSecret); err != nil {
+							ts.Error(err)
+						}
+
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		{
+			name: "degraded when a KMS secret with invalid checksum exists",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", nil, 1, []byte(""), `{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: "secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target",
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: errors.New("secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target"),
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -444,6 +762,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 		prefix                []string
 		apiServerObjects      []runtime.Object
 		expectedReasonFromCfg string
+		expectedKMSConfig     []byte
 	}{
 		{
 			name:                  "no prefix provided, flat observed config",
@@ -478,6 +797,12 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			name:             "reading empty config works",
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 		},
+
+		{
+			name:              "kms encryption mode",
+			apiServerObjects:  []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS"}}}},
+			expectedKMSConfig: []byte(`{"endpoint":"unix:///var/run/kmsplugin/kms.sock"}`),
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -495,7 +820,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, kmsConfig, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {
@@ -503,6 +828,9 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			}
 			if externalReason != scenario.expectedReasonFromCfg {
 				t.Errorf("unexpected reason read from the config: %q, expected: %q", externalReason, scenario.expectedReasonFromCfg)
+			}
+			if string(kmsConfig) != string(scenario.expectedKMSConfig) {
+				t.Errorf("unexpected kmsConfig: %q, expected: %q", string(kmsConfig), string(scenario.expectedKMSConfig))
 			}
 		})
 	}
