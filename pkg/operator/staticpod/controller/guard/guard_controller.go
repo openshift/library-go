@@ -230,20 +230,20 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			errs = append(errs, err)
 		} else {
 			for _, pod := range pods {
-				// get service account to delete
-				saName := pod.Spec.ServiceAccountName
-				ns := pod.Namespace
-				sa := &corev1.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      saName,
-						Namespace: ns,
-					},
-				}
 				_, _, err = resourceapply.DeletePod(ctx, c.podGetter, syncCtx.Recorder(), pod)
 				if err != nil {
 					klog.Errorf("Unable to delete Pod: %v", err)
 					errs = append(errs, err)
 				}
+			}
+		}
+
+		// delete service accounts associated with guard pod(s)
+		serviceAccounts, err := c.saLister.ServiceAccounts(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			for _, sa := range serviceAccounts {
 				_, _, err = resourceapply.DeleteServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), sa)
 				if err != nil {
 					klog.Errorf("Unable to delete Service Account: %v", err)
@@ -346,7 +346,16 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 					Namespace: c.targetNamespace,
 				},
 			}
-			resourceapply.ApplyServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
+			// attach label so we can recognise for deletion later
+			serviceAccount.Labels = map[string]string{
+				"app": "guard",
+			}
+			_, _, err = resourceapply.ApplyServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
+
+			if err != nil {
+				klog.Errorf("Unable to create service account %v for Guard Pod: %v", serviceAccount.Name, err)
+				errs = append(errs, fmt.Errorf("Unable to create service account %v for Guard Pod: %v", serviceAccount.Name, err))
+			}
 
 			pod := resourceread.ReadPodV1OrDie(podTemplate)
 
@@ -402,6 +411,12 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 					if err != nil {
 						klog.Errorf("Unable to delete Pod for immidiate re-creation: %v", err)
 						errs = append(errs, fmt.Errorf("Unable to delete Pod for immidiate re-creation: %v", err))
+						continue
+					}
+					_, _, err = resourceapply.DeleteServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
+					if err != nil {
+						klog.Errorf("Unable to delete Service Account for immediate recreation: %v", err)
+						errs = append(errs, fmt.Errorf("Unable to delete Service Account for immediate recreation: %v", err))
 						continue
 					}
 				}
