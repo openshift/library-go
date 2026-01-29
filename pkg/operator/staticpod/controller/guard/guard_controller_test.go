@@ -270,6 +270,7 @@ func TestRenderGuardPod(t *testing.T) {
 		node                  *corev1.Node
 		guardExists           bool
 		guardPod              *corev1.Pod
+		guardServiceAccount   *corev1.ServiceAccount
 		createConditionalFunc func() (bool, bool, error)
 		withArbiter           bool
 	}{
@@ -427,6 +428,13 @@ func TestRenderGuardPod(t *testing.T) {
 					PodIP: "1.1.1.1",
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "master1"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			node: fakeMasterNode("master1"),
 		},
 		{
@@ -464,6 +472,13 @@ func TestRenderGuardPod(t *testing.T) {
 				},
 				Status: corev1.PodStatus{
 					PodIP: "1.1.1.1",
+				},
+			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "arbiter"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
 				},
 			},
 			//createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
@@ -522,6 +537,13 @@ func TestRenderGuardPod(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "master1"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			node:        fakeMasterNode("master1"),
 			guardExists: true,
 		},
@@ -574,6 +596,13 @@ func TestRenderGuardPod(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
+			guardServiceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      getGuardPodName("operand", "arbiter"),
+					Namespace: "test",
+					Labels:    map[string]string{"app": "guard"},
+				},
+			},
 			createConditionalFunc: func() (bool, bool, error) { return true, true, nil },
 			node:                  fakeArbiterNode("arbiter"),
 			guardExists:           true,
@@ -621,6 +650,9 @@ func TestRenderGuardPod(t *testing.T) {
 			}
 			if test.guardPod != nil {
 				kubeClient.Tracker().Add(test.guardPod)
+			}
+			if test.guardServiceAccount != nil {
+				kubeClient.Tracker().Add(test.guardServiceAccount)
 			}
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
@@ -703,11 +735,20 @@ func TestRenderGuardPod(t *testing.T) {
 						if p.Spec.ServiceAccountName != expectedSAName {
 							t.Errorf("%s: expected ServiceAccountName %q, got %q", test.name, expectedSAName, p.Spec.ServiceAccountName)
 						}
+						_, saErr := kubeClient.CoreV1().ServiceAccounts("test").Get(ctx, p.Spec.ServiceAccountName, metav1.GetOptions{})
+						if saErr != nil {
+							t.Errorf("%s: expected ServiceAccount %q to exist, got error instead: %q", test.name, p.Spec.ServiceAccountName, saErr)
+						}
 					}
 				} else {
 					_, err := kubeClient.CoreV1().Pods("test").Get(ctx, getGuardPodName("operand", "master1"), metav1.GetOptions{})
 					if !apierrors.IsNotFound(err) {
 						t.Errorf("%s: expected 'pods \"%v\" not found' error, got %q instead", test.name, getGuardPodName("operand", "master1"), err)
+					}
+					// verify service account is not found (i.e. deleted)
+					_, err = kubeClient.CoreV1().ServiceAccounts("test").Get(ctx, getGuardPodName("operand", "master1"), metav1.GetOptions{})
+					if !apierrors.IsNotFound(err) {
+						t.Errorf("%s: expected 'service account \"%v\" not found' error, but got %q instead", test.name, getGuardPodName("operand", "master1"), err)
 					}
 				}
 			}
@@ -766,13 +807,20 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 			PodIP: "1.1.1.1",
 		},
 	}
+	guardServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getGuardPodName("operand", "master1"),
+			Namespace: "test",
+			Labels:    map[string]string{"app": "guard"},
+		},
+	}
 
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	if err := indexer.Add(infraObject); err != nil {
 		t.Fatal(err.Error())
 	}
 
-	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod)
+	kubeClient := fake.NewSimpleClientset(fakeMasterNode("master1"), operandPod, guardPod, guardServiceAccount)
 	kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute)
 	eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
