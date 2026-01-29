@@ -200,6 +200,26 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return nil
 	}
 
+	// Do a check for zombie service accounts if a guard pod gets manually
+	// deleted by the user.
+	pods, _ := c.podLister.Pods(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
+
+	podMap := map[string]bool{}
+
+	for _, pod := range pods {
+		podMap[pod.Name] = true
+	}
+
+	serviceAccounts, _ := c.saLister.ServiceAccounts(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
+
+	for _, sa := range serviceAccounts {
+		// If service account exists but pod map does not have a key for it,
+		// it is a zombie service account, and must be deleted.
+		if !podMap[sa.Name] {
+			c.saGetter.ServiceAccounts(c.targetNamespace).Delete(ctx, sa.Name, metav1.DeleteOptions{})
+		}
+	}
+
 	errs := []error{}
 	if !shouldCreate {
 		pdb := resourceread.ReadPodDisruptionBudgetV1OrDie(pdbTemplate)
@@ -411,12 +431,6 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 					if err != nil {
 						klog.Errorf("Unable to delete Pod for immidiate re-creation: %v", err)
 						errs = append(errs, fmt.Errorf("Unable to delete Pod for immidiate re-creation: %v", err))
-						continue
-					}
-					_, _, err = resourceapply.DeleteServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
-					if err != nil {
-						klog.Errorf("Unable to delete Service Account for immediate recreation: %v", err)
-						errs = append(errs, fmt.Errorf("Unable to delete Service Account for immediate recreation: %v", err))
 						continue
 					}
 				}
