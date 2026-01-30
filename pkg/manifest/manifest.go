@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -23,10 +24,11 @@ import (
 )
 
 const (
-	CapabilityAnnotation  = "capability.openshift.io/name"
-	DefaultClusterProfile = "self-managed-high-availability"
-	featureSetAnnotation  = "release.openshift.io/feature-set"
-	featureGateAnnotation = "release.openshift.io/feature-gate"
+	CapabilityAnnotation   = "capability.openshift.io/name"
+	DefaultClusterProfile  = "self-managed-high-availability"
+	featureSetAnnotation   = "release.openshift.io/feature-set"
+	featureGateAnnotation  = "release.openshift.io/feature-gate"
+	majorVersionAnnotation = "release.openshift.io/major-version"
 )
 
 var knownFeatureSets = sets.Set[string]{}
@@ -232,12 +234,69 @@ func checkFeatureGates(enabledGates sets.Set[string], annotations map[string]str
 	return nil
 }
 
+// checkMajorVersion validates if manifest should be included based on major version requirements
+func checkMajorVersion(gvk schema.GroupVersionKind, clusterMajorVersion uint64, annotations map[string]string) error {
+	if annotations == nil {
+		return nil // No annotations, include by default
+	}
+	majorVersionRequirements, ok := annotations[majorVersionAnnotation]
+	if !ok {
+		return nil // No requirements, include by default
+	}
+
+	if !isFeatureGate(gvk) && !isCustomResource(gvk) {
+		// Has a requirement, but is not of the expected kind
+		return fmt.Errorf("major version filtering is only supported for feature gates and custom resources")
+	}
+
+	requirements := strings.Split(majorVersionRequirements, ",")
+	includedVersions := sets.New[uint64]()
+	excludedVersions := sets.New[uint64]()
+
+	for _, req := range requirements {
+		req = strings.TrimSpace(req)
+		if req == "" {
+			continue
+		}
+
+		if strings.HasPrefix(req, "-") {
+			excludedVersionStr := req[1:]
+			excludedVersion, err := strconv.ParseUint(excludedVersionStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid excluded major version %q in annotation: %v", excludedVersionStr, err)
+			}
+			excludedVersions.Insert(excludedVersion)
+		} else {
+			includedVersionStr := req
+			includedVersion, err := strconv.ParseUint(includedVersionStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid included major version %q in annotation: %v", includedVersionStr, err)
+			}
+			includedVersions.Insert(includedVersion)
+		}
+	}
+
+	switch {
+	case includedVersions.Intersection(excludedVersions).Len() > 0:
+		return fmt.Errorf("inclusion and exclusion requirements overlap: %v", includedVersions.Intersection(excludedVersions).UnsortedList())
+	case includedVersions.Has(clusterMajorVersion):
+		return nil // Found matching version, include this manifest
+	case excludedVersions.Has(clusterMajorVersion):
+		return fmt.Errorf("major version %d matches excluded version %d", clusterMajorVersion, clusterMajorVersion)
+	case len(includedVersions) > 0:
+		return fmt.Errorf("major version %d does not match any required versions", clusterMajorVersion)
+	default:
+		// No positive requirement and did not match any excluded versions
+		return nil
+	}
+}
+
 // Include returns an error if the manifest fails an inclusion filter and should be excluded from further
 // processing by cluster version operator. Pointer arguments can be set nil to avoid excluding based on that
 // filter. For example, setting profile non-nil and capabilities nil will return an error if the manifest's
 // profile does not match, but will never return an error about capability issues.
-func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string]) error {
-	return m.IncludeAllowUnknownCapabilities(excludeIdentifier, requiredFeatureSet, profile, capabilities, overrides, enabledFeatureGates, false)
+func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string, profile *string, capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string], majorVersion *uint64) error {
+	return m.IncludeAllowUnknownCapabilities(excludeIdentifier, requiredFeatureSet, profile, capabilities, overrides, enabledFeatureGates, majorVersion, false)
 }
 
 // IncludeAllowUnknownCapabilities returns an error if the manifest fails an inclusion filter and should be excluded from
@@ -247,7 +306,7 @@ func (m *Manifest) Include(excludeIdentifier *string, requiredFeatureSet *string
 // to capabilities filtering. When set to true a manifest will not be excluded simply because it contains an unknown
 // capability. This is necessary to allow updates to an OCP version containing newly defined capabilities.
 func (m *Manifest) IncludeAllowUnknownCapabilities(excludeIdentifier *string, requiredFeatureSet *string, profile *string,
-	capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string], allowUnknownCapabilities bool) error {
+	capabilities *configv1.ClusterVersionCapabilitiesStatus, overrides []configv1.ComponentOverride, enabledFeatureGates sets.Set[string], majorVersion *uint64, allowUnknownCapabilities bool) error {
 
 	annotations := m.Obj.GetAnnotations()
 	if annotations == nil {
@@ -277,6 +336,14 @@ func (m *Manifest) IncludeAllowUnknownCapabilities(excludeIdentifier *string, re
 	// Feature gate filtering
 	if enabledFeatureGates != nil {
 		err := checkFeatureGates(enabledFeatureGates, annotations)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Major version filtering
+	if majorVersion != nil {
+		err := checkMajorVersion(m.GVK, *majorVersion, annotations)
 		if err != nil {
 			return err
 		}
@@ -480,4 +547,12 @@ func addIfNotDuplicateResource(manifest Manifest, resourceIds map[resourceId]boo
 		return nil
 	}
 	return fmt.Errorf("duplicate resource: (%s)", manifest.id)
+}
+
+func isFeatureGate(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "config.openshift.io" && gvk.Kind == "FeatureGate"
+}
+
+func isCustomResource(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "apiextensions.k8s.io" && gvk.Kind == "CustomResourceDefinition"
 }
