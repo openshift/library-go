@@ -380,7 +380,9 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			_, _, err = resourceapply.ApplyPod(ctx, c.podGetter, syncCtx.Recorder(), pod)
 			if err != nil {
 				klog.Errorf("Unable to apply pod %v changes: %v", pod.Name, err)
-				errs = append(errs, fmt.Errorf("Unable to apply pod %v changes: %v", pod.Name, err))
+				if !apierrors.IsConflict(err) {
+					errs = append(errs, fmt.Errorf("Unable to apply pod %v changes: %v", pod.Name, err))
+				}
 			}
 		}
 	}
