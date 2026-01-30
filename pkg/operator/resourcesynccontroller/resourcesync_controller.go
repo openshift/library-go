@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"net/http"
 	"sort"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
@@ -226,7 +226,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 		}
 
 		_, _, err := resourceapply.SyncPartialConfigMap(ctx, c.configMapGetter, syncCtx.Recorder(), source.Namespace, source.Name, destination.Namespace, destination.Name, source.syncedKeys, []metav1.OwnerReference{})
-		if err != nil {
+		if err != nil && !apierrors.IsConflict(err) {
 			errors = append(errors, errorWithProvider(source.Provider, err))
 		}
 	}
@@ -254,7 +254,7 @@ func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncC
 		}
 
 		_, _, err := resourceapply.SyncPartialSecret(ctx, c.secretGetter, syncCtx.Recorder(), source.Namespace, source.Name, destination.Namespace, destination.Name, source.syncedKeys, []metav1.OwnerReference{})
-		if err != nil {
+		if err != nil && !apierrors.IsConflict(err) {
 			errors = append(errors, errorWithProvider(source.Provider, err))
 		}
 	}
