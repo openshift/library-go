@@ -46,10 +46,20 @@ spec:
 
               TOKEN_LABEL=$(jq -r '.TokenLabel' /etc/softhsm-config.json)
               PIN=$(jq -r '.Pin' /etc/softhsm-config.json)
-              MODULE_PATH=$(jq -r '.Path' /etc/softhsm-config.json)
 
               softhsm2-util --init-token --free --label $TOKEN_LABEL --pin $PIN --so-pin $PIN
-              pkcs11-tool --module $MODULE_PATH --keygen --key-type aes:32 --pin $PIN --token-label $TOKEN_LABEL --label kms-test
+
+              # Use a well-known key for testing (32-byte AES-256)
+              # Allows all instances (HA) to use the same key
+              KEY_B64="AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="
+              echo "$KEY_B64" | base64 -d > /var/lib/softhsm/tokens/key-1.bin
+
+              softhsm2-util --import /var/lib/softhsm/tokens/key-1.bin \
+                --aes \
+                --token "$TOKEN_LABEL" \
+                --label "$TOKEN_LABEL" \
+                --pin "$PIN" \
+                --id 01
           volumeMounts:
             - mountPath: /var/lib/softhsm/tokens
               name: softhsm-tokens
