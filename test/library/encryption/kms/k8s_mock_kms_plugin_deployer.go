@@ -29,6 +29,9 @@ const (
 
 	// WellKnownUpstreamMockKMSPluginImage is the pre-built mock KMS plugin image.
 	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:998e1d48eba257f589ab86c30abd5043f662213e9aeff253e1c308301879d48a"
+
+	// defaultPollTimeout the default poll timeout used by the deployer
+	defaultPollTimeout = 2 * time.Minute
 )
 
 var manifestFilesToApplyDirectly = []string{
@@ -117,7 +120,7 @@ func waitForDaemonSetReady(ctx context.Context, t testing.TB, kubeClient kuberne
 
 	t.Logf("Waiting for DaemonSet %s/%s to be ready...", namespace, daemonSetName)
 
-	return wait.PollUntilContextTimeout(ctx, time.Second, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, defaultPollTimeout, true, func(ctx context.Context) (bool, error) {
 		ds, err := kubeClient.AppsV1().DaemonSets(namespace).Get(ctx, daemonSetName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -146,7 +149,7 @@ func destroyNamespaceIfNotExists(ctx context.Context, t testing.TB, kubeClient k
 		return err
 	}
 
-	return wait.PollUntilContextTimeout(ctx, time.Second, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, defaultPollTimeout, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			t.Logf("Namespace %q deleted", namespace)
