@@ -129,6 +129,10 @@ func waitForDaemonSetReady(ctx context.Context, t testing.TB, kubeClient kuberne
 		t.Logf("DaemonSet %s/%s status: desired=%d, ready=%d, available=%d",
 			namespace, daemonSetName, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady, ds.Status.NumberAvailable)
 
+		// for simplicity just ensure at least one pod is scheduled before checking readiness
+		if ds.Status.DesiredNumberScheduled == 0 {
+			return false, nil
+		}
 		return ds.Status.NumberReady == ds.Status.DesiredNumberScheduled, nil
 	})
 }
