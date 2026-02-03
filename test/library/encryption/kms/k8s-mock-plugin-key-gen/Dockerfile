@@ -6,15 +6,15 @@ WORKDIR /var/lib/softhsm/tokens
 
 COPY <<EOF /entrypoint.sh
 #!/bin/sh
-set -e
+set -euo pipefail
 CONFIG=\$(yq -r '.data."softhsm-config.json"' /configmap.yaml)
 TOKEN_LABEL=\$(echo "\$CONFIG" | jq -r '.TokenLabel')
 PIN=\$(echo "\$CONFIG" | jq -r '.Pin')
 MODULE_PATH=\$(echo "\$CONFIG" | jq -r '.Path')
-softhsm2-util --init-token --free --label "\$TOKEN_LABEL" --pin "\$PIN" --so-pin "\$PIN" >&2
-pkcs11-tool --module "\$MODULE_PATH" --keygen --key-type aes:32 --token-label "\$TOKEN_LABEL" --label kms-test --pin "\$PIN" >&2
-echo "" >&2
-echo "=== Copy below to softhsm-tokens.tar.gz.b64 in ../assets/k8s_mock_kms_plugin_configmap.yaml ===" >&2
+softhsm2-util --init-token --free --label "\$TOKEN_LABEL" --pin "\$PIN" --so-pin "\$PIN"
+pkcs11-tool --module "\$MODULE_PATH" --keygen --key-type aes:32 --token-label "\$TOKEN_LABEL" --label kms-test --pin "\$PIN"
+echo ""
+echo "=== Copy below to softhsm-tokens.tar.gz.b64 in ../assets/k8s_mock_kms_plugin_configmap.yaml ==="
 tar czf - . | base64
 EOF
 
