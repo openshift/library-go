@@ -38,7 +38,7 @@ type VersionGetter interface {
 
 type RelatedObjectsFunc func() (isset bool, objs []configv1.ObjectReference)
 
-type ClusterOperatorStatusHook func(original *configv1.ClusterOperatorStatus, modified *configv1.ClusterOperatorStatus) error
+type ClusterOperatorStatusHook func(original *configv1.ClusterOperator, mutated *configv1.ClusterOperator) error
 
 type StatusSyncer struct {
 	clusterOperatorName string
@@ -234,7 +234,7 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 	c.syncStatusVersions(clusterOperatorObj, syncCtx)
 
 	if hook := c.beforeStatusUpdateHook; hook != nil {
-		if err := hook(&originalClusterOperatorObj.Status, &clusterOperatorObj.Status); err != nil {
+		if err := hook(originalClusterOperatorObj, clusterOperatorObj); err != nil {
 			return err
 		}
 	}
