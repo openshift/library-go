@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
 	"text/template"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -70,8 +74,60 @@ func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient k
 	t.Logf("Upstream mock KMS v2 plugin deployed successfully!")
 
 	return func() {
+		// Before destroying the namespace, collect the logs of the pods in namespace
+		collectPodLogs(ctx, t, kubeClient, namespace)
+
 		if err := destroyNamespaceIfNotExists(ctx, t, kubeClient, namespace); err != nil {
 			t.Errorf("Failed to cleanup namespace %q: %v", namespace, err)
+		}
+	}
+}
+
+// collectPodLogs collects logs from all pods in the namespace and writes them to ARTIFACT_DIR.
+func collectPodLogs(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace string) {
+	t.Helper()
+
+	artifactDir := os.Getenv("ARTIFACT_DIR")
+	if artifactDir == "" {
+		t.Log("artifact directory not set. Skipping collection of pod logs...")
+		return
+	}
+
+	pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		t.Logf("Failed to list pods: %v", err)
+		return
+	}
+	if len(pods.Items) == 0 {
+		t.Logf("No pods found in %s", namespace)
+		return
+	}
+
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			func() {
+				logFileName := filepath.Join(artifactDir, fmt.Sprintf("%s_%s_%s_%s.log", namespace, t.Name(), pod.Name, container.Name))
+
+				logOpts := &corev1.PodLogOptions{Container: container.Name}
+				logs, err := kubeClient.CoreV1().Pods(namespace).GetLogs(pod.Name, logOpts).Stream(ctx)
+				if err != nil {
+					t.Logf("Pod %s logs can not be captured err: %v", pod.Name, err)
+					return
+				}
+				defer logs.Close()
+
+				logFile, err := os.Create(logFileName)
+				if err != nil {
+					t.Logf("creating log file %s failed: %v", logFileName, err)
+					return
+				}
+				defer logFile.Close()
+
+				_, err = io.Copy(logFile, logs)
+				if err != nil {
+					t.Logf("failed to copying logs: %v", err)
+				}
+			}()
 		}
 	}
 }
