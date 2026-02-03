@@ -41,7 +41,8 @@ spec:
               mkdir -p /var/lib/softhsm/tokens
               cd /var/lib/softhsm/tokens
 
-              # extract token from configmap
+              # extract tokens from the configmap
+              # see ../k8s-mock-plugin-key-gen/README.md for details.
               cat /etc/softhsm-tokens.tar.gz.b64 | base64 -d | tar xzf -
           volumeMounts:
             - mountPath: /var/lib/softhsm/tokens

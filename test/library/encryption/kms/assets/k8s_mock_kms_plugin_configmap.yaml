@@ -11,6 +11,7 @@ data:
       "Pin": "1234"
     }
   # pre-generated SoftHSM token with AES-256 key.
+  # run ../k8s-mock-plugin-key-gen/generate.sh to regenerate.
   softhsm-tokens.tar.gz.b64: |
    H4sIAAAAAAAAA9PTZ6A5MDAwMDQ3NwfRIIBOg9mGpoYmQFVmpsZmQHFzcyMzBgVT2juNgaG0uCSx
    SEGBoSg/vwSfOkLyQxTo6SclWSalGaYk6SanJVvqmhmaGemaGxumAlkG5gbmJmZmhpaplCUSUASb
