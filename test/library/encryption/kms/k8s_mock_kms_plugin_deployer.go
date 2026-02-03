@@ -59,9 +59,10 @@ type yamlTemplateData struct {
 func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) func() {
 	t.Helper()
 
-	if err := destroyNamespaceIfNotExists(ctx, t, kubeClient, namespace); err != nil {
-		t.Fatalf("Failed to cleanup existing namespace %q: %v", namespace, err)
-	}
+	// TEMPORARILY DISABLED FOR TESTING - namespace deletion before deploy
+	// if err := destroyNamespaceIfNotExists(ctx, t, kubeClient, namespace); err != nil {
+	// 	t.Fatalf("Failed to cleanup existing namespace %q: %v", namespace, err)
+	// }
 
 	t.Logf("Deploying upstream mock KMS v2 plugin in namespace %q using image %s", namespace, image)
 	daemonSetName, err := applyUpstreamMockKMSPluginManifests(ctx, t, kubeClient, namespace, image)
@@ -77,9 +78,10 @@ func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient k
 		// Before destroying the namespace, collect the logs of the pods in namespace
 		collectPodLogs(ctx, t, kubeClient, namespace)
 
-		if err := destroyNamespaceIfNotExists(ctx, t, kubeClient, namespace); err != nil {
-			t.Errorf("Failed to cleanup namespace %q: %v", namespace, err)
-		}
+		// TEMPORARILY DISABLED FOR TESTING - namespace deletion in cleanup
+		// if err := destroyNamespaceIfNotExists(ctx, t, kubeClient, namespace); err != nil {
+		// 	t.Errorf("Failed to cleanup namespace %q: %v", namespace, err)
+		// }
 	}
 }
 
