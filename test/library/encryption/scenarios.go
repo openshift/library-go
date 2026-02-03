@@ -50,12 +50,21 @@ func TestEncryptionTypeAESGCM(t *testing.T, scenario BasicScenario) {
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
+func TestEncryptionTypeKMS(t *testing.T, scenario BasicScenario) {
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeKMS, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeKMS, scenario.Namespace, scenario.LabelSelector)
+	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
+}
+
 func TestEncryptionType(t *testing.T, scenario BasicScenario, provider configv1.EncryptionType) {
 	switch provider {
 	case configv1.EncryptionTypeAESCBC:
 		TestEncryptionTypeAESCBC(t, scenario)
 	case configv1.EncryptionTypeAESGCM:
 		TestEncryptionTypeAESGCM(t, scenario)
+	case configv1.EncryptionTypeKMS:
+		TestEncryptionTypeKMS(t, scenario)
 	case configv1.EncryptionTypeIdentity, "":
 		TestEncryptionTypeIdentity(t, scenario)
 	default:
