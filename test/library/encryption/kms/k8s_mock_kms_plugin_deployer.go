@@ -105,30 +105,45 @@ func collectPodLogs(ctx context.Context, t testing.TB, kubeClient kubernetes.Int
 
 	for _, pod := range pods.Items {
 		for _, container := range pod.Spec.Containers {
-			func() {
-				logFileName := filepath.Join(artifactDir, fmt.Sprintf("%s_%s_%s_%s.log", namespace, t.Name(), pod.Name, container.Name))
-
-				logOpts := &corev1.PodLogOptions{Container: container.Name}
-				logs, err := kubeClient.CoreV1().Pods(namespace).GetLogs(pod.Name, logOpts).Stream(ctx)
-				if err != nil {
-					t.Logf("Pod %s logs can not be captured err: %v", pod.Name, err)
-					return
-				}
-				defer logs.Close()
-
-				logFile, err := os.Create(logFileName)
-				if err != nil {
-					t.Logf("creating log file %s failed: %v", logFileName, err)
-					return
-				}
-				defer logFile.Close()
-
-				_, err = io.Copy(logFile, logs)
-				if err != nil {
-					t.Logf("failed to copying logs: %v", err)
-				}
-			}()
+			collectContainerLogs(ctx, t, kubeClient, artifactDir, false, namespace, pod.Name, container.Name)
+			collectContainerLogs(ctx, t, kubeClient, artifactDir, true, namespace, pod.Name, container.Name)
 		}
+		for _, container := range pod.Spec.InitContainers {
+			collectContainerLogs(ctx, t, kubeClient, artifactDir, false, namespace, pod.Name, container.Name)
+			collectContainerLogs(ctx, t, kubeClient, artifactDir, true, namespace, pod.Name, container.Name)
+		}
+	}
+}
+
+func collectContainerLogs(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, artifactDir string, previous bool, namespace, podName, containerName string) {
+	t.Helper()
+
+	logFileName := filepath.Join(artifactDir, fmt.Sprintf("%s_%s_%s_%s.log", t.Name(), namespace, podName, containerName))
+	if previous {
+		logFileName = filepath.Join(artifactDir, fmt.Sprintf("%s_%s_%s_%s_previous.log", t.Name(), namespace, podName, containerName))
+	}
+
+	logOpts := &corev1.PodLogOptions{Container: containerName, Previous: previous}
+	logs, err := kubeClient.CoreV1().Pods(namespace).GetLogs(podName, logOpts).Stream(ctx)
+	if err != nil {
+		t.Logf("Pod %s logs can not be captured err: %v", podName, err)
+		return
+	}
+	defer logs.Close()
+
+	logFile, err := os.Create(logFileName)
+	if err != nil {
+		t.Logf("creating log file %s failed: %v", logFileName, err)
+		return
+	}
+	defer logFile.Close()
+
+	written, err := io.Copy(logFile, logs)
+	if err != nil {
+		t.Logf("failed to copying logs: %v", err)
+	}
+	if written == 0 {
+		t.Logf("log file for %s is empty (0 bytes copied)", logFileName)
 	}
 }
 
