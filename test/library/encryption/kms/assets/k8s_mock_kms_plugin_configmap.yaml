@@ -10,3 +10,18 @@ data:
       "TokenLabel": "kms-test",
       "Pin": "1234"
     }
+  # pre-generated SoftHSM token with AES-256 key.
+  softhsm-tokens.tar.gz.b64: |
+   H4sIAAAAAAAAA9PTZ6A5MDAwMDQ3NwfRIIBOg9mGpoYmQFVmpsZmQHFzcyMzBgVT2juNgaG0uCSx
+   SEGBoSg/vwSfOkLyQxTo6SclWSalGaYk6SanJVvqmhmaGemaGxumAlkG5gbmJmZmhpaplCUSUASb
+   Y8Y77vg3NDExH41/ugAi4z89NS+1KLEkMz+PDDtAEWyGL/4N0ePfzNTElEHBgOq+xQJGePxDAdNA
+   O2AUDAwgMv8D62+jNEsjS91EQ8tkXVOTlFRdy9REE13TxCQjU2PjRBMjixS9nPzkbGx2EMz/6OW/
+   kZGhseFo/qcHoGb85ydlpSZjCSQC8W9oZGqGHv8mZqPlPz2BMhofVh+wQGlGGP0fTQFMgoEZjebI
+   zi3WLUkthgWaIJq8wtmYw16NO3743+n8IbrBQ654o8P1RS3cTE2rvqxes3f2681QdW3oFk1At9A9
+   /CyaEpjj5KHiTGhaYEbC+HDfwb0L9SYjK7oAG7oAO7oAB7oAF7oAD7q1Ajjchx5mMPFEKAPmLwWo
+   eBK6wcnoVqegC6Sia0lDNVugASpegK6zEF2gCE2ACeYtiNkODEww/8CCGSYuhF0cFtYMrAyjgEaA
+   yPK/JD87NQ9nBU8AkFz/G5qZmBmMlv/0ACTFP64KngAgFP+mGPFvbmBgPBr/dATgOqqBIdgTyofX
+   0rBaXAEHgOrzQtMnAEpCyCkIqs4bKg+tXVh0oeI+aPo9hLuLzFeazTs0z0uff0K8jyJbufak7QIT
+   v1jacNd/lLvW0Bink9F64W7jVjf1Y/o3JrhXvTgRdIo7qjH6Q94aa7Wis/x+aYIib+56Qc33RTd/
+   mrLoLKtVa1bK/Mt6/MqI48T9mDkzbzYfleKNm8ytfO3yvnVnmdZzNTxQ5330z2/9zpt+B+dP+bn+
+   UWq1aNfvZvMIhu2djYvqNbukYbXlKBgFo2AUDDkAAM1LQHIAGgAA
