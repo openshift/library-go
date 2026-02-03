@@ -38,6 +38,8 @@ type VersionGetter interface {
 
 type RelatedObjectsFunc func() (isset bool, objs []configv1.ObjectReference)
 
+type ClusterOperatorStatusHook func(c *configv1.ClusterOperatorStatus) error
+
 type StatusSyncer struct {
 	clusterOperatorName string
 	relatedObjects      []configv1.ObjectReference
@@ -54,6 +56,8 @@ type StatusSyncer struct {
 	degradedInertia   Inertia
 
 	removeUnusedVersions bool
+
+	beforeStatusUpdateHook ClusterOperatorStatusHook
 }
 
 var _ factory.Controller = &StatusSyncer{}
@@ -102,6 +106,12 @@ func NewClusterOperatorStatusController(
 // will always be included in the result.
 func (c *StatusSyncer) WithRelatedObjectsFunc(f RelatedObjectsFunc) {
 	c.relatedObjectsFunc = f
+}
+
+func (c *StatusSyncer) WithBeforeStatusUpdateHook(hook ClusterOperatorStatusHook) *StatusSyncer {
+	output := *c
+	output.beforeStatusUpdateHook = hook
+	return &output
 }
 
 func (c *StatusSyncer) Run(ctx context.Context, workers int) {
@@ -222,6 +232,12 @@ func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) err
 	configv1helpers.SetStatusCondition(&clusterOperatorObj.Status.Conditions, UnionClusterCondition(configv1.EvaluationConditionsDetected, operatorv1.ConditionFalse, nil, currentDetailedStatus.Conditions...), c.clock)
 
 	c.syncStatusVersions(clusterOperatorObj, syncCtx)
+
+	if hook := c.beforeStatusUpdateHook; hook != nil {
+		if err := hook(&clusterOperatorObj.Status); err != nil {
+			return err
+		}
+	}
 
 	// if we have no diff, just return
 	if equality.Semantic.DeepEqual(clusterOperatorObj, originalClusterOperatorObj) {
