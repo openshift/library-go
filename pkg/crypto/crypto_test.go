@@ -2,6 +2,9 @@ package crypto
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -571,5 +574,396 @@ func TestTLSProfileCipherSuitesHaveMappings(t *testing.T) {
 		sort.Strings(missingMappings)
 		t.Errorf("The following cipher suites from TLS profiles are missing mappings in openSSLToIANACiphersMap:\n%s",
 			strings.Join(missingMappings, "\n"))
+	}
+}
+
+// TestECDSAKeyGeneration tests basic ECDSA key pair generation
+func TestECDSAKeyGeneration(t *testing.T) {
+	publicKey, privateKey, err := newECDSAKeyPair()
+	require.NoError(t, err, "ECDSA key generation should succeed")
+	require.NotNil(t, publicKey, "public key should not be nil")
+	require.NotNil(t, privateKey, "private key should not be nil")
+
+	// Verify key type
+	require.IsType(t, &ecdsa.PublicKey{}, publicKey, "public key should be ECDSA")
+	require.IsType(t, &ecdsa.PrivateKey{}, privateKey, "private key should be ECDSA")
+
+	// Verify curve is P-256
+	require.Equal(t, elliptic.P256(), publicKey.Curve, "should use P-256 curve")
+	require.Equal(t, elliptic.P256(), privateKey.Curve, "should use P-256 curve")
+
+	// Verify public key matches private key
+	require.True(t, publicKey.X.Cmp(privateKey.PublicKey.X) == 0, "public key X should match")
+	require.True(t, publicKey.Y.Cmp(privateKey.PublicKey.Y) == 0, "public key Y should match")
+}
+
+// TestECDSAKeyPairWithHash tests ECDSA key generation with hash computation
+func TestECDSAKeyPairWithHash(t *testing.T) {
+	publicKey, privateKey, hash, err := newECDSAKeyPairWithHash()
+	require.NoError(t, err, "ECDSA key generation with hash should succeed")
+	require.NotNil(t, publicKey, "public key should not be nil")
+	require.NotNil(t, privateKey, "private key should not be nil")
+	require.NotNil(t, hash, "hash should not be nil")
+
+	// Verify hash is SHA-1 length (20 bytes), matching RSA convention and RFC 5280
+	require.Equal(t, 20, len(hash), "hash should be SHA-1 (20 bytes)")
+
+	// Different keys should produce different hashes
+	_, _, hash2, err := newECDSAKeyPairWithHash()
+	require.NoError(t, err)
+	require.NotEqual(t, hash, hash2, "different keys should produce different hashes")
+}
+
+// TestSignatureAlgorithmForKey tests signature algorithm detection
+func TestSignatureAlgorithmForKey(t *testing.T) {
+	tests := []struct {
+		name           string
+		keyGen         func() any
+		expectedSigAlg x509.SignatureAlgorithm
+	}{
+		{
+			name: "RSA key",
+			keyGen: func() any {
+				_, privateKey, _ := newRSAKeyPair()
+				return privateKey
+			},
+			expectedSigAlg: x509.SHA256WithRSA,
+		},
+		{
+			name: "ECDSA key",
+			keyGen: func() any {
+				_, privateKey, _ := newECDSAKeyPair()
+				return privateKey
+			},
+			expectedSigAlg: x509.ECDSAWithSHA256,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := tt.keyGen()
+			sigAlg := signatureAlgorithmForKey(key)
+			require.Equal(t, tt.expectedSigAlg, sigAlg, "signature algorithm should match key type")
+		})
+	}
+}
+
+// TestServerCertWithECDSA tests ECDSA server certificate generation
+func TestServerCertWithECDSA(t *testing.T) {
+	// Create RSA CA (existing pattern)
+	caPublicKey, caPrivateKey, caPublicKeyHash, err := newKeyPairWithHash()
+	require.NoError(t, err)
+
+	caTemplate := newSigningCertificateTemplate(pkix.Name{CommonName: "test-ca"}, DefaultCACertificateLifetimeDuration, time.Now)
+	caTemplate.SubjectKeyId = caPublicKeyHash
+	caTemplate.AuthorityKeyId = caPublicKeyHash
+	caTemplate.SignatureAlgorithm = x509.SHA256WithRSA
+	caCert, err := signCertificate(caTemplate, caPublicKey, caTemplate, caPrivateKey)
+	require.NoError(t, err)
+
+	ca := &CA{
+		Config: &TLSCertificateConfig{
+			Certs: []*x509.Certificate{caCert},
+			Key:   caPrivateKey,
+		},
+		SerialGenerator: &RandomSerialGenerator{},
+	}
+
+	// Test ECDSA server certificate generation
+	hostnames := sets.New("test.example.com", "localhost")
+	serverCert, err := ca.MakeServerCertWithAlgorithm(hostnames, time.Hour*24*365, AlgorithmECDSA)
+	require.NoError(t, err, "ECDSA server cert generation should succeed")
+	require.NotNil(t, serverCert, "server cert should not be nil")
+
+	// Verify the certificate uses ECDSA key
+	require.IsType(t, &ecdsa.PrivateKey{}, serverCert.Key, "server cert should use ECDSA key")
+
+	// Verify signature algorithm matches CA (RSA CA signs with RSA)
+	require.Equal(t, x509.SHA256WithRSA, serverCert.Certs[0].SignatureAlgorithm, "cert signature should match CA's key type")
+
+	// Verify public key type
+	pubKey, ok := serverCert.Certs[0].PublicKey.(*ecdsa.PublicKey)
+	require.True(t, ok, "certificate public key should be ECDSA")
+	require.Equal(t, elliptic.P256(), pubKey.Curve, "should use P-256 curve")
+
+	// Verify hostnames are present
+	require.Contains(t, serverCert.Certs[0].DNSNames, "test.example.com", "should contain hostname")
+	require.Contains(t, serverCert.Certs[0].DNSNames, "localhost", "should contain hostname")
+}
+
+// TestServerCertWithRSA tests that RSA still works (backwards compatibility)
+func TestServerCertWithRSA(t *testing.T) {
+	// Create RSA CA
+	caPublicKey, caPrivateKey, caPublicKeyHash, err := newKeyPairWithHash()
+	require.NoError(t, err)
+
+	caTemplate := newSigningCertificateTemplate(pkix.Name{CommonName: "test-ca"}, DefaultCACertificateLifetimeDuration, time.Now)
+	caTemplate.SubjectKeyId = caPublicKeyHash
+	caTemplate.AuthorityKeyId = caPublicKeyHash
+	caTemplate.SignatureAlgorithm = x509.SHA256WithRSA
+	caCert, err := signCertificate(caTemplate, caPublicKey, caTemplate, caPrivateKey)
+	require.NoError(t, err)
+
+	ca := &CA{
+		Config: &TLSCertificateConfig{
+			Certs: []*x509.Certificate{caCert},
+			Key:   caPrivateKey,
+		},
+		SerialGenerator: &RandomSerialGenerator{},
+	}
+
+	// Test RSA server certificate generation
+	hostnames := sets.New("test.example.com")
+	serverCert, err := ca.MakeServerCertWithAlgorithm(hostnames, time.Hour*24*365, AlgorithmRSA)
+	require.NoError(t, err, "RSA server cert generation should succeed")
+	require.NotNil(t, serverCert, "server cert should not be nil")
+
+	// Verify the certificate uses RSA
+	require.IsType(t, &rsa.PrivateKey{}, serverCert.Key, "server cert should use RSA key")
+
+	// Verify signature algorithm
+	require.Equal(t, x509.SHA256WithRSA, serverCert.Certs[0].SignatureAlgorithm, "cert should use SHA256WithRSA")
+}
+
+// TestMixedCAAndServerAlgorithms tests RSA CA signing ECDSA cert and vice versa
+func TestMixedCAAndServerAlgorithms(t *testing.T) {
+	tests := []struct {
+		name            string
+		caAlgorithm     KeyAlgorithm
+		serverAlgorithm KeyAlgorithm
+	}{
+		{
+			name:            "RSA CA with ECDSA server",
+			caAlgorithm:     AlgorithmRSA,
+			serverAlgorithm: AlgorithmECDSA,
+		},
+		{
+			name:            "ECDSA CA with RSA server",
+			caAlgorithm:     AlgorithmECDSA,
+			serverAlgorithm: AlgorithmRSA,
+		},
+		{
+			name:            "ECDSA CA with ECDSA server",
+			caAlgorithm:     AlgorithmECDSA,
+			serverAlgorithm: AlgorithmECDSA,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Generate CA with specified algorithm
+			caPublicKey, caPrivateKey, caPublicKeyHash, err := newKeyPairWithAlgorithm(tt.caAlgorithm)
+			require.NoError(t, err)
+
+			caTemplate := newSigningCertificateTemplate(pkix.Name{CommonName: "test-ca"}, DefaultCACertificateLifetimeDuration, time.Now)
+			caTemplate.SubjectKeyId = caPublicKeyHash
+			caTemplate.AuthorityKeyId = caPublicKeyHash
+			caTemplate.SignatureAlgorithm = signatureAlgorithmForKey(caPrivateKey)
+			caCert, err := signCertificate(caTemplate, caPublicKey, caTemplate, caPrivateKey)
+			require.NoError(t, err)
+
+			ca := &CA{
+				Config: &TLSCertificateConfig{
+					Certs: []*x509.Certificate{caCert},
+					Key:   caPrivateKey,
+				},
+				SerialGenerator: &RandomSerialGenerator{},
+			}
+
+			// Generate server cert with specified algorithm
+			hostnames := sets.New("test.example.com")
+			serverCert, err := ca.MakeServerCertWithAlgorithm(hostnames, time.Hour*24*365, tt.serverAlgorithm)
+			require.NoError(t, err, "server cert generation should succeed")
+			require.NotNil(t, serverCert, "server cert should not be nil")
+
+			// Verify certificate chain
+			require.Equal(t, 2, len(serverCert.Certs), "should have server cert + CA cert")
+
+			// The server cert's signature algorithm should match the CA's key type
+			expectedServerSigAlg := signatureAlgorithmForKey(caPrivateKey)
+			require.Equal(t, expectedServerSigAlg, serverCert.Certs[0].SignatureAlgorithm)
+		})
+	}
+}
+
+// TestECDSACertificateEncoding tests that ECDSA certificates can be PEM encoded
+func TestECDSACertificateEncoding(t *testing.T) {
+	// Generate ECDSA key pair
+	_, privateKey, err := newECDSAKeyPair()
+	require.NoError(t, err)
+
+	// Test encoding (should use existing EncodeKey function)
+	pemBytes, err := EncodeKey(privateKey)
+	require.NoError(t, err, "encoding ECDSA key should succeed")
+	require.NotNil(t, pemBytes, "PEM bytes should not be nil")
+	require.Contains(t, string(pemBytes), "BEGIN EC PRIVATE KEY", "should contain EC PRIVATE KEY header")
+}
+
+// TestNewKeyPairWithAlgorithm tests the algorithm selection function
+func TestNewKeyPairWithAlgorithm(t *testing.T) {
+	tests := []struct {
+		name         string
+		algorithm    KeyAlgorithm
+		expectedType any
+	}{
+		{
+			name:         "RSA algorithm",
+			algorithm:    AlgorithmRSA,
+			expectedType: &rsa.PrivateKey{},
+		},
+		{
+			name:         "ECDSA algorithm",
+			algorithm:    AlgorithmECDSA,
+			expectedType: &ecdsa.PrivateKey{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			publicKey, privateKey, hash, err := newKeyPairWithAlgorithm(tt.algorithm)
+			require.NoError(t, err, "key generation should succeed")
+			require.NotNil(t, publicKey, "public key should not be nil")
+			require.NotNil(t, privateKey, "private key should not be nil")
+			require.NotNil(t, hash, "hash should not be nil")
+
+			// Verify key type
+			require.IsType(t, tt.expectedType, privateKey, "private key type should match")
+		})
+	}
+
+	t.Run("unsupported algorithm", func(t *testing.T) {
+		_, _, _, err := newKeyPairWithAlgorithm(KeyAlgorithm(99))
+		require.Error(t, err, "unsupported algorithm should return an error")
+		require.Contains(t, err.Error(), "unsupported key algorithm")
+	})
+}
+
+// TestServerCertForDurationWithAlgorithm tests the ForDuration+WithAlgorithm path
+// used in production (certrotation/target.go)
+func TestServerCertForDurationWithAlgorithm(t *testing.T) {
+	caConfig, err := MakeSelfSignedCAConfigForDuration("test-ca", DefaultCACertificateLifetimeDuration)
+	require.NoError(t, err)
+
+	ca := &CA{
+		Config:          caConfig,
+		SerialGenerator: &RandomSerialGenerator{},
+	}
+
+	hostnames := sets.New("test.example.com", "localhost")
+
+	t.Run("ECDSA leaf from RSA CA", func(t *testing.T) {
+		serverCert, err := ca.MakeServerCertForDurationWithAlgorithm(hostnames, time.Hour*24*365, AlgorithmECDSA)
+		require.NoError(t, err)
+		require.IsType(t, &ecdsa.PrivateKey{}, serverCert.Key)
+		require.Equal(t, x509.SHA256WithRSA, serverCert.Certs[0].SignatureAlgorithm,
+			"cert signed by RSA CA should use SHA256WithRSA")
+		require.Contains(t, serverCert.Certs[0].DNSNames, "test.example.com")
+	})
+
+	t.Run("RSA leaf from RSA CA", func(t *testing.T) {
+		serverCert, err := ca.MakeServerCertForDurationWithAlgorithm(hostnames, time.Hour*24*365, AlgorithmRSA)
+		require.NoError(t, err)
+		require.IsType(t, &rsa.PrivateKey{}, serverCert.Key)
+		require.Equal(t, x509.SHA256WithRSA, serverCert.Certs[0].SignatureAlgorithm)
+	})
+}
+
+// TestMakeSelfSignedCAConfigForDurationWithAlgorithm tests ECDSA CA creation
+func TestMakeSelfSignedCAConfigForDurationWithAlgorithm(t *testing.T) {
+	tests := []struct {
+		name           string
+		algorithm      KeyAlgorithm
+		expectedKeyTyp any
+		expectedSigAlg x509.SignatureAlgorithm
+	}{
+		{
+			name:           "RSA CA",
+			algorithm:      AlgorithmRSA,
+			expectedKeyTyp: &rsa.PrivateKey{},
+			expectedSigAlg: x509.SHA256WithRSA,
+		},
+		{
+			name:           "ECDSA CA",
+			algorithm:      AlgorithmECDSA,
+			expectedKeyTyp: &ecdsa.PrivateKey{},
+			expectedSigAlg: x509.ECDSAWithSHA256,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			caConfig, err := MakeSelfSignedCAConfigForDurationWithAlgorithm("test-ca", DefaultCACertificateLifetimeDuration, tt.algorithm)
+			require.NoError(t, err)
+			require.NotNil(t, caConfig)
+			require.Len(t, caConfig.Certs, 1)
+			require.IsType(t, tt.expectedKeyTyp, caConfig.Key)
+
+			caCert := caConfig.Certs[0]
+			require.True(t, caCert.IsCA, "certificate should be a CA")
+			require.Equal(t, "test-ca", caCert.Subject.CommonName)
+			require.Equal(t, tt.expectedSigAlg, caCert.SignatureAlgorithm)
+			require.Equal(t, caCert.SubjectKeyId, caCert.AuthorityKeyId,
+				"self-signed CA should have matching SubjectKeyId and AuthorityKeyId")
+		})
+	}
+}
+
+// TestMakeCAConfigForDurationWithAlgorithm tests ECDSA intermediate CA creation
+func TestMakeCAConfigForDurationWithAlgorithm(t *testing.T) {
+	tests := []struct {
+		name             string
+		rootAlgorithm    KeyAlgorithm
+		intermediateAlgo KeyAlgorithm
+		expectedKeyTyp   any
+		expectedRootSig  x509.SignatureAlgorithm
+	}{
+		{
+			name:             "RSA root, ECDSA intermediate",
+			rootAlgorithm:    AlgorithmRSA,
+			intermediateAlgo: AlgorithmECDSA,
+			expectedKeyTyp:   &ecdsa.PrivateKey{},
+			expectedRootSig:  x509.SHA256WithRSA,
+		},
+		{
+			name:             "ECDSA root, RSA intermediate",
+			rootAlgorithm:    AlgorithmECDSA,
+			intermediateAlgo: AlgorithmRSA,
+			expectedKeyTyp:   &rsa.PrivateKey{},
+			expectedRootSig:  x509.ECDSAWithSHA256,
+		},
+		{
+			name:             "ECDSA root, ECDSA intermediate",
+			rootAlgorithm:    AlgorithmECDSA,
+			intermediateAlgo: AlgorithmECDSA,
+			expectedKeyTyp:   &ecdsa.PrivateKey{},
+			expectedRootSig:  x509.ECDSAWithSHA256,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rootConfig, err := MakeSelfSignedCAConfigForDurationWithAlgorithm("root-ca", DefaultCACertificateLifetimeDuration, tt.rootAlgorithm)
+			require.NoError(t, err)
+
+			rootCA := &CA{
+				Config:          rootConfig,
+				SerialGenerator: &RandomSerialGenerator{},
+			}
+
+			intConfig, err := MakeCAConfigForDurationWithAlgorithm("intermediate-ca", DefaultCACertificateLifetimeDuration, rootCA, tt.intermediateAlgo)
+			require.NoError(t, err)
+			require.NotNil(t, intConfig)
+			require.IsType(t, tt.expectedKeyTyp, intConfig.Key)
+
+			// Intermediate cert bundle should contain intermediate + root
+			require.Len(t, intConfig.Certs, 2)
+			intCert := intConfig.Certs[0]
+			require.True(t, intCert.IsCA, "intermediate should be a CA")
+			require.Equal(t, "intermediate-ca", intCert.Subject.CommonName)
+			require.Equal(t, tt.expectedRootSig, intCert.SignatureAlgorithm,
+				"intermediate cert signature should match root CA key type")
+			require.Equal(t, rootConfig.Certs[0].SubjectKeyId, intCert.AuthorityKeyId,
+				"intermediate AuthorityKeyId should match root SubjectKeyId")
+		})
 	}
 }
