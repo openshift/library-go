@@ -2,6 +2,7 @@ package encryption
 
 import (
 	"fmt"
+	mathrand "math/rand/v2"
 	"strings"
 	"testing"
 
@@ -82,11 +83,13 @@ type OnOffScenario struct {
 	EncryptionProvider             configv1.EncryptionType
 }
 
+type testStep struct {
+	name     string
+	testFunc func(*testing.T)
+}
+
 func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
-	scenarios := []struct {
-		name     string
-		testFunc func(*testing.T)
-	}{
+	scenarios := []testStep{
 		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t *testing.T) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
@@ -112,6 +115,91 @@ func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
 	}
+
+	// run scenarios
+	for _, testScenario := range scenarios {
+		t.Run(testScenario.name, testScenario.testFunc)
+		if t.Failed() {
+			t.Errorf("stopping the test as %q scenario failed", testScenario.name)
+			return
+		}
+	}
+}
+
+// ProvidersMigrationScenario defines a test scenario for migrating encryption
+// between multiple providers.
+//
+// See TestEncryptionProvidersMigration for more details.
+type ProvidersMigrationScenario struct {
+	BasicScenario
+	CreateResourceFunc             func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
+	AssertResourceEncryptedFunc    func(t testing.TB, clientSet ClientSet, resource runtime.Object)
+	AssertResourceNotEncryptedFunc func(t testing.TB, clientSet ClientSet, resource runtime.Object)
+	ResourceFunc                   func(t testing.TB, namespace string) runtime.Object
+	ResourceName                   string
+	// EncryptionProviders is the list of encryption providers to migrate through.
+	// The test will migrate through each provider in order, then always end by
+	// switching to identity (off) to verify the resource is re-written unencrypted.
+	EncryptionProviders []configv1.EncryptionType
+}
+
+// ShuffleEncryptionProviders returns a new slice with the providers in random order,
+// leaving the original slice unchanged. Use this to test different migration orderings.
+func ShuffleEncryptionProviders(providers []configv1.EncryptionType) []configv1.EncryptionType {
+	shuffled := make([]configv1.EncryptionType, len(providers))
+	copy(shuffled, providers)
+	mathrand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+	return shuffled
+}
+
+// TestEncryptionProvidersMigration tests migration between given encryption providers.
+// It creates a resource, migrates through each provider,
+// verifies the resource is encrypted after each migration, and finally
+// switches to identity (off).
+func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationScenario) {
+	if len(scenario.EncryptionProviders) < 2 {
+		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(scenario.EncryptionProviders))
+	}
+
+	for _, provider := range scenario.EncryptionProviders {
+		if provider == configv1.EncryptionTypeIdentity || provider == "" {
+			t.Fatalf("Unsupported encryption provider %q passed", provider)
+		}
+	}
+
+	// step 1: create the resource
+	scenarios := []testStep{
+		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t *testing.T) {
+			e := NewE(t)
+			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
+		}},
+	}
+
+	// step 2: migrate through each provider in sequence
+	for i, provider := range scenario.EncryptionProviders {
+		prefix := "EncryptWith"
+		if i > 0 {
+			prefix = "MigrateTo"
+		}
+		scenarios = append(scenarios,
+			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider))), testFunc: func(t *testing.T) {
+				TestEncryptionType(t, scenario.BasicScenario, provider)
+			}},
+			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+				e := NewE(t)
+				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+			}},
+		)
+	}
+
+	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
+	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+		TestEncryptionTypeIdentity(t, scenario.BasicScenario)
+		e := NewE(t)
+		scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+	}})
 
 	// run scenarios
 	for _, testScenario := range scenarios {
