@@ -51,8 +51,7 @@ type yamlTemplateData struct {
 }
 
 // DeployUpstreamMockKMSPlugin deploys the upstream mock KMS v2 plugin using embedded YAML assets.
-// It returns a cleanup function that removes the entire namespace where the DaemonSet was deployed.
-func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) func() {
+func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) {
 	t.Helper()
 
 	t.Logf("Deploying upstream mock KMS v2 plugin in namespace %q using image %s", namespace, image)
@@ -64,8 +63,6 @@ func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient k
 		t.Fatalf("DaemonSet not ready: %v", err)
 	}
 	t.Logf("Upstream mock KMS v2 plugin deployed successfully!")
-
-	return nil
 }
 
 // applyUpstreamMockKMSPluginManifests applies all the KMS plugin manifests.
