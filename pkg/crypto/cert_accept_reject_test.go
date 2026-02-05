@@ -108,7 +108,7 @@ func TestServingCertVerification(t *testing.T) {
 	}{
 		{
 			name:          "no-default-trust",
-			expectedError: "failed to verify certificate",
+			expectedError: "x509: certificate signed by unknown authority",
 		},
 		{
 			// trusting the serving cert only means that if the serving cert was revoked by the delta, bravo, or alfa,

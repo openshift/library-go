@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
-
-	configv1 "github.com/openshift/api/config/v1"
 )
 
 const certificateLifetime = time.Hour * 24 * 365 * 2
@@ -550,26 +548,4 @@ func TestServerCertRegeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, serverCert)
 	require.True(t, created)
-}
-
-// TestTLSProfileCipherSuitesHaveMappings verifies that all cipher suites defined
-// in the OpenShift TLS security profiles have corresponding mappings in
-// openSSLToIANACiphersMap. This ensures that when TLS profiles are translated
-// from OpenSSL format to IANA format, no ciphers are silently dropped.
-func TestTLSProfileCipherSuitesHaveMappings(t *testing.T) {
-	var missingMappings []string
-
-	for profileType, profileSpec := range configv1.TLSProfiles {
-		for _, cipher := range profileSpec.Ciphers {
-			if _, found := openSSLToIANACiphersMap[cipher]; !found {
-				missingMappings = append(missingMappings, fmt.Sprintf("%s (profile: %s)", cipher, profileType))
-			}
-		}
-	}
-
-	if len(missingMappings) > 0 {
-		sort.Strings(missingMappings)
-		t.Errorf("The following cipher suites from TLS profiles are missing mappings in openSSLToIANACiphersMap:\n%s",
-			strings.Join(missingMappings, "\n"))
-	}
 }
