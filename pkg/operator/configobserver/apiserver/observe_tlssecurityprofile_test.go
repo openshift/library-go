@@ -1,7 +1,6 @@
 package apiserver
 
 import (
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"testing"
 	"time"
@@ -9,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"

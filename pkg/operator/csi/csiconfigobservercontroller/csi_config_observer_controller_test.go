@@ -2,7 +2,6 @@ package csiconfigobservercontroller
 
 import (
 	"context"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
