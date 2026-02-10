@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	coreapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,13 +20,34 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+// DefaultRebootingNodeDegradedInertia is the default period during which a node rebooting for upgrade is not considered Degraded.
+// The value is pretty large because bare metal nodes can take a long time to reboot for upgrade.
+const DefaultRebootingNodeDegradedInertia = 2 * time.Hour
+
+const (
+	machineConfigDaemonPostConfigAction = "machineconfiguration.openshift.io/post-config-action"
+
+	machineConfigDaemonStateRebooting = "Rebooting"
+)
+
+// NodeControllerOption can be passed to NewNodeController to configure the controller.
+type NodeControllerOption func(*NodeController)
+
+// SetRebootingNodeDegradedInertia sets the period during which a node rebooting for upgrade is not considered Degraded.
+func SetRebootingNodeDegradedInertia(inert time.Duration) NodeControllerOption {
+	return func(c *NodeController) {
+		c.rebootingNodeDegradedInertia = inert
+	}
+}
+
 // NodeController watches for new master nodes and adds them to the node status list in the operator config status.
 type NodeController struct {
-	controllerInstanceName string
-	operatorClient         v1helpers.StaticPodOperatorClient
-	nodeLister             corelisterv1.NodeLister
-	extraNodeSelector      labels.Selector
-	masterNodesSelector    labels.Selector
+	controllerInstanceName       string
+	operatorClient               v1helpers.StaticPodOperatorClient
+	nodeLister                   corelisterv1.NodeLister
+	extraNodeSelector            labels.Selector
+	masterNodesSelector          labels.Selector
+	rebootingNodeDegradedInertia time.Duration
 }
 
 // NewNodeController creates a new node controller.
@@ -35,12 +57,17 @@ func NewNodeController(
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	eventRecorder events.Recorder,
 	extraNodeSelector labels.Selector,
+	options ...NodeControllerOption,
 ) factory.Controller {
 	c := &NodeController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "Node"),
-		operatorClient:         operatorClient,
-		nodeLister:             kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
-		extraNodeSelector:      extraNodeSelector,
+		controllerInstanceName:       factory.ControllerInstanceName(instanceName, "Node"),
+		operatorClient:               operatorClient,
+		nodeLister:                   kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
+		extraNodeSelector:            extraNodeSelector,
+		rebootingNodeDegradedInertia: DefaultRebootingNodeDegradedInertia,
+	}
+	for _, opt := range options {
+		opt(c)
 	}
 
 	masterNodesSelector, err := labels.Parse("node-role.kubernetes.io/master=")
@@ -145,33 +172,55 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		}
 	}
 
-	// detect and report master nodes that are not ready
-	notReadyNodes := []string{}
+	// Detect and report master nodes that are not ready.
+	// Nodes currently rebooting for upgrade do not cause Degraded condition to be set within the inertia period.
+	var degradedNodes []string
+	var rebootingNodes []string
 	for _, node := range nodes {
 		nodeReadyCondition := nodeConditionFinder(&node.Status, coreapiv1.NodeReady)
 
-		// If a "Ready" condition is not found, that node should be deemed as not Ready by default.
-		if nodeReadyCondition == nil {
-			notReadyNodes = append(notReadyNodes, fmt.Sprintf("node %q not ready, no Ready condition found in status block", node.Name))
-			continue
-		}
+		var degradedMsg string
+		switch {
+		case nodeReadyCondition == nil:
+			// If a "Ready" condition is not found, that node should be deemed as not Ready by default.
+			degradedMsg = fmt.Sprintf("node %q not ready, no Ready condition found in status block", node.Name)
 
-		if nodeReadyCondition.Status != coreapiv1.ConditionTrue {
-			notReadyNodes = append(notReadyNodes, fmt.Sprintf("node %q not ready since %s because %s (%s)", node.Name, nodeReadyCondition.LastTransitionTime, nodeReadyCondition.Reason, nodeReadyCondition.Message))
+		case nodeReadyCondition.Status != coreapiv1.ConditionTrue:
+			degradedMsg = fmt.Sprintf("node %q not ready since %s because %s (%s)", node.Name, nodeReadyCondition.LastTransitionTime, nodeReadyCondition.Reason, nodeReadyCondition.Message)
+		}
+		if len(degradedMsg) > 0 {
+			if nodeRebootingForUpgrade(node) && !shouldDegradeRebootingNode(nodeReadyCondition, c.rebootingNodeDegradedInertia) {
+				rebootingNodes = append(rebootingNodes, fmt.Sprintf("node %q", node.Name))
+			} else {
+				degradedNodes = append(degradedNodes, degradedMsg)
+			}
 		}
 	}
 
-	if len(notReadyNodes) > 0 {
-		degradedCondition = degradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("MasterNodesReady").
-			WithMessage(fmt.Sprintf("The master nodes not ready: %s", strings.Join(notReadyNodes, ", ")))
+	degradedCondition = degradedCondition.WithReason("MasterNodesReady")
+
+	if len(degradedNodes) > 0 {
+		degradedCondition = degradedCondition.WithStatus(operatorv1.ConditionTrue)
 	} else {
-		degradedCondition = degradedCondition.
-			WithStatus(operatorv1.ConditionFalse).
-			WithReason("MasterNodesReady").
-			WithMessage("All master nodes are ready")
+		degradedCondition = degradedCondition.WithStatus(operatorv1.ConditionFalse)
 	}
+
+	var msg strings.Builder
+	if len(degradedNodes) > 0 {
+		msg.WriteString(fmt.Sprintf("The master nodes not ready: %s", strings.Join(degradedNodes, ", ")))
+	}
+	if len(rebootingNodes) > 0 {
+		if msg.Len() > 0 {
+			msg.WriteString(". ")
+		}
+		msg.WriteString(fmt.Sprintf("The master nodes rebooting for upgrade: %s", strings.Join(rebootingNodes, ", ")))
+	}
+	if msg.Len() > 0 {
+		degradedCondition = degradedCondition.WithMessage(msg.String())
+	} else {
+		degradedCondition = degradedCondition.WithMessage("All master nodes are ready")
+	}
+
 	status := applyoperatorv1.StaticPodOperatorStatus().
 		WithConditions(degradedCondition).
 		WithNodeStatuses(newTargetNodeStates...)
@@ -195,4 +244,12 @@ func nodeConditionFinder(status *coreapiv1.NodeStatus, condType coreapiv1.NodeCo
 	}
 
 	return nil
+}
+
+func nodeRebootingForUpgrade(node *coreapiv1.Node) bool {
+	return node.Annotations[machineConfigDaemonPostConfigAction] == machineConfigDaemonStateRebooting
+}
+
+func shouldDegradeRebootingNode(nodeReadyCondition *coreapiv1.NodeCondition, inert time.Duration) bool {
+	return nodeReadyCondition == nil || time.Since(nodeReadyCondition.LastTransitionTime.Time) > inert
 }
