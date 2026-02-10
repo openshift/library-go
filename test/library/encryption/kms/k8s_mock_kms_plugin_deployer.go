@@ -94,11 +94,11 @@ func applyUpstreamMockKMSPluginManifests(ctx context.Context, t testing.TB, kube
 	}
 
 	daemonSet := resourceread.ReadDaemonSetV1OrDie(rawDaemonSet)
-	_, _, err = resourceapply.ApplyDaemonSet(ctx, kubeClient.AppsV1(), recorder, daemonSet, -1)
+	_, daemonSetChanged, err := resourceapply.ApplyDaemonSet(ctx, kubeClient.AppsV1(), recorder, daemonSet, -1)
 	if err != nil {
 		return "", err
 	}
-	t.Logf("Applied DaemonSet %s/%s", namespace, daemonSet.Name)
+	t.Logf("Applied DaemonSet %s/%s (changed=%v)", namespace, daemonSet.Name, daemonSetChanged)
 
 	return daemonSet.Name, nil
 }
