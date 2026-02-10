@@ -59,7 +59,6 @@ items:
       - name: MixedCPUsAllocation
       - name: NetworkLiveMigration
       - name: NodeSwap
-      - name: RouteExternalCertificate
       - name: SigstoreImageVerification
       - name: VSphereControlPlaneMachineSet
       - name: VSphereStaticIPs
