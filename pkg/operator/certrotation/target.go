@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +137,14 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Created secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Created secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+			if diff := cmp.Diff(nil, actualTargetCertKeyPairSecret.Annotations); len(diff) > 0 {
+				klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name, diff)
+			}
+		}
+
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	} else if updateRequired {
 		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
@@ -147,7 +156,14 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Updated secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+			if diff := cmp.Diff(originalTargetCertKeyPairSecret.Annotations, actualTargetCertKeyPairSecret.Annotations); len(diff) > 0 {
+				klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name, diff)
+			}
+		}
+
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	}
 
