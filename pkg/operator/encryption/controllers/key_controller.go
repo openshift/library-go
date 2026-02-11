@@ -27,6 +27,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -266,6 +267,14 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
+	if currentMode == state.KMS {
+		ks.KMSConfiguration = &apiserverv1.KMSConfiguration{
+			APIVersion: "v2",
+			Name:       fmt.Sprintf("%d", keyID), // this will be updated by inserting resource name
+			Endpoint:   kms.DefaultEndpoint,
+			Timeout:    &metav1.Duration{Duration: kms.DefaultTimeout},
+		}
+	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
@@ -287,7 +296,7 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
-	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
+	case state.AESCBC, state.AESGCM, state.KMS, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, nil
@@ -338,6 +347,19 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	// if the most recent secret turned off encryption and we want to keep it that way, do nothing
 	if latestKey.Mode == state.Identity && currentMode == state.Identity {
+		return 0, "", false
+	}
+
+	if currentMode == state.KMS {
+		// We are here because Encryption Mode is not changed
+
+		// For now in v1, we don't support configurational changes. Therefore,
+		// it is pointless comparing the secrets.
+
+		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
+		// KMS keys are rotated externally by the KMS system.
+		// Moreover, we don't trigger new key when external reason is changed.
+		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}
 

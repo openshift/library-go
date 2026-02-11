@@ -2,10 +2,16 @@ package kms
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	DefaultEndpoint = "unix:///var/run/kmsplugin/kms.sock"
+	DefaultTimeout  = 10 * time.Second
 )
 
 // AddKMSPluginVolumeAndMountToPodSpec conditionally adds the KMS plugin volume mount to the specified container.

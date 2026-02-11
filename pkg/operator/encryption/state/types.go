@@ -40,6 +40,8 @@ type KeyState struct {
 	InternalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	ExternalReason string
+	// Encoded KMSConfiguration that stores the KMS related fields
+	KMSConfiguration *apiserverconfigv1.KMSConfiguration
 }
 
 type MigrationState struct {
@@ -60,6 +62,7 @@ const (
 	AESGCM    Mode = "aesgcm"
 	SecretBox Mode = "secretbox" // available from the first release, see defaultMode below
 	Identity  Mode = "identity"  // available from the first release, see defaultMode below
+	KMS       Mode = "KMS"       // only supports KMS v2
 
 	// Changing this value requires caution to not break downgrades.
 	// Specifically, if some new Mode is released in version X, that new Mode cannot
