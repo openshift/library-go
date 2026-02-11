@@ -110,9 +110,14 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 
 			case provider.KMS != nil:
 				// Name and Secret must match to find our backed Secret
+				keyId, err := getKeyIDFromProviderName(provider.KMS.Name)
+				if err != nil {
+					klog.Warningf("skipping invalid provider name %s: %v", provider.KMS.Name, err)
+					continue // should never happen
+				}
 				ks = state.KeyState{
 					Key: apiserverconfigv1.Key{
-						Name: getKeyIDFromProviderName(provider.KMS.Name),
+						Name: keyId,
 						// Since in v1 we don't support kms -> kms migrations, we can use empty key.
 						// Because we don't need to compare secrets to detect change.
 						Secret: emptyStaticKey,
@@ -239,8 +244,12 @@ func createKMSProviderName(keyID, resource string) string {
 	return fmt.Sprintf("%s-%s", keyID, resource)
 }
 
-func getKeyIDFromProviderName(providerName string) string {
+func getKeyIDFromProviderName(providerName string) (string, error) {
 	// We just need to obtain the keyID to find our backed secret
 	// e.g. "1-secrets"
-	return strings.Split(providerName, "-")[0]
+	parsed := strings.Split(providerName, "-")
+	if len(parsed) != 2 {
+		return "", fmt.Errorf("invalid provider name: %s", providerName)
+	}
+	return parsed[0], nil
 }
