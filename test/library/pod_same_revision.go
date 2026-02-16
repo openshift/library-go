@@ -3,6 +3,8 @@ package library
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,8 +24,15 @@ import (
 //	only pods with the given label are considered
 //	only pods in the given namespace are considered (podClient)
 func WaitForPodsToStabilizeOnTheSameRevision(t LoggingT, podClient corev1client.PodInterface, podLabelSelector string, waitForRevisionSuccessThreshold int, waitForRevisionSuccessInterval, waitForRevisionPollInterval, waitForRevisionTimeout time.Duration) error {
-	return wait.Poll(waitForRevisionPollInterval, waitForRevisionTimeout, mustSucceedMultipleTimes(waitForRevisionSuccessThreshold, waitForRevisionSuccessInterval, func() (bool, error) {
-		return arePodsOnTheSameRevision(t, podClient, podLabelSelector)
+	t.Logf("[WaitForPodsToStabilize] Starting: threshold=%d, successInterval=%v, pollInterval=%v, timeout=%v",
+		waitForRevisionSuccessThreshold, waitForRevisionSuccessInterval, waitForRevisionPollInterval, waitForRevisionTimeout)
+
+	pollCount := 0
+	return wait.Poll(waitForRevisionPollInterval, waitForRevisionTimeout, mustSucceedMultipleTimes(t, waitForRevisionSuccessThreshold, waitForRevisionSuccessInterval, func() (bool, error) {
+		pollCount++
+		result, err := arePodsOnTheSameRevision(t, podClient, podLabelSelector)
+		t.Logf("[WaitForPodsToStabilize] Poll #%d: result=%v, err=%v", pollCount, result, err)
+		return result, err
 	}))
 }
 
@@ -42,15 +51,45 @@ func arePodsOnTheSameRevision(t LoggingT, podClient corev1client.PodInterface, p
 		return false, nil
 	}
 
+	t.Logf("[arePodsOnTheSameRevision] Found %d pods with selector %q", len(apiServerPods.Items), podLabelSelector)
+
+	// Log detailed pod information for debugging
+	for _, pod := range apiServerPods.Items {
+		revision := pod.Labels[revisionLabel]
+		ready := "NotReady"
+		if podReady(pod) {
+			ready = "Ready"
+		}
+		t.Logf("[arePodsOnTheSameRevision]   Pod: %s, Phase: %s, Ready: %s, Revision: %s, Node: %s",
+			pod.Name, pod.Status.Phase, ready, revision, pod.Spec.NodeName)
+	}
+
 	goodRevisions, failingRevisions, progressing, err := getRevisions(revisionLabel, apiServerPods.Items)
-	if err != nil || progressing || len(goodRevisions) != 1 {
+
+	// Log analysis summary
+	t.Logf("[arePodsOnTheSameRevision] Analysis: goodRevisions=%v, failingRevisions=%v, progressing=%v, err=%v",
+		sortedSetToSlice(goodRevisions), sortedSetToSlice(failingRevisions), progressing, err)
+
+	if err != nil {
 		return false, err
+	}
+
+	if progressing {
+		t.Logf("[arePodsOnTheSameRevision] Returning false: pods still progressing (some pods not ready or pending)")
+		return false, nil
+	}
+
+	if len(goodRevisions) != 1 {
+		t.Logf("[arePodsOnTheSameRevision] Returning false: expected 1 good revision, got %d: %v",
+			len(goodRevisions), sortedSetToSlice(goodRevisions))
+		return false, nil
 	}
 
 	if revision, _ := goodRevisions.PopAny(); failingRevisions.Has(revision) {
 		return false, fmt.Errorf("api server revision %s has both running and failed pods", revision)
 	}
 
+	t.Logf("[arePodsOnTheSameRevision] Returning true: all pods on same revision")
 	return true, nil
 }
 
@@ -94,15 +133,67 @@ func podReady(pod corev1.Pod) bool {
 }
 
 // mustSucceedMultipleTimes calls f multiple times sleeping before each invocation, it only returns true if all invocations are successful.
-func mustSucceedMultipleTimes(n int, sleep time.Duration, f func() (bool, error)) func() (bool, error) {
+func mustSucceedMultipleTimes(t LoggingT, n int, sleep time.Duration, f func() (bool, error)) func() (bool, error) {
+	attemptCount := 0
 	return func() (bool, error) {
+		attemptCount++
+		t.Logf("[mustSucceedMultipleTimes] Starting attempt #%d (need %d consecutive successes, interval=%v)", attemptCount, n, sleep)
+
 		for i := 0; i < n; i++ {
+			t.Logf("[mustSucceedMultipleTimes] Attempt #%d, iteration %d/%d: sleeping for %v", attemptCount, i+1, n, sleep)
 			time.Sleep(sleep)
 			ok, err := f()
 			if err != nil || !ok {
+				t.Logf("[mustSucceedMultipleTimes] Attempt #%d, iteration %d/%d: FAILED (not stable yet), resetting counter", attemptCount, i+1, n)
 				return ok, err
 			}
+			t.Logf("[mustSucceedMultipleTimes] Attempt #%d, iteration %d/%d: SUCCESS", attemptCount, i+1, n)
 		}
+		t.Logf("[mustSucceedMultipleTimes] Attempt #%d: All %d iterations succeeded!", attemptCount, n)
 		return true, nil
 	}
+}
+
+// sortedSetToSlice converts a set to a sorted slice for consistent logging output
+func sortedSetToSlice(s sets.Set[string]) []string {
+	if s == nil {
+		return nil
+	}
+	result := s.UnsortedList()
+	sort.Strings(result)
+	return result
+}
+
+// GetPodRevisionSummary returns a human-readable summary of pod revisions for debugging
+func GetPodRevisionSummary(podClient corev1client.PodInterface, podLabelSelector string) (string, error) {
+	revisionLabel := "revision"
+	pods, err := podClient.List(context.TODO(), metav1.ListOptions{LabelSelector: podLabelSelector})
+	if err != nil {
+		return "", err
+	}
+
+	var summaryParts []string
+	revisionToPods := make(map[string][]string)
+
+	for _, pod := range pods.Items {
+		revision := pod.Labels[revisionLabel]
+		ready := "NotReady"
+		if podReady(pod) {
+			ready = "Ready"
+		}
+		status := fmt.Sprintf("%s(%s/%s)", pod.Name, pod.Status.Phase, ready)
+		revisionToPods[revision] = append(revisionToPods[revision], status)
+	}
+
+	var revisions []string
+	for rev := range revisionToPods {
+		revisions = append(revisions, rev)
+	}
+	sort.Strings(revisions)
+
+	for _, rev := range revisions {
+		summaryParts = append(summaryParts, fmt.Sprintf("rev-%s: [%s]", rev, strings.Join(revisionToPods[rev], ", ")))
+	}
+
+	return strings.Join(summaryParts, "; "), nil
 }
