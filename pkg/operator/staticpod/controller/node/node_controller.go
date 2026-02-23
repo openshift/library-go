@@ -20,14 +20,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// DefaultUpgradingNodeDegradedInertia is the default period during which a node rebooting for upgrade is not considered Degraded.
+// DefaultUpgradingNodeDegradedInertia is the default period during which a node upgrading is not considered Degraded.
 // The value is pretty large because bare metal nodes can take a long time to reboot for upgrade.
 const DefaultUpgradingNodeDegradedInertia = 2 * time.Hour
 
 // NodeControllerOption can be passed to NewNodeController to configure the controller.
 type NodeControllerOption func(*NodeController)
 
-// SetUpgradingNodeDegradedInertia sets the period during which a node rebooting for upgrade is not considered Degraded.
+// SetUpgradingNodeDegradedInertia sets the period during which a node upgrading is not considered Degraded.
 func SetUpgradingNodeDegradedInertia(inert time.Duration) NodeControllerOption {
 	return func(c *NodeController) {
 		c.rebootingNodeDegradedInertia = inert
@@ -167,9 +167,9 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	}
 
 	// Detect and report master nodes that are not ready.
-	// Nodes currently rebooting for upgrade do not cause Degraded condition to be set within the inertia period.
+	// Nodes currently upgrading do not cause Degraded condition to be set within the inertia period.
 	var degradedNodes []string
-	var rebootingNodes []string
+	var upgradingNodes []string
 	for _, node := range nodes {
 		nodeReadyCondition := nodeConditionFinder(&node.Status, coreapiv1.NodeReady)
 
@@ -184,7 +184,7 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		}
 		if len(degradedMsg) > 0 {
 			if nodeUpgrading(node) && !shouldDegradeUpgradingNode(nodeReadyCondition, c.rebootingNodeDegradedInertia) {
-				rebootingNodes = append(rebootingNodes, fmt.Sprintf("node %q", node.Name))
+				upgradingNodes = append(upgradingNodes, fmt.Sprintf("node %q", node.Name))
 			} else {
 				degradedNodes = append(degradedNodes, degradedMsg)
 			}
@@ -203,11 +203,11 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	if len(degradedNodes) > 0 {
 		msg.WriteString(fmt.Sprintf("The master nodes not ready: %s", strings.Join(degradedNodes, ", ")))
 	}
-	if len(rebootingNodes) > 0 {
+	if len(upgradingNodes) > 0 {
 		if msg.Len() > 0 {
 			msg.WriteString(". ")
 		}
-		msg.WriteString(fmt.Sprintf("The master nodes rebooting for upgrade: %s", strings.Join(rebootingNodes, ", ")))
+		msg.WriteString(fmt.Sprintf("The master nodes upgrading: %s", strings.Join(upgradingNodes, ", ")))
 	}
 	if msg.Len() > 0 {
 		degradedCondition = degradedCondition.WithMessage(msg.String())
