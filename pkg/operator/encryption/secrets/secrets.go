@@ -68,7 +68,12 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
-	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity, state.KMS:
+	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
+		key.Mode = keyMode
+	case state.KMS:
+		if key.KMSConfiguration == nil {
+			return state.KeyState{}, fmt.Errorf("KMSConfiguration can not be nil, when mode is KMS")
+		}
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
