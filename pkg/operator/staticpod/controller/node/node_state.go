@@ -1,6 +1,10 @@
 package node
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+)
 
 // NodeUpgradeState represents the current state of a node's Machine Config Operator upgrade.
 type NodeUpgradeState string
@@ -98,7 +102,8 @@ func GetNodeUpgradeState(node *corev1.Node) NodeUpgradeState {
 
 		desiredDrain := node.Annotations[machineConfigDesiredDrain]
 		lastAppliedDrain := node.Annotations[machineConfigLastAppliedDrain]
-		if desiredDrain != "" && lastAppliedDrain != desiredDrain {
+		// The desired action is not always "drain". We need to check the action prefix.
+		if strings.HasPrefix(desiredDrain, "drain-") && lastAppliedDrain != desiredDrain {
 			return NodeUpgradeStateDraining
 		}
 

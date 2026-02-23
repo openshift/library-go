@@ -198,12 +198,72 @@ func TestGetNodeUpgradeState(t *testing.T) {
 						machineConfigState:            machineConfigStateWorking,
 						machineConfigPostConfigAction: machineConfigPostConfigActionRebooting,
 						machineConfigDesiredDrain:     "drain-rendered-worker-xyz789",
-						machineConfigLastAppliedDrain: "drain-rendered-worker-xyz789",
+						machineConfigLastAppliedDrain: "drain-rendered-worker-xyz666",
 					},
 				},
 			},
 			wantStatus:  NodeUpgradeStateRebooting,
 			description: "Rebooting is checked before draining status",
+		},
+		{
+			name: "uncordon requested - not draining",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node",
+					Annotations: map[string]string{
+						machineConfigState:            machineConfigStateWorking,
+						machineConfigDesiredDrain:     "uncordon-rendered-worker-xyz789",
+						machineConfigLastAppliedDrain: "drain-rendered-worker-xyz789",
+					},
+				},
+			},
+			wantStatus:  NodeUpgradeStateWorking,
+			description: "Uncordon request is not treated as draining",
+		},
+		{
+			name: "uncordon requested but not applied - still not draining",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node",
+					Annotations: map[string]string{
+						machineConfigState:            machineConfigStateWorking,
+						machineConfigDesiredDrain:     "uncordon-rendered-worker-xyz789",
+						machineConfigLastAppliedDrain: "uncordon-rendered-worker-abc123",
+					},
+				},
+			},
+			wantStatus:  NodeUpgradeStateWorking,
+			description: "Uncordon mismatch is not treated as draining",
+		},
+		{
+			name: "uncordon with no previous drain - not draining",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node",
+					Annotations: map[string]string{
+						machineConfigState:        machineConfigStateWorking,
+						machineConfigDesiredDrain: "uncordon-rendered-worker-xyz789",
+						// no lastAppliedDrain
+					},
+				},
+			},
+			wantStatus:  NodeUpgradeStateWorking,
+			description: "Uncordon without previous drain is not treated as draining",
+		},
+		{
+			name: "invalid drain prefix - not draining",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node",
+					Annotations: map[string]string{
+						machineConfigState:            machineConfigStateWorking,
+						machineConfigDesiredDrain:     "something-rendered-worker-xyz789",
+						machineConfigLastAppliedDrain: "drain-rendered-worker-abc123",
+					},
+				},
+			},
+			wantStatus:  NodeUpgradeStateWorking,
+			description: "Invalid drain prefix is not treated as draining",
 		},
 	}
 
