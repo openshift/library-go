@@ -24,6 +24,7 @@ const (
 	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretKMSConfigForTest         = "encryption.apiserver.operator.openshift.io/kms-config"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -92,6 +93,30 @@ func CreateMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.G
 
 func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+}
+
+func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	emptyKey := make([]byte, 16)
+	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
+	kmsConfig := &apiserverconfigv1.KMSConfiguration{
+		APIVersion: "v2",
+		Name:       fmt.Sprintf("%d", keyID),
+		Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+	}
+	kmsConfigJSON, _ := json.Marshal(kmsConfig)
+	secret.Annotations[encryptionSecretKMSConfigForTest] = string(kmsConfigJSON)
+	return secret
+}
+
+func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID)
+	secret.Annotations[encryptionSecretMigratedTimestampForTest] = ts.Format(time.RFC3339)
+	return secret
+}
+
+func CreateExpiredMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	return CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
@@ -186,7 +211,7 @@ func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKey
 			if len(keysResource.Modes) == len(keysResource.Keys) {
 				desiredMode = keysResource.Modes[i]
 			}
-			rc.Providers = append(rc.Providers, *createProviderCfg(desiredMode, key))
+			rc.Providers = append(rc.Providers, *createProviderCfg(desiredMode, keysResource.Resource, key))
 		}
 		ec.Resources = append(ec.Resources, rc)
 	}
@@ -204,7 +229,7 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 			if len(keysResource.Modes) == len(keysResource.Keys) {
 				desiredMode = keysResource.Modes[i]
 			}
-			providers = append(providers, *createProviderCfg(desiredMode, key))
+			providers = append(providers, *createProviderCfg(desiredMode, keysResource.Resource, key))
 		}
 		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
@@ -225,7 +250,7 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 	}
 }
 
-func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv1.ProviderConfiguration {
+func createProviderCfg(mode string, resource string, key apiserverconfigv1.Key) *apiserverconfigv1.ProviderConfiguration {
 	switch mode {
 	case "aesgcm":
 		return &apiserverconfigv1.ProviderConfiguration{
@@ -242,6 +267,15 @@ func createProviderCfg(mode string, key apiserverconfigv1.Key) *apiserverconfigv
 	case "identity":
 		return &apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
+		}
+	case "KMS":
+		return &apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("%s_%s", key.Name, resource),
+				Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+			},
 		}
 	default:
 		return &apiserverconfigv1.ProviderConfiguration{
