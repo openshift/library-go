@@ -20,21 +20,15 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// DefaultRebootingNodeDegradedInertia is the default period during which a node rebooting for upgrade is not considered Degraded.
+// DefaultUpgradingNodeDegradedInertia is the default period during which a node rebooting for upgrade is not considered Degraded.
 // The value is pretty large because bare metal nodes can take a long time to reboot for upgrade.
-const DefaultRebootingNodeDegradedInertia = 2 * time.Hour
-
-const (
-	machineConfigDaemonPostConfigAction = "machineconfiguration.openshift.io/post-config-action"
-
-	machineConfigDaemonStateRebooting = "Rebooting"
-)
+const DefaultUpgradingNodeDegradedInertia = 2 * time.Hour
 
 // NodeControllerOption can be passed to NewNodeController to configure the controller.
 type NodeControllerOption func(*NodeController)
 
-// SetRebootingNodeDegradedInertia sets the period during which a node rebooting for upgrade is not considered Degraded.
-func SetRebootingNodeDegradedInertia(inert time.Duration) NodeControllerOption {
+// SetUpgradingNodeDegradedInertia sets the period during which a node rebooting for upgrade is not considered Degraded.
+func SetUpgradingNodeDegradedInertia(inert time.Duration) NodeControllerOption {
 	return func(c *NodeController) {
 		c.rebootingNodeDegradedInertia = inert
 	}
@@ -64,7 +58,7 @@ func NewNodeController(
 		operatorClient:               operatorClient,
 		nodeLister:                   kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 		extraNodeSelector:            extraNodeSelector,
-		rebootingNodeDegradedInertia: DefaultRebootingNodeDegradedInertia,
+		rebootingNodeDegradedInertia: DefaultUpgradingNodeDegradedInertia,
 	}
 	for _, opt := range options {
 		opt(c)
@@ -189,7 +183,7 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 			degradedMsg = fmt.Sprintf("node %q not ready since %s because %s (%s)", node.Name, nodeReadyCondition.LastTransitionTime, nodeReadyCondition.Reason, nodeReadyCondition.Message)
 		}
 		if len(degradedMsg) > 0 {
-			if nodeRebootingForUpgrade(node) && !shouldDegradeRebootingNode(nodeReadyCondition, c.rebootingNodeDegradedInertia) {
+			if nodeUpgrading(node) && !shouldDegradeUpgradingNode(nodeReadyCondition, c.rebootingNodeDegradedInertia) {
 				rebootingNodes = append(rebootingNodes, fmt.Sprintf("node %q", node.Name))
 			} else {
 				degradedNodes = append(degradedNodes, degradedMsg)
@@ -246,10 +240,14 @@ func nodeConditionFinder(status *coreapiv1.NodeStatus, condType coreapiv1.NodeCo
 	return nil
 }
 
-func nodeRebootingForUpgrade(node *coreapiv1.Node) bool {
-	return node.Annotations[machineConfigDaemonPostConfigAction] == machineConfigDaemonStateRebooting
+func nodeUpgrading(node *coreapiv1.Node) bool {
+	stat := GetNodeUpgradeState(node)
+	// The most narrow and robust time window we can use is
+	//   - Rebooting when available.
+	//   - Working otherwise. This explicitly does not include Draining.
+	return stat == NodeUpgradeStateRebooting || stat == NodeUpgradeStateWorking
 }
 
-func shouldDegradeRebootingNode(nodeReadyCondition *coreapiv1.NodeCondition, inert time.Duration) bool {
+func shouldDegradeUpgradingNode(nodeReadyCondition *coreapiv1.NodeCondition, inert time.Duration) bool {
 	return nodeReadyCondition == nil || time.Since(nodeReadyCondition.LastTransitionTime.Time) > inert
 }

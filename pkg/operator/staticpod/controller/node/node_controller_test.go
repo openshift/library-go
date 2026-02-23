@@ -62,7 +62,8 @@ func makeNodeRebooting(node *corev1.Node) *corev1.Node {
 	if node.Annotations == nil {
 		node.Annotations = map[string]string{}
 	}
-	node.Annotations[machineConfigDaemonPostConfigAction] = machineConfigDaemonStateRebooting
+	node.Annotations[machineConfigState] = machineConfigStateWorking
+	node.Annotations[machineConfigPostConfigAction] = machineConfigPostConfigAction
 	return node
 }
 
@@ -511,7 +512,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 		{
 			name: "scenario 13: one unhealthy but rebooting master node is reported (within inertia)",
 			masterNodes: []runtime.Object{
-				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-1"), time.Now().Add(-DefaultRebootingNodeDegradedInertia+1*time.Minute))),
+				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-1"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
 				makeNodeReady(fakeMasterNode("test-node-2")),
 			},
 			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
@@ -567,7 +568,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				// 1 rebooting with Degraded inertia expired
 				makeNodeRebooting(makeNodeNotReady(fakeMasterNode("test-node-4"))),
 				// 1 rebooting within inertia
-				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-5"), time.Now().Add(-DefaultRebootingNodeDegradedInertia+1*time.Minute))),
+				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-5"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
 			},
 			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
 				var expectedCondition operatorv1.OperatorCondition
@@ -628,7 +629,7 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				operatorClient:               fakeStaticPodOperatorClient,
 				nodeLister:                   fakeLister,
 				masterNodesSelector:          masterNodesSelector(t),
-				rebootingNodeDegradedInertia: DefaultRebootingNodeDegradedInertia,
+				rebootingNodeDegradedInertia: DefaultUpgradingNodeDegradedInertia,
 			}
 
 			if scenario.withArbiter {
