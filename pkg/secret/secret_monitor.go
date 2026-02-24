@@ -93,10 +93,12 @@ func (s *secretMonitor) createSecretInformer(namespace, name string) cache.Share
 }
 
 // addSecretEventHandler adds a secret event handler and starts the informer if not already running.
+//
+// The global write lock is released before waiting for the informer cache to sync, allowing
+// concurrent calls for different secrets to proceed in parallel. This is critical for performance
+// when many routes reference external certificate secrets, as registering N secrets serially
+// (each requiring an API server round-trip to etcd) would take O(N * api_latency) time.
 func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, secretName string, handler cache.ResourceEventHandler, secretInformer cache.SharedInformer) (SecretEventHandlerRegistration, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if handler == nil {
 		return nil, fmt.Errorf("nil handler is provided")
 	}
@@ -104,23 +106,40 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 	// secret identifier (namespace/secret)
 	key := NewObjectKey(namespace, secretName)
 
+	s.lock.Lock()
 	// Start secret informer if monitor does not exist.
 	m, exists := s.monitors[key]
 	if !exists {
 		m = &monitoredItem{}
 		m.itemMonitor = newSingleItemMonitor(key, secretInformer)
 		m.itemMonitor.StartInformer(ctx)
+		// Register the monitor in the map immediately (before releasing the lock) so that
+		// concurrent registrations for the same secret reuse this informer rather than
+		// starting a duplicate.
+		s.monitors[key] = m
+	}
+	s.lock.Unlock()
 
-		// wait for first sync
+	// Wait for cache sync outside the lock so that concurrent registrations for different
+	// secrets can perform their API round-trips to etcd in parallel.
+	if !exists {
 		if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
+			// Sync failed (e.g. context cancelled). Clean up the map entry so a future
+			// caller can retry with a fresh informer.
+			s.lock.Lock()
+			// Only remove if it's still our entry (no other caller replaced it).
+			if s.monitors[key] == m {
+				m.itemMonitor.StopInformer()
+				delete(s.monitors, key)
+			}
+			s.lock.Unlock()
 			return nil, fmt.Errorf("failed waiting for cache sync")
 		}
-
-		// add item key to monitors map
-		s.monitors[key] = m
-
 		klog.Info("secret informer started", " item key ", key)
 	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	// add the event handler
 	registration, err := m.itemMonitor.AddEventHandler(handler)
