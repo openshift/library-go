@@ -12,11 +12,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/yaml"
 
@@ -67,11 +67,11 @@ func TestEncryptionIntegration(tt *testing.T) {
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 	kubeInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "openshift-config-managed")
-	apiextensionsClient, err := v1beta1.NewForConfig(kubeConfig)
+	apiextensionsClient, err := v1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
 	// create ExtensionTest operator CRD
-	var operatorCRD apiextensionsv1beta1.CustomResourceDefinition
+	var operatorCRD apiextensionsv1.CustomResourceDefinition
 	require.NoError(t, yaml.Unmarshal([]byte(encryptionTestOperatorCRD), &operatorCRD))
 	crd, err := apiextensionsClient.CustomResourceDefinitions().Create(ctx, &operatorCRD, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
@@ -80,6 +80,23 @@ func TestEncryptionIntegration(tt *testing.T) {
 		require.NoError(t, err)
 	}
 	defer apiextensionsClient.CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
+
+	t.Logf("Waiting for CRD to be ready")
+	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+		oCRD, crdErr := apiextensionsClient.CustomResourceDefinitions().Get(ctx, operatorCRD.Name, metav1.GetOptions{})
+		if crdErr != nil {
+			return false, crdErr
+		}
+
+		for _, condition := range oCRD.Status.Conditions {
+			if condition.Type == apiextensionsv1.Established {
+				operatorCRD = *oCRD
+				return condition.Status == apiextensionsv1.ConditionTrue, nil
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
 
 	// create operator client and create instance with ManagementState="Managed"
 	operatorGVR := schema.GroupVersionResource{Group: operatorCRD.Spec.Group, Version: "v1", Resource: operatorCRD.Spec.Names.Plural}
@@ -99,7 +116,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	err = wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 		_, err := dynamicClient.Resource(operatorGVR).Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "operator.openshift.io/v1",
@@ -121,7 +138,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 
 	// create APIServer clients
-	fakeConfigClient := configv1clientfake.NewSimpleClientset(&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}})
+	fakeConfigClient := configv1clientfake.NewClientset(&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}})
 	fakeConfigInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, 10*time.Minute)
 	fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
@@ -158,6 +175,26 @@ func TestEncryptionIntegration(tt *testing.T) {
 	kubeInformers.Start(stopCh)
 	operatorInformer.Start(stopCh)
 	go controllers.Run(ctx, 1)
+
+	t.Logf("Waiting for informers to sync")
+	for gvr, synced := range operatorInformer.WaitForCacheSync(stopCh) {
+		if !synced {
+			t.Fatalf("informer for %v not synced", gvr)
+		}
+	}
+	for gvr, synced := range fakeConfigInformer.WaitForCacheSync(stopCh) {
+		if !synced {
+			t.Fatalf("informer for %v not synced", gvr)
+		}
+	}
+	for ns, nsSynced := range kubeInformers.WaitForCacheSync(stopCh) {
+		for gvr, synced := range nsSynced {
+			if !synced {
+				t.Fatalf("informer for %v in namespace %v not synced", gvr, ns)
+			}
+		}
+	}
+	t.Logf("informers are sync'ed")
 
 	waitForConfigEventuallyCond := func(cond func(s string) bool) {
 		t.Helper()
@@ -208,22 +245,16 @@ func TestEncryptionIntegration(tt *testing.T) {
 		}
 		return operatorv1.ConditionUnknown
 	}
-	requireConditionStatus := func(condType string, expected operatorv1.ConditionStatus) {
-		t.Helper()
-		if status := conditionStatus(condType); status != expected {
-			t.Errorf("expected condition %s of status %s, found: %q", condType, expected, status)
-		}
-	}
 	waitForConditionStatus := func(condType string, expected operatorv1.ConditionStatus) {
 		t.Helper()
-		err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			return conditionStatus(condType) == expected, nil
 		})
 		require.NoError(t, err)
 	}
 	waitForMigration := func(key string) {
 		t.Helper()
-		err := wait.PollImmediate(time.Millisecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			s, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-%s", component, key), metav1.GetOptions{})
 			require.NoError(t, err)
 
@@ -245,7 +276,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	keySecretsLabel := fmt.Sprintf("%s=%s", secrets.EncryptionKeySecretsLabel, component)
 	waitForKeys := func(n int) {
 		t.Helper()
-		err := wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			l, err := kubeClient.CoreV1().Secrets("openshift-config-managed").List(ctx, metav1.ListOptions{LabelSelector: keySecretsLabel})
 			if err != nil {
 				return false, err
@@ -264,7 +295,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=aescbc:1,identity;kubeschedulers.operator.openshift.io=aescbc:1,identity",
 	)
 	waitForMigration("1")
-	requireConditionStatus("Encrypted", operatorv1.ConditionTrue)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Switch to identity")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"identity"}}}`), metav1.PatchOptions{})
@@ -274,14 +305,14 @@ func TestEncryptionIntegration(tt *testing.T) {
 		"kubeapiservers.operator.openshift.io=aescbc:1,identity,aesgcm:2;kubeschedulers.operator.openshift.io=aescbc:1,identity,aesgcm:2",
 		"kubeapiservers.operator.openshift.io=identity,aescbc:1,aesgcm:2;kubeschedulers.operator.openshift.io=identity,aescbc:1,aesgcm:2",
 	)
-	requireConditionStatus("Encrypted", operatorv1.ConditionFalse)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
 
 	t.Logf("Switch to empty mode")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":""}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second) // give controller time to create keys (it shouldn't)
 	waitForKeys(2)
-	requireConditionStatus("Encrypted", operatorv1.ConditionFalse)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
 
 	t.Logf("Switch to aescbc again")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc"}}}`), metav1.PatchOptions{})
@@ -297,15 +328,11 @@ func TestEncryptionIntegration(tt *testing.T) {
 	t.Logf("Setting external reason")
 	setExternalReason := func(reason string) {
 		t.Helper()
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			spec, _, rv, err := operatorClient.GetOperatorState()
-			if err != nil {
-				return err
-			}
-			spec.UnsupportedConfigOverrides.Raw = []byte(fmt.Sprintf(`{"encryption":{"reason":%q}}`, reason))
-			_, _, err = operatorClient.UpdateOperatorSpec(context.TODO(), rv, spec)
-			return err
-		})
+		applyConfig := applyoperatorv1.OperatorSpec().
+			WithUnsupportedConfigOverrides(runtime.RawExtension{
+				Raw: []byte(fmt.Sprintf(`{"encryption":{"reason":%q}}`, reason)),
+			})
+		err = operatorClient.ApplyOperatorSpec(ctx, "encryption-test", applyConfig)
 		require.NoError(t, err)
 	}
 	setExternalReason("a")
@@ -341,7 +368,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	err = kubeClient.CoreV1().Secrets("openshift-config-managed").Delete(ctx, fmt.Sprintf("encryption-key-%s-6", component), metav1.DeleteOptions{})
 	require.NoError(t, err)
-	err = wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-7", component), metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false, nil
@@ -378,16 +405,16 @@ func TestEncryptionIntegration(tt *testing.T) {
 	t.Logf("Delete the openshift-config-managed config")
 	deployer.DeleteOperandConfig()
 	waitForConfigs(
-		// 7 is migrated and hence only one needed, but we rotate through identity
-		"kubeapiservers.operator.openshift.io=identity,aescbc:7;kubeschedulers.operator.openshift.io=identity,aescbc:7",
-		// 7 is migrated, plus one backed key (5). 6 is deleted, and therefore is not preserved (would be if the operand config was not deleted)
+		// 7 is migrated, backed key (5) is immediately included when rotating through identity. 6 is deleted, not preserved (would be if operand config was not deleted)
+		"kubeapiservers.operator.openshift.io=identity,aescbc:7,aescbc:5;kubeschedulers.operator.openshift.io=identity,aescbc:7,aescbc:5",
+		// promote aescbc:7 back to write position
 		"kubeapiservers.operator.openshift.io=aescbc:7,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,aescbc:5,identity",
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 }
 
 const encryptionTestOperatorCRD = `
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: encryptiontests.operator.openshift.io
@@ -399,12 +426,62 @@ spec:
     plural: encryptiontests
     singular: encryptiontest
   scope: Cluster
-  subresources:
-    status: {}
   versions:
   - name: v1
     served: true
     storage: true
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        type: object
+        required:
+        - spec
+        properties:
+          spec:
+            type: object
+            required:
+            - managementState
+            properties:
+              managementState:
+                type: string
+                enum:
+                - Managed
+                - Unmanaged
+                - Removed
+              observedConfig:
+                type: object
+                nullable: true
+                x-kubernetes-preserve-unknown-fields: true
+              unsupportedConfigOverrides:
+                type: object
+                nullable: true
+                x-kubernetes-preserve-unknown-fields: true
+          status:
+            type: object
+            properties:
+              conditions:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - type
+                  - status
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              observedGeneration:
+                type: integer
+                format: int64
 `
 
 func toString(c *apiserverv1.EncryptionConfiguration) string {
