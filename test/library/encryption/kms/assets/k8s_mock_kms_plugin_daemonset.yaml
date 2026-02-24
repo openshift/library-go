@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k8s-mock-kms-plugin
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: k8s-mock-kms-plugin
+  template:
+    metadata:
+      labels:
+        app: k8s-mock-kms-plugin
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      priorityClassName: system-node-critical
+      serviceAccountName: k8s-mock-kms-plugin
+      tolerations:
+        - operator: Exists
+      initContainers:
+        - name: init-softhsm
+          image: {{ .Image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -e
+              set -x
+
+              # if token exists, skip initialization
+              if [ $(ls -1 /var/lib/softhsm/tokens 2>/dev/null | wc -l) -ge 1 ]; then
+                echo "Skipping initialization of softhsm"
+                exit 0
+              fi
+
+              mkdir -p /var/lib/softhsm/tokens
+              cd /var/lib/softhsm/tokens
+
+              # extract tokens from the configmap
+              # see ../k8s-mock-plugin-key-gen/README.md for details.
+              cat /etc/softhsm-tokens.tar.gz.b64 | base64 -d | tar xzf -
+          volumeMounts:
+            - mountPath: /var/lib/softhsm/tokens
+              name: softhsm-tokens
+            - mountPath: /etc/softhsm-tokens.tar.gz.b64
+              name: softhsm-config
+              subPath: softhsm-tokens.tar.gz.b64
+      containers:
+        - name: kms-plugin
+          image: {{ .Image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              # remove the socket to prevent "bind: address already in use"
+              # not sure this is the best way
+              rm -f /var/run/kmsplugin/kms.sock
+              exec /usr/local/bin/mock-kms-plugin -listen-addr=unix:///var/run/kmsplugin/kms.sock -config-file-path=/etc/softhsm-config.json
+          volumeMounts:
+            - name: socket
+              mountPath: /var/run/kmsplugin
+            - name: softhsm-config
+              mountPath: /etc/softhsm-config.json
+              subPath: softhsm-config.json
+            - name: softhsm-tokens
+              mountPath: /var/lib/softhsm/tokens
+      volumes:
+        - name: socket
+          hostPath:
+            path: /var/run/kmsplugin
+            type: DirectoryOrCreate
+        - name: softhsm-tokens
+          hostPath:
+            path: /var/lib/softhsm/tokens
+            type: DirectoryOrCreate
+        - name: softhsm-config
+          configMap:
+            name: k8s-mock-kms-plugin
