@@ -64,3 +64,6 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 
 	return nil
 }
+
+// TODO: Possibly this package will contain Vault specific side-car container spec generation.
+// TODO: This package will have an understanding of the semantics of Vault specific fields stored in APIServerConfig.

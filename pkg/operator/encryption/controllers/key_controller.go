@@ -270,6 +270,9 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
+	// TODO: Generate KMSConfiguration and KMS config side-car container spec according to the KMS Plugin type.
+	// TODO: Generation logic will directly depend on the KMS plugin type and needs to be updated when plugin arguments are changes in each new image.
+	// TODO: Store these 2 values in the Key Secret
 	if currentMode == state.KMS {
 		ks.KMSConfiguration = &apiserverv1.KMSConfiguration{
 			APIVersion: "v2",
@@ -297,6 +300,7 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 		return "", "", err
 	}
 
+	// TODO: Return APIServerEncryption.KMSConfig that is used to generate side-car Container spec based on the fields in APIServerConfig.
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.KMS, state.Identity: // secretbox is disabled for now
@@ -365,6 +369,12 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}
+
+	// TODO: The logic here will be the most important one and possibly complex.
+	// TODO: key_controller should detect any configurational changes here. Key_controller must intelligently distinguish
+	// TODO: the changes whether require migration or not.
+	// TODO: If a change requires a migration, there must be a new keyID with new fields.
+	// TODO: If a change does not require a migration, this change must be reflected to the Secret of the current keyID.
 
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
 	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {

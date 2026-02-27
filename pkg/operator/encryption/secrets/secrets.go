@@ -65,6 +65,7 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		}
 		key.KMSConfiguration = kmsConfiguration
 	}
+	// TODO: Convert kms-config-sidecar-spec from the Secret to KeyState
 
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
@@ -133,6 +134,8 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		}
 		s.Annotations[EncryptionSecretKMSConfig] = string(ksJSON)
 	}
+
+	// TODO: Store kms-config-sidecar-spec in key secrets.
 
 	return s, nil
 }

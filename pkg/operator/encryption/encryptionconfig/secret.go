@@ -40,6 +40,8 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 		return nil, err
 	}
 
+	// TODO: We may need to return the kms-config-sidecar-specs here.
+
 	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
 	if !ok {
 		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
@@ -53,6 +55,9 @@ func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfig
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
+
+	// TODO: kms-config-sidecar-specs must be copied in here.
+	// TODO: There might be multiple ones with they keyID: spec pairs.
 
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{

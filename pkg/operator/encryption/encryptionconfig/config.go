@@ -213,6 +213,7 @@ func stateToProviders(resource string, desired state.GroupResourceState) []apise
 				klog.Infof("skipping key %s for %s in KMS mode as its KMSConfiguration is nil", key.Key.Name, resource)
 				continue // this should never happen
 			}
+			// TODO: This logic shouldn't change much
 			// In order to preserve the uniqueness, we should insert resource name
 			kmsCopy := key.KMSConfiguration.DeepCopy()
 			kmsCopy.Name = createKMSProviderName(key.Key.Name, resource)

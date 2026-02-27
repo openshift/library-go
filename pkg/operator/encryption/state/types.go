@@ -3,6 +3,7 @@ package state
 import (
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
@@ -42,6 +43,9 @@ type KeyState struct {
 	ExternalReason string
 	// Encoded KMSConfiguration that stores the KMS related fields
 	KMSConfiguration *apiserverconfigv1.KMSConfiguration
+
+	// TODO: Each KMS key must store side-car container spec
+	spec v1.Container
 }
 
 type MigrationState struct {
@@ -63,6 +67,7 @@ const (
 	SecretBox Mode = "secretbox" // available from the first release, see defaultMode below
 	Identity  Mode = "identity"  // available from the first release, see defaultMode below
 	KMS       Mode = "KMS"       // only supports KMS v2
+	// TODO: There should be another Mode for KMSv2
 
 	// Changing this value requires caution to not break downgrades.
 	// Specifically, if some new Mode is released in version X, that new Mode cannot

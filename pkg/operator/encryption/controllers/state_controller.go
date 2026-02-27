@@ -145,6 +145,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	// TODO: Copy kms-config-sidecar spec by traversing through the encryptionSecrets using the keyID from EncryptionConfiguration providers.
+	// kms-config-sidecar-{keyID}: {containerSpec}
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
 	if err != nil {
 		return err
@@ -183,6 +185,7 @@ func eventsFromEncryptionConfigChanges(current, desired map[schema.GroupResource
 			})
 		}
 	}
+	// TODO: Detect the change in kms-config-sidecar-spec and reflect it in Events.
 	for desiredGroupResource, desiredGroupResourceState := range desired {
 		currentGroupResource, exists := current[desiredGroupResource]
 		if !exists {

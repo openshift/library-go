@@ -13,6 +13,7 @@ var (
 		state.SecretBox: NewAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
 		state.Identity:  NewEmptyKey,
 		state.KMS:       NewEmptyKey,
+		// TODO: There should be new mode for KMSv2 possibly with still EmptyKey
 	}
 )
 
