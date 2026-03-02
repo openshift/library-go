@@ -34,13 +34,15 @@ const (
 var knownFeatureSets = sets.Set[string]{}
 
 func init() {
-	for _, featureSets := range features.AllFeatureSets() {
-		for featureSet := range featureSets {
-			if len(featureSet) == 0 {
-				knownFeatureSets.Insert("Default")
-				continue
+	for _, byVersion := range features.AllFeatureSets() {
+		for _, featureSets := range byVersion {
+			for featureSet := range featureSets {
+				if len(featureSet) == 0 {
+					knownFeatureSets.Insert("Default")
+					continue
+				}
+				knownFeatureSets.Insert(string(featureSet))
 			}
-			knownFeatureSets.Insert(string(featureSet))
 		}
 	}
 	knownFeatureSets.Insert(string(configv1.CustomNoUpgrade))
