@@ -120,21 +120,7 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 	}
 	s.lock.Unlock()
 
-	// Wait for cache sync outside the lock so that concurrent registrations for different
-	// secrets can perform their API round-trips to etcd in parallel.
 	if !exists {
-		if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
-			// Sync failed (e.g. context cancelled). Clean up the map entry so a future
-			// caller can retry with a fresh informer.
-			s.lock.Lock()
-			// Only remove if it's still our entry (no other caller replaced it).
-			if s.monitors[key] == m {
-				m.itemMonitor.StopInformer()
-				delete(s.monitors, key)
-			}
-			s.lock.Unlock()
-			return nil, fmt.Errorf("failed waiting for cache sync")
-		}
 		klog.Info("secret informer started", " item key ", key)
 	}
 
@@ -213,9 +199,10 @@ func (s *secretMonitor) GetSecret(ctx context.Context, handlerRegistration Secre
 		return nil, fmt.Errorf("secret monitor doesn't exist for key %v", key)
 	}
 
-	// wait for informer store sync, to load secrets
-	if !cache.WaitForCacheSync(ctx.Done(), handlerRegistration.HasSynced) {
-		return nil, fmt.Errorf("failed waiting for cache sync")
+	// do not wait for informer store sync. If it's not ready, return an error immediately
+	// so the caller can proceed asynchronously.
+	if !handlerRegistration.HasSynced() {
+		return nil, fmt.Errorf("secret cache not synced yet")
 	}
 
 	uncast, exists, err := m.itemMonitor.GetItem()
