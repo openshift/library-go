@@ -34,6 +34,8 @@ var (
 	// plus 10 additional minutes for actual migration
 	waitPollTimeout       = 69*time.Minute + 10*time.Minute
 	defaultEncryptionMode = string(configv1.EncryptionTypeIdentity)
+
+	SupportedStaticEncryptionProviders = []configv1.EncryptionType{configv1.EncryptionTypeAESGCM, configv1.EncryptionTypeAESCBC}
 )
 
 type ClientSet struct {
