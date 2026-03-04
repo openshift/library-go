@@ -19,7 +19,7 @@ require (
 	github.com/opencontainers/selinux v1.11.0
 	github.com/openshift/api v0.0.0-20260304172252-b0658d22beea
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
-	github.com/openshift/client-go v0.0.0-20251015124057-db0dee36e235
+	github.com/openshift/client-go v0.0.0-20251205093018-96a6cbc1420c
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
