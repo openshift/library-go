@@ -34,6 +34,7 @@ const (
 	aesCBCTransformerPrefixV1    = "k8s:enc:aescbc:v1:"
 	aesGCMTransformerPrefixV1    = "k8s:enc:aesgcm:v1:"
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
+	kmsTransformerPrefixV2       = "k8s:enc:kms:v2:"
 )
 
 func init() {
@@ -163,6 +164,8 @@ func encryptionModeFromEtcdValue(data []byte) (string, bool) {
 			return "aesgcm"
 		case hasPrefixAndTrailingData(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
 			return "secretbox"
+		case hasPrefixAndTrailingData(data, []byte(kmsTransformerPrefixV2)): // KMS v2 has this prefix
+			return "KMS"
 		case hasPrefixAndTrailingData(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
 			return "identity-json"
 		case hasPrefixAndTrailingData(data, protoEncodingPrefix): // unencrypted protobuf data has this prefix
