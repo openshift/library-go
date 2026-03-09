@@ -37,7 +37,11 @@ import (
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).
-const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
+const (
+	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
+	defaultKMSEndpoint                = "unix:///var/run/kmsplugin/kms.sock"
+	defaultKMSTimeout                 = 10 * time.Second
+)
 
 // keyController creates new keys if necessary. It
 // * watches
@@ -266,6 +270,14 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
+	if currentMode == state.KMS {
+		ks.KMSConfiguration = &apiserverv1.KMSConfiguration{
+			APIVersion: "v2",
+			Name:       fmt.Sprintf("%d", keyID),
+			Endpoint:   defaultKMSEndpoint,
+			Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
+		}
+	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
@@ -287,7 +299,7 @@ func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (st
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
-	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
+	case state.AESCBC, state.AESGCM, state.KMS, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, nil
@@ -338,6 +350,19 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	// if the most recent secret turned off encryption and we want to keep it that way, do nothing
 	if latestKey.Mode == state.Identity && currentMode == state.Identity {
+		return 0, "", false
+	}
+
+	if currentMode == state.KMS {
+		// We are here because Encryption Mode is not changed
+
+		// For now in Tech Preview v1, we don't support configurational changes. Therefore,
+		// it is pointless comparing the secrets.
+
+		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
+		// KMS keys are rotated externally by the KMS system.
+		// Moreover, we don't trigger new key when external reason is changed.
+		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}
 
