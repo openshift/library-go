@@ -3,6 +3,7 @@ package featuregates
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,13 +18,16 @@ import (
 // feature gates to a known subset (instead of everything).  The featureBlacklist will stop certain features from making
 // it through the list.  The featureBlacklist should be empty, but for a brief time, some featuregates may need to skipped.
 // @smarterclayton will live forever in shame for being the first to require this for "IPv6DualStack".
-func NewObserveFeatureFlagsFunc(featureWhitelist sets.Set[configv1.FeatureGateName], featureBlacklist sets.Set[configv1.FeatureGateName], configPath []string, featureGateAccess FeatureGateAccess) configobserver.ObserveConfigFunc {
+// featureBlacklistExplicitDisablement explicitly disables feature gates that are enabled by default.
+// In those cases, featureBlacklist won't be sufficient, since it basically omits the feature gate from args.
+func NewObserveFeatureFlagsFunc(featureWhitelist sets.Set[configv1.FeatureGateName], featureBlacklist sets.Set[configv1.FeatureGateName], featureBlacklistExplicitDisablement sets.Set[configv1.FeatureGateName], configPath []string, featureGateAccess FeatureGateAccess) configobserver.ObserveConfigFunc {
 	return (&featureFlags{
-		allowAll:          len(featureWhitelist) == 0,
-		featureWhitelist:  featureWhitelist,
-		featureBlacklist:  featureBlacklist,
-		configPath:        configPath,
-		featureGateAccess: featureGateAccess,
+		allowAll:                            len(featureWhitelist) == 0,
+		featureWhitelist:                    featureWhitelist,
+		featureBlacklist:                    featureBlacklist,
+		featureBlackListExplicitDisablement: featureBlacklistExplicitDisablement,
+		configPath:                          configPath,
+		featureGateAccess:                   featureGateAccess,
 	}).ObserveFeatureFlags
 }
 
@@ -31,9 +35,12 @@ type featureFlags struct {
 	allowAll         bool
 	featureWhitelist sets.Set[configv1.FeatureGateName]
 	// we add a forceDisableFeature list because we've now had bad featuregates break individual operators.  Awesome.
-	featureBlacklist  sets.Set[configv1.FeatureGateName]
-	configPath        []string
-	featureGateAccess FeatureGateAccess
+	// featureBlackList omits the given feature gate from the args
+	featureBlacklist sets.Set[configv1.FeatureGateName]
+	// featureBlackListExplicitDisablement explicitly sets the feature gate to false in args
+	featureBlackListExplicitDisablement sets.Set[configv1.FeatureGateName]
+	configPath                          []string
+	featureGateAccess                   FeatureGateAccess
 }
 
 // ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
@@ -84,6 +91,9 @@ func (f *featureFlags) getWhitelistedFeatureNames(featureGates FeatureGate) []st
 		if f.featureBlacklist.Has(knownFeatureGate) {
 			continue
 		}
+		if f.featureBlackListExplicitDisablement.Has(knownFeatureGate) {
+			continue
+		}
 		// only add whitelisted feature flags
 		if !f.allowAll && !f.featureWhitelist.Has(knownFeatureGate) {
 			continue
@@ -94,6 +104,12 @@ func (f *featureFlags) getWhitelistedFeatureNames(featureGates FeatureGate) []st
 		} else {
 			newConfigValue = append(newConfigValue, formatDisabledFunc(knownFeatureGate))
 		}
+	}
+
+	explicitlyDisabled := f.featureBlackListExplicitDisablement.UnsortedList()
+	slices.Sort(explicitlyDisabled)
+	for _, disableFeature := range explicitlyDisabled {
+		newConfigValue = append(newConfigValue, formatDisabledFunc(disableFeature))
 	}
 
 	return newConfigValue

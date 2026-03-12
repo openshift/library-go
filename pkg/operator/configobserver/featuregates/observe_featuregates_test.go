@@ -2,11 +2,12 @@ package featuregates
 
 import (
 	"errors"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"slices"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,12 +39,13 @@ func TestObserveFeatureFlags(t *testing.T) {
 	configPath := []string{"foo", "bar"}
 
 	tests := []struct {
-		name                string
-		accessor            FeatureGateAccess
-		expectedResult      []string
-		expectError         bool
-		knownFeatures       sets.Set[configv1.FeatureGateName]
-		blacklistedFeatures sets.Set[configv1.FeatureGateName]
+		name                                  string
+		accessor                              FeatureGateAccess
+		expectedResult                        []string
+		expectError                           bool
+		knownFeatures                         sets.Set[configv1.FeatureGateName]
+		blacklistedFeatures                   sets.Set[configv1.FeatureGateName]
+		blackListedFeaturesExplicitlyDisabled sets.Set[configv1.FeatureGateName]
 	}{
 		{
 			name: "default",
@@ -128,6 +130,62 @@ func TestObserveFeatureFlags(t *testing.T) {
 			blacklistedFeatures: sets.New[configv1.FeatureGateName]("AnotherThing", "DisabledThing"),
 		},
 		{
+			name: "explicitly disabled features in known features",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"FeatureA", "FeatureB", "FeatureC"},
+				[]configv1.FeatureGateName{"FeatureD"},
+			),
+			expectedResult: []string{
+				"FeatureA=true",
+				"FeatureB=false",
+				"FeatureC=true",
+				"FeatureD=false",
+			},
+			blackListedFeaturesExplicitlyDisabled: sets.New[configv1.FeatureGateName]("FeatureB"),
+		},
+		{
+			name: "explicitly disabled features not in known features",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"FeatureA", "FeatureB"},
+				[]configv1.FeatureGateName{},
+			),
+			expectedResult: []string{
+				"FeatureA=true",
+				"FeatureB=true",
+				"UnknownFeature=false",
+			},
+			blackListedFeaturesExplicitlyDisabled: sets.New[configv1.FeatureGateName]("UnknownFeature"),
+		},
+		{
+			name: "combination of blacklist and explicit disablement",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"Feature1", "Feature2", "Feature3", "Feature4"},
+				[]configv1.FeatureGateName{"Feature5"},
+			),
+			expectedResult: []string{
+				"Feature1=true",
+				"Feature3=false",
+				"Feature4=true",
+				"Feature5=false",
+			},
+			blacklistedFeatures:                   sets.New[configv1.FeatureGateName]("Feature2"),
+			blackListedFeaturesExplicitlyDisabled: sets.New[configv1.FeatureGateName]("Feature3"),
+		},
+		{
+			name: "explicit disablement with unknown features",
+			accessor: NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{"EnabledFeature1", "EnabledFeature2"},
+				[]configv1.FeatureGateName{"DisabledFeature"},
+			),
+			expectedResult: []string{
+				"DisabledFeature=false",
+				"EnabledFeature1=true",
+				"EnabledFeature2=false",
+				"NotInKnownList=false",
+			},
+			blackListedFeaturesExplicitlyDisabled: sets.New[configv1.FeatureGateName]("EnabledFeature2", "NotInKnownList"),
+		},
+		{
 			name: "initial gates not observed",
 			accessor: NewHardcodedFeatureGateAccessForTesting(
 				[]configv1.FeatureGateName{"CustomFeatureEnabled"},
@@ -157,7 +215,7 @@ func TestObserveFeatureFlags(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 			initialExistingConfig := map[string]interface{}{}
-			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, configPath, tc.accessor)
+			observeFn := NewObserveFeatureFlagsFunc(tc.knownFeatures, tc.blacklistedFeatures, tc.blackListedFeaturesExplicitlyDisabled, configPath, tc.accessor)
 
 			observed, errs := observeFn(nil, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 && !tc.expectError {
