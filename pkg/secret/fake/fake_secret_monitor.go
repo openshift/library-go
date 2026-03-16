@@ -13,8 +13,17 @@ type SecretMonitor struct {
 	Secret *corev1.Secret
 }
 
+type fakeRegistration struct{}
+
+func (fakeRegistration) HasSynced() bool { return true }
+func (fakeRegistration) GetKey() secret.ObjectKey { return secret.ObjectKey{} }
+func (fakeRegistration) GetHandler() cache.ResourceEventHandlerRegistration { return nil }
+
 func (sm *SecretMonitor) AddSecretEventHandler(_ context.Context, _ string, _ string, _ cache.ResourceEventHandler) (secret.SecretEventHandlerRegistration, error) {
-	return nil, sm.Err
+	if sm.Err != nil {
+		return nil, sm.Err
+	}
+	return fakeRegistration{}, nil
 }
 func (sm *SecretMonitor) RemoveSecretEventHandler(_ secret.SecretEventHandlerRegistration) error {
 	return sm.Err
