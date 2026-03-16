@@ -15,8 +15,8 @@ type SecretMonitor struct {
 
 type fakeRegistration struct{}
 
-func (fakeRegistration) HasSynced() bool { return true }
-func (fakeRegistration) GetKey() secret.ObjectKey { return secret.ObjectKey{} }
+func (fakeRegistration) HasSynced() bool                                    { return true }
+func (fakeRegistration) GetKey() secret.ObjectKey                           { return secret.ObjectKey{} }
 func (fakeRegistration) GetHandler() cache.ResourceEventHandlerRegistration { return nil }
 
 func (sm *SecretMonitor) AddSecretEventHandler(_ context.Context, _ string, _ string, _ cache.ResourceEventHandler) (secret.SecretEventHandlerRegistration, error) {
