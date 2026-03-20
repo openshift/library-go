@@ -1,4 +1,4 @@
-package certrotation
+package tlsartifact
 
 import (
 	"github.com/google/go-cmp/cmp"
@@ -25,6 +25,9 @@ const (
 	CertificateRefreshPeriodAnnotation string = "certificates.openshift.io/refresh-period"
 )
 
+// AdditionalAnnotations holds TLS artifact metadata annotations as defined by
+// the TLS Artifacts Registry enhancement. These annotations identify the
+// owning component, purpose, and lifecycle of managed TLS artifacts.
 type AdditionalAnnotations struct {
 	// JiraComponent annotates tls artifacts so that owner could be easily found
 	JiraComponent string
