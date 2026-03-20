@@ -16,7 +16,7 @@ import (
 
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 )
 
 // mockConfigMapLister is a mock implementation of the ConfigMapLister interface for testing
@@ -106,7 +106,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 		destinationConfigMap  *corev1.ConfigMap
 		mockConfigMaps        map[string]map[string]*corev1.ConfigMap
 		inputLocations        []ResourceLocation
-		additionalAnnotations certrotation.AdditionalAnnotations
+		additionalAnnotations tlsartifact.AdditionalAnnotations
 		expectModified        bool
 		expectedCABundle      *corev1.ConfigMap
 	}{
@@ -132,7 +132,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 				{Namespace: "ns1", Name: "cm1"},
 				{Namespace: "ns2", Name: "cm2"},
 			},
-			additionalAnnotations: certrotation.AdditionalAnnotations{},
+			additionalAnnotations: tlsartifact.AdditionalAnnotations{},
 			expectModified:        true,
 			expectedCABundle: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -169,7 +169,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 			inputLocations: []ResourceLocation{
 				{Namespace: "ns1", Name: "cm1"},
 			},
-			additionalAnnotations: certrotation.AdditionalAnnotations{},
+			additionalAnnotations: tlsartifact.AdditionalAnnotations{},
 			expectModified:        true,
 			expectedCABundle: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -199,7 +199,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 			inputLocations: []ResourceLocation{
 				{Namespace: "ns1", Name: "cm1"},
 			},
-			additionalAnnotations: certrotation.AdditionalAnnotations{
+			additionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: jiraComponent,
 			},
 			expectModified:   false,
@@ -228,7 +228,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 			inputLocations: []ResourceLocation{
 				{Namespace: "ns1", Name: "cm1"},
 			},
-			additionalAnnotations: certrotation.AdditionalAnnotations{
+			additionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: jiraComponent,
 			},
 			expectModified:   true,
@@ -249,7 +249,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 			inputLocations: []ResourceLocation{
 				{Namespace: "ns1", Name: "cm1"},
 			},
-			additionalAnnotations: certrotation.AdditionalAnnotations{
+			additionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: jiraComponent,
 			},
 			expectModified: true,

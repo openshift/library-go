@@ -22,6 +22,7 @@ import (
 
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 )
 
 func TestEnsureSigningCertKeyPair(t *testing.T) {
@@ -260,7 +261,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				Client:        client.CoreV1(),
 				Lister:        corev1listers.NewSecretLister(indexer),
 				EventRecorder: recorder,
-				AdditionalAnnotations: AdditionalAnnotations{
+				AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 					JiraComponent: "test",
 				},
 				Owner: &metav1.OwnerReference{

@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +47,7 @@ type RotatedSigningCASecret struct {
 	Owner *metav1.OwnerReference
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -68,7 +69,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		signingCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
+			ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 				c.Name,
 				c.Namespace,
 				c.AdditionalAnnotations,
@@ -179,7 +180,7 @@ func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, ref
 }
 
 func getValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
-	notAfterString := annotations[CertificateNotAfterAnnotation]
+	notAfterString := annotations[tlsartifact.CertificateNotAfterAnnotation]
 	if len(notAfterString) == 0 {
 		return notBefore, notAfter, "missing notAfter"
 	}
@@ -187,7 +188,7 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	if err != nil {
 		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notAfterString)
 	}
-	notBeforeString := annotations[CertificateNotBeforeAnnotation]
+	notBeforeString := annotations[tlsartifact.CertificateNotBeforeAnnotation]
 	if len(notBeforeString) == 0 {
 		return notBefore, notAfter, "missing notBefore"
 	}
@@ -201,7 +202,7 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations AdditionalAnnotations) error {
+func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations tlsartifact.AdditionalAnnotations) error {
 	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity)
 	if err != nil {
 		return err
@@ -243,8 +244,8 @@ func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validi
 //
 // These assumptions are safe because this function is only called after the secret
 // has been initialized in setSigningCertKeyPairSecret.
-func setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, ca *crypto.TLSCertificateConfig, refresh time.Duration, tlsAnnotations AdditionalAnnotations) {
-	signingCertKeyPairSecret.Annotations[CertificateIssuer] = ca.Certs[0].Issuer.CommonName
+func setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, ca *crypto.TLSCertificateConfig, refresh time.Duration, tlsAnnotations tlsartifact.AdditionalAnnotations) {
+	signingCertKeyPairSecret.Annotations[tlsartifact.CertificateIssuer] = ca.Certs[0].Issuer.CommonName
 
 	tlsAnnotations.NotBefore = ca.Certs[0].NotBefore.Format(time.RFC3339)
 	tlsAnnotations.NotAfter = ca.Certs[0].NotAfter.Format(time.RFC3339)

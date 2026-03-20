@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 
 	certificates "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,7 +67,7 @@ type ClientCertOption struct {
 	// AdditonalSecretData contains data that will be added into client certificate secret besides tls.key/tls.crt
 	AdditonalSecretData map[string][]byte
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations certrotation.AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
 }
 
 // clientCertificateController implements the common logic of hub client certification creation/rotation. It
@@ -154,7 +154,7 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 	switch {
 	case errors.IsNotFound(err):
 		secret = &corev1.Secret{
-			ObjectMeta: certrotation.NewTLSArtifactObjectMeta(
+			ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 				c.SecretName,
 				c.SecretNamespace,
 				c.AdditionalAnnotations,
