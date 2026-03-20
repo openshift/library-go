@@ -21,8 +21,10 @@ import (
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/api/annotations"
+	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/tlsartifact"
+	"github.com/openshift/library-go/pkg/pki"
 )
 
 func TestEnsureSigningCertKeyPair(t *testing.T) {
@@ -325,5 +327,123 @@ func verifyKeyPair(t testing.TB, certPEM, keyPEM []byte) {
 
 	if err := key.Validate(); err != nil {
 		t.Errorf("Failed to validate key: %v", err)
+	}
+}
+
+func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
+	testCases := []struct {
+		name              string
+		configurePKI      bool
+		profileAlgorithm  string
+		profileECDSACurve string
+		wantAlg           x509.PublicKeyAlgorithm
+	}{
+		{
+			name:         "no PKI configured uses legacy RSA-2048",
+			configurePKI: false,
+			wantAlg:      x509.RSA,
+		},
+		{
+			name:              "ECDSA-P256 via profile",
+			configurePKI:      true,
+			profileAlgorithm:  "ECDSA",
+			profileECDSACurve: "P256",
+			wantAlg:           x509.ECDSA,
+		},
+		{
+			name:              "ECDSA-P384 via profile",
+			configurePKI:      true,
+			profileAlgorithm:  "ECDSA",
+			profileECDSACurve: "P384",
+			wantAlg:           x509.ECDSA,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "test-signer"},
+			}
+
+			c := RotatedSigningCASecret{
+				Validity:        24 * time.Hour,
+				CertificateName: "test.signer",
+			}
+			if tc.configurePKI {
+				profile := pki.DefaultPKIProfile()
+				profile.SignerCertificates.Key.Algorithm = configv1alpha1.KeyAlgorithm(tc.profileAlgorithm)
+				profile.SignerCertificates.Key.ECDSA.Curve = configv1alpha1.ECDSACurve(tc.profileECDSACurve)
+				c.configurablePKIEnabled = true
+				c.pkiProfileProvider = pki.NewStaticPKIProfileProvider(&profile)
+			}
+
+			ca, err := c.setSigningCertKeyPairSecret(secret)
+			if err != nil {
+				t.Fatalf("setSigningCertKeyPairSecret() error = %v", err)
+			}
+			if ca == nil {
+				t.Fatal("expected non-nil CA config")
+			}
+			if len(secret.Data["tls.crt"]) == 0 {
+				t.Error("tls.crt is empty")
+			}
+			if len(secret.Data["tls.key"]) == 0 {
+				t.Error("tls.key is empty")
+			}
+
+			cert := ca.Certs[0]
+			if !cert.IsCA {
+				t.Error("expected IsCA to be true")
+			}
+			if cert.PublicKeyAlgorithm != tc.wantAlg {
+				t.Errorf("expected %v public key, got %v", tc.wantAlg, cert.PublicKeyAlgorithm)
+			}
+		})
+	}
+}
+
+func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
+	profile := pki.DefaultPKIProfile()
+	profile.SignerCertificates.Key.Algorithm = "ECDSA"
+	profile.SignerCertificates.Key.ECDSA.Curve = "P256"
+	profile.SignerCertificates.Key.RSA = configv1alpha1.RSAKeyConfig{}
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	client := kubefake.NewClientset()
+	recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+
+	c := &RotatedSigningCASecret{
+		Namespace:              "ns",
+		Name:                   "signer",
+		Validity:               24 * time.Hour,
+		Refresh:                12 * time.Hour,
+		Client:                 client.CoreV1(),
+		Lister:                 corev1listers.NewSecretLister(indexer),
+		EventRecorder:          recorder,
+		CertificateName:        "test.signer",
+		configurablePKIEnabled: true,
+		pkiProfileProvider:     pki.NewStaticPKIProfileProvider(&profile),
+		Owner:                  &metav1.OwnerReference{Name: "operator"},
+		AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
+			JiraComponent: "test",
+		},
+	}
+
+	ca, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
+	if err != nil {
+		t.Fatalf("EnsureSigningCertKeyPair() error = %v", err)
+	}
+	if !updated {
+		t.Error("expected controller to report updated")
+	}
+	if ca == nil {
+		t.Fatal("expected non-nil CA")
+	}
+
+	cert := ca.Config.Certs[0]
+	if cert.PublicKeyAlgorithm != x509.ECDSA {
+		t.Errorf("expected ECDSA public key, got %v", cert.PublicKeyAlgorithm)
+	}
+	if !cert.IsCA {
+		t.Error("expected IsCA to be true")
 	}
 }

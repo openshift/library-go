@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/tlsartifact"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,12 @@ type RotatedSigningCASecret struct {
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations tlsartifact.AdditionalAnnotations
+
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	CertificateName string
+
+	configurablePKIEnabled bool
+	pkiProfileProvider     pki.PKIProfileProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -200,6 +207,31 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	return notBefore, notAfter, ""
 }
 
+// resolveKeyConfig resolves the key configuration from the PKI profile provider.
+// It must only be called when configurablePKIEnabled is true.
+// Returns nil for Unmanaged mode (no key override).
+func (c RotatedSigningCASecret) resolveKeyConfig() (*crypto.KeyConfig, error) {
+	if !c.configurablePKIEnabled {
+		return nil, fmt.Errorf("resolveKeyConfig called but configurable PKI is not enabled")
+	}
+	cfg, err := pki.ResolveCertificateConfig(c.pkiProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
+	if err != nil {
+		// TODO(sanchezl): Remove this fallback once installer support for the PKI
+		// resource is in place. Until then, the PKI resource may not exist in
+		// TechPreview clusters, so we fall back to the default profile.
+		klog.Warningf("Failed to resolve PKI config for signer %q, falling back to default profile: %v", c.CertificateName, err)
+		defaultProfile := pki.DefaultPKIProfile()
+		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), pki.CertificateTypeSigner, c.CertificateName)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg == nil {
+		return nil, nil
+	}
+	return &cfg.Key, nil
+}
+
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
 func (c RotatedSigningCASecret) setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret) error {
@@ -212,10 +244,26 @@ func (c RotatedSigningCASecret) setSigningCertKeyPairSecretAndTLSAnnotations(sig
 	return nil
 }
 
-// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
+// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret.
 func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
-	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
+
+	var ca *crypto.TLSCertificateConfig
+	var err error
+	if c.configurablePKIEnabled {
+		var keyConfig *crypto.KeyConfig
+		keyConfig, err = c.resolveKeyConfig()
+		if err != nil {
+			return nil, err
+		}
+		if keyConfig != nil {
+			ca, err = crypto.NewSigningCertificate(signerName, *keyConfig, crypto.WithLifetime(c.Validity))
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
+	}
+	if ca == nil {
+		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
+	}
 	if err != nil {
 		return nil, err
 	}
