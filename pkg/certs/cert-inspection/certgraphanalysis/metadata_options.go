@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openshift/library-go/pkg/certs/cert-inspection/certgraphapi"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -172,7 +172,7 @@ var (
 )
 
 func humanizeRefreshPeriodFromMetadata(annotations map[string]string) {
-	period, ok := annotations[certrotation.CertificateRefreshPeriodAnnotation]
+	period, ok := annotations[tlsartifact.CertificateRefreshPeriodAnnotation]
 	if !ok {
 		return
 	}
@@ -182,7 +182,7 @@ func humanizeRefreshPeriodFromMetadata(annotations map[string]string) {
 		return
 	}
 	humanReadableDate := durationToHumanReadableString(d)
-	annotations[certrotation.CertificateRefreshPeriodAnnotation] = humanReadableDate
+	annotations[tlsartifact.CertificateRefreshPeriodAnnotation] = humanReadableDate
 	annotations[rewritePrefix+"RewriteRefreshPeriod"] = period
 	return
 }

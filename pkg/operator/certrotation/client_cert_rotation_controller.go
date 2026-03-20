@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/api/features"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/pki"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -72,6 +75,8 @@ func NewCertRotationController(
 	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
+	featureGates featuregates.FeatureGate,
+	configInformer configinformers.SharedInformerFactory,
 ) factory.Controller {
 	c := &CertRotationController{
 		Name:                           name,
@@ -80,6 +85,17 @@ func NewCertRotationController(
 		RotatedSelfSignedCertKeySecret: rotatedSelfSignedCertKeySecret,
 		StatusReporter:                 reporter,
 	}
+
+	var bareInformers []factory.Informer
+	if featureGates != nil && featureGates.Enabled(features.FeatureGateConfigurablePKI) {
+		bareInformers = append(bareInformers, configInformer.Config().V1alpha1().PKIs().Informer())
+		pkiProfileProvider := pki.NewListerPKIProfileProvider(configInformer.Config().V1alpha1().PKIs().Lister(), "cluster")
+		c.RotatedSigningCASecret.configurablePKIEnabled = true
+		c.RotatedSigningCASecret.pkiProfileProvider = pkiProfileProvider
+		c.RotatedSelfSignedCertKeySecret.configurablePKIEnabled = true
+		c.RotatedSelfSignedCertKeySecret.pkiProfileProvider = pkiProfileProvider
+	}
+
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(c.Sync).
@@ -103,6 +119,7 @@ func NewCertRotationController(
 			caBundleConfigMap.Informer.Informer(),
 			rotatedSelfSignedCertKeySecret.Informer.Informer(),
 		).
+		WithBareInformers(bareInformers...).
 		WithPostStartHooks(
 			c.targetCertRecheckerPostRunHook,
 		).

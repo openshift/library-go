@@ -9,6 +9,8 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +48,13 @@ type RotatedSigningCASecret struct {
 	Owner *metav1.OwnerReference
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
+
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	CertificateName string
+
+	configurablePKIEnabled bool
+	pkiProfileProvider     pki.PKIProfileProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -68,7 +76,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		signingCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
+			ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 				c.Name,
 				c.Namespace,
 				c.AdditionalAnnotations,
@@ -87,12 +95,12 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 	// run Update if signer content needs changing
 	signerUpdated := false
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret, c.Refresh, c.RefreshOnlyWhenExpired); needed || creationRequired {
+	if needed, reason := c.needNewSigningCertKeyPair(signingCertKeyPairSecret); needed || creationRequired {
 		if creationRequired {
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
+		if err = c.setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret); err != nil {
 			return nil, false, err
 		}
 
@@ -149,7 +157,7 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	return false
 }
 
-func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+func (c RotatedSigningCASecret) needNewSigningCertKeyPair(secret *corev1.Secret) (bool, string) {
 	annotations := secret.Annotations
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
@@ -160,7 +168,7 @@ func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, ref
 		return true, "already expired"
 	}
 
-	if refreshOnlyWhenExpired {
+	if c.RefreshOnlyWhenExpired {
 		return false, ""
 	}
 
@@ -170,7 +178,7 @@ func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, ref
 		return true, fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
 	}
 
-	developerSpecifiedRefresh := notBefore.Add(refresh)
+	developerSpecifiedRefresh := notBefore.Add(c.Refresh)
 	if time.Now().After(developerSpecifiedRefresh) {
 		return true, fmt.Sprintf("past its refresh time %v", developerSpecifiedRefresh)
 	}
@@ -179,7 +187,7 @@ func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, ref
 }
 
 func getValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
-	notAfterString := annotations[CertificateNotAfterAnnotation]
+	notAfterString := annotations[tlsartifact.CertificateNotAfterAnnotation]
 	if len(notAfterString) == 0 {
 		return notBefore, notAfter, "missing notAfter"
 	}
@@ -187,7 +195,7 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	if err != nil {
 		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notAfterString)
 	}
-	notBeforeString := annotations[CertificateNotBeforeAnnotation]
+	notBeforeString := annotations[tlsartifact.CertificateNotBeforeAnnotation]
 	if len(notBeforeString) == 0 {
 		return notBefore, notAfter, "missing notBefore"
 	}
@@ -199,22 +207,63 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	return notBefore, notAfter, ""
 }
 
+// resolveKeyConfig resolves the key configuration from the PKI profile provider.
+// It must only be called when configurablePKIEnabled is true.
+// Returns nil for Unmanaged mode (no key override).
+func (c RotatedSigningCASecret) resolveKeyConfig() (*crypto.KeyConfig, error) {
+	if !c.configurablePKIEnabled {
+		return nil, fmt.Errorf("resolveKeyConfig called but configurable PKI is not enabled")
+	}
+	cfg, err := pki.ResolveCertificateConfig(c.pkiProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
+	if err != nil {
+		// TODO(sanchezl): Remove this fallback once installer support for the PKI
+		// resource is in place. Until then, the PKI resource may not exist in
+		// TechPreview clusters, so we fall back to the default profile.
+		klog.Warningf("Failed to resolve PKI config for signer %q, falling back to default profile: %v", c.CertificateName, err)
+		defaultProfile := pki.DefaultPKIProfile()
+		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), pki.CertificateTypeSigner, c.CertificateName)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg == nil {
+		return nil, nil
+	}
+	return &cfg.Key, nil
+}
+
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations AdditionalAnnotations) error {
-	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity)
+func (c RotatedSigningCASecret) setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret) error {
+	ca, err := c.setSigningCertKeyPairSecret(signingCertKeyPairSecret)
 	if err != nil {
 		return err
 	}
 
-	setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret, ca, refresh, tlsAnnotations)
+	c.setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret, ca)
 	return nil
 }
 
-// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
-func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret.
+func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
-	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
+
+	var ca *crypto.TLSCertificateConfig
+	var err error
+	if c.configurablePKIEnabled {
+		var keyConfig *crypto.KeyConfig
+		keyConfig, err = c.resolveKeyConfig()
+		if err != nil {
+			return nil, err
+		}
+		if keyConfig != nil {
+			ca, err = crypto.NewSigningCertificate(signerName, *keyConfig, crypto.WithLifetime(c.Validity))
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
+	}
+	if ca == nil {
+		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -243,11 +292,12 @@ func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validi
 //
 // These assumptions are safe because this function is only called after the secret
 // has been initialized in setSigningCertKeyPairSecret.
-func setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, ca *crypto.TLSCertificateConfig, refresh time.Duration, tlsAnnotations AdditionalAnnotations) {
-	signingCertKeyPairSecret.Annotations[CertificateIssuer] = ca.Certs[0].Issuer.CommonName
+func (c RotatedSigningCASecret) setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, ca *crypto.TLSCertificateConfig) {
+	signingCertKeyPairSecret.Annotations[tlsartifact.CertificateIssuer] = ca.Certs[0].Issuer.CommonName
 
+	tlsAnnotations := c.AdditionalAnnotations
 	tlsAnnotations.NotBefore = ca.Certs[0].NotBefore.Format(time.RFC3339)
 	tlsAnnotations.NotAfter = ca.Certs[0].NotAfter.Format(time.RFC3339)
-	tlsAnnotations.RefreshPeriod = refresh.String()
+	tlsAnnotations.RefreshPeriod = c.Refresh.String()
 	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta)
 }

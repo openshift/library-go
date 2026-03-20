@@ -18,6 +18,8 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -59,10 +61,19 @@ type RotatedSelfSignedCertKeySecret struct {
 	Owner *metav1.OwnerReference
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
 
 	// CertCreator does the actual cert generation.
 	CertCreator TargetCertCreator
+
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	CertificateName string
+
+	// CertificateType identifies the category of this certificate (serving, client, peer, signer).
+	CertificateType pki.CertificateType
+
+	configurablePKIEnabled bool
+	pkiProfileProvider     pki.PKIProfileProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -86,6 +97,12 @@ type TargetCertRechecker interface {
 	RecheckChannel() <-chan struct{}
 }
 
+// KeyConfigurable is optionally implemented by TargetCertCreator implementations
+// to support configurable key algorithms via the ConfigurablePKI feature gate.
+type KeyConfigurable interface {
+	SetKeyConfig(kc *crypto.KeyConfig)
+}
+
 func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Context, signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) (*corev1.Secret, error) {
 	// at this point our trust bundle has been updated.  We don't know for sure that consumers have updated, but that's why we have a second
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
@@ -102,7 +119,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		targetCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
+			ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 				c.Name,
 				c.Namespace,
 				c.AdditionalAnnotations,
@@ -121,7 +138,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, creationRequired); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret, c.Validity, c.Refresh, signingCertKeyPair, c.CertCreator, c.AdditionalAnnotations); err != nil {
+		if err = c.setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret, signingCertKeyPair); err != nil {
 			return nil, err
 		}
 
@@ -170,7 +187,7 @@ func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundle
 	}
 
 	// check the signer common name against all the common names in our ca bundle so we don't refresh early
-	signerCommonName := annotations[CertificateIssuer]
+	signerCommonName := annotations[tlsartifact.CertificateIssuer]
 	if len(signerCommonName) == 0 {
 		return "missing issuer name"
 	}
@@ -239,19 +256,19 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 
 // setTargetCertKeyPairSecretAndTLSAnnotations generates a new cert/key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, signer *crypto.CA, certCreator TargetCertCreator, tlsAnnotations AdditionalAnnotations) error {
-	certKeyPair, err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, validity, signer, certCreator)
+func (c RotatedSelfSignedCertKeySecret) setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret *corev1.Secret, signer *crypto.CA) error {
+	certKeyPair, err := c.setTargetCertKeyPairSecret(targetCertKeyPairSecret, signer)
 	if err != nil {
 		return err
 	}
 
-	setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret, certKeyPair, certCreator, refresh, tlsAnnotations)
+	c.setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret, certKeyPair)
 	return nil
 }
 
 // setTargetCertKeyPairSecret creates a new cert/key pair and sets them in the secret.  Only one of client, serving, or signer rotation may be specified.
 // TODO refactor with an interface for actually signing and move the one-of check higher in the stack.
-func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity time.Duration, signer *crypto.CA, certCreator TargetCertCreator) (*crypto.TLSCertificateConfig, error) {
+func (c RotatedSelfSignedCertKeySecret) setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, signer *crypto.CA) (*crypto.TLSCertificateConfig, error) {
 	if targetCertKeyPairSecret.Annotations == nil {
 		targetCertKeyPairSecret.Annotations = map[string]string{}
 	}
@@ -260,13 +277,24 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 	}
 
 	// our annotation is based on our cert validity, so we want to make sure that we don't specify something past our signer
-	targetValidity := validity
+	targetValidity := c.Validity
 	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(time.Now())
-	if remainingSignerValidity < validity {
+	if remainingSignerValidity < targetValidity {
 		targetValidity = remainingSignerValidity
 	}
 
-	certKeyPair, err := certCreator.NewCertificate(signer, targetValidity)
+	if c.configurablePKIEnabled {
+		keyConfig, err := c.resolveKeyConfig()
+		if err != nil {
+			return nil, err
+		}
+		if kc, ok := c.CertCreator.(KeyConfigurable); ok {
+			kc.SetKeyConfig(keyConfig)
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
+	}
+
+	certKeyPair, err := c.CertCreator.NewCertificate(signer, targetValidity)
 	if err != nil {
 		return nil, err
 	}
@@ -282,22 +310,61 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 //
 // These assumptions are safe because this function is only called after the secret
 // has been initialized in setTargetCertKeyPairSecret.
-func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, certKeyPair *crypto.TLSCertificateConfig, certCreator TargetCertCreator, refresh time.Duration, tlsAnnotations AdditionalAnnotations) {
-	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
+func (c RotatedSelfSignedCertKeySecret) setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, certKeyPair *crypto.TLSCertificateConfig) {
+	targetCertKeyPairSecret.Annotations[tlsartifact.CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
 
+	tlsAnnotations := c.AdditionalAnnotations
 	tlsAnnotations.NotBefore = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
 	tlsAnnotations.NotAfter = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
-	tlsAnnotations.RefreshPeriod = refresh.String()
+	tlsAnnotations.RefreshPeriod = c.Refresh.String()
 	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta)
 
-	certCreator.SetAnnotations(certKeyPair, targetCertKeyPairSecret.Annotations)
+	c.CertCreator.SetAnnotations(certKeyPair, targetCertKeyPairSecret.Annotations)
+}
+
+// resolveKeyConfig resolves the key configuration from the PKI profile provider.
+// It must only be called when configurablePKIEnabled is true.
+// Returns nil for Unmanaged mode (no key override).
+func (c RotatedSelfSignedCertKeySecret) resolveKeyConfig() (*crypto.KeyConfig, error) {
+	if !c.configurablePKIEnabled {
+		return nil, fmt.Errorf("resolveKeyConfig called but configurable PKI is not enabled")
+	}
+	cfg, err := pki.ResolveCertificateConfig(c.pkiProfileProvider, c.CertificateType, c.CertificateName)
+	if err != nil {
+		// TODO(sanchezl): Remove this fallback once installer support for the PKI
+		// resource is in place. Until then, the PKI resource may not exist in
+		// TechPreview clusters, so we fall back to the default profile.
+		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", c.CertificateType, c.CertificateName, err)
+		defaultProfile := pki.DefaultPKIProfile()
+		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), c.CertificateType, c.CertificateName)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg == nil {
+		return nil, nil
+	}
+	return &cfg.Key, nil
 }
 
 type ClientRotation struct {
-	UserInfo user.Info
+	UserInfo               user.Info
+	configurablePKIEnabled bool
+	keyConfig              *crypto.KeyConfig
+}
+
+func (r *ClientRotation) SetKeyConfig(kc *crypto.KeyConfig) {
+	r.configurablePKIEnabled = true
+	r.keyConfig = kc
 }
 
 func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	if r.configurablePKIEnabled {
+		if r.keyConfig != nil {
+			return signer.NewClientCertificate(r.UserInfo, *r.keyConfig, crypto.WithLifetime(validity))
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
+	}
 	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
 }
 
@@ -313,11 +380,28 @@ type ServingRotation struct {
 	Hostnames              ServingHostnameFunc
 	CertificateExtensionFn []crypto.CertificateExtensionFunc
 	HostnamesChanged       <-chan struct{}
+	configurablePKIEnabled bool
+	keyConfig              *crypto.KeyConfig
+}
+
+func (r *ServingRotation) SetKeyConfig(kc *crypto.KeyConfig) {
+	r.configurablePKIEnabled = true
+	r.keyConfig = kc
 }
 
 func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	if len(r.Hostnames()) == 0 {
 		return nil, fmt.Errorf("no hostnames set")
+	}
+	if r.configurablePKIEnabled {
+		if r.keyConfig != nil {
+			return signer.NewServerCertificate(
+				sets.New(r.Hostnames()...), *r.keyConfig,
+				crypto.WithLifetime(validity),
+				crypto.WithExtensions(r.CertificateExtensionFn...),
+			)
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
 	}
 	return signer.MakeServerCertForDuration(sets.New(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
@@ -336,7 +420,7 @@ func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Sec
 }
 
 func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
-	existingHostnames := sets.New(strings.Split(annotations[CertificateHostnames], ",")...)
+	existingHostnames := sets.New(strings.Split(annotations[tlsartifact.CertificateHostnames], ",")...)
 	requiredHostnames := sets.New(r.Hostnames()...)
 	if !existingHostnames.Equal(requiredHostnames) {
 		existingNotRequired := existingHostnames.Difference(requiredHostnames)
@@ -357,18 +441,34 @@ func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, anno
 	}
 
 	// List does a sort so that we have a consistent representation
-	annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
+	annotations[tlsartifact.CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
 	return annotations
 }
 
 type ServingHostnameFunc func() []string
 
 type SignerRotation struct {
-	SignerName string
+	SignerName             string
+	configurablePKIEnabled bool
+	keyConfig              *crypto.KeyConfig
+}
+
+func (r *SignerRotation) SetKeyConfig(kc *crypto.KeyConfig) {
+	r.configurablePKIEnabled = true
+	r.keyConfig = kc
 }
 
 func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_@%d", r.SignerName, time.Now().Unix())
+	if r.configurablePKIEnabled {
+		if r.keyConfig != nil {
+			return crypto.NewSigningCertificate(signerName, *r.keyConfig,
+				crypto.WithSigner(signer),
+				crypto.WithLifetime(validity),
+			)
+		}
+		// nil keyConfig means Unmanaged: fall through to legacy cert generation
+	}
 	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 )
 
 // CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from RotatedSigningCASecret, and by removing expired old ones.
@@ -37,7 +38,7 @@ type CABundleConfigMap struct {
 	// Owner is an optional reference to add to the secret that this rotator creates.
 	Owner *metav1.OwnerReference
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
 	// Plumbing:
 	Informer      corev1informers.ConfigMapInformer
 	Lister        corev1listers.ConfigMapLister
@@ -58,7 +59,7 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	caBundleConfigMap := originalCABundleConfigMap.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
-		caBundleConfigMap = &corev1.ConfigMap{ObjectMeta: NewTLSArtifactObjectMeta(
+		caBundleConfigMap = &corev1.ConfigMap{ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 			c.Name,
 			c.Namespace,
 			c.AdditionalAnnotations,

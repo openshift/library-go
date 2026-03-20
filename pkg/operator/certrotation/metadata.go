@@ -1,11 +1,12 @@
 package certrotation
 
 import (
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ensureOwnerRefAndTLSAnnotations(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
+func ensureOwnerRefAndTLSAnnotations(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations tlsartifact.AdditionalAnnotations) bool {
 	needsMetadataUpdate := false
 	// no ownerReference set
 	if owner != nil {
