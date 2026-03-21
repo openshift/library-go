@@ -51,20 +51,56 @@ func masterNodesSelector(t *testing.T) labels.Selector {
 }
 
 func makeNodeNotReady(node *corev1.Node) *corev1.Node {
-	return addNodeReadyCondition(node, corev1.ConditionFalse)
+	return makeNodeNotReadyAt(node, time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC))
+}
+
+func makeNodeNotReadyAt(node *corev1.Node, transitionTimestamp time.Time) *corev1.Node {
+	return addNodeReadyCondition(node, corev1.ConditionFalse, transitionTimestamp)
+}
+
+func makeNodeRebooting(node *corev1.Node) *corev1.Node {
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+	node.Annotations[machineConfigState] = machineConfigStateWorking
+	node.Annotations[machineConfigPostConfigAction] = machineConfigPostConfigActionRebooting
+	return node
+}
+
+func makeNodeDraining(node *corev1.Node) *corev1.Node {
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+	node.Annotations[machineConfigState] = machineConfigStateWorking
+	node.Annotations[machineConfigDesiredDrain] = "drain-rendered-worker-xyz789"
+	node.Annotations[machineConfigLastAppliedDrain] = "drain-rendered-worker-abc123"
+	return node
+}
+
+func makeNodeWorking(node *corev1.Node) *corev1.Node {
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+	node.Annotations[machineConfigState] = machineConfigStateWorking
+	// No post-config-action and no drain annotations = plain Working state
+	return node
 }
 
 func makeNodeReady(node *corev1.Node) *corev1.Node {
-	return addNodeReadyCondition(node, corev1.ConditionTrue)
+	return makeNodeReadyAt(node, time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC))
 }
 
-func addNodeReadyCondition(node *corev1.Node, status corev1.ConditionStatus) *corev1.Node {
+func makeNodeReadyAt(node *corev1.Node, transitionTimestamp time.Time) *corev1.Node {
+	return addNodeReadyCondition(node, corev1.ConditionTrue, transitionTimestamp)
+}
+
+func addNodeReadyCondition(node *corev1.Node, status corev1.ConditionStatus, lastTransitionTime time.Time) *corev1.Node {
 	con := corev1.NodeCondition{}
 	con.Type = corev1.NodeReady
 	con.Status = status
 	con.Reason = "TestReason"
 	con.Message = "test message"
-	con.LastTransitionTime = metav1.Time{Time: time.Date(2018, 01, 12, 22, 51, 48, 324359102, time.UTC)}
+	con.LastTransitionTime = metav1.Time{Time: lastTransitionTime}
 	node.Status.Conditions = append(node.Status.Conditions, con)
 	return node
 }
@@ -492,6 +528,234 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
 			},
 		},
+		{
+			name: "scenario 13: one unhealthy but rebooting master node is reported (within inertia)",
+			masterNodes: []runtime.Object{
+				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-1"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `The master nodes upgrading: node "test-node-1"`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 14: one unhealthy but rebooting master node is reported (inertia expired)",
+			masterNodes: []runtime.Object{
+				makeNodeRebooting(makeNodeNotReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-1" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message)`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 15: one healthy but rebooting master node is reported",
+			masterNodes: []runtime.Object{
+				makeNodeRebooting(makeNodeReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `All master nodes are ready`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 16: mixed state nodes cause Degraded to be reported",
+			masterNodes: []runtime.Object{
+				// 2 ready
+				makeNodeReady(fakeMasterNode("test-node-1")),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+				// 1 not ready
+				makeNodeNotReady(fakeMasterNode("test-node-3")),
+				// 1 rebooting with Degraded inertia expired
+				makeNodeRebooting(makeNodeNotReady(fakeMasterNode("test-node-4"))),
+				// 1 rebooting within inertia
+				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-5"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-3" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message), node "test-node-4" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message). The master nodes upgrading: node "test-node-5"`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 17: one rebooting master node missing the condition reported",
+			masterNodes: []runtime.Object{
+				makeNodeReady(fakeMasterNode("test-node-1")),
+				makeNodeRebooting(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-2" not ready, no Ready condition found in status block`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 18: draining node is degraded (no inertia protection)",
+			masterNodes: []runtime.Object{
+				makeNodeDraining(makeNodeNotReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-1" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message)`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 19: healthy draining node does not degrade",
+			masterNodes: []runtime.Object{
+				makeNodeDraining(makeNodeReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `All master nodes are ready`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 20: draining node with missing Ready condition is degraded",
+			masterNodes: []runtime.Object{
+				makeNodeReady(fakeMasterNode("test-node-1")),
+				makeNodeDraining(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-2" not ready, no Ready condition found in status block`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 21: one unhealthy but working master node is reported (within inertia)",
+			masterNodes: []runtime.Object{
+				makeNodeWorking(makeNodeNotReadyAt(fakeMasterNode("test-node-1"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `The master nodes upgrading: node "test-node-1"`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 22: one unhealthy but working master node is reported (inertia expired)",
+			masterNodes: []runtime.Object{
+				makeNodeWorking(makeNodeNotReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-1" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message)`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 23: one healthy but working master node is reported",
+			masterNodes: []runtime.Object{
+				makeNodeWorking(makeNodeReady(fakeMasterNode("test-node-1"))),
+				makeNodeReady(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionFalse
+				expectedCondition.Message = `All master nodes are ready`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 24: one working master node missing the condition reported",
+			masterNodes: []runtime.Object{
+				makeNodeReady(fakeMasterNode("test-node-1")),
+				makeNodeWorking(fakeMasterNode("test-node-2")),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-2" not ready, no Ready condition found in status block`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
+		{
+			name: "scenario 25: mixed working, draining and rebooting nodes",
+			masterNodes: []runtime.Object{
+				makeNodeReady(fakeMasterNode("test-node-1")),
+				// plain unhealthy node
+				makeNodeNotReady(fakeMasterNode("test-node-2")),
+				// draining + unhealthy = degraded (no inertia protection)
+				makeNodeDraining(makeNodeNotReady(fakeMasterNode("test-node-3"))),
+				// draining + healthy = not degraded
+				makeNodeDraining(makeNodeReady(fakeMasterNode("test-node-4"))),
+				// rebooting + within inertia = protected from degradation
+				makeNodeRebooting(makeNodeNotReadyAt(fakeMasterNode("test-node-5"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
+				// rebooting + inertia expired = degraded
+				makeNodeRebooting(makeNodeNotReady(fakeMasterNode("test-node-6"))),
+				// working + within inertia = protected from degradation
+				makeNodeWorking(makeNodeNotReadyAt(fakeMasterNode("test-node-7"), time.Now().Add(-DefaultUpgradingNodeDegradedInertia+1*time.Minute))),
+				// working + healthy = not degraded
+				makeNodeWorking(makeNodeReady(fakeMasterNode("test-node-8"))),
+			},
+			verifyNodeStatus: func(conditions []operatorv1.OperatorCondition) error {
+				var expectedCondition operatorv1.OperatorCondition
+				expectedCondition.Type = condition.NodeControllerDegradedConditionType
+				expectedCondition.Reason = "MasterNodesReady"
+				expectedCondition.Status = operatorv1.ConditionTrue
+				expectedCondition.Message = `The master nodes not ready: node "test-node-2" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message), node "test-node-3" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message), node "test-node-6" not ready since 2018-01-12 22:51:48.324359102 +0000 UTC because TestReason (test message). The master nodes upgrading: node "test-node-5", node "test-node-7"`
+
+				return validateNodeControllerDegradedCondition(conditions, expectedCondition)
+			},
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -522,9 +786,10 @@ func TestNodeControllerDegradedConditionType(t *testing.T) {
 			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &NodeController{
-				operatorClient:      fakeStaticPodOperatorClient,
-				nodeLister:          fakeLister,
-				masterNodesSelector: masterNodesSelector(t),
+				operatorClient:               fakeStaticPodOperatorClient,
+				nodeLister:                   fakeLister,
+				masterNodesSelector:          masterNodesSelector(t),
+				rebootingNodeDegradedInertia: DefaultUpgradingNodeDegradedInertia,
 			}
 
 			if scenario.withArbiter {
