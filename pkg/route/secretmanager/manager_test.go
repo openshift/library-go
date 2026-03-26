@@ -96,7 +96,7 @@ func TestRegisterRoute(t *testing.T) {
 			sm: fake.SecretMonitor{
 				Err: fmt.Errorf("some error"),
 			},
-			expectErr: 0,
+			expectErr: 1,
 		},
 	}
 	for _, s := range scenarios {
