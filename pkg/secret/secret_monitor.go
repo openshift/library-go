@@ -124,6 +124,13 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 		klog.Info("secret informer started", " item key ", key)
 	}
 
+	// Wait for the informer cache to sync before adding event handlers.
+	// This ensures GetSecret can retrieve secrets immediately after registration.
+	// The global lock is released above so other secrets can register concurrently.
+	if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
+		return nil, fmt.Errorf("failed waiting for cache sync")
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -199,10 +206,9 @@ func (s *secretMonitor) GetSecret(ctx context.Context, handlerRegistration Secre
 		return nil, fmt.Errorf("secret monitor doesn't exist for key %v", key)
 	}
 
-	// do not wait for informer store sync. If it's not ready, return an error immediately
-	// so the caller can proceed asynchronously.
-	if !handlerRegistration.HasSynced() {
-		return nil, fmt.Errorf("secret cache not synced yet")
+	// Wait for informer store sync to load secrets.
+	if !cache.WaitForCacheSync(ctx.Done(), handlerRegistration.HasSynced) {
+		return nil, fmt.Errorf("failed waiting for cache sync")
 	}
 
 	uncast, exists, err := m.itemMonitor.GetItem()
