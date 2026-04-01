@@ -668,6 +668,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         namedType: com.github.openshift.api.config.v1.APIServerServingCerts
       default: {}
+    - name: tlsAdherence
+      type:
+        scalar: string
     - name: tlsSecurityProfile
       type:
         namedType: com.github.openshift.api.config.v1.TLSSecurityProfile
@@ -2725,11 +2728,16 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: vault
+      type:
+        namedType: com.github.openshift.api.config.v1.VaultKMSConfig
     unions:
     - discriminator: type
       fields:
       - fieldName: aws
         discriminatorValue: AWS
+      - fieldName: vault
+        discriminatorValue: Vault
 - name: com.github.openshift.api.config.v1.KeystoneIdentityProvider
   map:
     fields:
@@ -4685,6 +4693,34 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+- name: com.github.openshift.api.config.v1.VaultKMSConfig
+  map:
+    fields:
+    - name: approleSecretRef
+      type:
+        namedType: com.github.openshift.api.config.v1.SecretNameReference
+      default: {}
+    - name: image
+      type:
+        scalar: string
+      default: ""
+    - name: tlsCA
+      type:
+        namedType: com.github.openshift.api.config.v1.ConfigMapNameReference
+      default: {}
+    - name: tlsServerName
+      type:
+        scalar: string
+    - name: transitKey
+      type:
+        scalar: string
+    - name: transitMount
+      type:
+        scalar: string
+    - name: vaultAddress
+      type:
+        scalar: string
+      default: ""
 - name: com.github.openshift.api.config.v1.WebhookTokenAuthenticator
   map:
     fields:
@@ -4940,6 +4976,10 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: prometheusOperatorConfig
       type:
         namedType: com.github.openshift.api.config.v1alpha1.PrometheusOperatorConfig
+      default: {}
+    - name: telemeterClientConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.TelemeterClientConfig
       default: {}
     - name: userDefined
       type:
@@ -5760,6 +5800,37 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: serverName
       type:
         scalar: string
+- name: com.github.openshift.api.config.v1alpha1.TelemeterClientConfig
+  map:
+    fields:
+    - name: nodeSelector
+      type:
+        map:
+          elementType:
+            scalar: string
+    - name: resources
+      type:
+        list:
+          elementType:
+            namedType: com.github.openshift.api.config.v1alpha1.ContainerResource
+          elementRelationship: associative
+          keys:
+          - name
+    - name: tolerations
+      type:
+        list:
+          elementType:
+            namedType: Toleration.v1.core.api.k8s.io
+          elementRelationship: atomic
+    - name: topologySpreadConstraints
+      type:
+        list:
+          elementType:
+            namedType: TopologySpreadConstraint.v1.core.api.k8s.io
+          elementRelationship: associative
+          keys:
+          - topologyKey
+          - whenUnsatisfiable
 - name: com.github.openshift.api.config.v1alpha1.UppercaseActionConfig
   map:
     fields:

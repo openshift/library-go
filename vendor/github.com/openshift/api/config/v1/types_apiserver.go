@@ -266,6 +266,11 @@ const (
 	// outside the control plane in a Key Management Service instance,
 	// encryption is still performed at the datastore layer.
 	EncryptionTypeKMS EncryptionType = "KMS"
+
+	// managedkms refers to a type of encryption where the encryption keys are managed
+	// outside the control plane in a Key Management Service instance that is managed
+	// by the operator. Encryption is still performed at the datastore layer.
+	EncryptionTypeManagedKMS EncryptionType = "ManagedKMS"
 )
 
 type APIServerStatus struct {

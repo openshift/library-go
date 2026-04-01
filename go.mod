@@ -17,7 +17,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.13.0
-	github.com/openshift/api v0.0.0-20260317165824-54a3998d81eb
+	github.com/openshift/api v0.0.0-20260326111139-30c2ef7a272e
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20260317180604-743f664b82d1
 	github.com/pkg/errors v0.9.1
@@ -137,4 +137,9 @@ require (
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+)
+
+replace (
+	github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20260403070409-bdd7b164d997
+	github.com/openshift/client-go => github.com/ardaguclu/client-go v0.0.0-20260403071921-17e9d7ec447b
 )

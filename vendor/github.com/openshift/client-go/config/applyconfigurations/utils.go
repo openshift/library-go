@@ -452,6 +452,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1.UsernameClaimMappingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("UsernamePrefix"):
 		return &configv1.UsernamePrefixApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("VaultKMSConfig"):
+		return &configv1.VaultKMSConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VSphereFailureDomainHostGroup"):
 		return &configv1.VSphereFailureDomainHostGroupApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VSphereFailureDomainRegionAffinity"):
@@ -596,6 +598,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1alpha1.Sigv4ApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Storage"):
 		return &configv1alpha1.StorageApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("TelemeterClientConfig"):
+		return &configv1alpha1.TelemeterClientConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("TLSConfig"):
 		return &configv1alpha1.TLSConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("UppercaseActionConfig"):
