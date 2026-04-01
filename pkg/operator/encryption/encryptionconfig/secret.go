@@ -3,6 +3,7 @@ package encryptionconfig
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,14 +48,17 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 	return encryptionConfig, nil
 }
 
-func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) (*corev1.Secret, error) {
+// ToSecret creates the encryption-config secret. sidecarConfigs is keyed by keyID
+// and contains serialized sidecar configurations for KMS providers, stored
+// as "encryption.apiserver.operator.openshift.io/kms-sidecar-config-{keyID}" data entries in the secret.
+func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs map[string][]byte) (*corev1.Secret, error) {
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
 
-	return &corev1.Secret{
+	s := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -71,5 +75,11 @@ func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfig
 			EncryptionConfSecretName: rawEncryptionCfg,
 		},
 		Type: corev1.SecretTypeOpaque,
-	}, nil
+	}
+
+	for keyID, config := range sidecarConfigs {
+		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSidecarConfig, keyID)] = config
+	}
+
+	return s, nil
 }

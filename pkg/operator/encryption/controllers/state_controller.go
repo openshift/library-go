@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -145,7 +146,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
+	sidecarConfigs := collectSidecarConfigs(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, recorder)
 	if err != nil {
 		return err
 	}
@@ -161,14 +163,39 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs)
 	if err != nil {
 		return false, err
 	}
 
 	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
 	return changed, applyErr
+}
+
+// collectSidecarConfigs collects serialized KMS sidecar configurations from
+// the desired encryption state, keyed by keyID. These are propagated to the
+// encryption-config secret as "encryption.apiserver.operator.openshift.io/kms-sidecar-config-{keyID}" data entries.
+func collectSidecarConfigs(desiredState map[schema.GroupResource]state.GroupResourceState) map[string][]byte {
+	sidecarConfigs := map[string][]byte{}
+	seen := map[string]bool{}
+	for _, grState := range desiredState {
+		for _, key := range grState.ReadKeys {
+			if key.Mode != state.KMS || key.KMSSideCarConfig == nil {
+				continue
+			}
+			if seen[key.Key.Name] {
+				continue
+			}
+			seen[key.Key.Name] = true
+			data, err := json.Marshal(key.KMSSideCarConfig)
+			if err != nil {
+				continue
+			}
+			sidecarConfigs[key.Key.Name] = data
+		}
+	}
+	return sidecarConfigs
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.

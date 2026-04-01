@@ -14,6 +14,8 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -58,22 +60,40 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.ExternalReason = v
 	}
 
-	if v, ok := s.Annotations[EncryptionSecretKMSConfig]; ok && len(v) > 0 {
-		kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
-		if err := json.Unmarshal([]byte(v), kmsConfiguration); err != nil {
-			return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, EncryptionSecretKMSConfig, err)
-		}
-		key.KMSConfiguration = kmsConfiguration
-	}
-
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
 		key.Mode = keyMode
 	case state.KMS:
+		// We have to keep this behavior to still support deprecated TP v1
+		if v, ok := s.Annotations[EncryptionSecretKMSConfig]; ok && len(v) > 0 {
+			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
+			if err := json.Unmarshal([]byte(v), kmsConfiguration); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, EncryptionSecretKMSConfig, err)
+			}
+			key.KMSConfiguration = kmsConfiguration
+		}
+
+		if v, ok := s.Data[EncryptionSecretKMSECConfig]; ok && len(v) > 0 {
+			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
+			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSECConfig, err)
+			}
+			key.KMSConfiguration = kmsConfiguration
+		}
+
 		if key.KMSConfiguration == nil {
 			return state.KeyState{}, fmt.Errorf("KMSConfiguration can not be nil, when mode is KMS")
 		}
+
+		if sidecarData, ok := s.Data[EncryptionSecretKMSSidecarConfig]; ok && len(sidecarData) > 0 {
+			kmsConfig := &configv1.KMSConfig{}
+			if err := json.Unmarshal(sidecarData, kmsConfig); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSSidecarConfig, err)
+			}
+			key.KMSSideCarConfig = kmsConfig
+		}
+
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
@@ -126,12 +146,25 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
 
+	if ks.KMSSideCarConfig != nil {
+		sidecarJSON, err := json.Marshal(ks.KMSSideCarConfig)
+		if err != nil {
+			return nil, err
+		}
+		s.Data[EncryptionSecretKMSSidecarConfig] = sidecarJSON
+	}
+
 	if ks.KMSConfiguration != nil {
 		ksJSON, err := json.Marshal(ks.KMSConfiguration)
 		if err != nil {
 			return nil, err
 		}
-		s.Annotations[EncryptionSecretKMSConfig] = string(ksJSON)
+		if ks.KMSSideCarConfig != nil {
+			s.Data[EncryptionSecretKMSECConfig] = ksJSON
+		} else {
+			// if KMSSideCarConfig is nil, that means deprecated TP v1 is used
+			s.Annotations[EncryptionSecretKMSConfig] = string(ksJSON)
+		}
 	}
 
 	return s, nil

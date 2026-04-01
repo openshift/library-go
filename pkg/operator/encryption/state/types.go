@@ -5,6 +5,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 // These annotations try to scare anyone away from editing the encryption secrets.  It is trivial for
@@ -42,6 +44,8 @@ type KeyState struct {
 	ExternalReason string
 	// Encoded KMSConfiguration that stores the KMS related fields
 	KMSConfiguration *apiserverconfigv1.KMSConfiguration
+	// KMSSideCarConfig holds the API-level KMS configuration
+	KMSSideCarConfig *configv1.KMSConfig
 }
 
 type MigrationState struct {
