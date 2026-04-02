@@ -1,13 +1,18 @@
 package kms
 
 import (
+	"context"
 	"errors"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/require"
 )
@@ -192,6 +197,80 @@ func TestAddKMSPluginVolume(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
+		})
+	}
+}
+
+func TestFetchCredentials(t *testing.T) {
+	tests := []struct {
+		name        string
+		kmsConfig   *configv1.KMSConfig
+		secrets     []*corev1.Secret
+		expectData  map[string][]byte
+		expectError bool
+	}{
+		{
+			name: "missing credential secret returns error",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					ApproleSecretRef: configv1.SecretNameReference{Name: "vault-approle"},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "credential secret with empty data returns error",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					ApproleSecretRef: configv1.SecretNameReference{Name: "vault-approle"},
+				},
+			},
+			secrets: []*corev1.Secret{
+				{ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"}},
+			},
+			expectError: true,
+		},
+		{
+			name: "credential secret returns data",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					ApproleSecretRef: configv1.SecretNameReference{Name: "vault-approle"},
+				},
+			},
+			secrets: []*corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
+					Data: map[string][]byte{
+						"role_id":   []byte("my-role-id"),
+						"secret_id": []byte("my-secret-id"),
+					},
+				},
+			},
+			expectData: map[string][]byte{
+				"role_id":   []byte("my-role-id"),
+				"secret_id": []byte("my-secret-id"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var objs []runtime.Object
+			for _, s := range tt.secrets {
+				objs = append(objs, s)
+			}
+			kubeClient := fake.NewClientset(objs...)
+			data, err := FetchCredentials(context.Background(), kubeClient.CoreV1(), tt.kmsConfig)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expectData, data)
 		})
 	}
 }

@@ -156,7 +156,7 @@ func CreateMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS string, grs 
 }
 
 func CreateExpiredMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
-	return CreateMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7+time.Hour)))
+	return CreateMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {

@@ -80,20 +80,20 @@ func TestMigrationFieldsChanged(t *testing.T) {
 			stored: &configv1.KMSConfig{
 				Type: configv1.VaultKMSProvider,
 				Vault: &configv1.VaultKMSConfig{
-					VaultAddress: "https://vault:8200",
-					TransitKey:   "key1",
-					TransitMount: "transit",
-					Image:        "old-image@sha256:abc",
+					VaultAddress:  "https://vault:8200",
+					TransitKey:    "key1",
+					TransitMount:  "transit",
+					Image:         "old-image@sha256:abc",
 					TLSServerName: "old.vault.com",
 				},
 			},
 			current: &configv1.KMSConfig{
 				Type: configv1.VaultKMSProvider,
 				Vault: &configv1.VaultKMSConfig{
-					VaultAddress: "https://vault:8200",
-					TransitKey:   "key1",
-					TransitMount: "transit",
-					Image:        "new-image@sha256:def",
+					VaultAddress:  "https://vault:8200",
+					TransitKey:    "key1",
+					TransitMount:  "transit",
+					Image:         "new-image@sha256:def",
 					TLSServerName: "new.vault.com",
 				},
 			},

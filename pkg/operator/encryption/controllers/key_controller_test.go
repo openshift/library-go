@@ -812,7 +812,7 @@ func TestKeyController(t *testing.T) {
 			// - target namespace: pods and secrets
 			// - openshift-config-managed: secrets
 			// note that the informer factory is not used in the test - it's only needed to create the controller
-			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
+			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", "openshift-config", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -1238,7 +1239,98 @@ func TestStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 19: AESCBC to KMS-with-sidecar migration
+		// scenario 19: KMS with sidecar config and credentials - verify credentials propagated
+		{
+			name:            "KMS with sidecar: credentials propagated to encryption-config secret",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now())
+					// Add credentials to the key secret
+					credJSON, _ := json.Marshal(map[string][]byte{
+						"role_id":   []byte("my-role-id"),
+						"secret_id": []byte("my-secret-id"),
+					})
+					s.Data["encryption.apiserver.operator.openshift.io/kms-credentials"] = credJSON
+					return s
+				}(),
+				func() *corev1.Secret {
+					ec := &apiserverconfigv1.EncryptionConfiguration{
+						Resources: []apiserverconfigv1.ResourceConfiguration{{
+							Resources: []string{"secrets"},
+							Providers: []apiserverconfigv1.ProviderConfiguration{{
+								Identity: &apiserverconfigv1.IdentityConfiguration{},
+							}, {
+								KMS: &apiserverconfigv1.KMSConfiguration{
+									APIVersion: "v2",
+									Name:       "1_secrets",
+									Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+									Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+								},
+							}},
+						}},
+					}
+					return createEncryptionCfgSecret(t, "kms", "1", ec)
+				}(),
+			},
+			expectedEncryptionCfg: &apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EncryptionConfiguration",
+					APIVersion: "apiserver.config.k8s.io/v1",
+				},
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						KMS: &apiserverconfigv1.KMSConfiguration{
+							APIVersion: "v2",
+							Name:       "1_secrets",
+							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}},
+				}},
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"create:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						if err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName); err != nil {
+							ts.Fatalf("failed to verify the encryption config: %v", err)
+						}
+						// Verify credentials are propagated
+						credKey := "encryption.apiserver.operator.openshift.io/kms-credentials-1"
+						if _, ok := actualSecret.Data[credKey]; !ok {
+							ts.Errorf("expected credentials data %q in the encryption-config secret", credKey)
+						}
+						// Verify sidecar config is also propagated
+						sidecarKey := "encryption.apiserver.operator.openshift.io/kms-sidecar-config-1"
+						if _, ok := actualSecret.Data[sidecarKey]; !ok {
+							ts.Errorf("expected sidecar config data %q in the encryption-config secret", sidecarKey)
+						}
+						return
+					}
+				}
+				ts.Error("the secret wasn't created and validated")
+			},
+		},
+
+		// scenario 20: AESCBC to KMS-with-sidecar migration
 		{
 			name:            "KMS with sidecar: AESCBC to KMS migration - KMS with unique UDS added as read key",
 			targetNamespace: "kms",
