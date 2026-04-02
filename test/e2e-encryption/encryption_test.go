@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -66,7 +67,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	// kube clients
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	kubeInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "openshift-config-managed")
+	kubeInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "openshift-config-managed", "openshift-config")
 	apiextensionsClient, err := v1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
@@ -163,6 +164,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		fakeConfigInformer.Config().V1().APIServers(),
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
+		kubeClient.CoreV1(),
 		eventRecorder,
 		nil,
 	)
@@ -261,6 +263,24 @@ func TestEncryptionIntegration(tt *testing.T) {
 			ks, err := secrets.ToKeyState(s)
 			require.NoError(t, err)
 			return len(ks.Migrated.Resources) == 2, nil
+		})
+		require.NoError(t, err)
+	}
+
+	waitForKeyData := func(key string, dataKey string, expectedContains string) {
+		t.Helper()
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+			s, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-%s", component, key), metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			require.NoError(t, err)
+
+			data, ok := s.Data[dataKey]
+			if !ok {
+				return false, nil
+			}
+			return strings.Contains(string(data), expectedContains), nil
 		})
 		require.NoError(t, err)
 	}
@@ -503,8 +523,145 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForConfigs(
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:11,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,aescbc:11,identity,aesgcm:13", kms12, kms12Sched),
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,aescbc:11,aesgcm:13;kubeschedulers.operator.openshift.io=identity,kms:%s,aescbc:11,aesgcm:13", kms12, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,aesgcm:13;kubeschedulers.operator.openshift.io=identity,kms:%s,aesgcm:13", kms12, kms12Sched),
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
+
+	// KMS with provider config (operator-managed KMS plugin lifecycle) tests
+	t.Logf("Create approle credential secret in openshift-config")
+	_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "openshift-config"}}, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		require.NoError(t, err)
+	}
+	approleSecret, err := kubeClient.CoreV1().Secrets("openshift-config").Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "vault-approle-", Namespace: "openshift-config"},
+		Data: map[string][]byte{
+			"role_id":   []byte("test-role-id"),
+			"secret_id": []byte("test-secret-id"),
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	caConfigMap, err := kubeClient.CoreV1().ConfigMaps("openshift-config").Create(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "vault-ca-bundle-", Namespace: "openshift-config"},
+		Data: map[string]string{
+			"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\ninitial-ca-cert\n-----END CERTIFICATE-----",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Switch to KMS with Vault provider config")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"image":"quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit","approleSecretRef":{"name":"%s"},"tlsCA":{"name":"%s"}}}}}}`, approleSecret.Name, caConfigMap.Name)), metav1.PatchOptions{})
+	require.NoError(t, err)
+	waitForKeys(13)
+	kms14 := kmsProviderName("kubeapiservers", "14")
+	kms14Sched := kmsProviderName("kubeschedulers", "14")
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,kms:%s,aesgcm:13;kubeschedulers.operator.openshift.io=identity,kms:%s,kms:%s,aesgcm:13", kms14, kms12, kms14Sched, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13", kms14, kms12, kms14Sched, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,identity,aesgcm:13", kms14, kms14Sched),
+	)
+	waitForMigration("14")
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
+	t.Logf("Change KMS migration-triggering field (vault address)")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"image":"quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd","vaultAddress":"https://different-vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit","approleSecretRef":{"name":"%s"},"tlsCA":{"name":"%s"}}}}}}`, approleSecret.Name, caConfigMap.Name)), metav1.PatchOptions{})
+	require.NoError(t, err)
+	waitForKeys(13)
+	kms15 := kmsProviderName("kubeapiservers", "15")
+	kms15Sched := kmsProviderName("kubeschedulers", "15")
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13", kms14, kms15, kms14Sched, kms15Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:13", kms15, kms14, kms15Sched, kms14Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms15, kms14, kms15Sched, kms14Sched),
+	)
+	waitForMigration("15")
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
+	t.Logf("Change in-place field (image) - no new key should be created")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"image":"quay.io/org/vault-kms-plugin@sha256:newdigest0000000000000000000000000000000000000000000000000000abcd","vaultAddress":"https://different-vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit","approleSecretRef":{"name":"%s"},"tlsCA":{"name":"%s"}}}}}}`, approleSecret.Name, caConfigMap.Name)), metav1.PatchOptions{})
+	require.NoError(t, err)
+
+	// Wait for the provider config on key 15 to be updated with the new image
+	waitForKeyData("15", secrets.EncryptionSecretKMSProviderConfig, "newdigest")
+	// Verify no new key was created
+	waitForKeys(12)
+
+	// Verify migration-triggering fields were NOT changed on the secret
+	latestKeySecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-15", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	providerData, ok := latestKeySecret.Data[secrets.EncryptionSecretKMSProviderConfig]
+	require.True(t, ok, "expected kms-provider-config data to be present on key secret")
+	require.Contains(t, string(providerData), "different-vault.example.com", "vault address should be preserved")
+	require.Contains(t, string(providerData), "my-transit-key", "transit key should be preserved")
+
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+	// Consume re-emitted config from in-place provider config update on key 15
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms15, kms14, kms15Sched, kms14Sched),
+	)
+
+	t.Logf("Update vault-approle secret and verify propagation to key secret")
+	_, err = kubeClient.CoreV1().Secrets("openshift-config").Update(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: approleSecret.Name, Namespace: "openshift-config"},
+		Data: map[string][]byte{
+			"role_id":   []byte("updated-role-id"),
+			"secret_id": []byte("updated-secret-id"),
+		},
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	// Credential update on key 15 (updateInPlaceFieldsIfChanged) and key 14 (updateOldKMSCredentials)
+	// each trigger a config re-emit
+	expectedCfg := fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms15, kms14, kms15Sched, kms14Sched)
+	waitForConfigs(expectedCfg, expectedCfg)
+
+	// Wait for both key secrets to have the updated credentials
+	updatedRoleIDBase64 := base64.StdEncoding.EncodeToString([]byte("updated-role-id"))
+	waitForKeyData("15", secrets.EncryptionSecretKMSSecretData, updatedRoleIDBase64)
+	waitForKeyData("14", secrets.EncryptionSecretKMSSecretData, updatedRoleIDBase64)
+
+	// Verify the encryption config secret has the updated credentials
+	encConfigSecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	credKey := fmt.Sprintf("%s-15", secrets.EncryptionSecretKMSSecretData)
+	credData, ok := encConfigSecret.Data[credKey]
+	require.True(t, ok, "expected credential data for key 15 in encryption config secret")
+	require.Contains(t, string(credData), updatedRoleIDBase64, "updated credentials should be propagated to encryption config secret")
+
+	t.Logf("Update TLS CA configmap and verify propagation to key secret")
+	_, err = kubeClient.CoreV1().ConfigMaps("openshift-config").Update(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: caConfigMap.Name, Namespace: "openshift-config"},
+		Data: map[string]string{
+			"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\nupdated-ca-cert\n-----END CERTIFICATE-----",
+		},
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	// Configmap data is map[string]string, so json.Marshal produces plain strings (no base64)
+	waitForConfigs(expectedCfg, expectedCfg)
+
+	waitForKeyData("15", secrets.EncryptionSecretKMSConfigMapData, "updated-ca-cert")
+	waitForKeyData("14", secrets.EncryptionSecretKMSConfigMapData, "updated-ca-cert")
+
+	// Verify the encryption config secret has the updated configmap data
+	encConfigSecret, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	cmKey := fmt.Sprintf("%s-15", secrets.EncryptionSecretKMSConfigMapData)
+	cmData, ok := encConfigSecret.Data[cmKey]
+	require.True(t, ok, "expected configmap data for key 15 in encryption config secret")
+	require.Contains(t, string(cmData), "updated-ca-cert", "updated configmap data should be propagated to encryption config secret")
+
+	t.Logf("Switch back to aescbc from KMS with provider config")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc","kms":null}}}`), metav1.PatchOptions{})
+	require.NoError(t, err)
+	waitForKeys(13)
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:16,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:16,kms:%s,identity", kms15, kms14, kms15Sched, kms14Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=aescbc:16,kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=aescbc:16,kms:%s,kms:%s,identity", kms15, kms14, kms15Sched, kms14Sched),
+		// credential update on key 16 via updateInPlaceFieldsIfChanged triggers re-emit after pruning
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=aescbc:16,kms:%s,identity;kubeschedulers.operator.openshift.io=aescbc:16,kms:%s,identity", kms15, kms15Sched),
+	)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 }
 
 const encryptionTestOperatorCRD = `
