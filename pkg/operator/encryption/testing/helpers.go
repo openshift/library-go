@@ -119,6 +119,46 @@ func CreateExpiredMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs 
 	return CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
+// CreateEncryptionKeySecretWithKMSSideCarConfig creates a KMS key secret with a unique
+// per-key UDS endpoint and sidecar config in the Data field for operator-managed KMS.
+func CreateEncryptionKeySecretWithKMSSideCarConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	emptyKey := make([]byte, 16)
+	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
+
+	kmsConfig := &apiserverconfigv1.KMSConfiguration{
+		APIVersion: "v2",
+		Name:       fmt.Sprintf("%d", keyID),
+		Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
+		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+	}
+	ecConfigJSON, _ := json.Marshal(kmsConfig)
+	secret.Data[secrets.EncryptionSecretKMSECConfig] = ecConfigJSON
+
+	sidecarConfig := map[string]interface{}{
+		"type": "Vault",
+		"vault": map[string]interface{}{
+			"image":        "quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd",
+			"vaultAddress": "https://vault.example.com:8200",
+			"transitKey":   "my-transit-key",
+			"transitMount": "transit",
+		},
+	}
+	sidecarJSON, _ := json.Marshal(sidecarConfig)
+	secret.Data[secrets.EncryptionSecretKMSSidecarConfig] = sidecarJSON
+
+	return secret
+}
+
+func CreateMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithKMSSideCarConfig(targetNS, grs, keyID)
+	secret.Annotations[encryptionSecretMigratedTimestampForTest] = ts.Format(time.RFC3339)
+	return secret
+}
+
+func CreateExpiredMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	return CreateMigratedEncryptionKeySecretWithKMSSideCarConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7+time.Hour)))
+}
+
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

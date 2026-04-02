@@ -10,6 +10,8 @@ import (
 	v1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -155,6 +157,71 @@ func TestRoundtrip(t *testing.T) {
 					Name:       "2",
 					Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
 				},
+			},
+		},
+		{
+			name:      "kms with sidecar config stores ec config in data field",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "1",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true,
+				Mode:   "KMS",
+				KMSConfiguration: &v1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       "1",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+				},
+				KMSSideCarConfig: &configv1.KMSConfig{
+					Type: configv1.VaultKMSProvider,
+					Vault: &configv1.VaultKMSConfig{
+						Image:        "quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd",
+						VaultAddress: "https://vault.example.com:8200",
+						TransitKey:   "my-key",
+						TransitMount: "transit",
+					},
+				},
+			},
+		},
+		{
+			name:      "kms with sidecar config full roundtrip",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "3",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true,
+				Mode:   "KMS",
+				KMSConfiguration: &v1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       "3",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
+				},
+				KMSSideCarConfig: &configv1.KMSConfig{
+					Type: configv1.VaultKMSProvider,
+					Vault: &configv1.VaultKMSConfig{
+						Image:          "quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd",
+						VaultAddress:   "https://vault.example.com:8200",
+						TransitKey:     "my-key",
+						TransitMount:   "transit",
+						VaultNamespace: "admin",
+						TLSServerName:  "vault.tls.example.com",
+						ApproleSecretRef: configv1.SecretNameReference{
+							Name: "vault-approle",
+						},
+					},
+				},
+				Migrated: state.MigrationState{
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+					},
+				},
+				InternalReason: "kms-configuration-changed",
+				ExternalReason: "",
 			},
 		},
 	}
