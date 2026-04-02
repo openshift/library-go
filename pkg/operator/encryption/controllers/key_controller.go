@@ -118,6 +118,8 @@ func NewKeyController(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+			// TODO: instead of watching this namespace, maybe it is better to copy/sync the expected secrets under openshift-config-managed which we already watch.
+			kubeInformersForNamespaces.InformersFor("openshift-config").Core().V1().Secrets().Informer(),
 			deployer,
 		).ToController(
 		c.controllerInstanceName,
@@ -185,6 +187,12 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	// TODO: We need to expose active keys to the cluster admin for better management
+	// We need to update ALL key Secrets with the new content of referenced credential Secret for KMS mode.
+	if err := c.updateKMSCredentials(ctx, syncContext, secrets); err != nil {
+		return err
+	}
+
 	var (
 		newKeyRequired bool
 		newKeyID       uint64
@@ -233,7 +241,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason, kmsConfig)
+	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, internalReason, externalReason, kmsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -270,7 +278,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason string, kmsConfig *configv1.KMSConfig) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, internalReason, externalReason string, kmsConfig *configv1.KMSConfig) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -300,6 +308,15 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			}
 			ks.KMSSideCarConfig = kmsConfig
+
+			creds, err := kms.FetchCredentials(ctx, c.secretClient, kmsConfig)
+			if err != nil {
+				return nil, err
+			}
+			ks.KMSCredentials = map[string][]byte{}
+			if creds != nil {
+				ks.KMSCredentials = creds
+			}
 		}
 	}
 
@@ -334,6 +351,18 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 	}
 	existingSecret.Data[secrets.EncryptionSecretKMSSidecarConfig] = sidecarJSON
 
+	creds, err := kms.FetchCredentials(ctx, c.secretClient, kmsConfig)
+	if err != nil {
+		return err
+	}
+	if creds != nil {
+		credJSON, err := json.Marshal(creds)
+		if err != nil {
+			return fmt.Errorf("failed to marshal credentials for key %s: %v", secretName, err)
+		}
+		existingSecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+	}
+
 	updated, err := c.secretClient.Secrets("openshift-config-managed").Update(ctx, existingSecret, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update secret %s for in-place fields: %v", secretName, err)
@@ -341,6 +370,51 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 
 	if updated.ResourceVersion != existingSecret.ResourceVersion {
 		syncContext.Recorder().Eventf("EncryptionKeyInPlaceUpdate", "Secret %q updated with new in-place KMS config", secretName)
+	}
+	return nil
+}
+
+// updateKMSCredentials traverses all key secrets and for each KMS key with a
+// KMSSideCarConfig, fetches fresh credentials from the referenced secret in
+// openshift-config and updates the key secret if the credentials changed.
+// Returns an error (causing degraded) if any referenced credential secret is missing.
+func (c *keyController) updateKMSCredentials(ctx context.Context, syncContext factory.SyncContext, keySecrets []*corev1.Secret) error {
+	for _, keySecret := range keySecrets {
+		if state.Mode(keySecret.Annotations["encryption.apiserver.operator.openshift.io/mode"]) != state.KMS {
+			continue
+		}
+
+		ks, err := secrets.ToKeyState(keySecret)
+		if err != nil {
+			return fmt.Errorf("invalid key secret %s: %v", keySecret.Name, err)
+		}
+		if ks.KMSSideCarConfig == nil {
+			continue
+		}
+
+		creds, err := kms.FetchCredentials(ctx, c.secretClient, ks.KMSSideCarConfig)
+		if err != nil {
+			// We degrade here, because as long as key is represented in encryption-configuration, its Secret must
+			// exist. We expect that cluster admin recreates the Secret with the same name.
+			return fmt.Errorf("credential secret for key %s is missing: %v", keySecret.Name, err)
+		}
+		if creds == nil {
+			continue
+		}
+
+		credJSON, err := json.Marshal(creds)
+		if err != nil {
+			return fmt.Errorf("failed to marshal credentials for key %s: %v", keySecret.Name, err)
+		}
+
+		keySecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+		updated, err := c.secretClient.Secrets("openshift-config-managed").Update(ctx, keySecret, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update credentials on key %s: %v", keySecret.Name, err)
+		}
+		if updated.ResourceVersion != keySecret.ResourceVersion {
+			syncContext.Recorder().Eventf("EncryptionKeyCredentialsUpdated", "Secret %q updated with new credentials", keySecret.Name)
+		}
 	}
 	return nil
 }

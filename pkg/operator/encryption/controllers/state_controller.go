@@ -146,8 +146,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	sidecarConfigs := collectSidecarConfigs(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, recorder)
+	sidecarConfigs, credentialConfigs := collectKMSData(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, credentialConfigs, recorder)
 	if err != nil {
 		return err
 	}
@@ -163,8 +163,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs, credentialConfigs)
 	if err != nil {
 		return false, err
 	}
@@ -173,11 +173,12 @@ func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encry
 	return changed, applyErr
 }
 
-// collectSidecarConfigs collects serialized KMS sidecar configurations from
+// collectKMSData collects serialized KMS sidecar configurations and credentials from
 // the desired encryption state, keyed by keyID. These are propagated to the
-// encryption-config secret as "encryption.apiserver.operator.openshift.io/kms-sidecar-config-{keyID}" data entries.
-func collectSidecarConfigs(desiredState map[schema.GroupResource]state.GroupResourceState) map[string][]byte {
-	sidecarConfigs := map[string][]byte{}
+// encryption-config secret as data entries keyed by "{prefix}-{keyID}".
+func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (sidecarConfigs, credentialConfigs map[string][]byte) {
+	sidecarConfigs = map[string][]byte{}
+	credentialConfigs = map[string][]byte{}
 	seen := map[string]bool{}
 	for _, grState := range desiredState {
 		for _, key := range grState.ReadKeys {
@@ -193,9 +194,17 @@ func collectSidecarConfigs(desiredState map[schema.GroupResource]state.GroupReso
 				continue
 			}
 			sidecarConfigs[key.Key.Name] = data
+
+			if len(key.KMSCredentials) > 0 {
+				credData, err := json.Marshal(key.KMSCredentials)
+				if err != nil {
+					continue
+				}
+				credentialConfigs[key.Key.Name] = credData
+			}
 		}
 	}
-	return sidecarConfigs
+	return sidecarConfigs, credentialConfigs
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.

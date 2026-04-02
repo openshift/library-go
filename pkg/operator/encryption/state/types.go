@@ -46,6 +46,9 @@ type KeyState struct {
 	KMSConfiguration *apiserverconfigv1.KMSConfiguration
 	// KMSSideCarConfig holds the API-level KMS configuration
 	KMSSideCarConfig *configv1.KMSConfig
+	// KMSCredentials holds the raw credential data
+	// fetched from the source credential secret referenced by KMSSideCarConfig.
+	KMSCredentials map[string][]byte
 }
 
 type MigrationState struct {

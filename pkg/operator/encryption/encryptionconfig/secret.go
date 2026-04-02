@@ -48,10 +48,9 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 	return encryptionConfig, nil
 }
 
-// ToSecret creates the encryption-config secret. sidecarConfigs is keyed by keyID
-// and contains serialized sidecar configurations for KMS providers, stored
-// as "encryption.apiserver.operator.openshift.io/kms-sidecar-config-{keyID}" data entries in the secret.
-func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs map[string][]byte) (*corev1.Secret, error) {
+// ToSecret creates the encryption-config secret. sidecarConfigs and credentialConfigs
+// are keyed by keyID and propagated as data entries with their respective prefixes.
+func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs map[string][]byte) (*corev1.Secret, error) {
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
@@ -79,6 +78,9 @@ func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfig
 
 	for keyID, config := range sidecarConfigs {
 		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSidecarConfig, keyID)] = config
+	}
+	for keyID, creds := range credentialConfigs {
+		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSCredentials, keyID)] = creds
 	}
 
 	return s, nil

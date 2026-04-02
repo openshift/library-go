@@ -1,11 +1,16 @@
 package kms
 
 import (
+	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // AddKMSPluginVolumeAndMountToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
@@ -63,4 +68,31 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	)
 
 	return nil
+}
+
+// FetchCredentials reads the credential secret referenced by the KMS config
+// from the openshift-config namespace. Returns nil if no credential reference
+// is configured. Returns the secret data if found, or an error if the referenced
+// secret is missing or has empty data.
+func FetchCredentials(ctx context.Context, secretClient corev1client.SecretsGetter, kmsConfig *configv1.KMSConfig) (map[string][]byte, error) {
+	if kmsConfig == nil {
+		return nil, nil
+	}
+
+	switch kmsConfig.Type {
+	case configv1.VaultKMSProvider:
+		if kmsConfig.Vault == nil || len(kmsConfig.Vault.ApproleSecretRef.Name) == 0 {
+			return nil, nil
+		}
+		credSecret, err := secretClient.Secrets("openshift-config").Get(ctx, kmsConfig.Vault.ApproleSecretRef.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get credential secret %s in openshift-config: %v", kmsConfig.Vault.ApproleSecretRef.Name, err)
+		}
+		if len(credSecret.Data) == 0 {
+			return nil, fmt.Errorf("credential secret %s in openshift-config has empty data", kmsConfig.Vault.ApproleSecretRef.Name)
+		}
+		return credSecret.Data, nil
+	default:
+		return nil, nil
+	}
 }
