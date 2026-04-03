@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 )
 
 // SigningCAConfig holds the configuration for a self-signed signing CA stored in a secret. It creates a new one when
@@ -19,6 +21,10 @@ type SigningCAConfig struct {
 	Namespace string
 	// Name is the name of the Secret.
 	Name string
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	// When a PKI profile provider is configured on the controller, this name is used to
+	// look up the key algorithm and other certificate parameters from the cluster PKI profile.
+	CertificateName string
 	// Validity is the duration from time.Now() until the signing CA expires. If RefreshOnlyWhenExpired
 	// is false, the signing cert is rotated when 80% of validity is reached.
 	Validity time.Duration
@@ -146,4 +152,27 @@ func setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret *corev
 	tlsAnnotations.NotAfter = ca.Certs[0].NotAfter.Format(time.RFC3339)
 	tlsAnnotations.RefreshPeriod = refresh.String()
 	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta)
+}
+
+// resolveKeyPairGenerator resolves the key pair generator from the PKI profile
+// provider. Returns an error if the profile has no configuration for the given
+// certificate type and name.
+//
+// TODO: Remove the fallback to DefaultPKIProfile() once installer support for
+// the PKI resource is in place. Until then, the PKI resource may not exist in
+// TechPreview clusters.
+func resolveKeyPairGenerator(provider pki.PKIProfileProvider, certType pki.CertificateType, name string) (crypto.KeyPairGenerator, error) {
+	cfg, err := pki.ResolveCertificateConfig(provider, certType, name)
+	if err != nil {
+		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", certType, name, err)
+		defaultProfile := pki.DefaultPKIProfile()
+		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), certType, name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("PKI profile has no configuration for %s %q", certType, name)
+	}
+	return cfg.Key, nil
 }

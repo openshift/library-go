@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/pki"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -76,9 +78,10 @@ type CertRotationController struct {
 	// StatusReporter reports the status of cert rotation.
 	StatusReporter StatusReporter
 
-	kubeClient    kubernetes.Interface
-	kubeInformers v1helpers.KubeInformersForNamespaces
-	eventRecorder events.Recorder
+	kubeClient         kubernetes.Interface
+	kubeInformers      v1helpers.KubeInformersForNamespaces
+	eventRecorder      events.Recorder
+	pkiProfileProvider pki.PKIProfileProvider
 }
 
 func NewCertRotationController(
@@ -90,16 +93,18 @@ func NewCertRotationController(
 	kubeInformers v1helpers.KubeInformersForNamespaces,
 	recorder events.Recorder,
 	reporter StatusReporter,
+	pkiProvider pki.PKIProfileProvider,
 ) factory.Controller {
 	c := &CertRotationController{
-		Name:           name,
-		SigningCA:      signingCA,
-		CABundle:       caBundle,
-		TargetCert:     targetCert,
-		StatusReporter: reporter,
-		kubeClient:     kubeClient,
-		kubeInformers:  kubeInformers,
-		eventRecorder:  recorder,
+		Name:               name,
+		SigningCA:          signingCA,
+		CABundle:           caBundle,
+		TargetCert:         targetCert,
+		StatusReporter:     reporter,
+		kubeClient:         kubeClient,
+		kubeInformers:      kubeInformers,
+		eventRecorder:      recorder,
+		pkiProfileProvider: pkiProvider,
 	}
 
 	signerSecretInformer := kubeInformers.InformersFor(signingCA.Namespace).Core().V1().Secrets()
@@ -226,9 +231,35 @@ func (c CertRotationController) ensureSigningCertKeyPair(ctx context.Context) (*
 		}
 		c.eventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.SigningCA.Name, c.SigningCA.Namespace, reason)
 
-		ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.SigningCA.Validity)
-		if err != nil {
-			return nil, false, err
+		var ca *crypto.TLSCertificateConfig
+		if c.pkiProfileProvider != nil {
+			keyGen, resolveErr := resolveKeyPairGenerator(c.pkiProfileProvider, pki.CertificateTypeSigner, c.SigningCA.CertificateName)
+			if resolveErr != nil {
+				return nil, false, resolveErr
+			}
+			signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
+			ca, err = crypto.NewSigningCertificate(signerName, keyGen, crypto.WithLifetime(c.SigningCA.Validity))
+			if err != nil {
+				return nil, false, err
+			}
+			certBytes := &bytes.Buffer{}
+			keyBytes := &bytes.Buffer{}
+			if err = ca.WriteCertConfig(certBytes, keyBytes); err != nil {
+				return nil, false, err
+			}
+			if signingCertKeyPairSecret.Annotations == nil {
+				signingCertKeyPairSecret.Annotations = map[string]string{}
+			}
+			if signingCertKeyPairSecret.Data == nil {
+				signingCertKeyPairSecret.Data = map[string][]byte{}
+			}
+			signingCertKeyPairSecret.Data["tls.crt"] = certBytes.Bytes()
+			signingCertKeyPairSecret.Data["tls.key"] = keyBytes.Bytes()
+		} else {
+			ca, err = setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.SigningCA.Validity)
+			if err != nil {
+				return nil, false, err
+			}
 		}
 		setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret, ca, c.SigningCA.Refresh, c.SigningCA.AdditionalAnnotations)
 
@@ -448,19 +479,10 @@ func (c CertRotationController) setTargetCertKeyPairSecret(targetCertKeyPairSecr
 
 	var certKeyPair *crypto.TLSCertificateConfig
 	var err error
-	switch cfg := c.TargetCert.CertConfig.(type) {
-	case ClientCertConfig:
-		certKeyPair, err = signer.MakeClientCertificateForDuration(cfg.UserInfo, targetValidity)
-	case ServingCertConfig:
-		if len(cfg.Hostnames()) == 0 {
-			return fmt.Errorf("no hostnames set")
-		}
-		certKeyPair, err = signer.MakeServerCertForDuration(sets.New(cfg.Hostnames()...), targetValidity, cfg.CertificateExtensionFn...)
-	case SignerCertConfig:
-		signerName := fmt.Sprintf("%s_@%d", cfg.SignerName, time.Now().Unix())
-		certKeyPair, err = crypto.MakeCAConfigForDuration(signerName, targetValidity, signer)
-	default:
-		return fmt.Errorf("unknown target cert config type: %T", cfg)
+	if c.pkiProfileProvider != nil {
+		certKeyPair, err = c.createTargetCertWithPKI(signer, targetValidity)
+	} else {
+		certKeyPair, err = c.createTargetCertLegacy(signer, targetValidity)
 	}
 	if err != nil {
 		return err
@@ -514,4 +536,62 @@ func (c CertRotationController) targetCertRecheckerPostRunHook(ctx context.Conte
 
 	<-ctx.Done()
 	return nil
+}
+
+func (c CertRotationController) createTargetCertWithPKI(signer *crypto.CA, targetValidity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	var certType pki.CertificateType
+	switch c.TargetCert.CertConfig.(type) {
+	case ClientCertConfig:
+		certType = pki.CertificateTypeClient
+	case ServingCertConfig:
+		certType = pki.CertificateTypeServing
+	case SignerCertConfig:
+		certType = pki.CertificateTypeSigner
+	default:
+		return nil, fmt.Errorf("unknown target cert config type: %T", c.TargetCert.CertConfig)
+	}
+
+	keyGen, err := resolveKeyPairGenerator(c.pkiProfileProvider, certType, c.TargetCert.CertificateName)
+	if err != nil {
+		return nil, err
+	}
+
+	switch cfg := c.TargetCert.CertConfig.(type) {
+	case ClientCertConfig:
+		return signer.NewClientCertificate(cfg.UserInfo, keyGen, crypto.WithLifetime(targetValidity))
+	case ServingCertConfig:
+		if len(cfg.Hostnames()) == 0 {
+			return nil, fmt.Errorf("no hostnames set")
+		}
+		return signer.NewServerCertificate(
+			sets.New(cfg.Hostnames()...), keyGen,
+			crypto.WithLifetime(targetValidity),
+			crypto.WithExtensions(cfg.CertificateExtensionFn...),
+		)
+	case SignerCertConfig:
+		signerName := fmt.Sprintf("%s_@%d", cfg.SignerName, time.Now().Unix())
+		return crypto.NewSigningCertificate(signerName, keyGen,
+			crypto.WithSigner(signer),
+			crypto.WithLifetime(targetValidity),
+		)
+	default:
+		return nil, fmt.Errorf("unknown target cert config type: %T", cfg)
+	}
+}
+
+func (c CertRotationController) createTargetCertLegacy(signer *crypto.CA, targetValidity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	switch cfg := c.TargetCert.CertConfig.(type) {
+	case ClientCertConfig:
+		return signer.MakeClientCertificateForDuration(cfg.UserInfo, targetValidity)
+	case ServingCertConfig:
+		if len(cfg.Hostnames()) == 0 {
+			return nil, fmt.Errorf("no hostnames set")
+		}
+		return signer.MakeServerCertForDuration(sets.New(cfg.Hostnames()...), targetValidity, cfg.CertificateExtensionFn...)
+	case SignerCertConfig:
+		signerName := fmt.Sprintf("%s_@%d", cfg.SignerName, time.Now().Unix())
+		return crypto.MakeCAConfigForDuration(signerName, targetValidity, signer)
+	default:
+		return nil, fmt.Errorf("unknown target cert config type: %T", cfg)
+	}
 }

@@ -21,6 +21,10 @@ type TargetCertKeyPairConfig struct {
 	Namespace string
 	// Name is the name of the Secret.
 	Name string
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	// When a PKI profile provider is configured on the controller, this name is used to
+	// look up the key algorithm and other certificate parameters from the cluster PKI profile.
+	CertificateName string
 	// Validity is the duration from time.Now() until the certificate expires. If RefreshOnlyWhenExpired
 	// is false, the key and certificate is rotated when 80% of validity is reached.
 	Validity time.Duration
