@@ -2,7 +2,6 @@ package certrotation
 
 import (
 	"context"
-	"crypto/x509"
 	"fmt"
 	"strings"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ func TestCertRotationController_SyncWorker(t *testing.T) {
 		SerialGenerator: &crypto.RandomSerialGenerator{},
 	}
 	// Create target certificate signed by the CA
-	targetCert, err := ca.MakeServerCert(sets.New("test.example.com", "localhost"), time.Hour*12)
+	targetCert, err := ca.MakeServerCert(sets.New("test-cert", "localhost"), time.Hour*12)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create server cert: %v", err))
 	}
@@ -260,42 +260,39 @@ func TestCertRotationController_SyncWorker(t *testing.T) {
 				}
 			}
 
+			kubeInformers := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
+				"test-namespace": informerFactory,
+			})
+
 			// Create the controller
 			controller := &CertRotationController{
 				Name: "test-controller",
-				RotatedSigningCASecret: RotatedSigningCASecret{
-					Namespace:     "test-namespace",
-					Name:          "test-signer-cert",
-					Validity:      24 * time.Hour,
-					Refresh:       12 * time.Hour,
-					Informer:      informerFactory.Core().V1().Secrets(),
-					Lister:        informerFactory.Core().V1().Secrets().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+				SigningCA: SigningCAConfig{
+					Namespace: "test-namespace",
+					Name:      "test-signer-cert",
+					Validity:  24 * time.Hour,
+					Refresh:   12 * time.Hour,
 				},
-				CABundleConfigMap: CABundleConfigMap{
-					Namespace:     "test-namespace",
-					Name:          "test-ca-bundle",
-					Informer:      informerFactory.Core().V1().ConfigMaps(),
-					Lister:        informerFactory.Core().V1().ConfigMaps().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+				CABundle: CABundleConfig{
+					Namespace: "test-namespace",
+					Name:      "test-ca-bundle",
 					AdditionalAnnotations: AdditionalAnnotations{
 						JiraComponent: "test",
 					},
 				},
-				RotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
-					Namespace:     "test-namespace",
-					Name:          "test-target-cert",
-					Validity:      24 * time.Hour,
-					Refresh:       12 * time.Hour,
-					CertCreator:   &mockTargetCertCreator{},
-					Informer:      informerFactory.Core().V1().Secrets(),
-					Lister:        informerFactory.Core().V1().Secrets().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+				TargetCert: TargetCertKeyPairConfig{
+					Namespace: "test-namespace",
+					Name:      "test-target-cert",
+					Validity:  24 * time.Hour,
+					Refresh:   12 * time.Hour,
+					CertConfig: ServingCertConfig{
+						Hostnames: func() []string { return []string{"test-cert", "localhost"} },
+					},
 				},
 				StatusReporter: &testStatusReporter{},
+				kubeClient:     fakeClient,
+				kubeInformers:  kubeInformers,
+				eventRecorder:  events.NewInMemoryRecorder("test", clock.RealClock{}),
 			}
 
 			// Run SyncWorker
@@ -327,32 +324,6 @@ type testStatusReporter struct{}
 
 func (t *testStatusReporter) Report(ctx context.Context, controllerName string, syncErr error) (bool, error) {
 	return false, nil
-}
-
-// mockTargetCertCreator is a mock implementation of TargetCertCreator for testing
-type mockTargetCertCreator struct{}
-
-func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
-	// Use the provided signer to create a real certificate with matching key
-	certConfig, err := signer.MakeServerCert(sets.New("test-cert", "localhost"), validity)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create server certificate: %v", err)
-	}
-
-	return certConfig, nil
-}
-
-func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
-	if creationRequired {
-		return "creation required"
-	}
-	// For testing, we don't need rotation unless explicitly required
-	return ""
-}
-
-func (m *mockTargetCertCreator) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	// Just return the annotations as-is for testing
-	return annotations
 }
 
 func createValidSigningCASecret(namespace, name string, signer *crypto.TLSCertificateConfig) *corev1.Secret {
@@ -463,6 +434,15 @@ func createValidTargetCertSecret(namespace, name string, serverCert *crypto.TLSC
 		panic(fmt.Sprintf("failed to get PEM bytes: %v", err))
 	}
 
+	// Build hostnames from the certificate's DNS names and IP addresses
+	hostnameSet := sets.New[string]()
+	for _, dnsName := range serverCert.Certs[0].DNSNames {
+		hostnameSet.Insert(dnsName)
+	}
+	for _, ip := range serverCert.Certs[0].IPAddresses {
+		hostnameSet.Insert(ip.String())
+	}
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -470,6 +450,8 @@ func createValidTargetCertSecret(namespace, name string, serverCert *crypto.TLSC
 			Annotations: map[string]string{
 				"auth.openshift.io/certificate-not-after":  time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 				"auth.openshift.io/certificate-not-before": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				"auth.openshift.io/certificate-issuer":     serverCert.Certs[0].Issuer.CommonName,
+				"auth.openshift.io/certificate-hostnames":  strings.Join(sets.List(hostnameSet), ","),
 			},
 		},
 		Type: corev1.SecretTypeTLS,

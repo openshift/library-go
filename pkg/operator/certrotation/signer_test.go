@@ -14,14 +14,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func TestEnsureSigningCertKeyPair(t *testing.T) {
@@ -242,34 +242,41 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
 			client := kubefake.NewClientset()
+			informerFactory := informers.NewSharedInformerFactory(client, 0)
 			if test.initialSecret != nil {
-				indexer.Add(test.initialSecret)
 				client = kubefake.NewClientset(test.initialSecret)
+				informerFactory = informers.NewSharedInformerFactory(client, 0)
+				informerFactory.Core().V1().Secrets().Informer().GetStore().Add(test.initialSecret)
 			}
+
+			kubeInformers := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
+				"ns": informerFactory,
+			})
 
 			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
-			c := &RotatedSigningCASecret{
-				Namespace:     "ns",
-				Name:          "signer",
-				Validity:      24 * time.Hour,
-				Refresh:       12 * time.Hour,
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: recorder,
-				AdditionalAnnotations: AdditionalAnnotations{
-					JiraComponent: "test",
+			c := &CertRotationController{
+				Name: "test-signer",
+				SigningCA: SigningCAConfig{
+					Namespace: "ns",
+					Name:      "signer",
+					Validity:  24 * time.Hour,
+					Refresh:   12 * time.Hour,
+					AdditionalAnnotations: AdditionalAnnotations{
+						JiraComponent: "test",
+					},
+					Owner: &metav1.OwnerReference{
+						Name: "operator",
+					},
+					RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
 				},
-				Owner: &metav1.OwnerReference{
-					Name: "operator",
-				},
-				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				kubeClient:    client,
+				kubeInformers: kubeInformers,
+				eventRecorder: recorder,
 			}
 
-			_, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
+			_, updated, err := c.ensureSigningCertKeyPair(context.TODO())
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)

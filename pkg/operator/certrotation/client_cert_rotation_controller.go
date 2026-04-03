@@ -8,6 +8,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
@@ -48,60 +49,74 @@ func (s *StaticPodConditionStatusReporter) Report(ctx context.Context, controlle
 
 // CertRotationController does:
 //
-// 1) continuously create a self-signed signing CA (via RotatedSigningCASecret) and store it in a secret.
+// 1) continuously create a self-signed signing CA (via SigningCAConfig) and store it in a secret.
 // 2) maintain a CA bundle ConfigMap with all not yet expired CA certs.
 // 3) continuously create a target cert and key signed by the latest signing CA and store it in a secret.
 type CertRotationController struct {
-	// controller name
+	// Name is the controller name.
 	Name string
-	// RotatedSigningCASecret rotates a self-signed signing CA stored in a secret.
-	RotatedSigningCASecret RotatedSigningCASecret
-	// CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from rotatedSigningCASecret, and by removing expired old ones.
-	CABundleConfigMap CABundleConfigMap
-	// RotatedSelfSignedCertKeySecret rotates a key and cert signed by a signing CA and stores it in a secret.
-	RotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret
+	// SigningCA holds the configuration for the signing CA secret.
+	SigningCA SigningCAConfig
+	// CABundle holds the configuration for the CA bundle config map.
+	CABundle CABundleConfig
+	// TargetCert holds the configuration for the target certificate secret.
+	TargetCert TargetCertKeyPairConfig
 
-	// Plumbing:
+	// StatusReporter reports the status of cert rotation.
 	StatusReporter StatusReporter
+
+	kubeClient    kubernetes.Interface
+	kubeInformers v1helpers.KubeInformersForNamespaces
+	eventRecorder events.Recorder
 }
 
 func NewCertRotationController(
 	name string,
-	rotatedSigningCASecret RotatedSigningCASecret,
-	caBundleConfigMap CABundleConfigMap,
-	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
+	signingCA SigningCAConfig,
+	caBundle CABundleConfig,
+	targetCert TargetCertKeyPairConfig,
+	kubeClient kubernetes.Interface,
+	kubeInformers v1helpers.KubeInformersForNamespaces,
 	recorder events.Recorder,
 	reporter StatusReporter,
 ) factory.Controller {
 	c := &CertRotationController{
-		Name:                           name,
-		RotatedSigningCASecret:         rotatedSigningCASecret,
-		CABundleConfigMap:              caBundleConfigMap,
-		RotatedSelfSignedCertKeySecret: rotatedSelfSignedCertKeySecret,
-		StatusReporter:                 reporter,
+		Name:           name,
+		SigningCA:      signingCA,
+		CABundle:       caBundle,
+		TargetCert:     targetCert,
+		StatusReporter: reporter,
+		kubeClient:     kubeClient,
+		kubeInformers:  kubeInformers,
+		eventRecorder:  recorder,
 	}
+
+	signerSecretInformer := kubeInformers.InformersFor(signingCA.Namespace).Core().V1().Secrets()
+	caBundleConfigMapInformer := kubeInformers.InformersFor(caBundle.Namespace).Core().V1().ConfigMaps()
+	targetSecretInformer := kubeInformers.InformersFor(targetCert.Namespace).Core().V1().Secrets()
+
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(c.Sync).
 		WithFilteredEventsInformers(
 			func(obj interface{}) bool {
 				if cm, ok := obj.(*corev1.ConfigMap); ok {
-					return cm.Namespace == caBundleConfigMap.Namespace && cm.Name == caBundleConfigMap.Name
+					return cm.Namespace == caBundle.Namespace && cm.Name == caBundle.Name
 				}
 				if secret, ok := obj.(*corev1.Secret); ok {
-					if secret.Namespace == rotatedSigningCASecret.Namespace && secret.Name == rotatedSigningCASecret.Name {
+					if secret.Namespace == signingCA.Namespace && secret.Name == signingCA.Name {
 						return true
 					}
-					if secret.Namespace == rotatedSelfSignedCertKeySecret.Namespace && secret.Name == rotatedSelfSignedCertKeySecret.Name {
+					if secret.Namespace == targetCert.Namespace && secret.Name == targetCert.Name {
 						return true
 					}
 					return false
 				}
 				return true
 			},
-			rotatedSigningCASecret.Informer.Informer(),
-			caBundleConfigMap.Informer.Informer(),
-			rotatedSelfSignedCertKeySecret.Informer.Informer(),
+			signerSecretInformer.Informer(),
+			caBundleConfigMapInformer.Informer(),
+			targetSecretInformer.Informer(),
 		).
 		WithPostStartHooks(
 			c.targetCertRecheckerPostRunHook,
@@ -133,11 +148,11 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 }
 
 func (c CertRotationController) getSigningCertKeyPairLocation() string {
-	return fmt.Sprintf("%s/%s", c.RotatedSelfSignedCertKeySecret.Namespace, c.RotatedSelfSignedCertKeySecret.Name)
+	return fmt.Sprintf("%s/%s", c.SigningCA.Namespace, c.SigningCA.Name)
 }
 
 func (c CertRotationController) SyncWorker(ctx context.Context) error {
-	signingCertKeyPair, _, err := c.RotatedSigningCASecret.EnsureSigningCertKeyPair(ctx)
+	signingCertKeyPair, _, err := c.ensureSigningCertKeyPair(ctx)
 	if err != nil {
 		return err
 	}
@@ -146,7 +161,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 		return fmt.Errorf("signingCertKeyPair is nil")
 	}
 
-	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair, c.getSigningCertKeyPairLocation())
+	cabundleCerts, err := c.ensureConfigMapCABundle(ctx, signingCertKeyPair)
 	if err != nil {
 		return err
 	}
@@ -155,7 +170,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 		return fmt.Errorf("cabundleCerts is nil")
 	}
 
-	if _, err := c.RotatedSelfSignedCertKeySecret.EnsureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
+	if _, err := c.ensureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
 		return err
 	}
 
@@ -163,16 +178,14 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 }
 
 func (c CertRotationController) targetCertRecheckerPostRunHook(ctx context.Context, syncCtx factory.SyncContext) error {
-	// If we have a need to force rechecking the cert, use this channel to do it.
-	refresher, ok := c.RotatedSelfSignedCertKeySecret.CertCreator.(TargetCertRechecker)
-	if !ok {
+	serving, ok := c.TargetCert.CertConfig.(ServingCertConfig)
+	if !ok || serving.HostnamesChanged == nil {
 		return nil
 	}
-	targetRefresh := refresher.RecheckChannel()
 	go wait.Until(func() {
 		for {
 			select {
-			case <-targetRefresh:
+			case <-serving.HostnamesChanged:
 				syncCtx.Queue().Add(factory.DefaultQueueKey)
 			case <-ctx.Done():
 				return

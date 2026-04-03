@@ -16,21 +16,11 @@ import (
 
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// RotatedSelfSignedCertKeySecret rotates a key and cert signed by a signing CA and stores it in a secret.
-//
-// It creates a new one when
-// - refresh duration is over
-// - or 80% of validity is over (if RefreshOnlyWhenExpired is false)
-// - or the cert is expired.
-// - or the signing CA changes.
-type RotatedSelfSignedCertKeySecret struct {
+// TargetCertKeyPairConfig holds the configuration for a target certificate key pair.
+type TargetCertKeyPairConfig struct {
 	// Namespace is the namespace of the Secret.
 	Namespace string
 	// Name is the name of the Secret.
@@ -43,9 +33,6 @@ type RotatedSelfSignedCertKeySecret struct {
 	// Refresh is ignored until the signing CA at least 10% in its life-time to ensure it is deployed
 	// through-out the cluster.
 	Refresh time.Duration
-	// RefreshOnlyWhenExpired allows rotating only certs that are already expired. (for autorecovery)
-	// If false (regular flow) it rotates at the refresh interval but no later then 4/5 of the cert lifetime.
-
 	// RefreshOnlyWhenExpired set to true means to ignore 80% of validity and the Refresh duration for rotation,
 	// but only rotate when the certificate expires. This is useful for auto-recovery when we want to enforce
 	// rotation on expiration only, but not interfere with the ordinary rotation controller.
@@ -61,32 +48,40 @@ type RotatedSelfSignedCertKeySecret struct {
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
 
-	// CertCreator does the actual cert generation.
-	CertCreator TargetCertCreator
-
-	// Plumbing:
-	Informer      corev1informers.SecretInformer
-	Lister        corev1listers.SecretLister
-	Client        corev1client.SecretsGetter
-	EventRecorder events.Recorder
+	// CertConfig specifies the type of certificate to create.
+	CertConfig TargetCertConfig
 }
 
-type TargetCertCreator interface {
-	// NewCertificate creates a new key-cert pair with the given signer.
-	NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error)
-	// NeedNewTargetCertKeyPair decides whether a new cert-key pair is needed. It returns a non-empty reason if it is the case.
-	NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string
-	// SetAnnotations gives an option to override or set additional annotations
-	SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string
+// TargetCertConfig is a sealed interface for target certificate configuration.
+// Implementations: ClientCertConfig, ServingCertConfig, SignerCertConfig.
+type TargetCertConfig interface {
+	targetCertConfig()
 }
 
-// TargetCertRechecker is an optional interface to be implemented by the TargetCertCreator to enforce
-// a controller run.
-type TargetCertRechecker interface {
-	RecheckChannel() <-chan struct{}
+// ClientCertConfig configures a client certificate.
+type ClientCertConfig struct {
+	UserInfo user.Info
 }
 
-func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Context, signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) (*corev1.Secret, error) {
+func (ClientCertConfig) targetCertConfig() {}
+
+// ServingCertConfig configures a serving certificate.
+type ServingCertConfig struct {
+	Hostnames              func() []string
+	HostnamesChanged       <-chan struct{}
+	CertificateExtensionFn []crypto.CertificateExtensionFunc
+}
+
+func (ServingCertConfig) targetCertConfig() {}
+
+// SignerCertConfig configures an intermediate signer certificate.
+type SignerCertConfig struct {
+	SignerName string
+}
+
+func (SignerCertConfig) targetCertConfig() {}
+
+func (c CertRotationController) ensureTargetCertKeyPair(ctx context.Context, signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) (*corev1.Secret, error) {
 	// at this point our trust bundle has been updated.  We don't know for sure that consumers have updated, but that's why we have a second
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
 	// and need to mint one
@@ -94,7 +89,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 	creationRequired := false
 	updateRequired := false
-	originalTargetCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
+	originalTargetCertKeyPairSecret, err := c.kubeInformers.SecretLister().Secrets(c.TargetCert.Namespace).Get(c.TargetCert.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -103,9 +98,9 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		// create an empty one
 		targetCertKeyPairSecret = &corev1.Secret{
 			ObjectMeta: NewTLSArtifactObjectMeta(
-				c.Name,
-				c.Namespace,
-				c.AdditionalAnnotations,
+				c.TargetCert.Name,
+				c.TargetCert.Namespace,
+				c.TargetCert.AdditionalAnnotations,
 			),
 			Type: corev1.SecretTypeTLS,
 		}
@@ -113,15 +108,22 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
-	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	if !c.TargetCert.RefreshOnlyWhenExpired {
+		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.TargetCert.Owner, c.TargetCert.AdditionalAnnotations)
 		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
 		updateRequired = needsMetadataUpdate || needsTypeChange
 	}
 
-	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, creationRequired); len(reason) > 0 {
-		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret, c.Validity, c.Refresh, signingCertKeyPair, c.CertCreator, c.AdditionalAnnotations); err != nil {
+	// Determine hostnames function for serving certs
+	var hostnames func() []string
+	if serving, ok := c.TargetCert.CertConfig.(ServingCertConfig); ok {
+		hostnames = serving.Hostnames
+	}
+
+	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.TargetCert.Refresh, c.TargetCert.RefreshOnlyWhenExpired, creationRequired, hostnames); len(reason) > 0 {
+		c.eventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.TargetCert.Name, c.TargetCert.Namespace, reason)
+
+		if err := c.setTargetCertKeyPairSecret(targetCertKeyPairSecret, signingCertKeyPair); err != nil {
 			return nil, err
 		}
 
@@ -130,20 +132,20 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		updateRequired = true
 	}
 	if creationRequired {
-		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Create(ctx, targetCertKeyPairSecret, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err)
+		actualTargetCertKeyPairSecret, err := c.kubeClient.CoreV1().Secrets(c.TargetCert.Namespace).Create(ctx, targetCertKeyPairSecret, metav1.CreateOptions{})
+		resourcehelper.ReportCreateEvent(c.eventRecorder, actualTargetCertKeyPairSecret, err)
 		if err != nil {
 			return nil, err
 		}
 		klog.V(2).Infof("Created secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	} else if updateRequired {
-		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
+		actualTargetCertKeyPairSecret, err := c.kubeClient.CoreV1().Secrets(c.TargetCert.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
 		if apierrors.IsConflict(err) {
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err)
+		resourcehelper.ReportUpdateEvent(c.eventRecorder, actualTargetCertKeyPairSecret, err)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +156,73 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	return targetCertKeyPairSecret, nil
 }
 
-func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
+// setTargetCertKeyPairSecret creates a new cert/key pair, sets them in the secret, and applies TLS annotations.
+func (c CertRotationController) setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, signer *crypto.CA) error {
+	if targetCertKeyPairSecret.Annotations == nil {
+		targetCertKeyPairSecret.Annotations = map[string]string{}
+	}
+	if targetCertKeyPairSecret.Data == nil {
+		targetCertKeyPairSecret.Data = map[string][]byte{}
+	}
+
+	// our annotation is based on our cert validity, so we want to make sure that we don't specify something past our signer
+	targetValidity := c.TargetCert.Validity
+	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(time.Now())
+	if remainingSignerValidity < targetValidity {
+		targetValidity = remainingSignerValidity
+	}
+
+	var certKeyPair *crypto.TLSCertificateConfig
+	var err error
+	switch cfg := c.TargetCert.CertConfig.(type) {
+	case ClientCertConfig:
+		certKeyPair, err = signer.MakeClientCertificateForDuration(cfg.UserInfo, targetValidity)
+	case ServingCertConfig:
+		if len(cfg.Hostnames()) == 0 {
+			return fmt.Errorf("no hostnames set")
+		}
+		certKeyPair, err = signer.MakeServerCertForDuration(sets.New(cfg.Hostnames()...), targetValidity, cfg.CertificateExtensionFn...)
+	case SignerCertConfig:
+		signerName := fmt.Sprintf("%s_@%d", cfg.SignerName, time.Now().Unix())
+		certKeyPair, err = crypto.MakeCAConfigForDuration(signerName, targetValidity, signer)
+	default:
+		return fmt.Errorf("unknown target cert config type: %T", cfg)
+	}
+	if err != nil {
+		return err
+	}
+
+	targetCertKeyPairSecret.Data["tls.crt"], targetCertKeyPairSecret.Data["tls.key"], err = certKeyPair.GetPEMBytes()
+	if err != nil {
+		return err
+	}
+
+	// Set TLS annotations
+	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
+
+	tlsAnnotations := c.TargetCert.AdditionalAnnotations
+	tlsAnnotations.NotBefore = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
+	tlsAnnotations.NotAfter = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
+	tlsAnnotations.RefreshPeriod = c.TargetCert.Refresh.String()
+	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta)
+
+	// Set hostname annotations for serving certs
+	if _, ok := c.TargetCert.CertConfig.(ServingCertConfig); ok {
+		hostnames := sets.Set[string]{}
+		for _, ip := range certKeyPair.Certs[0].IPAddresses {
+			hostnames.Insert(ip.String())
+		}
+		for _, dnsName := range certKeyPair.Certs[0].DNSNames {
+			hostnames.Insert(dnsName)
+		}
+		// List does a sort so that we have a consistent representation
+		targetCertKeyPairSecret.Annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
+	}
+
+	return nil
+}
+
+func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool, hostnames func() []string) string {
 	if creationRequired {
 		return "secret doesn't exist"
 	}
@@ -176,6 +244,10 @@ func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundle
 	}
 	for _, caCert := range caBundleCerts {
 		if signerCommonName == caCert.Subject.CommonName {
+			// Signer is in the CA bundle. Check hostnames if applicable.
+			if hostnames != nil {
+				return missingHostnames(secret.Annotations, hostnames)
+			}
 			return ""
 		}
 	}
@@ -237,107 +309,9 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 	return ""
 }
 
-// setTargetCertKeyPairSecretAndTLSAnnotations generates a new cert/key pair,
-// stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, signer *crypto.CA, certCreator TargetCertCreator, tlsAnnotations AdditionalAnnotations) error {
-	certKeyPair, err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, validity, signer, certCreator)
-	if err != nil {
-		return err
-	}
-
-	setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret, certKeyPair, certCreator, refresh, tlsAnnotations)
-	return nil
-}
-
-// setTargetCertKeyPairSecret creates a new cert/key pair and sets them in the secret.  Only one of client, serving, or signer rotation may be specified.
-// TODO refactor with an interface for actually signing and move the one-of check higher in the stack.
-func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity time.Duration, signer *crypto.CA, certCreator TargetCertCreator) (*crypto.TLSCertificateConfig, error) {
-	if targetCertKeyPairSecret.Annotations == nil {
-		targetCertKeyPairSecret.Annotations = map[string]string{}
-	}
-	if targetCertKeyPairSecret.Data == nil {
-		targetCertKeyPairSecret.Data = map[string][]byte{}
-	}
-
-	// our annotation is based on our cert validity, so we want to make sure that we don't specify something past our signer
-	targetValidity := validity
-	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(time.Now())
-	if remainingSignerValidity < validity {
-		targetValidity = remainingSignerValidity
-	}
-
-	certKeyPair, err := certCreator.NewCertificate(signer, targetValidity)
-	if err != nil {
-		return nil, err
-	}
-
-	targetCertKeyPairSecret.Data["tls.crt"], targetCertKeyPairSecret.Data["tls.key"], err = certKeyPair.GetPEMBytes()
-	return certKeyPair, err
-}
-
-// setTLSAnnotationsOnTargetCertKeyPairSecret applies predefined TLS annotations to the given secret.
-//
-// This function does not perform nil checks on its parameters and assumes that the
-// secret's Annotations field has already been initialized.
-//
-// These assumptions are safe because this function is only called after the secret
-// has been initialized in setTargetCertKeyPairSecret.
-func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, certKeyPair *crypto.TLSCertificateConfig, certCreator TargetCertCreator, refresh time.Duration, tlsAnnotations AdditionalAnnotations) {
-	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
-
-	tlsAnnotations.NotBefore = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
-	tlsAnnotations.NotAfter = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
-	tlsAnnotations.RefreshPeriod = refresh.String()
-	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta)
-
-	certCreator.SetAnnotations(certKeyPair, targetCertKeyPairSecret.Annotations)
-}
-
-type ClientRotation struct {
-	UserInfo user.Info
-}
-
-func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
-	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
-}
-
-func (r *ClientRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, exists bool) string {
-	return needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired, exists)
-}
-
-func (r *ClientRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	return annotations
-}
-
-type ServingRotation struct {
-	Hostnames              ServingHostnameFunc
-	CertificateExtensionFn []crypto.CertificateExtensionFunc
-	HostnamesChanged       <-chan struct{}
-}
-
-func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
-	if len(r.Hostnames()) == 0 {
-		return nil, fmt.Errorf("no hostnames set")
-	}
-	return signer.MakeServerCertForDuration(sets.New(r.Hostnames()...), validity, r.CertificateExtensionFn...)
-}
-
-func (r *ServingRotation) RecheckChannel() <-chan struct{} {
-	return r.HostnamesChanged
-}
-
-func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
-	reason := needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired, creationRequired)
-	if len(reason) > 0 {
-		return reason
-	}
-
-	return r.missingHostnames(currentCertSecret.Annotations)
-}
-
-func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
+func missingHostnames(annotations map[string]string, hostnames func() []string) string {
 	existingHostnames := sets.New(strings.Split(annotations[CertificateHostnames], ",")...)
-	requiredHostnames := sets.New(r.Hostnames()...)
+	requiredHostnames := sets.New(hostnames()...)
 	if !existingHostnames.Equal(requiredHostnames) {
 		existingNotRequired := existingHostnames.Difference(requiredHostnames)
 		requiredNotExisting := requiredHostnames.Difference(existingHostnames)
@@ -345,37 +319,4 @@ func (r *ServingRotation) missingHostnames(annotations map[string]string) string
 	}
 
 	return ""
-}
-
-func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	hostnames := sets.Set[string]{}
-	for _, ip := range cert.Certs[0].IPAddresses {
-		hostnames.Insert(ip.String())
-	}
-	for _, dnsName := range cert.Certs[0].DNSNames {
-		hostnames.Insert(dnsName)
-	}
-
-	// List does a sort so that we have a consistent representation
-	annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
-	return annotations
-}
-
-type ServingHostnameFunc func() []string
-
-type SignerRotation struct {
-	SignerName string
-}
-
-func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
-	signerName := fmt.Sprintf("%s_@%d", r.SignerName, time.Now().Unix())
-	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
-}
-
-func (r *SignerRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, exists bool) string {
-	return needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired, exists)
-}
-
-func (r *SignerRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	return annotations
 }

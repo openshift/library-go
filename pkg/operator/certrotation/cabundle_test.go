@@ -20,13 +20,13 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 )
 
 func TestEnsureConfigMapCABundle(t *testing.T) {
@@ -195,28 +195,38 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
 			client := kubefake.NewSimpleClientset()
+			informerFactory := informers.NewSharedInformerFactory(client, 0)
 			if startingObj := test.initialConfigMapFn(); startingObj != nil {
-				indexer.Add(startingObj)
 				client = kubefake.NewSimpleClientset(startingObj)
+				informerFactory = informers.NewSharedInformerFactory(client, 0)
+				informerFactory.Core().V1().ConfigMaps().Informer().GetStore().Add(startingObj)
 			}
 
-			c := &CABundleConfigMap{
-				Namespace: "ns",
-				Name:      "trust-bundle",
+			kubeInformers := v1helpers.NewFakeKubeInformersForNamespaces(map[string]informers.SharedInformerFactory{
+				"ns": informerFactory,
+			})
 
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewConfigMapLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+			c := &CertRotationController{
+				Name: "test-cabundle",
+				SigningCA: SigningCAConfig{
+					Namespace: "ns",
+					Name:      "signer-secret",
+				},
+				CABundle: CABundleConfig{
+					Namespace: "ns",
+					Name:      "trust-bundle",
+				},
+				kubeClient:    client,
+				kubeInformers: kubeInformers,
+				eventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
 			}
 
 			newCA, err := test.caFn()
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = c.EnsureConfigMapCABundle(context.TODO(), newCA, "signer-secret")
+			_, err = c.ensureConfigMapCABundle(context.TODO(), newCA)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
