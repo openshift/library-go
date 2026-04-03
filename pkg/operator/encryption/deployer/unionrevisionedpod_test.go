@@ -107,7 +107,7 @@ func createDefaultSecretWithEncryptionConfig(t *testing.T) *corev1.Secret {
 }
 
 func encryptionCfgToSecret(t *testing.T, ec *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
-	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec, nil, nil)
+	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

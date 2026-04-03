@@ -49,6 +49,9 @@ type KeyState struct {
 	// KMSCredentials holds the raw credential data
 	// fetched from the source credential secret referenced by KMSSideCarConfig.
 	KMSCredentials map[string][]byte
+	// KMSConfigMapData holds the configmap data
+	// fetched from the source configmap referenced by KMSSideCarConfig.
+	KMSConfigMapData map[string]string
 }
 
 type MigrationState struct {

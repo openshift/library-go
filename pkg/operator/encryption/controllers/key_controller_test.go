@@ -27,6 +27,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -550,10 +551,10 @@ func TestKeyController(t *testing.T) {
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
 							ts.Errorf("expected mode KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
-						if _, ok := actualSecret.Data["encryption.apiserver.operator.openshift.io/kms-ec-config"]; !ok {
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSECConfig]; !ok {
 							ts.Error("expected kms-ec-config data to be present")
 						}
-						if _, ok := actualSecret.Data["encryption.apiserver.operator.openshift.io/kms-sidecar-config"]; !ok {
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSSidecarConfig]; !ok {
 							ts.Error("expected kms-sidecar-config data to be present")
 						}
 						if actualSecret.Name != "encryption-key-kms-1" {
@@ -592,8 +593,7 @@ func TestKeyController(t *testing.T) {
 				return a
 			}()},
 			targetNamespace: "kms",
-			// no create — in-place update path (get + update for sidecar config)
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 		},
 
 		{
@@ -668,8 +668,7 @@ func TestKeyController(t *testing.T) {
 				return a
 			}()},
 			targetNamespace: "kms",
-			// no create — new key blocked by ongoing migration, but in-place update still runs
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 		},
 
 		{
@@ -713,7 +712,7 @@ func TestKeyController(t *testing.T) {
 						if actualSecret.Name != "encryption-key-kms-6" {
 							ts.Errorf("expected key ID 6, got %s", actualSecret.Name)
 						}
-						if _, ok := actualSecret.Data["encryption.apiserver.operator.openshift.io/kms-sidecar-config"]; !ok {
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSSidecarConfig]; !ok {
 							ts.Error("expected kms-sidecar-config data to be present")
 						}
 						return

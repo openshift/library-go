@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -191,12 +192,6 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	// TODO: We need to expose active keys to the cluster admin for better management
-	// We need to update ALL key Secrets with the new content of referenced credential Secret for KMS mode.
-	if err := c.updateKMSCredentials(ctx, syncContext, secrets); err != nil {
-		return err
-	}
-
 	var (
 		newKeyRequired bool
 		newKeyID       uint64
@@ -235,9 +230,18 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	}
 	if !newKeyRequired {
 		if currentMode == state.KMS {
+			// Update older keys' credentials, skipping the latest which updateInPlaceFieldsIfChanged handles.
+			if err := c.updateOldKMSCredentials(ctx, syncContext, secrets, desiredEncryptionState, latestExistingKeyID); err != nil {
+				return err
+			}
 			return c.updateInPlaceFieldsIfChanged(ctx, syncContext, kmsConfig, latestExistingKeyID)
 		}
 		return nil
+	}
+	// Update credentials and configmap data for all active old keys.
+	// Pass 0 to skip none — all keys are old when a new key is being created.
+	if err := c.updateOldKMSCredentials(ctx, syncContext, secrets, desiredEncryptionState, 0); err != nil {
+		return err
 	}
 	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
 		reasons = []string{*commonReason} // don't repeat reasons
@@ -321,6 +325,15 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			if creds != nil {
 				ks.KMSCredentials = creds
 			}
+
+			cmData, err := kms.FetchConfigMapData(ctx, c.configMapClient, kmsConfig)
+			if err != nil {
+				return nil, err
+			}
+			ks.KMSConfigMapData = map[string]string{}
+			if cmData != nil {
+				ks.KMSConfigMapData = cmData
+			}
 		}
 	}
 
@@ -353,38 +366,73 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated KMSConfig: %v", err)
 	}
-	existingSecret.Data[secrets.EncryptionSecretKMSSidecarConfig] = sidecarJSON
 
 	creds, err := kms.FetchCredentials(ctx, c.secretClient, kmsConfig)
 	if err != nil {
 		return err
 	}
+	var credJSON []byte
 	if creds != nil {
-		credJSON, err := json.Marshal(creds)
+		credJSON, err = json.Marshal(creds)
 		if err != nil {
 			return fmt.Errorf("failed to marshal credentials for key %s: %v", secretName, err)
 		}
+	}
+
+	cmData, err := kms.FetchConfigMapData(ctx, c.configMapClient, kmsConfig)
+	if err != nil {
+		return err
+	}
+	var cmJSON []byte
+	if cmData != nil {
+		cmJSON, err = json.Marshal(cmData)
+		if err != nil {
+			return fmt.Errorf("failed to marshal configmap data for key %s: %v", secretName, err)
+		}
+	}
+
+	existingSecret.Data[secrets.EncryptionSecretKMSSidecarConfig] = sidecarJSON
+	if credJSON != nil {
 		existingSecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
 	}
-
-	updated, err := c.secretClient.Secrets("openshift-config-managed").Update(ctx, existingSecret, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to update secret %s for in-place fields: %v", secretName, err)
+	if cmJSON != nil {
+		existingSecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
 	}
 
-	if updated.ResourceVersion != existingSecret.ResourceVersion {
+	// Clear annotations so EnsureObjectMeta does not overwrite any with stale values.
+	existingSecret.Annotations = nil
+
+	_, changed, err := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), existingSecret)
+	if err != nil {
+		return err
+	}
+	if changed {
 		syncContext.Recorder().Eventf("EncryptionKeyInPlaceUpdate", "Secret %q updated with new in-place KMS config", secretName)
 	}
 	return nil
 }
 
-// updateKMSCredentials traverses all key secrets and for each KMS key with a
-// KMSSideCarConfig, fetches fresh credentials from the referenced secret in
-// openshift-config and updates the key secret if the credentials changed.
-// Returns an error (causing degraded) if any referenced credential secret is missing.
-func (c *keyController) updateKMSCredentials(ctx context.Context, syncContext factory.SyncContext, keySecrets []*corev1.Secret) error {
+// updateOldKMSCredentials updates credentials and configmap data on active KMS key secrets,
+// skipping excludeKeyID (pass 0 to skip none).
+func (c *keyController) updateOldKMSCredentials(ctx context.Context, syncContext factory.SyncContext, keySecrets []*corev1.Secret, desiredState map[schema.GroupResource]state.GroupResourceState, excludeKeyID uint64) error {
+	// Collect key names that are actively referenced in the desired encryption state.
+	activeKeys := map[string]bool{}
+	for _, grState := range desiredState {
+		for _, key := range grState.ReadKeys {
+			activeKeys[key.Key.Name] = true
+		}
+	}
+
 	for _, keySecret := range keySecrets {
 		if state.Mode(keySecret.Annotations["encryption.apiserver.operator.openshift.io/mode"]) != state.KMS {
+			continue
+		}
+
+		keyID, ok := state.NameToKeyID(keySecret.Name)
+		if !ok || !activeKeys[fmt.Sprintf("%d", keyID)] {
+			continue
+		}
+		if excludeKeyID > 0 && keyID == excludeKeyID {
 			continue
 		}
 
@@ -411,13 +459,32 @@ func (c *keyController) updateKMSCredentials(ctx context.Context, syncContext fa
 			return fmt.Errorf("failed to marshal credentials for key %s: %v", keySecret.Name, err)
 		}
 
-		keySecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
-		updated, err := c.secretClient.Secrets("openshift-config-managed").Update(ctx, keySecret, metav1.UpdateOptions{})
+		cmData, err := kms.FetchConfigMapData(ctx, c.configMapClient, ks.KMSSideCarConfig)
 		if err != nil {
-			return fmt.Errorf("failed to update credentials on key %s: %v", keySecret.Name, err)
+			return fmt.Errorf("configmap for key %s is missing: %v", keySecret.Name, err)
 		}
-		if updated.ResourceVersion != keySecret.ResourceVersion {
-			syncContext.Recorder().Eventf("EncryptionKeyCredentialsUpdated", "Secret %q updated with new credentials", keySecret.Name)
+		var cmJSON []byte
+		if cmData != nil {
+			cmJSON, err = json.Marshal(cmData)
+			if err != nil {
+				return fmt.Errorf("failed to marshal configmap data for key %s: %v", keySecret.Name, err)
+			}
+		}
+
+		keySecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+		if cmJSON != nil {
+			keySecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
+		}
+
+		// Clear annotations so EnsureObjectMeta does not overwrite any with stale values.
+		keySecret.Annotations = nil
+
+		_, changed, err := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), keySecret)
+		if err != nil {
+			return fmt.Errorf("failed to update referenced data on key %s: %v", keySecret.Name, err)
+		}
+		if changed {
+			syncContext.Recorder().Eventf("EncryptionKeyReferencedDataUpdated", "Secret %q updated with new referenced data", keySecret.Name)
 		}
 	}
 	return nil

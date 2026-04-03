@@ -274,3 +274,82 @@ func TestFetchCredentials(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchConfigMapData(t *testing.T) {
+	tests := []struct {
+		name        string
+		kmsConfig   *configv1.KMSConfig
+		configMaps  []*corev1.ConfigMap
+		expectData  map[string]string
+		expectError bool
+	}{
+		{
+			name: "missing configmap returns error",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					TLSCA: configv1.ConfigMapNameReference{Name: "vault-ca-bundle"},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "configmap with empty data returns error",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					TLSCA: configv1.ConfigMapNameReference{Name: "vault-ca-bundle"},
+				},
+			},
+			configMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"}},
+			},
+			expectError: true,
+		},
+		{
+			name: "configmap returns data",
+			kmsConfig: &configv1.KMSConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{
+					TLSCA: configv1.ConfigMapNameReference{Name: "vault-ca-bundle"},
+				},
+			},
+			configMaps: []*corev1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
+					Data: map[string]string{
+						"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
+					},
+				},
+			},
+			expectData: map[string]string{
+				"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
+			},
+		},
+		{
+			name: "empty TLSCA name returns nil",
+			kmsConfig: &configv1.KMSConfig{
+				Type:  configv1.VaultKMSProvider,
+				Vault: &configv1.VaultKMSConfig{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var objs []runtime.Object
+			for _, cm := range tt.configMaps {
+				objs = append(objs, cm)
+			}
+			kubeClient := fake.NewClientset(objs...)
+			data, err := FetchConfigMapData(context.Background(), kubeClient.CoreV1(), tt.kmsConfig)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expectData, data)
+		})
+	}
+}

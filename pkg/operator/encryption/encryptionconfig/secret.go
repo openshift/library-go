@@ -50,7 +50,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 
 // ToSecret creates the encryption-config secret. sidecarConfigs and credentialConfigs
 // are keyed by keyID and propagated as data entries with their respective prefixes.
-func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs map[string][]byte) (*corev1.Secret, error) {
+func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs, configMapConfigs map[string][]byte) (*corev1.Secret, error) {
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
@@ -81,6 +81,9 @@ func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfig
 	}
 	for keyID, creds := range credentialConfigs {
 		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSCredentials, keyID)] = creds
+	}
+	for keyID, cm := range configMapConfigs {
+		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSConfigMapData, keyID)] = cm
 	}
 
 	return s, nil

@@ -56,14 +56,18 @@ const (
 
 	// EncryptionSecretKMSSidecarConfig is the data key that stores the serialized sidecar container
 	// configuration for KMS mode in the encryption-key secret.
-	EncryptionSecretKMSSidecarConfig = "encryption.apiserver.operator.openshift.io/kms-sidecar-config"
+	EncryptionSecretKMSSidecarConfig = "encryption.apiserver.operator.openshift.io-kms-sidecar-config"
 
 	// EncryptionSecretKMSECConfig is the data key that stores the serialized KMS encryption
 	// configuration for KMS mode in the encryption-key secret.
-	EncryptionSecretKMSECConfig = "encryption.apiserver.operator.openshift.io/kms-ec-config"
+	EncryptionSecretKMSECConfig = "encryption.apiserver.operator.openshift.io-kms-ec-config"
 
 	// EncryptionSecretKMSCredentials is the data key that stores the serialized credentials
-	EncryptionSecretKMSCredentials = "encryption.apiserver.operator.openshift.io/kms-credentials"
+	EncryptionSecretKMSCredentials = "encryption.apiserver.operator.openshift.io-kms-credentials"
+
+	// EncryptionSecretKMSConfigMapData is the data key that stores the serialized configmap data
+	// for KMS mode in the encryption-key secret.
+	EncryptionSecretKMSConfigMapData = "encryption.apiserver.operator.openshift.io-kms-configmap-data"
 )
 
 // MigratedGroupResources is the data structured stored in the

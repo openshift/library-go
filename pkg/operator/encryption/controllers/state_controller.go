@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,8 +147,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	sidecarConfigs, credentialConfigs := collectKMSData(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, credentialConfigs, recorder)
+	sidecarConfigs, credentialConfigs, configMapConfigs := collectKMSData(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, credentialConfigs, configMapConfigs, recorder)
 	if err != nil {
 		return err
 	}
@@ -163,8 +164,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs, credentialConfigs)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs, configMapConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs, credentialConfigs, configMapConfigs)
 	if err != nil {
 		return false, err
 	}
@@ -176,9 +177,10 @@ func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encry
 // collectKMSData collects serialized KMS sidecar configurations and credentials from
 // the desired encryption state, keyed by keyID. These are propagated to the
 // encryption-config secret as data entries keyed by "{prefix}-{keyID}".
-func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (sidecarConfigs, credentialConfigs map[string][]byte) {
+func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (sidecarConfigs, credentialConfigs, configMapConfigs map[string][]byte) {
 	sidecarConfigs = map[string][]byte{}
 	credentialConfigs = map[string][]byte{}
+	configMapConfigs = map[string][]byte{}
 	seen := map[string]bool{}
 	for _, grState := range desiredState {
 		for _, key := range grState.ReadKeys {
@@ -202,9 +204,17 @@ func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceSta
 				}
 				credentialConfigs[key.Key.Name] = credData
 			}
+
+			if len(key.KMSConfigMapData) > 0 {
+				cmData, err := json.Marshal(key.KMSConfigMapData)
+				if err != nil {
+					continue
+				}
+				configMapConfigs[key.Key.Name] = cmData
+			}
 		}
 	}
-	return sidecarConfigs, credentialConfigs
+	return sidecarConfigs, credentialConfigs, configMapConfigs
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.
@@ -269,6 +279,40 @@ func eventsFromEncryptionConfigChanges(current, desired map[schema.GroupResource
 				reason:  "EncryptionReadKeysChanged",
 				message: fmt.Sprintf("Number of read keys for resource %q changed from %d to %d", desiredGroupResource, len(currentGroupResource.ReadKeys), len(desiredGroupResourceState.ReadKeys)),
 			})
+		}
+
+		if currentGroupResource.HasWriteKey() && desiredGroupResourceState.HasWriteKey() &&
+			desiredGroupResourceState.WriteKey.Mode == state.KMS && desiredGroupResourceState.WriteKey.KMSSideCarConfig != nil &&
+			!reflect.DeepEqual(currentGroupResource.WriteKey.KMSSideCarConfig, desiredGroupResourceState.WriteKey.KMSSideCarConfig) {
+			result = append(result, eventWithReason{
+				reason:  "EncryptionKMSSidecarConfigChanged",
+				message: fmt.Sprintf("KMS sidecar config for key ID %s of resource %q changed", desiredGroupResourceState.WriteKey.Key.Name, desiredGroupResource),
+			})
+		}
+
+		// Check for credentials and configmap data changes on all read keys
+		for _, desiredKey := range desiredGroupResourceState.ReadKeys {
+			if desiredKey.Mode != state.KMS || desiredKey.KMSSideCarConfig == nil {
+				continue
+			}
+			for _, currentKey := range currentGroupResource.ReadKeys {
+				if !state.EqualKeyAndEqualID(&currentKey, &desiredKey) {
+					continue
+				}
+				if !reflect.DeepEqual(currentKey.KMSCredentials, desiredKey.KMSCredentials) {
+					result = append(result, eventWithReason{
+						reason:  "EncryptionKMSCredentialsChanged",
+						message: fmt.Sprintf("KMS credentials for key ID %s of resource %q changed", desiredKey.Key.Name, desiredGroupResource),
+					})
+				}
+				if !reflect.DeepEqual(currentKey.KMSConfigMapData, desiredKey.KMSConfigMapData) {
+					result = append(result, eventWithReason{
+						reason:  "EncryptionKMSConfigMapDataChanged",
+						message: fmt.Sprintf("KMS configmap data for key ID %s of resource %q changed", desiredKey.Key.Name, desiredGroupResource),
+					})
+				}
+				break
+			}
 		}
 	}
 	return result
