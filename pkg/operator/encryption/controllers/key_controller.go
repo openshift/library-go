@@ -75,6 +75,7 @@ type keyController struct {
 
 	deployer                 statemachine.Deployer
 	secretClient             corev1client.SecretsGetter
+	configMapClient          corev1client.ConfigMapsGetter
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 
@@ -92,6 +93,7 @@ func NewKeyController(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
+	configMapClient corev1client.ConfigMapsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -108,6 +110,7 @@ func NewKeyController(
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
+		configMapClient:          configMapClient,
 	}
 
 	return factory.New().
@@ -118,8 +121,9 @@ func NewKeyController(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
-			// TODO: instead of watching this namespace, maybe it is better to copy/sync the expected secrets under openshift-config-managed which we already watch.
+			// TODO: instead of watching this namespace, maybe it is better to copy/sync the expected secrets/configmaps under openshift-config-managed which we already watch.
 			kubeInformersForNamespaces.InformersFor("openshift-config").Core().V1().Secrets().Informer(),
+			kubeInformersForNamespaces.InformersFor("openshift-config").Core().V1().ConfigMaps().Informer(),
 			deployer,
 		).ToController(
 		c.controllerInstanceName,

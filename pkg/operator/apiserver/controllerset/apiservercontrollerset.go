@@ -363,6 +363,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
 	secretsClient corev1.SecretsGetter,
+	configMapClient corev1.ConfigMapsGetter,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -381,6 +382,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		apiServerInformer:          apiServerInformer,
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		secretsClient:              secretsClient,
+		configMapClient:            configMapClient,
 		resourceSyncer:             resourceSyncer,
 	}
 
@@ -484,6 +486,7 @@ type encryptionControllerBuilder struct {
 	deployer                   statemachine.Deployer
 	migrator                   migrators.Migrator
 	secretsClient              corev1.SecretsGetter
+	configMapClient            corev1.ConfigMapsGetter
 	apiServerClient            configv1client.APIServerInterface
 	apiServerInformer          configv1informers.APIServerInformer
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
@@ -508,6 +511,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.apiServerInformer,
 		e.kubeInformersForNamespaces,
 		e.secretsClient,
+		e.configMapClient,
 		e.eventRecorder,
 		e.resourceSyncer,
 	)
