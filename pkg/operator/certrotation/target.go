@@ -1,22 +1,18 @@
 package certrotation
 
 import (
-	"context"
 	"crypto/x509"
 	"fmt"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TargetCertKeyPairConfig holds the configuration for a target certificate key pair.
@@ -80,147 +76,6 @@ type SignerCertConfig struct {
 }
 
 func (SignerCertConfig) targetCertConfig() {}
-
-func (c CertRotationController) ensureTargetCertKeyPair(ctx context.Context, signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) (*corev1.Secret, error) {
-	// at this point our trust bundle has been updated.  We don't know for sure that consumers have updated, but that's why we have a second
-	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
-	// and need to mint one
-	// TODO do the cross signing thing, but this shows the API consumers want and a very simple impl.
-
-	creationRequired := false
-	updateRequired := false
-	originalTargetCertKeyPairSecret, err := c.kubeInformers.SecretLister().Secrets(c.TargetCert.Namespace).Get(c.TargetCert.Name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
-	}
-	targetCertKeyPairSecret := originalTargetCertKeyPairSecret.DeepCopy()
-	if apierrors.IsNotFound(err) {
-		// create an empty one
-		targetCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
-				c.TargetCert.Name,
-				c.TargetCert.Namespace,
-				c.TargetCert.AdditionalAnnotations,
-			),
-			Type: corev1.SecretTypeTLS,
-		}
-		creationRequired = true
-	}
-
-	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
-	if !c.TargetCert.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.TargetCert.Owner, c.TargetCert.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
-		updateRequired = needsMetadataUpdate || needsTypeChange
-	}
-
-	// Determine hostnames function for serving certs
-	var hostnames func() []string
-	if serving, ok := c.TargetCert.CertConfig.(ServingCertConfig); ok {
-		hostnames = serving.Hostnames
-	}
-
-	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.TargetCert.Refresh, c.TargetCert.RefreshOnlyWhenExpired, creationRequired, hostnames); len(reason) > 0 {
-		c.eventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.TargetCert.Name, c.TargetCert.Namespace, reason)
-
-		if err := c.setTargetCertKeyPairSecret(targetCertKeyPairSecret, signingCertKeyPair); err != nil {
-			return nil, err
-		}
-
-		LabelAsManagedSecret(targetCertKeyPairSecret, CertificateTypeTarget)
-
-		updateRequired = true
-	}
-	if creationRequired {
-		actualTargetCertKeyPairSecret, err := c.kubeClient.CoreV1().Secrets(c.TargetCert.Namespace).Create(ctx, targetCertKeyPairSecret, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(c.eventRecorder, actualTargetCertKeyPairSecret, err)
-		if err != nil {
-			return nil, err
-		}
-		klog.V(2).Infof("Created secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
-		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
-	} else if updateRequired {
-		actualTargetCertKeyPairSecret, err := c.kubeClient.CoreV1().Secrets(c.TargetCert.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
-		if apierrors.IsConflict(err) {
-			// ignore error if its attempting to update outdated version of the secret
-			return nil, nil
-		}
-		resourcehelper.ReportUpdateEvent(c.eventRecorder, actualTargetCertKeyPairSecret, err)
-		if err != nil {
-			return nil, err
-		}
-		klog.V(2).Infof("Updated secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
-		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
-	}
-
-	return targetCertKeyPairSecret, nil
-}
-
-// setTargetCertKeyPairSecret creates a new cert/key pair, sets them in the secret, and applies TLS annotations.
-func (c CertRotationController) setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, signer *crypto.CA) error {
-	if targetCertKeyPairSecret.Annotations == nil {
-		targetCertKeyPairSecret.Annotations = map[string]string{}
-	}
-	if targetCertKeyPairSecret.Data == nil {
-		targetCertKeyPairSecret.Data = map[string][]byte{}
-	}
-
-	// our annotation is based on our cert validity, so we want to make sure that we don't specify something past our signer
-	targetValidity := c.TargetCert.Validity
-	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(time.Now())
-	if remainingSignerValidity < targetValidity {
-		targetValidity = remainingSignerValidity
-	}
-
-	var certKeyPair *crypto.TLSCertificateConfig
-	var err error
-	switch cfg := c.TargetCert.CertConfig.(type) {
-	case ClientCertConfig:
-		certKeyPair, err = signer.MakeClientCertificateForDuration(cfg.UserInfo, targetValidity)
-	case ServingCertConfig:
-		if len(cfg.Hostnames()) == 0 {
-			return fmt.Errorf("no hostnames set")
-		}
-		certKeyPair, err = signer.MakeServerCertForDuration(sets.New(cfg.Hostnames()...), targetValidity, cfg.CertificateExtensionFn...)
-	case SignerCertConfig:
-		signerName := fmt.Sprintf("%s_@%d", cfg.SignerName, time.Now().Unix())
-		certKeyPair, err = crypto.MakeCAConfigForDuration(signerName, targetValidity, signer)
-	default:
-		return fmt.Errorf("unknown target cert config type: %T", cfg)
-	}
-	if err != nil {
-		return err
-	}
-
-	targetCertKeyPairSecret.Data["tls.crt"], targetCertKeyPairSecret.Data["tls.key"], err = certKeyPair.GetPEMBytes()
-	if err != nil {
-		return err
-	}
-
-	// Set TLS annotations
-	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
-
-	tlsAnnotations := c.TargetCert.AdditionalAnnotations
-	tlsAnnotations.NotBefore = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
-	tlsAnnotations.NotAfter = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
-	tlsAnnotations.RefreshPeriod = c.TargetCert.Refresh.String()
-	_ = tlsAnnotations.EnsureTLSMetadataUpdate(&targetCertKeyPairSecret.ObjectMeta)
-
-	// Set hostname annotations for serving certs
-	if _, ok := c.TargetCert.CertConfig.(ServingCertConfig); ok {
-		hostnames := sets.Set[string]{}
-		for _, ip := range certKeyPair.Certs[0].IPAddresses {
-			hostnames.Insert(ip.String())
-		}
-		for _, dnsName := range certKeyPair.Certs[0].DNSNames {
-			hostnames.Insert(dnsName)
-		}
-		// List does a sort so that we have a consistent representation
-		targetCertKeyPairSecret.Annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
-	}
-
-	return nil
-}
 
 func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool, hostnames func() []string) string {
 	if creationRequired {
