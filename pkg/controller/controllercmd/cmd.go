@@ -75,10 +75,10 @@ type ControllerCommandConfig struct {
 	healthChecks            []healthz.HealthChecker
 	eventRecorderOptions    record.CorrelatorOptions
 
-	// ServingMinTLSVersion overrides the minimum TLS version for the 8443 health/metrics server.
-	ServingMinTLSVersion string
-	// ServingCipherSuites overrides the cipher suites for the 8443 health/metrics server.
-	ServingCipherSuites []string
+	// MinTLSVersion overrides the minimum TLS version for any server started by this controller.
+	MinTLSVersion string
+	// CipherSuites overrides the cipher suites for any server started by this controller.
+	CipherSuites []string
 }
 
 // NewControllerConfig returns a new ControllerCommandConfig which can be used to wire up all the boiler plate of a controller
@@ -119,12 +119,12 @@ func (c *ControllerCommandConfig) WithEventRecorderOptions(eventRecorderOptions 
 	return c
 }
 
-// WithServingTLSConfig sets the minimum TLS version and optional cipher suites for the 8443 health/metrics server.
+// WithTLSConfig sets the minimum TLS version and optional cipher suites for any server started by this controller.
 // minTLSVersion should be one of the VersionTLS1x constants (e.g. "VersionTLS13").
 // Pass nil for cipherSuites to keep the defaults.
-func (c *ControllerCommandConfig) WithServingTLSConfig(minTLSVersion string, cipherSuites []string) *ControllerCommandConfig {
-	c.ServingMinTLSVersion = minTLSVersion
-	c.ServingCipherSuites = cipherSuites
+func (c *ControllerCommandConfig) WithTLSConfig(minTLSVersion string, cipherSuites []string) *ControllerCommandConfig {
+	c.MinTLSVersion = minTLSVersion
+	c.CipherSuites = cipherSuites
 	return c
 }
 
@@ -322,11 +322,11 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 	if len(c.basicFlags.BindAddress) != 0 {
 		config.ServingInfo.BindAddress = c.basicFlags.BindAddress
 	}
-	if c.ServingMinTLSVersion != "" {
-		config.ServingInfo.MinTLSVersion = c.ServingMinTLSVersion
+	if c.MinTLSVersion != "" {
+		config.ServingInfo.MinTLSVersion = c.MinTLSVersion
 	}
-	if len(c.ServingCipherSuites) > 0 {
-		config.ServingInfo.CipherSuites = c.ServingCipherSuites
+	if len(c.CipherSuites) > 0 {
+		config.ServingInfo.CipherSuites = c.CipherSuites
 	}
 
 	exitOnChangeReactorCh := make(chan struct{})
