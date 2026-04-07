@@ -76,8 +76,11 @@ type ControllerCommandConfig struct {
 	eventRecorderOptions    record.CorrelatorOptions
 
 	// MinTLSVersion overrides the minimum TLS version for any server started by this controller.
+	// Values must match TLS version names from https://golang.org/pkg/crypto/tls/#pkg-constants
+	// (e.g. "VersionTLS12", "VersionTLS13").
 	MinTLSVersion string
 	// CipherSuites overrides the cipher suites for any server started by this controller.
+	// Values must match cipher suite IDs from https://golang.org/pkg/crypto/tls/#pkg-constants
 	CipherSuites []string
 }
 
