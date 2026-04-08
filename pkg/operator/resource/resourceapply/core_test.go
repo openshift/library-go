@@ -559,6 +559,107 @@ func TestApplySecret(t *testing.T) {
 	}
 }
 
+// TestApplySecretRaceDataPruning demonstrates that ApplySecret silently overwrites
+// annotation updates made by another controller, because it does its own internal
+// GET and never raises a conflict error against the caller's stale ResourceVersion.
+func TestApplySecretRaceDataPruning(t *testing.T) {
+	initial := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{"controllers": "a"}},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"key1": []byte("val1")},
+	}
+	client := fake.NewSimpleClientset(initial)
+
+	// Controller A: GET and add "key2" locally
+	secretFromGet, err := client.CoreV1().Secrets("default").Get(context.TODO(), "test", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Controller A GET failed: %v", err)
+	}
+	controllerARequired := secretFromGet.DeepCopy()
+	controllerARequired.Data["key2"] = []byte("val2")
+
+	// Controller B: concurrently updates the annotation value
+	errCh := make(chan error, 1)
+	go func() {
+		latest, err := client.CoreV1().Secrets("default").Get(context.TODO(), "test", metav1.GetOptions{})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		latest.Annotations["controllers"] = "a,b"
+		_, err = client.CoreV1().Secrets("default").Update(context.TODO(), latest, metav1.UpdateOptions{})
+		errCh <- err
+	}()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Controller B update failed: %v", err)
+	}
+
+	// Controller A: ApplySecret with stale GET result
+	result, _, err := ApplySecret(context.TODO(), client.CoreV1(),
+		events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+		controllerARequired)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// BUG: Controller B's annotation update is overwritten, no conflict error raised.
+	if result.Annotations["controllers"] != "a,b" {
+		t.Errorf("Controller B's annotation update was lost: got %q, want %q",
+			result.Annotations["controllers"], "a,b")
+	}
+}
+
+// TestApplySecretRaceDataPruningNilAnnotations is the same scenario as
+// TestApplySecretRaceDataPruning but Controller A sets annotations to nil.
+// MergeMap skips nil required maps, so Controller B's update survives.
+func TestApplySecretRaceDataPruningNilAnnotations(t *testing.T) {
+	initial := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{"controllers": "a"}},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"key1": []byte("val1")},
+	}
+	client := fake.NewSimpleClientset(initial)
+
+	// Controller A: GET and add "key2" locally, set annotations to nil
+	secretFromGet, err := client.CoreV1().Secrets("default").Get(context.TODO(), "test", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Controller A GET failed: %v", err)
+	}
+	controllerARequired := secretFromGet.DeepCopy()
+	controllerARequired.Data["key2"] = []byte("val2")
+	controllerARequired.Annotations = nil
+
+	// Controller B: concurrently updates the annotation value
+	errCh := make(chan error, 1)
+	go func() {
+		latest, err := client.CoreV1().Secrets("default").Get(context.TODO(), "test", metav1.GetOptions{})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		latest.Annotations["controllers"] = "a,b"
+		_, err = client.CoreV1().Secrets("default").Update(context.TODO(), latest, metav1.UpdateOptions{})
+		errCh <- err
+	}()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Controller B update failed: %v", err)
+	}
+
+	// Controller A: ApplySecret with stale GET result
+	result, _, err := ApplySecret(context.TODO(), client.CoreV1(),
+		events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+		controllerARequired)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// With nil annotations in required, MergeMap does not overwrite Controller B's update.
+	if result.Annotations["controllers"] != "a,b" {
+		t.Errorf("Controller B's annotation update was lost: got %q, want %q",
+			result.Annotations["controllers"], "a,b")
+	}
+}
+
 func TestApplyNamespace(t *testing.T) {
 	tests := []struct {
 		name     string
