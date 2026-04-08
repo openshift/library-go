@@ -13,12 +13,12 @@ import (
 
 func TestCheck_SucceedsImmediately(t *testing.T) {
 	var called atomic.Int32
-	checkFn := func(ctx context.Context, requestTimeout time.Duration) error {
+	checkFn := func(ctx context.Context) error {
 		called.Add(1)
 		return nil
 	}
 
-	err := Check(context.Background(), 5*time.Second, backoff.NewConstantBackOff(time.Second), 3, checkFn)
+	err := Check(context.Background(), backoff.NewConstantBackOff(time.Second), 3, checkFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestCheck_RetriesOnError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				var calls atomic.Int32
-				checkFn := func(ctx context.Context, requestTimeout time.Duration) error {
+				checkFn := func(ctx context.Context) error {
 					if calls.Add(1) <= tt.failFirstN {
 						return errors.New("fail")
 					}
@@ -70,7 +70,7 @@ func TestCheck_RetriesOnError(t *testing.T) {
 				start := time.Now()
 				done := make(chan error, 1)
 				go func() {
-					done <- Check(context.Background(), 5*time.Second, backoff.NewConstantBackOff(retryInterval), attemptCount, checkFn)
+					done <- Check(context.Background(), backoff.NewConstantBackOff(retryInterval), attemptCount, checkFn)
 				}()
 				synctest.Wait()
 
@@ -88,12 +88,12 @@ func TestCheck_RetriesOnError(t *testing.T) {
 
 func TestCheck_PermanentErrorStopsRetries(t *testing.T) {
 	var calls atomic.Int32
-	checkFn := func(ctx context.Context, requestTimeout time.Duration) error {
+	checkFn := func(ctx context.Context) error {
 		calls.Add(1)
 		return backoff.Permanent(errors.New("permanent"))
 	}
 
-	err := Check(context.Background(), 5*time.Second, backoff.NewConstantBackOff(time.Millisecond), 3, checkFn)
+	err := Check(context.Background(), backoff.NewConstantBackOff(time.Millisecond), 3, checkFn)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -108,7 +108,7 @@ func TestCheck_TimeoutCutsBackoff(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		var calls atomic.Int32
-		checkFn := func(ctx context.Context, requestTimeout time.Duration) error {
+		checkFn := func(ctx context.Context) error {
 			if calls.Add(1) == 1 {
 				// Simulate a request that ran for the full timeout before failing.
 				time.Sleep(requestTimeout)
@@ -120,7 +120,7 @@ func TestCheck_TimeoutCutsBackoff(t *testing.T) {
 		start := time.Now()
 		done := make(chan error, 1)
 		go func() {
-			done <- Check(context.Background(), requestTimeout, backoff.NewConstantBackOff(retryInterval), 2, checkFn)
+			done <- Check(context.Background(), backoff.NewConstantBackOff(retryInterval), 2, checkFn)
 		}()
 
 		err := <-done
@@ -141,11 +141,11 @@ func TestCheck_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	checkFn := func(ctx context.Context, requestTimeout time.Duration) error {
+	checkFn := func(ctx context.Context) error {
 		return errors.New("retry")
 	}
 
-	err := Check(ctx, 5*time.Second, backoff.NewConstantBackOff(time.Millisecond), 3, checkFn)
+	err := Check(ctx, backoff.NewConstantBackOff(time.Millisecond), 3, checkFn)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatal("expected error from cancelled context")
 	}

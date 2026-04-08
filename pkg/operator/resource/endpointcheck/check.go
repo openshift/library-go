@@ -17,13 +17,13 @@ import (
 // CheckFunc is called on each attempt with the parent context and the
 // per-request timeout. Return nil on success, a regular error to trigger
 // a retry, or backoff.Permanent(err) to abort immediately.
-type CheckFunc func(ctx context.Context, requestTimeout time.Duration) error
+type CheckFunc func(ctx context.Context) error
 
 // Check runs checkFn up to maxAttempts times, sleeping according to
 // retryBackoff between attempts. If checkFn returns context.DeadlineExceeded
 // the next backoff interval is shortened by the elapsed request time, since
 // the request timeout already consumed wall-clock time.
-func Check(ctx context.Context, requestTimeout time.Duration, retryBackoff backoff.BackOff, maxAttempts uint64, checkFn CheckFunc) error {
+func Check(ctx context.Context, retryBackoff backoff.BackOff, maxAttempts uint64, checkFn CheckFunc) error {
 	if maxAttempts == 0 {
 		return nil
 	}
@@ -32,7 +32,7 @@ func Check(ctx context.Context, requestTimeout time.Duration, retryBackoff backo
 	boff := backoff.WithContext(backoff.WithMaxRetries(cuttableBoff, maxAttempts-1), ctx)
 	return backoff.Retry(func() error {
 		start := time.Now()
-		err := checkFn(ctx, requestTimeout)
+		err := checkFn(ctx)
 		if errors.Is(err, context.DeadlineExceeded) {
 			cuttableBoff.CutNextBy(time.Since(start))
 		}

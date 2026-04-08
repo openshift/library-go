@@ -91,17 +91,16 @@ func checkDiscoveryForByAPIServices(ctx context.Context, recorder events.Recorde
 }
 
 // apiServiceCheckFunc checks a single API service and returns an error if it is not available.
-type apiServiceCheckFunc func(ctx context.Context, restclient rest.Interface, apiService *apiregistrationv1.APIService, requestTimeout time.Duration) error
+type apiServiceCheckFunc func(ctx context.Context, restclient rest.Interface, apiService *apiregistrationv1.APIService) error
 
 func checkDiscoveryForByAPIServicesWithCheckFn(ctx context.Context, recorder events.Recorder, restclient rest.Interface, apiServices []*apiregistrationv1.APIService, checkFn apiServiceCheckFunc) []string {
 	missingMessages := []string{}
-	attemptCount := uint64(3)
+	attemptCount := uint64(4)
 	for _, apiService := range apiServices {
-		// Do the check attemptCount times. Each request uses a 10-second timeout and there is
-		// a 5-second backoff between attempts, but shortened if the check failed with a timeout
-		// (since the request already consumed wall-clock time).
-		err := endpointcheck.Check(ctx, 10*time.Second, backoff.NewConstantBackOff(5*time.Second), attemptCount, func(ctx context.Context, requestTimeout time.Duration) error {
-			return checkFn(ctx, restclient, apiService, requestTimeout)
+		// Do the check attemptCount times. There is a 5-second backoff between attempts,
+		// but shortened if the check failed with a timeout. See the docs for Check.
+		err := endpointcheck.Check(ctx, backoff.NewConstantBackOff(5*time.Second), attemptCount, func(ctx context.Context) error {
+			return checkFn(ctx, restclient, apiService)
 		})
 		if err != nil {
 			groupVersionString := fmt.Sprintf("%s.%s", apiService.Spec.Group, apiService.Spec.Version)
@@ -118,7 +117,7 @@ func checkDiscoveryForByAPIServicesWithCheckFn(ctx context.Context, recorder eve
 	return missingMessages
 }
 
-func checkDiscoveryForAPIService(ctx context.Context, restclient rest.Interface, apiService *apiregistrationv1.APIService, requestTimeout time.Duration) error {
+func checkDiscoveryForAPIService(ctx context.Context, restclient rest.Interface, apiService *apiregistrationv1.APIService) error {
 	type statusErrTuple struct {
 		status int
 		err    error
@@ -138,7 +137,7 @@ func checkDiscoveryForAPIService(ctx context.Context, restclient rest.Interface,
 			defer wg.Done()
 			defer utilruntime.HandleCrash()
 
-			discoveryCtx, ctxCancelFn = context.WithTimeout(ctx, requestTimeout)
+			discoveryCtx, ctxCancelFn = context.WithTimeout(ctx, 10*time.Second)
 			defer ctxCancelFn()
 
 			result := restclient.Get().AbsPath("/apis/" + apiService.Spec.Group + "/" + apiService.Spec.Version).Do(discoveryCtx).StatusCode(&statusCode)

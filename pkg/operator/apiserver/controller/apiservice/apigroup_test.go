@@ -32,7 +32,7 @@ func makeAPIService(group, version string) *apiregistrationv1.APIService {
 // returns nil.
 func apiServiceCheckFuncFromErrors(errs ...error) (apiServiceCheckFunc, *int) {
 	call := 0
-	return func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService, _ time.Duration) error {
+	return func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService) error {
 		if call < len(errs) {
 			err := errs[call]
 			call++
@@ -106,11 +106,11 @@ func TestCheckDiscoveryForByAPIServices_FailThenSucceedOnRetry(t *testing.T) {
 
 func TestCheckDiscoveryForByAPIServices_ExhaustsAllRetries(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		// WithMaxRetries(b, 2) allows 3 attempts total.
 		checkFn, calls := apiServiceCheckFuncFromErrors(
 			errors.New("fail1"),
 			errors.New("fail2"),
 			errors.New("fail3"),
+			errors.New("fail4"),
 		)
 		got := runCheck(t, context.Background(), []*apiregistrationv1.APIService{
 			makeAPIService("apps.openshift.io", "v1"),
@@ -118,10 +118,10 @@ func TestCheckDiscoveryForByAPIServices_ExhaustsAllRetries(t *testing.T) {
 
 		got.Elapsed = 0
 		want := checkResult{
-			Calls:         3,
-			Messages:      []string{`"apps.openshift.io.v1" is not ready: fail3`},
+			Calls:         4,
+			Messages:      []string{`"apps.openshift.io.v1" is not ready: fail4`},
 			EventReasons:  []string{"OpenShiftAPICheckFailed"},
-			EventMessages: []string{`"apps.openshift.io.v1" failed with fail3`},
+			EventMessages: []string{`"apps.openshift.io.v1" failed with fail4`},
 		}
 		if diff := cmp.Diff(want, got, cmpOpts); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
@@ -131,15 +131,16 @@ func TestCheckDiscoveryForByAPIServices_ExhaustsAllRetries(t *testing.T) {
 
 func TestCheckDiscoveryForByAPIServices_RetriesReducedAfterFailure(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		// First API service: 3 attempts, all fail.
+		// First API service: 4 attempts, all fail.
 		// After first failure, retryCount is set to 0, so second API service
-		// gets WithMaxRetries(b, 0) = 1 attempt, which also fails.
-		// Total: 3 + 1 = 4 calls.
+		// gets 1 attempt, which also fails.
+		// Total: 4 + 1 = 5 calls.
 		checkFn, calls := apiServiceCheckFuncFromErrors(
 			errors.New("fail1"),
 			errors.New("fail2"),
 			errors.New("fail3"),
 			errors.New("fail4"),
+			errors.New("fail5"),
 		)
 		got := runCheck(t, context.Background(), []*apiregistrationv1.APIService{
 			makeAPIService("apps.openshift.io", "v1"),
@@ -148,18 +149,18 @@ func TestCheckDiscoveryForByAPIServices_RetriesReducedAfterFailure(t *testing.T)
 
 		got.Elapsed = 0
 		want := checkResult{
-			Calls: 4,
+			Calls: 5,
 			Messages: []string{
-				`"apps.openshift.io.v1" is not ready: fail3`,
-				`"build.openshift.io.v1" is not ready: fail4`,
+				`"apps.openshift.io.v1" is not ready: fail4`,
+				`"build.openshift.io.v1" is not ready: fail5`,
 			},
 			EventReasons: []string{
 				"OpenShiftAPICheckFailed",
 				"OpenShiftAPICheckFailed",
 			},
 			EventMessages: []string{
-				`"apps.openshift.io.v1" failed with fail3`,
-				`"build.openshift.io.v1" failed with fail4`,
+				`"apps.openshift.io.v1" failed with fail4`,
+				`"build.openshift.io.v1" failed with fail5`,
 			},
 		}
 		if diff := cmp.Diff(want, got, cmpOpts); diff != "" {
@@ -172,10 +173,10 @@ func TestCheckDiscoveryForByAPIServices_TimeoutCutsBackoff(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// First attempt simulates a full 10s request timeout, second succeeds.
 		call := 0
-		checkFn := func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService, requestTimeout time.Duration) error {
+		checkFn := func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService) error {
 			call++
 			if call == 1 {
-				time.Sleep(requestTimeout) // simulate the timeout consuming wall-clock time
+				time.Sleep(10 * time.Second) // simulate the timeout consuming wall-clock time
 				return context.DeadlineExceeded
 			}
 			return nil
@@ -222,7 +223,7 @@ func TestCheckDiscoveryForByAPIServices_ContextCancellation(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		calls := 0
-		checkFn := func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService, _ time.Duration) error {
+		checkFn := func(_ context.Context, _ rest.Interface, _ *apiregistrationv1.APIService) error {
 			calls++
 			cancel()
 			return errors.New("fail")
