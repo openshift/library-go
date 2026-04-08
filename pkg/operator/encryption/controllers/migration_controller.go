@@ -28,7 +28,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -268,7 +268,11 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 				return nil
 			}
 
-			_, _, updateErr := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), s)
+			// Use direct Update instead of ApplySecret to only update annotations.
+			// ApplySecret does its own internal GET which bypasses ResourceVersion
+			// conflict detection and can silently overwrite concurrent annotation changes.
+			_, updateErr := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
+			resourcehelper.ReportUpdateEvent(syncContext.Recorder(), s, updateErr)
 			return updateErr
 		}); err != nil {
 			errs = append(errs, err)
