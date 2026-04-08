@@ -1,7 +1,6 @@
 package retry
 
 import (
-	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -13,10 +12,11 @@ import (
 // waiting for a request timeout) and adding the full backoff delay on top
 // would be unnecessarily slow. If the cut exceeds the delegate's interval
 // the result is clamped to zero.
+//
+// CuttableBackOff is not thread-safe as the core backoff library also isn't.
 type CuttableBackOff struct {
 	delegate backoff.BackOff
 	cut      time.Duration
-	mu       sync.Mutex
 }
 
 // NewCuttableBackOff creates a new CuttableBackOff wrapping delegate.
@@ -30,8 +30,6 @@ func (b *CuttableBackOff) NextBackOff() time.Duration {
 		return backoff.Stop
 	}
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	cut := b.cut
 	b.cut = 0
 	if adjusted := next - cut; adjusted > 0 {
@@ -41,8 +39,6 @@ func (b *CuttableBackOff) NextBackOff() time.Duration {
 }
 
 func (b *CuttableBackOff) Reset() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	b.cut = 0
 	b.delegate.Reset()
 }
@@ -51,7 +47,5 @@ func (b *CuttableBackOff) Reset() {
 // delegate's interval. The value is consumed by a single NextBackOff call;
 // multiple calls before NextBackOff overwrite the previous value.
 func (b *CuttableBackOff) CutNextBy(d time.Duration) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	b.cut = d
 }
