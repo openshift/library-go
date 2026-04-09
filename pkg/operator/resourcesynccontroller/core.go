@@ -11,10 +11,10 @@ import (
 	"k8s.io/client-go/util/cert"
 
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 )
 
-func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister corev1listers.ConfigMapLister, additionalAnnotations certrotation.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, error) {
+func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister corev1listers.ConfigMapLister, additionalAnnotations tlsartifact.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, error) {
 	certificates := []*x509.Certificate{}
 	for _, input := range inputConfigMaps {
 		inputConfigMap, err := lister.ConfigMaps(input.Namespace).Get(input.Name)
@@ -59,7 +59,7 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 	}
 
 	cm := &corev1.ConfigMap{
-		ObjectMeta: certrotation.NewTLSArtifactObjectMeta(
+		ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 			destinationConfigMap.Name,
 			destinationConfigMap.Namespace,
 			additionalAnnotations,
@@ -71,7 +71,7 @@ func CombineCABundleConfigMaps(destinationConfigMap ResourceLocation, lister cor
 	return cm, nil
 }
 
-func CombineCABundleConfigMapsOptimistically(destinationConfigMap *corev1.ConfigMap, lister corev1listers.ConfigMapLister, additionalAnnotations certrotation.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, bool, error) {
+func CombineCABundleConfigMapsOptimistically(destinationConfigMap *corev1.ConfigMap, lister corev1listers.ConfigMapLister, additionalAnnotations tlsartifact.AdditionalAnnotations, inputConfigMaps ...ResourceLocation) (*corev1.ConfigMap, bool, error) {
 	var cm *corev1.ConfigMap
 	if destinationConfigMap == nil {
 		cm = &corev1.ConfigMap{}

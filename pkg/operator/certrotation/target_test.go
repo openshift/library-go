@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,8 +60,8 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 		{
 			name: "malformed",
 			annotations: map[string]string{
-				CertificateNotAfterAnnotation:  "malformed",
-				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotAfterAnnotation:  "malformed",
+				tlsartifact.CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
 			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
@@ -71,8 +72,8 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 		{
 			name: "past midpoint and cert is ready",
 			annotations: map[string]string{
-				CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
-				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
 			},
 			signerFn: func() (*crypto.CA, error) {
 				return elevenMinutesBeforeNowCert, nil
@@ -83,8 +84,8 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 		{
 			name: "past midpoint and cert is new",
 			annotations: map[string]string{
-				CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
-				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
 			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
@@ -95,8 +96,8 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 		{
 			name: "past refresh but not expired",
 			annotations: map[string]string{
-				CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
-				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotAfterAnnotation:  now.Add(45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
 			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
@@ -108,8 +109,8 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 		{
 			name: "already expired",
 			annotations: map[string]string{
-				CertificateNotAfterAnnotation:  now.Add(-1 * time.Millisecond).Format(time.RFC3339),
-				CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
+				tlsartifact.CertificateNotAfterAnnotation:  now.Add(-1 * time.Millisecond).Format(time.RFC3339),
+				tlsartifact.CertificateNotBeforeAnnotation: now.Add(-45 * time.Minute).Format(time.RFC3339),
 			},
 			signerFn: func() (*crypto.CA, error) {
 				return nowCert, nil
@@ -222,8 +223,8 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
 					t.Error(actual.Data)
 				}
-				if actual.Annotations[CertificateHostnames] != "bar,foo" {
-					t.Error(actual.Annotations[CertificateHostnames])
+				if actual.Annotations[tlsartifact.CertificateHostnames] != "bar,foo" {
+					t.Error(actual.Annotations[tlsartifact.CertificateHostnames])
 				}
 				if len(actual.OwnerReferences) != 1 {
 					t.Errorf("expected to have exactly one owner reference")
@@ -288,7 +289,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				Client:        client.CoreV1(),
 				Lister:        corev1listers.NewSecretLister(indexer),
 				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
-				AdditionalAnnotations: AdditionalAnnotations{
+				AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 					JiraComponent: "test",
 				},
 				Owner: &metav1.OwnerReference{
@@ -362,7 +363,7 @@ func TestServerHostnameCheck(t *testing.T) {
 			r := &ServingRotation{
 				Hostnames: func() []string { return test.requiredHostnames },
 			}
-			actual := r.missingHostnames(map[string]string{CertificateHostnames: test.existingHostnames})
+			actual := r.missingHostnames(map[string]string{tlsartifact.CertificateHostnames: test.existingHostnames})
 			if actual != test.expected {
 				t.Fatal(actual)
 			}
@@ -547,9 +548,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "test-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "test-ca",
 					},
 				},
 			},
@@ -564,9 +565,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(-1 * time.Minute).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "test-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(-1 * time.Minute).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(2 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "test-ca",
 					},
 				},
 			},
@@ -581,9 +582,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339), // not expired
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "test-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339), // not expired
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "test-ca",
 					},
 				},
 			},
@@ -599,9 +600,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(-1 * time.Hour).Format(time.RFC3339), // expired
-						CertificateNotBeforeAnnotation: now.Add(1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "test-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(-1 * time.Hour).Format(time.RFC3339), // expired
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "test-ca",
 					},
 				},
 			},
@@ -617,9 +618,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						// CertificateIssuer unset
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						// tlsartifact.CertificateIssuer unset
 					},
 				},
 			},
@@ -634,9 +635,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "test-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "test-ca",
 					},
 				},
 			},
@@ -651,9 +652,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "old-ca-name", // not in bundle
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "old-ca-name", // not in bundle
 					},
 				},
 			},
@@ -668,9 +669,9 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
-						CertificateIssuer:              "other-ca",
+						tlsartifact.CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						tlsartifact.CertificateIssuer:              "other-ca",
 					},
 				},
 			},

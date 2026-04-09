@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -59,7 +60,7 @@ type RotatedSelfSignedCertKeySecret struct {
 	Owner *metav1.OwnerReference
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
-	AdditionalAnnotations AdditionalAnnotations
+	AdditionalAnnotations tlsartifact.AdditionalAnnotations
 
 	// CertCreator does the actual cert generation.
 	CertCreator TargetCertCreator
@@ -102,7 +103,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		targetCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
+			ObjectMeta: tlsartifact.NewTLSArtifactObjectMeta(
 				c.Name,
 				c.Namespace,
 				c.AdditionalAnnotations,
@@ -170,7 +171,7 @@ func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundle
 	}
 
 	// check the signer common name against all the common names in our ca bundle so we don't refresh early
-	signerCommonName := annotations[CertificateIssuer]
+	signerCommonName := annotations[tlsartifact.CertificateIssuer]
 	if len(signerCommonName) == 0 {
 		return "missing issuer name"
 	}
@@ -239,7 +240,7 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 
 // setTargetCertKeyPairSecretAndTLSAnnotations generates a new cert/key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, signer *crypto.CA, certCreator TargetCertCreator, tlsAnnotations AdditionalAnnotations) error {
+func setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, signer *crypto.CA, certCreator TargetCertCreator, tlsAnnotations tlsartifact.AdditionalAnnotations) error {
 	certKeyPair, err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, validity, signer, certCreator)
 	if err != nil {
 		return err
@@ -282,8 +283,8 @@ func setTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, validity
 //
 // These assumptions are safe because this function is only called after the secret
 // has been initialized in setTargetCertKeyPairSecret.
-func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, certKeyPair *crypto.TLSCertificateConfig, certCreator TargetCertCreator, refresh time.Duration, tlsAnnotations AdditionalAnnotations) {
-	targetCertKeyPairSecret.Annotations[CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
+func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.Secret, certKeyPair *crypto.TLSCertificateConfig, certCreator TargetCertCreator, refresh time.Duration, tlsAnnotations tlsartifact.AdditionalAnnotations) {
+	targetCertKeyPairSecret.Annotations[tlsartifact.CertificateIssuer] = certKeyPair.Certs[0].Issuer.CommonName
 
 	tlsAnnotations.NotBefore = certKeyPair.Certs[0].NotBefore.Format(time.RFC3339)
 	tlsAnnotations.NotAfter = certKeyPair.Certs[0].NotAfter.Format(time.RFC3339)
@@ -336,7 +337,7 @@ func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Sec
 }
 
 func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
-	existingHostnames := sets.New(strings.Split(annotations[CertificateHostnames], ",")...)
+	existingHostnames := sets.New(strings.Split(annotations[tlsartifact.CertificateHostnames], ",")...)
 	requiredHostnames := sets.New(r.Hostnames()...)
 	if !existingHostnames.Equal(requiredHostnames) {
 		existingNotRequired := existingHostnames.Difference(requiredHostnames)
@@ -357,7 +358,7 @@ func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, anno
 	}
 
 	// List does a sort so that we have a consistent representation
-	annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
+	annotations[tlsartifact.CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
 	return annotations
 }
 

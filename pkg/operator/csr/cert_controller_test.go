@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/openshift/api/annotations"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/csr/csrtestinghelpers"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	"github.com/stretchr/testify/require"
 
 	certificates "k8s.io/api/certificates/v1"
@@ -113,7 +113,7 @@ func TestControllerSync(t *testing.T) {
 		{
 			name: "secret with metadata update",
 			ctrlPrepare: func(ctrl *clientCertificateController) {
-				ctrl.AdditionalAnnotations = certrotation.AdditionalAnnotations{
+				ctrl.AdditionalAnnotations = tlsartifact.AdditionalAnnotations{
 					JiraComponent: "test-component",
 				}
 			},
@@ -212,7 +212,7 @@ func newTestController(client *fake.Clientset) *clientCertificateController {
 		SecretNamespace:     testControllerNamespace,
 		SecretName:          testControllerSecretName,
 		AdditonalSecretData: map[string][]byte{"test": []byte("data")},
-		AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 			JiraComponent: "test-component",
 		},
 	}
