@@ -147,7 +147,10 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	providerConfigs, credentialConfigs, configMapConfigs := collectKMSData(desiredEncryptionState)
+	providerConfigs, credentialConfigs, configMapConfigs, err := collectKMSData(desiredEncryptionState)
+	if err != nil {
+		return err
+	}
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, providerConfigs, credentialConfigs, configMapConfigs, recorder)
 	if err != nil {
 		return err
@@ -177,7 +180,7 @@ func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encry
 // collectKMSData collects serialized KMS provider configurations and credentials from
 // the desired encryption state, keyed by keyID. These are propagated to the
 // encryption-config secret as data entries keyed by "{prefix}-{keyID}".
-func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (providerConfigs, credentialConfigs, configMapConfigs map[string][]byte) {
+func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (providerConfigs, credentialConfigs, configMapConfigs map[string][]byte, err error) {
 	providerConfigs = map[string][]byte{}
 	credentialConfigs = map[string][]byte{}
 	configMapConfigs = map[string][]byte{}
@@ -193,14 +196,14 @@ func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceSta
 			seen[key.Key.Name] = true
 			data, err := json.Marshal(key.KMSProviderConfig)
 			if err != nil {
-				continue
+				return nil, nil, nil, fmt.Errorf("failed to marshal KMS provider config for key %s: %v", key.Key.Name, err)
 			}
 			providerConfigs[key.Key.Name] = data
 
 			if len(key.KMSCredentials) > 0 {
 				credData, err := json.Marshal(key.KMSCredentials)
 				if err != nil {
-					continue
+					return nil, nil, nil, fmt.Errorf("failed to marshal KMS credentials for key %s: %v", key.Key.Name, err)
 				}
 				credentialConfigs[key.Key.Name] = credData
 			}
@@ -208,13 +211,13 @@ func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceSta
 			if len(key.KMSConfigMapData) > 0 {
 				cmData, err := json.Marshal(key.KMSConfigMapData)
 				if err != nil {
-					continue
+					return nil, nil, nil, fmt.Errorf("failed to marshal KMS configmap data for key %s: %v", key.Key.Name, err)
 				}
 				configMapConfigs[key.Key.Name] = cmData
 			}
 		}
 	}
-	return providerConfigs, credentialConfigs, configMapConfigs
+	return providerConfigs, credentialConfigs, configMapConfigs, nil
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.

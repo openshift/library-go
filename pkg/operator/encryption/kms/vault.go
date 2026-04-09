@@ -1,6 +1,8 @@
 package kms
 
 import (
+	"fmt"
+
 	configv1 "github.com/openshift/api/config/v1"
 )
 
@@ -38,9 +40,9 @@ func vaultMigrationFieldsChanged(stored, current *configv1.VaultKMSConfig) bool 
 // ApplyInPlaceFields returns a copy of stored with only in-place fields
 // (fields that do not affect the KEK) updated from current.
 // Migration-triggering fields are preserved from stored.
-func ApplyInPlaceFields(stored, current *configv1.KMSConfig) *configv1.KMSConfig {
+func ApplyInPlaceFields(stored, current *configv1.KMSConfig) (*configv1.KMSConfig, error) {
 	if stored == nil || current == nil {
-		return current
+		return nil, fmt.Errorf("stored and current KMSConfig must not be nil")
 	}
 
 	result := stored.DeepCopy()
@@ -53,5 +55,5 @@ func ApplyInPlaceFields(stored, current *configv1.KMSConfig) *configv1.KMSConfig
 			result.Vault.ApproleSecretRef = current.Vault.ApproleSecretRef
 		}
 	}
-	return result
+	return result, nil
 }

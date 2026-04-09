@@ -360,7 +360,10 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 		return fmt.Errorf("failed to parse secret %s: %v", secretName, err)
 	}
 
-	updatedConfig := kms.ApplyInPlaceFields(existingKeyState.KMSProviderConfig, kmsConfig)
+	updatedConfig, err := kms.ApplyInPlaceFields(existingKeyState.KMSProviderConfig, kmsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to apply in-place fields for key %s: %v", secretName, err)
+	}
 	providerJSON, err := json.Marshal(updatedConfig)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated KMSConfig: %v", err)
