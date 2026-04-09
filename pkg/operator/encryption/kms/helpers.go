@@ -70,11 +70,11 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	return nil
 }
 
-// FetchCredentials reads the credential secret referenced by the KMS config
+// FetchSecretData reads the credential secret referenced by the KMS config
 // from the openshift-config namespace. Returns nil if no credential reference
 // is configured. Returns the secret data if found, or an error if the referenced
 // secret is missing or has empty data.
-func FetchCredentials(ctx context.Context, secretClient corev1client.SecretsGetter, kmsConfig *configv1.KMSConfig) (map[string][]byte, error) {
+func FetchSecretData(ctx context.Context, secretClient corev1client.SecretsGetter, kmsConfig *configv1.KMSConfig) (map[string][]byte, error) {
 	if kmsConfig == nil {
 		return nil, nil
 	}

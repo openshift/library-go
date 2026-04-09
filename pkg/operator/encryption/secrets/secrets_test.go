@@ -160,7 +160,7 @@ func TestRoundtrip(t *testing.T) {
 			},
 		},
 		{
-			name:      "kms with sidecar config stores ec config in data field",
+			name:      "kms with provider config stores ec config in data field",
 			component: "kms",
 			ks: state.KeyState{
 				Key: v1.Key{
@@ -174,7 +174,7 @@ func TestRoundtrip(t *testing.T) {
 					Name:       "1",
 					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 				},
-				KMSSideCarConfig: &configv1.KMSConfig{
+				KMSProviderConfig: &configv1.KMSConfig{
 					Type: configv1.VaultKMSProvider,
 					Vault: &configv1.VaultKMSConfig{
 						Image:        "quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd",
@@ -186,7 +186,7 @@ func TestRoundtrip(t *testing.T) {
 			},
 		},
 		{
-			name:      "kms with sidecar config full roundtrip",
+			name:      "kms with provider config full roundtrip",
 			component: "kms",
 			ks: state.KeyState{
 				Key: v1.Key{
@@ -200,7 +200,7 @@ func TestRoundtrip(t *testing.T) {
 					Name:       "3",
 					Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
 				},
-				KMSSideCarConfig: &configv1.KMSConfig{
+				KMSProviderConfig: &configv1.KMSConfig{
 					Type: configv1.VaultKMSProvider,
 					Vault: &configv1.VaultKMSConfig{
 						Image:          "quay.io/org/vault-kms-plugin@sha256:abc123def456789012345678901234567890123456789012345678901234abcd",

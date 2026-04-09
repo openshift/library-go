@@ -44,13 +44,13 @@ type KeyState struct {
 	ExternalReason string
 	// Encoded KMSConfiguration that stores the KMS related fields
 	KMSConfiguration *apiserverconfigv1.KMSConfiguration
-	// KMSSideCarConfig holds the API-level KMS configuration
-	KMSSideCarConfig *configv1.KMSConfig
+	// KMSProviderConfig holds the API-level KMS configuration
+	KMSProviderConfig *configv1.KMSConfig
 	// KMSCredentials holds the raw credential data
-	// fetched from the source credential secret referenced by KMSSideCarConfig.
+	// fetched from the source credential secret referenced by KMSProviderConfig.
 	KMSCredentials map[string][]byte
 	// KMSConfigMapData holds the configmap data
-	// fetched from the source configmap referenced by KMSSideCarConfig.
+	// fetched from the source configmap referenced by KMSProviderConfig.
 	KMSConfigMapData map[string]string
 }
 

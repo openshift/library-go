@@ -74,10 +74,10 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			key.KMSConfiguration = kmsConfiguration
 		}
 
-		if v, ok := s.Data[EncryptionSecretKMSECConfig]; ok && len(v) > 0 {
+		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
 			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
 			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSECConfig, err)
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
 			key.KMSConfiguration = kmsConfiguration
 		}
@@ -86,18 +86,18 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			return state.KeyState{}, fmt.Errorf("KMSConfiguration can not be nil, when mode is KMS")
 		}
 
-		if sidecarData, ok := s.Data[EncryptionSecretKMSSidecarConfig]; ok && len(sidecarData) > 0 {
+		if providerData, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(providerData) > 0 {
 			kmsConfig := &configv1.KMSConfig{}
-			if err := json.Unmarshal(sidecarData, kmsConfig); err != nil {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSSidecarConfig, err)
+			if err := json.Unmarshal(providerData, kmsConfig); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
 			}
-			key.KMSSideCarConfig = kmsConfig
+			key.KMSProviderConfig = kmsConfig
 		}
 
-		if credData, ok := s.Data[EncryptionSecretKMSCredentials]; ok && len(credData) > 0 {
+		if secretData, ok := s.Data[EncryptionSecretKMSSecretData]; ok && len(secretData) > 0 {
 			creds := map[string][]byte{}
-			if err := json.Unmarshal(credData, &creds); err != nil {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSCredentials, err)
+			if err := json.Unmarshal(secretData, &creds); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %v", s.Namespace, s.Name, EncryptionSecretKMSSecretData, err)
 			}
 			key.KMSCredentials = creds
 		}
@@ -162,12 +162,12 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
 
-	if ks.KMSSideCarConfig != nil {
-		sidecarJSON, err := json.Marshal(ks.KMSSideCarConfig)
+	if ks.KMSProviderConfig != nil {
+		providerJSON, err := json.Marshal(ks.KMSProviderConfig)
 		if err != nil {
 			return nil, err
 		}
-		s.Data[EncryptionSecretKMSSidecarConfig] = sidecarJSON
+		s.Data[EncryptionSecretKMSProviderConfig] = providerJSON
 	}
 
 	if len(ks.KMSCredentials) > 0 {
@@ -175,7 +175,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.Data[EncryptionSecretKMSCredentials] = credJSON
+		s.Data[EncryptionSecretKMSSecretData] = credJSON
 	}
 
 	if len(ks.KMSConfigMapData) > 0 {
@@ -191,10 +191,10 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		if err != nil {
 			return nil, err
 		}
-		if ks.KMSSideCarConfig != nil {
-			s.Data[EncryptionSecretKMSECConfig] = ksJSON
+		if ks.KMSProviderConfig != nil {
+			s.Data[EncryptionSecretKMSEncryptionConfig] = ksJSON
 		} else {
-			// if KMSSideCarConfig is nil, that means deprecated TP v1 is used
+			// if KMSProviderConfig is nil, that means deprecated TP v1 is used
 			s.Annotations[EncryptionSecretKMSConfig] = string(ksJSON)
 		}
 	}

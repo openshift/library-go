@@ -147,8 +147,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	sidecarConfigs, credentialConfigs, configMapConfigs := collectKMSData(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, sidecarConfigs, credentialConfigs, configMapConfigs, recorder)
+	providerConfigs, credentialConfigs, configMapConfigs := collectKMSData(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, providerConfigs, credentialConfigs, configMapConfigs, recorder)
 	if err != nil {
 		return err
 	}
@@ -164,8 +164,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, sidecarConfigs, credentialConfigs, configMapConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, sidecarConfigs, credentialConfigs, configMapConfigs)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, providerConfigs, credentialConfigs, configMapConfigs map[string][]byte, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, providerConfigs, credentialConfigs, configMapConfigs)
 	if err != nil {
 		return false, err
 	}
@@ -174,28 +174,28 @@ func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encry
 	return changed, applyErr
 }
 
-// collectKMSData collects serialized KMS sidecar configurations and credentials from
+// collectKMSData collects serialized KMS provider configurations and credentials from
 // the desired encryption state, keyed by keyID. These are propagated to the
 // encryption-config secret as data entries keyed by "{prefix}-{keyID}".
-func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (sidecarConfigs, credentialConfigs, configMapConfigs map[string][]byte) {
-	sidecarConfigs = map[string][]byte{}
+func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceState) (providerConfigs, credentialConfigs, configMapConfigs map[string][]byte) {
+	providerConfigs = map[string][]byte{}
 	credentialConfigs = map[string][]byte{}
 	configMapConfigs = map[string][]byte{}
 	seen := map[string]bool{}
 	for _, grState := range desiredState {
 		for _, key := range grState.ReadKeys {
-			if key.Mode != state.KMS || key.KMSSideCarConfig == nil {
+			if key.Mode != state.KMS || key.KMSProviderConfig == nil {
 				continue
 			}
 			if seen[key.Key.Name] {
 				continue
 			}
 			seen[key.Key.Name] = true
-			data, err := json.Marshal(key.KMSSideCarConfig)
+			data, err := json.Marshal(key.KMSProviderConfig)
 			if err != nil {
 				continue
 			}
-			sidecarConfigs[key.Key.Name] = data
+			providerConfigs[key.Key.Name] = data
 
 			if len(key.KMSCredentials) > 0 {
 				credData, err := json.Marshal(key.KMSCredentials)
@@ -214,7 +214,7 @@ func collectKMSData(desiredState map[schema.GroupResource]state.GroupResourceSta
 			}
 		}
 	}
-	return sidecarConfigs, credentialConfigs, configMapConfigs
+	return providerConfigs, credentialConfigs, configMapConfigs
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.
@@ -282,17 +282,17 @@ func eventsFromEncryptionConfigChanges(current, desired map[schema.GroupResource
 		}
 
 		if currentGroupResource.HasWriteKey() && desiredGroupResourceState.HasWriteKey() &&
-			desiredGroupResourceState.WriteKey.Mode == state.KMS && desiredGroupResourceState.WriteKey.KMSSideCarConfig != nil &&
-			!reflect.DeepEqual(currentGroupResource.WriteKey.KMSSideCarConfig, desiredGroupResourceState.WriteKey.KMSSideCarConfig) {
+			desiredGroupResourceState.WriteKey.Mode == state.KMS && desiredGroupResourceState.WriteKey.KMSProviderConfig != nil &&
+			!reflect.DeepEqual(currentGroupResource.WriteKey.KMSProviderConfig, desiredGroupResourceState.WriteKey.KMSProviderConfig) {
 			result = append(result, eventWithReason{
-				reason:  "EncryptionKMSSidecarConfigChanged",
-				message: fmt.Sprintf("KMS sidecar config for key ID %s of resource %q changed", desiredGroupResourceState.WriteKey.Key.Name, desiredGroupResource),
+				reason:  "EncryptionKMSProviderConfigChanged",
+				message: fmt.Sprintf("KMS provider config for key ID %s of resource %q changed", desiredGroupResourceState.WriteKey.Key.Name, desiredGroupResource),
 			})
 		}
 
 		// Check for credentials and configmap data changes on all read keys
 		for _, desiredKey := range desiredGroupResourceState.ReadKeys {
-			if desiredKey.Mode != state.KMS || desiredKey.KMSSideCarConfig == nil {
+			if desiredKey.Mode != state.KMS || desiredKey.KMSProviderConfig == nil {
 				continue
 			}
 			for _, currentKey := range currentGroupResource.ReadKeys {

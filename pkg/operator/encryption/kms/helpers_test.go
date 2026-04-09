@@ -201,7 +201,7 @@ func TestAddKMSPluginVolume(t *testing.T) {
 	}
 }
 
-func TestFetchCredentials(t *testing.T) {
+func TestFetchSecretData(t *testing.T) {
 	tests := []struct {
 		name        string
 		kmsConfig   *configv1.KMSConfig
@@ -263,7 +263,7 @@ func TestFetchCredentials(t *testing.T) {
 				objs = append(objs, s)
 			}
 			kubeClient := fake.NewClientset(objs...)
-			data, err := FetchCredentials(context.Background(), kubeClient.CoreV1(), tt.kmsConfig)
+			data, err := FetchSecretData(context.Background(), kubeClient.CoreV1(), tt.kmsConfig)
 
 			if tt.expectError {
 				require.Error(t, err)

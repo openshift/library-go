@@ -315,9 +315,9 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 				Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			}
-			ks.KMSSideCarConfig = kmsConfig
+			ks.KMSProviderConfig = kmsConfig
 
-			creds, err := kms.FetchCredentials(ctx, c.secretClient, kmsConfig)
+			creds, err := kms.FetchSecretData(ctx, c.secretClient, kmsConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -341,7 +341,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 }
 
 // updateInPlaceFieldsIfChanged updates the latest KMS encryption-key secret's
-// sidecar config without creating a new key. This triggers the state controller to
+// provider config without creating a new key. This triggers the state controller to
 // propagate the change and create a new revision.
 // Only the latest active key is updated; older keys retained for migration stay untouched.
 func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncContext factory.SyncContext, kmsConfig *configv1.KMSConfig, latestKeyID uint64) error {
@@ -361,13 +361,13 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 		return fmt.Errorf("failed to parse secret %s: %v", secretName, err)
 	}
 
-	updatedConfig := kms.ApplyInPlaceFields(existingKeyState.KMSSideCarConfig, kmsConfig)
-	sidecarJSON, err := json.Marshal(updatedConfig)
+	updatedConfig := kms.ApplyInPlaceFields(existingKeyState.KMSProviderConfig, kmsConfig)
+	providerJSON, err := json.Marshal(updatedConfig)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated KMSConfig: %v", err)
 	}
 
-	creds, err := kms.FetchCredentials(ctx, c.secretClient, kmsConfig)
+	creds, err := kms.FetchSecretData(ctx, c.secretClient, kmsConfig)
 	if err != nil {
 		return err
 	}
@@ -391,9 +391,9 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 		}
 	}
 
-	existingSecret.Data[secrets.EncryptionSecretKMSSidecarConfig] = sidecarJSON
+	existingSecret.Data[secrets.EncryptionSecretKMSProviderConfig] = providerJSON
 	if credJSON != nil {
-		existingSecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+		existingSecret.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 	}
 	if cmJSON != nil {
 		existingSecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
@@ -440,11 +440,11 @@ func (c *keyController) updateOldKMSCredentials(ctx context.Context, syncContext
 		if err != nil {
 			return fmt.Errorf("invalid key secret %s: %v", keySecret.Name, err)
 		}
-		if ks.KMSSideCarConfig == nil {
+		if ks.KMSProviderConfig == nil {
 			continue
 		}
 
-		creds, err := kms.FetchCredentials(ctx, c.secretClient, ks.KMSSideCarConfig)
+		creds, err := kms.FetchSecretData(ctx, c.secretClient, ks.KMSProviderConfig)
 		if err != nil {
 			// We degrade here, because as long as key is represented in encryption-configuration, its Secret must
 			// exist. We expect that cluster admin recreates the Secret with the same name.
@@ -459,7 +459,7 @@ func (c *keyController) updateOldKMSCredentials(ctx context.Context, syncContext
 			return fmt.Errorf("failed to marshal credentials for key %s: %v", keySecret.Name, err)
 		}
 
-		cmData, err := kms.FetchConfigMapData(ctx, c.configMapClient, ks.KMSSideCarConfig)
+		cmData, err := kms.FetchConfigMapData(ctx, c.configMapClient, ks.KMSProviderConfig)
 		if err != nil {
 			return fmt.Errorf("configmap for key %s is missing: %v", keySecret.Name, err)
 		}
@@ -471,7 +471,7 @@ func (c *keyController) updateOldKMSCredentials(ctx context.Context, syncContext
 			}
 		}
 
-		keySecret.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+		keySecret.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 		if cmJSON != nil {
 			keySecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
 		}
@@ -574,7 +574,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		}
 		// Compare migration-triggering fields between the latest key's stored config
 		// and the current API config. Only fields that affect the KEK trigger migration.
-		if kms.MigrationFieldsChanged(latestKey.KMSSideCarConfig, kmsConfig) {
+		if kms.MigrationFieldsChanged(latestKey.KMSProviderConfig, kmsConfig) {
 			return latestKeyID, "kms-configuration-changed", true
 		}
 		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here

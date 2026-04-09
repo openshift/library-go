@@ -1110,9 +1110,9 @@ func TestStateController(t *testing.T) {
 				}
 			},
 		},
-		// scenario 17: KMS with sidecar config (unique UDS) - encryption config created without write key
+		// scenario 17: KMS with provider config (unique UDS) - encryption config created without write key
 		{
-			name:                     "KMS with sidecar: encryption config created without a write key using unique UDS endpoint",
+			name:                     "KMS with provider: encryption config created without a write key using unique UDS endpoint",
 			targetNamespace:          "kms",
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=kms"},
 			targetGRs: []schema.GroupResource{
@@ -1120,7 +1120,7 @@ func TestStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
-				encryptiontesting.CreateEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
 			expectedEncryptionCfg: &apiserverconfigv1.EncryptionConfiguration{
@@ -1157,16 +1157,16 @@ func TestStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 18: KMS with sidecar config - migrated key becomes write key
+		// scenario 18: KMS with provider config - migrated key becomes write key
 		{
-			name:            "KMS with sidecar: migrated key promoted to write key",
+			name:            "KMS with provider: migrated key promoted to write key",
 			targetNamespace: "kms",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
-				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
+				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
 				func() *corev1.Secret {
 					ec := &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
@@ -1222,16 +1222,16 @@ func TestStateController(t *testing.T) {
 						if err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName); err != nil {
 							ts.Fatalf("failed to verify the encryption config: %v", err)
 						}
-						// Verify sidecar config is propagated to the encryption-config secret
-						hasSidecarData := false
+						// Verify provider config is propagated to the encryption-config secret
+						hasProviderData := false
 						for key := range actualSecret.Data {
 							if key != encryptionconfig.EncryptionConfSecretName && key != "" {
-								hasSidecarData = true
+								hasProviderData = true
 								break
 							}
 						}
-						if !hasSidecarData {
-							ts.Error("expected sidecar config data in the encryption-config secret")
+						if !hasProviderData {
+							ts.Error("expected provider config data in the encryption-config secret")
 						}
 						return
 					}
@@ -1240,9 +1240,9 @@ func TestStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 19: KMS with sidecar config and credentials - verify credentials propagated
+		// scenario 19: KMS with provider config and credentials - verify credentials propagated
 		{
-			name:            "KMS with sidecar: credentials propagated to encryption-config secret",
+			name:            "KMS with provider: credentials propagated to encryption-config secret",
 			targetNamespace: "kms",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
@@ -1250,13 +1250,13 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now())
+					s := encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now())
 					// Add credentials to the key secret
 					credJSON, _ := json.Marshal(map[string][]byte{
 						"role_id":   []byte("my-role-id"),
 						"secret_id": []byte("my-secret-id"),
 					})
-					s.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+					s.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 					return s
 				}(),
 				func() *corev1.Secret {
@@ -1314,13 +1314,13 @@ func TestStateController(t *testing.T) {
 						if err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName); err != nil {
 							ts.Fatalf("failed to verify the encryption config: %v", err)
 						}
-						credKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSCredentials, "1")
+						credKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, "1")
 						if _, ok := actualSecret.Data[credKey]; !ok {
 							ts.Errorf("expected credentials data %q in the encryption-config secret", credKey)
 						}
-						sidecarKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSidecarConfig, "1")
-						if _, ok := actualSecret.Data[sidecarKey]; !ok {
-							ts.Errorf("expected sidecar config data %q in the encryption-config secret", sidecarKey)
+						providerKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, "1")
+						if _, ok := actualSecret.Data[providerKey]; !ok {
+							ts.Errorf("expected provider config data %q in the encryption-config secret", providerKey)
 						}
 						return
 					}
@@ -1329,9 +1329,9 @@ func TestStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 20: KMS with sidecar config, credentials, and configmap data - verify all propagated
+		// scenario 20: KMS with provider config, credentials, and configmap data - verify all propagated
 		{
-			name:            "KMS with sidecar: credentials and configmap data propagated to encryption-config secret",
+			name:            "KMS with provider: credentials and configmap data propagated to encryption-config secret",
 			targetNamespace: "kms",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
@@ -1339,12 +1339,12 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() *corev1.Secret {
-					s := encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now())
+					s := encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now())
 					credJSON, _ := json.Marshal(map[string][]byte{
 						"role_id":   []byte("my-role-id"),
 						"secret_id": []byte("my-secret-id"),
 					})
-					s.Data[secrets.EncryptionSecretKMSCredentials] = credJSON
+					s.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 					cmJSON, _ := json.Marshal(map[string]string{
 						"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
 					})
@@ -1407,12 +1407,12 @@ func TestStateController(t *testing.T) {
 							ts.Fatalf("failed to verify the encryption config: %v", err)
 						}
 						// Verify credentials are propagated
-						if _, ok := actualSecret.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSCredentials, "1")]; !ok {
+						if _, ok := actualSecret.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, "1")]; !ok {
 							ts.Error("expected credentials data in the encryption-config secret")
 						}
-						// Verify sidecar config is propagated
-						if _, ok := actualSecret.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSidecarConfig, "1")]; !ok {
-							ts.Error("expected sidecar config data in the encryption-config secret")
+						// Verify provider config is propagated
+						if _, ok := actualSecret.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, "1")]; !ok {
+							ts.Error("expected provider config data in the encryption-config secret")
 						}
 						// Verify configmap data is propagated
 						if _, ok := actualSecret.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSConfigMapData, "1")]; !ok {
@@ -1425,9 +1425,9 @@ func TestStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 21: AESCBC to KMS-with-sidecar migration
+		// scenario 21: AESCBC to KMS-with-provider-config migration
 		{
-			name:            "KMS with sidecar: AESCBC to KMS migration - KMS with unique UDS added as read key",
+			name:            "KMS with provider: AESCBC to KMS migration - KMS with unique UDS added as read key",
 			targetNamespace: "kms",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
@@ -1435,7 +1435,7 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
-				encryptiontesting.CreateEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
 				func() *corev1.Secret {
 					keysRes := encryptiontesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",

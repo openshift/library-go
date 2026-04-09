@@ -515,9 +515,9 @@ func TestKeyController(t *testing.T) {
 			},
 		},
 
-		// KMS with sidecar config (operator-managed KMS plugin lifecycle) tests
+		// KMS with provider config (operator-managed KMS plugin lifecycle) tests
 		{
-			name: "creates a KMS key with sidecar config and unique UDS when Vault KMS is configured",
+			name: "creates a KMS key with provider config and unique UDS when Vault KMS is configured",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -551,11 +551,11 @@ func TestKeyController(t *testing.T) {
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"] != "KMS" {
 							ts.Errorf("expected mode KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
-						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSECConfig]; !ok {
-							ts.Error("expected kms-ec-config data to be present")
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSEncryptionConfig]; !ok {
+							ts.Error("expected kms-encryption-config data to be present")
 						}
-						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSSidecarConfig]; !ok {
-							ts.Error("expected kms-sidecar-config data to be present")
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSProviderConfig]; !ok {
+							ts.Error("expected kms-provider-config data to be present")
 						}
 						if actualSecret.Name != "encryption-key-kms-1" {
 							ts.Errorf("expected key name encryption-key-kms-1, got %s", actualSecret.Name)
@@ -568,13 +568,13 @@ func TestKeyController(t *testing.T) {
 		},
 
 		{
-			name: "no new key when KMS sidecar config exists and no migration fields changed",
+			name: "no new key when KMS provider config exists and no migration fields changed",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
-				encryptiontesting.CreateEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
 			},
 			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
 				a := simpleAPIServer.DeepCopy()
@@ -603,7 +603,7 @@ func TestKeyController(t *testing.T) {
 			},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
-				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSSideCarConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
+				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSProviderConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
 			},
 			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
 				a := simpleAPIServer.DeepCopy()
@@ -649,7 +649,7 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				// key exists but NOT migrated
-				encryptiontesting.CreateEncryptionKeySecretWithKMSSideCarConfig("kms", nil, 1),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSProviderConfig("kms", nil, 1),
 			},
 			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
 				a := simpleAPIServer.DeepCopy()
@@ -672,7 +672,7 @@ func TestKeyController(t *testing.T) {
 		},
 
 		{
-			name: "creates new KMS key with sidecar when switching from AESCBC to KMS with Vault",
+			name: "creates new KMS key with provider config when switching from AESCBC to KMS with Vault",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -712,8 +712,8 @@ func TestKeyController(t *testing.T) {
 						if actualSecret.Name != "encryption-key-kms-6" {
 							ts.Errorf("expected key ID 6, got %s", actualSecret.Name)
 						}
-						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSSidecarConfig]; !ok {
-							ts.Error("expected kms-sidecar-config data to be present")
+						if _, ok := actualSecret.Data[secrets.EncryptionSecretKMSProviderConfig]; !ok {
+							ts.Error("expected kms-provider-config data to be present")
 						}
 						return
 					}

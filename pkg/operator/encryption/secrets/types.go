@@ -54,16 +54,16 @@ const (
 	// Deprecated: This annotation key is deprecated
 	EncryptionSecretKMSConfig = "encryption.apiserver.operator.openshift.io/kms-config"
 
-	// EncryptionSecretKMSSidecarConfig is the data key that stores the serialized sidecar container
+	// EncryptionSecretKMSProviderConfig is the data key that stores the serialized provider
 	// configuration for KMS mode in the encryption-key secret.
-	EncryptionSecretKMSSidecarConfig = "encryption.apiserver.operator.openshift.io-kms-sidecar-config"
+	EncryptionSecretKMSProviderConfig = "encryption.apiserver.operator.openshift.io-kms-provider-config"
 
-	// EncryptionSecretKMSECConfig is the data key that stores the serialized KMS encryption
+	// EncryptionSecretKMSEncryptionConfig is the data key that stores the serialized KMS encryption
 	// configuration for KMS mode in the encryption-key secret.
-	EncryptionSecretKMSECConfig = "encryption.apiserver.operator.openshift.io-kms-ec-config"
+	EncryptionSecretKMSEncryptionConfig = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
 
-	// EncryptionSecretKMSCredentials is the data key that stores the serialized credentials
-	EncryptionSecretKMSCredentials = "encryption.apiserver.operator.openshift.io-kms-credentials"
+	// EncryptionSecretKMSSecretData is the data key that stores the serialized secret data
+	EncryptionSecretKMSSecretData = "encryption.apiserver.operator.openshift.io-kms-secret-data"
 
 	// EncryptionSecretKMSConfigMapData is the data key that stores the serialized configmap data
 	// for KMS mode in the encryption-key secret.
