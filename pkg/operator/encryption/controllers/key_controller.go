@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -391,24 +390,30 @@ func (c *keyController) updateInPlaceFieldsIfChanged(ctx context.Context, syncCo
 		}
 	}
 
+	changed := !bytes.Equal(existingSecret.Data[secrets.EncryptionSecretKMSProviderConfig], providerJSON)
 	existingSecret.Data[secrets.EncryptionSecretKMSProviderConfig] = providerJSON
 	if credJSON != nil {
+		if !bytes.Equal(existingSecret.Data[secrets.EncryptionSecretKMSSecretData], credJSON) {
+			changed = true
+		}
 		existingSecret.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 	}
 	if cmJSON != nil {
+		if !bytes.Equal(existingSecret.Data[secrets.EncryptionSecretKMSConfigMapData], cmJSON) {
+			changed = true
+		}
 		existingSecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
 	}
 
-	// Clear annotations so EnsureObjectMeta does not overwrite any with stale values.
-	existingSecret.Annotations = nil
+	if !changed {
+		return nil
+	}
 
-	_, changed, err := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), existingSecret)
+	_, err = c.secretClient.Secrets("openshift-config-managed").Update(ctx, existingSecret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
-	if changed {
-		syncContext.Recorder().Eventf("EncryptionKeyInPlaceUpdate", "Secret %q updated with new in-place KMS config", secretName)
-	}
+	syncContext.Recorder().Eventf("EncryptionKeyInPlaceUpdate", "Secret %q updated with new in-place KMS config", secretName)
 	return nil
 }
 
@@ -471,21 +476,24 @@ func (c *keyController) updateOldKMSCredentials(ctx context.Context, syncContext
 			}
 		}
 
+		changed := !bytes.Equal(keySecret.Data[secrets.EncryptionSecretKMSSecretData], credJSON)
 		keySecret.Data[secrets.EncryptionSecretKMSSecretData] = credJSON
 		if cmJSON != nil {
+			if !bytes.Equal(keySecret.Data[secrets.EncryptionSecretKMSConfigMapData], cmJSON) {
+				changed = true
+			}
 			keySecret.Data[secrets.EncryptionSecretKMSConfigMapData] = cmJSON
 		}
 
-		// Clear annotations so EnsureObjectMeta does not overwrite any with stale values.
-		keySecret.Annotations = nil
+		if !changed {
+			continue
+		}
 
-		_, changed, err := resourceapply.ApplySecret(ctx, c.secretClient, syncContext.Recorder(), keySecret)
+		_, err = c.secretClient.Secrets(keySecret.Namespace).Update(ctx, keySecret, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update referenced data on key %s: %v", keySecret.Name, err)
 		}
-		if changed {
-			syncContext.Recorder().Eventf("EncryptionKeyReferencedDataUpdated", "Secret %q updated with new referenced data", keySecret.Name)
-		}
+		syncContext.Recorder().Eventf("EncryptionKeyReferencedDataUpdated", "Secret %q updated with new referenced data", keySecret.Name)
 	}
 	return nil
 }
