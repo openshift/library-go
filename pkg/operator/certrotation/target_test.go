@@ -1,7 +1,6 @@
 package certrotation
 
 import (
-	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"strings"
@@ -302,7 +301,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			_, err = c.EnsureTargetCertKeyPair(t.Context(), newCA, newCA.Config.Certs)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
@@ -493,7 +492,7 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = c.EnsureTargetCertKeyPair(context.TODO(), newCA, newCA.Config.Certs)
+			_, err = c.EnsureTargetCertKeyPair(t.Context(), newCA, newCA.Config.Certs)
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
