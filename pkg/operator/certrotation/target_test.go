@@ -797,6 +797,123 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 	}
 }
 
+func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
+	testCases := []struct {
+		name      string
+		keyGen    crypto.KeyPairGenerator
+		userInfo  user.Info
+		hostnames []string
+		wantAlg   x509.PublicKeyAlgorithm
+		wantErr   string
+	}{
+		{
+			name:      "nil keyGen (legacy) uses RSA with dual ExtKeyUsage",
+			keyGen:    nil,
+			userInfo:  &user.DefaultInfo{Name: "127.0.0.1"},
+			hostnames: []string{"localhost", "127.0.0.1"},
+			wantAlg:   x509.RSA,
+		},
+		{
+			name:      "ECDSA keyGen with UserInfo",
+			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			userInfo:  &user.DefaultInfo{Name: "peer-user", Groups: []string{"peer-group"}},
+			hostnames: []string{"localhost", "127.0.0.1"},
+			wantAlg:   x509.ECDSA,
+		},
+		{
+			name:      "nil UserInfo errors",
+			keyGen:    nil,
+			userInfo:  nil,
+			hostnames: []string{"localhost"},
+			wantErr:   "requires UserInfo",
+		},
+		{
+			name:      "nil UserInfo with keyGen errors",
+			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			userInfo:  nil,
+			hostnames: []string{"localhost"},
+			wantErr:   "requires UserInfo",
+		},
+		{
+			name:      "mismatched UserInfo name on legacy path",
+			keyGen:    nil,
+			userInfo:  &user.DefaultInfo{Name: "wrong-name"},
+			hostnames: []string{"localhost", "127.0.0.1"},
+			wantErr:   "conflicts",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ca, err := newTestCACertificate(pkix.Name{CommonName: "test-ca"}, int64(1), metav1.Duration{Duration: time.Hour * 24}, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			r := &PeerRotation{
+				Hostnames: func() []string { return tc.hostnames },
+				UserInfo:  tc.userInfo,
+			}
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got %q", tc.wantErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NewCertificate() error = %v", err)
+			}
+
+			cert := certConfig.Certs[0]
+			if cert.PublicKeyAlgorithm != tc.wantAlg {
+				t.Errorf("PublicKeyAlgorithm = %v, want %v", cert.PublicKeyAlgorithm, tc.wantAlg)
+			}
+
+			// Verify both ExtKeyUsages are present
+			hasClientAuth := false
+			hasServerAuth := false
+			for _, usage := range cert.ExtKeyUsage {
+				if usage == x509.ExtKeyUsageClientAuth {
+					hasClientAuth = true
+				}
+				if usage == x509.ExtKeyUsageServerAuth {
+					hasServerAuth = true
+				}
+			}
+			if !hasClientAuth {
+				t.Error("missing ExtKeyUsageClientAuth")
+			}
+			if !hasServerAuth {
+				t.Error("missing ExtKeyUsageServerAuth")
+			}
+
+			// Verify hostnames in SANs
+			if len(cert.DNSNames) == 0 {
+				t.Error("expected DNS SANs")
+			}
+
+			// Verify Subject based on path
+			if tc.keyGen != nil {
+				// ConfigurablePKI path: UserInfo encoded in Subject
+				if cert.Subject.CommonName != tc.userInfo.GetName() {
+					t.Errorf("CN = %q, want %q", cert.Subject.CommonName, tc.userInfo.GetName())
+				}
+				if len(tc.userInfo.GetGroups()) > 0 && len(cert.Subject.Organization) == 0 {
+					t.Error("expected Organization from UserInfo.Groups")
+				}
+			} else {
+				// Legacy path: CN = sorted first hostname (MakeServerCertForDuration sorts)
+				if cert.Subject.CommonName != tc.userInfo.GetName() {
+					t.Errorf("CN = %q, want %q (must match UserInfo.Name which must match sorted first hostname)", cert.Subject.CommonName, tc.userInfo.GetName())
+				}
+			}
+		})
+	}
+}
+
 func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 	testCases := []struct {
 		name    string
