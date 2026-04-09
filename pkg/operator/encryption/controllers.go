@@ -34,6 +34,7 @@ func NewControllers(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretsClient corev1.SecretsGetter,
+	configMapClient corev1.ConfigMapsGetter,
 	eventRecorder events.Recorder,
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 ) (Controllers, error) {
@@ -71,6 +72,7 @@ func NewControllers(
 			apiServerInformer,
 			kubeInformersForNamespaces,
 			secretsClient,
+			configMapClient,
 			encryptionSecretSelector,
 			eventRecorder,
 		),

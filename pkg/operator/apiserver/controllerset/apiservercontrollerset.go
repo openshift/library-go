@@ -3,9 +3,10 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"regexp"
 	"time"
+
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -363,6 +364,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
 	secretsClient corev1.SecretsGetter,
+	configMapClient corev1.ConfigMapsGetter,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -381,6 +383,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		apiServerInformer:          apiServerInformer,
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		secretsClient:              secretsClient,
+		configMapClient:            configMapClient,
 		resourceSyncer:             resourceSyncer,
 	}
 
@@ -484,6 +487,7 @@ type encryptionControllerBuilder struct {
 	deployer                   statemachine.Deployer
 	migrator                   migrators.Migrator
 	secretsClient              corev1.SecretsGetter
+	configMapClient            corev1.ConfigMapsGetter
 	apiServerClient            configv1client.APIServerInterface
 	apiServerInformer          configv1informers.APIServerInformer
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
@@ -508,6 +512,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.apiServerInformer,
 		e.kubeInformersForNamespaces,
 		e.secretsClient,
+		e.configMapClient,
 		e.eventRecorder,
 		e.resourceSyncer,
 	)
