@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -332,7 +333,7 @@ func (t *testStatusReporter) Report(ctx context.Context, controllerName string, 
 // mockTargetCertCreator is a mock implementation of TargetCertCreator for testing
 type mockTargetCertCreator struct{}
 
-func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
 	// Use the provided signer to create a real certificate with matching key
 	certConfig, err := signer.MakeServerCert(sets.New("test-cert", "localhost"), validity)
 	if err != nil {
@@ -340,6 +341,10 @@ func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.
 	}
 
 	return certConfig, nil
+}
+
+func (m *mockTargetCertCreator) CertificateType() pki.CertificateType {
+	return pki.CertificateTypeServing
 }
 
 func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
