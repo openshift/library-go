@@ -3,6 +3,7 @@ package certrotation
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -726,6 +727,11 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
 			wantAlg: x509.ECDSA,
 		},
+		{
+			name:    "ECDSA-P384",
+			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			wantAlg: x509.ECDSA,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -765,8 +771,18 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			wantAlg: x509.RSA,
 		},
 		{
+			name:    "RSA-4096",
+			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			wantAlg: x509.RSA,
+		},
+		{
 			name:    "ECDSA-P256",
 			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			wantAlg: x509.ECDSA,
+		},
+		{
+			name:    "ECDSA-P384",
+			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -872,20 +888,10 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			}
 
 			// Verify both ExtKeyUsages are present
-			hasClientAuth := false
-			hasServerAuth := false
-			for _, usage := range cert.ExtKeyUsage {
-				if usage == x509.ExtKeyUsageClientAuth {
-					hasClientAuth = true
-				}
-				if usage == x509.ExtKeyUsageServerAuth {
-					hasServerAuth = true
-				}
-			}
-			if !hasClientAuth {
+			if !slices.Contains(cert.ExtKeyUsage, x509.ExtKeyUsageClientAuth) {
 				t.Error("missing ExtKeyUsageClientAuth")
 			}
-			if !hasServerAuth {
+			if !slices.Contains(cert.ExtKeyUsage, x509.ExtKeyUsageServerAuth) {
 				t.Error("missing ExtKeyUsageServerAuth")
 			}
 
@@ -923,6 +929,16 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			name:    "nil uses legacy RSA",
 			keyGen:  nil,
 			wantAlg: x509.RSA,
+		},
+		{
+			name:    "RSA-4096",
+			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			wantAlg: x509.RSA,
+		},
+		{
+			name:    "ECDSA-P256",
+			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
