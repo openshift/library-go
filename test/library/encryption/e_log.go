@@ -10,7 +10,7 @@ import (
 // E is like testing.T except it overloads some methods to print to stdout
 // when the encryption tests are run from a local machine
 type E struct {
-	*testing.T
+	testing.TB
 	local        bool
 	tearDownFunc func(testing.TB, bool)
 }
@@ -21,8 +21,8 @@ func PrintEventsOnFailure(namespace string) func(*E) {
 	}
 }
 
-func NewE(t *testing.T, options ...func(*E)) *E {
-	e := &E{T: t}
+func NewE(t testing.TB, options ...func(*E)) *E {
+	e := &E{TB: t}
 	// the test logger only prints text if a test fails or the -v flag is set
 	// that means we don't have any visibility when running the tests from a local machine
 	//
@@ -49,7 +49,7 @@ func (e *E) Logf(format string, args ...interface{}) {
 		fmt.Println(fmt.Sprintf(format, args...))
 		return
 	}
-	e.T.Logf(format, args...)
+	e.TB.Logf(format, args...)
 }
 
 func (e *E) Errorf(format string, args ...interface{}) {
@@ -60,7 +60,7 @@ func (e *E) Errorf(format string, args ...interface{}) {
 	}
 
 	format, args = withTimeStamp(format, args...)
-	e.T.Errorf(format, args...)
+	e.TB.Errorf(format, args...)
 	e.handleTearDown(e.Failed())
 }
 
