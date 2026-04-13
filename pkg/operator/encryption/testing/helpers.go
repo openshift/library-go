@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
-	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
-	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
-	encryptionSecretKMSConfigForTest         = "encryption.apiserver.operator.openshift.io/kms-config"
+	encryptionSecretKeyDataForTest             = "encryption.apiserver.operator.openshift.io-key"
+	encryptionSecretMigratedTimestampForTest   = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
+	encryptionSecretMigratedResourcesForTest   = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretKMSEncryptionConfigForTest = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -101,11 +101,11 @@ func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupR
 	kmsConfig := &apiserverconfigv1.KMSConfiguration{
 		APIVersion: "v2",
 		Name:       fmt.Sprintf("%d", keyID),
-		Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+		Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
 		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 	}
 	kmsConfigJSON, _ := json.Marshal(kmsConfig)
-	secret.Annotations[encryptionSecretKMSConfigForTest] = string(kmsConfigJSON)
+	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = kmsConfigJSON
 	return secret
 }
 
@@ -273,7 +273,7 @@ func createProviderCfg(mode string, resource string, key apiserverconfigv1.Key) 
 			KMS: &apiserverconfigv1.KMSConfiguration{
 				APIVersion: "v2",
 				Name:       fmt.Sprintf("%s_%s", key.Name, resource),
-				Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+				Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%s.sock", key.Name),
 				Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 			},
 		}

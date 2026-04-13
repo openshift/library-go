@@ -123,7 +123,7 @@ func TestRoundtrip(t *testing.T) {
 				},
 				Backed: true,
 				Mode:   "KMS",
-				KMSConfiguration: &v1.KMSConfiguration{
+				KMSEncryptionConfig: &v1.KMSConfiguration{
 					APIVersion: "v2",
 					Name:       "1",
 					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
@@ -150,10 +150,10 @@ func TestRoundtrip(t *testing.T) {
 				},
 				Backed: true,
 				Mode:   "KMS",
-				KMSConfiguration: &v1.KMSConfiguration{
+				KMSEncryptionConfig: &v1.KMSConfiguration{
 					APIVersion: "v2",
 					Name:       "2",
-					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 				},
 			},
 		},

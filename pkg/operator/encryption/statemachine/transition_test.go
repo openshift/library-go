@@ -1052,7 +1052,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							KMS: &apiserverconfigv1.KMSConfiguration{
 								APIVersion: "v2",
 								Name:       "2_secrets",
-								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 							},
 						}, {
@@ -1079,7 +1079,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							KMS: &apiserverconfigv1.KMSConfiguration{
 								APIVersion: "v2",
 								Name:       "2_secrets",
-								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 							},
 						}, {
@@ -1102,7 +1102,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							KMS: &apiserverconfigv1.KMSConfiguration{
 								APIVersion: "v2",
 								Name:       "2_secrets",
-								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 							},
 						}, {
@@ -1129,7 +1129,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							KMS: &apiserverconfigv1.KMSConfiguration{
 								APIVersion: "v2",
 								Name:       "2_secrets",
-								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 							},
 						}, {
@@ -1158,7 +1158,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						KMS: &apiserverconfigv1.KMSConfiguration{
 							APIVersion: "v2",
 							Name:       "2_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+							Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 						},
 					}, {
@@ -1184,7 +1184,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							KMS: &apiserverconfigv1.KMSConfiguration{
 								APIVersion: "v2",
 								Name:       "2_secrets",
-								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 							},
 						}, {
@@ -1213,7 +1213,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						KMS: &apiserverconfigv1.KMSConfiguration{
 							APIVersion: "v2",
 							Name:       "2_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+							Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 						},
 					}, {
