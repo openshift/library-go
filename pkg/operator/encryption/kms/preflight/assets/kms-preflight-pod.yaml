@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.PodName}}
+  namespace: {{.Namespace}}
+spec:
+  # This is a one-shot preflight check, not a long-running pod.
+  # The operator creates it, waits for completion, and inspects the result.
+  restartPolicy: Never
+  containers:
+    - name: kms-preflight-check
+      image: {{.OperatorImage}}
+      command: [{{.Command}}]
+      args:
+        - --kms-call-timeout={{.KMSCallTimeout}}
+      # TODO: figure out good resource request values.
+      resources:
+        requests:
+          memory: 50Mi
+          cpu: 5m
