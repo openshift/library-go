@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -63,7 +65,8 @@ func TestUpdateOperatorStatus(t *testing.T) {
 		errors                          []error
 		previousConditions              []operatorv1.OperatorCondition
 
-		validateOperatorStatus func(*operatorv1.OperatorStatus) error
+		validateOperatorStatus  func(*operatorv1.OperatorStatus) error
+		validateVersionRecorder func(*fakeVersionRecorder) error
 	}{
 		{
 			name: "no workload",
@@ -841,6 +844,86 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				return areCondidtionsEqual(expectedConditions, actualStatus.Conditions)
 			},
 		},
+		{
+			name:                            "version recorded when at highest revision",
+			operatorConfigAtHighestRevision: true,
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 1, UpdatedReplicas: 1, ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			validateOperatorStatus:  func(*operatorv1.OperatorStatus) error { return nil },
+			validateVersionRecorder: expectVersionRecorded,
+		},
+		{
+			name:                            "version not recorded when not at highest revision",
+			operatorConfigAtHighestRevision: false,
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 1, UpdatedReplicas: 1, ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			validateOperatorStatus: func(*operatorv1.OperatorStatus) error { return nil },
+			validateVersionRecorder: expectVersionNotRecorded,
+		},
+		{
+			name:                            "version not recorded when generation != observed generation",
+			operatorConfigAtHighestRevision: true,
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 1, UpdatedReplicas: 1, ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			validateOperatorStatus: func(*operatorv1.OperatorStatus) error { return nil },
+			validateVersionRecorder: expectVersionNotRecorded,
+		},
+		{
+			name:                            "version not recorded when available replicas < desired",
+			operatorConfigAtHighestRevision: true,
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](3)},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 2, UpdatedReplicas: 3, ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			validateOperatorStatus: func(*operatorv1.OperatorStatus) error { return nil },
+			validateVersionRecorder: expectVersionNotRecorded,
+		},
+		{
+			name:                            "version not recorded when updated replicas < desired",
+			operatorConfigAtHighestRevision: true,
+			workload: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](3)},
+				Status: appsv1.DeploymentStatus{
+					AvailableReplicas: 3, UpdatedReplicas: 2, ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			validateOperatorStatus: func(*operatorv1.OperatorStatus) error { return nil },
+			validateVersionRecorder: expectVersionNotRecorded,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -869,12 +952,16 @@ func TestUpdateOperatorStatus(t *testing.T) {
 				syncErrrors:             scenario.errors,
 			}
 
+			recorder := &fakeVersionRecorder{}
+
 			// act
 			target := &Controller{
-				operatorClient:  fakeOperatorClient,
-				targetNamespace: targetNs,
-				podsLister:      &fakePodLister{pods: scenario.pods},
-				delegate:        delegate,
+				operatorClient:       fakeOperatorClient,
+				targetNamespace:      targetNs,
+				targetOperandVersion: "v1.0.0-test",
+				podsLister:           &fakePodLister{pods: scenario.pods},
+				delegate:             delegate,
+				versionRecorder:      recorder,
 			}
 
 			err := target.sync(context.TODO(), factory.NewSyncContext("workloadcontroller_test", events.NewInMemoryRecorder("workloadcontroller_test", clocktesting.NewFakePassiveClock(time.Now()))))
@@ -887,9 +974,13 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = scenario.validateOperatorStatus(actualOperatorStatus)
-			if err != nil {
+			if err := scenario.validateOperatorStatus(actualOperatorStatus); err != nil {
 				t.Fatal(err)
+			}
+			if scenario.validateVersionRecorder != nil {
+				if err := scenario.validateVersionRecorder(recorder); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}
@@ -919,6 +1010,37 @@ func (f *fakePodLister) Pods(namespace string) corev1listers.PodNamespaceLister 
 	return &fakePodNamespaceLister{
 		lister: f,
 	}
+}
+
+type setVersionCall struct {
+	OperandName, Version string
+}
+
+type fakeVersionRecorder struct {
+	setVersionCalls []setVersionCall
+}
+
+func (f *fakeVersionRecorder) SetVersion(operandName, version string) {
+	f.setVersionCalls = append(f.setVersionCalls, setVersionCall{operandName, version})
+}
+
+func (f *fakeVersionRecorder) UnsetVersion(_ string)                  {}
+func (f *fakeVersionRecorder) GetVersions() map[string]string         { return nil }
+func (f *fakeVersionRecorder) VersionChangedChannel() <-chan struct{} { return nil }
+
+func expectVersionRecorded(r *fakeVersionRecorder) error {
+	expected := []setVersionCall{{OperandName: "apiserver", Version: "v1.0.0-test"}}
+	if d := cmp.Diff(expected, r.setVersionCalls); d != "" {
+		return fmt.Errorf("unexpected SetVersion calls (-want +got):\n%s", d)
+	}
+	return nil
+}
+
+func expectVersionNotRecorded(r *fakeVersionRecorder) error {
+	if d := cmp.Diff([]setVersionCall(nil), r.setVersionCalls); d != "" {
+		return fmt.Errorf("unexpected SetVersion calls (-want +got):\n%s", d)
+	}
+	return nil
 }
 
 func areCondidtionsEqual(expectedConditions []operatorv1.OperatorCondition, actualConditions []operatorv1.OperatorCondition) error {
