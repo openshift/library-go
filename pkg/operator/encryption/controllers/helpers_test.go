@@ -9,12 +9,23 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
 func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
 	t.Helper()
 
-	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg)
+	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func createEncryptionCfgSecretWithKMS(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, kmsProviderConfigs map[string]*state.KMSProviderConfig) *corev1.Secret {
+	t.Helper()
+
+	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg, kmsProviderConfigs)
 	if err != nil {
 		t.Fatal(err)
 	}

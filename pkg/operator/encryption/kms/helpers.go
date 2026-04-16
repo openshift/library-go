@@ -3,8 +3,10 @@ package kms
 import (
 	"fmt"
 
+	v1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -63,4 +65,20 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	)
 
 	return nil
+}
+
+// GetKMSProviderConfig converts the APIServer config into the internal KMSProviderConfig.
+// All downstream controllers operate solely on this internal representation.
+func GetKMSProviderConfig(config *v1.APIServer) *state.KMSProviderConfig {
+	return &state.KMSProviderConfig{
+		// TODO: these hardcoded data will be replaced by API when it is ready
+		Vault: &state.VaultProviderConfig{
+			// This image is based on upstream mock kms plugin behaving as Vault for testing purposes
+			Image:          "quay.io/openshifttest/mock-kms-plugin-vault:latest",
+			VaultAddress:   "vault-address",
+			VaultNamespace: "vault-namespace",
+			TransitKey:     "transit-key",
+			TransitMount:   "transit-mount",
+		},
+	}
 }
