@@ -277,6 +277,17 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 			Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 			Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 		}
+		ks.KMSProviderConfig = &state.KMSProviderConfig{
+			// TODO: these hardcoded data will be replaced by API when it is ready
+			Vault: &state.VaultProviderConfig{
+				// This image is based on upstream mock kms plugin behaving as Vault for testing purposes
+				Image:          "quay.io/openshifttest/mock-kms-plugin-vault:latest",
+				VaultAddress:   "vault-address",
+				VaultNamespace: "vault-namespace",
+				TransitKey:     "transit-key",
+				TransitMount:   "transit-mount",
+			},
+		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }

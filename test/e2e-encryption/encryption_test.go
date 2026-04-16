@@ -426,6 +426,16 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForMigration("8")
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
+	t.Logf("Verify KMS provider config is present in key secret and encryption-config secret")
+	keySecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-8", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Contains(t, keySecret.Data, secrets.EncryptionSecretKMSProviderConfig, "key secret must contain kms-provider-config data")
+
+	encCfgSecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	providerConfigKey := fmt.Sprintf("%s-8", secrets.EncryptionSecretKMSProviderConfig)
+	require.Contains(t, encCfgSecret.Data, providerConfigKey, "encryption-config secret must contain kms-provider-config-8 data")
+
 	t.Logf("Switch back to aescbc from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc"}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
