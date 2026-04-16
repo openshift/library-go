@@ -16,10 +16,10 @@ github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa h1:LHTHcTQiSGT7V
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa/go.mod h1:cEWa1LVoE5KvSD9ONXsZrj0z6KqySlCCNKHlLzbqAt4=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
-github.com/ardaguclu/client-go v0.0.0-20260403071921-17e9d7ec447b h1:WMbXvT+nO+lpsDfCvo1dmW763IkOmTJGwKC6hK06RiE=
-github.com/ardaguclu/client-go v0.0.0-20260403071921-17e9d7ec447b/go.mod h1:2FvYDAS+a2EIXcQcP2WlBa8UTIJvsgE7WhUorwB8Tw8=
-github.com/ardaguclu/openshift-api v0.0.0-20260403070409-bdd7b164d997 h1:ZalthHW/UaK9iun5wTif8QH/+WBowOcvhLSHJhmitu4=
-github.com/ardaguclu/openshift-api v0.0.0-20260403070409-bdd7b164d997/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
+github.com/ardaguclu/client-go v0.0.0-20260416132153-8efa801dc740 h1:FoaGLn/ePh1T5f11dqnCNjfLeOqlqworANxM2y4LFuo=
+github.com/ardaguclu/client-go v0.0.0-20260416132153-8efa801dc740/go.mod h1:3+5r22BNBUsfbcnwIXptH76ZGHf8vnrgQePXLjPRXus=
+github.com/ardaguclu/openshift-api v0.0.0-20260416125923-e7b399e13aaf h1:pQFv3Mr6OqhVgDoVRajabilDcvfyuNDxH+4eVkfqOMc=
+github.com/ardaguclu/openshift-api v0.0.0-20260416125923-e7b399e13aaf/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

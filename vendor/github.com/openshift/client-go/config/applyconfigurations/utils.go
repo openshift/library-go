@@ -600,6 +600,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &configv1alpha1.StorageApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("TelemeterClientConfig"):
 		return &configv1alpha1.TelemeterClientConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ThanosQuerierConfig"):
+		return &configv1alpha1.ThanosQuerierConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("TLSConfig"):
 		return &configv1alpha1.TLSConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("UppercaseActionConfig"):

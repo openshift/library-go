@@ -24,6 +24,7 @@ type ContainerResourceApplyConfiguration struct {
 	// request is the minimum amount of the resource required (e.g. "2Mi", "1Gi").
 	// This field is optional.
 	// When limit is specified, request cannot be greater than limit.
+	// The value must be greater than 0 when specified.
 	Request *resource.Quantity `json:"request,omitempty"`
 	// limit is the maximum amount of the resource allowed (e.g. "2Mi", "1Gi").
 	// This field is optional.

@@ -140,6 +140,6 @@ require (
 )
 
 replace (
-	github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20260403070409-bdd7b164d997
-	github.com/openshift/client-go => github.com/ardaguclu/client-go v0.0.0-20260403071921-17e9d7ec447b
+	github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20260416125923-e7b399e13aaf
+	github.com/openshift/client-go => github.com/ardaguclu/client-go v0.0.0-20260416132153-8efa801dc740
 )
