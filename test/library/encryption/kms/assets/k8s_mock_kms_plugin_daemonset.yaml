@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: k8s-mock-kms-plugin
+  name: k8s-mock-kms-plugin-{{ .Index }}
   namespace: {{ .Namespace }}
 spec:
   selector:
     matchLabels:
-      app: k8s-mock-kms-plugin
+      app: k8s-mock-kms-plugin-{{ .Index }}
   template:
     metadata:
       labels:
-        app: k8s-mock-kms-plugin
+        app: k8s-mock-kms-plugin-{{ .Index }}
     spec:
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
@@ -61,10 +61,8 @@ spec:
             - -c
           args:
             - |
-              # remove the socket to prevent "bind: address already in use"
-              # not sure this is the best way
-              rm -f /var/run/kmsplugin/kms.sock
-              exec /usr/local/bin/mock-kms-plugin -listen-addr=unix:///var/run/kmsplugin/kms.sock -config-file-path=/etc/softhsm-config.json
+              rm -f /var/run/kmsplugin/kms-{{ .Index }}.sock
+              exec /usr/local/bin/mock-kms-plugin -listen-addr=unix:///var/run/kmsplugin/kms-{{ .Index }}.sock -config-file-path=/etc/softhsm-config.json
           volumeMounts:
             - name: socket
               mountPath: /var/run/kmsplugin

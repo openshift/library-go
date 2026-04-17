@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"text/template"
@@ -30,11 +31,14 @@ const (
 	// WellKnownUpstreamMockKMSPluginImage is the pre-built mock KMS plugin image.
 	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:998e1d48eba257f589ab86c30abd5043f662213e9aeff253e1c308301879d48a"
 
+	// DefaultKMSPluginCount is the default number of KMS plugin instances to deploy.
+	DefaultKMSPluginCount = 10
+
 	// defaultPollTimeout the default poll timeout used by the deployer
 	defaultPollTimeout = 2 * time.Minute
 )
 
-var manifestFilesToApplyDirectly = []string{
+var sharedManifestFiles = []string{
 	"k8s_mock_kms_plugin_namespace.yaml",
 	"k8s_mock_kms_plugin_serviceaccount.yaml",
 	"k8s_mock_kms_plugin_rolebinding.yaml",
@@ -48,26 +52,35 @@ var daemonSetManifestFile = "k8s_mock_kms_plugin_daemonset.yaml"
 type yamlTemplateData struct {
 	Namespace string
 	Image     string
+	Index     int
 }
 
-// DeployUpstreamMockKMSPlugin deploys the upstream mock KMS v2 plugin using embedded YAML assets.
-func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) {
+// DeployUpstreamMockKMSPlugin deploys count instances of the upstream mock KMS v2 plugin
+func DeployUpstreamMockKMSPlugin(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string, count int) {
 	t.Helper()
 
-	t.Logf("Deploying upstream mock KMS v2 plugin in namespace %q using image %s", namespace, image)
-	daemonSetName, err := applyUpstreamMockKMSPluginManifests(ctx, t, kubeClient, namespace, image)
-	if err != nil {
-		t.Fatalf("Failed to apply manifests: %v", err)
+	t.Logf("Deploying %d upstream mock KMS v2 plugin instance(s) in namespace %q using image %s", count, namespace, image)
+
+	if err := applySharedManifests(ctx, t, kubeClient, namespace, image); err != nil {
+		t.Fatalf("Failed to apply shared manifests: %v", err)
 	}
-	if err := waitForDaemonSetReady(ctx, t, kubeClient, namespace, daemonSetName); err != nil {
-		t.Fatalf("DaemonSet not ready: %v", err)
+
+	for i := 1; i <= count; i++ {
+		daemonSetName, err := applyDaemonSetManifest(ctx, t, kubeClient, namespace, image, i)
+		if err != nil {
+			t.Fatalf("Failed to apply DaemonSet manifest for instance %d: %v", i, err)
+		}
+		if err := waitForDaemonSetReady(ctx, t, kubeClient, namespace, daemonSetName); err != nil {
+			t.Fatalf("DaemonSet %s not ready: %v", daemonSetName, err)
+		}
 	}
-	t.Logf("Upstream mock KMS v2 plugin deployed successfully!")
+
+	t.Logf("All %d upstream mock KMS v2 plugin instance(s) deployed successfully!", count)
 }
 
-// applyUpstreamMockKMSPluginManifests applies all the KMS plugin manifests.
-// Returns the DaemonSet name on success.
-func applyUpstreamMockKMSPluginManifests(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) (string, error) {
+// applySharedManifests applies the shared resources (namespace, serviceaccount, rolebinding, configmap)
+// that are common across all KMS plugin instances.
+func applySharedManifests(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string) error {
 	t.Helper()
 
 	data := yamlTemplateData{
@@ -79,14 +92,31 @@ func applyUpstreamMockKMSPluginManifests(ctx context.Context, t testing.TB, kube
 	assetFunc := wrapAssetWithTemplateDataFunc(data)
 
 	clientHolder := resourceapply.NewKubeClientHolder(kubeClient)
-	results := resourceapply.ApplyDirectly(ctx, clientHolder, recorder, resourceapply.NewResourceCache(), assetFunc, manifestFilesToApplyDirectly...)
+	results := resourceapply.ApplyDirectly(ctx, clientHolder, recorder, resourceapply.NewResourceCache(), assetFunc, sharedManifestFiles...)
 
 	for _, result := range results {
 		if result.Error != nil {
-			return "", result.Error
+			return result.Error
 		}
 		t.Logf("Applied %s (changed=%v)", result.File, result.Changed)
 	}
+
+	return nil
+}
+
+// applyDaemonSetManifest applies a single indexed DaemonSet manifest.
+// Returns the DaemonSet name on success.
+func applyDaemonSetManifest(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, image string, index int) (string, error) {
+	t.Helper()
+
+	data := yamlTemplateData{
+		Namespace: namespace,
+		Image:     image,
+		Index:     index,
+	}
+
+	recorder := events.NewInMemoryRecorder(fmt.Sprintf("k8s-mock-kms-plugin-deployer-%d", index), clock.RealClock{})
+	assetFunc := wrapAssetWithTemplateDataFunc(data)
 
 	rawDaemonSet, err := assetFunc(daemonSetManifestFile)
 	if err != nil {
