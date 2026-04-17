@@ -1,0 +1,5 @@
+{
+  "Path": "/usr/lib/softhsm/libsofthsm2.so",
+  "TokenLabel": "kms-test",
+  "Pin": "1234"
+}
