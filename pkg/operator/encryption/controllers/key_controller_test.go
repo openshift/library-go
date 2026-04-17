@@ -356,7 +356,7 @@ func TestKeyController(t *testing.T) {
 						if kmsConfig == "" {
 							ts.Error("expected kms-config annotation to be present")
 						}
-						if kmsConfig != `{"apiVersion":"v2","name":"1","endpoint":"unix:///var/run/kmsplugin/kms.sock","timeout":"10s"}` {
+						if kmsConfig != `{"apiVersion":"v2","name":"1","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
 							ts.Errorf("unexpected kms-config: %s", kmsConfig)
 						}
 
@@ -415,7 +415,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS config annotation exists
 						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
-						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms.sock","timeout":"10s"}` {
+						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
 							ts.Errorf("unexpected kms-config: %s", kmsConfig)
 						}
 
@@ -490,7 +490,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS config annotation exists
 						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
-						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms.sock","timeout":"10s"}` {
+						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
 							ts.Errorf("unexpected kms-config: %s", kmsConfig)
 						}
 

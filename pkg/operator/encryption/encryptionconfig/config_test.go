@@ -687,7 +687,7 @@ func keyToKMSConfiguration(key *corev1.Secret, resource string) *apiserverconfig
 	return &apiserverconfigv1.KMSConfiguration{
 		APIVersion: "v2",
 		Name:       fmt.Sprintf("%d_%s", keyID, resource),
-		Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+		Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 		Timeout: &metav1.Duration{
 			Duration: 10 * time.Second,
 		},

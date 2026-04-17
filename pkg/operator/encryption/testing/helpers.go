@@ -101,7 +101,7 @@ func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupR
 	kmsConfig := &apiserverconfigv1.KMSConfiguration{
 		APIVersion: "v2",
 		Name:       fmt.Sprintf("%d", keyID),
-		Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+		Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 	}
 	kmsConfigJSON, _ := json.Marshal(kmsConfig)
@@ -273,7 +273,7 @@ func createProviderCfg(mode string, resource string, key apiserverconfigv1.Key) 
 			KMS: &apiserverconfigv1.KMSConfiguration{
 				APIVersion: "v2",
 				Name:       fmt.Sprintf("%s_%s", key.Name, resource),
-				Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+				Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 				Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 			},
 		}

@@ -126,7 +126,7 @@ func TestRoundtrip(t *testing.T) {
 				KMSConfiguration: &v1.KMSConfiguration{
 					APIVersion: "v2",
 					Name:       "1",
-					Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
@@ -153,7 +153,7 @@ func TestRoundtrip(t *testing.T) {
 				KMSConfiguration: &v1.KMSConfiguration{
 					APIVersion: "v2",
 					Name:       "2",
-					Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 				},
 			},
 		},
