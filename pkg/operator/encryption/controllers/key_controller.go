@@ -39,7 +39,7 @@ import (
 // greater than the last key's ID (the first key has a key ID of 1).
 const (
 	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
-	defaultKMSEndpoint                = "unix:///var/run/kmsplugin/kms.sock"
+	defaultKMSEndpoint                = "unix:///var/run/kmsplugin/kms-1.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 )
 
