@@ -351,13 +351,13 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
 
-						// Verify KMS config annotation exists
-						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
-						if kmsConfig == "" {
-							ts.Error("expected kms-config annotation to be present")
+						// Verify KMS config is in data field
+						kmsConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
+						if len(kmsConfigData) == 0 {
+							ts.Error("expected kms-encryption-config data to be present")
 						}
-						if kmsConfig != `{"apiVersion":"v2","name":"1","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
-							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						if string(kmsConfigData) != `{"apiVersion":"v2","name":"1","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
+							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
 						// Verify internal reason
@@ -413,10 +413,10 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
 
-						// Verify KMS config annotation exists
-						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
-						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
-							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						// Verify KMS config is in data field
+						kmsConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
+						if string(kmsConfigData) != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-6.sock","timeout":"10s"}` {
+							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
 						// Verify internal reason is mode changed
@@ -488,10 +488,10 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("expected mode to be KMS, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
 
-						// Verify KMS config annotation exists
-						kmsConfig := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]
-						if kmsConfig != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-1.sock","timeout":"10s"}` {
-							ts.Errorf("unexpected kms-config: %s", kmsConfig)
+						// Verify KMS config is in data field
+						kmsConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
+						if string(kmsConfigData) != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-6.sock","timeout":"10s"}` {
+							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
 						// Verify internal reason is mode changed
@@ -538,9 +538,9 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("expected mode to be aescbc, got %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/mode"])
 						}
 
-						// Verify KMS config annotation is removed (not present for AESCBC)
-						if kmsConfig, exists := actualSecret.Annotations["encryption.apiserver.operator.openshift.io/kms-config"]; exists {
-							ts.Errorf("expected kms-config annotation to be absent, got: %s", kmsConfig)
+						// Verify KMS config data is not present for AESCBC
+						if kmsConfigData, exists := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]; exists {
+							ts.Errorf("expected kms-encryption-config data to be absent, got: %s", kmsConfigData)
 						}
 
 						// Verify internal reason is mode changed
