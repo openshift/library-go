@@ -42,7 +42,20 @@ func TestKeyController(t *testing.T) {
 	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
 	apiServerWithKMS := simpleAPIServer.DeepCopy()
-	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS"}
+	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{
+		Type: "KMS",
+		KMS: &configv1.KMSConfig{
+			Type: configv1.VaultKMSProvider,
+			Vault: configv1.VaultKMSConfig{
+				KMSPluginImage: "quay.io/org/vault-kms-plugin@sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd1234",
+				VaultAddress:   "https://vault.example.com:8200",
+				VaultNamespace: "vault-ns",
+				TransitKey:     "my-transit-key",
+				TransitMount:   "transit",
+				ApproleSecret:  &configv1.SecretNameReference{Name: "vault-approle"},
+			},
+		},
+	}
 
 	scenarios := []struct {
 		name                     string
@@ -362,7 +375,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
-						expectedProviderConfig := `{"vault":{"image":"quay.io/openshifttest/mock-kms-plugin-vault:latest","vaultAddress":"vault-address","vaultNamespace":"vault-namespace","transitKey":"transit-key","transitMount":"transit-mount"}}`
+						expectedProviderConfig := `{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd1234","vaultAddress":"https://vault.example.com:8200","vaultNamespace":"vault-ns","transitKey":"my-transit-key","transitMount":"transit","approleSecretName":"vault-approle"}}`
 						if string(kmsProviderConfigData) != expectedProviderConfig {
 							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
 						}
@@ -428,7 +441,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
-						expectedProviderConfig := `{"vault":{"image":"quay.io/openshifttest/mock-kms-plugin-vault:latest","vaultAddress":"vault-address","vaultNamespace":"vault-namespace","transitKey":"transit-key","transitMount":"transit-mount"}}`
+						expectedProviderConfig := `{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd1234","vaultAddress":"https://vault.example.com:8200","vaultNamespace":"vault-ns","transitKey":"my-transit-key","transitMount":"transit","approleSecretName":"vault-approle"}}`
 						if string(kmsProviderConfigData) != expectedProviderConfig {
 							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
 						}
@@ -762,7 +775,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, _, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {
