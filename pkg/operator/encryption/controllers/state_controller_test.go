@@ -755,7 +755,7 @@ func TestStateController(t *testing.T) {
 						}
 						// Verify KMS provider config content is propagated to the encryption-config secret
 						providerConfigKey := secrets.EncryptionSecretKMSProviderConfig + "-1"
-						expectedProviderConfig := `{"vault":{"image":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`
+						expectedProviderConfig := `{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`
 						if string(actualSecret.Data[providerConfigKey]) != expectedProviderConfig {
 							ts.Errorf("unexpected kms-provider-config-1 in encryption-config secret: %s", actualSecret.Data[providerConfigKey])
 						}
@@ -874,7 +874,7 @@ func TestStateController(t *testing.T) {
 						}},
 					}
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
-					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"image":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
+					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
 					return ecs
 				}(),
 				func() *corev1.Secret {
@@ -895,7 +895,7 @@ func TestStateController(t *testing.T) {
 					}
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
-					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"image":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
+					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
 					return ecs
 				}(),
 			},
@@ -1250,10 +1250,10 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 func TestCollectKMSProviderConfigs(t *testing.T) {
 	vaultConfig := &state.KMSProviderConfig{
 		Vault: &state.VaultProviderConfig{
-			Image:        "quay.io/org/vault-kms-plugin@sha256:abc123",
-			VaultAddress: "https://vault.example.com:8200",
-			TransitKey:   "my-transit-key",
-			TransitMount: "transit",
+			KMSPluginImage: "quay.io/org/vault-kms-plugin@sha256:abc123",
+			VaultAddress:   "https://vault.example.com:8200",
+			TransitKey:     "my-transit-key",
+			TransitMount:   "transit",
 		},
 	}
 

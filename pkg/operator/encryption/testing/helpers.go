@@ -110,10 +110,10 @@ func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupR
 
 	providerConfig := &state.KMSProviderConfig{
 		Vault: &state.VaultProviderConfig{
-			Image:        "quay.io/org/vault-kms-plugin@sha256:abc123",
-			VaultAddress: "https://vault.example.com:8200",
-			TransitKey:   "my-transit-key",
-			TransitMount: "transit",
+			KMSPluginImage: "quay.io/org/vault-kms-plugin@sha256:abc123",
+			VaultAddress:   "https://vault.example.com:8200",
+			TransitKey:     "my-transit-key",
+			TransitMount:   "transit",
 		},
 	}
 	providerConfigJSON, _ := json.Marshal(providerConfig)

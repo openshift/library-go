@@ -53,11 +53,14 @@ type KMSProviderConfig struct {
 
 // VaultProviderConfig holds Vault-specific KMS provider configuration.
 type VaultProviderConfig struct {
-	Image          string `json:"image"`
-	VaultAddress   string `json:"vaultAddress"`
-	VaultNamespace string `json:"vaultNamespace,omitempty"`
-	TransitKey     string `json:"transitKey"`
-	TransitMount   string `json:"transitMount,omitempty"`
+	KMSPluginImage    string `json:"kmsPluginImage"`
+	VaultAddress      string `json:"vaultAddress"`
+	VaultNamespace    string `json:"vaultNamespace,omitempty"`
+	TransitKey        string `json:"transitKey"`
+	TransitMount      string `json:"transitMount,omitempty"`
+	ApproleSecretName string `json:"approleSecretName,omitempty"`
+	CABundleName      string `json:"caBundleName,omitempty"`
+	TLSServerName     string `json:"tlsServerName,omitempty"`
 }
 
 type MigrationState struct {
