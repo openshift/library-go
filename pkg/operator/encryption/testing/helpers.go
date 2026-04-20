@@ -25,6 +25,7 @@ const (
 	encryptionSecretMigratedTimestampForTest   = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest   = "encryption.apiserver.operator.openshift.io/migrated-resources"
 	encryptionSecretKMSEncryptionConfigForTest = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
+	encryptionSecretKMSProviderConfigForTest   = "encryption.apiserver.operator.openshift.io-kms-provider-config"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -106,6 +107,17 @@ func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupR
 	}
 	kmsConfigJSON, _ := json.Marshal(kmsConfig)
 	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = kmsConfigJSON
+
+	providerConfig := &state.KMSProviderConfig{
+		Vault: &state.VaultProviderConfig{
+			KMSPluginImage: "quay.io/org/vault-kms-plugin@sha256:abc123",
+			VaultAddress:   "https://vault.example.com:8200",
+			TransitKey:     "my-transit-key",
+			TransitMount:   "transit",
+		},
+	}
+	providerConfigJSON, _ := json.Marshal(providerConfig)
+	secret.Data[encryptionSecretKMSProviderConfigForTest] = providerConfigJSON
 	return secret
 }
 

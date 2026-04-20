@@ -44,7 +44,7 @@ func TestEncryptionConfigObserver(t *testing.T) {
 			initialResources: func() []runtime.Object {
 				ret := []runtime.Object{}
 				ec := encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
-				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec)
+				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -98,7 +98,7 @@ func TestEncryptionConfigObserver(t *testing.T) {
 			initialResources: func() []runtime.Object {
 				ret := []runtime.Object{}
 				ec := encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
-				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec)
+				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec, nil)
 				if err != nil {
 					t.Fatal(err)
 				}

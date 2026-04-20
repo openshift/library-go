@@ -27,6 +27,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -752,6 +753,12 @@ func TestStateController(t *testing.T) {
 						if err != nil {
 							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
 						}
+						// Verify KMS provider config content is propagated to the encryption-config secret
+						providerConfigKey := secrets.EncryptionSecretKMSProviderConfig + "-1"
+						expectedProviderConfig := `{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`
+						if string(actualSecret.Data[providerConfigKey]) != expectedProviderConfig {
+							ts.Errorf("unexpected kms-provider-config-1 in encryption-config secret: %s", actualSecret.Data[providerConfigKey])
+						}
 						wasSecretValidated = true
 						break
 					}
@@ -867,6 +874,7 @@ func TestStateController(t *testing.T) {
 						}},
 					}
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
 					return ecs
 				}(),
 				func() *corev1.Secret {
@@ -887,6 +895,7 @@ func TestStateController(t *testing.T) {
 					}
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
+					ecs.Data[secrets.EncryptionSecretKMSProviderConfig+"-1"] = []byte(`{"vault":{"kmsPluginImage":"quay.io/org/vault-kms-plugin@sha256:abc123","vaultAddress":"https://vault.example.com:8200","transitKey":"my-transit-key","transitMount":"transit"}}`)
 					return ecs
 				}(),
 			},
@@ -1236,4 +1245,114 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 	}
 
 	return nil
+}
+
+func TestCollectKMSProviderConfigs(t *testing.T) {
+	vaultConfig := &state.KMSProviderConfig{
+		Vault: &state.VaultProviderConfig{
+			KMSPluginImage: "quay.io/org/vault-kms-plugin@sha256:abc123",
+			VaultAddress:   "https://vault.example.com:8200",
+			TransitKey:     "my-transit-key",
+			TransitMount:   "transit",
+		},
+	}
+
+	tests := []struct {
+		name         string
+		desiredState map[schema.GroupResource]state.GroupResourceState
+		expectedKeys []string
+		expectedNil  bool
+	}{
+		{
+			name:         "empty state returns nil",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{},
+			expectedNil:  true,
+		},
+		{
+			name: "non-KMS keys are skipped",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.AESCBC},
+					},
+				},
+			},
+			expectedNil: true,
+		},
+		{
+			name: "KMS key without provider config is skipped",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.KMS, KMSProviderConfig: nil},
+					},
+				},
+			},
+			expectedNil: true,
+		},
+		{
+			name: "single KMS key with provider config is collected",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.KMS, KMSProviderConfig: vaultConfig},
+					},
+				},
+			},
+			expectedKeys: []string{"1"},
+		},
+		{
+			name: "duplicate keyID across resources is deduplicated",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.KMS, KMSProviderConfig: vaultConfig},
+					},
+				},
+				{Resource: "configmaps"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.KMS, KMSProviderConfig: vaultConfig},
+					},
+				},
+			},
+			expectedKeys: []string{"1"},
+		},
+		{
+			name: "multiple KMS keys are all collected",
+			desiredState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{
+						{Key: apiserverconfigv1.Key{Name: "2"}, Mode: state.KMS, KMSProviderConfig: vaultConfig},
+						{Key: apiserverconfigv1.Key{Name: "1"}, Mode: state.KMS, KMSProviderConfig: vaultConfig},
+					},
+				},
+			},
+			expectedKeys: []string{"1", "2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := collectKMSProviderConfigs(tt.desiredState)
+			if tt.expectedNil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", result)
+				}
+				return
+			}
+			if len(result) != len(tt.expectedKeys) {
+				t.Fatalf("expected %d keys, got %d: %v", len(tt.expectedKeys), len(result), result)
+			}
+			for _, key := range tt.expectedKeys {
+				config, ok := result[key]
+				if !ok {
+					t.Errorf("expected key %q to be present", key)
+					continue
+				}
+				if config.Vault == nil {
+					t.Errorf("expected Vault config for key %q to be non-nil", key)
+				}
+			}
+		})
+	}
 }
