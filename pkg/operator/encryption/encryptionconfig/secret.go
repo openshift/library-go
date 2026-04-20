@@ -1,6 +1,7 @@
 package encryptionconfig
 
 import (
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -10,6 +11,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -47,14 +49,14 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 	return encryptionConfig, nil
 }
 
-func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) (*corev1.Secret, error) {
+func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration, kmsProviderConfigs map[string]*state.KMSProviderConfig) (*corev1.Secret, error) {
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
 
-	return &corev1.Secret{
+	s := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -71,5 +73,15 @@ func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfig
 			EncryptionConfSecretName: rawEncryptionCfg,
 		},
 		Type: corev1.SecretTypeOpaque,
-	}, nil
+	}
+
+	for keyID, config := range kmsProviderConfigs {
+		raw, err := json.Marshal(config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal KMSProviderConfig for key %s: %w", keyID, err)
+		}
+		s.Data[fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, keyID)] = raw
+	}
+
+	return s, nil
 }

@@ -14,7 +14,7 @@ import (
 func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
 	t.Helper()
 
-	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg)
+	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
