@@ -25,40 +25,40 @@ type BasicScenario struct {
 	AssertFunc                      func(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string)
 }
 
-func TestEncryptionTypeIdentity(t *testing.T, scenario BasicScenario) {
+func TestEncryptionTypeIdentity(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeIdentity, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
-func TestEncryptionTypeUnset(t *testing.T, scenario BasicScenario) {
+func TestEncryptionTypeUnset(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, "", scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
-func TestEncryptionTypeAESCBC(t *testing.T, scenario BasicScenario) {
+func TestEncryptionTypeAESCBC(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESCBC, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeAESCBC, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeAESGCM(t *testing.T, scenario BasicScenario) {
+func TestEncryptionTypeAESGCM(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESGCM, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeAESGCM, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeKMS(t *testing.T, scenario BasicScenario) {
+func TestEncryptionTypeKMS(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeKMS, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeKMS, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionType(t *testing.T, scenario BasicScenario, provider configv1.EncryptionType) {
+func TestEncryptionType(t testing.TB, scenario BasicScenario, provider configv1.EncryptionType) {
 	switch provider {
 	case configv1.EncryptionTypeAESCBC:
 		TestEncryptionTypeAESCBC(t, scenario)
@@ -221,7 +221,7 @@ type RotationScenario struct {
 
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
-func TestEncryptionRotation(t *testing.T, scenario RotationScenario) {
+func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 	// test data
 	ns := scenario.Namespace
 	labelSelector := scenario.LabelSelector
