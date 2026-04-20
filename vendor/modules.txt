@@ -273,7 +273,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 ## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift/api v0.0.0-20260317165824-54a3998d81eb
+# github.com/openshift/api v0.0.0-20260317165824-54a3998d81eb => github.com/flavianmissi/api v0.0.0-20260417105320-4e09913afcf3
 ## explicit; go 1.25.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -1637,3 +1637,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# github.com/openshift/api => github.com/flavianmissi/api v0.0.0-20260417105320-4e09913afcf3

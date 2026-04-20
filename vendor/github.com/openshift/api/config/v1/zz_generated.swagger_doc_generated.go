@@ -2329,24 +2329,39 @@ func (Storage) SwaggerDoc() map[string]string {
 	return map_Storage
 }
 
-var map_AWSKMSConfig = map[string]string{
-	"":       "AWSKMSConfig defines the KMS config specific to AWS KMS provider",
-	"keyARN": "keyARN specifies the Amazon Resource Name (ARN) of the AWS KMS key used for encryption. The value must adhere to the format `arn:aws:kms:<region>:<account_id>:key/<key_id>`, where: - `<region>` is the AWS region consisting of lowercase letters and hyphens followed by a number. - `<account_id>` is a 12-digit numeric identifier for the AWS account. - `<key_id>` is a unique identifier for the KMS key, consisting of lowercase hexadecimal characters and hyphens.",
-	"region": "region specifies the AWS region where the KMS instance exists, and follows the format `<region-prefix>-<region-name>-<number>`, e.g.: `us-east-1`. Only lowercase letters and hyphens followed by numbers are allowed.",
-}
-
-func (AWSKMSConfig) SwaggerDoc() map[string]string {
-	return map_AWSKMSConfig
-}
-
 var map_KMSConfig = map[string]string{
-	"":     "KMSConfig defines the configuration for the KMS instance that will be used with KMSEncryptionProvider encryption",
-	"type": "type defines the kind of platform for the KMS provider. Available provider types are AWS only.",
-	"aws":  "aws defines the key config for using an AWS KMS instance for the encryption. The AWS KMS instance is managed by the user outside the purview of the control plane.",
+	"":      "KMSConfig defines the configuration for the KMS instance that will be used with KMS encryption",
+	"type":  "type defines the kind of platform for the KMS provider. Valid values are: - \"Vault\": HashiCorp Vault KMS (available when KMSEncryption feature gate is enabled)",
+	"vault": "vault defines the configuration for the Vault KMS plugin. The plugin connects to a Vault Enterprise server that is managed by the user outside the purview of the control plane. This field must be set when type is Vault, and must be unset otherwise.",
 }
 
 func (KMSConfig) SwaggerDoc() map[string]string {
 	return map_KMSConfig
+}
+
+var map_VaultKMSConfig = map[string]string{
+	"":               "VaultKMSConfig defines the KMS plugin configuration specific to Vault KMS",
+	"kmsPluginImage": "kmsPluginImage specifies the container image for the HashiCorp Vault KMS plugin. The image must be specified using a digest reference (not a tag).\n\nConsult the OpenShift documentation for compatible plugin versions with your cluster version, then obtain the image digest for that version from HashiCorp's container registry.\n\nFor disconnected environments, mirror the plugin image to an accessible registry and reference the mirrored location with its digest.\n\nThe minimum length is 75 characters (e.g., \"r/i@sha256:\" + 64 hex characters). The maximum length is 512 characters to accommodate long registry names and repository paths.",
+	"vaultAddress":   "vaultAddress specifies the address of the HashiCorp Vault instance. The value must be a valid URL with the https scheme and can be up to 512 characters. Example: https://vault.example.com:8200",
+	"vaultNamespace": "vaultNamespace specifies the Vault namespace where the Transit secrets engine is mounted. This is only applicable for Vault Enterprise installations. The value can be between 1 and 4096 characters. When this field is not set, no namespace is used.",
+	"tls":            "tls contains the TLS configuration for connecting to the Vault server. When this field is not set, system default TLS settings are used.",
+	"approleSecret":  "approleSecret references a secret in the openshift-config namespace containing the AppRole credentials used to authenticate with Vault. The secret must contain the following keys:\n  - \"roleID\": The AppRole Role ID\n  - \"secretID\": The AppRole Secret ID\n\nThe namespace for the secret referenced by approleSecret is openshift-config.",
+	"transitMount":   "transitMount specifies the mount path of the Vault Transit engine. The value can be between 1 and 1024 characters. When this field is not set, it defaults to \"transit\".",
+	"transitKey":     "transitKey specifies the name of the encryption key in Vault's Transit engine. This key is used to encrypt and decrypt data. The value must be between 1 and 512 characters.",
+}
+
+func (VaultKMSConfig) SwaggerDoc() map[string]string {
+	return map_VaultKMSConfig
+}
+
+var map_VaultTLSConfig = map[string]string{
+	"":           "VaultTLSConfig contains TLS configuration for connecting to Vault.",
+	"caBundle":   "caBundle references a ConfigMap in the openshift-config namespace containing the CA certificate bundle used to verify the TLS connection to the Vault server. The ConfigMap must contain the CA bundle in the key \"ca-bundle.crt\". When this field is not set, the system's trusted CA certificates are used.\n\nThe namespace for the ConfigMap is openshift-config.\n\nExample ConfigMap:\n  apiVersion: v1\n  kind: ConfigMap\n  metadata:\n    name: vault-ca-bundle\n    namespace: openshift-config\n  data:\n    ca-bundle.crt: |",
+	"serverName": "serverName specifies the Server Name Indication (SNI) to use when connecting to Vault via TLS. This is useful when the Vault server's hostname doesn't match its TLS certificate. When this field is not set, the hostname from vaultAddress is used for SNI.",
+}
+
+func (VaultTLSConfig) SwaggerDoc() map[string]string {
+	return map_VaultTLSConfig
 }
 
 var map_ClusterNetworkEntry = map[string]string{
