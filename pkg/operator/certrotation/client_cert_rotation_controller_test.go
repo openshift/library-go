@@ -300,7 +300,7 @@ func TestCertRotationController_SyncWorker(t *testing.T) {
 			}
 
 			// Run SyncWorker
-			ctx := context.Background()
+			ctx := t.Context()
 			err := controller.SyncWorker(ctx)
 
 			// Check error
