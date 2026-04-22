@@ -35,6 +35,10 @@ type kmsPreflightController struct {
 // the EncryptionKMSPreflightSucceeded condition (same hash in the message).
 // The key-controller waits for the two hashes to match before creating a key.
 //
+// This is the same pattern used by the revision and installer controllers:
+// the revision controller writes LatestAvailableRevision, the installer
+// controller reads it and acts.
+//
 // Without this protocol the following race can occur:
 //  1. Preflight passes for config A, hash A written to operator status.
 //  2. Key-controller reads hash A, starts creating a key for config A.
@@ -44,10 +48,37 @@ type kmsPreflightController struct {
 //     runs preflight for B, overwrites status with hash B.
 //  5. The key created in step 2 was for config A but status now says B.
 //
-// Letting the key-controller own the request (EncryptionKMSPreflightRequired)
-// and this controller own the response (EncryptionKMSPreflightSucceeded) solves
-// this. If the config changes mid-flight the key-controller posts a new request
-// hash and the preflight controller sees the mismatch and waits.
+// Letting the key-controller own EncryptionKMSPreflightRequired and this
+// controller own EncryptionKMSPreflightSucceeded solves this. If the config
+// changes mid-flight the key-controller posts a new hash and the preflight
+// controller sees the mismatch and waits.
+//
+// Example 1: config changes before key is created
+//  1. User creates KMS config A.
+//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
+//  3. Preflight controller sees required=A, starts checking A.
+//  4. User changes config to A2 (minor variation, different hash).
+//  5. Key-controller computes hash A2, writes EncryptionKMSPreflightRequired=A2.
+//  6. Preflight controller sees required=A2, starts checking A2.
+//  7. Key-controller does not create a key until succeeded=A2.
+//
+// Example 2: config changes after key is created
+//  1. User creates KMS config A.
+//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
+//  3. Preflight controller checks A, succeeds, writes EncryptionKMSPreflightSucceeded=A.
+//  4. Key-controller sees required=A matches succeeded=A, creates key for A.
+//  5. User changes config to A2 (or B).
+//  6. Key-controller waits until the key for A completes the full cycle
+//     (read, write, migrated) before creating a new key. No preflight done
+//     at this stage.
+//
+// Preflight pod:
+//
+// The pod uses readiness gates to post check results back to the controller.
+// The controller creates a ServiceAccount, Role and RoleBinding so that the pod
+// can update its own status. These resources are cleaned up when the pod is removed.
+// The controller reads these enhanced pod statuses to update its own operator
+// status, which is propagated to end users.
 //
 // After a successful check the preflight pod is kept for a short period (e.g. 1h)
 // so that its logs can be inspected, then cleaned up by a subsequent sync.
