@@ -25,7 +25,32 @@ type kmsPreflightController struct {
 	preconditionsFulfilledFn preconditionsFulfilled
 }
 
-// TODO: document NewKMSPreflightController
+// NewKMSPreflightController validates KMS configuration before a key is created.
+//
+// Coordination with the key-controller:
+//
+// The key-controller writes a hash of the current KMS config to operator status
+// as the EncryptionKMSPreflightRequired condition (hash in the message).
+// This controller reads that hash, runs preflight checks, and on success sets
+// the EncryptionKMSPreflightSucceeded condition (same hash in the message).
+// The key-controller waits for the two hashes to match before creating a key.
+//
+// Without this protocol the following race can occur:
+//  1. Preflight passes for config A, hash A written to operator status.
+//  2. Key-controller reads hash A, starts creating a key for config A.
+//  3. Config changes to B.
+//  4. Preflight controller syncs, sees config B, does not yet see the key
+//     for A (key-controller is in the process of creating the key),
+//     runs preflight for B, overwrites status with hash B.
+//  5. The key created in step 2 was for config A but status now says B.
+//
+// Letting the key-controller own the request (EncryptionKMSPreflightRequired)
+// and this controller own the response (EncryptionKMSPreflightSucceeded) solves
+// this. If the config changes mid-flight the key-controller posts a new request
+// hash and the preflight controller sees the mismatch and waits.
+//
+// After a successful check the preflight pod is kept for a short period (e.g. 1h)
+// so that its logs can be inspected, then cleaned up by a subsequent sync.
 func NewKMSPreflightController(
 	instanceName string,
 	provider Provider,
@@ -55,7 +80,7 @@ func NewKMSPreflightController(
 }
 
 func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
-	degradedCondition := applyoperatorv1.OperatorCondition().WithType("KMSPreflightControllerDegraded")
+	degradedCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerDegraded")
 
 	defer func() {
 		if degradedCondition == nil {
