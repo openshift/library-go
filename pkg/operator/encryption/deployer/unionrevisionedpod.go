@@ -61,7 +61,7 @@ func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx conte
 			return nil, false, err
 		}
 
-		if !reflect.DeepEqual(goldenEncryptionCfg.Resources, currentEncryptionCfg.Resources) {
+		if !reflect.DeepEqual(goldenEncryptionCfg.Encryption.Resources, currentEncryptionCfg.Encryption.Resources) {
 			return nil, false, nil
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -35,7 +34,7 @@ func GetEncryptionConfigAndState(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
-) (current *apiserverconfigv1.EncryptionConfiguration, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
+) (current *encryptionconfig.Config, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
 	// get current config
 	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret(ctx)
 	if err != nil {
@@ -44,9 +43,9 @@ func GetEncryptionConfigAndState(
 	if !converged {
 		return nil, nil, nil, "APIServerRevisionNotConverged", nil
 	}
-	var encryptionConfig *apiserverconfigv1.EncryptionConfiguration
+	var secretData *encryptionconfig.Config
 	if encryptionConfigSecret != nil {
-		encryptionConfig, err = encryptionconfig.FromSecret(encryptionConfigSecret)
+		secretData, err = encryptionconfig.FromSecret(encryptionConfigSecret)
 		if err != nil {
 			return nil, nil, nil, "", fmt.Errorf("invalid encryption config %s/%s: %v", encryptionConfigSecret.Namespace, encryptionConfigSecret.Name, err)
 		}
@@ -57,9 +56,9 @@ func GetEncryptionConfigAndState(
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, encryptionSecrets, encryptedGRs)
+	desiredEncryptionState := getDesiredEncryptionState(secretData, encryptionSecrets, encryptedGRs)
 
-	return encryptionConfig, desiredEncryptionState, encryptionSecrets, "", nil
+	return secretData, desiredEncryptionState, encryptionSecrets, "", nil
 }
 
 // getDesiredEncryptionState returns the desired state of encryption for all resources.
@@ -74,11 +73,11 @@ func GetEncryptionConfigAndState(
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
+func getDesiredEncryptionState(oldSecretData *encryptionconfig.Config, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
 	//
 	// STEP 0: start with old encryption config, and alter it towards the desired state in the following STEPs.
 	//
-	desiredEncryptionState, backedKeys := encryptionconfig.ToEncryptionState(oldEncryptionConfig, encryptionSecrets)
+	desiredEncryptionState, backedKeys := encryptionconfig.ToEncryptionState(oldSecretData, encryptionSecrets)
 	if desiredEncryptionState == nil {
 		desiredEncryptionState = make(map[schema.GroupResource]state.GroupResourceState, len(toBeEncryptedGRs))
 	}
@@ -129,7 +128,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// TODO: allow removing resources (e.g. on downgrades) and transition back to identity.
 	allReadSecretsAsExpected := true
 	currentlyEncryptedGRs := oldEncryptedGRs
-	if oldEncryptionConfig == nil {
+	if oldSecretData == nil {
 		// if the config is not there, we assume it was deleted. Assume worst case when finding
 		// potentially persisted data keys.
 		currentlyEncryptedGRs = toBeEncryptedGRs

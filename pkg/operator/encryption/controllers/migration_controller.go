@@ -182,10 +182,10 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		return nil, err
 	}
 	currentState, _ := encryptionconfig.ToEncryptionState(currentEncryptionConfig, encryptionSecrets)
-	desiredEncryptedConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	desiredEncryptedSecretData := encryptionconfig.FromEncryptionState(desiredEncryptionState)
 
 	// no storage migration until config is stable
-	if !reflect.DeepEqual(currentEncryptionConfig.Resources, desiredEncryptedConfig.Resources) {
+	if !reflect.DeepEqual(currentEncryptionConfig.Encryption.Resources, desiredEncryptedSecretData.Encryption.Resources) {
 		// stop all running migrations
 		for gr := range currentState {
 			if err := c.migrator.PruneMigration(gr); err != nil {
