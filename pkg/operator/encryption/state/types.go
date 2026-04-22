@@ -50,6 +50,12 @@ type KMSConfig struct {
 	EncryptionConfig *apiserverconfigv1.KMSConfiguration
 }
 
+// EncryptionSecretData stores the EncryptionConfiguration and per-key KMS configurations keyed by keyID.
+type EncryptionSecretData struct {
+	EncryptionConfig *apiserverconfigv1.EncryptionConfiguration
+	KMSConfig        map[string]*KMSConfig
+}
+
 type MigrationState struct {
 	// the timestamp fo the last migration
 	Timestamp time.Time

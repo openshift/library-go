@@ -166,7 +166,7 @@ func TestPruneController(t *testing.T) {
 						},
 					}, additionaConfigReadKeys...),
 				}})
-				ec.APIVersion = corev1.SchemeGroupVersion.String()
+				ec.EncryptionConfig.APIVersion = corev1.SchemeGroupVersion.String()
 				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)

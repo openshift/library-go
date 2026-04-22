@@ -19,11 +19,18 @@ import (
 
 func TestGetDesiredEncryptionState(t *testing.T) {
 	type args struct {
-		oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration
+		oldEncryptionConfig *state.EncryptionSecretData
 		targetNamespace     string
 		encryptionSecrets   []*corev1.Secret
 		toBeEncryptedGRs    []schema.GroupResource
 	}
+	toSecretData := func(ec *apiserverconfigv1.EncryptionConfiguration) *state.EncryptionSecretData {
+		if ec == nil {
+			return nil
+		}
+		return &state.EncryptionSecretData{EncryptionConfig: ec, KMSConfig: make(map[string]*state.KMSConfig)}
+	}
+
 	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState)
 
 	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState) {
@@ -41,15 +48,19 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			}
 			expected := expected.DeepCopy()
 			expected.TypeMeta = metav1.TypeMeta{}
-			encryptionConfig := encryptionconfig.FromEncryptionState(state)
-			if !reflect.DeepEqual(expected, encryptionConfig) {
-				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, encryptionConfig))
+			secretData := encryptionconfig.FromEncryptionState(state)
+			if !reflect.DeepEqual(expected, secretData.EncryptionConfig) {
+				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, secretData.EncryptionConfig))
 			}
 		}
 	}
 
 	outputMatchingInputConfig := func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState) {
-		equalsConfig(args.oldEncryptionConfig)(ts, args, state)
+		var ec *apiserverconfigv1.EncryptionConfiguration
+		if args.oldEncryptionConfig != nil {
+			ec = args.oldEncryptionConfig.EncryptionConfig
+		}
+		equalsConfig(ec)(ts, args, state)
 	}
 
 	tests := []struct {
@@ -95,7 +106,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with write keys, no secrets => nothing done, config unchanged",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -121,7 +132,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
@@ -156,7 +167,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with only one resource => 2nd resource is added",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -170,7 +181,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
@@ -211,7 +222,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with two resources, GRs reduced => only one resource stays",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -237,7 +248,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
@@ -393,7 +404,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists, write key secret is missing => no-op",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
 							Resources: []string{"configmaps"},
@@ -449,7 +460,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 								Identity: &apiserverconfigv1.IdentityConfiguration{},
 							}},
 						},
-					}},
+					}}),
 				"kms",
 				[]*corev1.Secret{
 					// missing: encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
@@ -538,7 +549,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists without identity => identity is appended",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
 							Resources: []string{"configmaps"},
@@ -562,7 +573,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 								},
 							}},
 						},
-					}},
+					}}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
@@ -603,7 +614,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists, new key secret => new key added as read key",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -629,7 +640,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
@@ -685,7 +696,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists, read keys are consistent => new write key is set",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -725,7 +736,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
@@ -781,7 +792,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists, read+write keys are consistent, not migrated => nothing changes",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -821,7 +832,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
@@ -877,7 +888,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists, read+write keys are consistent, migrated => old read-keys are pruned from config",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -931,7 +942,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
@@ -1015,7 +1026,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with AESCBC, KMS secret added => KMS added as read key (migration scenario)",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1029,7 +1040,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
@@ -1065,7 +1076,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with KMS, read keys are consistent => new write key is set",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1086,7 +1097,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
@@ -1122,7 +1133,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists with KMS, read+write keys consistent, not migrated => nothing changes",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1143,7 +1154,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
@@ -1177,7 +1188,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"KMS has converged after migrating from AESCBC => nothing changes",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1198,7 +1209,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("21ea7c91419a68fd1224f88d50316b4e")),
@@ -1232,7 +1243,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"AESCBC has converged after migrating back from KMS => nothing changes",
 			args{
-				&apiserverconfigv1.EncryptionConfiguration{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1253,7 +1264,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 							Identity: &apiserverconfigv1.IdentityConfiguration{},
 						}},
 					}},
-				},
+				}),
 				"kms",
 				[]*corev1.Secret{
 					encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),

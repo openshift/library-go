@@ -13,6 +13,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
@@ -41,7 +42,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 				newFakeDeployer(createDefaultSecretWithEncryptionConfig(t), true, nil),
 				newFakeDeployer(func() *corev1.Secret {
 					ec := createDefaultEncryptionConfig()
-					ec.Resources = append(ec.Resources, apiserverconfigv1.ResourceConfiguration{Resources: []string{"pods"}})
+					ec.EncryptionConfig.Resources = append(ec.EncryptionConfig.Resources, apiserverconfigv1.ResourceConfiguration{Resources: []string{"pods"}})
 					return encryptionCfgToSecret(t, ec)
 				}(), true, nil),
 			},
@@ -106,7 +107,7 @@ func createDefaultSecretWithEncryptionConfig(t *testing.T) *corev1.Secret {
 	return encryptionCfgToSecret(t, ec)
 }
 
-func encryptionCfgToSecret(t *testing.T, ec *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
+func encryptionCfgToSecret(t *testing.T, ec *state.EncryptionSecretData) *corev1.Secret {
 	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +115,7 @@ func encryptionCfgToSecret(t *testing.T, ec *apiserverconfigv1.EncryptionConfigu
 	return s
 }
 
-func createDefaultEncryptionConfig() *apiserverconfigv1.EncryptionConfiguration {
+func createDefaultEncryptionConfig() *state.EncryptionSecretData {
 	keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
 		Resource: "secrets",
 		Keys: []apiserverconfigv1.Key{

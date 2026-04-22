@@ -28,7 +28,7 @@ const EncryptionConfSecretName = "encryption-config"
 // EncryptionConfSecretKey is the map data key used to store the raw bytes of the final encryption config.
 const EncryptionConfSecretKey = "encryption-config"
 
-func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.EncryptionConfiguration, error) {
+func FromSecret(encryptionConfigSecret *corev1.Secret) (*state.EncryptionSecretData, error) {
 	data, ok := encryptionConfigSecret.Data[EncryptionConfSecretKey]
 	if !ok {
 		return nil, nil
@@ -44,12 +44,19 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*apiserverconfigv1.Encry
 	if !ok {
 		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
 	}
-	return encryptionConfig, nil
+	return &state.EncryptionSecretData{
+		EncryptionConfig: encryptionConfig,
+		KMSConfig:        kmsConfigsFromEncryptionConfig(encryptionConfig),
+	}, nil
 }
 
-func ToSecret(ns, name string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) (*corev1.Secret, error) {
+func ToSecret(ns, name string, secretData *state.EncryptionSecretData) (*corev1.Secret, error) {
+	if secretData == nil || secretData.EncryptionConfig == nil {
+		return nil, fmt.Errorf("secret %s/%s has no encryption config", ns, name)
+	}
+
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
+	rawEncryptionCfg, err := runtime.Encode(encoder, secretData.EncryptionConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}

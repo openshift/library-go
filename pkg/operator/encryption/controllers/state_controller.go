@@ -7,7 +7,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
 
@@ -144,8 +143,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		return nil
 	}
 
-	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
+	desiredSecretData := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
 	if err != nil {
 		return err
 	}
@@ -161,8 +160,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *state.EncryptionSecretData, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err
 	}

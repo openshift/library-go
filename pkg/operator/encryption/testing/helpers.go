@@ -174,7 +174,7 @@ func actionStrings(actions []clientgotesting.Action) []string {
 	return res
 }
 
-func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
+func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *state.EncryptionSecretData {
 	keysResources := []EncryptionKeysResourceTuple{}
 	for _, resource := range resources {
 		keysResources = append(keysResources, EncryptionKeysResourceTuple{
@@ -188,7 +188,7 @@ func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 	return CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources)
 }
 
-func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKeysResourceTuple) *state.EncryptionSecretData {
 	ec := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
@@ -197,6 +197,7 @@ func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKey
 		Resources: []apiserverconfigv1.ResourceConfiguration{},
 	}
 
+	kmsConfigs := make(map[string]*state.KMSConfig)
 	for _, keysResource := range keysResources {
 		rc := apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{keysResource.Resource},
@@ -211,16 +212,21 @@ func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKey
 			if len(keysResource.Modes) == len(keysResource.Keys) {
 				desiredMode = keysResource.Modes[i]
 			}
-			rc.Providers = append(rc.Providers, *createProviderCfg(desiredMode, keysResource.Resource, key))
+			p := createProviderCfg(desiredMode, keysResource.Resource, key)
+			rc.Providers = append(rc.Providers, *p)
+			if p.KMS != nil {
+				kmsConfigs[key.Name] = &state.KMSConfig{EncryptionConfig: p.KMS}
+			}
 		}
 		ec.Resources = append(ec.Resources, rc)
 	}
 
-	return ec
+	return &state.EncryptionSecretData{EncryptionConfig: ec, KMSConfig: kmsConfigs}
 }
 
-func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *state.EncryptionSecretData {
 	configurations := []apiserverconfigv1.ResourceConfiguration{}
+	kmsConfigs := make(map[string]*state.KMSConfig)
 	for _, keysResource := range keysResources {
 		// TODO allow secretbox -> not sure if EncryptionKeysResourceTuple makes sense
 		providers := []apiserverconfigv1.ProviderConfiguration{}
@@ -229,7 +235,11 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 			if len(keysResource.Modes) == len(keysResource.Keys) {
 				desiredMode = keysResource.Modes[i]
 			}
-			providers = append(providers, *createProviderCfg(desiredMode, keysResource.Resource, key))
+			p := createProviderCfg(desiredMode, keysResource.Resource, key)
+			providers = append(providers, *p)
+			if p.KMS != nil {
+				kmsConfigs[key.Name] = &state.KMSConfig{EncryptionConfig: p.KMS}
+			}
 		}
 		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 			Identity: &apiserverconfigv1.IdentityConfiguration{},
@@ -241,12 +251,15 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 		})
 	}
 
-	return &apiserverconfigv1.EncryptionConfiguration{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "EncryptionConfiguration",
-			APIVersion: "apiserver.config.k8s.io/v1",
+	return &state.EncryptionSecretData{
+		EncryptionConfig: &apiserverconfigv1.EncryptionConfiguration{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "EncryptionConfiguration",
+				APIVersion: "apiserver.config.k8s.io/v1",
+			},
+			Resources: configurations,
 		},
-		Resources: configurations,
+		KMSConfig: kmsConfigs,
 	}
 }
 

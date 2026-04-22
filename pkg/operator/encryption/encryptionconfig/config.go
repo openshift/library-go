@@ -20,15 +20,21 @@ var (
 	emptyStaticKey = base64.StdEncoding.EncodeToString(crypto.NewEmptyKey())
 )
 
-// FromEncryptionState converts state to config.
-func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *apiserverconfigv1.EncryptionConfiguration {
+// FromEncryptionState converts encryption state to state.EncryptionSecretData.
+func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *state.EncryptionSecretData {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
+	kmsConfigs := make(map[string]*state.KMSConfig)
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
 			Providers: stateToProviders(gr.Resource, grKeys),
 		})
+		for _, key := range grKeys.ReadKeys {
+			if key.KMS != nil {
+				kmsConfigs[key.Key.Name] = key.KMS
+			}
+		}
 	}
 
 	// make sure our output is stable
@@ -36,7 +42,10 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 		return resourceConfigs[i].Resources[0] < resourceConfigs[j].Resources[0] // each resource has its own keys
 	})
 
-	return &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}
+	return &state.EncryptionSecretData{
+		EncryptionConfig: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		KMSConfig:        kmsConfigs,
+	}
 }
 
 // ToEncryptionState converts config to state.
@@ -50,7 +59,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 //   - each resource has a distinct configuration with zero or more key based providers and the identity provider.
 //   - the last providers might be of type aesgcm. Then it carries the names of identity keys, recent first.
 //     We never use aesgcm as a real key because it is unsafe.
-func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
+func ToEncryptionState(secretData *state.EncryptionSecretData, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
 	backedKeys := make([]state.KeyState, 0, len(keySecrets))
 	for _, s := range keySecrets {
 		km, err := secrets.ToKeyState(s)
@@ -63,12 +72,12 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
-	if encryptionConfig == nil {
+	if secretData == nil || secretData.EncryptionConfig == nil {
 		return nil, backedKeys
 	}
 
 	out := map[schema.GroupResource]state.GroupResourceState{}
-	for _, resourceConfig := range encryptionConfig.Resources {
+	for _, resourceConfig := range secretData.EncryptionConfig.Resources {
 		// resources should be a single group resource
 		if len(resourceConfig.Resources) != 1 {
 			klog.Warningf("skipping invalid encryption config for resource %s", resourceConfig.Resources)
@@ -244,6 +253,27 @@ func createKMSProviderName(keyID, resource string) string {
 	// However, this is an upstream constraint that every provider name must be unique.
 	// To maintain uniqueness while still allowing access to the keyID, we generate provider name in this format.
 	return fmt.Sprintf("%s_%s", keyID, resource)
+}
+
+func kmsConfigsFromEncryptionConfig(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[string]*state.KMSConfig {
+	kmsConfigs := make(map[string]*state.KMSConfig)
+	for _, resourceConfig := range encryptionConfig.Resources {
+		for _, provider := range resourceConfig.Providers {
+			if provider.KMS == nil {
+				continue
+			}
+			keyID, err := getKeyIDFromProviderName(provider.KMS.Name)
+			if err != nil {
+				continue
+			}
+			if _, exists := kmsConfigs[keyID]; !exists {
+				kmsConfigs[keyID] = &state.KMSConfig{
+					EncryptionConfig: provider.KMS,
+				}
+			}
+		}
+	}
+	return kmsConfigs
 }
 
 func getKeyIDFromProviderName(providerName string) (string, error) {
