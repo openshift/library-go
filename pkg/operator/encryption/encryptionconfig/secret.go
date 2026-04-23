@@ -49,13 +49,13 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	}, nil
 }
 
-func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
-	if secretData == nil || secretData.Encryption == nil {
+func ToSecret(ns, name string, encryptionConfig *Config) (*corev1.Secret, error) {
+	if encryptionConfig == nil || encryptionConfig.Encryption == nil {
 		return nil, fmt.Errorf("secret %s/%s has no encryption config", ns, name)
 	}
 
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-	rawEncryptionCfg, err := runtime.Encode(encoder, secretData.Encryption)
+	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionConfig.Encryption)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}

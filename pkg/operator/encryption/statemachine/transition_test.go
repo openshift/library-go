@@ -13,6 +13,7 @@ import (
 	"k8s.io/utils/diff"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
@@ -96,7 +97,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists without write keys, no secrets => nothing done, config unchanged",
 			args{
-				encryptionconfig.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
+				encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},

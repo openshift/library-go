@@ -23,7 +23,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
@@ -158,7 +158,7 @@ func TestPruneController(t *testing.T) {
 						Secret: rk.Key.Secret,
 					})
 				}
-				ec := encryptionconfig.CreateEncryptionCfgWithWriteKey([]encryptionconfig.EncryptionKeysResourceTuple{{
+				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{{
 					Resource: "secrets",
 					Keys: append([]apiserverconfigv1.Key{
 						{

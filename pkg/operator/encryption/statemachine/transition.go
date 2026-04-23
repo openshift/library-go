@@ -43,9 +43,9 @@ func GetEncryptionConfigAndState(
 	if !converged {
 		return nil, nil, nil, "APIServerRevisionNotConverged", nil
 	}
-	var secretData *encryptionconfig.Config
+	var encryptionConfig *encryptionconfig.Config
 	if encryptionConfigSecret != nil {
-		secretData, err = encryptionconfig.FromSecret(encryptionConfigSecret)
+		encryptionConfig, err = encryptionconfig.FromSecret(encryptionConfigSecret)
 		if err != nil {
 			return nil, nil, nil, "", fmt.Errorf("invalid encryption config %s/%s: %v", encryptionConfigSecret.Namespace, encryptionConfigSecret.Name, err)
 		}
@@ -56,9 +56,9 @@ func GetEncryptionConfigAndState(
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	desiredEncryptionState := getDesiredEncryptionState(secretData, encryptionSecrets, encryptedGRs)
+	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, encryptionSecrets, encryptedGRs)
 
-	return secretData, desiredEncryptionState, encryptionSecrets, "", nil
+	return encryptionConfig, desiredEncryptionState, encryptionSecrets, "", nil
 }
 
 // getDesiredEncryptionState returns the desired state of encryption for all resources.
@@ -73,11 +73,11 @@ func GetEncryptionConfigAndState(
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-func getDesiredEncryptionState(oldSecretData *encryptionconfig.Config, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
+func getDesiredEncryptionState(oldEncryptionConfig *encryptionconfig.Config, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
 	//
 	// STEP 0: start with old encryption config, and alter it towards the desired state in the following STEPs.
 	//
-	desiredEncryptionState, backedKeys := encryptionconfig.ToEncryptionState(oldSecretData, encryptionSecrets)
+	desiredEncryptionState, backedKeys := encryptionconfig.ToEncryptionState(oldEncryptionConfig, encryptionSecrets)
 	if desiredEncryptionState == nil {
 		desiredEncryptionState = make(map[schema.GroupResource]state.GroupResourceState, len(toBeEncryptedGRs))
 	}
@@ -128,7 +128,7 @@ func getDesiredEncryptionState(oldSecretData *encryptionconfig.Config, encryptio
 	// TODO: allow removing resources (e.g. on downgrades) and transition back to identity.
 	allReadSecretsAsExpected := true
 	currentlyEncryptedGRs := oldEncryptedGRs
-	if oldSecretData == nil {
+	if oldEncryptionConfig == nil {
 		// if the config is not there, we assume it was deleted. Assume worst case when finding
 		// potentially persisted data keys.
 		currentlyEncryptedGRs = toBeEncryptedGRs

@@ -1,4 +1,4 @@
-package encryptionconfig
+package testing
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 )
 
 type EncryptionKeysResourceTuple struct {
@@ -16,7 +18,7 @@ type EncryptionKeysResourceTuple struct {
 	Modes []string
 }
 
-func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *Config {
+func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *encryptionconfig.Config {
 	keysResources := []EncryptionKeysResourceTuple{}
 	for _, resource := range resources {
 		keysResources = append(keysResources, EncryptionKeysResourceTuple{
@@ -30,7 +32,7 @@ func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 	return CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources)
 }
 
-func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKeysResourceTuple) *Config {
+func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKeysResourceTuple) *encryptionconfig.Config {
 	ec := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
@@ -58,10 +60,10 @@ func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKey
 		ec.Resources = append(ec.Resources, rc)
 	}
 
-	return &Config{Encryption: ec}
+	return &encryptionconfig.Config{Encryption: ec}
 }
 
-func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *Config {
+func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *encryptionconfig.Config {
 	configurations := []apiserverconfigv1.ResourceConfiguration{}
 	for _, keysResource := range keysResources {
 		providers := []apiserverconfigv1.ProviderConfiguration{}
@@ -82,7 +84,7 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 		})
 	}
 
-	return &Config{
+	return &encryptionconfig.Config{
 		Encryption: &apiserverconfigv1.EncryptionConfiguration{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "EncryptionConfiguration",

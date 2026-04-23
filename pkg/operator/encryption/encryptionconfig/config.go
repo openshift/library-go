@@ -59,7 +59,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 //   - each resource has a distinct configuration with zero or more key based providers and the identity provider.
 //   - the last providers might be of type aesgcm. Then it carries the names of identity keys, recent first.
 //     We never use aesgcm as a real key because it is unsafe.
-func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
+func ToEncryptionState(encryptionConfig *Config, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
 	backedKeys := make([]state.KeyState, 0, len(keySecrets))
 	for _, s := range keySecrets {
 		km, err := secrets.ToKeyState(s)
@@ -72,12 +72,12 @@ func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[sch
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
-	if secretData == nil || secretData.Encryption == nil {
+	if encryptionConfig == nil || encryptionConfig.Encryption == nil {
 		return nil, backedKeys
 	}
 
 	out := map[schema.GroupResource]state.GroupResourceState{}
-	for _, resourceConfig := range secretData.Encryption.Resources {
+	for _, resourceConfig := range encryptionConfig.Encryption.Resources {
 		// resources should be a single group resource
 		if len(resourceConfig.Resources) != 1 {
 			klog.Warningf("skipping invalid encryption config for resource %s", resourceConfig.Resources)

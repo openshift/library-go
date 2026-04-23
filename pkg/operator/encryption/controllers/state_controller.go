@@ -143,8 +143,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		return nil
 	}
 
-	desiredSecretData := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
+	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
 	if err != nil {
 		return err
 	}
@@ -160,8 +160,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptionconfig.Config, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), secretData)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *encryptionconfig.Config, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig)
 	if err != nil {
 		return false, err
 	}

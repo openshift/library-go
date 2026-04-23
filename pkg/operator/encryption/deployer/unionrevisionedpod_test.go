@@ -13,6 +13,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 )
 
@@ -114,7 +115,7 @@ func encryptionCfgToSecret(t *testing.T, ec *encryptionconfig.Config) *corev1.Se
 }
 
 func createDefaultEncryptionConfig() *encryptionconfig.Config {
-	keysResForSecrets := encryptionconfig.EncryptionKeysResourceTuple{
+	keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
 		Resource: "secrets",
 		Keys: []apiserverconfigv1.Key{
 			{
@@ -123,7 +124,7 @@ func createDefaultEncryptionConfig() *encryptionconfig.Config {
 			},
 		},
 	}
-	keysResForConfigMaps := encryptionconfig.EncryptionKeysResourceTuple{
+	keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
 		Resource: "configmaps",
 		Keys: []apiserverconfigv1.Key{
 			{
@@ -133,7 +134,7 @@ func createDefaultEncryptionConfig() *encryptionconfig.Config {
 		},
 	}
 
-	return encryptionconfig.CreateEncryptionCfgWithWriteKey([]encryptionconfig.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+	return encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 }
 
 type fakeDeployer struct {
