@@ -63,13 +63,12 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
 		key.Mode = keyMode
 	case state.KMS:
-		key.KMS = &state.KMSConfig{}
 		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
 			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
 			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
-			key.KMS.EncryptionConfig = kmsConfiguration
+			key.KMSEncryptionConfig = kmsConfiguration
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
 			// encryption mode.
@@ -127,8 +126,8 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
 
-	if ks.KMS != nil && ks.KMS.EncryptionConfig != nil {
-		kmsEncCfgJSON, err := json.Marshal(ks.KMS.EncryptionConfig)
+	if ks.KMSEncryptionConfig != nil {
+		kmsEncCfgJSON, err := json.Marshal(ks.KMSEncryptionConfig)
 		if err != nil {
 			return nil, err
 		}
