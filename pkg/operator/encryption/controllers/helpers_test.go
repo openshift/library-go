@@ -8,10 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
-func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *state.EncryptionSecretData) *corev1.Secret {
+func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *encryptionconfig.Config) *corev1.Secret {
 	t.Helper()
 
 	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg)

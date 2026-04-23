@@ -19,16 +19,16 @@ import (
 
 func TestGetDesiredEncryptionState(t *testing.T) {
 	type args struct {
-		oldEncryptionConfig *state.EncryptionSecretData
+		oldEncryptionConfig *encryptionconfig.Config
 		targetNamespace     string
 		encryptionSecrets   []*corev1.Secret
 		toBeEncryptedGRs    []schema.GroupResource
 	}
-	toSecretData := func(ec *apiserverconfigv1.EncryptionConfiguration) *state.EncryptionSecretData {
+	toSecretData := func(ec *apiserverconfigv1.EncryptionConfiguration) *encryptionconfig.Config {
 		if ec == nil {
 			return nil
 		}
-		return &state.EncryptionSecretData{EncryptionConfig: ec, KMSConfig: make(map[string]*state.KMSConfig)}
+		return &encryptionconfig.Config{Encryption: ec}
 	}
 
 	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState)
@@ -49,8 +49,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			expected := expected.DeepCopy()
 			expected.TypeMeta = metav1.TypeMeta{}
 			secretData := encryptionconfig.FromEncryptionState(state)
-			if !reflect.DeepEqual(expected, secretData.EncryptionConfig) {
-				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, secretData.EncryptionConfig))
+			if !reflect.DeepEqual(expected, secretData.Encryption) {
+				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, secretData.Encryption))
 			}
 		}
 	}
@@ -58,7 +58,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 	outputMatchingInputConfig := func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState) {
 		var ec *apiserverconfigv1.EncryptionConfiguration
 		if args.oldEncryptionConfig != nil {
-			ec = args.oldEncryptionConfig.EncryptionConfig
+			ec = args.oldEncryptionConfig.Encryption
 		}
 		equalsConfig(ec)(ts, args, state)
 	}
@@ -96,7 +96,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists without write keys, no secrets => nothing done, config unchanged",
 			args{
-				encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
+				encryptionconfig.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},

@@ -27,6 +27,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -221,7 +222,7 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("51def964fb967f5d7c44a2af8dab6865")),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptionconfig.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -235,7 +236,7 @@ func TestKeyController(t *testing.T) {
 						},
 					}
 
-					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysResForSecrets})
+					ec := encryptionconfig.CreateEncryptionCfgWithWriteKey([]encryptionconfig.EncryptionKeysResourceTuple{keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
@@ -743,7 +744,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, _, err := target.getCurrentModeAndExternalReason(context.TODO())
+			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {

@@ -160,7 +160,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *state.EncryptionSecretData, recorder events.Recorder) (bool, error) {
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptionconfig.Config, recorder events.Recorder) (bool, error) {
 	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err

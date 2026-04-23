@@ -16,25 +16,26 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
+// Config stores the EncryptionConfiguration and additional operator-managed
+// encryption state that doesn't fit into the upstream type.
+type Config struct {
+	Encryption *apiserverconfigv1.EncryptionConfiguration
+	// TODO: add per-key KMS configurations keyed by keyID
+}
+
 var (
 	emptyStaticKey = base64.StdEncoding.EncodeToString(crypto.NewEmptyKey())
 )
 
-// FromEncryptionState converts encryption state to state.EncryptionSecretData.
-func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *state.EncryptionSecretData {
+// FromEncryptionState converts encryption state to Config.
+func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *Config {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
-	kmsConfigs := make(map[string]*state.KMSConfig)
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
 			Providers: stateToProviders(gr.Resource, grKeys),
 		})
-		for _, key := range grKeys.ReadKeys {
-			if key.KMS != nil {
-				kmsConfigs[key.Key.Name] = key.KMS
-			}
-		}
 	}
 
 	// make sure our output is stable
@@ -42,9 +43,8 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 		return resourceConfigs[i].Resources[0] < resourceConfigs[j].Resources[0] // each resource has its own keys
 	})
 
-	return &state.EncryptionSecretData{
-		EncryptionConfig: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-		KMSConfig:        kmsConfigs,
+	return &Config{
+		Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
 	}
 }
 
@@ -59,7 +59,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 //   - each resource has a distinct configuration with zero or more key based providers and the identity provider.
 //   - the last providers might be of type aesgcm. Then it carries the names of identity keys, recent first.
 //     We never use aesgcm as a real key because it is unsafe.
-func ToEncryptionState(secretData *state.EncryptionSecretData, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
+func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
 	backedKeys := make([]state.KeyState, 0, len(keySecrets))
 	for _, s := range keySecrets {
 		km, err := secrets.ToKeyState(s)
@@ -72,12 +72,12 @@ func ToEncryptionState(secretData *state.EncryptionSecretData, keySecrets []*cor
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
-	if secretData == nil || secretData.EncryptionConfig == nil {
+	if secretData == nil || secretData.Encryption == nil {
 		return nil, backedKeys
 	}
 
 	out := map[schema.GroupResource]state.GroupResourceState{}
-	for _, resourceConfig := range secretData.EncryptionConfig.Resources {
+	for _, resourceConfig := range secretData.Encryption.Resources {
 		// resources should be a single group resource
 		if len(resourceConfig.Resources) != 1 {
 			klog.Warningf("skipping invalid encryption config for resource %s", resourceConfig.Resources)
@@ -253,27 +253,6 @@ func createKMSProviderName(keyID, resource string) string {
 	// However, this is an upstream constraint that every provider name must be unique.
 	// To maintain uniqueness while still allowing access to the keyID, we generate provider name in this format.
 	return fmt.Sprintf("%s_%s", keyID, resource)
-}
-
-func kmsConfigsFromEncryptionConfig(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[string]*state.KMSConfig {
-	kmsConfigs := make(map[string]*state.KMSConfig)
-	for _, resourceConfig := range encryptionConfig.Resources {
-		for _, provider := range resourceConfig.Providers {
-			if provider.KMS == nil {
-				continue
-			}
-			keyID, err := getKeyIDFromProviderName(provider.KMS.Name)
-			if err != nil {
-				continue
-			}
-			if _, exists := kmsConfigs[keyID]; !exists {
-				kmsConfigs[keyID] = &state.KMSConfig{
-					EncryptionConfig: provider.KMS,
-				}
-			}
-		}
-	}
-	return kmsConfigs
 }
 
 func getKeyIDFromProviderName(providerName string) (string, error) {

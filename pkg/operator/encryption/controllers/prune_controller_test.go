@@ -23,6 +23,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
@@ -157,7 +158,7 @@ func TestPruneController(t *testing.T) {
 						Secret: rk.Key.Secret,
 					})
 				}
-				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{{
+				ec := encryptionconfig.CreateEncryptionCfgWithWriteKey([]encryptionconfig.EncryptionKeysResourceTuple{{
 					Resource: "secrets",
 					Keys: append([]apiserverconfigv1.Key{
 						{
@@ -166,7 +167,7 @@ func TestPruneController(t *testing.T) {
 						},
 					}, additionaConfigReadKeys...),
 				}})
-				ec.EncryptionConfig.APIVersion = corev1.SchemeGroupVersion.String()
+				ec.Encryption.APIVersion = corev1.SchemeGroupVersion.String()
 				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)
