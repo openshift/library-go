@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +17,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -215,10 +218,7 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 	}()
 
 	if !preconditionsReady {
-		var message string
-		for _, err := range errs {
-			message = message + err.Error() + "\n"
-		}
+		message := errMessage(errs)
 		if len(message) == 0 {
 			message = "the operator didn't specify what preconditions are missing"
 		}
@@ -246,24 +246,14 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		return kerrors.NewAggregate(errs)
 	}
 
-	if len(errs) > 0 {
-		message := ""
-		for _, err := range errs {
-			message = message + err.Error() + "\n"
+	defer func() {
+		if len(errs) > 0 {
+			workloadDegradedCondition = workloadDegradedCondition.
+				WithStatus(operatorv1.ConditionTrue).
+				WithReason("SyncError").
+				WithMessage(errMessage(errs))
 		}
-		workloadDegradedCondition = workloadDegradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("SyncError").
-			WithMessage(message)
-	} else if workload == nil {
-		workloadDegradedCondition = workloadDegradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("NoDeployment").
-			WithMessage(fmt.Sprintf("deployment/%s: could not be retrieved", c.targetNamespace))
-	} else {
-		workloadDegradedCondition = workloadDegradedCondition.
-			WithStatus(operatorv1.ConditionFalse)
-	}
+	}()
 
 	if workload == nil {
 		message := fmt.Sprintf("deployment/%s: could not be retrieved", c.targetNamespace)
@@ -282,8 +272,15 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithReason("NoDeployment").
 			WithMessage(message)
 
+		workloadDegradedCondition = workloadDegradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("NoDeployment").
+			WithMessage(message)
+
 		return kerrors.NewAggregate(errs)
 	}
+
+	workloadDegradedCondition = workloadDegradedCondition.WithStatus(operatorv1.ConditionFalse)
 
 	if workload.Status.AvailableReplicas == 0 {
 		deploymentAvailableCondition = deploymentAvailableCondition.
@@ -296,15 +293,18 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithReason("AsExpected")
 	}
 
-	desiredReplicas := int32(1)
-	if workload.Spec.Replicas != nil {
-		desiredReplicas = *(workload.Spec.Replicas)
-	}
+	desiredReplicas := ptr.Deref(workload.Spec.Replicas, 1)
 
 	// Update is done when the deployment controller has reported NewReplicaSetAvailable.
 	// Checking the current vs. observed generation here is not possible since we don't want to be Progressing on scaling.
 	progressTimedOutMessage, workloadIsBeingUpdatedTooLong := hasDeploymentTimedOutProgressing(workload.Status)
 	workloadIsBeingUpdated := !hasDeploymentProgressed(workload.Status) && !workloadIsBeingUpdatedTooLong
+
+	var progressDeadlineExceededMessage string
+	if workloadIsBeingUpdatedTooLong {
+		progressDeadlineExceededMessage = fmt.Sprintf("deployment/%s.%s has timed out progressing: %s", workload.Name, c.targetNamespace, progressTimedOutMessage)
+	}
+
 	switch {
 	case workloadIsBeingUpdated:
 		deploymentProgressingCondition = deploymentProgressingCondition.
@@ -316,7 +316,7 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition = deploymentProgressingCondition.
 			WithStatus(operatorv1.ConditionFalse).
 			WithReason("ProgressDeadlineExceeded").
-			WithMessage(fmt.Sprintf("deployment/%s.%s has timed out progressing: %s", workload.Name, c.targetNamespace, progressTimedOutMessage))
+			WithMessage(progressDeadlineExceededMessage)
 
 	default:
 		// Terminating pods don't account for any of the other status fields but
@@ -331,20 +331,35 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 			WithReason("AsExpected")
 	}
 
-	// Degraded is set when the deployment is not Available or timed out progressing.
-	// This will cause the operator to go Degraded during the initial rollout.
 	switch {
-	case workload.Status.AvailableReplicas == 0:
-		deploymentDegradedCondition = deploymentDegradedCondition.
-			WithStatus(operatorv1.ConditionTrue).
-			WithReason("Unavailable").
-			WithMessage(fmt.Sprintf("no %s.%s pods available on any node", workload.Name, c.targetNamespace))
-
 	case workloadIsBeingUpdatedTooLong:
 		deploymentDegradedCondition = deploymentDegradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
 			WithReason("ProgressDeadlineExceeded").
-			WithMessage(fmt.Sprintf("deployment/%s.%s has timed out progressing: %s", workload.Name, c.targetNamespace, progressTimedOutMessage))
+			WithMessage(progressDeadlineExceededMessage)
+
+	case workload.Status.AvailableReplicas < desiredReplicas:
+		failureMessages, err := hasFailingPods(workload, c.podsLister)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if len(failureMessages) > 0 || (workload.Status.AvailableReplicas == 0 && !workloadIsBeingUpdated) {
+			var failureDescription string
+			if len(failureMessages) > 0 {
+				failureDescription = ` (` + strings.Join(failureMessages, ", ") + `)`
+			}
+
+			numUnavailable := desiredReplicas - workload.Status.AvailableReplicas
+			message := fmt.Sprintf("%d of %d requested instances are unavailable for %s.%s%s", numUnavailable, desiredReplicas, workload.Name, c.targetNamespace, failureDescription)
+			deploymentDegradedCondition = deploymentDegradedCondition.
+				WithStatus(operatorv1.ConditionTrue).
+				WithReason("UnavailablePod").
+				WithMessage(message)
+		} else {
+			deploymentDegradedCondition = deploymentDegradedCondition.
+				WithStatus(operatorv1.ConditionFalse).
+				WithReason("AsExpected")
+		}
 
 	default:
 		deploymentDegradedCondition = deploymentDegradedCondition.
@@ -397,6 +412,59 @@ func hasDeploymentTimedOutProgressing(status appsv1.DeploymentStatus) (string, b
 		}
 	}
 	return "", false
+}
+
+func hasFailingPods(workload *appsv1.Deployment, podsLister corev1listers.PodLister) ([]string, error) {
+	selector, err := metav1.LabelSelectorAsSelector(workload.Spec.Selector)
+	if err != nil {
+		return nil, err
+	}
+	pods, err := podsLister.Pods(workload.Namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	var failureMessages []string
+	for _, pod := range pods {
+		for _, c := range slices.Concat(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses) {
+			if c.Ready {
+				continue
+			}
+
+			var msg string
+			switch {
+			case c.State.Terminated != nil && c.State.Terminated.ExitCode != 0:
+				msg = fmt.Sprintf("container %s terminated with exit code %d in pod %s", c.Name, c.State.Terminated.ExitCode, pod.Name)
+			case c.RestartCount > 1:
+				msg = fmt.Sprintf("container %s is crashlooping in pod %s", c.Name, pod.Name)
+			case c.State.Waiting != nil && isFailureWaitingReason(c.State.Waiting.Reason):
+				msg = fmt.Sprintf("container %s is waiting (%s) in pod %s", c.Name, c.State.Waiting.Reason, pod.Name)
+			}
+			if len(msg) > 0 {
+				failureMessages = append(failureMessages, msg)
+			}
+		}
+	}
+	return failureMessages, nil
+}
+
+func isFailureWaitingReason(reason string) bool {
+	switch reason {
+	case "ContainerCreating", "PodInitializing", "RestartingAllContainers":
+		return false
+	}
+	return true
+}
+
+func errMessage(errs []error) string {
+	var b strings.Builder
+	for i, err := range errs {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(err.Error())
+	}
+	return b.String()
 }
 
 // EnsureAtMostOnePodPerNode updates the deployment spec to prevent more than
