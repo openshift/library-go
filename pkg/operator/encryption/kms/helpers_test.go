@@ -1,197 +1,175 @@
 package kms
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
 	"testing"
 
-	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	corev1 "k8s.io/api/core/v1"
-
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAddKMSPluginVolume(t *testing.T) {
-	directoryOrCreate := corev1.HostPathDirectoryOrCreate
-
+func TestParseKeyIDFromEndpoint(t *testing.T) {
 	tests := []struct {
-		name                string
-		featureGateAccessor featuregates.FeatureGateAccess
-		actualPodSpec       *corev1.PodSpec
-		expectedPodSpec     *corev1.PodSpec
-		containerName       string
-		expectError         bool
+		name      string
+		endpoint  string
+		wantKeyID string
+		wantErr   string
 	}{
 		{
-			name: "nil pod: returns error",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
-				[]configv1.FeatureGateName{},
-			),
-			actualPodSpec:   nil,
-			expectedPodSpec: nil,
-			containerName:   "kube-apiserver",
-			expectError:     true,
+			name:      "standard endpoint",
+			endpoint:  "unix:///var/run/kmsplugin/kms-555.sock",
+			wantKeyID: "555",
 		},
 		{
-			name: "container not found: returns error",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
-				[]configv1.FeatureGateName{},
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "other-container"},
-				},
-			},
-			expectedPodSpec: nil,
-			containerName:   "kube-apiserver",
-			expectError:     true,
+			name:      "single digit key ID",
+			endpoint:  "unix:///var/run/kmsplugin/kms-3.sock",
+			wantKeyID: "3",
 		},
 		{
-			name: "feature gates not observed: no volume added",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting(
-				nil,
-				nil,
-				make(chan struct{}),
-				nil,
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			expectedPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			containerName: "kube-apiserver",
-			expectError:   false,
+			name:     "missing kms- prefix",
+			endpoint: "unix:///var/run/kmsplugin/plugin-555.sock",
+			wantErr:  "unexpected KMS endpoint format",
 		},
 		{
-			name: "feature gate accessor error: returns error",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting(
-				nil,
-				nil,
-				func() chan struct{} { ch := make(chan struct{}); close(ch); return ch }(),
-				errors.New("some error"),
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			expectedPodSpec: nil,
-			containerName:   "kube-apiserver",
-			expectError:     true,
+			name:     "missing .sock suffix",
+			endpoint: "unix:///var/run/kmsplugin/kms-555.socket",
+			wantErr:  "unexpected KMS endpoint format",
 		},
 		{
-			name: "KMSEncryption feature gate disabled: no volume added",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			expectedPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			containerName: "kube-apiserver",
-			expectError:   false,
+			name:     "empty key ID",
+			endpoint: "unix:///var/run/kmsplugin/kms-.sock",
+			wantErr:  "unexpected KMS endpoint format",
 		},
 		{
-			name: "KMSEncryption feature gate enabled: volume and mount added",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
-				[]configv1.FeatureGateName{},
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "kube-apiserver"},
-				},
-			},
-			expectedPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "kube-apiserver",
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "kms-plugin-socket", MountPath: "/var/run/kmsplugin"},
-						},
-					},
-				},
-				Volumes: []corev1.Volume{
-					{
-						Name: "kms-plugin-socket",
-						VolumeSource: corev1.VolumeSource{
-							HostPath: &corev1.HostPathVolumeSource{
-								Path: "/var/run/kmsplugin",
-								Type: &directoryOrCreate,
-							},
-						},
-					},
-				},
-			},
-			containerName: "kube-apiserver",
-			expectError:   false,
+			name:     "no unix prefix",
+			endpoint: "/var/run/kmsplugin/kms-555.sock",
+			wantErr:  "unexpected KMS endpoint format",
 		},
 		{
-			name: "KMSEncryption feature gate enabled: only kube-apiserver container gets mount",
-			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
-				[]configv1.FeatureGateName{},
-			),
-			actualPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "other-container"},
-					{Name: "kube-apiserver"},
-					{Name: "another-container"},
-				},
-			},
-			expectedPodSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "other-container"},
-					{
-						Name: "kube-apiserver",
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "kms-plugin-socket", MountPath: "/var/run/kmsplugin"},
-						},
-					},
-					{Name: "another-container"},
-				},
-				Volumes: []corev1.Volume{
-					{
-						Name: "kms-plugin-socket",
-						VolumeSource: corev1.VolumeSource{
-							HostPath: &corev1.HostPathVolumeSource{
-								Path: "/var/run/kmsplugin",
-								Type: &directoryOrCreate,
-							},
-						},
-					},
-				},
-			},
-			containerName: "kube-apiserver",
-			expectError:   false,
+			name:     "no digit key ID",
+			endpoint: "/var/run/kmsplugin/kms-abc.sock",
+			wantErr:  "unexpected KMS endpoint format",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddKMSPluginVolumeAndMountToPodSpec(tt.actualPodSpec, tt.containerName, tt.featureGateAccessor)
-
-			if tt.expectError {
-				require.Error(t, err)
+			keyID, err := ParseKeyIDFromEndpoint(tt.endpoint)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
+			require.Equal(t, tt.wantKeyID, keyID)
+		})
+	}
+}
+
+func TestDecodeEncryptionConfiguration(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		wantErr string
+	}{
+		{
+			name: "valid EncryptionConfiguration",
+			data: []byte(`
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+      - secrets
+    providers:
+      - kms:
+          apiVersion: v2
+          name: test
+          endpoint: unix:///var/run/kmsplugin/kms-1.sock
+          timeout: 10s
+      - identity: {}
+`),
+		},
+		{
+			name:    "invalid YAML",
+			data:    []byte(`not valid yaml: [`),
+			wantErr: "failed to decode",
+		},
+		{
+			name:    "wrong kind",
+			data:    []byte(`{"apiVersion": "v1", "kind": "Secret"}`),
+			wantErr: "failed to decode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := DecodeEncryptionConfiguration(tt.data)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.Len(t, config.Resources, 1)
+		})
+	}
+}
+
+func TestGetKMSProviderConfig(t *testing.T) {
+	vaultConfig := &state.KMSProviderConfig{
+		Vault: &state.VaultProviderConfig{
+			Image:          "quay.io/test/vault:v1",
+			VaultAddress:   "https://vault.example.com:8200",
+			VaultNamespace: "my-namespace",
+			TransitKey:     "my-key",
+			TransitMount:   "transit",
+		},
+	}
+	configBytes, err := json.Marshal(vaultConfig)
+	require.NoError(t, err)
+
+	providerConfigKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, "555")
+
+	tests := []struct {
+		name       string
+		secretData map[string][]byte
+		keyID      string
+		wantErr    string
+	}{
+		{
+			name: "valid provider config",
+			secretData: map[string][]byte{
+				providerConfigKey: configBytes,
+			},
+			keyID: "555",
+		},
+		{
+			name:       "missing provider config key",
+			secretData: map[string][]byte{},
+			keyID:      "555",
+			wantErr:    "missing provider config key",
+		},
+		{
+			name: "invalid JSON",
+			secretData: map[string][]byte{
+				providerConfigKey: []byte(`{invalid`),
+			},
+			keyID:   "555",
+			wantErr: "failed to unmarshal",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := GetKMSProviderConfig(tt.secretData, tt.keyID)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.Equal(t, vaultConfig, config)
 		})
 	}
 }

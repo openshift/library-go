@@ -145,7 +145,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
+	kmsProviderConfigs := collectKMSProviderConfigs(desiredEncryptionState)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, kmsProviderConfigs, recorder)
 	if err != nil {
 		return err
 	}
@@ -161,14 +162,35 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encryptionConfig *apiserverconfigv1.EncryptionConfiguration, kmsProviderConfigs map[string]*state.KMSProviderConfig, recorder events.Recorder) (bool, error) {
+	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), encryptionConfig, kmsProviderConfigs)
 	if err != nil {
 		return false, err
 	}
 
 	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
 	return changed, applyErr
+}
+
+// collectKMSProviderConfigs collects KMS provider configurations from the
+// desired encryption state, keyed by keyID.
+func collectKMSProviderConfigs(desiredState map[schema.GroupResource]state.GroupResourceState) map[string]*state.KMSProviderConfig {
+	kmsConfigs := map[string]*state.KMSProviderConfig{}
+	for _, grState := range desiredState {
+		for _, ks := range grState.ReadKeys {
+			if ks.Mode != state.KMS || ks.KMSProviderConfig == nil {
+				continue
+			}
+			if _, exists := kmsConfigs[ks.Key.Name]; exists {
+				continue
+			}
+			kmsConfigs[ks.Key.Name] = ks.KMSProviderConfig
+		}
+	}
+	if len(kmsConfigs) == 0 {
+		return nil
+	}
+	return kmsConfigs
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.

@@ -74,6 +74,13 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
+		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
+			providerConfig := &state.KMSProviderConfig{}
+			if err := json.Unmarshal(v, providerConfig); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
+			}
+			key.KMSProviderConfig = providerConfig
+		}
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
@@ -132,6 +139,14 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Data[EncryptionSecretKMSEncryptionConfig] = kmsEncCfgJSON
+	}
+
+	if ks.KMSProviderConfig != nil {
+		providerJSON, err := json.Marshal(ks.KMSProviderConfig)
+		if err != nil {
+			return nil, err
+		}
+		s.Data[EncryptionSecretKMSProviderConfig] = providerJSON
 	}
 
 	return s, nil

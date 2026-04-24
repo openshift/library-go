@@ -360,6 +360,13 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
+						// Verify KMS provider config content
+						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+						expectedProviderConfig := `{"vault":{"image":"quay.io/openshifttest/mock-kms-plugin-vault:latest","vaultAddress":"vault-address","vaultNamespace":"vault-namespace","transitKey":"transit-key","transitMount":"transit-mount"}}`
+						if string(kmsProviderConfigData) != expectedProviderConfig {
+							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
+						}
+
 						// Verify internal reason
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-key-does-not-exist" {
 							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
@@ -417,6 +424,13 @@ func TestKeyController(t *testing.T) {
 						kmsConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
 						if string(kmsConfigData) != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-6.sock","timeout":"10s"}` {
 							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
+						}
+
+						// Verify KMS provider config content
+						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+						expectedProviderConfig := `{"vault":{"image":"quay.io/openshifttest/mock-kms-plugin-vault:latest","vaultAddress":"vault-address","vaultNamespace":"vault-namespace","transitKey":"transit-key","transitMount":"transit-mount"}}`
+						if string(kmsProviderConfigData) != expectedProviderConfig {
+							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
 						}
 
 						// Verify internal reason is mode changed
@@ -541,6 +555,11 @@ func TestKeyController(t *testing.T) {
 						// Verify KMS config data is not present for AESCBC
 						if kmsConfigData, exists := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]; exists {
 							ts.Errorf("expected kms-encryption-config data to be absent, got: %s", kmsConfigData)
+						}
+
+						// Verify KMS provider config is not present for AESCBC
+						if kmsProviderConfigData, exists := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]; exists {
+							ts.Errorf("expected kms-provider-config data to be absent, got: %s", kmsProviderConfigData)
 						}
 
 						// Verify internal reason is mode changed

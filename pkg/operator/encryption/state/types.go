@@ -42,6 +42,22 @@ type KeyState struct {
 	ExternalReason string
 	// Encoded KMSEncryptionConfig that stores the KMS related fields
 	KMSEncryptionConfig *apiserverconfigv1.KMSConfiguration
+	// KMSProviderConfig holds the provider-specific KMS configuration
+	KMSProviderConfig *KMSProviderConfig
+}
+
+// KMSProviderConfig is the internal representation of the KMS provider configuration.
+type KMSProviderConfig struct {
+	Vault *VaultProviderConfig `json:"vault,omitempty"`
+}
+
+// VaultProviderConfig holds Vault-specific KMS provider configuration.
+type VaultProviderConfig struct {
+	Image          string `json:"image"`
+	VaultAddress   string `json:"vaultAddress"`
+	VaultNamespace string `json:"vaultNamespace,omitempty"`
+	TransitKey     string `json:"transitKey"`
+	TransitMount   string `json:"transitMount,omitempty"`
 }
 
 type MigrationState struct {
