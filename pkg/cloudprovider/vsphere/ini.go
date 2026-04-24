@@ -200,20 +200,33 @@ func (iniConfig *cpiConfigINI) createConfig() (*CPIConfig, error) {
 				SecretNamespace:   iniConfig.Global.SecretNamespace,
 				SecretsDirectory:  iniConfig.Global.SecretsDirectory,
 			},
-			Labels: Labels{
-				Zone:   iniConfig.Labels.Zone,
-				Region: iniConfig.Labels.Region,
-			},
 			Vcenter: make(map[string]*VirtualCenterConfig),
 		},
-		Nodes: Nodes{
+	}
+
+	// Only create Labels if either Zone or Region is set
+	if iniConfig.Labels.Zone != "" || iniConfig.Labels.Region != "" {
+		cfg.Labels = &Labels{
+			Zone:   iniConfig.Labels.Zone,
+			Region: iniConfig.Labels.Region,
+		}
+	}
+
+	// Only create Nodes if any field is set
+	if iniConfig.Nodes.InternalNetworkSubnetCIDR != "" ||
+		iniConfig.Nodes.ExternalNetworkSubnetCIDR != "" ||
+		iniConfig.Nodes.InternalVMNetworkName != "" ||
+		iniConfig.Nodes.ExternalVMNetworkName != "" ||
+		iniConfig.Nodes.ExcludeInternalNetworkSubnetCIDR != "" ||
+		iniConfig.Nodes.ExcludeExternalNetworkSubnetCIDR != "" {
+		cfg.Nodes = &Nodes{
 			InternalNetworkSubnetCIDR:        iniConfig.Nodes.InternalNetworkSubnetCIDR,
 			ExternalNetworkSubnetCIDR:        iniConfig.Nodes.ExternalNetworkSubnetCIDR,
 			InternalVMNetworkName:            iniConfig.Nodes.InternalVMNetworkName,
 			ExternalVMNetworkName:            iniConfig.Nodes.ExternalVMNetworkName,
 			ExcludeInternalNetworkSubnetCIDR: iniConfig.Nodes.ExcludeInternalNetworkSubnetCIDR,
 			ExcludeExternalNetworkSubnetCIDR: iniConfig.Nodes.ExcludeExternalNetworkSubnetCIDR,
-		},
+		}
 	}
 
 	for keyVcConfig, valVcConfig := range iniConfig.VirtualCenter {

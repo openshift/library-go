@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 // ReadConfig parses vSphere cloud-config file and returns CPIConfig structure
