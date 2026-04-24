@@ -1,4 +1,4 @@
-package vsphere_cloud_config
+package vsphere
 
 import (
 	"fmt"
