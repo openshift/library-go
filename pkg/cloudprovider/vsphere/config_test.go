@@ -21,14 +21,14 @@ ca-file = /some/path/to/a/ca.pem
 
 const basicConfigYaml = `
 global:
-  user: user
-  password: password
-  server: 0.0.0.0
-  port: 443
-  insecureFlag: true
+  caFile: /some/path/to/a/ca.pem
   datacenters:
   - us-west
-  caFile: /some/path/to/a/ca.pem
+  insecureFlag: true
+  password: password
+  port: 443
+  server: 0.0.0.0
+  user: user
 `
 
 const basicConfigVcenterSectionINI = `
@@ -48,15 +48,15 @@ const basicConfigVcenterSectionYAML = `
 global:
   secretName: global-secret
   secretNamespace: global-secret-ns
+labels:
+  region: k8s-region
+  zone: k8s-zone
 vcenter:
   vc.rh.com:
-    server: vc.rh.com
     datacenters:
     - DC0
     - DC1
-labels:
-  zone: k8s-zone
-  region: k8s-region
+    server: vc.rh.com
 `
 
 const multiVCDCsConfigINI = `
