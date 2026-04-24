@@ -144,7 +144,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -156,7 +155,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodPending,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -218,7 +217,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -230,7 +228,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodPending,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -291,7 +289,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 5,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -305,7 +302,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-1", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-1", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -349,7 +346,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -362,7 +358,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-ready", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-ready", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -371,7 +367,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-crash", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-crash", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -513,7 +509,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 100,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -527,7 +522,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-new-1", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-new-1", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodPending,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -570,7 +565,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 100,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](5),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -584,7 +578,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-fail-1", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-fail-1", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -593,7 +587,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-fail-2", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-fail-2", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -638,7 +632,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -651,7 +644,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 			pods: []*corev1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-new", Namespace: "openshift-apiserver", Labels: map[string]string{"foo": "bar"}},
+					ObjectMeta: metav1.ObjectMeta{Name: "apiserver-new", Namespace: "openshift-apiserver"},
 					Status: corev1.PodStatus{
 						Phase: corev1.PodPending,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -695,7 +688,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Generation: 5,
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -743,7 +735,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
@@ -873,8 +864,6 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Namespace: "openshift-apiserver",
 				},
 				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}},
-					Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
