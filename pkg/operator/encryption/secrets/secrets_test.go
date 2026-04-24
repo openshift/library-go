@@ -128,6 +128,14 @@ func TestRoundtrip(t *testing.T) {
 					Name:       "1",
 					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 				},
+				KMSProviderConfig: &state.KMSProviderConfig{
+					Vault: &state.VaultProviderConfig{
+						Image:        "quay.io/org/vault-kms-plugin@sha256:abc123",
+						VaultAddress: "https://vault.example.com:8200",
+						TransitKey:   "my-transit-key",
+						TransitMount: "transit",
+					},
+				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
 					Resources: []schema.GroupResource{
@@ -154,6 +162,14 @@ func TestRoundtrip(t *testing.T) {
 					APIVersion: "v2",
 					Name:       "2",
 					Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+				},
+				KMSProviderConfig: &state.KMSProviderConfig{
+					Vault: &state.VaultProviderConfig{
+						Image:        "quay.io/org/vault-kms-plugin@sha256:abc123",
+						VaultAddress: "https://vault.example.com:8200",
+						TransitKey:   "my-transit-key",
+						TransitMount: "transit",
+					},
 				},
 			},
 		},
