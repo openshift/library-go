@@ -12,24 +12,24 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
 
 func TestGetDesiredEncryptionState(t *testing.T) {
 	type args struct {
-		oldEncryptionConfig *encryptionconfig.Config
+		oldEncryptionConfig *encryptiondata.Config
 		targetNamespace     string
 		encryptionSecrets   []*corev1.Secret
 		toBeEncryptedGRs    []schema.GroupResource
 	}
-	toSecretData := func(ec *apiserverconfigv1.EncryptionConfiguration) *encryptionconfig.Config {
+	toSecretData := func(ec *apiserverconfigv1.EncryptionConfiguration) *encryptiondata.Config {
 		if ec == nil {
 			return nil
 		}
-		return &encryptionconfig.Config{Encryption: ec}
+		return &encryptiondata.Config{Encryption: ec}
 	}
 
 	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState)
@@ -49,7 +49,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			}
 			expected := expected.DeepCopy()
 			expected.TypeMeta = metav1.TypeMeta{}
-			secretData := encryptionconfig.FromEncryptionState(state)
+			secretData := encryptiondata.FromEncryptionState(state)
 			if !reflect.DeepEqual(expected, secretData.Encryption) {
 				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, secretData.Encryption))
 			}
@@ -97,7 +97,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists without write keys, no secrets => nothing done, config unchanged",
 			args{
-				encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
+				encryptiondatatesting.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},

@@ -15,7 +15,7 @@ import (
 
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -143,14 +143,14 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		return nil
 	}
 
-	desiredSecretData := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	desiredSecretData := encryptiondata.FromEncryptionState(desiredEncryptionState)
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
 	if err != nil {
 		return err
 	}
 
 	if changed {
-		currentEncryptionConfig, _ := encryptionconfig.ToEncryptionState(currentConfig, encryptionSecrets)
+		currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
 		if actionEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState); len(actionEvents) > 0 {
 			for _, event := range actionEvents {
 				recorder.Eventf(event.reason, event.message)
@@ -160,8 +160,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptionconfig.Config, recorder events.Recorder) (bool, error) {
-	s, err := encryptionconfig.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.instanceName), secretData)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
+	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err
 	}

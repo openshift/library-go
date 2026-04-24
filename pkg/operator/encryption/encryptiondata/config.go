@@ -1,4 +1,4 @@
-package encryptionconfig
+package encryptiondata
 
 import (
 	"encoding/base64"
@@ -42,9 +42,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 		return resourceConfigs[i].Resources[0] < resourceConfigs[j].Resources[0] // each resource has its own keys
 	})
 
-	return &Config{
-		Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-	}
+	return &Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}}
 }
 
 // ToEncryptionState converts config to state.

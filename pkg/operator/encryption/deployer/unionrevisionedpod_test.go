@@ -12,8 +12,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 )
 
@@ -106,16 +106,16 @@ func createDefaultSecretWithEncryptionConfig(t *testing.T) *corev1.Secret {
 	return encryptionCfgToSecret(t, ec)
 }
 
-func encryptionCfgToSecret(t *testing.T, ec *encryptionconfig.Config) *corev1.Secret {
-	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
+func encryptionCfgToSecret(t *testing.T, ec *encryptiondata.Config) *corev1.Secret {
+	s, err := encryptiondata.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func createDefaultEncryptionConfig() *encryptionconfig.Config {
-	keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+func createDefaultEncryptionConfig() *encryptiondata.Config {
+	keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 		Resource: "secrets",
 		Keys: []apiserverconfigv1.Key{
 			{
@@ -124,7 +124,7 @@ func createDefaultEncryptionConfig() *encryptionconfig.Config {
 			},
 		},
 	}
-	keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+	keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 		Resource: "configmaps",
 		Keys: []apiserverconfigv1.Key{
 			{
@@ -134,7 +134,7 @@ func createDefaultEncryptionConfig() *encryptionconfig.Config {
 		},
 	}
 
-	return encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+	return encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 }
 
 type fakeDeployer struct {

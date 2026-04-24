@@ -1,4 +1,4 @@
-package encryptionconfig
+package encryptiondata
 
 import (
 	"fmt"
@@ -44,9 +44,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
 	}
-	return &Config{
-		Encryption: encryptionConfig,
-	}, nil
+	return &Config{Encryption: encryptionConfig}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {

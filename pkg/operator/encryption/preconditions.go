@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -73,7 +73,7 @@ func (pc *preconditionChecker) encryptionWasEnabled() (bool, error) {
 		return true, nil // encryption might be actually in progress
 	}
 
-	encryptionConfiguration, err := pc.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, pc.component))
+	encryptionConfiguration, err := pc.secretLister.Get(fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, pc.component))
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err // unknown error
 	}

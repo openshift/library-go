@@ -13,7 +13,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -97,7 +97,7 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx context.Co
 		return nil, false, nil
 	}
 
-	s, err := d.secretClient.Get(ctx, encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
+	s, err := d.secretClient.Get(ctx, encryptiondata.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
 	if err != nil {
 		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {

@@ -7,13 +7,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 )
 
-func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *encryptionconfig.Config) *corev1.Secret {
+func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *encryptiondata.Config) *corev1.Secret {
 	t.Helper()
 
-	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg)
+	s, err := encryptiondata.ToSecret(targetNs, fmt.Sprintf("%s-%s", "encryption-config", revision), encryptionCfg)
 	if err != nil {
 		t.Fatal(err)
 	}

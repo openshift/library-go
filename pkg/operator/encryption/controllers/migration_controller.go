@@ -23,7 +23,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -181,8 +181,8 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	currentState, _ := encryptionconfig.ToEncryptionState(currentEncryptionConfig, encryptionSecrets)
-	desiredEncryptedSecretData := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	currentState, _ := encryptiondata.ToEncryptionState(currentEncryptionConfig, encryptionSecrets)
+	desiredEncryptedSecretData := encryptiondata.FromEncryptionState(desiredEncryptionState)
 
 	// no storage migration until config is stable
 	if !reflect.DeepEqual(currentEncryptionConfig.Encryption.Resources, desiredEncryptedSecretData.Encryption.Resources) {

@@ -26,8 +26,8 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -44,8 +44,8 @@ func TestStateController(t *testing.T) {
 		targetGRs                []schema.GroupResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions            []string
-		expectedEncryptionCfg      *encryptionconfig.Config
-		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config)
+		expectedEncryptionCfg      *encryptiondata.Config
+		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config)
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.OperatorClient)
 		expectedError              error
 	}{
@@ -77,8 +77,8 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			expectedActions:       []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
-			expectedEncryptionCfg: encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			expectedEncryptionCfg: encryptiondatatesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -109,13 +109,13 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 				func() *corev1.Secret {
-					ec := encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
+					ec := encryptiondatatesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -124,7 +124,7 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{
@@ -136,7 +136,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -167,7 +167,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7"), time.Now()),
 				func() *corev1.Secret {
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -176,12 +176,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret {
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -190,7 +190,7 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
@@ -211,7 +211,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 33, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
 				func() *corev1.Secret { // encryption config in kms namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -224,12 +224,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -242,14 +242,14 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -262,7 +262,7 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{
@@ -274,7 +274,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -308,7 +308,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("1c06e8517890c8dc44f627905efc86b8"), time.Now()),
 				func() *corev1.Secret { // encryption config in kms namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -329,12 +329,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -355,14 +355,14 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -375,11 +375,11 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -413,7 +413,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 				func() *corev1.Secret { // encryption config in kms namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -426,12 +426,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -444,14 +444,14 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -464,7 +464,7 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{
@@ -476,7 +476,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -510,7 +510,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7"), time.Now()),
 				func() *corev1.Secret {
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -519,14 +519,14 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -535,10 +535,10 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				// TODO: fix the temporary identity key on config reconstruction in getDesiredEncryptionState
 				/*
 					wasSecretValidated := false
@@ -575,7 +575,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}, {Group: "", Resource: "configmaps"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7"), time.Now()),
 				func() *corev1.Secret { // encryption config in kms namespace
-					keysRes := []encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := []encryptiondatatesting.EncryptionKeysResourceTuple{
 						{
 							Resource: "configmaps",
 							Keys: []apiserverconfigv1.Key{
@@ -595,12 +595,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey(keysRes)
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey(keysRes)
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
-					keysRes := []encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := []encryptiondatatesting.EncryptionKeysResourceTuple{
 						{
 							Resource: "configmaps",
 							Keys: []apiserverconfigv1.Key{
@@ -620,14 +620,14 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey(keysRes)
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey(keysRes)
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			expectedEncryptionCfg: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -636,10 +636,10 @@ func TestStateController(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -693,8 +693,8 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				func() *corev1.Secret { // encryption config in kms namespace
-					ecs := createEncryptionCfgSecret(t, "kms", "1", &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{}})
-					ecs.Data[encryptionconfig.EncryptionConfSecretName] = []byte{1, 2, 3} // invalid
+					ecs := createEncryptionCfgSecret(t, "kms", "1", &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{}})
+					ecs.Data[encryptiondata.EncryptionConfSecretName] = []byte{1, 2, 3} // invalid
 					return ecs
 				}(),
 			},
@@ -724,7 +724,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
-			expectedEncryptionCfg: &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "EncryptionConfiguration",
 					APIVersion: "apiserver.config.k8s.io/v1",
@@ -743,7 +743,7 @@ func TestStateController(t *testing.T) {
 					}},
 				}},
 			}},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -774,7 +774,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
 				func() *corev1.Secret {
-					ec := &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
 							Resources: []string{"secrets"},
 							Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -793,7 +793,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "EncryptionConfiguration",
 					APIVersion: "apiserver.config.k8s.io/v1",
@@ -821,7 +821,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -852,7 +852,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
 				func() *corev1.Secret {
-					ec := &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
 							Resources: []string{"secrets"},
 							Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -871,7 +871,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 				func() *corev1.Secret {
-					ec := &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
 							Resources: []string{"secrets"},
 							Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -906,7 +906,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
 				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
 				func() *corev1.Secret { // encryption config in kms namespace
-					ec := &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
 							Resources: []string{"secrets"},
 							Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -932,7 +932,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed
-					ec := &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
 							Resources: []string{"secrets"},
 							Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -959,7 +959,7 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "EncryptionConfiguration",
 					APIVersion: "apiserver.config.k8s.io/v1",
@@ -994,7 +994,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -1026,7 +1026,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
 				func() *corev1.Secret { // encryption config in kms namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -1035,12 +1035,12 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
-					keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -1049,13 +1049,13 @@ func TestStateController(t *testing.T) {
 							},
 						},
 					}
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptionconfig.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "EncryptionConfiguration",
 					APIVersion: "apiserver.config.k8s.io/v1",
@@ -1090,7 +1090,7 @@ func TestStateController(t *testing.T) {
 				"create:events:kms",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptionconfig.Config) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
@@ -1187,7 +1187,7 @@ func TestStateController(t *testing.T) {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, scenario.targetNamespace), scenario.expectedEncryptionCfg)
+				scenario.validateFunc(t, fakeKubeClient.Actions(), fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, scenario.targetNamespace), scenario.expectedEncryptionCfg)
 			}
 			if scenario.validateOperatorClientFunc != nil {
 				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
@@ -1196,8 +1196,8 @@ func TestStateController(t *testing.T) {
 	}
 }
 
-func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEncryptionCfg *encryptionconfig.Config, expectedSecretName string) error {
-	actualEncryptionCfg, err := encryptionconfig.FromSecret(actualSecret)
+func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEncryptionCfg *encryptiondata.Config, expectedSecretName string) error {
+	actualEncryptionCfg, err := encryptiondata.FromSecret(actualSecret)
 	if err != nil {
 		return fmt.Errorf("failed to verfy the encryption config, due to %v", err)
 	}

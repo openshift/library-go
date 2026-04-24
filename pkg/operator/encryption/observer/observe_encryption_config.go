@@ -7,7 +7,7 @@ import (
 	corev1lister "k8s.io/client-go/listers/core/v1"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -42,22 +42,22 @@ func NewEncryptionConfigObserver(targetNamespace string, encryptionConfFilePath 
 		previousEncryptionConfigFound := len(existingEncryptionConfig) > 0
 		observedConfig := map[string]interface{}{}
 
-		encryptionConfigSecret, err := listers.SecretLister().Secrets(targetNamespace).Get(encryptionconfig.EncryptionConfSecretName)
+		encryptionConfigSecret, err := listers.SecretLister().Secrets(targetNamespace).Get(encryptiondata.EncryptionConfSecretName)
 		if errors.IsNotFound(err) {
 			// warn only if the encryption-provider-config flag was set before
 			if previousEncryptionConfigFound {
-				recorder.Warningf("ObserveEncryptionConfigNotFound", "encryption config secret %s/%s not found after encryption has been enabled", targetNamespace, encryptionconfig.EncryptionConfSecretName)
+				recorder.Warningf("ObserveEncryptionConfigNotFound", "encryption config secret %s/%s not found after encryption has been enabled", targetNamespace, encryptiondata.EncryptionConfSecretName)
 			}
 			// encryption secret is optional so it doesn't prevent apiserver from running
 			// there is an active reconciliation loop in place that will eventually synchronize the missing resource
 			return previouslyObservedConfig, errs // do not append the not found error
 		}
 		if err != nil {
-			recorder.Warningf("ObserveEncryptionConfigGetErr", "failed to get encryption config secret %s/%s: %v", targetNamespace, encryptionconfig.EncryptionConfSecretName, err)
+			recorder.Warningf("ObserveEncryptionConfigGetErr", "failed to get encryption config secret %s/%s: %v", targetNamespace, encryptiondata.EncryptionConfSecretName, err)
 			return previouslyObservedConfig, append(errs, err)
 		}
-		if len(encryptionConfigSecret.Data[encryptionconfig.EncryptionConfSecretKey]) == 0 {
-			recorder.Warningf("ObserveEncryptionConfigNoData", "encryption config secret %s/%s missing data", targetNamespace, encryptionconfig.EncryptionConfSecretName)
+		if len(encryptionConfigSecret.Data[encryptiondata.EncryptionConfSecretKey]) == 0 {
+			recorder.Warningf("ObserveEncryptionConfigNoData", "encryption config secret %s/%s missing data", targetNamespace, encryptiondata.EncryptionConfSecretName)
 			return previouslyObservedConfig, errs
 		}
 

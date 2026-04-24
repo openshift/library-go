@@ -1,4 +1,4 @@
-package encryptionconfig_test
+package encryptiondata_test
 
 import (
 	"encoding/base64"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
-	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -23,14 +23,14 @@ import (
 func TestToEncryptionState(t *testing.T) {
 	scenarios := []struct {
 		name   string
-		input  *encryptionconfig.Config
+		input  *encryptiondata.Config
 		output map[schema.GroupResource]state.GroupResourceState
 	}{
 		// scenario 1
 		{
 			name: "single write key",
-			input: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -39,7 +39,7 @@ func TestToEncryptionState(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -57,8 +57,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 2
 		{
 			name: "multiple keys",
-			input: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -71,7 +71,7 @@ func TestToEncryptionState(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -90,8 +90,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 3
 		{
 			name: "single write key multiple resources",
-			input: func() *encryptionconfig.Config {
-				keysRes := []encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := []encryptiondatatesting.EncryptionKeysResourceTuple{
 					{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
@@ -112,7 +112,7 @@ func TestToEncryptionState(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey(keysRes)
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey(keysRes)
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -138,8 +138,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 4
 		{
 			name: "multiple keys and multiple resources",
-			input: func() *encryptionconfig.Config {
-				keysRes := []encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := []encryptiondatatesting.EncryptionKeysResourceTuple{
 					{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
@@ -168,7 +168,7 @@ func TestToEncryptionState(t *testing.T) {
 						},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey(keysRes)
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey(keysRes)
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -196,8 +196,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 5
 		{
 			name: "single read key",
-			input: func() *encryptionconfig.Config {
-				ec := encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
+			input: func() *encryptiondata.Config {
+				ec := encryptiondatatesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -212,8 +212,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 6
 		{
 			name: "single read key multiple resources",
-			input: func() *encryptionconfig.Config {
-				ec := encryptionconfigtesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets", "configmaps")
+			input: func() *encryptiondata.Config {
+				ec := encryptiondatatesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets", "configmaps")
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -233,8 +233,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 7
 		{
 			name: "turn off encryption for single resource",
-			input: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -248,7 +248,7 @@ func TestToEncryptionState(t *testing.T) {
 					},
 					Modes: []string{"aescbc", "aesgcm"},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgNoWriteKeyMultipleReadKeys([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgNoWriteKeyMultipleReadKeys([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -267,8 +267,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 8
 		{
 			name: "turn off encryption for multiple resources",
-			input: func() *encryptionconfig.Config {
-				keysRes := []encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := []encryptiondatatesting.EncryptionKeysResourceTuple{
 					{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
@@ -303,7 +303,7 @@ func TestToEncryptionState(t *testing.T) {
 						Modes: []string{"aescbc", "aesgcm"},
 					},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysRes)
+				ec := encryptiondatatesting.CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysRes)
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -335,8 +335,8 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 10
 		{
 			name: "aes-gcm write key and aes-cbc read key",
-			input: func() *encryptionconfig.Config {
-				keysRes := encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: func() *encryptiondata.Config {
+				keysRes := encryptiondatatesting.EncryptionKeysResourceTuple{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
 						{
@@ -350,7 +350,7 @@ func TestToEncryptionState(t *testing.T) {
 					},
 					Modes: []string{"aesgcm", "aescbc"},
 				}
-				ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysRes})
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]state.GroupResourceState{
@@ -369,7 +369,7 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 11
 		{
 			name: "kms write key",
-			input: encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{
 				{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
@@ -397,7 +397,7 @@ func TestToEncryptionState(t *testing.T) {
 		// scenario 12
 		{
 			name: "kms write key and aescbc read key",
-			input: encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{
+			input: encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{
 				{
 					Resource: "secrets",
 					Keys: []apiserverconfigv1.Key{
@@ -430,7 +430,7 @@ func TestToEncryptionState(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			actualOutput, _ := encryptionconfig.ToEncryptionState(scenario.input, nil)
+			actualOutput, _ := encryptiondata.ToEncryptionState(scenario.input, nil)
 
 			if len(actualOutput) != len(scenario.output) {
 				t.Fatalf("expected to get %d GR, got %d", len(scenario.output), len(actualOutput))
@@ -656,7 +656,7 @@ func TestFromEncryptionState(t *testing.T) {
 				}
 				grState[gr] = ks
 			}
-			actualOutput := encryptionconfig.FromEncryptionState(grState)
+			actualOutput := encryptiondata.FromEncryptionState(grState)
 			expectedOutput := scenario.makeOutput(scenario.writeKeyIn, scenario.readKeysIn)
 
 			if !cmp.Equal(expectedOutput, actualOutput.Encryption.Resources) {

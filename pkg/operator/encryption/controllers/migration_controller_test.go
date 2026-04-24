@@ -28,7 +28,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	encryptionconfigtesting "github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig/testing"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -119,7 +119,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -128,7 +128,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "configmaps",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -138,7 +138,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
@@ -212,7 +212,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -221,7 +221,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "configmaps",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -231,7 +231,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
@@ -308,7 +308,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -317,7 +317,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "configmaps",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -327,7 +327,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
@@ -405,7 +405,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -414,7 +414,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "configmaps",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -424,7 +424,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
@@ -501,7 +501,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "secrets",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -510,7 +510,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionconfigtesting.EncryptionKeysResourceTuple{
+					keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 						Resource: "configmaps",
 						Keys: []apiserverconfigv1.Key{
 							{
@@ -520,7 +520,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := encryptionconfigtesting.CreateEncryptionCfgWithWriteKey([]encryptionconfigtesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 

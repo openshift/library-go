@@ -9,7 +9,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -51,8 +51,8 @@ func NewControllers(
 	// for testing resourceSyncer might be nil
 	if resourceSyncer != nil {
 		if err := resourceSyncer.SyncSecretConditionally(
-			resourcesynccontroller.ResourceLocation{Namespace: component, Name: encryptionconfig.EncryptionConfSecretName},
-			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, component)},
+			resourcesynccontroller.ResourceLocation{Namespace: component, Name: encryptiondata.EncryptionConfSecretName},
+			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, component)},
 			encryptionEnabledChecker.PreconditionFulfilled,
 		); err != nil {
 			return nil, err
