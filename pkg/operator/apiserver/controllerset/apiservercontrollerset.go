@@ -170,6 +170,22 @@ func WithStatusControllerPdbCompatibleHighInertia(workloadConditionsPrefix strin
 	}
 }
 
+// WithStatusControllerAPIServicesAvailableInertia sets inertia for APIServicesAvailable
+// conditions to prevent brief transient errors from causing Available=False.
+// This is useful for handling temporary network issues or brief missing HTTP headers
+// that self-resolve within seconds.
+func WithStatusControllerAPIServicesAvailableInertia() func(s *status.StatusSyncer) *status.StatusSyncer {
+	return func(s *status.StatusSyncer) *status.StatusSyncer {
+		return s.WithAvailableInertia(status.MustNewInertia(
+			0, // default: no inertia for other conditions
+			status.InertiaCondition{
+				ConditionTypeMatcher: regexp.MustCompile("^APIServicesAvailable$"),
+				Duration:             5 * time.Second, // tolerate brief transient errors
+			}).Inertia,
+		)
+	}
+}
+
 func (cs *APIServerControllerSet) WithoutClusterOperatorStatusController() *APIServerControllerSet {
 	cs.clusterOperatorStatusController.controller = nil
 	cs.clusterOperatorStatusController.emptyAllowed = true
