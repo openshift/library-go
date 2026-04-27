@@ -59,7 +59,27 @@ func (l FakeInfrastructureLister) List(selector labels.Selector) (ret []*configv
 }
 
 type FakeInfrastructureSharedInformer struct {
-	HasSynced_ bool
+	synced chan struct{}
+}
+
+func newSyncedChan(synced bool) chan struct{} {
+	ch := make(chan struct{})
+	if synced {
+		close(ch)
+	}
+	return ch
+}
+
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
 }
 
 func (i FakeInfrastructureSharedInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
@@ -87,8 +107,18 @@ func (i FakeInfrastructureSharedInformer) GetStore() cache.Store              { 
 func (i FakeInfrastructureSharedInformer) GetController() cache.Controller    { return nil }
 func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})         {}
 func (i FakeInfrastructureSharedInformer) RunWithContext(ctx context.Context) {}
-func (i FakeInfrastructureSharedInformer) HasSynced() bool                    { return i.HasSynced_ }
-func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string    { return "" }
+func (i FakeInfrastructureSharedInformer) HasSynced() bool {
+	select {
+	case <-i.synced:
+		return true
+	default:
+		return false
+	}
+}
+func (i FakeInfrastructureSharedInformer) HasSyncedChecker() cache.DoneChecker {
+	return &fakeSharedIndexInformerDone{synced: i.synced}
+}
+func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { return "" }
 func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	return nil
 }
@@ -185,7 +215,7 @@ func TestIsSNOCheckFnc(t *testing.T) {
 
 			informer := FakeInfrastructureInformer{
 				Informer_: FakeInfrastructureSharedInformer{
-					HasSynced_: test.hasSynced,
+					synced: newSyncedChan(test.hasSynced),
 				},
 				Lister_: FakeInfrastructureLister{
 					InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
@@ -663,7 +693,7 @@ func TestRenderGuardPod(t *testing.T) {
 
 			informer := FakeInfrastructureInformer{
 				Informer_: FakeInfrastructureSharedInformer{
-					HasSynced_: true,
+					synced: newSyncedChan(true),
 				},
 				Lister_: FakeInfrastructureLister{
 					InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),
@@ -832,7 +862,7 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 	informer := FakeInfrastructureInformer{
 		Informer_: FakeInfrastructureSharedInformer{
-			HasSynced_: true,
+			synced: newSyncedChan(true),
 		},
 		Lister_: FakeInfrastructureLister{
 			InfrastructureLister_: configlistersv1.NewInfrastructureLister(indexer),

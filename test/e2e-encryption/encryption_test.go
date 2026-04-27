@@ -760,9 +760,12 @@ func toString(c *apiserverv1.EncryptionConfiguration) string {
 }
 
 func NewInstantDeployer(t T, stopCh <-chan struct{}, secretsClient corev1client.SecretsGetter, secretName string) *lockStepDeployer {
+	synced := make(chan struct{})
+	close(synced)
 	return &lockStepDeployer{
 		secretsClient: secretsClient,
 		stopCh:        stopCh,
+		synced:        synced,
 		configManagedSecretsClient: secretInterceptor{
 			t:               t,
 			output:          make(chan *corev1.Secret),
@@ -776,6 +779,7 @@ func NewInstantDeployer(t T, stopCh <-chan struct{}, secretsClient corev1client.
 // After Deploy() a call to Wait() is necessary.
 type lockStepDeployer struct {
 	stopCh <-chan struct{}
+	synced chan struct{}
 
 	secretsClient              corev1client.SecretsGetter
 	configManagedSecretsClient secretInterceptor
@@ -911,7 +915,28 @@ func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) (
 }
 
 func (d *lockStepDeployer) HasSynced() bool {
-	return true
+	select {
+	case <-d.synced:
+		return true
+	default:
+		return false
+	}
+}
+
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
+}
+
+func (d *lockStepDeployer) HasSyncedChecker() cache.DoneChecker {
+	return &fakeSharedIndexInformerDone{synced: d.synced}
 }
 
 func (d *lockStepDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
