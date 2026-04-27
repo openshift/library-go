@@ -904,11 +904,11 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 		// The port is expected to be set to 99999 by the guard controller
 		if probe.Port.IntValue() != 99999 {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzPort, probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %d instead", ctrl.readyzPort, probe.Port.IntValue())
 		}
 		// The port is expected to be different from the one initially set in the guard pod readiness probe
 		if originalProbe.Port.IntValue() == probe.Port.IntValue() {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected it to be different from %q, got %q", originalProbe.Port.IntValue(), probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected it to be different from %d, got %d", originalProbe.Port.IntValue(), probe.Port.IntValue())
 		}
 
 		// The path is expected to be set to healthz by the guard controller

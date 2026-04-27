@@ -218,7 +218,7 @@ func innerObserveStorageURLsFromOldEndPoint(genericListers configobserver.Lister
 		}
 	} else {
 		err := fmt.Errorf("endpoints/%s in the %s namespace: no etcd endpoint addresses found, falling back to default etcd service", EtcdEndpointName, EtcdEndpointNamespace)
-		recorder.Warningf("ObserveStorageFallback", err.Error())
+		recorder.Warningf("ObserveStorageFallback", "%s", err.Error())
 		errs = append(errs, err)
 	}
 

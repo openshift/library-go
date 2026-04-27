@@ -78,7 +78,7 @@ func checkDiscoveryForByAPIServices(ctx context.Context, recorder events.Recorde
 		err := checkDiscoveryForAPIService(ctx, restclient, apiService)
 		if err != nil {
 			groupVersionString := fmt.Sprintf("%s.%s", apiService.Spec.Group, apiService.Spec.Version)
-			recorder.Warningf("OpenShiftAPICheckFailed", fmt.Sprintf("%q failed with %v", groupVersionString, err))
+			recorder.Warningf("OpenShiftAPICheckFailed", "%s failed with %v", groupVersionString, err)
 			missingMessages = append(missingMessages, fmt.Sprintf("%q is not ready: %v", groupVersionString, err))
 		}
 	}
