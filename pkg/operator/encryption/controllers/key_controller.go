@@ -271,11 +271,13 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		ks.KMSEncryptionConfig = &apiserverv1.KMSConfiguration{
-			APIVersion: "v2",
-			Name:       fmt.Sprintf("%d", keyID),
-			Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
-			Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
+		ks.KMS = &state.KMSConfig{
+			EncryptionConfig: &apiserverv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("%d", keyID),
+				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
+				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
+			},
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
