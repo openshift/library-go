@@ -153,7 +153,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
 		if actionEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState); len(actionEvents) > 0 {
 			for _, event := range actionEvents {
-				recorder.Eventf(event.reason, event.message)
+				recorder.Eventf(event.reason, "%s", event.message)
 			}
 		}
 	}
