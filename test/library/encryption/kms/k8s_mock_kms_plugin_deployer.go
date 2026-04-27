@@ -29,7 +29,7 @@ const (
 	WellKnownUpstreamMockKMSPluginNamespace = "k8s-mock-plugin"
 
 	// WellKnownUpstreamMockKMSPluginImage is the pre-built mock KMS plugin image.
-	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:998e1d48eba257f589ab86c30abd5043f662213e9aeff253e1c308301879d48a"
+	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:76444d7e37d0d2d0f4dfae31893e937f766439ce07036bf19325050b594d2e2c"
 
 	// DefaultKMSPluginCount is the default number of KMS plugin instances to deploy.
 	DefaultKMSPluginCount = 10
@@ -53,6 +53,12 @@ type yamlTemplateData struct {
 	Namespace string
 	Image     string
 	Index     int
+}
+
+// ReadAsset reads the given embedded asset YAML template and renders it.
+func ReadAsset(assetName string) ([]byte, error) {
+	assetFunc := wrapAssetWithTemplateDataFunc(yamlTemplateData{Namespace: "default"})
+	return assetFunc(assetName)
 }
 
 // DeployUpstreamMockKMSPlugin deploys count instances of the upstream mock KMS v2 plugin
