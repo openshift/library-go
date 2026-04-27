@@ -62,6 +62,18 @@ type FakeInfrastructureSharedInformer struct {
 	HasSynced_ bool
 }
 
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
+}
+
 func (i FakeInfrastructureSharedInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
 	//TODO implement me
 	panic("implement me")
@@ -88,7 +100,14 @@ func (i FakeInfrastructureSharedInformer) GetController() cache.Controller    { 
 func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})         {}
 func (i FakeInfrastructureSharedInformer) RunWithContext(ctx context.Context) {}
 func (i FakeInfrastructureSharedInformer) HasSynced() bool                    { return i.HasSynced_ }
-func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string    { return "" }
+func (i FakeInfrastructureSharedInformer) HasSyncedChecker() cache.DoneChecker {
+	ch := make(chan struct{})
+	if i.HasSynced_ {
+		close(ch)
+	}
+	return &fakeSharedIndexInformerDone{synced: ch}
+}
+func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { return "" }
 func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	return nil
 }

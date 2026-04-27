@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -754,6 +754,24 @@ func (d *lockStepDeployer) AddEventHandler(handler cache.ResourceEventHandler) (
 
 func (d *lockStepDeployer) HasSynced() bool {
 	return true
+}
+
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
+}
+
+func (d *lockStepDeployer) HasSyncedChecker() cache.DoneChecker {
+	ch := make(chan struct{})
+	close(ch)
+	return &fakeSharedIndexInformerDone{synced: ch}
 }
 
 func (d *lockStepDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
