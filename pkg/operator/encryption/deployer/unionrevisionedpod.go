@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 )
 
@@ -50,18 +50,18 @@ func (d *UnionRevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx conte
 	goldenSecret := seenSecrets[0]
 	seenSecrets = seenSecrets[1:]
 
-	goldenEncryptionCfg, err := encryptionconfig.FromSecret(goldenSecret)
+	goldenEncryptionCfg, err := encryptiondata.FromSecret(goldenSecret)
 	if err != nil {
 		return nil, false, err
 	}
 
 	for _, secret := range seenSecrets {
-		currentEncryptionCfg, err := encryptionconfig.FromSecret(secret)
+		currentEncryptionCfg, err := encryptiondata.FromSecret(secret)
 		if err != nil {
 			return nil, false, err
 		}
 
-		if !reflect.DeepEqual(goldenEncryptionCfg.Resources, currentEncryptionCfg.Resources) {
+		if !reflect.DeepEqual(goldenEncryptionCfg.Encryption.Resources, currentEncryptionCfg.Encryption.Resources) {
 			return nil, false, nil
 		}
 	}

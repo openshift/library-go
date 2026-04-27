@@ -5,9 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,6 +24,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
@@ -157,7 +159,7 @@ func TestPruneController(t *testing.T) {
 						Secret: rk.Key.Secret,
 					})
 				}
-				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{{
+				ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{{
 					Resource: "secrets",
 					Keys: append([]apiserverconfigv1.Key{
 						{
@@ -166,7 +168,7 @@ func TestPruneController(t *testing.T) {
 						},
 					}, additionaConfigReadKeys...),
 				}})
-				ec.APIVersion = corev1.SchemeGroupVersion.String()
+				ec.Encryption.APIVersion = corev1.SchemeGroupVersion.String()
 				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)

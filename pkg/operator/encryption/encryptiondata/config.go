@@ -1,4 +1,4 @@
-package encryptionconfig
+package encryptiondata
 
 import (
 	"encoding/base64"
@@ -20,8 +20,14 @@ var (
 	emptyStaticKey = base64.StdEncoding.EncodeToString(crypto.NewEmptyKey())
 )
 
-// FromEncryptionState converts state to config.
-func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *apiserverconfigv1.EncryptionConfiguration {
+// Config stores the EncryptionConfiguration and additional operator-managed
+// encryption state that doesn't fit into the upstream type.
+type Config struct {
+	Encryption *apiserverconfigv1.EncryptionConfiguration
+}
+
+// FromEncryptionState converts encryption state to Config.
+func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *Config {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 
 	for gr, grKeys := range encryptionState {
@@ -36,7 +42,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 		return resourceConfigs[i].Resources[0] < resourceConfigs[j].Resources[0] // each resource has its own keys
 	})
 
-	return &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}
+	return &Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}}
 }
 
 // ToEncryptionState converts config to state.
@@ -50,7 +56,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 //   - each resource has a distinct configuration with zero or more key based providers and the identity provider.
 //   - the last providers might be of type aesgcm. Then it carries the names of identity keys, recent first.
 //     We never use aesgcm as a real key because it is unsafe.
-func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
+func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[schema.GroupResource]state.GroupResourceState, []state.KeyState) {
 	backedKeys := make([]state.KeyState, 0, len(keySecrets))
 	for _, s := range keySecrets {
 		km, err := secrets.ToKeyState(s)
@@ -63,12 +69,12 @@ func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfigurati
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
-	if encryptionConfig == nil {
+	if secretData == nil || secretData.Encryption == nil {
 		return nil, backedKeys
 	}
 
 	out := map[schema.GroupResource]state.GroupResourceState{}
-	for _, resourceConfig := range encryptionConfig.Resources {
+	for _, resourceConfig := range secretData.Encryption.Resources {
 		// resources should be a single group resource
 		if len(resourceConfig.Resources) != 1 {
 			klog.Warningf("skipping invalid encryption config for resource %s", resourceConfig.Resources)

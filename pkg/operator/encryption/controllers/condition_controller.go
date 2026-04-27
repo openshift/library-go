@@ -15,7 +15,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -102,7 +102,7 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 		cond = nil
 		return err
 	}
-	currentState, _ := encryptionconfig.ToEncryptionState(currentConfig, foundSecrets)
+	currentState, _ := encryptiondata.ToEncryptionState(currentConfig, foundSecrets)
 
 	cond = cond.
 		WithStatus(operatorv1.ConditionTrue).

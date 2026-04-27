@@ -14,7 +14,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
@@ -66,7 +66,7 @@ func TestEncryptionEnabledPrecondition(t *testing.T) {
 			encryptionType: configv1.EncryptionTypeIdentity,
 			existingSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, component),
+					Name:      fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, component),
 					Namespace: "openshift-config-managed",
 				},
 			},
