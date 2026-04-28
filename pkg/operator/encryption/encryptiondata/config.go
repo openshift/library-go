@@ -219,12 +219,12 @@ func stateToProviders(resource string, desired state.GroupResourceState) []apise
 				},
 			})
 		case state.KMS:
-			if key.KMS == nil || key.KMS.EncryptionConfig == nil {
-				klog.Infof("skipping key %s for %s in KMS mode as its KMS.EncryptionConfig is nil", key.Key.Name, resource)
+			if !key.HasKMSEncryption() {
+				klog.Infof("skipping key %s for %s in KMS mode as its KMSConfig.Encryption is nil", key.Key.Name, resource)
 				continue // this should never happen
 			}
 			// In order to preserve the uniqueness, we should insert resource name
-			kmsCopy := key.KMS.EncryptionConfig.DeepCopy()
+			kmsCopy := key.KMSConfig.Encryption.DeepCopy()
 			kmsCopy.Name = createKMSProviderName(key.Key.Name, resource)
 			provider := apiserverconfigv1.ProviderConfiguration{
 				KMS: kmsCopy,

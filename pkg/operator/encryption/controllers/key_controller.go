@@ -271,8 +271,8 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		ks.KMS = &state.KMSConfig{
-			EncryptionConfig: &apiserverv1.KMSConfiguration{
+		ks.KMSConfig = &state.KMSConfig{
+			Encryption: &apiserverv1.KMSConfiguration{
 				APIVersion: "v2",
 				Name:       fmt.Sprintf("%d", keyID),
 				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
