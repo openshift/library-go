@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -278,6 +279,7 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
+			Provider: &state.KMSProviderConfig{KMSConfigAPI: api.GetKMSProviderConfig()},
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)

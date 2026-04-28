@@ -3,6 +3,7 @@ package state
 import (
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/api"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
@@ -48,10 +49,26 @@ func (k *KeyState) HasKMSEncryptionConfig() bool {
 	return k != nil && k.KMS != nil && k.KMS.EncryptionConfig != nil
 }
 
+func (k *KeyState) HasKMSProviderConfig() bool {
+	return k != nil && k.KMS != nil && k.KMS.Provider != nil
+}
+
 // KMSConfig stores all KMS encryption mode related configurations
 type KMSConfig struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
 	EncryptionConfig *apiserverconfigv1.KMSConfiguration
+
+	// Provider stores KMS provider specific configurations
+	Provider *KMSProviderConfig
+}
+
+// KMSProviderConfig stores KMS provider details.
+// This type does not only store the API definitions but also carries internally
+// managed KMS provider specific details such as secret/configmap mappings.
+type KMSProviderConfig struct {
+	// KMSProviderConfig is directly derived from the KMSConfig in o/api.
+	// Therefore, all the KMS provider details in o/api is represented here.
+	*api.KMSConfigAPI
 }
 
 type MigrationState struct {

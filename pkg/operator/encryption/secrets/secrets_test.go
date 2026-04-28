@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
+	encryptionapi "github.com/openshift/library-go/pkg/operator/encryption/api"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -129,6 +130,7 @@ func TestRoundtrip(t *testing.T) {
 						Name:       "1",
 						Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 					},
+					Provider: &state.KMSProviderConfig{KMSConfigAPI: encryptionapi.GetKMSProviderConfig()},
 				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
@@ -158,6 +160,7 @@ func TestRoundtrip(t *testing.T) {
 						Name:       "2",
 						Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 					},
+					Provider: &state.KMSProviderConfig{KMSConfigAPI: encryptionapi.GetKMSProviderConfig()},
 				},
 			},
 		},
