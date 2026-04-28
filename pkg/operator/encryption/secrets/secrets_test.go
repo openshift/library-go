@@ -129,6 +129,13 @@ func TestRoundtrip(t *testing.T) {
 						Name:       "1",
 						Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 					},
+					ProviderConfig: &state.KMSProviderConfig{
+						KMSPluginImage: "quay.io/openshift/kms-plugin:latest",
+						VaultAddress:   "https://vault.example.com",
+						VaultNamespace: "my-namespace",
+						TransitMount:   "transit",
+						TransitKey:     "my-key",
+					},
 				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
@@ -157,6 +164,13 @@ func TestRoundtrip(t *testing.T) {
 						APIVersion: "v2",
 						Name:       "2",
 						Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+					},
+					ProviderConfig: &state.KMSProviderConfig{
+						KMSPluginImage: "quay.io/openshift/kms-plugin:latest",
+						VaultAddress:   "https://vault.example.com",
+						VaultNamespace: "my-namespace",
+						TransitMount:   "transit",
+						TransitKey:     "my-key",
 					},
 				},
 			},

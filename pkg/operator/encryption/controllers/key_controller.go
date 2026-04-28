@@ -20,6 +20,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
+	v1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -163,7 +164,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, err := c.getCurrentModeAndExternalReason(ctx)
+	currentMode, externalReason, apiServerEncryption, err := c.getCurrentModeAndExternalReason(ctx)
 	if err != nil {
 		return err
 	}
@@ -222,7 +223,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiServerEncryption, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -259,7 +260,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption *v1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -278,35 +279,38 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
+			ProviderConfig: &state.KMSProviderConfig{
+				KMSConfig: apiServerEncryption.KMS,
+			},
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, error) {
+func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, *v1.APIServerEncryption, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.KMS, state.Identity: // secretbox is disabled for now
-		return currentMode, reason, nil
+		return currentMode, reason, &apiServer.Spec.Encryption, nil
 	case "": // unspecified means use the default (which can change over time)
-		return state.DefaultMode, reason, nil
+		return state.DefaultMode, reason, &apiServer.Spec.Encryption, nil
 	default:
-		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", nil, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 

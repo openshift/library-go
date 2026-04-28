@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -361,6 +363,16 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
+						// Verify KMS provider config content
+						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+						expectedProviderConfig, err := json.Marshal(&state.KMSProviderConfig{})
+						if err != nil {
+							ts.Fatalf("failed to marshal expected provider config: %v", err)
+						}
+						if string(kmsProviderConfigData) != string(expectedProviderConfig) {
+							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
+						}
+
 						// Verify internal reason
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-key-does-not-exist" {
 							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
@@ -418,6 +430,16 @@ func TestKeyController(t *testing.T) {
 						kmsConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
 						if string(kmsConfigData) != `{"apiVersion":"v2","name":"6","endpoint":"unix:///var/run/kmsplugin/kms-6.sock","timeout":"10s"}` {
 							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
+						}
+
+						// Verify KMS provider config content
+						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+						expectedProviderConfig, err := json.Marshal(&state.KMSProviderConfig{})
+						if err != nil {
+							ts.Fatalf("failed to marshal expected provider config: %v", err)
+						}
+						if string(kmsProviderConfigData) != string(expectedProviderConfig) {
+							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
 						}
 
 						// Verify internal reason is mode changed
@@ -495,6 +517,16 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("unexpected kms-encryption-config: %s", kmsConfigData)
 						}
 
+						// Verify KMS provider config content
+						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+						expectedProviderConfig, err := json.Marshal(&state.KMSProviderConfig{})
+						if err != nil {
+							ts.Fatalf("failed to marshal expected provider config: %v", err)
+						}
+						if string(kmsProviderConfigData) != string(expectedProviderConfig) {
+							ts.Errorf("unexpected kms-provider-config: %s", kmsProviderConfigData)
+						}
+
 						// Verify internal reason is mode changed
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-encryption-mode-changed" {
 							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
@@ -542,6 +574,11 @@ func TestKeyController(t *testing.T) {
 						// Verify KMS config data is not present for AESCBC
 						if kmsConfigData, exists := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]; exists {
 							ts.Errorf("expected kms-encryption-config data to be absent, got: %s", kmsConfigData)
+						}
+
+						// Verify KMS provider config is not present for AESCBC
+						if kmsProviderConfigData, exists := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]; exists {
+							ts.Errorf("expected kms-provider-config data to be absent, got: %s", kmsProviderConfigData)
 						}
 
 						// Verify internal reason is mode changed
@@ -682,18 +719,23 @@ var complexNestedEncryptionConfigJSON = `
 `
 
 func TestGetCurrentModeAndExternalReason(t *testing.T) {
+	kmsAPIServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS"}}}
+
 	scenarios := []struct {
-		name                  string
-		observedConfig        []byte
-		prefix                []string
-		apiServerObjects      []runtime.Object
-		expectedReasonFromCfg string
+		name                      string
+		observedConfig            []byte
+		prefix                    []string
+		apiServerObjects          []runtime.Object
+		expectedReasonFromCfg     string
+		expectedMode              state.Mode
+		expectedKMSProviderConfig *state.KMSProviderConfig
 	}{
 		{
 			name:                  "no prefix provided, flat observed config",
 			observedConfig:        []byte(flatEncryptionJSON),
 			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			expectedReasonFromCfg: "need-a-new-key",
+			expectedMode:          state.DefaultMode,
 		},
 
 		{
@@ -702,6 +744,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			prefix:                []string{"oauthAPIServer"},
 			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			expectedReasonFromCfg: "a-new-key-is-needed",
+			expectedMode:          state.DefaultMode,
 		},
 
 		{
@@ -710,22 +753,29 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			prefix:                []string{"oauthAPIServer"},
 			apiServerObjects:      []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			expectedReasonFromCfg: "oauth-api-reason",
+			expectedMode:          state.DefaultMode,
 		},
 
 		{
 			name:             "with prefix reading empty config works",
 			prefix:           []string{"oauthAPIServer"},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			expectedMode:     state.DefaultMode,
 		},
 
 		{
 			name:             "reading empty config works",
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			expectedMode:     state.DefaultMode,
 		},
 
 		{
-			name:             "kms encryption mode",
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS"}}}},
+			name:             "kms encryption mode returns provider config",
+			apiServerObjects: []runtime.Object{kmsAPIServer},
+			expectedMode:     state.KMS,
+			expectedKMSProviderConfig: &state.KMSProviderConfig{
+				KMSConfig: kmsAPIServer.Spec.Encryption.KMS,
+			},
 		},
 	}
 
@@ -744,7 +794,7 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 
 			// act
 			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			_, externalReason, err := target.getCurrentModeAndExternalReason(context.TODO())
+			currentMode, externalReason, apiServerEncryption, err := target.getCurrentModeAndExternalReason(context.TODO())
 
 			// validate
 			if err != nil {
@@ -752,6 +802,17 @@ func TestGetCurrentModeAndExternalReason(t *testing.T) {
 			}
 			if externalReason != scenario.expectedReasonFromCfg {
 				t.Errorf("unexpected reason read from the config: %q, expected: %q", externalReason, scenario.expectedReasonFromCfg)
+			}
+			if currentMode != scenario.expectedMode {
+				t.Errorf("unexpected mode: %q, expected: %q", currentMode, scenario.expectedMode)
+			}
+			if scenario.expectedKMSProviderConfig != nil {
+				actualProviderConfig := &state.KMSProviderConfig{
+					KMSConfig: apiServerEncryption.KMS,
+				}
+				if !equality.Semantic.DeepEqual(actualProviderConfig, scenario.expectedKMSProviderConfig) {
+					t.Errorf("unexpected KMS provider config:\n%s", diff.Diff(scenario.expectedKMSProviderConfig, actualProviderConfig))
+				}
 			}
 		})
 	}
