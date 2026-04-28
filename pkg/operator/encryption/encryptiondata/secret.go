@@ -48,7 +48,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
-	if secretData == nil || secretData.Encryption == nil {
+	if !secretData.HasEncryptionConfiguration() {
 		return nil, fmt.Errorf("secret %s/%s has no encryption config", ns, name)
 	}
 
