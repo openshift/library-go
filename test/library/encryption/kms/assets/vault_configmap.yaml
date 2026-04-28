@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: {{ .Namespace }}
+data:
+  vault.hcl: |
+    cluster_addr = "http://POD_IP:8201"
+    api_addr = "http://POD_IP:8200"
+
+    listener "tcp" {
+      tls_disable = 1
+      address = "[::]:8200"
+      cluster_address = "[::]:8201"
+    }
+
+    storage "raft" {
+      path = "/vault/data"
+      node_id = "vault-node-1"
+    }
+
+    disable_mlock = true
+
+  setup.sh: |
+    #!/bin/sh
+    set -e
+
+    VAULT_ADDR="http://127.0.0.1:8200"
+    export VAULT_ADDR
+
+    echo "Waiting for Vault to be ready..."
+    until vault status 2>&1 | grep -q 'Initialized'; do
+      sleep 2
+    done
+
+    if vault status 2>&1 | grep -q 'Initialized.*true'; then
+      echo "Vault already initialized, skipping setup."
+      sleep infinity
+    fi
+
+    echo "Initializing Vault..."
+    INIT_OUTPUT=$(vault operator init \
+      -key-shares=1 \
+      -key-threshold=1 \
+      -format=json 2>&1) || {
+      echo "Failed to initialize Vault"
+      echo "Output: $INIT_OUTPUT"
+      exit 1
+    }
+
+    UNSEAL_KEY=$(echo "$INIT_OUTPUT" | tr -d ' \n\t' | sed -n 's/.*"unseal_keys_b64":\["\([^"]*\)".*/\1/p')
+    ROOT_TOKEN=$(echo "$INIT_OUTPUT" | tr -d ' \n\t' | sed -n 's/.*"root_token":"\([^"]*\)".*/\1/p')
+
+    if [ -z "$UNSEAL_KEY" ] || [ -z "$ROOT_TOKEN" ]; then
+      echo "Failed to parse init output. Output was: $INIT_OUTPUT"
+      exit 1
+    fi
+
+    echo "Unsealing Vault..."
+    vault operator unseal "$UNSEAL_KEY"
+
+    export VAULT_TOKEN="$ROOT_TOKEN"
+    echo "Enabling transit secret engine..."
+    vault secrets enable -path=transit transit
+
+    echo "Creating transit encryption key..."
+    vault write -f transit/keys/kubernetes-encryption-key
+
+    echo "Enabling AppRole auth..."
+    vault auth enable approle
+
+    echo "Creating KMS policy..."
+    vault policy write kms-policy - <<'POLICY'
+    path "transit/encrypt/kubernetes-encryption-key" {
+      capabilities = ["update"]
+    }
+    path "transit/decrypt/kubernetes-encryption-key" {
+      capabilities = ["update"]
+    }
+    POLICY
+
+    echo "Creating AppRole role..."
+    vault write auth/approle/role/kms-plugin \
+      token_policies="kms-policy" \
+      token_ttl=1h \
+      token_max_ttl=4h
+
+    ROLE_ID=$(vault read -field=role_id auth/approle/role/kms-plugin/role-id)
+    SECRET_ID=$(vault write -field=secret_id -f auth/approle/role/kms-plugin/secret-id)
+
+    echo "Creating vault-credentials secret via K8s API..."
+    SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+    K8S_API="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"
+    NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+    CA_CERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+    ROLE_ID_B64=$(echo -n "$ROLE_ID" | base64)
+    SECRET_ID_B64=$(echo -n "$SECRET_ID" | base64)
+    ROOT_TOKEN_B64=$(echo -n "$ROOT_TOKEN" | base64)
+    UNSEAL_KEY_B64=$(echo -n "$UNSEAL_KEY" | base64)
+
+    cat > /tmp/secret.json <<EOSECRET
+    {
+      "apiVersion": "v1",
+      "kind": "Secret",
+      "metadata": {
+        "name": "vault-credentials",
+        "namespace": "${NAMESPACE}"
+      },
+      "type": "Opaque",
+      "data": {
+        "role-id": "${ROLE_ID_B64}",
+        "secret-id": "${SECRET_ID_B64}",
+        "root-token": "${ROOT_TOKEN_B64}",
+        "unseal-key": "${UNSEAL_KEY_B64}"
+      }
+    }
+    EOSECRET
+
+    wget --header="Authorization: Bearer ${SA_TOKEN}" \
+         --header="Content-Type: application/json" \
+         --no-check-certificate \
+         --post-file=/tmp/secret.json \
+         -O- "${K8S_API}/api/v1/namespaces/${NAMESPACE}/secrets"
+
+    rm -f /tmp/secret.json
+
+    echo "Vault setup complete. Sidecar sleeping."
+    sleep infinity
