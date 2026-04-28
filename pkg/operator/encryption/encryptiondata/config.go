@@ -26,6 +26,10 @@ type Config struct {
 	Encryption *apiserverconfigv1.EncryptionConfiguration
 }
 
+func (c *Config) HasEncryptionConfiguration() bool {
+	return c != nil && c.Encryption != nil
+}
+
 // FromEncryptionState converts encryption state to Config.
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *Config {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
@@ -69,7 +73,7 @@ func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[sch
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
-	if secretData == nil || secretData.Encryption == nil {
+	if !secretData.HasEncryptionConfiguration() {
 		return nil, backedKeys
 	}
 
