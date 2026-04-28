@@ -26,6 +26,7 @@ type fileSystem struct {
 	RemoveAll       func(path string) error
 	WriteFile       func(name string, data []byte, perm os.FileMode) error
 	SwapDirectories func(dirA, dirB string) error
+	SyncPath        func(name string) error
 }
 
 var realFS = fileSystem{
@@ -33,6 +34,20 @@ var realFS = fileSystem{
 	RemoveAll:       os.RemoveAll,
 	WriteFile:       os.WriteFile,
 	SwapDirectories: swap,
+	SyncPath:        syncPath,
+}
+
+func syncPath(name string) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	syncErr := f.Sync()
+	closeErr := f.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 // sync prepares a tmp directory and writes all files into that directory.
@@ -80,9 +95,32 @@ func sync(fs *fileSystem, targetDir string, targetDirPerm os.FileMode, stagingDi
 		}
 	}
 
+	klog.Infof("Syncing files in staging directory %q to disk ...", stagingDir)
+	for filename := range files {
+		fullFilename := filepath.Join(stagingDir, filename)
+		if err := fs.SyncPath(fullFilename); err != nil {
+			return fmt.Errorf("failed syncing %q: %w", fullFilename, err)
+		}
+	}
+	if err := fs.SyncPath(stagingDir); err != nil {
+		return fmt.Errorf("failed syncing staging directory %q: %w", stagingDir, err)
+	}
+
 	klog.Infof("Atomically swapping staging directory %q with target directory %q ...", stagingDir, targetDir)
 	if err := fs.SwapDirectories(targetDir, stagingDir); err != nil {
 		return fmt.Errorf("failed swapping target directory %q with staging directory %q: %w", targetDir, stagingDir, err)
 	}
+
+	// fsync parent directories to ensure the swap is durable on disk.
+	// renameat2(RENAME_EXCHANGE) modifies parent directory entries, so the
+	// parents must be fsynced to persist which inode each name points to.
+	klog.Infof("Syncing parent directories of %q and %q to disk ...", targetDir, stagingDir)
+	for _, dir := range []string{targetDir, stagingDir} {
+		parent := filepath.Dir(dir)
+		if err := fs.SyncPath(parent); err != nil {
+			return fmt.Errorf("failed syncing parent directory %q: %w", parent, err)
+		}
+	}
+
 	return
 }

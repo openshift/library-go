@@ -6,8 +6,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	adtesting "github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir/testing"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir/types"
@@ -280,6 +283,94 @@ func TestSync(t *testing.T) {
 			}
 			return fs
 		}),
+		errorTestCase("directory unchanged on failed to sync a file", func() *fileSystem {
+			fs := newRealFS()
+			origSync := realFS.SyncPath
+			fs.SyncPath = func(name string) error {
+				info, err := os.Stat(name)
+				if err == nil && !info.IsDir() {
+					return errors.New("nuked")
+				}
+				return origSync(name)
+			}
+			return fs
+		}),
+		errorTestCase("directory unchanged on failed to sync staging directory", func() *fileSystem {
+			fs := newRealFS()
+			origSync := realFS.SyncPath
+			fs.SyncPath = func(name string) error {
+				info, err := os.Stat(name)
+				if err == nil && info.IsDir() {
+					return errors.New("nuked")
+				}
+				return origSync(name)
+			}
+			return fs
+		}),
+		{
+			name: "directory synchronized on failed to sync parent of target directory",
+			newFS: func() *fileSystem {
+				fs := newRealFS()
+				origSync := realFS.SyncPath
+				var dirSyncCount int
+				fs.SyncPath = func(name string) error {
+					info, err := os.Stat(name)
+					if err == nil && info.IsDir() {
+						dirSyncCount++
+						if dirSyncCount == 2 {
+							return errors.New("nuked")
+						}
+					}
+					return origSync(name)
+				}
+				return fs
+			},
+			existingFiles: map[string]types.File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
+			},
+			filesToSync: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectedFiles: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectSyncError: true,
+		},
+		{
+			name: "directory synchronized on failed to sync parent of staging directory",
+			newFS: func() *fileSystem {
+				fs := newRealFS()
+				origSync := realFS.SyncPath
+				var dirSyncCount int
+				fs.SyncPath = func(name string) error {
+					info, err := os.Stat(name)
+					if err == nil && info.IsDir() {
+						dirSyncCount++
+						if dirSyncCount == 3 {
+							return errors.New("nuked")
+						}
+					}
+					return origSync(name)
+				}
+				return fs
+			},
+			existingFiles: map[string]types.File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
+			},
+			filesToSync: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectedFiles: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectSyncError: true,
+		},
 		{
 			name: "directory synchronized then failing to remove temporary directory",
 			newFS: func() *fileSystem {
@@ -388,5 +479,107 @@ func failToWriteNth(writeFile writeFileFunc, n int) writeFileFunc {
 func ensureDirectoryNotFound(t *testing.T, path string) {
 	if _, stat := os.Stat(path); !os.IsNotExist(stat) {
 		t.Errorf("Directory %q should not exist", path)
+	}
+}
+
+func TestSyncOperationOrdering(t *testing.T) {
+	var ops []fsOp
+
+	contentDir := filepath.Join(t.TempDir(), "secrets", "tls-cert")
+	stagingDir := filepath.Join(t.TempDir(), "staging", "secrets", "tls-cert")
+
+	adtesting.DirectoryState(map[string]types.File{
+		"tls.crt": {Content: []byte("old cert"), Perm: 0600},
+	}).Write(t, contentDir, 0755)
+
+	targetParent := filepath.Dir(contentDir)
+	stagingParent := filepath.Dir(stagingDir)
+
+	fs := &fileSystem{
+		MkdirAll: func(path string, perm os.FileMode) error {
+			ops = append(ops, fsOp{Kind: "MkdirAll", Path: path})
+			return os.MkdirAll(path, perm)
+		},
+		WriteFile: func(name string, data []byte, perm os.FileMode) error {
+			ops = append(ops, fsOp{Kind: "WriteFile", Path: name})
+			return os.WriteFile(name, data, perm)
+		},
+		SyncPath: func(name string) error {
+			info, err := os.Stat(name)
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				ops = append(ops, fsOp{Kind: "SyncFile", Path: name})
+			} else if name == targetParent || name == stagingParent {
+				ops = append(ops, fsOp{Kind: "SyncParent", Path: name})
+			} else {
+				ops = append(ops, fsOp{Kind: "SyncDir", Path: name})
+			}
+			return syncPath(name)
+		},
+		SwapDirectories: func(dirA, dirB string) error {
+			ops = append(ops, fsOp{Kind: "Swap", Path: dirA})
+			return swap(dirA, dirB)
+		},
+		RemoveAll: func(path string) error {
+			ops = append(ops, fsOp{Kind: "RemoveAll", Path: path})
+			return os.RemoveAll(path)
+		},
+	}
+
+	files := map[string]types.File{
+		"api.crt": {Content: []byte("new cert"), Perm: 0600},
+		"api.key": {Content: []byte("new key"), Perm: 0600},
+	}
+
+	if err := sync(fs, contentDir, 0755, stagingDir, files); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	// Sort consecutive same-kind ops by path to normalize non-deterministic map iteration order.
+	sortConsecutiveSameKindOps(ops)
+
+	expectedOps := []fsOp{
+		{Kind: "MkdirAll", Path: contentDir},
+		{Kind: "MkdirAll", Path: stagingDir},
+		{Kind: "WriteFile", Path: filepath.Join(stagingDir, "api.crt")},
+		{Kind: "WriteFile", Path: filepath.Join(stagingDir, "api.key")},
+		{Kind: "SyncFile", Path: filepath.Join(stagingDir, "api.crt")},
+		{Kind: "SyncFile", Path: filepath.Join(stagingDir, "api.key")},
+		{Kind: "SyncDir", Path: stagingDir},
+		{Kind: "Swap", Path: contentDir},
+		{Kind: "SyncParent", Path: targetParent},
+		{Kind: "SyncParent", Path: stagingParent},
+		{Kind: "RemoveAll", Path: stagingDir},
+	}
+
+	if diff := cmp.Diff(expectedOps, ops); diff != "" {
+		t.Errorf("unexpected operations (-want +got):\n%s", diff)
+	}
+
+	adtesting.DirectoryState(files).CheckDirectoryMatches(t, contentDir, 0755)
+}
+
+type fsOp struct {
+	Kind string
+	Path string
+}
+
+// sortConsecutiveSameKindOps sorts runs of consecutive ops with the same Kind
+// by Path, normalizing non-deterministic map iteration order.
+func sortConsecutiveSameKindOps(ops []fsOp) {
+	i := 0
+	for i < len(ops) {
+		j := i + 1
+		for j < len(ops) && ops[j].Kind == ops[i].Kind {
+			j++
+		}
+		if j-i > 1 {
+			sort.Slice(ops[i:j], func(a, b int) bool {
+				return ops[i+a].Path < ops[i+b].Path
+			})
+		}
+		i = j
 	}
 }
