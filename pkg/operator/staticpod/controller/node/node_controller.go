@@ -7,6 +7,7 @@ import (
 
 	coreapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 
@@ -84,22 +85,28 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		nodes = append(nodes, extraNodes...)
 	}
 
+	nodeUIDs := map[string]types.UID{}
+	for _, node := range nodes {
+		nodeUIDs[node.Name] = node.UID
+	}
+
 	jsonPatch := jsonpatch.New()
 	var removedNodeStatusesCounter int
 	newTargetNodeStates := []*applyoperatorv1.NodeStatusApplyConfiguration{}
 	// remove entries for missing nodes
 	for i, nodeState := range originalOperatorStatus.NodeStatuses {
-		found := false
-		for _, node := range nodes {
-			if nodeState.NodeName == node.Name {
-				found = true
-			}
-		}
-		if found {
-			newTargetNodeState := applyoperatorv1.NodeStatus().WithNodeName(originalOperatorStatus.NodeStatuses[i].NodeName)
+		currentUID, found := nodeUIDs[nodeState.NodeName]
+		if found && (nodeState.NodeUID == currentUID || nodeState.NodeUID == "") {
+			newTargetNodeState := applyoperatorv1.NodeStatus().
+				WithNodeName(nodeState.NodeName).
+				WithNodeUID(currentUID)
 			newTargetNodeStates = append(newTargetNodeStates, newTargetNodeState)
 		} else {
-			syncCtx.Recorder().Warningf("MasterNodeRemoved", "Observed removal of master node %s", nodeState.NodeName)
+			if found {
+				syncCtx.Recorder().Warningf("MasterNodeReplaced", "Observed replacement of master node %s (old UID: %s, new UID: %s)", nodeState.NodeName, nodeState.NodeUID, currentUID)
+			} else {
+				syncCtx.Recorder().Warningf("MasterNodeRemoved", "Observed removal of master node %s", nodeState.NodeName)
+			}
 			// each delete operation is applied to the object,
 			// which modifies the array. Thus, we need to
 			// adjust the indices to find the correct node to remove.
@@ -116,16 +123,17 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	for _, node := range nodes {
 		found := false
 		for _, nodeState := range originalOperatorStatus.NodeStatuses {
-			if nodeState.NodeName == node.Name {
+			if nodeState.NodeName == node.Name && (nodeState.NodeUID == node.UID || nodeState.NodeUID == "") {
 				found = true
+				break
 			}
 		}
 		if found {
 			continue
 		}
 
-		syncCtx.Recorder().Eventf("MasterNodeObserved", "Observed new master node %s", node.Name)
-		newTargetNodeState := applyoperatorv1.NodeStatus().WithNodeName(node.Name)
+		syncCtx.Recorder().Eventf("MasterNodeObserved", "Observed new master node %s (UID: %s)", node.Name, node.UID)
+		newTargetNodeState := applyoperatorv1.NodeStatus().WithNodeName(node.Name).WithNodeUID(node.UID)
 		newTargetNodeStates = append(newTargetNodeStates, newTargetNodeState)
 	}
 

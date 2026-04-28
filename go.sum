@@ -20,6 +20,10 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
+github.com/bhperry/openshift-api v0.0.0-20260422220337-85d77b44a5a5 h1:TVkomgoh0I2HMeVZLgW8XmLrR8BFp6QqDZ0j+HOCPsU=
+github.com/bhperry/openshift-api v0.0.0-20260422220337-85d77b44a5a5/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
+github.com/bhperry/openshift-client-go v0.0.0-20260424144941-de7d2d9bafad h1:k+ApEbVw3Dib+EYgl9A2ayfNdudSIVs/mKHUs9hVKVw=
+github.com/bhperry/openshift-client-go v0.0.0-20260424144941-de7d2d9bafad/go.mod h1:KUQZnn0WQjSuJs28f4nlluctKcyPAYneC1PwWCr6wRE=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
@@ -225,12 +229,8 @@ github.com/opencontainers/image-spec v1.0.2 h1:9yCKha/T5XdGtO0q9Q9a6T5NUCsTn/DrB
 github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/opencontainers/selinux v1.13.0 h1:Zza88GWezyT7RLql12URvoxsbLfjFx988+LGaWfbL84=
 github.com/opencontainers/selinux v1.13.0/go.mod h1:XxWTed+A/s5NNq4GmYScVy+9jzXhGBVEOAyucdRUY8s=
-github.com/openshift/api v0.0.0-20260420151639-34e60874783e h1:ENxXUo0uksvseiBAoOcL9wdEWtueEpu84RE8Hm0q3uY=
-github.com/openshift/api v0.0.0-20260420151639-34e60874783e/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
 github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee h1:+Sp5GGnjHDhT/a/nQ1xdp43UscBMr7G5wxsYotyhzJ4=
 github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee/go.mod h1:8jcm8UPtg2mCAsxfqKil1xrmRMI3a+XU2TZ9fF8A7TE=
-github.com/openshift/client-go v0.0.0-20260424153654-c280f7942f94 h1:EVKd4ZKP25wmPJnAj0dsz/7fGTHnNA8J0z4PXAq60lw=
-github.com/openshift/client-go v0.0.0-20260424153654-c280f7942f94/go.mod h1:lITKsplmZ9kJ6zvk4hW52XMZ9tt621GZGb69YSp+CSY=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
