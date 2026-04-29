@@ -3,7 +3,7 @@ package state
 import (
 	"time"
 
-	v1 "github.com/openshift/api/config/v1"
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
@@ -59,7 +59,7 @@ type KMSConfig struct {
 	Encryption *apiserverconfigv1.KMSConfiguration
 
 	// Provider stores KMS provider specific configurations
-	Provider *v1.KMSConfig
+	Provider *configv1.KMSConfig
 }
 
 type MigrationState struct {

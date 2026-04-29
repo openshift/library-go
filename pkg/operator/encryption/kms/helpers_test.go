@@ -12,6 +12,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestProviderConfigKeyID(t *testing.T) {
+	tests := []struct {
+		name      string
+		dataKey   string
+		wantKeyID string
+		wantOK    bool
+	}{
+		{
+			name:      "valid key",
+			dataKey:   "kms-provider-config-1",
+			wantKeyID: "1",
+			wantOK:    true,
+		},
+		{
+			name:      "valid key with large ID",
+			dataKey:   "kms-provider-config-42",
+			wantKeyID: "42",
+			wantOK:    true,
+		},
+		{
+			name:    "encryption-config key",
+			dataKey: "encryption-config",
+			wantOK:  false,
+		},
+		{
+			name:    "non-integer keyID",
+			dataKey: "kms-provider-config-abc",
+			wantOK:  false,
+		},
+		{
+			name:    "missing keyID",
+			dataKey: "kms-provider-config-",
+			wantOK:  false,
+		},
+		{
+			name:    "empty string",
+			dataKey: "",
+			wantOK:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keyID, ok := ProviderConfigKeyID(tt.dataKey)
+			require.Equal(t, tt.wantOK, ok)
+			if ok {
+				require.Equal(t, tt.wantKeyID, keyID)
+			}
+		})
+	}
+}
+
 func TestAddKMSPluginVolume(t *testing.T) {
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 

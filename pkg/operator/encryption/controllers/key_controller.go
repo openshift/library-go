@@ -20,7 +20,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
-	v1 "github.com/openshift/api/config/v1"
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -260,7 +260,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption v1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -285,36 +285,37 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, v1.APIServerEncryption, error) {
+func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", "", v1.APIServerEncryption{}, err
+		return "", "", configv1.APIServerEncryption{}, err
 	}
 
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		return "", "", v1.APIServerEncryption{}, err
+		return "", "", configv1.APIServerEncryption{}, err
 	}
 
 	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
-		return "", "", v1.APIServerEncryption{}, err
+		return "", "", configv1.APIServerEncryption{}, err
 	}
 
 	encryption := apiServer.Spec.Encryption
+	// TODO: we'll allow updating some values such as via unsupportedconfig overrides.
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, encryption, nil
 	case state.KMS:
 		if encryption.KMS == nil {
-			return "", "", v1.APIServerEncryption{}, fmt.Errorf("invalid encryption mode %q: KMS config is required", encryption.Type)
+			return "", "", configv1.APIServerEncryption{}, fmt.Errorf("invalid encryption mode %q: KMS config is required", encryption.Type)
 		}
 		return currentMode, reason, encryption, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, encryption, nil
 	default:
-		return "", "", v1.APIServerEncryption{}, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", configv1.APIServerEncryption{}, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 

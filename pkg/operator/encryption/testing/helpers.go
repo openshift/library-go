@@ -98,7 +98,23 @@ func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []s
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
+var DefaultKMSProviderConfig = &configv1.KMSConfig{
+	Type: configv1.VaultKMSProvider,
+	Vault: configv1.VaultKMSConfig{
+		KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+		VaultAddress:   "https://vault.example.com",
+		Authentication: configv1.VaultAuthentication{
+			Type: configv1.VaultAuthenticationTypeAppRole,
+			AppRole: configv1.VaultAppRoleAuthentication{
+				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+			},
+		},
+		TransitKey: "test-transit-key",
+	},
+}
+
 func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+<<<<<<< HEAD
 	emptyKey := make([]byte, 16)
 	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
 	kmsConfig := &apiserverconfigv1.KMSConfiguration{
@@ -118,6 +134,9 @@ func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupR
 	}
 	secret.Data[encryptionSecretKMSProviderConfigForTest] = provData
 	return secret
+=======
+	return CreateEncryptionKeySecretWithCustomKMSConfig(targetNS, grs, keyID, DefaultKMSProviderConfig)
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 }
 
 func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
@@ -128,6 +147,22 @@ func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schem
 
 func CreateExpiredMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
 	return CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+}
+
+func CreateEncryptionKeySecretWithCustomKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, providerConfig *configv1.KMSConfig) *corev1.Secret {
+	emptyKey := make([]byte, 16)
+	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
+	kmsConfig := &apiserverconfigv1.KMSConfiguration{
+		APIVersion: "v2",
+		Name:       fmt.Sprintf("%d", keyID),
+		Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
+		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+	}
+	kmsConfigJSON, _ := json.Marshal(kmsConfig)
+	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = kmsConfigJSON
+	providerConfigJSON, _ := json.Marshal(providerConfig)
+	secret.Data[encryptionSecretKMSProviderConfigForTest] = providerConfigJSON
+	return secret
 }
 
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {

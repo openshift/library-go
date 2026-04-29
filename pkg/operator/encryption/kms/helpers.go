@@ -2,11 +2,31 @@ package kms
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
 )
+
+const providerConfigDataKeyFormat = "kms-provider-config-%s"
+
+var providerConfigKeyRegex = regexp.MustCompile(`^kms-provider-config-(\d+)$`)
+
+// ProviderConfigDataKey constructs the data key for storing a KMS provider config in the encryption-config Secret.
+func ProviderConfigDataKey(keyID string) string {
+	return fmt.Sprintf(providerConfigDataKeyFormat, keyID)
+}
+
+// ProviderConfigKeyID extracts the keyID from a kms-provider-config data key.
+// Returns the keyID and true if the key matches the "kms-provider-config-<keyID>" pattern.
+func ProviderConfigKeyID(dataKey string) (string, bool) {
+	matches := providerConfigKeyRegex.FindStringSubmatch(dataKey)
+	if len(matches) != 2 {
+		return "", false
+	}
+	return matches[1], true
+}
 
 // AddKMSPluginVolumeAndMountToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
 // It assumes the pod spec does not already contain the KMS volume or mount; no deduplication is performed.

@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
@@ -724,25 +725,28 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms", "create:events:kms"},
-			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "EncryptionConfiguration",
-					APIVersion: "apiserver.config.k8s.io/v1",
-				},
-				Resources: []apiserverconfigv1.ResourceConfiguration{{
-					Resources: []string{"secrets"},
-					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
-					}, {
-						KMS: &apiserverconfigv1.KMSConfiguration{
-							APIVersion: "v2",
-							Name:       "1_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
-							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-						},
+			expectedEncryptionCfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}},
 					}},
-				}},
-			}},
+				},
+				KMSProviders: map[string]*configv1.KMSConfig{"1": encryptiontesting.DefaultKMSProviderConfig},
+			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -793,25 +797,28 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "EncryptionConfiguration",
-					APIVersion: "apiserver.config.k8s.io/v1",
-				},
-				Resources: []apiserverconfigv1.ResourceConfiguration{{
-					Resources: []string{"secrets"},
-					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						KMS: &apiserverconfigv1.KMSConfiguration{
-							APIVersion: "v2",
-							Name:       "1_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
-							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-						},
-					}, {
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
+			expectedEncryptionCfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
 					}},
-				}},
-			}},
+				},
+				KMSProviders: map[string]*configv1.KMSConfig{"1": encryptiontesting.DefaultKMSProviderConfig},
+			},
 			expectedActions: []string{
 				"list:pods:kms",
 				"get:secrets:kms",
@@ -852,40 +859,46 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, time.Now()),
 				func() *corev1.Secret {
-					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-						Resources: []apiserverconfigv1.ResourceConfiguration{{
-							Resources: []string{"secrets"},
-							Providers: []apiserverconfigv1.ProviderConfiguration{{
-								KMS: &apiserverconfigv1.KMSConfiguration{
-									APIVersion: "v2",
-									Name:       "1_secrets",
-									Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
-									Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-								},
-							}, {
-								Identity: &apiserverconfigv1.IdentityConfiguration{},
+					ec := &encryptiondata.Config{
+						Encryption: &apiserverconfigv1.EncryptionConfiguration{
+							Resources: []apiserverconfigv1.ResourceConfiguration{{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{{
+									KMS: &apiserverconfigv1.KMSConfiguration{
+										APIVersion: "v2",
+										Name:       "1_secrets",
+										Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+										Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+									},
+								}, {
+									Identity: &apiserverconfigv1.IdentityConfiguration{},
+								}},
 							}},
-						}},
-					}}
+						},
+						KMSProviders: map[string]*configv1.KMSConfig{"1": encryptiontesting.DefaultKMSProviderConfig},
+					}
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret {
-					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-						Resources: []apiserverconfigv1.ResourceConfiguration{{
-							Resources: []string{"secrets"},
-							Providers: []apiserverconfigv1.ProviderConfiguration{{
-								KMS: &apiserverconfigv1.KMSConfiguration{
-									APIVersion: "v2",
-									Name:       "1_secrets",
-									Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
-									Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-								},
-							}, {
-								Identity: &apiserverconfigv1.IdentityConfiguration{},
+					ec := &encryptiondata.Config{
+						Encryption: &apiserverconfigv1.EncryptionConfiguration{
+							Resources: []apiserverconfigv1.ResourceConfiguration{{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{{
+									KMS: &apiserverconfigv1.KMSConfiguration{
+										APIVersion: "v2",
+										Name:       "1_secrets",
+										Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+										Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+									},
+								}, {
+									Identity: &apiserverconfigv1.IdentityConfiguration{},
+								}},
 							}},
-						}},
-					}}
+						},
+						KMSProviders: map[string]*configv1.KMSConfig{"1": encryptiontesting.DefaultKMSProviderConfig},
+					}
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
 					return ecs
@@ -904,7 +917,20 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
-				encryptiontesting.CreateEncryptionKeySecretWithKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
+				encryptiontesting.CreateEncryptionKeySecretWithCustomKMSConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, &configv1.KMSConfig{
+					Type: configv1.VaultKMSProvider,
+					Vault: configv1.VaultKMSConfig{
+						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+						VaultAddress:   "https://vault2.example.com",
+						Authentication: configv1.VaultAuthentication{
+							Type: configv1.VaultAuthenticationTypeAppRole,
+							AppRole: configv1.VaultAppRoleAuthentication{
+								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+							},
+						},
+						TransitKey: "test-transit-key-2",
+					},
+				}),
 				func() *corev1.Secret { // encryption config in kms namespace
 					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
 						Resources: []apiserverconfigv1.ResourceConfiguration{{
@@ -959,32 +985,51 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "EncryptionConfiguration",
-					APIVersion: "apiserver.config.k8s.io/v1",
-				},
-				Resources: []apiserverconfigv1.ResourceConfiguration{{
-					Resources: []string{"secrets"},
-					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						KMS: &apiserverconfigv1.KMSConfiguration{
-							APIVersion: "v2",
-							Name:       "2_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
-							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-						},
-					}, {
-						KMS: &apiserverconfigv1.KMSConfiguration{
-							APIVersion: "v2",
-							Name:       "1_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
-							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-						},
-					}, {
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
+			expectedEncryptionCfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "2_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
 					}},
-				}},
-			}},
+				},
+				KMSProviders: map[string]*configv1.KMSConfig{
+					"1": encryptiontesting.DefaultKMSProviderConfig,
+					"2": {
+						Type: configv1.VaultKMSProvider,
+						Vault: configv1.VaultKMSConfig{
+							KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							VaultAddress:   "https://vault2.example.com",
+							Authentication: configv1.VaultAuthentication{
+								Type: configv1.VaultAuthenticationTypeAppRole,
+								AppRole: configv1.VaultAppRoleAuthentication{
+									Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+								},
+							},
+							TransitKey: "test-transit-key-2",
+						},
+					},
+				},
+			},
 			expectedActions: []string{
 				"list:pods:kms",
 				"get:secrets:kms",
@@ -1055,32 +1100,48 @@ func TestStateController(t *testing.T) {
 					return ecs
 				}(),
 			},
-			expectedEncryptionCfg: &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "EncryptionConfiguration",
-					APIVersion: "apiserver.config.k8s.io/v1",
-				},
-				Resources: []apiserverconfigv1.ResourceConfiguration{{
-					Resources: []string{"secrets"},
-					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						AESCBC: &apiserverconfigv1.AESConfiguration{
-							Keys: []apiserverconfigv1.Key{{
-								Name:   "1",
-								Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", // # notsecret
-							}},
-						},
-					}, {
-						KMS: &apiserverconfigv1.KMSConfiguration{
-							APIVersion: "v2",
-							Name:       "2_secrets",
-							Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
-							Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-						},
-					}, {
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
+			expectedEncryptionCfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", // # notsecret
+								}},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "2_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
 					}},
+				},
+				KMSProviders: map[string]*configv1.KMSConfig{"2": {
+					Type: configv1.VaultKMSProvider,
+					Vault: configv1.VaultKMSConfig{
+						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+						VaultAddress:   "https://vault.example.com",
+						Authentication: configv1.VaultAuthentication{
+							Type: configv1.VaultAuthenticationTypeAppRole,
+							AppRole: configv1.VaultAppRoleAuthentication{
+								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+							},
+						},
+						TransitKey: "test-transit-key",
+					},
 				}},
-			}},
+			},
 			expectedActions: []string{
 				"list:pods:kms",
 				"get:secrets:kms",

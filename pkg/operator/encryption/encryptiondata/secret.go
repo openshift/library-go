@@ -1,12 +1,19 @@
 package encryptiondata
 
 import (
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+<<<<<<< HEAD
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+=======
+	configv1 "github.com/openshift/api/config/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -25,7 +32,33 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	return &Config{Encryption: encryptionConfig}, nil
+=======
+
+	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
+	if !ok {
+		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
+	}
+
+	var kmsProviders map[string]*configv1.KMSConfig
+	for key, value := range encryptionConfigSecret.Data {
+		keyID, ok := kms.ProviderConfigKeyID(key)
+		if !ok {
+			continue
+		}
+		providerConfig := &configv1.KMSConfig{}
+		if err := json.Unmarshal(value, providerConfig); err != nil {
+			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
+		}
+		if kmsProviders == nil {
+			kmsProviders = map[string]*configv1.KMSConfig{}
+		}
+		kmsProviders[keyID] = providerConfig
+	}
+
+	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -38,7 +71,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
 
-	return &corev1.Secret{
+	s := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -55,5 +88,15 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 			EncryptionConfSecretName: rawEncryptionCfg,
 		},
 		Type: corev1.SecretTypeOpaque,
-	}, nil
+	}
+
+	for keyID, providerConfig := range secretData.KMSProviders {
+		providerJSON, err := json.Marshal(providerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode KMS provider config for key %s: %v", keyID, err)
+		}
+		s.Data[kms.ProviderConfigDataKey(keyID)] = providerJSON
+	}
+
+	return s, nil
 }

@@ -43,22 +43,8 @@ func TestKeyController(t *testing.T) {
 	apiServerWithAESGCM := simpleAPIServer.DeepCopy()
 	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
-	dummyKMSConfig := &configv1.KMSConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSConfig{
-			KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-			VaultAddress:   "https://vault.example.com",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
-				},
-			},
-			TransitKey: "test-transit-key",
-		},
-	}
 	apiServerWithKMS := simpleAPIServer.DeepCopy()
-	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: dummyKMSConfig}
+	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: encryptiontesting.DefaultKMSProviderConfig}
 
 	scenarios := []struct {
 		name                     string
@@ -387,7 +373,11 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+<<<<<<< HEAD
 						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
+=======
+						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -465,7 +455,11 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+<<<<<<< HEAD
 						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
+=======
+						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -559,7 +553,11 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
+<<<<<<< HEAD
 						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
+=======
+						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
+>>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
