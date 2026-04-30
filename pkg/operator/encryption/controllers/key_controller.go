@@ -199,9 +199,18 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	// fills up the state with all resources and set identity write key if write key secrets
 	// are missing.
 
+	var providerCfg kmsProviderConfig = noopKMSProviderConfig{}
+	if currentMode == state.KMS {
+		var err error
+		providerCfg, err = newKMSProviderConfig(apiEncryptionConfiguration.KMS)
+		if err != nil {
+			return err
+		}
+	}
+
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, providerCfg)
 		if !needed {
 			continue
 		}
@@ -228,7 +237,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, providerCfg, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -265,7 +274,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, providerCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -285,11 +294,6 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
 			Plugin: apiServerEncryption.KMS,
-		}
-
-		providerCfg, err := newKMSProviderConfig(apiServerEncryption.KMS)
-		if err != nil {
-			return nil, err
 		}
 
 		if secretName, expectedKeys, err := providerCfg.referencedSecretName(); err != nil {
@@ -363,7 +367,7 @@ func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Cont
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
 // used key ID and a reason string.
-func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, providerCfg kmsProviderConfig) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
 		return 0, "key-does-not-exist", currentMode != state.Identity
@@ -408,13 +412,19 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	if currentMode == state.KMS {
 		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
+		if latestKey.KMS == nil {
+			// A KMS-mode key without KMS state indicates a corrupted key secret.
+			// Trigger a new key to self-heal; the reason surfaces in events and logs.
+			return latestKeyID, "kms-state-missing-from-latest-key", true
+		}
+		if providerCfg.migrationRequired(latestKey.KMS.Plugin) {
+			return latestKeyID, "kms-provider-changed", true
+		}
 
-		// For now in Tech Preview v1, we don't support configurational changes. Therefore,
-		// it is pointless comparing the secrets.
-
-		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
-		// KMS keys are rotated externally by the KMS system.
-		// Moreover, we don't trigger new key when external reason is changed.
+		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
+		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}
@@ -440,7 +450,18 @@ type kmsProviderConfig interface {
 	// config and the specific data keys to carry from that configmap. Only the listed keys
 	// are copied into the Key Secret; any other data in the referenced configmap is ignored.
 	referencedConfigMapName() (string, []string, error)
+	// migrationRequired reports whether switching from latest (stored in
+	// the key secret) to this provider config requires a new encryption key.
+	migrationRequired(latest configv1.KMSPluginConfig) bool
 }
+
+// noopKMSProviderConfig is a safe zero-value implementation used for non-KMS modes.
+// All methods return empty/false so callers never need nil checks.
+type noopKMSProviderConfig struct{}
+
+func (noopKMSProviderConfig) referencedSecretName() (string, []string, error)    { return "", nil, nil }
+func (noopKMSProviderConfig) referencedConfigMapName() (string, []string, error) { return "", nil, nil }
+func (noopKMSProviderConfig) migrationRequired(configv1.KMSPluginConfig) bool    { return false }
 
 func newKMSProviderConfig(plugin configv1.KMSPluginConfig) (kmsProviderConfig, error) {
 	switch plugin.Type {
@@ -471,6 +492,30 @@ func (v *vaultProviderConfig) referencedConfigMapName() (string, []string, error
 		return "", nil, nil
 	}
 	return v.vault.TLS.CABundle.Name, []string{"ca-bundle.crt"}, nil
+}
+
+func (v *vaultProviderConfig) migrationRequired(latest configv1.KMSPluginConfig) bool {
+	if latest.Type != configv1.VaultKMSProvider {
+		klog.V(2).Infof("KMS migration required: provider type changed from %q to %q", latest.Type, configv1.VaultKMSProvider)
+		return true
+	}
+	if v.vault.VaultAddress != latest.Vault.VaultAddress {
+		klog.V(2).Infof("KMS migration required: VaultAddress changed from %q to %q", latest.Vault.VaultAddress, v.vault.VaultAddress)
+		return true
+	}
+	if v.vault.VaultNamespace != latest.Vault.VaultNamespace {
+		klog.V(2).Infof("KMS migration required: VaultNamespace changed from %q to %q", latest.Vault.VaultNamespace, v.vault.VaultNamespace)
+		return true
+	}
+	if v.vault.TransitMount != latest.Vault.TransitMount {
+		klog.V(2).Infof("KMS migration required: TransitMount changed from %q to %q", latest.Vault.TransitMount, v.vault.TransitMount)
+		return true
+	}
+	if v.vault.TransitKey != latest.Vault.TransitKey {
+		klog.V(2).Infof("KMS migration required: TransitKey changed from %q to %q", latest.Vault.TransitKey, v.vault.TransitKey)
+		return true
+	}
+	return false
 }
 
 // TODO make this un-settable once set
