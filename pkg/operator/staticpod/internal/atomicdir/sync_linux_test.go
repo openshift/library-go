@@ -265,12 +265,12 @@ func TestSync(t *testing.T) {
 		}),
 		errorTestCase("directory unchanged on failed to write the first file", func() *fileSystem {
 			fs := newRealFS()
-			fs.WriteFile = failToWriteNth(fs.WriteFile, 0)
+			fs.WriteFileFsync = failToWriteNth(fs.WriteFileFsync, 0)
 			return fs
 		}),
 		errorTestCase("directory unchanged on failed to write the second file", func() *fileSystem {
 			fs := newRealFS()
-			fs.WriteFile = failToWriteNth(fs.WriteFile, 1)
+			fs.WriteFileFsync = failToWriteNth(fs.WriteFileFsync, 1)
 			return fs
 		}),
 		errorTestCase("directory unchanged on failed to swap directories", func() *fileSystem {
@@ -280,6 +280,64 @@ func TestSync(t *testing.T) {
 			}
 			return fs
 		}),
+		{
+			name: "directory synchronized on failed to sync parent of target directory",
+			newFS: func() *fileSystem {
+				fs := newRealFS()
+				origFsync := realFS.Fsync
+				var fsyncCount int
+				fs.Fsync = func(name string) error {
+					fsyncCount++
+					if fsyncCount == 1 {
+						return errors.New("nuked")
+					}
+					return origFsync(name)
+				}
+				return fs
+			},
+			existingFiles: map[string]types.File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
+			},
+			filesToSync: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectedFiles: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectSyncError: true,
+		},
+		{
+			name: "directory synchronized on failed to sync parent of staging directory",
+			newFS: func() *fileSystem {
+				fs := newRealFS()
+				origFsync := realFS.Fsync
+				var fsyncCount int
+				fs.Fsync = func(name string) error {
+					fsyncCount++
+					if fsyncCount == 2 {
+						return errors.New("nuked")
+					}
+					return origFsync(name)
+				}
+				return fs
+			},
+			existingFiles: map[string]types.File{
+				"tls.crt": {Content: []byte("TLS cert"), Perm: 0600},
+				"tls.key": {Content: []byte("TLS key"), Perm: 0600},
+			},
+			filesToSync: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectedFiles: map[string]types.File{
+				"api.crt": {Content: []byte("rotated TLS cert"), Perm: 0600},
+				"api.key": {Content: []byte("rotated TLS key"), Perm: 0600},
+			},
+			expectSyncError: true,
+		},
 		{
 			name: "directory synchronized then failing to remove temporary directory",
 			newFS: func() *fileSystem {
