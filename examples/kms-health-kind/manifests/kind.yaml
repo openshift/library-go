@@ -1,0 +1,22 @@
+# Minimal single-node KIND cluster. The only thing we customize is
+# dropping the fake-plugin static pod manifest into
+# /etc/kubernetes/manifests/ so kubelet starts it automatically.
+#
+# We deliberately do NOT wire kube-apiserver to KMS encryption: what
+# this harness validates is the MONITOR's behavior, not
+# apiserver/KMS integration. Wiring apiserver would create a
+# chicken-and-egg startup dependency (apiserver needs KMS; KMS static
+# pod comes up in parallel) that is orthogonal to our test.
+#
+# The fake-plugin pod and the monitor Deployment both mount the
+# control-plane node's /tmp via hostPath, which is how they share the
+# UDS. No apiserver involvement needed.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraMounts:
+  - containerPath: /etc/kubernetes/manifests/kms-fake-plugin.yaml
+    hostPath: manifests/static-pod.yaml
+    readOnly: true
+    propagation: None

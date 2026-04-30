@@ -1,0 +1,28 @@
+# Static pod for the fake plugin. kubelet creates a mirror pod in the
+# apiserver for visibility — mirror pods can't reference a
+# ServiceAccount, so the monitor lives in a Deployment (see
+# manifests/monitor-deployment.yaml) rather than as a sibling container
+# here. The /tmp hostPath volume is the coordination point — apiserver,
+# this fake plugin, and the monitor pod all see the same socket file.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kms-fake-plugin
+  namespace: kube-system
+  labels:
+    tier: control-plane
+    component: kms-fake-plugin
+spec:
+  hostNetwork: true
+  containers:
+  - name: fake-plugin
+    image: kms-health-kind-fake-plugin:dev
+    imagePullPolicy: Never
+    volumeMounts:
+    - name: kms-plugin-socket-fake
+      mountPath: /var/run/kmsplugin-fake
+  volumes:
+  - name: kms-plugin-socket-fake
+    hostPath:
+      path: /tmp
+      type: Directory
