@@ -1,0 +1,27 @@
+name: kms-health-monitor-{{.KMSPluginName}}
+image: {{.OperatorImage}}
+command:
+{{- range .Command }}
+  - {{ . | toJson }}
+{{- end }}
+args:
+  - --kms-socket=/var/run/kmsplugin-{{.KMSPluginName}}/kms.sock
+  - --probe-interval={{.ProbeInterval}}
+  - --probe-interval-unhealthy={{.ProbeIntervalUnhealthy}}
+  - --probe-timeout={{.ProbeTimeout}}
+  - --write-timeout={{.WriteTimeout}}
+  - --output-mode=configmap
+  - --configmap-namespace={{.ConfigMapNamespace}}
+  - --configmap-name=kms-health-{{.KMSPluginName}}
+env:
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+volumeMounts:
+  - name: kms-plugin-socket-{{.KMSPluginName}}
+    mountPath: /var/run/kmsplugin-{{.KMSPluginName}}
+resources:
+  requests:
+    memory: 50Mi
+    cpu: 5m

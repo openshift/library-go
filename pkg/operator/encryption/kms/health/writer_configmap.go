@@ -24,6 +24,10 @@ import (
 //	data.not-ok    = {"timestamp":"...","observerPod":"...","detail":"...","keyIDHash":"..."}
 //	data.rpc-error = {"timestamp":"...","observerPod":"...","detail":"..."}
 //
+// Self-heals on miss: if the CM is absent, Write creates it. Caller
+// RBAC must therefore grant create in addition to get/update/patch on
+// the named CM.
+//
 // Concurrency contract: one ConfigMap per monitor instance. Two
 // monitors writing the same CM produce last-writer-wins on every key.
 // Callers MUST encode instance identity in the CM name (the cmd-layer
