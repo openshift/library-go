@@ -219,7 +219,7 @@ func (iniConfig *cpiConfigINI) createConfig() (*CPIConfig, error) {
 		iniConfig.Nodes.ExternalVMNetworkName != "" ||
 		iniConfig.Nodes.ExcludeInternalNetworkSubnetCIDR != "" ||
 		iniConfig.Nodes.ExcludeExternalNetworkSubnetCIDR != "" {
-		cfg.Nodes = &Nodes{
+		cfg.Nodes = Nodes{
 			InternalNetworkSubnetCIDR:        iniConfig.Nodes.InternalNetworkSubnetCIDR,
 			ExternalNetworkSubnetCIDR:        iniConfig.Nodes.ExternalNetworkSubnetCIDR,
 			InternalVMNetworkName:            iniConfig.Nodes.InternalVMNetworkName,
