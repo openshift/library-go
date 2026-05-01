@@ -140,7 +140,7 @@ type Nodes struct {
 // CPIConfig is the YAML representation of vsphere-cloud-provider config
 type CPIConfig struct {
 	CommonConfig `json:",inline"`
-	Nodes        *Nodes `json:"nodes,omitempty"`
+	Nodes        Nodes `json:"nodes,omitzero"`
 }
 
 // readCPIConfigYAML parses vSphere cloud config file and stores it into CPIConfig
