@@ -179,3 +179,48 @@ func TestINIConfigConversion(t *testing.T) {
 		})
 	}
 }
+
+func TestEmptyNodesOmittedInYAML(t *testing.T) {
+	g := gmg.NewWithT(t)
+
+	// Create a config with an empty Nodes struct
+	config := &CPIConfig{
+		CommonConfig: CommonConfig{
+			Global: Global{
+				User:     "testuser",
+				Password: "testpass",
+			},
+		},
+		Nodes: Nodes{}, // Empty struct, should be omitted
+	}
+
+	yamlOutput, err := MarshalConfig(config)
+	g.Expect(err).ToNot(gmg.HaveOccurred())
+
+	// Verify that "nodes:" does not appear in the output
+	g.Expect(yamlOutput).ToNot(gmg.ContainSubstring("nodes:"))
+}
+
+func TestNodesWithValuesIncludedInYAML(t *testing.T) {
+	g := gmg.NewWithT(t)
+
+	// Create a config with a populated Nodes struct
+	config := &CPIConfig{
+		CommonConfig: CommonConfig{
+			Global: Global{
+				User:     "testuser",
+				Password: "testpass",
+			},
+		},
+		Nodes: Nodes{
+			InternalNetworkSubnetCIDR: "192.168.1.0/24",
+		},
+	}
+
+	yamlOutput, err := MarshalConfig(config)
+	g.Expect(err).ToNot(gmg.HaveOccurred())
+
+	// Verify that "nodes:" DOES appear when the struct has values
+	g.Expect(yamlOutput).To(gmg.ContainSubstring("nodes:"))
+	g.Expect(yamlOutput).To(gmg.ContainSubstring("internalNetworkSubnetCidr: 192.168.1.0/24"))
+}
