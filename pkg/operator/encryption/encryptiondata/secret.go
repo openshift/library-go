@@ -1,7 +1,6 @@
 package encryptiondata
 
 import (
-	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +34,8 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 		if !ok {
 			continue
 		}
-		providerConfig := &configv1.KMSConfig{}
-		if err := json.Unmarshal(value, providerConfig); err != nil {
+		providerConfig, err := encoding.DecodeKMSConfig(value)
+		if err != nil {
 			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
 		}
 		if kmsProviders == nil {
@@ -78,7 +77,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 	}
 
 	for keyID, providerConfig := range secretData.KMSProviders {
-		providerJSON, err := json.Marshal(providerConfig)
+		providerJSON, err := encoding.EncodeKMSConfig(providerConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode KMS provider config for key %s: %v", keyID, err)
 		}
