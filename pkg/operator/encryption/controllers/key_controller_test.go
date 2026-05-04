@@ -373,11 +373,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
-<<<<<<< HEAD
-						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
-=======
-						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
+						expectedProviderConfig, err := encoding.EncodeKMSConfig(encryptiontesting.DefaultKMSProviderConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -455,11 +451,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
-<<<<<<< HEAD
-						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
-=======
-						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
+						expectedProviderConfig, err := encoding.EncodeKMSConfig(encryptiontesting.DefaultKMSProviderConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -553,11 +545,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS provider config content
 						kmsProviderConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-provider-config"]
-<<<<<<< HEAD
-						expectedProviderConfig, err := encoding.EncodeKMSConfig(dummyKMSConfig)
-=======
-						expectedProviderConfig, err := json.Marshal(encryptiontesting.DefaultKMSProviderConfig)
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
+						expectedProviderConfig, err := encoding.EncodeKMSConfig(encryptiontesting.DefaultKMSProviderConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}

@@ -114,29 +114,7 @@ var DefaultKMSProviderConfig = &configv1.KMSConfig{
 }
 
 func CreateEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
-<<<<<<< HEAD
-	emptyKey := make([]byte, 16)
-	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
-	kmsConfig := &apiserverconfigv1.KMSConfiguration{
-		APIVersion: "v2",
-		Name:       fmt.Sprintf("%d", keyID),
-		Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
-		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
-	}
-	encData, err := encoding.EncodeKMSConfiguration(kmsConfig)
-	if err != nil {
-		panic(fmt.Sprintf("failed to encode KMS encryption config: %v", err))
-	}
-	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = encData
-	provData, err := encoding.EncodeKMSConfig(&configv1.KMSConfig{})
-	if err != nil {
-		panic(fmt.Sprintf("failed to encode KMS provider config: %v", err))
-	}
-	secret.Data[encryptionSecretKMSProviderConfigForTest] = provData
-	return secret
-=======
 	return CreateEncryptionKeySecretWithCustomKMSConfig(targetNS, grs, keyID, DefaultKMSProviderConfig)
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 }
 
 func CreateMigratedEncryptionKeySecretWithKMSConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
@@ -158,10 +136,16 @@ func CreateEncryptionKeySecretWithCustomKMSConfig(targetNS string, grs []schema.
 		Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
 		Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 	}
-	kmsConfigJSON, _ := json.Marshal(kmsConfig)
-	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = kmsConfigJSON
-	providerConfigJSON, _ := json.Marshal(providerConfig)
-	secret.Data[encryptionSecretKMSProviderConfigForTest] = providerConfigJSON
+	encData, err := encoding.EncodeKMSConfiguration(kmsConfig)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode KMS encryption config: %v", err))
+	}
+	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = encData
+	provData, err := encoding.EncodeKMSConfig(providerConfig)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode KMS provider config: %v", err))
+	}
+	secret.Data[encryptionSecretKMSProviderConfigForTest] = provData
 	return secret
 }
 

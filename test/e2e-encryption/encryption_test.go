@@ -38,11 +38,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
-<<<<<<< HEAD
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-=======
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
@@ -298,9 +295,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 			require.NoError(t, err)
 			keyProviderData := keySecret.Data[secrets.EncryptionSecretKMSProviderConfig]
 			require.NotEmpty(t, keyProviderData, "key secret %s missing kms-provider-config data", keyID)
-			var keyProviderConfig configv1.KMSConfig
-			require.NoError(t, json.Unmarshal(keyProviderData, &keyProviderConfig))
-			require.Equal(t, keyProviderConfig, *providerConfig, "kms-provider-config for keyID %s in encryption-config secret does not match key secret", keyID)
+			keyProviderConfig, err := encoding.DecodeKMSConfig(keyProviderData)
+			require.NoError(t, err)
+			require.Equal(t, *keyProviderConfig, *providerConfig, "kms-provider-config for keyID %s in encryption-config secret does not match key secret", keyID)
 		}
 		for keyID := range cfg.KMSProviders {
 			if !expectedKeyIDs[keyID] {

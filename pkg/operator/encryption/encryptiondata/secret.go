@@ -7,13 +7,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-<<<<<<< HEAD
-	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-=======
 	configv1 "github.com/openshift/api/config/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -32,15 +29,6 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
-	return &Config{Encryption: encryptionConfig}, nil
-=======
-
-	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
-	if !ok {
-		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
-	}
-
 	var kmsProviders map[string]*configv1.KMSConfig
 	for key, value := range encryptionConfigSecret.Data {
 		keyID, ok := kms.ProviderConfigKeyID(key)
@@ -58,7 +46,6 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	}
 
 	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
->>>>>>> 639dafc7a (Carry kms-provider-config into encryption-config Secret)
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
