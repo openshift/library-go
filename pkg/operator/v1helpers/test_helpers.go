@@ -470,6 +470,7 @@ func mergeStaticPodOperatorStatusApplyConfiguration(currentOperatorStatus *v1.Op
 	for _, nodeStatus := range applyConfiguration.NodeStatuses {
 		newNodeStatus := operatorv1.NodeStatus{
 			NodeName:                 ptr.Deref(nodeStatus.NodeName, ""),
+			NodeUID:                  ptr.Deref(nodeStatus.NodeUID, ""),
 			CurrentRevision:          ptr.Deref(nodeStatus.CurrentRevision, 0),
 			TargetRevision:           ptr.Deref(nodeStatus.TargetRevision, 0),
 			LastFailedRevision:       ptr.Deref(nodeStatus.LastFailedRevision, 0),
