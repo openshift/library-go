@@ -3,6 +3,7 @@ package startupmonitor
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -201,6 +202,7 @@ func (o *Options) suicide(installerLock Locker) {
 	installerLock.Unlock()
 	klog.Info("Waiting for SIGTERM...")
 	for {
+		<-time.After(time.Duration(math.MaxInt64))
 	}
 }
 
