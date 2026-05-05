@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	clocktesting "k8s.io/utils/clock/testing"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -218,6 +220,33 @@ func TestSync(t *testing.T) {
 			objects:          []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			expectedObjects:  []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 			expectedPrunePod: false,
+		},
+		{
+			name:            "prunes non-contiguous set (keeps 1-10 and 96-100, prunes 11-95)",
+			targetNamespace: "prune-api",
+			status: operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 100,
+				},
+				NodeStatuses: []operatorv1.NodeStatus{
+					{
+						NodeName:           "test-node-1",
+						CurrentRevision:    100,
+						LastFailedRevision: 5,
+					},
+					{
+						NodeName:           "test-node-2",
+						CurrentRevision:    100,
+						LastFailedRevision: 10,
+					},
+				},
+			},
+			failedLimit:       5,
+			succeededLimit:    5,
+			objects:           int32Range(1, 100),
+			expectedObjects:   append(int32Range(1, 10), int32Range(96, 100)...),
+			expectedPrunePod:  true,
+			expectedPruneArgs: "-v=4 --max-eligible-revision=100 --protected-revisions=1,2,3,4,5,6,7,8,9,10,96,97,98,99,100 --resource-dir=/etc/kubernetes/static-pod-resources --cert-dir= --static-pod-name=test-pod",
 		},
 		{
 			name:            "protects all with unlimited revisions",
