@@ -223,7 +223,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -260,7 +260,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -280,6 +280,19 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
 			Provider: apiServerEncryption.KMS,
+		}
+		if apiServerEncryption.KMS != nil {
+			secretName := apiServerEncryption.KMS.Vault.Authentication.AppRole.Secret.Name
+			if len(secretName) > 0 {
+				credentialsSecret, err := c.secretClient.Secrets("openshift-config").Get(ctx, secretName, metav1.GetOptions{})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get credentials secret openshift-config/%s: %w", secretName, err)
+				}
+				ks.KMSConfig.Credentials = make(map[string]string, len(credentialsSecret.Data))
+				for k, v := range credentialsSecret.Data {
+					ks.KMSConfig.Credentials[k] = string(v)
+				}
+			}
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)

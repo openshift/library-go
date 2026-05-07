@@ -886,6 +886,39 @@ func TestSecretRoundtrip(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "KMS with provider config and credentials",
+			cfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				KMSProviders: map[string]*configv1.KMSConfig{
+					"1": encryptiontesting.DefaultKMSProviderConfig,
+				},
+				KMSCredentials: map[string]map[string]string{
+					"1": {
+						"VAULT_ROLE_ID":   "test-role-id",
+						"VAULT_SECRET_ID": "test-secret-id",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

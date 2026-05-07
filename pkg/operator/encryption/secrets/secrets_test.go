@@ -182,6 +182,31 @@ func TestRoundtrip(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "full kms with credentials",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "3",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true,
+				Mode:   "KMS",
+				KMSConfig: &state.KMSConfig{
+					Encryption: &v1.KMSConfiguration{
+						APIVersion: "v2",
+						Name:       "3",
+						Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
+						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+					},
+					Provider: defaultKMSProviderConfig,
+					Credentials: map[string]string{
+						"VAULT_ROLE_ID":   "test-role-id",
+						"VAULT_SECRET_ID": "test-secret-id",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

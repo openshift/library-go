@@ -28,6 +28,7 @@ const (
 	encryptionSecretMigratedResourcesForTest   = "encryption.apiserver.operator.openshift.io/migrated-resources"
 	encryptionSecretKMSEncryptionConfigForTest = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
 	encryptionSecretKMSProviderConfigForTest   = "encryption.apiserver.operator.openshift.io-kms-provider-config"
+	encryptionSecretKMSCredentialsForTest      = "encryption.apiserver.operator.openshift.io-kms-secret-data"
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -146,6 +147,16 @@ func CreateEncryptionKeySecretWithCustomKMSConfig(targetNS string, grs []schema.
 		panic(fmt.Sprintf("failed to encode KMS provider config: %v", err))
 	}
 	secret.Data[encryptionSecretKMSProviderConfigForTest] = provData
+	return secret
+}
+
+func CreateEncryptionKeySecretWithKMSConfigAndCredentials(targetNS string, grs []schema.GroupResource, keyID uint64, credentials map[string]string) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithCustomKMSConfig(targetNS, grs, keyID, DefaultKMSProviderConfig)
+	credentialsData, err := json.Marshal(credentials)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode KMS credentials: %v", err))
+	}
+	secret.Data[encryptionSecretKMSCredentialsForTest] = credentialsData
 	return secret
 }
 

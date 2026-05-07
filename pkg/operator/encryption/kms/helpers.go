@@ -11,6 +11,7 @@ import (
 )
 
 const providerConfigDataKeyPrefix = "kms-provider-config-"
+const credentialDataKeyPrefix = "kms-secret-data-"
 
 // ToProviderConfigSecretDataKeyFor constructs the data key for storing a KMS provider config in the encryption-config Secret.
 // The keyID must be a valid non-negative integer string.
@@ -25,6 +26,28 @@ func ToProviderConfigSecretDataKeyFor(keyID string) (string, error) {
 // Returns the keyID and true if the key matches the "kms-provider-config-<keyID>" pattern.
 func KeyIDFromProviderConfigSecretDataKey(dataKey string) (string, bool, error) {
 	keyID, found := strings.CutPrefix(dataKey, providerConfigDataKeyPrefix)
+	if !found || len(keyID) == 0 {
+		return "", false, nil
+	}
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return keyID, true, nil
+}
+
+// ToCredentialSecretDataKeyFor constructs the data key for storing KMS credentials in the encryption-config Secret.
+// The keyID must be a valid non-negative integer string.
+func ToCredentialSecretDataKeyFor(keyID string) (string, error) {
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return credentialDataKeyPrefix + keyID, nil
+}
+
+// KeyIDFromCredentialSecretDataKey extracts the keyID from a kms-secret-data data key.
+// Returns the keyID and true if the key matches the "kms-secret-data-<keyID>" pattern.
+func KeyIDFromCredentialSecretDataKey(dataKey string) (string, bool, error) {
+	keyID, found := strings.CutPrefix(dataKey, credentialDataKeyPrefix)
 	if !found || len(keyID) == 0 {
 		return "", false, nil
 	}
