@@ -5,6 +5,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/plugins"
 	corev1 "k8s.io/api/core/v1"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -22,7 +23,12 @@ type SidecarProvider interface {
 }
 
 func newSidecarProvider(providerConfig *configv1.KMSConfig, secretDataPath string) (SidecarProvider, error) {
-	return nil, fmt.Errorf("unsupported KMS provider configuration")
+	switch providerConfig.Type {
+	case configv1.VaultKMSProvider:
+		return plugins.NewVaultSidecarProvider(providerConfig, secretDataPath)
+	default:
+		return nil, fmt.Errorf("unsupported KMS provider configuration")
+	}
 }
 
 func InjectIntoPodSpec(podSpec *corev1.PodSpec, secretLister corev1listers.SecretLister, opConfig OperatorConfig) error {
