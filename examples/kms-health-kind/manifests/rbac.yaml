@@ -1,0 +1,39 @@
+# Monitor runs as a Deployment in kms-health-test; SA + RBAC all live
+# in the same namespace. The Role is scoped to exactly one ConfigMap
+# so the blast radius is obvious.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kms-health-monitor
+  namespace: kms-health-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kms-health-monitor
+  namespace: kms-health-test
+rules:
+# RBAC forbids resourceNames with `create` (the resource doesn't exist
+# yet, so name matching is undefined). Two-rule shape: tight scope for
+# mutating verbs, namespace-wide create for the self-heal path.
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["kms-health-fake"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kms-health-monitor
+  namespace: kms-health-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kms-health-monitor
+subjects:
+- kind: ServiceAccount
+  name: kms-health-monitor
+  namespace: kms-health-test

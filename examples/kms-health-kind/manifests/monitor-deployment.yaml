@@ -1,0 +1,58 @@
+# Deployment (not static pod) for the ServiceAccount; pinned to
+# control-plane because the fake-plugin's UDS lives on that node's /tmp.
+#
+# Container block mirrors `make render-container` for KMSPluginName=fake;
+# drift makes kind-verify go red.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kms-health-monitor-fake
+  namespace: kms-health-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kms-health-monitor-fake
+  template:
+    metadata:
+      labels:
+        app: kms-health-monitor-fake
+    spec:
+      serviceAccountName: kms-health-monitor
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: kms-health-monitor-fake
+        image: kms-health-kind-monitor:dev
+        imagePullPolicy: Never
+        # Tighter intervals than library defaults so verify.sh fits in budget.
+        args:
+        - --kms-socket=/var/run/kmsplugin-fake/kms.sock
+        - --probe-interval=2s
+        - --probe-interval-unhealthy=1s
+        - --probe-timeout=1s
+        - --write-timeout=5s
+        - --output-mode=configmap
+        - --configmap-namespace=kms-health-test
+        - --configmap-name=kms-health-fake
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: kms-plugin-socket-fake
+          mountPath: /var/run/kmsplugin-fake
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 5m
+      volumes:
+      - name: kms-plugin-socket-fake
+        hostPath:
+          path: /tmp
+          type: Directory
