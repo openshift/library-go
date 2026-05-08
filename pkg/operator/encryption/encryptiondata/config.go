@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -15,6 +14,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -152,7 +152,7 @@ func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[sch
 
 			case provider.KMS != nil:
 				// Name and Secret must match to find our backed Secret
-				keyID, err := getKeyIDFromPluginName(provider.KMS.Name)
+				keyID, err := kms.GetKeyIDFromPluginName(provider.KMS.Name)
 				if err != nil {
 					klog.Warningf("resource: %s provider index: %d: Skipping invalid plugin name %s: %v", resourceConfig.Resources[0], i, provider.KMS.Name, err)
 					continue // should never happen
@@ -286,14 +286,4 @@ func createKMSPluginName(keyID, resource string) string {
 	// However, this is an upstream constraint that every provider name must be unique.
 	// To maintain uniqueness while still allowing access to the keyID, we generate plugin name in this format.
 	return fmt.Sprintf("%s_%s", keyID, resource)
-}
-
-func getKeyIDFromPluginName(pluginName string) (string, error) {
-	// We just need to obtain the keyID to find our backed secret
-	// e.g. "1_secrets"
-	parsed := strings.SplitN(pluginName, "_", 2)
-	if len(parsed) != 2 {
-		return "", fmt.Errorf("invalid plugin name %q: expected format keyID_resourceName", pluginName)
-	}
-	return parsed[0], nil
 }
