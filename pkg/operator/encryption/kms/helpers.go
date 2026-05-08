@@ -2,15 +2,24 @@ package kms
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	corev1 "k8s.io/api/core/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
 
+var kmsEndpointRegexp = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
+
 const providerConfigDataKeyPrefix = "kms-provider-config-"
+const credentialDataKeyPrefix = "kms-secret-data-"
+const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
 
 // ToProviderConfigSecretDataKeyFor constructs the data key for storing a KMS provider config in the encryption-config Secret.
 // The keyID must be a valid non-negative integer string.
@@ -25,6 +34,28 @@ func ToProviderConfigSecretDataKeyFor(keyID string) (string, error) {
 // Returns the keyID and true if the key matches the "kms-provider-config-<keyID>" pattern.
 func KeyIDFromProviderConfigSecretDataKey(dataKey string) (string, bool, error) {
 	keyID, found := strings.CutPrefix(dataKey, providerConfigDataKeyPrefix)
+	if !found || len(keyID) == 0 {
+		return "", false, nil
+	}
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return keyID, true, nil
+}
+
+// ToCredentialSecretDataKeyFor constructs the data key for storing KMS credentials in the encryption-config Secret.
+// The keyID must be a valid non-negative integer string.
+func ToCredentialSecretDataKeyFor(keyID string) (string, error) {
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return credentialDataKeyPrefix + keyID, nil
+}
+
+// KeyIDFromCredentialSecretDataKey extracts the keyID from a kms-secret-data data key.
+// Returns the keyID and true if the key matches the "kms-secret-data-<keyID>" pattern.
+func KeyIDFromCredentialSecretDataKey(dataKey string) (string, bool, error) {
+	keyID, found := strings.CutPrefix(dataKey, credentialDataKeyPrefix)
 	if !found || len(keyID) == 0 {
 		return "", false, nil
 	}
@@ -89,4 +120,51 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	)
 
 	return nil
+}
+
+func findFirstKMSConfiguration(config *apiserverv1.EncryptionConfiguration) *apiserverv1.KMSConfiguration {
+	for _, resource := range config.Resources {
+		for _, provider := range resource.Providers {
+			if provider.KMS != nil {
+				return provider.KMS
+			}
+		}
+	}
+	return nil
+}
+
+func parseKeyIDFromEndpoint(endpoint string) (string, error) {
+	matches := kmsEndpointRegexp.FindStringSubmatch(endpoint)
+	if matches == nil {
+		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
+	}
+	return matches[1], nil
+}
+
+func parseProviderConfig(secret *corev1.Secret, kmsConfiguration *apiserverv1.KMSConfiguration) (*configv1.KMSConfig, error) {
+	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse key ID from endpoint: %w", err)
+	}
+	providerConfigKey, err := ToProviderConfigSecretDataKeyFor(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider config secret key ID from endpoint: %w", err)
+	}
+	providerConfigData, ok := secret.Data[providerConfigKey]
+	if !ok {
+		return nil, fmt.Errorf("missing provider config key %s in encryption-config secret", providerConfigKey)
+	}
+	kmsConfig, err := encoding.DecodeKMSConfig(providerConfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode provider config: %w", err)
+	}
+	return kmsConfig, nil
+}
+
+func parseSecretDataPath(kmsConfiguration *apiserverv1.KMSConfiguration) (string, error) {
+	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse key ID from endpoint: %w", err)
+	}
+	return filepath.Join(credentialsDir, credentialDataKeyPrefix+keyID), nil
 }

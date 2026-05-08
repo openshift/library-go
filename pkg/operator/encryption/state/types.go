@@ -53,6 +53,10 @@ func (k *KeyState) HasKMSProvider() bool {
 	return k != nil && k.KMSConfig != nil && k.KMSConfig.Provider != nil
 }
 
+func (k *KeyState) HasKMSCredentials() bool {
+	return k != nil && k.KMSConfig != nil && len(k.KMSConfig.Credentials) > 0
+}
+
 // KMSConfig stores all KMS encryption mode related configurations
 type KMSConfig struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
@@ -60,6 +64,9 @@ type KMSConfig struct {
 
 	// Provider stores KMS provider specific configurations
 	Provider *configv1.KMSConfig
+
+	// Credentials stores credential key-value pairs from the referenced Secret
+	Credentials map[string]string
 }
 
 type MigrationState struct {

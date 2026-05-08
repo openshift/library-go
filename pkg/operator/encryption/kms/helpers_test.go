@@ -7,9 +7,10 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	corev1 "k8s.io/api/core/v1"
-
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
 
 func TestKeyIDFromProviderConfigSecretDataKey(t *testing.T) {
@@ -110,6 +111,145 @@ func TestToProviderConfigSecretDataKeyFor(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, tt.wantKey, got)
+		})
+	}
+}
+
+func TestParseKeyIDFromEndpoint(t *testing.T) {
+	tests := []struct {
+		name      string
+		endpoint  string
+		wantKeyID string
+		wantErr   string
+	}{
+		{
+			name:      "standard endpoint",
+			endpoint:  "unix:///var/run/kmsplugin/kms-555.sock",
+			wantKeyID: "555",
+		},
+		{
+			name:      "single digit key ID",
+			endpoint:  "unix:///var/run/kmsplugin/kms-3.sock",
+			wantKeyID: "3",
+		},
+		{
+			name:     "missing kms- prefix",
+			endpoint: "unix:///var/run/kmsplugin/plugin-555.sock",
+			wantErr:  "unexpected KMS endpoint format",
+		},
+		{
+			name:     "missing .sock suffix",
+			endpoint: "unix:///var/run/kmsplugin/kms-555.socket",
+			wantErr:  "unexpected KMS endpoint format",
+		},
+		{
+			name:     "empty key ID",
+			endpoint: "unix:///var/run/kmsplugin/kms-.sock",
+			wantErr:  "unexpected KMS endpoint format",
+		},
+		{
+			name:     "no unix prefix",
+			endpoint: "/var/run/kmsplugin/kms-555.sock",
+			wantErr:  "unexpected KMS endpoint format",
+		},
+		{
+			name:     "no digit key ID",
+			endpoint: "/var/run/kmsplugin/kms-abc.sock",
+			wantErr:  "unexpected KMS endpoint format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keyID, err := parseKeyIDFromEndpoint(tt.endpoint)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantKeyID, keyID)
+		})
+	}
+}
+
+func TestParseProviderConfig(t *testing.T) {
+	vaultConfig := &configv1.KMSConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSConfig{
+			KMSPluginImage: "quay.io/test/vault:v1",
+			VaultAddress:   "https://vault.example.com:8200",
+			VaultNamespace: "my-namespace",
+			TransitKey:     "my-key",
+			TransitMount:   "transit",
+		},
+	}
+	configBytes, err := encoding.EncodeKMSConfig(vaultConfig)
+	require.NoError(t, err)
+
+	providerConfigKey, err := ToProviderConfigSecretDataKeyFor("555")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		secret    *corev1.Secret
+		kmsConfig *apiserverv1.KMSConfiguration
+		wantErr   string
+	}{
+		{
+			name: "valid provider config",
+			secret: &corev1.Secret{
+				Data: map[string][]byte{
+					providerConfigKey: configBytes,
+				},
+			},
+			kmsConfig: &apiserverv1.KMSConfiguration{
+				Endpoint: "unix:///var/run/kmsplugin/kms-555.sock",
+			},
+		},
+		{
+			name: "missing provider config key",
+			secret: &corev1.Secret{
+				Data: map[string][]byte{},
+			},
+			kmsConfig: &apiserverv1.KMSConfiguration{
+				Endpoint: "unix:///var/run/kmsplugin/kms-555.sock",
+			},
+			wantErr: "missing provider config key",
+		},
+		{
+			name: "invalid JSON",
+			secret: &corev1.Secret{
+				Data: map[string][]byte{
+					providerConfigKey: []byte(`{invalid`),
+				},
+			},
+			kmsConfig: &apiserverv1.KMSConfiguration{
+				Endpoint: "unix:///var/run/kmsplugin/kms-555.sock",
+			},
+			wantErr: "failed to decode provider config",
+		},
+		{
+			name: "invalid endpoint",
+			secret: &corev1.Secret{
+				Data: map[string][]byte{},
+			},
+			kmsConfig: &apiserverv1.KMSConfiguration{
+				Endpoint: "invalid-endpoint",
+			},
+			wantErr: "failed to parse key ID from endpoint",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := parseProviderConfig(tt.secret, tt.kmsConfig)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.Equal(t, vaultConfig, config)
 		})
 	}
 }

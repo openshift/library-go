@@ -57,6 +57,10 @@ const (
 	// EncryptionSecretKMSProviderConfig is the data field key that stores the serialized provider
 	// configuration for KMS mode in the encryption-key secret.
 	EncryptionSecretKMSProviderConfig = "encryption.apiserver.operator.openshift.io-kms-provider-config"
+
+	// EncryptionSecretKMSCredentials is the data field key for the JSON-encoded KMS
+	// credential map in the encryption-key secret.
+	EncryptionSecretKMSCredentials = "encryption.apiserver.operator.openshift.io-kms-secret-data"
 )
 
 // MigratedGroupResources is the data structured stored in the
