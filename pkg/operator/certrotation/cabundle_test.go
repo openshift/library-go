@@ -1,7 +1,6 @@
 package certrotation
 
 import (
-	"context"
 	gcrypto "crypto"
 	"crypto/rand"
 	"crypto/x509"
@@ -216,7 +215,7 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = c.EnsureConfigMapCABundle(context.TODO(), newCA, "signer-secret")
+			_, err = c.EnsureConfigMapCABundle(t.Context(), newCA, "signer-secret")
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)

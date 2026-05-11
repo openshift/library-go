@@ -1,7 +1,6 @@
 package certrotation
 
 import (
-	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"strings"
@@ -271,7 +270,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
 			}
 
-			_, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
+			_, updated, err := c.EnsureSigningCertKeyPair(t.Context())
 			switch {
 			case err != nil && len(test.expectedError) == 0:
 				t.Error(err)
@@ -422,7 +421,7 @@ func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
 		},
 	}
 
-	ca, updated, err := c.EnsureSigningCertKeyPair(context.TODO())
+	ca, updated, err := c.EnsureSigningCertKeyPair(t.Context())
 	if err != nil {
 		t.Fatalf("EnsureSigningCertKeyPair() error = %v", err)
 	}
