@@ -336,9 +336,10 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
@@ -381,6 +382,14 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("unexpected kms-plugin-config: %s", kmsPluginConfigData)
 						}
 
+						// Verify secret data is carried
+						if roleID := string(actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_role-id"]); roleID != "test-role-id" {
+							ts.Errorf("expected role-id secret data to be 'test-role-id', got %q", roleID)
+						}
+						if secretID := string(actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_secret-id"]); secretID != "test-secret-id" {
+							ts.Errorf("expected secret-id secret data to be 'test-secret-id', got %q", secretID)
+						}
+
 						// Verify internal reason
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-key-does-not-exist" {
 							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
@@ -418,10 +427,11 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865"), "aescbc"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -512,10 +522,11 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("identity-key"), "identity"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -571,6 +582,36 @@ func TestKeyController(t *testing.T) {
 					ts.Errorf("the secret wasn't created and validated")
 				}
 			},
+		},
+
+		{
+			name: "degraded when KMS referenced secret is missing a required key",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "vault-approle-secret", Namespace: "openshift-config"},
+					Data: map[string][]byte{
+						"role-id": []byte("test-role-id"),
+					},
+					Type: corev1.SecretTypeOpaque,
+				},
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: `failed to create key: secret vault-approle-secret in openshift-config is missing required key "secret-id"`,
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: errors.New(`failed to create key: secret vault-approle-secret in openshift-config is missing required key "secret-id"`),
 		},
 
 		{
@@ -667,7 +708,7 @@ func TestKeyController(t *testing.T) {
 			// - target namespace: pods and secrets
 			// - openshift-config-managed: secrets
 			// note that the informer factory is not used in the test - it's only needed to create the controller
-			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
+			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", "openshift-config", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)

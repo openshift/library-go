@@ -57,6 +57,16 @@ const (
 	// EncryptionSecretKMSPluginConfig is the data field key that stores the serialized KMS plugin
 	// configuration for KMS mode in the encryption-key secret.
 	EncryptionSecretKMSPluginConfig = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+
+	// EncryptionSecretKMSSecretDataPrefix is the data field key prefix for secret data values
+	// fetched from the referenced secret in openshift-config. The full data key is
+	// constructed as prefix + secretName + separator + dataKey.
+	EncryptionSecretKMSSecretDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-secret-"
+
+	// SecretDataKeySeparator separates the secret name from the data key in
+	// Key Secret data keys. Underscore is used because it is forbidden in
+	// Kubernetes secret/configmap names, preventing collisions.
+	SecretDataKeySeparator = "_"
 )
 
 // MigratedGroupResources is the data structured stored in the

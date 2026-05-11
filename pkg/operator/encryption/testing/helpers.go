@@ -149,6 +149,20 @@ func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []s
 	return secret
 }
 
+func CreateVaultAppRoleSecret(name, roleID, secretID string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "openshift-config",
+		},
+		Data: map[string][]byte{
+			"role-id":   []byte(roleID),
+			"secret-id": []byte(secretID),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+}
+
 func CreateDummyKubeAPIPod(name, namespace string, nodeName string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
