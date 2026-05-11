@@ -30,6 +30,48 @@ type Config struct {
 	// KMSPlugins maps keyID to plugin-specific configuration,
 	// carried from Key Secrets into the encryption-config Secret.
 	KMSPlugins map[string]configv1.KMSPluginConfig
+	// KMSPluginsSecretData maps keyID to secret data carried from
+	// Key Secrets into the encryption-config Secret.
+	// Structure: keyID → secretName → dataKey → value.
+	KMSPluginsSecretData KMSPluginsSecretData
+}
+
+// KMSPluginsSecretData maps keyID to secret data carried from Key Secrets into
+// the encryption-config Secret. Structure: keyID → secretName → dataKey → value.
+type KMSPluginsSecretData struct {
+	ByKeyID map[string]state.KMSSecretData
+}
+
+// SetFromRawKey stores a value for the given keyID, splitting rawKey
+// on "_" into secretName and dataKey.
+func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte) error {
+	if len(keyID) == 0 {
+		return fmt.Errorf("keyID must not be empty")
+	}
+	if d.ByKeyID == nil {
+		d.ByKeyID = map[string]state.KMSSecretData{}
+	}
+	sd := d.ByKeyID[keyID]
+	if err := sd.SetFromRawKey(rawKey, value); err != nil {
+		return err
+	}
+	d.ByKeyID[keyID] = sd
+	return nil
+}
+
+// FlatEntriesByKeyID returns the stored data as a map of keyID to flat entries,
+// where each flat entry is keyed by "secretName_dataKey".
+func (d *KMSPluginsSecretData) FlatEntriesByKeyID() map[string]map[string][]byte {
+	if d.ByKeyID == nil {
+		return nil
+	}
+	result := map[string]map[string][]byte{}
+	for keyID, sd := range d.ByKeyID {
+		if flat := sd.FlatEntries(); flat != nil {
+			result[keyID] = flat
+		}
+	}
+	return result
 }
 
 func (c *Config) HasEncryptionConfiguration() bool {
@@ -40,6 +82,7 @@ func (c *Config) HasEncryptionConfiguration() bool {
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 	var kmsPlugins map[string]configv1.KMSPluginConfig
+	var kmsPluginsSecretData KMSPluginsSecretData
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
@@ -47,11 +90,11 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 			Providers: stateToProviders(gr.Resource, grKeys),
 		})
 
-		// Collect KMS plugin configs from read keys (which already include the write key).
-		// We iterate over encryptionState which is keyed by GroupResource, so the same
-		// keyID is seen once per resource (e.g. key "1" for secrets and key "1" for configmaps).
-		// Since all resources share the same Key Secret, the plugin config is identical
-		// across duplicates and we only need to keep the first occurrence.
+		// Collect KMS plugin configs and secret data from read keys (which already
+		// include the write key). We iterate over encryptionState which is keyed by
+		// GroupResource, so the same keyID is seen once per resource. Since all
+		// resources share the same Key Secret, the plugin config and secret data are
+		// identical across duplicates and we only need to keep the first occurrence.
 		for _, key := range grKeys.ReadKeys {
 			if key.HasKMSPlugin() {
 				if kmsPlugins == nil {
@@ -67,6 +110,19 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 					kmsPlugins[key.Key.Name] = key.KMS.Plugin
 				}
 			}
+			if key.HasKMSSecretData() {
+				if existing, exists := kmsPluginsSecretData.ByKeyID[key.Key.Name]; exists {
+					if !equality.Semantic.DeepEqual(existing, key.KMS.PluginSecretData) {
+						return nil, fmt.Errorf("KMS secret data mismatch for keyID %s: secret data from different resources must be identical", key.Key.Name)
+					}
+				} else {
+					for rawKey, value := range key.KMS.PluginSecretData.FlatEntries() {
+						if err := kmsPluginsSecretData.SetFromRawKey(key.Key.Name, rawKey, value); err != nil {
+							return nil, fmt.Errorf("failed to copy secret data for keyID %s: %w", key.Key.Name, err)
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -76,8 +132,9 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	})
 
 	return &Config{
-		Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-		KMSPlugins: kmsPlugins,
+		Encryption:           &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		KMSPlugins:           kmsPlugins,
+		KMSPluginsSecretData: kmsPluginsSecretData,
 	}, nil
 }
 
