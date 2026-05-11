@@ -24,7 +24,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	"github.com/openshift/library-go/test/library"
-	"github.com/openshift/library-go/test/library/encryption/kms"
 )
 
 var (
@@ -67,7 +66,9 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	if needsUpdate {
 		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
 		apiServer.Spec.Encryption.Type = encryptionType
-		apiServer.Spec.Encryption.KMS = defaultTestKMSPluginConfig(encryptionType)
+		if encryptionType != configv1.EncryptionTypeKMS {
+			apiServer.Spec.Encryption.KMS = configv1.KMSPluginConfig{}
+		}
 		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
@@ -75,6 +76,33 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	}
 
 	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, encryptionType, defaultTargetGRs, namespace, labelSelector)
+	return clientSet
+}
+
+// UpdateKMSConfig updates the KMS plugin configuration on the APIServer CR and
+// waits for the operator to reconcile. Use this to change KMS fields (e.g.
+// vault address, transit key, image) for KMS-to-KMS migration tests.
+func UpdateKMSConfig(t testing.TB, kmsConfig configv1.KMSPluginConfig, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+	t.Helper()
+	t.Logf("Updating KMS config on APIServer CR (provider: %q)", kmsConfig.Type)
+
+	clientSet := GetClients(t)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
+	require.NoError(t, err)
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		apiServer, getErr := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
+		apiServer.Spec.Encryption.Type = configv1.EncryptionTypeKMS
+		apiServer.Spec.Encryption.KMS = kmsConfig
+		_, updateErr := clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
+		return updateErr
+	})
+	require.NoError(t, err)
+
+	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, configv1.EncryptionTypeKMS, defaultTargetGRs, namespace, labelSelector)
 	return clientSet
 }
 
@@ -338,25 +366,5 @@ func setUpTearDown(namespace string) func(testing.TB, bool) {
 				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
 			}
 		}
-	}
-}
-
-func defaultTestKMSPluginConfig(encryptionType configv1.EncryptionType) configv1.KMSPluginConfig {
-	if encryptionType != configv1.EncryptionTypeKMS {
-		return configv1.KMSPluginConfig{}
-	}
-	return configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
-			KMSPluginImage: kms.WellKnownUpstreamMockKMSPluginImage,
-			VaultAddress:   "https://vault.example.com",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
-				},
-			},
-			TransitKey: "test-transit-key",
-		},
 	}
 }
