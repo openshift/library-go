@@ -20,7 +20,7 @@ func getOnDiskLocationMetadata(path string) *certgraphapi.OnDiskLocationWithMeta
 		},
 	}
 
-	// Get permissions and uid/gid (omit if error occured)
+	// Get permissions and uid/gid (omit if error occurred)
 	if info, err := os.Stat(path); err == nil {
 		ret.Permissions = info.Mode().Perm().String()
 		if statt, ok := info.Sys().(*syscall.Stat_t); ok {
@@ -33,7 +33,7 @@ func getOnDiskLocationMetadata(path string) *certgraphapi.OnDiskLocationWithMeta
 		}
 	}
 
-	// Get selinux label (omit if error occured)
+	// Get selinux label (omit if error occurred)
 	if label, err := selinux.FileLabel(path); err == nil {
 		ret.SELinuxOptions = label
 	}
