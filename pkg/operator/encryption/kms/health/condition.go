@@ -13,13 +13,9 @@ import (
 	"k8s.io/utils/clock"
 )
 
-// Condition Type prefix and suffixes. Final form per writer:
-//
-//	KMSv2HealthPlugin_<observerPod>_Available
-//	KMSv2HealthPlugin_<observerPod>_Degraded
-//
-// Pod names contain hyphens (kube-apiserver-master-0); they pass through
-// verbatim because library-go's UnionCondition handles hyphens correctly.
+// Per-pod condition Types: KMSv2HealthPlugin_<observerPod>_Available and
+// KMSv2HealthPlugin_<observerPod>_Degraded. Pod-name hyphens pass through
+// verbatim; library-go UnionCondition handles them.
 const (
 	conditionTypePrefix          = "KMSv2HealthPlugin_"
 	conditionTypeAvailableSuffix = "_Available"
@@ -32,24 +28,10 @@ const (
 	reasonRPCError         = "RPCError"
 
 	// fieldManagerPrefix isolates each pod's two condition entries via SSA
-	// per-entry ownership (OperatorStatus.Conditions is listType=map keyed
-	// on Type). Two writers with different ObserverPods cannot collide.
+	// per-entry ownership (Conditions is listType=map keyed on Type).
 	fieldManagerPrefix = "kms-health-monitor-"
 )
 
-// OperatorConditionWriter publishes KMSv2 plugin health to a
-// *.operator.openshift.io/cluster CRD via the OperatorClient interface, so
-// the same code works for KubeAPIServer, Authentication, OpenShiftAPIServer.
-//
-// Two condition entries are written per call:
-//
-//	KMSv2HealthPlugin_<observerPod>_Available  // rolls up to ClusterOperator.Available
-//	KMSv2HealthPlugin_<observerPod>_Degraded   // rolls up to ClusterOperator.Degraded
-//
-// LastTransitionTime: read prior conditions and carry over the existing
-// timestamp when Status is unchanged, otherwise stamp now. Mirrors
-// v1helpers.SetOperatorCondition (helpers.go:58-100) for the SSA path so
-// consumers don't see the field churn on every reconcile.
 type OperatorConditionWriter struct {
 	client       operatorv1helpers.OperatorClient
 	observerPod  string
@@ -71,10 +53,9 @@ type conditionDecision struct {
 	reason string
 }
 
-// mapHealthClass implements the asymmetric mapping. Available expresses
-// confirmed-good, so RPCError ("we don't know") is Unknown. Degraded
-// expresses persistent-wrong, and RPCError IS wrong (we cannot reach the
-// plugin), so Degraded is True.
+// Asymmetric: Available expresses confirmed-good, so RPCError ("we don't
+// know") maps to Unknown; Degraded expresses persistent-wrong, and an
+// unreachable plugin IS wrong, so Degraded is True.
 func mapHealthClass(class HealthClass) (avail, degraded conditionDecision) {
 	switch class {
 	case HealthClassOK:
@@ -87,17 +68,13 @@ func mapHealthClass(class HealthClass) (avail, degraded conditionDecision) {
 		return conditionDecision{operatorv1.ConditionUnknown, reasonProbeUnreachable},
 			conditionDecision{operatorv1.ConditionTrue, reasonRPCError}
 	}
-	// Closed set: HealthClass values come from classifyHealthz / classifyRPCError.
-	// Treat any unknown class as RPCError-equivalent rather than panicking.
+	// Defensive default for an unknown class. HealthClass is a closed set,
+	// so this is unreachable today, but a future class would otherwise
+	// crash a sidecar.
 	return conditionDecision{operatorv1.ConditionUnknown, reasonProbeUnreachable},
 		conditionDecision{operatorv1.ConditionTrue, reasonRPCError}
 }
 
-// buildMessage renders the wire format:
-//
-//	healthy:                     "keyIDHash=<hex>"
-//	unhealthy with KeyIDHash:    "keyIDHash=<hex> detail=<detail>"
-//	unhealthy without KeyIDHash: "detail=<detail>"
 func buildMessage(status HealthStatus) string {
 	if status.Healthz.IsOK() {
 		return "keyIDHash=" + status.KeyIDHash
@@ -108,10 +85,9 @@ func buildMessage(status HealthStatus) string {
 	return "detail=" + status.Healthz.Detail
 }
 
-// resolveLastTransitionTime mirrors v1helpers.SetOperatorCondition LTT logic
-// for the SSA path: brand-new condition or Status flip stamps now;
-// Status-unchanged carries over the prior LastTransitionTime so consumers
-// don't see churn on every reconcile.
+// Carry over the prior LastTransitionTime when Status is unchanged so
+// consumers don't see field churn on every reconcile. Mirrors
+// v1helpers.SetOperatorCondition for the SSA path.
 func resolveLastTransitionTime(prior []operatorv1.OperatorCondition, conditionType string, newStatus operatorv1.ConditionStatus, now time.Time) metav1.Time {
 	for i := range prior {
 		if prior[i].Type != conditionType {
@@ -132,11 +108,9 @@ func (w *OperatorConditionWriter) Write(ctx context.Context, status HealthStatus
 	avail, degraded := mapHealthClass(status.Healthz.Class)
 	msg := buildMessage(status)
 
-	// Read prior state for LTT carry-over. A read failure is non-fatal:
-	// worst case we stamp LTT=now on a Status that didn't actually change,
-	// which self-corrects on the next successful tick. Skipping the publish
-	// would punish transient apiserver glitches harder than the contract
-	// asks for.
+	// Read failure is non-fatal: worst case LTT=now on an unchanged Status,
+	// self-correcting next tick. Skipping the publish would punish transient
+	// apiserver glitches harder than the contract asks for.
 	var priorConditions []operatorv1.OperatorCondition
 	if _, opStatus, _, err := w.client.GetOperatorState(); err == nil && opStatus != nil {
 		priorConditions = opStatus.Conditions
