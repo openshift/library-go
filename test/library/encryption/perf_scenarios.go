@@ -5,10 +5,7 @@ import (
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
-	v1 "github.com/openshift/api/operator/v1"
 )
-
-type GetOperatorConditionsFuncType func(t testing.TB) ([]v1.OperatorCondition, error)
 
 type PerfScenario struct {
 	BasicScenario
