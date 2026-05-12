@@ -66,9 +66,6 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	if needsUpdate {
 		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
 		apiServer.Spec.Encryption.Type = encryptionType
-		if encryptionType != configv1.EncryptionTypeKMS {
-			apiServer.Spec.Encryption.KMS = configv1.KMSPluginConfig{}
-		}
 		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
@@ -79,18 +76,15 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	return clientSet
 }
 
-// UpdateKMSConfig updates the KMS plugin configuration on the APIServer CR and
-// waits for the operator to reconcile. Use this to change KMS fields (e.g.
-// vault address, transit key, image) for KMS-to-KMS migration tests.
-func UpdateKMSConfig(t testing.TB, kmsConfig configv1.KMSPluginConfig, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+// UpdateKMSConfig updates the KMS plugin configuration on the APIServer CR.
+// It only patches the CR; callers are responsible for waiting on key rotation
+// or migration if needed.
+func UpdateKMSConfig(t testing.TB, kmsConfig configv1.KMSPluginConfig) {
 	t.Helper()
 	t.Logf("Updating KMS config on APIServer CR (provider: %q)", kmsConfig.Type)
 
 	clientSet := GetClients(t)
-	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
-	require.NoError(t, err)
-
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		apiServer, getErr := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
 		if getErr != nil {
 			return getErr
@@ -101,9 +95,6 @@ func UpdateKMSConfig(t testing.TB, kmsConfig configv1.KMSPluginConfig, defaultTa
 		return updateErr
 	})
 	require.NoError(t, err)
-
-	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, configv1.EncryptionTypeKMS, defaultTargetGRs, namespace, labelSelector)
-	return clientSet
 }
 
 func GetClients(t testing.TB) ClientSet {

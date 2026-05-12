@@ -456,8 +456,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(7)
-	kms8 := kmsProviderName("kubeapiservers", "8")
-	kms8Sched := kmsProviderName("kubeschedulers", "8")
+	kms8 := kmsPluginName("kubeapiservers", "8")
+	kms8Sched := kmsPluginName("kubeschedulers", "8")
 	waitForConfigs(
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=aescbc:7,kms:%s,aescbc:5,identity;kubeschedulers.operator.openshift.io=aescbc:7,kms:%s,aescbc:5,identity", kms8, kms8Sched),
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:7,aescbc:5,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:7,aescbc:5,identity", kms8, kms8Sched),
@@ -494,8 +494,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(9)
-	kms10 := kmsProviderName("kubeapiservers", "10")
-	kms10Sched := kmsProviderName("kubeschedulers", "10")
+	kms10 := kmsPluginName("kubeapiservers", "10")
+	kms10Sched := kmsPluginName("kubeschedulers", "10")
 	waitForConfigs(
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=aescbc:9,kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=aescbc:9,kms:%s,kms:%s,identity", kms10, kms8, kms10Sched, kms8Sched),
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:9,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:9,kms:%s,identity", kms10, kms8, kms10Sched, kms8Sched),
@@ -521,8 +521,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(11)
-	kms12 := kmsProviderName("kubeapiservers", "12")
-	kms12Sched := kmsProviderName("kubeschedulers", "12")
+	kms12 := kmsPluginName("kubeapiservers", "12")
+	kms12Sched := kmsPluginName("kubeschedulers", "12")
 	waitForConfigs(
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=aescbc:11,kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=aescbc:11,kms:%s,kms:%s,identity", kms12, kms10, kms12Sched, kms10Sched),
 		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:11,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:11,kms:%s,identity", kms12, kms10, kms12Sched, kms10Sched),
@@ -873,6 +873,6 @@ func (p *provider) ShouldRunEncryptionControllers() (bool, error) {
 }
 
 // Format: {keyID}_{resource}
-func kmsProviderName(resource, keyID string) string {
+func kmsPluginName(resource, keyID string) string {
 	return fmt.Sprintf("%s_%s", keyID, resource)
 }
