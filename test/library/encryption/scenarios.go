@@ -241,6 +241,9 @@ type RotationScenario struct {
 	GetRawResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) string
 	UnsupportedConfigFunc UpdateUnsupportedConfigFunc
 	EncryptionProvider    EncryptionProvider
+	// GetOperatorConditionsFunc is optional. Overlap tests use it to detect an active migration via
+	// EncryptionMigrationControllerProgressing before falling back to polling encryption key secrets.
+	GetOperatorConditionsFunc GetOperatorConditionsFuncType
 }
 
 // TestEncryptionRotation first encrypts data with aescbc key
@@ -252,6 +255,14 @@ func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 
 	// step 1: create the desired resource
 	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
 	clientSet := GetClients(e)
 	scenario.CreateResourceFunc(e, GetClients(e), ns)
 
@@ -275,4 +286,85 @@ func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+// TestEncryptionRotationDuringFirstMigration ensures storage starts from identity, turns encryption on
+// (initial migration), forces a key rotation while that first migration is still running, then asserts
+// convergence. Use this to exercise overlap between the first encrypt migration and an external rotation
+// reason—not stacked rotations on an already-encrypted cluster.
+func TestEncryptionRotationDuringFirstMigration(t testing.TB, scenario RotationScenario) {
+	ns := scenario.Namespace
+	labelSelector := scenario.LabelSelector
+
+	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
+	clientSet := GetClients(e)
+	scenario.CreateResourceFunc(e, clientSet, ns)
+
+	// ApplyAPIServerEncryptionType is a no-op when the APIServer is already on the target type; start from
+	// identity so the first storage migration always runs.
+	TestEncryptionTypeIdentity(t, scenario.BasicScenario)
+
+	prevMeta, err := GetLastKeyMeta(e, clientSet.Kube, ns, labelSelector)
+	require.NoError(e, err)
+	expectedFirstWriteKey, err := determineNextEncryptionKeyName(prevMeta.Name, labelSelector)
+	require.NoError(e, err)
+
+	ApplyAPIServerEncryptionType(e, clientSet, scenario.EncryptionProvider)
+
+	if !WaitForEncryptionMigrationInProgressWindow(e, clientSet.Kube, scenario.GetOperatorConditionsFunc, expectedFirstWriteKey, scenario.TargetGRs, ns, labelSelector) {
+		t.Skipf("initial migration finished before an in-progress window was observed; set GetOperatorConditionsFunc or use a cluster where migration stays visible longer")
+	}
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-during-first-migration-%s", rand.String(4))))
+	// n=2: one write-key revision from turning encryption on, one from ForceKeyRotation.
+	WaitForNRotations(e, clientSet.Kube, scenario.EncryptionProvider.Type, scenario.TargetGRs, ns, labelSelector, prevMeta, 2)
+
+	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
+}
+
+// TestEncryptionRotationDuringOngoingRotation runs with encryption already enabled and stable, then forces
+// two key rotations in quick succession so the second happens while migration from the first is still
+// in progress. This targets stacked external rotation reasons—not the first encrypt-from-identity path.
+func TestEncryptionRotationDuringOngoingRotation(t testing.TB, scenario RotationScenario) {
+	ns := scenario.Namespace
+	labelSelector := scenario.LabelSelector
+
+	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
+	clientSet := GetClients(e)
+	scenario.CreateResourceFunc(e, clientSet, ns)
+
+	TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider)
+
+	metaAfterEncrypt, err := GetLastKeyMeta(e, clientSet.Kube, ns, labelSelector)
+	require.NoError(e, err)
+	expectedNextWriteKey, err := determineNextEncryptionKeyName(metaAfterEncrypt.Name, labelSelector)
+	require.NoError(e, err)
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-overlap-first-%s", rand.String(4))))
+
+	if !WaitForEncryptionMigrationInProgressWindow(e, clientSet.Kube, scenario.GetOperatorConditionsFunc, expectedNextWriteKey, scenario.TargetGRs, ns, labelSelector) {
+		t.Skipf("migration after first forced rotation finished before an in-progress window was observed; set GetOperatorConditionsFunc or use a slower cluster")
+	}
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-overlap-second-%s", rand.String(4))))
+	// n=2: two ForceKeyRotation steps after metaAfterEncrypt.
+	WaitForNRotations(e, clientSet.Kube, scenario.EncryptionProvider.Type, scenario.TargetGRs, ns, labelSelector, metaAfterEncrypt, 2)
+
+	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
 }

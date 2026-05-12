@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	"github.com/openshift/library-go/test/library"
@@ -56,14 +57,22 @@ type EncryptionKeyMeta struct {
 
 type UpdateUnsupportedConfigFunc func(raw []byte) error
 
+// GetOperatorConditionsFuncType fetches operator conditions (e.g. for EncryptionMigrationControllerProgressing).
+type GetOperatorConditionsFuncType func(t testing.TB) ([]operatorv1.OperatorCondition, error)
+
 func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
-	t.Helper()
-
-	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
-
 	clientSet := GetClients(t)
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
 	require.NoError(t, err)
+
+	ApplyAPIServerEncryptionType(t, clientSet, provider)
+	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, defaultTargetGRs, namespace, labelSelector)
+	return clientSet
+}
+
+func ApplyAPIServerEncryptionType(t testing.TB, clientSet ClientSet, provider EncryptionProvider) {
+	t.Helper()
+	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
 
 	apiServer, err := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
@@ -79,9 +88,6 @@ func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defa
 	} else {
 		t.Logf("APIServer is already configured to use %q mode", provider.Type)
 	}
-
-	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, defaultTargetGRs, namespace, labelSelector)
-	return clientSet
 }
 
 func GetClients(t testing.TB) ClientSet {
@@ -280,6 +286,27 @@ func ForceKeyRotation(t testing.TB, updateUnsupportedConfig UpdateUnsupportedCon
 	})
 }
 
+// ClearForcedKeyRotationReason clears encryption.reason under UnsupportedConfigOverrides (same merge path as
+// ForceKeyRotation). Call when a test finishes so the next test in sequence does not inherit a non-empty
+// reason and the key controller does not keep seeing an external rotation request.
+func ClearForcedKeyRotationReason(t testing.TB, updateUnsupportedConfig UpdateUnsupportedConfigFunc) error {
+	t.Helper()
+	t.Logf("Clearing forced encryption rotation reason (unsupported config overrides)")
+	data := map[string]map[string]string{
+		"encryption": {
+			"reason": "",
+		},
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return onErrorWithTimeout(wait.ForeverTestTimeout, retry.DefaultBackoff, orError(errors.IsConflict, transientAPIError), func() error {
+		return updateUnsupportedConfig(raw)
+	})
+}
+
 // hasResource returns whether the given group resource is contained in the migrated group resource list.
 func hasResource(expectedResource schema.GroupResource, actualResources []schema.GroupResource) bool {
 	for _, gr := range actualResources {
@@ -287,6 +314,117 @@ func hasResource(expectedResource schema.GroupResource, actualResources []schema
 			return true
 		}
 	}
+	return false
+}
+
+const encryptionMigrationControllerProgressingType = "EncryptionMigrationControllerProgressing"
+
+// allTargetGRsMigrated reports whether every resource in targetGRs appears in meta's migrated list.
+func allTargetGRsMigrated(meta EncryptionKeyMeta, targetGRs []schema.GroupResource) bool {
+	if len(targetGRs) == 0 {
+		return true
+	}
+	for _, gr := range targetGRs {
+		if !hasResource(gr, meta.Migrated) {
+			return false
+		}
+	}
+	return true
+}
+
+// WaitUntilEncryptionStable waits until the latest write key secret reports the expected mode and all target resources are migrated.
+func WaitUntilEncryptionStable(t testing.TB, kube kubernetes.Interface, expectedMode configv1.EncryptionType, targetGRs []schema.GroupResource, namespace, labelSelector string) {
+	t.Helper()
+	wantMode := string(expectedMode)
+	err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+		meta, err := GetLastKeyMeta(t, kube, namespace, labelSelector)
+		if err != nil {
+			return false, err
+		}
+		if meta.Mode != wantMode {
+			return false, nil
+		}
+		if !allTargetGRsMigrated(meta, targetGRs) {
+			return false, nil
+		}
+		return true, nil
+	})
+	require.NoError(t, err)
+}
+
+// WaitForNRotations waits until encryption is stable (expectedMode on the latest write key and every target
+// group resource migrated), then asserts the latest write key secret's numeric suffix equals the baseline
+// secret's suffix plus n. If baselineMeta.Name is empty (no prior write key), the baseline suffix is treated
+// as 0. Use n to count new write-key revisions you expect after baselineMeta was captured (for example one
+// per successful ForceKeyRotation, plus any additional revision from turning encryption on).
+func WaitForNRotations(t testing.TB, kube kubernetes.Interface, expectedMode configv1.EncryptionType, targetGRs []schema.GroupResource, namespace, labelSelector string, baselineMeta EncryptionKeyMeta, n uint64) {
+	t.Helper()
+	WaitUntilEncryptionStable(t, kube, expectedMode, targetGRs, namespace, labelSelector)
+
+	finalMeta, err := GetLastKeyMeta(t, kube, namespace, labelSelector)
+	require.NoError(t, err)
+	finalID, ok := EncryptionWriteKeySecretID(finalMeta.Name)
+	require.True(t, ok, "latest encryption key name must carry a numeric suffix: %q", finalMeta.Name)
+
+	var baselineID uint64
+	if len(baselineMeta.Name) == 0 {
+		baselineID = 0
+	} else {
+		var baselineOK bool
+		baselineID, baselineOK = EncryptionWriteKeySecretID(baselineMeta.Name)
+		require.True(t, baselineOK, "baseline encryption key name must carry a numeric suffix: %q", baselineMeta.Name)
+	}
+
+	expectedFinalID := baselineID + n
+	require.Equal(t, expectedFinalID, finalID, "expected write-key id %d (baseline id %d + %d), got final key %q id %d", expectedFinalID, baselineID, n, finalMeta.Name, finalID)
+}
+
+// EncryptionWriteKeySecretID returns the numeric suffix of an encryption write-key secret name (the value
+// used when sorting keys by revision, e.g. encryption-key-openshift-apiserver-4 yields 4).
+func EncryptionWriteKeySecretID(secretName string) (uint64, bool) {
+	return encryptionKeyNameToKeyID(secretName)
+}
+
+// WaitForEncryptionMigrationInProgressWindow waits until storage migration is actively running so another
+// encryption change can be stacked. It returns false when the migration for expectedWriteKey completed
+// before an in-progress snapshot could be observed (caller may t.Skip).
+func WaitForEncryptionMigrationInProgressWindow(t testing.TB, kube kubernetes.Interface, getOp GetOperatorConditionsFuncType, expectedWriteKey string, targetGRs []schema.GroupResource, namespace, labelSelector string) bool {
+	t.Helper()
+	const kubePoll = 1 * time.Second
+	const windowWait = 25 * time.Minute
+
+	if getOp != nil {
+		err := wait.Poll(2*time.Second, windowWait, func() (bool, error) {
+			conds, err := getOp(t)
+			if err != nil {
+				return false, err
+			}
+			for _, c := range conds {
+				if c.Type == encryptionMigrationControllerProgressingType && c.Status == operatorv1.ConditionTrue && c.Reason == "Migrating" {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
+		if err == nil {
+			return true
+		}
+		t.Logf("encryption migration progressing condition not observed within %v, falling back to secret metadata polling: %v", windowWait, err)
+	}
+
+	deadline := time.Now().Add(windowWait)
+	for time.Now().Before(deadline) {
+		meta, err := GetLastKeyMeta(t, kube, namespace, labelSelector)
+		require.NoError(t, err)
+		if meta.Name == expectedWriteKey {
+			if allTargetGRsMigrated(meta, targetGRs) {
+				return false
+			}
+			return true
+		}
+		time.Sleep(kubePoll)
+	}
+	require.FailNow(t, fmt.Sprintf("timed out after %v waiting for migration in progress on key %q", windowWait, expectedWriteKey))
 	return false
 }
 
