@@ -1,22 +1,20 @@
-package kms
+package pluginlifecycle
 
 import (
 	"fmt"
 	"sort"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms/plugins"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
-// SidecarProvider abstracts the construction of a KMS plugin sidecar container for a specific provider (e.g. Vault).
-type SidecarProvider interface {
+// sidecarProvider abstracts the construction of a KMS plugin sidecar container for a specific provider (e.g. Vault).
+type sidecarProvider interface {
 	// Name returns the identifier used to name the sidecar container and locate its volume mounts.
 	Name() string
 	// BuildSidecarContainer returns a fully configured sidecar container ready to be injected into the API server pod
@@ -24,32 +22,23 @@ type SidecarProvider interface {
 }
 
 // newSidecarProvider creates a provider-specific SidecarProvider for the given keyID, UDS endpoint, and plugin configuration.
-func newSidecarProvider(keyID string, udsPath string, pluginConfig *configv1.KMSPluginConfig) (SidecarProvider, error) {
+func newSidecarProvider(keyID string, udsPath string, pluginConfig *configv1.KMSPluginConfig) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
-		return plugins.NewVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig)
+		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig)
 	default:
 		return nil, fmt.Errorf("unsupported KMS plugin configuration")
 	}
 }
 
-// InjectIntoPodSpec discovers KMS plugins from the encryption-config secret and injects a sidecar container for each one into the pod spec. No-op when the KMS feature gate is disabled or no KMS plugins are configured.
-func InjectIntoPodSpec(podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretLister corev1listers.SecretLister, featureGateAccessor featuregates.FeatureGateAccess) error {
+// AddKMSPluginSidecarToPodSpec discovers KMS plugins from the encryption-config secret and injects a sidecar container for each one into the pod spec. No-op when the KMS feature gate is disabled or no KMS plugins are configured.
+func AddKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretLister corev1listers.SecretLister) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
 
-	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
-		return nil
-	}
-
-	featureGates, err := featureGateAccessor.CurrentFeatureGates()
-	if err != nil {
-		return fmt.Errorf("failed to get feature gates: %w", err)
-	}
-
-	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
-		return nil
+	if containerName == "" {
+		return fmt.Errorf("container name cannot be empty")
 	}
 
 	encryptionConfigurationSecret, err := secretLister.Secrets(encryptionConfigNamespace).Get(encryptionConfigSecretName)
@@ -71,7 +60,7 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, containerName string, encryption
 		return fmt.Errorf("failed to decode EncryptionConfiguration from %s/%s secret: %w", encryptionConfigNamespace, encryptionConfigSecretName, err)
 	}
 
-	endpoints, err := kmsEndpointsByKeyID(encryptionConfiguration)
+	endpoints, err := kms.KMSendpointsByKeyID(encryptionConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
@@ -91,7 +80,7 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, containerName string, encryption
 	for _, keyID := range sortedKeyIDs {
 		udsPath := endpoints[keyID]
 
-		pluginConfig, err := parsePluginConfig(encryptionConfigurationSecret, keyID)
+		pluginConfig, err := kms.ParsePluginConfig(encryptionConfigurationSecret, keyID)
 		if err != nil {
 			return fmt.Errorf("failed to parse plugin config for keyID %s: %w", keyID, err)
 		}
@@ -121,7 +110,7 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, containerName string, encryption
 	return nil
 }
 
-func appendSidecarContainer(podSpec *corev1.PodSpec, provider SidecarProvider) error {
+func appendSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}

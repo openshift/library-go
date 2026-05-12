@@ -94,9 +94,9 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	return nil
 }
 
-// kmsEndpointsByKeyID walks through all resource configurations in the EncryptionConfiguration
+// KMSendpointsByKeyID walks through all resource configurations in the EncryptionConfiguration
 // and collects every unique KMS provider, deduplicating by endpoint.
-func kmsEndpointsByKeyID(config *apiserverv1.EncryptionConfiguration) (map[string]string, error) {
+func KMSendpointsByKeyID(config *apiserverv1.EncryptionConfiguration) (map[string]string, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -125,8 +125,8 @@ func GetKeyIDFromPluginName(providerName string) (string, error) {
 	return parsed[0], nil
 }
 
-// parsePluginConfig extracts and decodes the provider-specific KMSPluginConfig for the given keyID from the encryption-config secret.
-func parsePluginConfig(secret *corev1.Secret, keyID string) (*configv1.KMSPluginConfig, error) {
+// ParsePluginConfig extracts and decodes the provider-specific KMSPluginConfig for the given keyID from the encryption-config secret.
+func ParsePluginConfig(secret *corev1.Secret, keyID string) (*configv1.KMSPluginConfig, error) {
 	pluginConfigKey, err := ToPluginConfigSecretDataKeyFor(keyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin config secret data key for keyID %s: %w", keyID, err)

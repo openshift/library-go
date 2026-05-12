@@ -1,4 +1,4 @@
-package plugins
+package pluginlifecycle
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// NewVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
-func NewVaultSidecarProvider(name, keyID, udsPath string, pluginConfig *configv1.KMSPluginConfig) (*Vault, error) {
+// newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
+func newVaultSidecarProvider(name, keyID, udsPath string, pluginConfig *configv1.KMSPluginConfig) (*vault, error) {
 	if pluginConfig == nil {
 		return nil, fmt.Errorf("plugin config cannot be nil")
 	}
-	return &Vault{
+	return &vault{
 		name:    name,
 		keyID:   keyID,
 		udsPath: udsPath,
@@ -20,8 +20,8 @@ func NewVaultSidecarProvider(name, keyID, udsPath string, pluginConfig *configv1
 	}, nil
 }
 
-// Vault implements SidecarProvider for HashiCorp Vault KMS.
-type Vault struct {
+// vault implements SidecarProvider for HashiCorp Vault KMS.
+type vault struct {
 	name    string
 	keyID   string
 	udsPath string
@@ -29,16 +29,13 @@ type Vault struct {
 }
 
 // Name returns the sidecar name appended by the key id.
-func (v *Vault) Name() string {
+func (v *vault) Name() string {
 	return fmt.Sprintf("%s-%s", v.name, v.keyID)
 }
 
 // BuildSidecarContainer returns a container spec for the Vault KMS plugin sidecar
 // configured with the Vault address, namespace, transit mount, and transit key.
-func (v *Vault) BuildSidecarContainer() (corev1.Container, error) {
-	if v.config == nil {
-		return corev1.Container{}, fmt.Errorf("vault config cannot be nil")
-	}
+func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	return corev1.Container{
 		Name:  v.Name(),
 		Image: v.config.KMSPluginImage,

@@ -224,7 +224,7 @@ func TestParsePluginConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, err := parsePluginConfig(tt.secret, tt.keyID)
+			config, err := ParsePluginConfig(tt.secret, tt.keyID)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -351,7 +351,7 @@ func TestKmsEndpointsByKeyID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := kmsEndpointsByKeyID(tt.config)
+			got, err := KMSendpointsByKeyID(tt.config)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
