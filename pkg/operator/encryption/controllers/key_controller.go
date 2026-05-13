@@ -176,7 +176,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	// Apply in-place KMS plugin config updates (e.g. image, TLS) to the latest key
 	// secret regardless of convergence. This unblocks stuck revisions and propagates
 	// operational fixes like CVE image updates. Changes to migration-triggering fields
-	// (transit key, vault address) are skipped via kmsMigrationRequired.
+	// (transit-key, vault-address, transit-mount) are skipped via kmsMigrationRequired.
 	if currentMode == state.KMS {
 		if err := c.maybeUpdateKMSPluginConfigInPlace(ctx, syncContext, apiEncryptionConfiguration); err != nil {
 			return err

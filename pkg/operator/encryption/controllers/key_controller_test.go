@@ -337,7 +337,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -432,7 +432,11 @@ func TestKeyController(t *testing.T) {
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
+<<<<<<< HEAD
 			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+=======
+			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+>>>>>>> 707611652 (In-place field update for KMS mode regardless of the convergence)
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -527,7 +531,11 @@ func TestKeyController(t *testing.T) {
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
+<<<<<<< HEAD
 			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+=======
+			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+>>>>>>> 707611652 (In-place field update for KMS mode regardless of the convergence)
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -645,6 +653,67 @@ func TestKeyController(t *testing.T) {
 		},
 
 		{
+<<<<<<< HEAD
+=======
+			name: "degraded when KMS referenced configmap does not exist",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				_, status, _, err := operatorClient.GetOperatorState()
+				if err != nil {
+					ts.Fatal(err)
+				}
+				for _, c := range status.Conditions {
+					if c.Type == "EncryptionKeyControllerDegraded" && c.Status == "True" {
+						if !strings.Contains(c.Message, "failed to get configmap vault-ca-bundle in openshift-config") {
+							ts.Errorf("unexpected degraded message: %s", c.Message)
+						}
+						return
+					}
+				}
+				ts.Fatal("expected EncryptionKeyControllerDegraded condition")
+			},
+			expectedError: fmt.Errorf(`failed to create key: failed to get configmap vault-ca-bundle in openshift-config: configmaps "vault-ca-bundle" not found`),
+		},
+
+		{
+			name: "degraded when KMS referenced configmap is missing a required key",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
+					Data:       map[string]string{"wrong-key": "some-data"},
+				},
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: `failed to create key: configmap vault-ca-bundle in openshift-config is missing required key "ca-bundle.crt"`,
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: errors.New(`failed to create key: configmap vault-ca-bundle in openshift-config is missing required key "ca-bundle.crt"`),
+		},
+
+		{
+>>>>>>> 707611652 (In-place field update for KMS mode regardless of the convergence)
 			name: "creates a new AESCBC key when switching from KMS to AESCBC",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
