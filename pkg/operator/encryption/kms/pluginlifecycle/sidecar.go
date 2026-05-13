@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,14 +34,28 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 }
 
 // AddKMSPluginSidecarToPodSpec discovers KMS plugins from the encryption-config secret and injects a sidecar container for each one into the pod spec.
+// It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // It uses an uncached client to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter) error {
+func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
 
 	if containerName == "" {
 		return fmt.Errorf("container name cannot be empty")
+	}
+
+	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+		return nil
+	}
+
+	featureGates, err := featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		return fmt.Errorf("failed to get feature gates: %w", err)
+	}
+
+	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
+		return nil
 	}
 
 	encryptionConfigurationSecret, err := secretClient.Secrets(encryptionConfigNamespace).Get(ctx, encryptionConfigSecretName, metav1.GetOptions{})
