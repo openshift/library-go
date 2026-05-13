@@ -1179,6 +1179,162 @@ func TestStateController(t *testing.T) {
 				}
 			},
 		},
+
+		// In-place KMS plugin config propagation during non-convergence
+		{
+			name:            "KMS: propagates updated plugin config to encryption-config during non-convergence",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				// No pods — non-converged
+				// Key secret with updated plugin config (new image)
+				encryptiontesting.CreateEncryptionKeySecretWithCustomKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, func() configv1.KMSPluginConfig {
+					updated := encryptiontesting.DefaultKMSPluginConfig
+					updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+					return updated
+				}()),
+				// Existing encryption-config in openshift-config-managed with old plugin config
+				func() *corev1.Secret {
+					ec := &encryptiondata.Config{
+						Encryption: &apiserverconfigv1.EncryptionConfiguration{
+							Resources: []apiserverconfigv1.ResourceConfiguration{{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{{
+									KMS: &apiserverconfigv1.KMSConfiguration{
+										APIVersion: "v2",
+										Name:       "1_secrets",
+										Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+										Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+									},
+								}, {
+									Identity: &apiserverconfigv1.IdentityConfiguration{},
+								}},
+							}},
+						},
+						KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+					}
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs.Name = "encryption-config-kms"
+					return ecs
+				}(),
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"create:events:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
+				for _, action := range actions {
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						actualSecret := updateAction.GetObject().(*corev1.Secret)
+						actualConfig, err := encryptiondata.FromSecret(actualSecret)
+						if err != nil {
+							ts.Fatalf("failed to parse updated encryption config: %v", err)
+						}
+						// Verify plugin config was updated
+						updatedPlugin := encryptiontesting.DefaultKMSPluginConfig
+						updatedPlugin.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+						if !equality.Semantic.DeepEqual(actualConfig.KMSPlugins["1"], updatedPlugin) {
+							ts.Errorf("plugin config not propagated: got %+v", actualConfig.KMSPlugins["1"])
+						}
+						// Verify EncryptionConfiguration (structural part) is unchanged
+						if len(actualConfig.Encryption.Resources) != 1 || len(actualConfig.Encryption.Resources[0].Providers) != 2 {
+							ts.Errorf("EncryptionConfiguration structure changed unexpectedly")
+						}
+						return
+					}
+				}
+				ts.Error("expected an update action for the encryption-config secret")
+			},
+		},
+		{
+			name:            "KMS: no-op propagation when plugin configs match during non-convergence",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				func() *corev1.Secret {
+					ec := &encryptiondata.Config{
+						Encryption: &apiserverconfigv1.EncryptionConfiguration{
+							Resources: []apiserverconfigv1.ResourceConfiguration{{
+								Resources: []string{"secrets"},
+								Providers: []apiserverconfigv1.ProviderConfiguration{{
+									KMS: &apiserverconfigv1.KMSConfiguration{
+										APIVersion: "v2",
+										Name:       "1_secrets",
+										Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+										Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+									},
+								}, {
+									Identity: &apiserverconfigv1.IdentityConfiguration{},
+								}},
+							}},
+						},
+						KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+					}
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs.Name = "encryption-config-kms"
+					return ecs
+				}(),
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+			},
+		},
+		{
+			name:            "KMS: no encryption-config secret yet during non-convergence",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+			},
+		},
+		{
+			name:            "non-KMS mode skips propagation during non-convergence",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialResources: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				func() *corev1.Secret {
+					ec := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{{
+						Resource: "secrets",
+						Keys: []apiserverconfigv1.Key{{
+							Name:   "1",
+							Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=",
+						}},
+					}})
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs.Name = "encryption-config-kms"
+					return ecs
+				}(),
+			},
+			expectedActions: []string{
+				"list:pods:kms",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
