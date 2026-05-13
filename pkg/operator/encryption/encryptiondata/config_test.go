@@ -452,6 +452,33 @@ func TestToEncryptionState(t *testing.T) {
 	}
 }
 
+// ToEncryptionState must not mutate Config object.
+// This test will catch it.
+func TestToEncryptionStateDoesNotMutateInput(t *testing.T) {
+	input := encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{
+		{
+			Resource: "secrets",
+			Keys: []apiserverconfigv1.Key{
+				{Name: "2", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+				{Name: "1", Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc="},
+			},
+			Modes: []string{"KMS", "aescbc"},
+		},
+	})
+	inputCopy := input.Encryption.DeepCopy()
+
+	keySecrets := []*corev1.Secret{
+		encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("test", []schema.GroupResource{{Resource: "secrets"}}, 2),
+		encryptiontesting.CreateEncryptionKeySecretWithRawKey("test", []schema.GroupResource{{Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+	}
+
+	encryptiondata.ToEncryptionState(input, keySecrets)
+
+	if diff := cmp.Diff(inputCopy, input.Encryption); diff != "" {
+		t.Fatalf("ToEncryptionState mutated the input Config.Encryption:\n%s", diff)
+	}
+}
+
 func TestFromEncryptionState(t *testing.T) {
 	scenarios := []struct {
 		name       string
