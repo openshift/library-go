@@ -337,7 +337,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -423,7 +423,7 @@ func TestKeyController(t *testing.T) {
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
 		{
@@ -439,7 +439,7 @@ func TestKeyController(t *testing.T) {
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -505,7 +505,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
 			// Should be no-op because KMS keys don't have time-based rotation
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 		{
 			name: "no-op when latest KMS key is not migrated yet",
@@ -519,7 +519,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
 			// Should be no-op because migration hasn't completed yet
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
 		{
@@ -535,7 +535,7 @@ func TestKeyController(t *testing.T) {
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -599,7 +599,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 			},
@@ -628,7 +628,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				&corev1.Secret{
@@ -658,7 +658,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -688,7 +688,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -766,6 +766,212 @@ func TestKeyController(t *testing.T) {
 				if !wasSecretValidated {
 					ts.Errorf("the secret wasn't created and validated")
 				}
+			},
+		},
+
+		// In-place KMS plugin config update tests
+		{
+			name: "KMS in-place plugin config update during non-convergence",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				// No pods — triggers non-convergence
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				updated := encryptiontesting.DefaultKMSPluginConfig
+				updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: updated}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"list:pods:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				for _, action := range actions {
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						updatedSecret := updateAction.GetObject().(*corev1.Secret)
+						pluginData := updatedSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
+						updated := encryptiontesting.DefaultKMSPluginConfig
+						updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+						expectedData, _ := encoding.EncodeKMSPluginConfig(updated)
+						if string(pluginData) != string(expectedData) {
+							ts.Errorf("plugin config not updated: got %s", pluginData)
+						}
+						encData := updatedSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
+						original := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", nil, 1)
+						if string(encData) != string(original.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]) {
+							ts.Error("KMS encryption config should not change during in-place update")
+						}
+						return
+					}
+				}
+				ts.Error("expected an update action for the key secret")
+			},
+		},
+		{
+			name: "KMS in-place plugin config update during convergence",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				updated := encryptiontesting.DefaultKMSPluginConfig
+				updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: updated}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						ts.Error("should not create a new key for in-place update")
+					}
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						updatedSecret := updateAction.GetObject().(*corev1.Secret)
+						pluginData := updatedSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
+						updated := encryptiontesting.DefaultKMSPluginConfig
+						updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+						expectedData, _ := encoding.EncodeKMSPluginConfig(updated)
+						if string(pluginData) != string(expectedData) {
+							ts.Errorf("plugin config not updated: got %s", pluginData)
+						}
+						encData := updatedSecret.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]
+						original := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", nil, 1)
+						if string(encData) != string(original.Data["encryption.apiserver.operator.openshift.io-kms-encryption-config"]) {
+							ts.Error("KMS encryption config should not change during in-place update")
+						}
+					}
+				}
+			},
+		},
+		{
+			name: "KMS migration-triggering change skips in-place during non-convergence",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				updated := encryptiontesting.DefaultKMSPluginConfig
+				updated.Vault.TransitKey = "different-transit-key"
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: updated}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"list:pods:kms",
+			},
+		},
+		{
+			name: "KMS no-op when plugin config matches during non-convergence",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: encryptiontesting.DefaultKMSPluginConfig}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"list:pods:kms",
+			},
+		},
+		{
+			name: "skips in-place when latest key is not KMS",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", nil, 2, []byte("61def964fb967f5d7c44a2af8dab6865"), "aescbc"),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				updated := encryptiontesting.DefaultKMSPluginConfig
+				updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: updated}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"list:pods:kms",
+			},
+		},
+		{
+			name: "KMS in-place update only modifies latest key",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", nil, 2),
+			},
+			apiServerObjects: []runtime.Object{func() *configv1.APIServer {
+				s := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}
+				updated := encryptiontesting.DefaultKMSPluginConfig
+				updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: updated}
+				return s
+			}()},
+			targetNamespace: "kms",
+			expectedActions: []string{
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:kms",
+				"list:pods:kms",
+			},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+				for _, action := range actions {
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						updatedSecret := updateAction.GetObject().(*corev1.Secret)
+						if updatedSecret.Name != "encryption-key-kms-2" {
+							ts.Errorf("expected key 2 to be updated, got %s", updatedSecret.Name)
+						}
+						pluginData := updatedSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
+						updated := encryptiontesting.DefaultKMSPluginConfig
+						updated.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+						expectedData, _ := encoding.EncodeKMSPluginConfig(updated)
+						if string(pluginData) != string(expectedData) {
+							ts.Errorf("plugin config not updated on latest key")
+						}
+						return
+					}
+				}
+				ts.Error("expected an update action for the latest key secret")
 			},
 		},
 	}
@@ -1133,6 +1339,125 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 			}
 			if currentMode == "KMS" && encryption.KMS == (configv1.KMSPluginConfig{}) {
 				t.Errorf("expected non-empty KMS config when mode is KMS")
+			}
+		})
+	}
+}
+
+func TestKmsMigrationRequired(t *testing.T) {
+	base := configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			VaultAddress:   "https://vault.example.com",
+			VaultNamespace: "test-ns",
+			TransitMount:   "transit",
+			TransitKey:     "my-key",
+		},
+	}
+
+	tests := []struct {
+		name        string
+		modify      func(configv1.KMSPluginConfig) configv1.KMSPluginConfig
+		expected    bool
+		expectedErr bool
+	}{
+		{
+			name:     "identical configs",
+			modify:   func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig { return c },
+			expected: false,
+		},
+		{
+			name: "only image changed (in-place)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000001234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+				return c
+			},
+			expected: false,
+		},
+		{
+			name: "only TLS caBundle changed (in-place)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.TLS.CABundle = configv1.VaultConfigMapReference{Name: "new-ca-bundle"}
+				return c
+			},
+			expected: false,
+		},
+		{
+			name: "only authentication secret changed (in-place)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.Authentication.AppRole.Secret.Name = "new-secret"
+				return c
+			},
+			expected: false,
+		},
+		{
+			name: "vault address changed (migration)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.VaultAddress = "https://vault2.example.com"
+				return c
+			},
+			expected: true,
+		},
+		{
+			name: "vault namespace changed (migration)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.VaultNamespace = "other-ns"
+				return c
+			},
+			expected: true,
+		},
+		{
+			name: "transit mount changed (migration)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.TransitMount = "transit-v2"
+				return c
+			},
+			expected: true,
+		},
+		{
+			name: "transit key changed (migration)",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.TransitKey = "different-key"
+				return c
+			},
+			expected: true,
+		},
+		{
+			name: "mixed: migration field + in-place field changed",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Vault.TransitKey = "different-key"
+				c.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000001234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+				return c
+			},
+			expected: true,
+		},
+		{
+			name: "unsupported KMS type returns error",
+			modify: func(c configv1.KMSPluginConfig) configv1.KMSPluginConfig {
+				c.Type = "UnsupportedProvider"
+				c.Vault.KMSPluginImage = "different-image"
+				return c
+			},
+			expectedErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			current := tt.modify(base)
+			got, err := kmsMigrationRequired(base, current)
+			if tt.expectedErr {
+				if err == nil {
+					t.Errorf("kmsMigrationRequired() expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("kmsMigrationRequired() unexpected error: %v", err)
+			}
+			if got != tt.expected {
+				t.Errorf("kmsMigrationRequired() = %v, want %v", got, tt.expected)
 			}
 		})
 	}

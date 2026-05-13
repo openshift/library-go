@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -16,6 +18,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -132,6 +135,11 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		return err
 	}
 	if len(transitioningReason) > 0 {
+		// Even when not converged, propagate in-place KMS plugin config changes
+		// so the revision controller can create a new revision with corrected sidecar config.
+		if err := c.maybeUpdateKMSDataInEncryptionConfigSecret(ctx, recorder); err != nil {
+			return err
+		}
 		queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil
 	}
@@ -159,6 +167,84 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 				recorder.Eventf(event.reason, event.message)
 			}
 		}
+	}
+	return nil
+}
+
+// maybeUpdateKMSDataInEncryptionConfigSecret propagates in-place KMS plugin
+// config changes to the encryption-config secret during non-convergence. It enriches
+// the existing state with current key secrets (picking up updated plugin configs from
+// key_controller), guards that the EncryptionConfiguration is unchanged (no key
+// promotion or structural changes), and applies only kms-plugin-config updates.
+func (c *stateController) maybeUpdateKMSDataInEncryptionConfigSecret(ctx context.Context, recorder events.Recorder) error {
+	keySecrets, err := secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+	if err != nil {
+		return err
+	}
+	if len(keySecrets) == 0 {
+		return nil
+	}
+	name := fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName)
+	namespace := "openshift-config-managed"
+	// Read the unrevisioned encryption-config from openshift-config-managed (not the
+	// revisioned copy in the target namespace) because during non-convergence the deployer
+	// cannot return a single converged revision. Updating this source secret triggers
+	// resource-sync → revision → rollout to unblock the stuck revision.
+	existingSecret, err := c.secretClient.Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	existingConfig, err := encryptiondata.FromSecret(existingSecret)
+	if err != nil {
+		return err
+	}
+	if existingConfig == nil || len(existingConfig.KMSPlugins) == 0 {
+		return nil
+	}
+
+	// Round-trip through ToEncryptionState → FromEncryptionState to pick up
+	// updated KMS plugin configs from key secrets while preserving the existing
+	// EncryptionConfiguration structure. ToEncryptionState enriches each key in
+	// the config with its backed secret data (including any in-place plugin config
+	// updates), and FromEncryptionState rebuilds the Config from the enriched state.
+	enrichedState, _ := encryptiondata.ToEncryptionState(existingConfig, keySecrets)
+	if enrichedState == nil {
+		return nil
+	}
+
+	rebuiltConfig, err := encryptiondata.FromEncryptionState(enrichedState)
+	if err != nil {
+		return err
+	}
+
+	// Only proceed if the provider list, key ordering, and write key designation
+	// are unchanged. Structural changes require convergence to avoid a server
+	// encrypting with a key another server hasn't observed.
+	if !equality.Semantic.DeepEqual(existingConfig.Encryption.Resources, rebuiltConfig.Encryption.Resources) {
+		return nil
+	}
+
+	// Error if the plugin key set changed unexpectedly — this indicates
+	// a bug in the enrichment round-trip or corrupted state.
+	if len(existingConfig.KMSPlugins) != len(rebuiltConfig.KMSPlugins) {
+		return fmt.Errorf("KMS plugin key set size changed unexpectedly: existing=%d, rebuilt=%d", len(existingConfig.KMSPlugins), len(rebuiltConfig.KMSPlugins))
+	}
+	for keyID := range existingConfig.KMSPlugins {
+		if _, ok := rebuiltConfig.KMSPlugins[keyID]; !ok {
+			return fmt.Errorf("KMS plugin config for keyID %s disappeared after enrichment round-trip", keyID)
+		}
+	}
+
+	changed, err := c.applyEncryptionConfigSecret(ctx, rebuiltConfig, recorder)
+	if err != nil {
+		return err
+	}
+	if changed {
+		recorder.Eventf("EncryptionKMSPluginConfigPropagated", "Updated KMS plugin config in encryption-config secret %s/%s during non-convergence", namespace, name)
 	}
 	return nil
 }
