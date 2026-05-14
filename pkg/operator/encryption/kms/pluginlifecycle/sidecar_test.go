@@ -81,12 +81,13 @@ func TestInjectIntoPodSpec(t *testing.T) {
 	}
 
 	sidecarArgs := []string{
-		"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 		"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 		"-vault-address=https://vault.example.com:8200",
+		"-transit-key=my-key",
+		"-approle-role-id=dummy-role-id-555",
+		"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 		"-vault-namespace=my-namespace",
 		"-transit-mount=transit",
-		"-transit-key=my-key",
 	}
 
 	socketMount := corev1.VolumeMount{
@@ -160,12 +161,13 @@ func TestInjectIntoPodSpec(t *testing.T) {
 						Name:  "vault-kms-plugin-777",
 						Image: "quay.io/test/vault:v2",
 						Args: []string{
-							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-777",
 							"-listen-address=unix:///var/run/kmsplugin/kms-777.sock",
 							"-vault-address=https://vault2.example.com:8200",
+							"-transit-key=other-key",
+							"-approle-role-id=dummy-role-id-777",
+							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-777",
 							"-vault-namespace=other-namespace",
 							"-transit-mount=transit2",
-							"-transit-key=other-key",
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
@@ -173,12 +175,13 @@ func TestInjectIntoPodSpec(t *testing.T) {
 						Name:  "vault-kms-plugin-555",
 						Image: "quay.io/test/vault:v1",
 						Args: []string{
-							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 							"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 							"-vault-address=https://vault.example.com:8200",
+							"-transit-key=my-key",
+							"-approle-role-id=dummy-role-id-555",
+							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 							"-vault-namespace=my-namespace",
 							"-transit-mount=transit",
-							"-transit-key=my-key",
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},

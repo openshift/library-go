@@ -33,18 +33,29 @@ func (v *vault) Name() string {
 // BuildSidecarContainer returns a container spec for the Vault KMS plugin sidecar
 // configured with the Vault address, namespace, transit mount, and transit key.
 func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
+	// Required API fields: always set.
+	args := []string{
+		fmt.Sprintf("-listen-address=%s", v.udsPath),
+		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
+		fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
+		// TODO(bertinatto): dummy value for the Vault mock plugin; will come from the encryption-config secret.
+		fmt.Sprintf("-approle-role-id=dummy-role-id-%s", v.keyID),
+		// TODO(bertinatto): placeholder path for the Vault mock plugin; will differ per operator (KASO vs. aggregated apiserver operators).
+		fmt.Sprintf("-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-%s", v.keyID),
+	}
+
+	// Optional fields: only pass non-empty values.
+	if v.config.VaultNamespace != "" {
+		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
+	}
+
+	if v.config.TransitMount != "" {
+		args = append(args, fmt.Sprintf("-transit-mount=%s", v.config.TransitMount))
+	}
+
 	return corev1.Container{
 		Name:  v.Name(),
 		Image: v.config.KMSPluginImage,
-		Args: []string{
-			// TODO(bertinatto): this path is a placeholder for the mock plugin. This path doesn't exist. It will need to be validated
-			// once we support the actual Vault plugin. It'll likely be different for KASO vs. aggregated API server operators.
-			fmt.Sprintf("-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-%s", v.keyID),
-			fmt.Sprintf("-listen-address=%s", v.udsPath),
-			fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
-			fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace),
-			fmt.Sprintf("-transit-mount=%s", v.config.TransitMount),
-			fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
-		},
+		Args:  args,
 	}, nil
 }
