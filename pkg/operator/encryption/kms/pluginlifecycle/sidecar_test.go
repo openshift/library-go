@@ -19,14 +19,16 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func TestInjectIntoPodSpec(t *testing.T) {
-	secretClient := func(secrets ...*corev1.Secret) corev1client.SecretsGetter {
-		objs := make([]runtime.Object, len(secrets))
-		for i, s := range secrets {
-			objs[i] = s
-		}
-		return fake.NewSimpleClientset(objs...).CoreV1()
-	}
+type sidecarTestFixtures struct {
+	pluginConfigBytes      []byte
+	pluginConfigKey        string
+	encryptionConfigBytes  []byte
+	encryptionConfigSecret *corev1.Secret
+	resourceDirVolume      corev1.Volume
+}
+
+func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
+	t.Helper()
 
 	vaultConfig := &configv1.KMSPluginConfig{
 		Type: configv1.VaultKMSProvider,
@@ -45,9 +47,6 @@ func TestInjectIntoPodSpec(t *testing.T) {
 		},
 	}
 	pluginConfigBytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig)
-	require.NoError(t, err)
-
-	pluginConfigKey, err := kms.ToPluginConfigSecretDataKeyFor("555")
 	require.NoError(t, err)
 
 	encryptionConfig := &apiserverv1.EncryptionConfiguration{
@@ -69,6 +68,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 	encryptionConfigBytes, err := encoding.EncodeEncryptionConfiguration(encryptionConfig)
 	require.NoError(t, err)
 
+	pluginConfigKey := "kms-plugin-config-555"
 	encryptionConfigSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "encryption-config",
@@ -78,6 +78,31 @@ func TestInjectIntoPodSpec(t *testing.T) {
 			"encryption-config": encryptionConfigBytes,
 			pluginConfigKey:     pluginConfigBytes,
 		},
+	}
+
+	resourceDirVolume := corev1.Volume{
+		Name: "resource-dir",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/etc/kubernetes/static-pod-resources",
+			},
+		},
+	}
+
+	return sidecarTestFixtures{
+		pluginConfigBytes:      pluginConfigBytes,
+		pluginConfigKey:        pluginConfigKey,
+		encryptionConfigBytes:  encryptionConfigBytes,
+		encryptionConfigSecret: encryptionConfigSecret,
+		resourceDirVolume:      resourceDirVolume,
+	}
+}
+
+func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
+	f := newSidecarTestFixtures(t)
+
+	secretClient := func(objs ...runtime.Object) corev1client.SecretsGetter {
+		return fake.NewClientset(objs...).CoreV1()
 	}
 
 	sidecarArgs := []string{
@@ -99,15 +124,6 @@ func TestInjectIntoPodSpec(t *testing.T) {
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
-	resourceDirVolume := corev1.Volume{
-		Name: "resource-dir",
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: "/etc/kubernetes/static-pod-resources",
-			},
-		},
-	}
-
 	tests := []struct {
 		name                string
 		actualPodSpec       *corev1.PodSpec
@@ -122,7 +138,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 				Containers: []corev1.Container{
 					{Name: "kube-apiserver"},
 				},
-				Volumes: []corev1.Volume{resourceDirVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
 			},
 			expectedPodSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{
@@ -137,9 +153,9 @@ func TestInjectIntoPodSpec(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 				},
-				Volumes: []corev1.Volume{resourceDirVolume, socketVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
 			},
-			secretClient:        secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
@@ -148,7 +164,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 				Containers: []corev1.Container{
 					{Name: "kube-apiserver"},
 				},
-				Volumes: []corev1.Volume{resourceDirVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
 			},
 			expectedPodSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{
@@ -183,7 +199,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 				},
-				Volumes: []corev1.Volume{resourceDirVolume, socketVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
 			},
 			secretClient: func() corev1client.SecretsGetter {
 				vaultConfig2 := &configv1.KMSPluginConfig{
@@ -235,7 +251,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					},
 					Data: map[string][]byte{
 						"encryption-config": multiEncConfigBytes,
-						pluginConfigKey:     pluginConfigBytes,
+						f.pluginConfigKey:   f.pluginConfigBytes,
 						pluginConfigKey2:    pluginConfig2Bytes,
 					},
 				})
@@ -245,7 +261,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 		{
 			name:                "nil pod spec",
 			actualPodSpec:       nil,
-			secretClient:        secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 			wantErr:             "pod spec cannot be nil",
 		},
@@ -323,7 +339,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					{Name: "other-container"},
 				},
 			},
-			secretClient:        secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 			wantErr:             fmt.Sprintf("container %s not found", "kube-apiserver"),
 		},
@@ -339,7 +355,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					{Name: "kube-apiserver"},
 				},
 			},
-			secretClient:        secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(nil, []configv1.FeatureGateName{features.FeatureGateKMSEncryption}),
 		},
 		{
@@ -354,8 +370,40 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					{Name: "kube-apiserver"},
 				},
 			},
-			secretClient:        secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil, make(chan struct{}), nil),
+		},
+		{
+			name: "existing stale sidecar is correctly replaced",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+					{
+						Name: "vault-kms-plugin-555",
+					},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+					{
+						Name:         "vault-kms-plugin-555",
+						Image:        "quay.io/test/vault:v1",
+						Args:         sidecarArgs,
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+			},
+			secretClient:        secretClient(f.encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 	}
 
@@ -370,4 +418,29 @@ func TestInjectIntoPodSpec(t *testing.T) {
 			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
 		})
 	}
+}
+
+func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
+	f := newSidecarTestFixtures(t)
+	sc := fake.NewClientset(f.encryptionConfigSecret).CoreV1()
+	fga := featuregates.NewHardcodedFeatureGateAccess(
+		[]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil,
+	)
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "kube-apiserver"}},
+		Volumes:    []corev1.Volume{f.resourceDirVolume},
+	}
+
+	call := func() {
+		t.Helper()
+		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", sc, fga)
+		require.NoError(t, err)
+	}
+
+	call()
+	afterFirstCall := podSpec.DeepCopy()
+
+	call()
+	require.Equal(t, afterFirstCall, podSpec)
 }
