@@ -19,7 +19,7 @@ type PerfScenario struct {
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
 	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
 	DBLoaderWorkers    int
-	EncryptionProvider configv1.APIServerEncryption
+	EncryptionProvider EncryptionProvider
 }
 
 func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
