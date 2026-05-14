@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/stretchr/testify/require"
@@ -107,11 +109,12 @@ func TestInjectIntoPodSpec(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		actualPodSpec   *corev1.PodSpec
-		expectedPodSpec *corev1.PodSpec
-		secretClient    corev1client.SecretsGetter
-		wantErr         string
+		name                string
+		actualPodSpec       *corev1.PodSpec
+		expectedPodSpec     *corev1.PodSpec
+		secretClient        corev1client.SecretsGetter
+		featureGateAccessor featuregates.FeatureGateAccess
+		wantErr             string
 	}{
 		{
 			name: "single provider: sidecar and volumes injected",
@@ -136,7 +139,8 @@ func TestInjectIntoPodSpec(t *testing.T) {
 				},
 				Volumes: []corev1.Volume{resourceDirVolume, socketVolume},
 			},
-			secretClient: secretClient(encryptionConfigSecret),
+			secretClient:        secretClient(encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
 			name: "two providers during migration: both sidecars injected in keyID order",
@@ -236,12 +240,14 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					},
 				})
 			}(),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
-			name:          "nil pod spec",
-			actualPodSpec: nil,
-			secretClient:  secretClient(encryptionConfigSecret),
-			wantErr:       "pod spec cannot be nil",
+			name:                "nil pod spec",
+			actualPodSpec:       nil,
+			secretClient:        secretClient(encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+			wantErr:             "pod spec cannot be nil",
 		},
 		{
 			name: "missing encryption-config secret: pod spec unchanged",
@@ -255,7 +261,8 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					{Name: "kube-apiserver"},
 				},
 			},
-			secretClient: secretClient(),
+			secretClient:        secretClient(),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
 			name: "missing encryption-config key in secret: pod spec unchanged",
@@ -271,7 +278,8 @@ func TestInjectIntoPodSpec(t *testing.T) {
 				},
 				Data: map[string][]byte{"other-key": []byte("data")},
 			}),
-			wantErr: "encryption configuration is required",
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+			wantErr:             "encryption configuration is required",
 		},
 		{
 			name: "no KMS plugin in EncryptionConfiguration: pod spec unchanged",
@@ -306,6 +314,7 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					Data: map[string][]byte{"encryption-config": noKMSBytes},
 				})
 			}(),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
 			name: "missing API server container",
@@ -314,14 +323,45 @@ func TestInjectIntoPodSpec(t *testing.T) {
 					{Name: "other-container"},
 				},
 			},
-			secretClient: secretClient(encryptionConfigSecret),
-			wantErr:      fmt.Sprintf("container %s not found", "kube-apiserver"),
+			secretClient:        secretClient(encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+			wantErr:             fmt.Sprintf("container %s not found", "kube-apiserver"),
+		},
+		{
+			name: "feature gate disabled: pod spec unchanged",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			secretClient:        secretClient(encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(nil, []configv1.FeatureGateName{features.FeatureGateKMSEncryption}),
+		},
+		{
+			name: "feature gates not yet observed: pod spec unchanged",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			secretClient:        secretClient(encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil, make(chan struct{}), nil),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.secretClient)
+			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.secretClient, tt.featureGateAccessor)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
