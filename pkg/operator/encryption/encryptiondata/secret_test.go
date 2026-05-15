@@ -5,11 +5,135 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 )
+
+func TestFromSecretPluginDataKeyHandling(t *testing.T) {
+	baseSecret := func(t *testing.T) map[string][]byte {
+		t.Helper()
+		cfg := &encryptiondata.Config{
+			Encryption: &apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"secrets"},
+				}},
+			},
+		}
+		secret, err := encryptiondata.ToSecret("ns", "name", cfg)
+		if err != nil {
+			t.Fatalf("failed to create base secret: %v", err)
+		}
+		return secret.Data
+	}
+
+	tests := []struct {
+		name      string
+		extraKeys map[string][]byte
+		wantError bool
+	}{
+		{
+			name: "no plugin config keys",
+		},
+		{
+			name:      "non-integer suffix is rejected",
+			extraKeys: map[string][]byte{"kms-plugin-config-abc": {}},
+			wantError: true,
+		},
+		{
+			name:      "negative suffix is rejected",
+			extraKeys: map[string][]byte{"kms-plugin-config--1": {}},
+			wantError: true,
+		},
+		{
+			name:      "empty suffix is ignored",
+			extraKeys: map[string][]byte{"kms-plugin-config-": {}},
+		},
+		{
+			name:      "unrelated keys are ignored",
+			extraKeys: map[string][]byte{"some-other-key": {}},
+		},
+		{
+			name:      "empty string key is ignored",
+			extraKeys: map[string][]byte{"": {}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := baseSecret(t)
+			for k, v := range tt.extraKeys {
+				data[k] = v
+			}
+			secret := &corev1.Secret{Data: data}
+			_, err := encryptiondata.FromSecret(secret)
+			if tt.wantError && err == nil {
+				t.Fatal("expected error but got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestToSecretPluginKeyIDValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		keyID     string
+		wantError bool
+	}{
+		{
+			name:  "valid keyID",
+			keyID: "1",
+		},
+		{
+			name:  "valid large keyID",
+			keyID: "42",
+		},
+		{
+			name:      "non-integer keyID",
+			keyID:     "abc",
+			wantError: true,
+		},
+		{
+			name:      "empty keyID",
+			keyID:     "",
+			wantError: true,
+		},
+		{
+			name:      "negative keyID",
+			keyID:     "-1",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+					}},
+				},
+				KMSPlugins: map[string]configv1.KMSPluginConfig{
+					tt.keyID: {},
+				},
+			}
+			_, err := encryptiondata.ToSecret("ns", "name", cfg)
+			if tt.wantError && err == nil {
+				t.Fatalf("expected error for keyID %q", tt.keyID)
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
 
 func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 	timeout := &metav1.Duration{Duration: 10 * time.Second}
