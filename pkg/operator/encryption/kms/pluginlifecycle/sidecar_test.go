@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
@@ -148,9 +149,17 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 					{
-						Name:         "vault-kms-plugin-555",
-						Image:        "quay.io/test/vault:v1",
-						Args:         sidecarArgs,
+						Name:                     "vault-kms-plugin-555",
+						Image:                    "quay.io/test/vault:v1",
+						Args:                     sidecarArgs,
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 				},
@@ -185,6 +194,14 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-vault-namespace=other-namespace",
 							"-transit-mount=transit2",
 						},
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 					{
@@ -198,6 +215,14 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 							"-vault-namespace=my-namespace",
 							"-transit-mount=transit",
+						},
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
@@ -397,9 +422,17 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 					{
-						Name:         "vault-kms-plugin-555",
-						Image:        "quay.io/test/vault:v1",
-						Args:         sidecarArgs,
+						Name:                     "vault-kms-plugin-555",
+						Image:                    "quay.io/test/vault:v1",
+						Args:                     sidecarArgs,
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 				},
