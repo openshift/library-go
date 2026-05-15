@@ -98,7 +98,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 			return fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
 		}
 
-		if err := appendSidecarContainer(podSpec, sidecarProvider); err != nil {
+		if err := ensureSidecarContainer(podSpec, sidecarProvider); err != nil {
 			return err
 		}
 
@@ -114,13 +114,20 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 	return nil
 }
 
-func appendSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) error {
-	container, err := provider.BuildSidecarContainer()
+func ensureSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) error {
+	sidecar, err := provider.BuildSidecarContainer()
 	if err != nil {
 		return fmt.Errorf("failed to build sidecar container: %w", err)
 	}
 
-	podSpec.Containers = append(podSpec.Containers, container)
+	for i, container := range podSpec.Containers {
+		if container.Name == sidecar.Name {
+			podSpec.Containers[i] = sidecar
+			return nil
+		}
+	}
+
+	podSpec.Containers = append(podSpec.Containers, sidecar)
 	return nil
 }
 
