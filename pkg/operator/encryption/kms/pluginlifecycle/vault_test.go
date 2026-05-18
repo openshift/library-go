@@ -6,6 +6,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
@@ -48,6 +49,14 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 							"-vault-namespace=my-namespace",
 							"-transit-mount=transit",
+						},
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
 						},
 					},
 				},
@@ -94,6 +103,14 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 							"-vault-namespace=my-namespace",
 							"-transit-mount=transit",
 						},
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
+						},
 					},
 				},
 			},
@@ -128,6 +145,14 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 							// These are not added
 							// "-vault-namespace=",
 							// "-transit-mount=",
+						},
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
 						},
 					},
 				},

@@ -5,6 +5,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
@@ -54,8 +55,19 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	}
 
 	return corev1.Container{
-		Name:  v.Name(),
-		Image: v.config.KMSPluginImage,
-		Args:  args,
+		Name:                     v.Name(),
+		Image:                    v.config.KMSPluginImage,
+		Args:                     args,
+		ImagePullPolicy:          corev1.PullIfNotPresent,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		// TODO(bertinatto): the plugin sidecar needs to be measure under heavy load to figure out good defaults.
+		// For now follow what most sidecars in the kube-apiserver pod do. xref:
+		// https://github.com/openshift/cluster-kube-apiserver-operator/commit/e15a19cd2474c8b60ce17ac16dd8f422c729847a
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+				corev1.ResourceCPU:    resource.MustParse("5m"),
+			},
+		},
 	}, nil
 }
