@@ -5,16 +5,32 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/secret/fake"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
 type routeSecret struct {
 	routeName  string
 	secretName string
+}
+
+func waitForRegistration(mgr *manager, key string) {
+	err := wait.PollImmediate(5*time.Millisecond, 2*time.Second, func() (bool, error) {
+		mgr.handlersLock.Lock()
+		defer mgr.handlersLock.Unlock()
+		if ref, exists := mgr.registeredHandlers[key]; !exists || ref.handlerRegistration != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		panic(fmt.Sprintf("timeout waiting for registration of %s", key))
+	}
 }
 
 func TestRegisterRoute(t *testing.T) {
@@ -96,9 +112,14 @@ func TestRegisterRoute(t *testing.T) {
 					gotErr += 1
 				}
 			}
+			for _, rs := range s.rs {
+				waitForRegistration(mgr, generateKey(namespace, rs.routeName))
+			}
 			if gotErr != s.expectErr {
 				t.Fatalf("expected %d errors, got %d errors", s.expectErr, gotErr)
 			}
+			mgr.handlersLock.Lock()
+			defer mgr.handlersLock.Unlock()
 			if len(s.expectHandlersKeys) != len(mgr.registeredHandlers) {
 				t.Fatalf("expected %d keys: %v, got %d keys: %v", len(s.expectHandlersKeys), s.expectHandlersKeys, len(mgr.registeredHandlers), mgr.registeredHandlers)
 			}
@@ -169,6 +190,9 @@ func TestUnregisterRoute(t *testing.T) {
 					t.Fatalf("failed to register %v: %v", rs, err)
 				}
 			}
+			for _, rs := range s.register {
+				waitForRegistration(mgr, generateKey(namespace, rs.routeName))
+			}
 
 			// unregister
 			mgr.monitor = &s.sm
@@ -182,6 +206,8 @@ func TestUnregisterRoute(t *testing.T) {
 			if gotErr != s.expectErr {
 				t.Fatalf("expected %d errors, got %d errors", s.expectErr, gotErr)
 			}
+			mgr.handlersLock.Lock()
+			defer mgr.handlersLock.Unlock()
 			if len(s.expectHandlersKeys) != len(mgr.registeredHandlers) {
 				t.Fatalf("expected %d keys: %v, got %d keys: %v", len(s.expectHandlersKeys), s.expectHandlersKeys, len(mgr.registeredHandlers), mgr.registeredHandlers)
 			}
@@ -245,6 +271,9 @@ func TestGetSecret(t *testing.T) {
 					t.Fatalf("failed to register %v: %v", rs, err)
 				}
 			}
+			for _, rs := range s.register {
+				waitForRegistration(&mgr, generateKey(namespace, rs.routeName))
+			}
 
 			mgr.monitor = &s.sm
 			gotSec, err := mgr.GetSecret(context.TODO(), namespace, routeName)
@@ -294,6 +323,9 @@ func TestLookupRouteSecret(t *testing.T) {
 				if err := mgr.RegisterRoute(context.TODO(), namespace, rs.routeName, rs.secretName, cache.ResourceEventHandlerFuncs{}); err != nil {
 					t.Fatalf("failed to register %v: %v", rs, err)
 				}
+			}
+			for _, rs := range s.register {
+				waitForRegistration(mgr, generateKey(namespace, rs.routeName))
 			}
 
 			secret, exist := mgr.LookupRouteSecret(namespace, routeName)
