@@ -37,12 +37,12 @@ func main() {
 
 	flag.StringVar(&o.listenAddress, "listen-address", "", "Listen address for the KMS plugin (e.g. unix:///var/run/kmsplugin/kms.sock)")
 	flag.StringVar(&o.vaultAddress, "vault-address", "", "Vault server address")
+	flag.StringVar(&o.transitMount, "transit-mount", "", "Vault transit secret engine mount path")
 	flag.StringVar(&o.transitKey, "transit-key", "", "Vault transit key name")
 	flag.StringVar(&o.approleRoleID, "approle-role-id", "", "Vault AppRole role ID")
 	flag.StringVar(&o.approleSecretIDPath, "approle-secret-id-path", "", "Path to file containing Vault AppRole secret ID")
 	flag.StringVar(&o.logLevel, "log-level", "", "Log level (optional, valid value: debug-extended)")
 	flag.StringVar(&o.vaultNamespace, "vault-namespace", "", "Vault namespace (optional)")
-	flag.StringVar(&o.transitMount, "transit-mount", "", "Vault transit secret engine mount path (optional)")
 	flag.Parse()
 
 	flag.VisitAll(func(f *flag.Flag) {
@@ -63,6 +63,9 @@ func (o *options) validate() error {
 	}
 	if o.vaultAddress == "" {
 		return fmt.Errorf("--vault-address must be set")
+	}
+	if o.transitMount == "" {
+		return fmt.Errorf("--transit-mount must be set")
 	}
 	if o.transitKey == "" {
 		return fmt.Errorf("--transit-key must be set")

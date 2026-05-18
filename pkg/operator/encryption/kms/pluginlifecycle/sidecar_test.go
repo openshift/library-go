@@ -109,11 +109,11 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 	sidecarArgs := []string{
 		"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 		"-vault-address=https://vault.example.com:8200",
+		"-transit-mount=transit",
 		"-transit-key=my-key",
 		"-approle-role-id=dummy-role-id-555",
 		"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 		"-vault-namespace=my-namespace",
-		"-transit-mount=transit",
 	}
 
 	socketMount := corev1.VolumeMount{
@@ -193,11 +193,11 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Args: []string{
 							"-listen-address=unix:///var/run/kmsplugin/kms-777.sock",
 							"-vault-address=https://vault2.example.com:8200",
+							"-transit-mount=transit2",
 							"-transit-key=other-key",
 							"-approle-role-id=dummy-role-id-777",
 							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-777",
 							"-vault-namespace=other-namespace",
-							"-transit-mount=transit2",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -216,11 +216,11 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Args: []string{
 							"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 							"-vault-address=https://vault.example.com:8200",
+							"-transit-mount=transit",
 							"-transit-key=my-key",
 							"-approle-role-id=dummy-role-id-555",
 							"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 							"-vault-namespace=my-namespace",
-							"-transit-mount=transit",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
