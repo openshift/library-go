@@ -28,6 +28,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -196,7 +197,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, apiEncryptionConfiguration)
 		if !needed {
 			continue
 		}
@@ -317,7 +318,7 @@ func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Cont
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
 // used key ID and a reason string.
-func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, currentApiServerEncryption configv1.APIServerEncryption) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
 		return 0, "key-does-not-exist", currentMode != state.Identity
@@ -362,13 +363,14 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	if currentMode == state.KMS {
 		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
+		if kms.NeedsNewKey(latestKey.KMSConfig.Provider, currentApiServerEncryption.KMS) {
+			return latestKeyID, "kms-provider-changed", true
+		}
 
-		// For now in Tech Preview v1, we don't support configurational changes. Therefore,
-		// it is pointless comparing the secrets.
-
-		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
-		// KMS keys are rotated externally by the KMS system.
-		// Moreover, we don't trigger new key when external reason is changed.
+		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
+		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}

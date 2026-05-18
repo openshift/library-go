@@ -532,33 +532,64 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 	verifyKMSPlugins()
 
+	t.Logf("KMS-to-KMS migration: change VaultAddress")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"kms":{"vault":{"vaultAddress":"https://vault-new.example.com"}}}}}`), metav1.PatchOptions{})
+	require.NoError(t, err)
+	waitForKeys(12)
+	kms13 := kmsProviderName("kubeapiservers", "13")
+	kms13Sched := kmsProviderName("kubeschedulers", "13")
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,aescbc:11,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,aescbc:11,identity", kms12, kms13, kms12Sched, kms13Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,aescbc:11,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,aescbc:11,identity", kms13, kms12, kms13Sched, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms13, kms12, kms13Sched, kms12Sched),
+	)
+	waitForMigration("13")
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
+	t.Logf("Verify KMS-to-KMS migration key secret contains updated provider config")
+	kmsKeySecret13, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-13", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	kmsProviderConfigData13 := kmsKeySecret13.Data[secrets.EncryptionSecretKMSProviderConfig]
+	require.NotEmpty(t, kmsProviderConfigData13)
+	providerConfig13, err := encoding.DecodeKMSConfig(kmsProviderConfigData13)
+	require.NoError(t, err)
+	require.Equal(t, "https://vault-new.example.com", providerConfig13.Vault.VaultAddress)
+	require.Equal(t, "test-transit-key", providerConfig13.Vault.TransitKey)
+
+	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second)
+	waitForKeys(12)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
 	t.Logf("Delete the encryption-config while in KMS mode")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(ctx, fmt.Sprintf("encryption-config-%s", component), types.JSONPatchType, []byte(`[{"op":"remove","path":"/metadata/finalizers"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	err = kubeClient.CoreV1().Secrets("openshift-config-managed").Delete(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.DeleteOptions{})
 	require.NoError(t, err)
 	waitForConfigs(
-		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:11,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:11,identity", kms12, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms13, kms12, kms13Sched, kms12Sched),
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Delete the operand config while in KMS mode")
 	deployer.DeleteOperandConfig()
 	waitForConfigs(
-		// kms12 is migrated and hence only one needed, but we rotate through identity
-		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,aescbc:11;kubeschedulers.operator.openshift.io=identity,kms:%s,aescbc:11", kms12, kms12Sched),
-		// kms12 is migrated, plus one backed key (11)
-		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:11,identity;kubeschedulers.operator.openshift.io=kms:%s,aescbc:11,identity", kms12, kms12Sched),
+		// kms13 is migrated and hence only one needed, but we rotate through identity
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,kms:%s;kubeschedulers.operator.openshift.io=identity,kms:%s,kms:%s", kms13, kms12, kms13Sched, kms12Sched),
+		// kms13 is migrated, plus one backed key (12)
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms13, kms12, kms13Sched, kms12Sched),
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("Switch to identity from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"identity","kms":null}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
-	waitForKeys(12)
+	waitForKeys(13)
 	waitForConfigs(
-		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,aescbc:11,identity,aesgcm:13;kubeschedulers.operator.openshift.io=kms:%s,aescbc:11,identity,aesgcm:13", kms12, kms12Sched),
-		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,aescbc:11,aesgcm:13;kubeschedulers.operator.openshift.io=identity,kms:%s,aescbc:11,aesgcm:13", kms12, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:14;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity,aesgcm:14", kms13, kms12, kms13Sched, kms12Sched),
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=identity,kms:%s,kms:%s,aesgcm:14;kubeschedulers.operator.openshift.io=identity,kms:%s,kms:%s,aesgcm:14", kms13, kms12, kms13Sched, kms12Sched),
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
 }

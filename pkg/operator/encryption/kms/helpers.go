@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,27 @@ func KeyIDFromPluginConfigSecretDataKey(dataKey string) (string, bool, error) {
 		return "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
 	}
 	return keyID, true, nil
+}
+
+// NeedsNewKey returns true if the KMS provider configuration has changed
+// in a way that requires creating a new encryption key and migrating storage.
+// Only fields that affect the Key Encryption Key (KEK) trigger migration.
+// Fields like KMSPluginImage, TLS, and Authentication are non-migration fields.
+func NeedsNewKey(latest, current *configv1.KMSConfig) bool {
+	if latest.Type != current.Type {
+		// TODO: Integrate this with pre-flight checker
+		return true
+	}
+	if latest.Type == configv1.VaultKMSProvider {
+		if latest.Vault.VaultAddress != current.Vault.VaultAddress ||
+			latest.Vault.VaultNamespace != current.Vault.VaultNamespace ||
+			latest.Vault.TransitMount != current.Vault.TransitMount ||
+			latest.Vault.TransitKey != current.Vault.TransitKey {
+			// TODO: Integrate this with pre-flight checker
+			return true
+		}
+	}
+	return false
 }
 
 // AddKMSPluginVolumeAndMountToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
