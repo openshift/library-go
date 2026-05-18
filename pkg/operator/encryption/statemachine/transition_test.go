@@ -48,7 +48,6 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				return
 			}
 			expected := expected.DeepCopy()
-			expected.TypeMeta = metav1.TypeMeta{}
 			secretData, err := encryptiondata.FromEncryptionState(state)
 			if err != nil {
 				ts.Fatalf("unexpected error from FromEncryptionState: %v", err)
@@ -81,6 +80,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -111,6 +111,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with write keys, no secrets => nothing done, config unchanged",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -142,6 +143,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{{
 					Resources: []string{"configmaps"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -172,6 +174,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with only one resource => 2nd resource is added",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -193,6 +196,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -227,6 +231,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with two resources, GRs reduced => only one resource stays",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -260,6 +265,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -288,6 +294,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -332,6 +339,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -409,6 +417,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists, write key secret is missing => no-op",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
 							Resources: []string{"configmaps"},
@@ -476,6 +485,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				// 4 is becoming new write key, not 5!
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
@@ -554,6 +564,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists without identity => identity is appended",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
 							Resources: []string{"configmaps"},
@@ -585,6 +596,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -619,6 +631,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists, new key secret => new key added as read key",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -653,6 +666,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -701,6 +715,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists, read keys are consistent => new write key is set",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -749,6 +764,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -797,6 +813,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists, read+write keys are consistent, not migrated => nothing changes",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -845,6 +862,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -893,6 +911,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists, read+write keys are consistent, migrated => old read-keys are pruned from config",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"configmaps"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -956,6 +975,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"configmaps"},
@@ -1011,6 +1031,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"secrets"},
@@ -1031,6 +1052,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with AESCBC, KMS secret added => KMS added as read key (migration scenario)",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1053,6 +1075,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"secrets"},
@@ -1081,6 +1104,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with KMS, read keys are consistent => new write key is set",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1110,6 +1134,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{
 					{
 						Resources: []string{"secrets"},
@@ -1138,6 +1163,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"config exists with KMS, read+write keys consistent, not migrated => nothing changes",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1167,6 +1193,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{{
 					Resources: []string{"secrets"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1193,6 +1220,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"KMS has converged after migrating from AESCBC => nothing changes",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1222,6 +1250,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{{
 					Resources: []string{"secrets"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1248,6 +1277,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			"AESCBC has converged after migrating back from KMS => nothing changes",
 			args{
 				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
@@ -1277,6 +1307,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
 			},
 			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
 				Resources: []apiserverconfigv1.ResourceConfiguration{{
 					Resources: []string{"secrets"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{

@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
@@ -76,7 +77,10 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	})
 
 	return &Config{
-		Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			TypeMeta:  metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
+			Resources: resourceConfigs,
+		},
 		KMSPlugins: kmsPlugins,
 	}, nil
 }
