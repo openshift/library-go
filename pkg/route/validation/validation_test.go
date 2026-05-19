@@ -19,7 +19,6 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	routev1 "github.com/openshift/api/route/v1"
-	routecommon "github.com/openshift/library-go/pkg/route"
 )
 
 const (
@@ -1042,7 +1041,7 @@ func TestValidateRoute(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{AllowExternalCertificates: false})
+			errs := ValidateRoute(context.Background(), tc.route, &testSARCreator{allow: false}, &testSecretGetter{})
 			if len(errs) != tc.expectedErrors {
 				t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
 			}
@@ -1876,7 +1875,6 @@ func TestValidateTLS(t *testing.T) {
 		// fields for externalCertificate
 		allow  bool
 		secret *corev1.Secret
-		opts   routecommon.RouteValidationOptions
 	}{
 		{
 			name: "No TLS Termination",
@@ -2039,7 +2037,6 @@ func TestValidateTLS(t *testing.T) {
 					},
 				},
 			},
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2055,7 +2052,6 @@ func TestValidateTLS(t *testing.T) {
 					},
 				},
 			},
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2070,7 +2066,6 @@ func TestValidateTLS(t *testing.T) {
 					},
 				},
 			},
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2097,7 +2092,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          false,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 3,
 		},
 		{
@@ -2124,7 +2118,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          false,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 3,
 		},
 		{
@@ -2151,7 +2144,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2178,7 +2170,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2205,7 +2196,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeBasicAuth,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2232,7 +2222,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeBasicAuth,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 1,
 		},
 		{
@@ -2259,7 +2248,6 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 0,
 		},
 		{
@@ -2286,14 +2274,13 @@ func TestValidateTLS(t *testing.T) {
 				Type: corev1.SecretTypeTLS,
 			},
 			allow:          true,
-			opts:           routecommon.RouteValidationOptions{AllowExternalCertificates: true},
 			expectedErrors: 0,
 		},
 	}
 
 	ctx := request.WithUser(context.Background(), &user.DefaultInfo{})
 	for _, tc := range tests {
-		errs := validateTLS(ctx, tc.route, nil, &testSARCreator{allow: tc.allow}, &testSecretGetter{namespace: tc.route.Namespace, secret: tc.secret}, tc.opts)
+		errs := validateTLS(ctx, tc.route, nil, &testSARCreator{allow: tc.allow}, &testSecretGetter{namespace: tc.route.Namespace, secret: tc.secret})
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
 		}
@@ -2321,7 +2308,7 @@ func TestValidatePassthroughInsecureEdgeTerminationPolicy(t *testing.T) {
 			},
 		}
 		route.Spec.TLS.InsecureEdgeTerminationPolicy = key
-		errs := validateTLS(context.Background(), route, nil, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
+		errs := validateTLS(context.Background(), route, nil, &testSARCreator{allow: false}, &testSecretGetter{})
 		if !expected && len(errs) != 0 {
 			t.Errorf("Test case for Passthrough termination with insecure=%s got %d errors where none where expected. %v",
 				key, len(errs), errs)
@@ -2591,7 +2578,7 @@ func TestValidateRouteUpdate(t *testing.T) {
 	for i, tc := range tests {
 		newRoute := tc.route.DeepCopy()
 		tc.change(newRoute)
-		errs := ValidateRouteUpdate(context.Background(), newRoute, tc.route, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
+		errs := ValidateRouteUpdate(context.Background(), newRoute, tc.route, &testSARCreator{allow: false}, &testSecretGetter{})
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("%d: expected %d error(s), got %d. %v", i, tc.expectedErrors, len(errs), errs)
 		}
@@ -2767,7 +2754,7 @@ func TestValidateInsecureEdgeTerminationPolicy(t *testing.T) {
 				},
 			},
 		}
-		errs := validateTLS(context.Background(), route, nil, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
+		errs := validateTLS(context.Background(), route, nil, &testSARCreator{allow: false}, &testSecretGetter{})
 
 		if len(errs) != tc.expectedErrors {
 			t.Errorf("Test case %s expected %d error(s), got %d. %v", tc.name, tc.expectedErrors, len(errs), errs)
@@ -2825,7 +2812,7 @@ func TestValidateEdgeReencryptInsecureEdgeTerminationPolicy(t *testing.T) {
 	for _, tc := range tests {
 		for key, expected := range insecureTypes {
 			tc.route.Spec.TLS.InsecureEdgeTerminationPolicy = key
-			errs := validateTLS(context.Background(), tc.route, nil, &testSARCreator{allow: false}, &testSecretGetter{}, routecommon.RouteValidationOptions{})
+			errs := validateTLS(context.Background(), tc.route, nil, &testSARCreator{allow: false}, &testSecretGetter{})
 			if !expected && len(errs) != 0 {
 				t.Errorf("Test case %s with insecure=%s got %d errors where none were expected. %v",
 					tc.name, key, len(errs), errs)
