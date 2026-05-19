@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
@@ -697,6 +698,34 @@ func keyToKMSConfiguration(key *corev1.Secret, resource string) *apiserverconfig
 		Timeout: &metav1.Duration{
 			Duration: 10 * time.Second,
 		},
+	}
+}
+
+func TestFromEncryptionStateMatchesFromSecretTypeMeta(t *testing.T) {
+	keySecret := encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("61def964fb967f5d7c44a2af8dab6865"))
+	ks, err := secrets.ToKeyState(keySecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fromState, err := encryptiondata.FromEncryptionState(map[schema.GroupResource]state.GroupResourceState{
+		{Resource: "secrets"}: {WriteKey: ks, ReadKeys: []state.KeyState{ks}},
+	})
+	if err != nil {
+		t.Fatalf("FromEncryptionState error: %v", err)
+	}
+
+	secret, err := encryptiondata.ToSecret("openshift-config-managed", "encryption-config", fromState)
+	if err != nil {
+		t.Fatalf("ToSecret error: %v", err)
+	}
+	fromSecret, err := encryptiondata.FromSecret(secret)
+	if err != nil {
+		t.Fatalf("FromSecret error: %v", err)
+	}
+
+	if !equality.Semantic.DeepEqual(fromState.Encryption, fromSecret.Encryption) {
+		t.Errorf("FromEncryptionState and FromSecret produced different Encryption:\nfromState:  %#v\nfromSecret: %#v", fromState.Encryption, fromSecret.Encryption)
 	}
 }
 
