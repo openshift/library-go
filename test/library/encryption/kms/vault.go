@@ -85,7 +85,7 @@ var DefaultFakeKMSPluginConfig = configv1.KMSPluginConfig{
 // using the default configuration constants.
 func ensureDefaultVaultAppRoleSecret(t testing.TB) {
 	t.Helper()
-	ctx := t.Context()
+	ctx := context.Background()
 	cs := library.GetClients(t)
 
 	creds, err := cs.Kube.CoreV1().Secrets(defaultVaultNamespace).Get(ctx, defaultVaultCredentialsSecret, metav1.GetOptions{})
@@ -116,7 +116,7 @@ func ensureDefaultVaultAppRoleSecret(t testing.TB) {
 // 3. Get new key version and validate it increased
 func RotateVaultTransitKey(t testing.TB) {
 	t.Helper()
-	ctx := t.Context()
+	ctx := context.Background()
 
 	initialVersion := getCurrentKeyVersion(ctx, t)
 	rotateKey(ctx, t)
