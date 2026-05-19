@@ -102,14 +102,17 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 			return err
 		}
 
-		if err := ensureSocketVolumeMount(podSpec, sidecarProvider.Name()); err != nil {
+		if err := ensureSocketVolumeMountInContainer(podSpec.InitContainers, sidecarProvider.Name()); err != nil {
 			return err
 		}
 	}
 
-	if err := ensureSocketVolumeMount(podSpec, containerName); err != nil {
+	if err := ensureSocketVolumeMountInContainer(podSpec.Containers, containerName); err != nil {
 		return err
 	}
+
+	// The volume mount in the kube-apiserver and KMS plugin containers requires a volume in the podSpec
+	ensureSocketVolume(podSpec)
 
 	return nil
 }
@@ -120,20 +123,20 @@ func ensureSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) e
 		return fmt.Errorf("failed to build sidecar container: %w", err)
 	}
 
-	for i, container := range podSpec.Containers {
+	for i, container := range podSpec.InitContainers {
 		if container.Name == sidecar.Name {
-			podSpec.Containers[i] = sidecar
+			podSpec.InitContainers[i] = sidecar
 			return nil
 		}
 	}
 
-	podSpec.Containers = append(podSpec.Containers, sidecar)
+	podSpec.InitContainers = append(podSpec.InitContainers, sidecar)
 	return nil
 }
 
-func ensureSocketVolumeMount(podSpec *corev1.PodSpec, containerName string) error {
+func ensureSocketVolumeMountInContainer(containers []corev1.Container, containerName string) error {
 	containerIndex := -1
-	for i, container := range podSpec.Containers {
+	for i, container := range containers {
 		if container.Name == containerName {
 			containerIndex = i
 			break
@@ -144,8 +147,8 @@ func ensureSocketVolumeMount(podSpec *corev1.PodSpec, containerName string) erro
 		return fmt.Errorf("container %s not found", containerName)
 	}
 
-	container := &podSpec.Containers[containerIndex]
 	foundMount := false
+	container := &containers[containerIndex]
 	for _, m := range container.VolumeMounts {
 		if m.Name == "kms-plugin-socket" {
 			foundMount = true
@@ -160,9 +163,6 @@ func ensureSocketVolumeMount(podSpec *corev1.PodSpec, containerName string) erro
 			},
 		)
 	}
-
-	// The volume mount in the container requires a volume in the podSpec
-	ensureSocketVolume(podSpec)
 	return nil
 }
 

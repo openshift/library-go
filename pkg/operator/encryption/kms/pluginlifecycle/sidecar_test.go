@@ -18,6 +18,7 @@ import (
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	fake "k8s.io/client-go/kubernetes/fake"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 type sidecarTestFixtures struct {
@@ -148,11 +149,14 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Name:         "kube-apiserver",
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
+				},
+				InitContainers: []corev1.Container{
 					{
 						Name:                     "vault-kms-plugin-555",
 						Image:                    "quay.io/test/vault:v1",
 						Args:                     sidecarArgs,
 						ImagePullPolicy:          corev1.PullIfNotPresent,
+						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -182,6 +186,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Name:         "kube-apiserver",
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
+				},
+				InitContainers: []corev1.Container{
 					{
 						Name:  "vault-kms-plugin-777",
 						Image: "quay.io/test/vault:v2",
@@ -195,6 +201,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-transit-mount=transit2",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
+						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -217,6 +224,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-transit-mount=transit",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
+						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -409,6 +417,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Name:         "kube-apiserver",
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
+				},
+				InitContainers: []corev1.Container{
 					{
 						Name: "vault-kms-plugin-555",
 					},
@@ -421,11 +431,14 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						Name:         "kube-apiserver",
 						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
+				},
+				InitContainers: []corev1.Container{
 					{
 						Name:                     "vault-kms-plugin-555",
 						Image:                    "quay.io/test/vault:v1",
 						Args:                     sidecarArgs,
 						ImagePullPolicy:          corev1.PullIfNotPresent,
+						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
