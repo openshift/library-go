@@ -36,9 +36,9 @@ var (
 	waitPollTimeout       = 69*time.Minute + 10*time.Minute
 	defaultEncryptionMode = string(configv1.EncryptionTypeIdentity)
 
-	SupportedStaticEncryptionProviders = []configv1.APIServerEncryption{
-		{Type: configv1.EncryptionTypeAESGCM},
-		{Type: configv1.EncryptionTypeAESCBC},
+	SupportedStaticEncryptionProviders = []EncryptionProvider{
+		{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeAESGCM}},
+		{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeAESCBC}},
 	}
 )
 
@@ -56,8 +56,9 @@ type EncryptionKeyMeta struct {
 
 type UpdateUnsupportedConfigFunc func(raw []byte) error
 
-func SetAndWaitForEncryptionType(t testing.TB, provider configv1.APIServerEncryption, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
+
 	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
 
 	clientSet := GetClients(t)
@@ -66,10 +67,13 @@ func SetAndWaitForEncryptionType(t testing.TB, provider configv1.APIServerEncryp
 
 	apiServer, err := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
-	needsUpdate := !equality.Semantic.DeepEqual(apiServer.Spec.Encryption, provider)
+	needsUpdate := !equality.Semantic.DeepEqual(apiServer.Spec.Encryption, provider.APIServerEncryption)
 	if needsUpdate {
-		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", apiServer.Spec.Encryption, provider)
-		apiServer.Spec.Encryption = provider
+		if provider.Setup != nil {
+			provider.Setup(t)
+		}
+		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", apiServer.Spec.Encryption, provider.APIServerEncryption)
+		apiServer.Spec.Encryption = provider.APIServerEncryption
 		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
