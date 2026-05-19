@@ -61,7 +61,7 @@ func ObserveAccessTokenMaxAgeSeconds(genericlisters configobserver.Listers, reco
 	}
 
 	if existingAccessTokenMaxAgeSeconds != observedAccessTokenMaxAgeSeconds {
-		recorder.Eventf("ObserveAccessTokenMaxAgeSeconds", "%s changed from %d to %d", fieldAccessTokenMaxAgeSeconds,
+		recorder.Eventf("ObserveAccessTokenMaxAgeSeconds", "%s changed from %f to %f", fieldAccessTokenMaxAgeSeconds,
 			existingAccessTokenMaxAgeSeconds,
 			observedAccessTokenMaxAgeSeconds)
 	}

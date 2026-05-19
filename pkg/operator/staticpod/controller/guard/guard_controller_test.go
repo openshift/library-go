@@ -62,6 +62,18 @@ type FakeInfrastructureSharedInformer struct {
 	HasSynced_ bool
 }
 
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
+}
+
 func (i FakeInfrastructureSharedInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
 	//TODO implement me
 	panic("implement me")
@@ -88,7 +100,14 @@ func (i FakeInfrastructureSharedInformer) GetController() cache.Controller    { 
 func (i FakeInfrastructureSharedInformer) Run(stopCh <-chan struct{})         {}
 func (i FakeInfrastructureSharedInformer) RunWithContext(ctx context.Context) {}
 func (i FakeInfrastructureSharedInformer) HasSynced() bool                    { return i.HasSynced_ }
-func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string    { return "" }
+func (i FakeInfrastructureSharedInformer) HasSyncedChecker() cache.DoneChecker {
+	ch := make(chan struct{})
+	if i.HasSynced_ {
+		close(ch)
+	}
+	return &fakeSharedIndexInformerDone{synced: ch}
+}
+func (i FakeInfrastructureSharedInformer) LastSyncResourceVersion() string { return "" }
 func (i FakeInfrastructureSharedInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	return nil
 }
@@ -885,11 +904,11 @@ func TestRenderGuardPodPortChanged(t *testing.T) {
 
 		// The port is expected to be set to 99999 by the guard controller
 		if probe.Port.IntValue() != 99999 {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %q instead", ctrl.readyzPort, probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected %q, got %d instead", ctrl.readyzPort, probe.Port.IntValue())
 		}
 		// The port is expected to be different from the one initially set in the guard pod readiness probe
 		if originalProbe.Port.IntValue() == probe.Port.IntValue() {
-			t.Errorf("unexpected port in ReadinessProbe in the guard, expected it to be different from %q, got %q", originalProbe.Port.IntValue(), probe.Port.IntValue())
+			t.Errorf("unexpected port in ReadinessProbe in the guard, expected it to be different from %d, got %d", originalProbe.Port.IntValue(), probe.Port.IntValue())
 		}
 
 		// The path is expected to be set to healthz by the guard controller

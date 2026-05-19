@@ -812,6 +812,24 @@ func (d *lockStepDeployer) HasSynced() bool {
 	return true
 }
 
+type fakeSharedIndexInformerDone struct {
+	synced chan struct{}
+}
+
+func (fd *fakeSharedIndexInformerDone) Name() string {
+	return "FakeSharedIndexInformer"
+}
+
+func (fd *fakeSharedIndexInformerDone) Done() <-chan struct{} {
+	return fd.synced
+}
+
+func (d *lockStepDeployer) HasSyncedChecker() cache.DoneChecker {
+	ch := make(chan struct{})
+	close(ch)
+	return &fakeSharedIndexInformerDone{synced: ch}
+}
+
 func (d *lockStepDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
