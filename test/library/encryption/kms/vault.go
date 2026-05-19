@@ -1,7 +1,13 @@
 package kms
 
 import (
+	"context"
+	"fmt"
+	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +23,7 @@ import (
 
 const (
 	defaultVaultNamespace         = "vault-kms"
+	defaultVaultPodName           = "vault-0"
 	defaultVaultCredentialsSecret = "vault-credentials"
 	defaultVaultAppRoleSecretName = "vault-approle-secret"
 	defaultVaultKMSPluginImage    = "quay.io/openshifttest/mock-kms-plugin@sha256:03bb07a2c08b509653c4c70217a06a4b389c10b4d87922f50ee5eac82db5e140"
@@ -25,6 +32,7 @@ const (
 	defaultVaultTransitMount      = "transit"
 	defaultVaultTransitKey        = "kms-key"
 	defaultAppRoleTargetNamespace = "openshift-config"
+	vaultCommandTimeout           = 30 * time.Second
 )
 
 // DefaultVaultEncryptionProvider is a ready-to-use Vault KMS EncryptionProvider for e2e tests.
@@ -98,4 +106,64 @@ func ensureDefaultVaultAppRoleSecret(t testing.TB) {
 	_, changed, err := resourceapply.ApplySecret(ctx, cs.Kube.CoreV1(), recorder, required)
 	require.NoError(t, err, "failed to apply AppRole secret")
 	t.Logf("Applied AppRole secret %s in %s (changed=%v)", defaultVaultAppRoleSecretName, defaultAppRoleTargetNamespace, changed)
+}
+
+// RotateVaultTransitKey rotates the Vault transit encryption key. All old key versions are retained.
+// Reference: https://developer.hashicorp.com/vault/api-docs/secret/transit#rotate-key
+// Steps:
+// 1. Get initial key version
+// 2. Execute 'vault write -f transit/keys/<key-name>/rotate' via oc exec
+// 3. Get new key version and validate it increased
+func RotateVaultTransitKey(t testing.TB) {
+	t.Helper()
+	ctx := t.Context()
+
+	initialVersion := getCurrentKeyVersion(ctx, t)
+	rotateKey(ctx, t)
+	newVersion := getCurrentKeyVersion(ctx, t)
+
+	require.Greater(t, newVersion, initialVersion, "rotation failed: version did not increase (before=%d, after=%d)", initialVersion, newVersion)
+}
+
+// rotateKey executes the vault key rotation command
+func rotateKey(ctx context.Context, t testing.TB) {
+	t.Helper()
+	commandCtx, cancel := context.WithTimeout(ctx, vaultCommandTimeout)
+	defer cancel()
+
+	// Command: vault write -f transit/keys/<key-name>/rotate
+	// Reference: https://developer.hashicorp.com/vault/api-docs/secret/transit#rotate-key
+	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
+		"vault", "write", "-f", fmt.Sprintf("transit/keys/%s/rotate", defaultVaultTransitKey))
+
+	t.Logf("Executing: %s", cmd.String())
+	output, err := cmd.Output()
+	if ee, ok := err.(*exec.ExitError); ok {
+		require.NoError(t, err, "vault key rotation failed, stderr: %s", string(ee.Stderr))
+	}
+	require.NoError(t, err, "vault key rotation failed")
+	t.Logf("Command output: %s", string(output))
+}
+
+// getCurrentKeyVersion retrieves the current (latest) key version
+func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
+	t.Helper()
+	commandCtx, cancel := context.WithTimeout(ctx, vaultCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
+		"vault", "read", "-field=latest_version", fmt.Sprintf("transit/keys/%s", defaultVaultTransitKey))
+
+	t.Logf("Executing: %s", cmd.String())
+	output, err := cmd.Output()
+	if ee, ok := err.(*exec.ExitError); ok {
+		require.NoError(t, err, "failed to read key version, stderr: %s", string(ee.Stderr))
+	}
+	require.NoError(t, err, "failed to read key version")
+	t.Logf("Command output: %s", string(output))
+
+	version, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	require.NoError(t, err, "failed to parse key version from output: %q", string(output))
+
+	return version
 }
