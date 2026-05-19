@@ -207,29 +207,16 @@ func GetLastKeyMeta(t testing.TB, kubeClient kubernetes.Interface, namespace, la
 
 	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
 	// so we set the timeout to 5 min just in case
-	pollTimeout := time.Minute * 5
-
-	// set the number of step to high value
-	// we should stop on timeout otherwise the backoff returns after 5 steps
-	// and we never wait the timeout value
-	backOff := retry.DefaultBackoff
-	backOff.Steps = 9999
-
-	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
-	// so we set the timeout to 5 min just in case
-	err := onErrorWithTimeout(pollTimeout, backOff, func(err error) bool {
-		if !transientAPIError(err) {
-			t.Logf("error = %v is not retriable, failed to get the metadata from the last encryption key", err)
-			return false
-		}
-		return true // retry
-	}, func() (err error) {
-		selectedSecrets, err = secretsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+	err := wait.PollUntilContextTimeout(t.Context(), 30*time.Second, time.Minute*5, true, func(ctx context.Context) (result bool, err error) {
+		selectedSecrets, err = secretsClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
-			t.Logf("failed to list secrets, err = %v", err.Error())
+			t.Logf("GetLastKeyMeta: Failed to list secrets: %v", err)
+			return false, nil
 		}
-		return
+
+		return true, nil
 	})
+
 	if err != nil {
 		return EncryptionKeyMeta{}, err
 	}
