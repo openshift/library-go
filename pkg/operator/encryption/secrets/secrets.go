@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -87,6 +88,24 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSPluginConfig)
 		}
+		for dataKey, value := range s.Data {
+			rawKey, found := strings.CutPrefix(dataKey, EncryptionSecretKMSSecretDataPrefix)
+			if !found || len(rawKey) == 0 {
+				continue
+			}
+			parts := strings.SplitN(rawKey, SecretDataKeySeparator, 2)
+			if len(parts) != 2 {
+				continue
+			}
+			secretName, secretKey := parts[0], parts[1]
+			if key.KMS.SecretData == nil {
+				key.KMS.SecretData = map[string]map[string][]byte{}
+			}
+			if key.KMS.SecretData[secretName] == nil {
+				key.KMS.SecretData[secretName] = map[string][]byte{}
+			}
+			key.KMS.SecretData[secretName][secretKey] = value
+		}
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
@@ -157,6 +176,16 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Data[EncryptionSecretKMSPluginConfig] = pluginData
+	}
+
+	if ks.HasKMSSecretData() {
+		for secretName, secretData := range ks.KMS.SecretData {
+			for dataKey, value := range secretData {
+				// Write referenced secret data to the Key Secret using the format:
+				// "encryption.apiserver.operator.openshift.io-kms-plugin-secret-{secretName}_{dataKey}"
+				s.Data[EncryptionSecretKMSSecretDataPrefix+secretName+SecretDataKeySeparator+dataKey] = value
+			}
+		}
 	}
 
 	return s, nil

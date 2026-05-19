@@ -53,6 +53,10 @@ func (k *KeyState) HasKMSPlugin() bool {
 	return k != nil && k.KMS != nil && k.KMS.Plugin != (configv1.KMSPluginConfig{})
 }
 
+func (k *KeyState) HasKMSSecretData() bool {
+	return k != nil && k.KMS != nil && len(k.KMS.SecretData) > 0
+}
+
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
@@ -60,6 +64,10 @@ type KMSState struct {
 
 	// Plugin stores KMS plugin specific configurations
 	Plugin configv1.KMSPluginConfig
+
+	// SecretData stores fetched values from the referenced secret
+	// in openshift-config. Outer key is the secret name, inner key is the data key.
+	SecretData map[string]map[string][]byte
 }
 
 type MigrationState struct {
