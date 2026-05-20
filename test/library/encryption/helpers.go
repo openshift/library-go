@@ -58,6 +58,7 @@ type UpdateUnsupportedConfigFunc func(raw []byte) error
 
 func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
+	ctx := context.TODO()
 
 	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
 
@@ -65,16 +66,16 @@ func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defa
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
 	require.NoError(t, err)
 
-	apiServer, err := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
+	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 	needsUpdate := !equality.Semantic.DeepEqual(apiServer.Spec.Encryption, provider.APIServerEncryption)
 	if needsUpdate {
 		if provider.Setup != nil {
-			provider.Setup(t)
+			provider.Setup(ctx, t)
 		}
 		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", apiServer.Spec.Encryption, provider.APIServerEncryption)
 		apiServer.Spec.Encryption = provider.APIServerEncryption
-		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
+		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
 		t.Logf("APIServer is already configured to use %q mode", provider.Type)

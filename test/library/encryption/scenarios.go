@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"context"
 	"fmt"
 	mathrand "math/rand/v2"
 	"strings"
@@ -30,7 +31,9 @@ type BasicScenario struct {
 type EncryptionProvider struct {
 	configv1.APIServerEncryption
 	// Setup is called once before the provider is first used. May be nil.
-	Setup func(t testing.TB)
+	// Context is accepted as an explicit argument because testing.TB.Context()
+	// is not supported by all implementations (e.g. Ginkgo's GinkgoTBWrapper).
+	Setup func(ctx context.Context, t testing.TB)
 }
 
 func TestEncryptionTypeIdentity(t testing.TB, scenario BasicScenario) {

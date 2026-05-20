@@ -83,9 +83,8 @@ var DefaultFakeKMSPluginConfig = configv1.KMSPluginConfig{
 // ensureDefaultVaultAppRoleSecret reads credentials from the vault-credentials secret
 // (created by a CI step) and applies the AppRole secret in openshift-config
 // using the default configuration constants.
-func ensureDefaultVaultAppRoleSecret(t testing.TB) {
+func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
 	t.Helper()
-	ctx := t.Context()
 	cs := library.GetClients(t)
 
 	creds, err := cs.Kube.CoreV1().Secrets(defaultVaultNamespace).Get(ctx, defaultVaultCredentialsSecret, metav1.GetOptions{})
@@ -114,9 +113,8 @@ func ensureDefaultVaultAppRoleSecret(t testing.TB) {
 // 1. Get initial key version
 // 2. Execute 'vault write -f transit/keys/<key-name>/rotate' via oc exec
 // 3. Get new key version and validate it increased
-func RotateVaultTransitKey(t testing.TB) {
+func RotateVaultTransitKey(ctx context.Context, t testing.TB) {
 	t.Helper()
-	ctx := t.Context()
 
 	initialVersion := getCurrentKeyVersion(ctx, t)
 	rotateKey(ctx, t)
