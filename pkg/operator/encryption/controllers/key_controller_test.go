@@ -785,6 +785,7 @@ func TestReferencedSecretName(t *testing.T) {
 		plugin           configv1.KMSPluginConfig
 		expectedName     string
 		expectedDataKeys []string
+		expectedError    bool
 	}{
 		{
 			name: "Vault with AppRole authentication returns secret name and keys",
@@ -803,7 +804,7 @@ func TestReferencedSecretName(t *testing.T) {
 			expectedDataKeys: []string{"role-id", "secret-id"},
 		},
 		{
-			name: "Vault with unknown authentication type returns empty",
+			name: "Vault with unknown authentication type returns error",
 			plugin: configv1.KMSPluginConfig{
 				Type: configv1.VaultKMSProvider,
 				Vault: configv1.VaultKMSPluginConfig{
@@ -812,35 +813,40 @@ func TestReferencedSecretName(t *testing.T) {
 					},
 				},
 			},
-			expectedName:     "",
-			expectedDataKeys: nil,
+			expectedError: true,
 		},
 		{
-			name: "Vault with empty authentication type returns empty",
+			name: "Vault with empty authentication type returns error",
 			plugin: configv1.KMSPluginConfig{
 				Type:  configv1.VaultKMSProvider,
 				Vault: configv1.VaultKMSPluginConfig{},
 			},
-			expectedName:     "",
-			expectedDataKeys: nil,
+			expectedError: true,
 		},
 		{
-			name:             "unknown KMS provider returns empty",
-			plugin:           configv1.KMSPluginConfig{Type: "UnknownProvider"},
-			expectedName:     "",
-			expectedDataKeys: nil,
+			name:          "unknown KMS provider returns error",
+			plugin:        configv1.KMSPluginConfig{Type: "UnknownProvider"},
+			expectedError: true,
 		},
 		{
-			name:             "empty plugin config returns empty",
-			plugin:           configv1.KMSPluginConfig{},
-			expectedName:     "",
-			expectedDataKeys: nil,
+			name:          "empty plugin config returns error",
+			plugin:        configv1.KMSPluginConfig{},
+			expectedError: true,
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			name, dataKeys := referencedSecretName(scenario.plugin)
+			name, dataKeys, err := referencedSecretName(scenario.plugin)
+			if scenario.expectedError {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if name != scenario.expectedName {
 				t.Errorf("expected secret name %q, got %q", scenario.expectedName, name)
 			}

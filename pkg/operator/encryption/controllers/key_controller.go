@@ -284,7 +284,9 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			Plugin: apiServerEncryption.KMS,
 		}
 
-		if secretName, expectedKeys := referencedSecretName(apiServerEncryption.KMS); len(secretName) > 0 {
+		if secretName, expectedKeys, err := referencedSecretName(apiServerEncryption.KMS); err != nil {
+			return nil, err
+		} else if len(secretName) > 0 {
 			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
@@ -404,18 +406,19 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 // referencedSecretName returns the name of the secret referenced by the KMS plugin
 // config and the specific data keys to carry from that secret. Only the listed keys
 // are copied into the Key Secret; any other data in the referenced secret is ignored.
-func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string) {
+func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string, error) {
 	switch plugin.Type {
 	case configv1.VaultKMSProvider:
 		switch plugin.Vault.Authentication.Type {
 		case configv1.VaultAuthenticationTypeAppRole:
 			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
 			// These are the only keys carried into the encryption key secret.
-			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}
+			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
+		default:
+			return "", nil, fmt.Errorf("unsupported Vault authentication type %q", plugin.Vault.Authentication.Type)
 		}
-		return "", nil
 	default:
-		return "", nil
+		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
 	}
 }
 
