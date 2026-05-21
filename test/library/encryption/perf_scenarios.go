@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -22,13 +23,13 @@ type PerfScenario struct {
 	EncryptionProvider EncryptionProvider
 }
 
-func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
+func TestPerfEncryption(ctx context.Context, t *testing.T, scenario PerfScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	migrationStartedCh := make(chan time.Time, 1)
 
 	populateDatabase(e, scenario.DBLoaderWorkers, scenario.DBLoaderFunc, scenario.AssertDBPopulatedFunc)
 	watchForMigrationControllerProgressingConditionAsync(e, scenario.GetOperatorConditionsFunc, migrationStartedCh)
-	endTimeStamp := runTestEncryption(t, scenario)
+	endTimeStamp := runTestEncryption(ctx, t, scenario)
 
 	select {
 	case migrationStarted := <-migrationStartedCh:
@@ -38,9 +39,9 @@ func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
 	}
 }
 
-func runTestEncryption(tt *testing.T, scenario PerfScenario) time.Time {
+func runTestEncryption(ctx context.Context, tt *testing.T, scenario PerfScenario) time.Time {
 	var ts time.Time
-	TestEncryptionType(tt, BasicScenario{
+	TestEncryptionType(ctx, tt, BasicScenario{
 		Namespace:                       scenario.Namespace,
 		LabelSelector:                   scenario.LabelSelector,
 		EncryptionConfigSecretName:      scenario.EncryptionConfigSecretName,

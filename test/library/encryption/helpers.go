@@ -56,9 +56,8 @@ type EncryptionKeyMeta struct {
 
 type UpdateUnsupportedConfigFunc func(raw []byte) error
 
-func SetAndWaitForEncryptionType(t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
-	ctx := context.TODO()
 
 	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
 
