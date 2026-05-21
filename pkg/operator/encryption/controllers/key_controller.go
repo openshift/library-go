@@ -407,9 +407,13 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string) {
 	switch plugin.Type {
 	case configv1.VaultKMSProvider:
-		// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
-		// These are the only keys carried into the encryption key secret.
-		return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}
+		switch plugin.Vault.Authentication.Type {
+		case configv1.VaultAuthenticationTypeAppRole:
+			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
+			// These are the only keys carried into the encryption key secret.
+			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}
+		}
+		return "", nil
 	default:
 		return "", nil
 	}

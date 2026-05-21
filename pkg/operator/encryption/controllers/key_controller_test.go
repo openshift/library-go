@@ -779,6 +779,83 @@ func TestKeyController(t *testing.T) {
 	}
 }
 
+func TestReferencedSecretName(t *testing.T) {
+	scenarios := []struct {
+		name             string
+		plugin           configv1.KMSPluginConfig
+		expectedName     string
+		expectedDataKeys []string
+	}{
+		{
+			name: "Vault with AppRole authentication returns secret name and keys",
+			plugin: configv1.KMSPluginConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: configv1.VaultKMSPluginConfig{
+					Authentication: configv1.VaultAuthentication{
+						Type: configv1.VaultAuthenticationTypeAppRole,
+						AppRole: configv1.VaultAppRoleAuthentication{
+							Secret: configv1.VaultSecretReference{Name: "my-approle-secret"},
+						},
+					},
+				},
+			},
+			expectedName:     "my-approle-secret",
+			expectedDataKeys: []string{"role-id", "secret-id"},
+		},
+		{
+			name: "Vault with unknown authentication type returns empty",
+			plugin: configv1.KMSPluginConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: configv1.VaultKMSPluginConfig{
+					Authentication: configv1.VaultAuthentication{
+						Type: "UnknownAuth",
+					},
+				},
+			},
+			expectedName:     "",
+			expectedDataKeys: nil,
+		},
+		{
+			name: "Vault with empty authentication type returns empty",
+			plugin: configv1.KMSPluginConfig{
+				Type:  configv1.VaultKMSProvider,
+				Vault: configv1.VaultKMSPluginConfig{},
+			},
+			expectedName:     "",
+			expectedDataKeys: nil,
+		},
+		{
+			name:             "unknown KMS provider returns empty",
+			plugin:           configv1.KMSPluginConfig{Type: "UnknownProvider"},
+			expectedName:     "",
+			expectedDataKeys: nil,
+		},
+		{
+			name:             "empty plugin config returns empty",
+			plugin:           configv1.KMSPluginConfig{},
+			expectedName:     "",
+			expectedDataKeys: nil,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			name, dataKeys := referencedSecretName(scenario.plugin)
+			if name != scenario.expectedName {
+				t.Errorf("expected secret name %q, got %q", scenario.expectedName, name)
+			}
+			if len(dataKeys) != len(scenario.expectedDataKeys) {
+				t.Fatalf("expected %d data keys, got %d", len(scenario.expectedDataKeys), len(dataKeys))
+			}
+			for i, key := range dataKeys {
+				if key != scenario.expectedDataKeys[i] {
+					t.Errorf("expected data key[%d] %q, got %q", i, scenario.expectedDataKeys[i], key)
+				}
+			}
+		})
+	}
+}
+
 var flatEncryptionJSON = `
 {
   "encryption": {

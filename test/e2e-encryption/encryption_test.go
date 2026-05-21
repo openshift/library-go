@@ -489,7 +489,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
-	t.Logf("Create vault AppRole vault AppRole secret")
+	t.Logf("Create vault AppRole secret")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config").Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "vault-approle-secret", Namespace: "openshift-config"},
 		Data: map[string][]byte{
