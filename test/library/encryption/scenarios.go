@@ -31,20 +31,18 @@ type BasicScenario struct {
 type EncryptionProvider struct {
 	configv1.APIServerEncryption
 	// Setup is called once before the provider is first used. May be nil.
-	// Context is accepted as an explicit argument because testing.TB.Context()
-	// is not supported by all implementations (e.g. Ginkgo's GinkgoTBWrapper).
 	Setup func(ctx context.Context, t testing.TB)
 }
 
-func TestEncryptionTypeIdentity(t testing.TB, scenario BasicScenario) {
+func TestEncryptionTypeIdentity(ctx context.Context, t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(ctx, e, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
-func TestEncryptionTypeUnset(t testing.TB, scenario BasicScenario) {
+func TestEncryptionTypeUnset(ctx context.Context, t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, EncryptionProvider{}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(ctx, e, EncryptionProvider{}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
@@ -59,40 +57,40 @@ func resolveProvider(t testing.TB, defaultType configv1.EncryptionType, provider
 	return EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: defaultType}}
 }
 
-func TestEncryptionTypeAESCBC(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
+func TestEncryptionTypeAESCBC(ctx context.Context, t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeAESCBC, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeAESGCM(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
+func TestEncryptionTypeAESGCM(ctx context.Context, t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeAESGCM, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeKMS(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
+func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeKMS, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionType(t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
+func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
 	switch provider.Type {
 	case configv1.EncryptionTypeAESCBC:
-		TestEncryptionTypeAESCBC(t, scenario, provider)
+		TestEncryptionTypeAESCBC(ctx, t, scenario, provider)
 	case configv1.EncryptionTypeAESGCM:
-		TestEncryptionTypeAESGCM(t, scenario, provider)
+		TestEncryptionTypeAESGCM(ctx, t, scenario, provider)
 	case configv1.EncryptionTypeKMS:
-		TestEncryptionTypeKMS(t, scenario, provider)
+		TestEncryptionTypeKMS(ctx, t, scenario, provider)
 	case configv1.EncryptionTypeIdentity, "":
-		TestEncryptionTypeIdentity(t, scenario)
+		TestEncryptionTypeIdentity(ctx, t, scenario)
 	default:
 		t.Fatalf("Unknown encryption type: %s", provider.Type)
 	}
@@ -113,28 +111,28 @@ type testStep struct {
 	testFunc func(testing.TB)
 }
 
-func TestEncryptionTurnOnAndOff(t testing.TB, scenario OnOffScenario) {
+func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, scenario OnOffScenario) {
 	scenarios := []testStep{
 		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}},
-		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
+		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider) }},
 		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "OffIdentity", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
+		{name: "OffIdentity", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario) }},
 		{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
+		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider) }},
 		{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "OffIdentitySecond", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
+		{name: "OffIdentitySecond", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario) }},
 		{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -184,7 +182,7 @@ func ShuffleEncryptionProviders(providers []EncryptionProvider) []EncryptionProv
 // It creates a resource, migrates through each provider,
 // verifies the resource is encrypted after each migration, and finally
 // switches to identity (off).
-func TestEncryptionProvidersMigration(t testing.TB, scenario ProvidersMigrationScenario) {
+func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, scenario ProvidersMigrationScenario) {
 	if len(scenario.EncryptionProviders) < 2 {
 		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(scenario.EncryptionProviders))
 	}
@@ -211,7 +209,7 @@ func TestEncryptionProvidersMigration(t testing.TB, scenario ProvidersMigrationS
 		}
 		scenarios = append(scenarios,
 			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type))), testFunc: func(t testing.TB) {
-				TestEncryptionType(t, scenario.BasicScenario, provider)
+				TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
 			}},
 			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 				e := NewE(t)
@@ -222,7 +220,7 @@ func TestEncryptionProvidersMigration(t testing.TB, scenario ProvidersMigrationS
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
 	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
-		TestEncryptionTypeIdentity(t, scenario.BasicScenario)
+		TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 		e := NewE(t)
 		scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 	}})
@@ -248,7 +246,7 @@ type RotationScenario struct {
 
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
-func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
+func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario RotationScenario) {
 	// test data
 	ns := scenario.Namespace
 	labelSelector := scenario.LabelSelector
@@ -259,7 +257,7 @@ func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 	scenario.CreateResourceFunc(e, GetClients(e), ns)
 
 	// step 2: run provided encryption scenario
-	TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider)
+	TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider)
 
 	// step 3: take samples
 	rawEncryptedResourceWithKey1 := scenario.GetRawResourceFunc(e, clientSet, ns)
