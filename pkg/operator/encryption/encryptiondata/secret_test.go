@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
@@ -285,13 +284,19 @@ func TestKeyIDFromPluginConfigSecretDataKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			keyID, found, err := keyIDFromPluginConfigSecretDataKey(tt.dataKey)
 			if tt.wantError {
-				require.Error(t, err)
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
 				return
 			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantFound, found)
-			if found {
-				require.Equal(t, tt.wantKeyID, keyID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if found != tt.wantFound {
+				t.Fatalf("expected found=%v, got %v", tt.wantFound, found)
+			}
+			if found && keyID != tt.wantKeyID {
+				t.Fatalf("expected keyID=%q, got %q", tt.wantKeyID, keyID)
 			}
 		})
 	}
@@ -335,11 +340,17 @@ func TestToPluginConfigSecretDataKeyFor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := toPluginConfigSecretDataKeyFor(tt.keyID)
 			if tt.wantError {
-				require.Error(t, err)
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
 				return
 			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantKey, got)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.wantKey {
+				t.Fatalf("expected key=%q, got %q", tt.wantKey, got)
+			}
 		})
 	}
 }
