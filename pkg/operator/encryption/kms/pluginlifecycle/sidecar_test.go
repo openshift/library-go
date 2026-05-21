@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -251,8 +250,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 				pluginConfig2Bytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig2)
 				require.NoError(t, err)
 
-				pluginConfigKey2, err := kms.ToPluginConfigSecretDataKeyFor("777")
-				require.NoError(t, err)
+				pluginConfigKey2 := "kms-plugin-config-777"
 
 				multiEncConfig := &apiserverv1.EncryptionConfiguration{
 					Resources: []apiserverv1.ResourceConfiguration{

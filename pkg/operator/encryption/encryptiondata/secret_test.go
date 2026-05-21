@@ -1,14 +1,13 @@
-package encryptiondata_test
+package encryptiondata
 
 import (
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
-
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 )
 
 func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
@@ -16,7 +15,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		cfg       *encryptiondata.Config
+		cfg       *Config
 		want      []*apiserverconfigv1.KMSConfiguration
 		wantError bool
 	}{
@@ -27,12 +26,12 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name:      "nil encryption returns error",
-			cfg:       &encryptiondata.Config{},
+			cfg:       &Config{},
 			wantError: true,
 		},
 		{
 			name: "empty provider list returns empty slice",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
@@ -44,7 +43,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "single resource single KMS provider",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
@@ -68,7 +67,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "same keyID across resources is deduplicated",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
@@ -105,7 +104,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "multiple keyIDs sorted descending",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
@@ -146,7 +145,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "non-KMS providers are skipped",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
@@ -174,7 +173,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "mismatched duplicate keyID errors",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{
 						{
@@ -206,7 +205,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 		},
 		{
 			name: "invalid plugin name errors",
-			cfg: &encryptiondata.Config{
+			cfg: &Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{{
 						Resources: []string{"secrets"},
@@ -226,7 +225,7 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := encryptiondata.ExtractUniqueAndSortedKMSConfigurations(tt.cfg)
+			got, err := ExtractUniqueAndSortedKMSConfigurations(tt.cfg)
 			if tt.wantError {
 				if err == nil {
 					t.Fatal("expected error but got nil")
@@ -239,6 +238,108 @@ func TestExtractUniqueAndSortedKMSConfigurations(t *testing.T) {
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("unexpected result (-want +got):\n%s", diff)
 			}
+		})
+	}
+}
+
+func TestKeyIDFromPluginConfigSecretDataKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		dataKey   string
+		wantKeyID string
+		wantFound bool
+		wantError bool
+	}{
+		{
+			name:      "valid key",
+			dataKey:   "kms-plugin-config-1",
+			wantKeyID: "1",
+			wantFound: true,
+		},
+		{
+			name:      "valid key with large ID",
+			dataKey:   "kms-plugin-config-42",
+			wantKeyID: "42",
+			wantFound: true,
+		},
+		{
+			name:    "encryption-config key",
+			dataKey: "encryption-config",
+		},
+		{
+			name:      "non-integer keyID",
+			dataKey:   "kms-plugin-config-abc",
+			wantError: true,
+		},
+		{
+			name:    "missing keyID",
+			dataKey: "kms-plugin-config-",
+		},
+		{
+			name:    "empty string",
+			dataKey: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keyID, found, err := keyIDFromPluginConfigSecretDataKey(tt.dataKey)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantFound, found)
+			if found {
+				require.Equal(t, tt.wantKeyID, keyID)
+			}
+		})
+	}
+}
+
+func TestToPluginConfigSecretDataKeyFor(t *testing.T) {
+	tests := []struct {
+		name      string
+		keyID     string
+		wantKey   string
+		wantError bool
+	}{
+		{
+			name:    "valid keyID",
+			keyID:   "1",
+			wantKey: "kms-plugin-config-1",
+		},
+		{
+			name:    "valid large keyID",
+			keyID:   "42",
+			wantKey: "kms-plugin-config-42",
+		},
+		{
+			name:      "non-integer keyID",
+			keyID:     "abc",
+			wantError: true,
+		},
+		{
+			name:      "empty keyID",
+			keyID:     "",
+			wantError: true,
+		},
+		{
+			name:      "negative keyID",
+			keyID:     "-1",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := toPluginConfigSecretDataKeyFor(tt.keyID)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantKey, got)
 		})
 	}
 }

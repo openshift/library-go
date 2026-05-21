@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -13,9 +14,32 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
+
+const pluginConfigDataKeyPrefix = "kms-plugin-config-"
+
+// toPluginConfigSecretDataKeyFor constructs the data key for storing a KMS plugin config in the encryption-config Secret.
+// The keyID must be a valid non-negative integer string.
+func toPluginConfigSecretDataKeyFor(keyID string) (string, error) {
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return pluginConfigDataKeyPrefix + keyID, nil
+}
+
+// keyIDFromPluginConfigSecretDataKey extracts the keyID from a kms-plugin-config data key.
+// Returns the keyID and true if the key matches the "kms-plugin-config-<keyID>" pattern.
+func keyIDFromPluginConfigSecretDataKey(dataKey string) (string, bool, error) {
+	keyID, found := strings.CutPrefix(dataKey, pluginConfigDataKeyPrefix)
+	if !found || len(keyID) == 0 {
+		return "", false, nil
+	}
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return keyID, true, nil
+}
 
 // EncryptionConfSecretName is the name of the final encryption config secret that is revisioned per apiserver rollout.
 const EncryptionConfSecretName = "encryption-config"
@@ -36,7 +60,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	for key, value := range encryptionConfigSecret.Data {
 		// Not all data keys are plugin configs — the Secret also contains the
 		// encryption-config entry, so skip keys that don't match the pattern.
-		keyID, found, err := kms.KeyIDFromPluginConfigSecretDataKey(key)
+		keyID, found, err := keyIDFromPluginConfigSecretDataKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract keyID from data key %s: %w", key, err)
 		}
@@ -93,7 +117,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode KMS plugin config for key %s: %w", keyID, err)
 		}
-		dataKey, err := kms.ToPluginConfigSecretDataKeyFor(keyID)
+		dataKey, err := toPluginConfigSecretDataKeyFor(keyID)
 		if err != nil {
 			return nil, err
 		}
