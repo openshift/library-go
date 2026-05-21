@@ -366,6 +366,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	}
 
 	// we have not migrated the latest key, do nothing until that is complete
+	// TODO this causes some race condition because we can wipe the annotations in the meantime
 	if allMigrated, _, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated {
 		return 0, "", false
 	}

@@ -88,6 +88,25 @@ func (c *Config) HasEncryptionConfiguration() bool {
 	return c != nil && c.Encryption != nil
 }
 
+// UsesKMS returns whether the deployed encryption configuration includes KMS plugins.
+func (c *Config) UsesKMS() bool {
+	return c != nil && len(c.KMSPlugins) > 0
+}
+
+// EncryptedGroupResources returns group resources from the deployed encryption configuration.
+func (c *Config) EncryptedGroupResources() []schema.GroupResource {
+	if !c.HasEncryptionConfiguration() {
+		return nil
+	}
+	grs := make([]schema.GroupResource, 0, len(c.Encryption.Resources))
+	for _, resourceConfig := range c.Encryption.Resources {
+		for _, resource := range resourceConfig.Resources {
+			grs = append(grs, schema.ParseGroupResource(resource))
+		}
+	}
+	return grs
+}
+
 // FromEncryptionState converts encryption state to Config.
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))

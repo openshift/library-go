@@ -188,6 +188,17 @@ func (m *MigratedGroupResources) HasResource(resource schema.GroupResource) bool
 	return false
 }
 
+// FindKeySecret returns the encryption key secret for keyID from a ListKeySecrets result.
+func FindKeySecret(encryptionSecrets []*corev1.Secret, component, keyID string) *corev1.Secret {
+	name := fmt.Sprintf("encryption-key-%s-%s", component, keyID)
+	for _, secret := range encryptionSecrets {
+		if secret.Namespace == "openshift-config-managed" && secret.Name == name {
+			return secret
+		}
+	}
+	return nil
+}
+
 // ListKeySecrets returns the current key secrets from openshift-config-managed.
 func ListKeySecrets(ctx context.Context, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
 	encryptionSecretList, err := secretClient.Secrets("openshift-config-managed").List(ctx, encryptionSecretSelector)
