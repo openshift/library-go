@@ -83,7 +83,8 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
 				},
 			},
-			TransitKey: "test-transit-key",
+			TransitKey:   "test-transit-key",
+			TransitMount: defaultVaultTransitMount,
 		},
 	},
 }
