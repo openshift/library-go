@@ -106,8 +106,8 @@ func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"roleID":   creds.Data["role-id"],
-			"secretID": creds.Data["secret-id"],
+			"role-id":   creds.Data["role-id"],
+			"secret-id": creds.Data["secret-id"],
 		},
 	}
 	recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})
