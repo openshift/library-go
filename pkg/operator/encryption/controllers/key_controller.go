@@ -42,6 +42,7 @@ const (
 	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
+	openshiftConfigNS                 = "openshift-config"
 )
 
 // keyController creates new keys if necessary. It
@@ -117,6 +118,7 @@ func NewKeyController(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+			// TODO: add informer for openshift-config namespace to watch referenced Secrets for KMS plugin secret data changes
 			deployer,
 		).ToController(
 		c.controllerInstanceName,
@@ -223,7 +225,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -260,7 +262,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -280,6 +282,24 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
 			Plugin: apiServerEncryption.KMS,
+		}
+
+		if secretName, expectedKeys, err := referencedSecretName(apiServerEncryption.KMS); err != nil {
+			return nil, err
+		} else if len(secretName) > 0 {
+			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
+			}
+			for _, key := range expectedKeys {
+				v, ok := refSecret.Data[key]
+				if !ok {
+					return nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
+				}
+				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
@@ -381,6 +401,25 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
+}
+
+// referencedSecretName returns the name of the secret referenced by the KMS plugin
+// config and the specific data keys to carry from that secret. Only the listed keys
+// are copied into the Key Secret; any other data in the referenced secret is ignored.
+func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string, error) {
+	switch plugin.Type {
+	case configv1.VaultKMSProvider:
+		switch plugin.Vault.Authentication.Type {
+		case configv1.VaultAuthenticationTypeAppRole:
+			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
+			// These are the only keys carried into the encryption key secret.
+			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
+		default:
+			return "", nil, fmt.Errorf("unsupported Vault authentication type %q", plugin.Vault.Authentication.Type)
+		}
+	default:
+		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
+	}
 }
 
 // TODO make this un-settable once set

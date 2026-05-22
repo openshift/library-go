@@ -41,11 +41,15 @@ func keyIDFromPluginConfigSecretDataKey(dataKey string) (string, bool, error) {
 	return keyID, true, nil
 }
 
-// EncryptionConfSecretName is the name of the final encryption config secret that is revisioned per apiserver rollout.
-const EncryptionConfSecretName = "encryption-config"
-
-// EncryptionConfSecretKey is the map data key used to store the raw bytes of the final encryption config.
-const EncryptionConfSecretKey = "encryption-config"
+const (
+	// EncryptionConfSecretName is the name of the final encryption config secret that is revisioned per apiserver rollout.
+	EncryptionConfSecretName = "encryption-config"
+	// EncryptionConfSecretKey is the map data key used to store the raw bytes of the final encryption config.
+	EncryptionConfSecretKey = "encryption-config"
+	// encryptionConfigSecretDataPrefix is the data key prefix for KMS plugin secret
+	// data entries in the encryption-config Secret. Full key: "kms-plugin-secret-{secretName}_{dataKey}-{keyID}".
+	encryptionConfigSecretDataPrefix = "kms-plugin-secret-"
+)
 
 func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	data, ok := encryptionConfigSecret.Data[EncryptionConfSecretKey]
@@ -80,7 +84,26 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 		kmsPlugins[keyID] = pluginConfig
 	}
 
-	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins}, nil
+	// Extract secret data entries from the encryption-config Secret.
+	// Data keys follow the format "kms-plugin-secret-{secretName}_{dataKey}-{keyID}"
+	// (e.g. "kms-plugin-secret-app-role_role-id-1"). keyIDFromSecretDataKey
+	// returns the keyID (e.g. "1") and the combined key (e.g. "app-role_role-id"),
+	// which is then split on "_" to recover secretName and dataKey.
+	var kmsPluginsSecretData KMSPluginsSecretData
+	for key, value := range encryptionConfigSecret.Data {
+		keyID, rawKey, found, err := parseSecretDataKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse secret data key %s: %w", key, err)
+		}
+		if !found {
+			continue
+		}
+		if err := kmsPluginsSecretData.SetFromRawKey(keyID, rawKey, value); err != nil {
+			return nil, fmt.Errorf("failed to set key %s: %w", key, err)
+		}
+	}
+
+	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins, KMSPluginsSecretData: kmsPluginsSecretData}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -122,6 +145,15 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Data[dataKey] = encodedPlugin
+	}
+
+	// Write secret data entries to the encryption-config Secret.
+	// Each entry from FlatEntries() (e.g. "app-role_role-id") is combined with the keyID
+	// (e.g. "1") to produce "kms-plugin-secret-app-role_role-id-1".
+	for keyID, flatEntries := range secretData.KMSPluginsSecretData.FlatEntriesByKeyID() {
+		for flatKey, value := range flatEntries {
+			s.Data[encryptionConfigSecretDataPrefix+flatKey+"-"+keyID] = value
+		}
 	}
 
 	return s, nil
@@ -168,4 +200,20 @@ func ExtractUniqueAndSortedKMSConfigurations(secretData *Config) ([]*apiserverco
 		return iKeyID > jKeyID
 	})
 	return result, nil
+}
+
+func parseSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
+	rest, found := strings.CutPrefix(dataKey, encryptionConfigSecretDataPrefix)
+	if !found {
+		return "", "", false, nil
+	}
+	i := strings.LastIndex(rest, "-")
+	if i < 1 {
+		return "", "", false, nil
+	}
+	keyID = rest[i+1:]
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return keyID, rest[:i], true, nil
 }

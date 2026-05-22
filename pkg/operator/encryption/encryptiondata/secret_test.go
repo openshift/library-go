@@ -354,3 +354,94 @@ func TestToPluginConfigSecretDataKeyFor(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSecretDataKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		dataKey    string
+		wantKeyID  string
+		wantRawKey string
+		wantFound  bool
+		wantErr    bool
+	}{
+		{
+			name:       "valid key",
+			dataKey:    "kms-plugin-secret-vault-approle-secret_role-id-1",
+			wantKeyID:  "1",
+			wantRawKey: "vault-approle-secret_role-id",
+			wantFound:  true,
+		},
+		{
+			name:       "valid key with large keyID",
+			dataKey:    "kms-plugin-secret-vault-approle-secret_secret-id-42",
+			wantKeyID:  "42",
+			wantRawKey: "vault-approle-secret_secret-id",
+			wantFound:  true,
+		},
+		{
+			name:    "encryption-config key ignored",
+			dataKey: "encryption-config",
+		},
+		{
+			name:    "plugin config key ignored",
+			dataKey: "kms-plugin-config-1",
+		},
+		{
+			name:    "empty string",
+			dataKey: "",
+		},
+		{
+			name:    "prefix only",
+			dataKey: "kms-plugin-secret-",
+		},
+		{
+			name:    "no dash after prefix",
+			dataKey: "kms-plugin-secret-nodash",
+		},
+		{
+			name:       "numeric segment in rawKey is not confused with keyID",
+			dataKey:    "kms-plugin-secret-secret-a_port-8080-1",
+			wantKeyID:  "1",
+			wantRawKey: "secret-a_port-8080",
+			wantFound:  true,
+		},
+		{
+			name:       "flatKey ending with dash produces double dash before keyID",
+			dataKey:    "kms-plugin-secret-secret-a_port-8080--1",
+			wantKeyID:  "1",
+			wantRawKey: "secret-a_port-8080-",
+			wantFound:  true,
+		},
+		{
+			name:    "non-numeric keyID",
+			dataKey: "kms-plugin-secret-vault-approle-secret_role-id-abc",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keyID, rawKey, found, err := parseSecretDataKey(tt.dataKey)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if found != tt.wantFound {
+				t.Fatalf("found: got %v, want %v", found, tt.wantFound)
+			}
+			if found {
+				if keyID != tt.wantKeyID {
+					t.Errorf("keyID: got %q, want %q", keyID, tt.wantKeyID)
+				}
+				if rawKey != tt.wantRawKey {
+					t.Errorf("rawKey: got %q, want %q", rawKey, tt.wantRawKey)
+				}
+			}
+		})
+	}
+}

@@ -798,6 +798,137 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 	}
 }
 
+func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		encryptionState map[schema.GroupResource]state.GroupResourceState
+		expectedErr     string
+		expectedData    encryptiondata.KMSPluginsSecretData
+	}{
+		{
+			name: "matching secret data across resources",
+			encryptionState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: state.KMS,
+						KMS: &state.KMSState{
+							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
+							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							PluginSecretData: state.KMSSecretData{
+								Entries: map[string]map[string][]byte{
+									"vault-approle-secret": {
+										"role-id":   []byte("test-role-id"),
+										"secret-id": []byte("test-secret-id"),
+									},
+								}},
+						},
+					}},
+				},
+				{Resource: "configmaps"}: {
+					ReadKeys: []state.KeyState{{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: state.KMS,
+						KMS: &state.KMSState{
+							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
+							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							PluginSecretData: state.KMSSecretData{
+								Entries: map[string]map[string][]byte{
+									"vault-approle-secret": {
+										"role-id":   []byte("test-role-id"),
+										"secret-id": []byte("test-secret-id"),
+									},
+								}},
+						},
+					}},
+				},
+			},
+			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+				"1": {Entries: map[string]map[string][]byte{
+					"vault-approle-secret": {
+						"role-id":   []byte("test-role-id"),
+						"secret-id": []byte("test-secret-id"),
+					},
+				}},
+			}},
+		},
+		{
+			name: "mismatched secret data across resources",
+			encryptionState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: state.KMS,
+						KMS: &state.KMSState{
+							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
+							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							PluginSecretData: state.KMSSecretData{
+								Entries: map[string]map[string][]byte{
+									"vault-approle-secret": {
+										"role-id": []byte("role-id-a"),
+									},
+								}},
+						},
+					}},
+				},
+				{Resource: "configmaps"}: {
+					ReadKeys: []state.KeyState{{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: state.KMS,
+						KMS: &state.KMSState{
+							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
+							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							PluginSecretData: state.KMSSecretData{
+								Entries: map[string]map[string][]byte{
+									"vault-approle-secret": {
+										"role-id": []byte("role-id-b"),
+									},
+								}},
+						},
+					}},
+				},
+			},
+			expectedErr: `KMS secret data mismatch for keyID 1: secret data from different resources must be identical`,
+		},
+		{
+			name: "no secret data is valid",
+			encryptionState: map[schema.GroupResource]state.GroupResourceState{
+				{Resource: "secrets"}: {
+					ReadKeys: []state.KeyState{{
+						Key:  apiserverconfigv1.Key{Name: "1", Secret: "AAAAAAAAAAAAAAAAAAAAAA=="},
+						Mode: state.KMS,
+						KMS: &state.KMSState{
+							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
+							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := encryptiondata.FromEncryptionState(tt.encryptionState)
+			if tt.expectedErr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if err.Error() != tt.expectedErr {
+					t.Fatalf("unexpected error:\n  got:      %v\n  expected: %v", err, tt.expectedErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData) {
+				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData))
+			}
+		})
+	}
+}
+
 func TestSecretRoundtrip(t *testing.T) {
 	tests := []struct {
 		name string
@@ -852,6 +983,90 @@ func TestSecretRoundtrip(t *testing.T) {
 			},
 		},
 		{
+			name: "KMS with provider config and secret data",
+			cfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				KMSPlugins: map[string]configv1.KMSPluginConfig{
+					"1": encryptiontesting.DefaultKMSPluginConfig,
+				},
+				KMSPluginsSecretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+					"1": {Entries: map[string]map[string][]byte{
+						"vault-approle-secret": {
+							"role-id":   []byte("test-role-id"),
+							"secret-id": []byte("test-secret-id"),
+						},
+					}},
+				}},
+			},
+		},
+		{
+			name: "KMS with multiple provider configs and secret data",
+			cfg: &encryptiondata.Config{
+				Encryption: &apiserverconfigv1.EncryptionConfiguration{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "EncryptionConfiguration",
+						APIVersion: "apiserver.config.k8s.io/v1",
+					},
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "2_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "1_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				KMSPlugins: map[string]configv1.KMSPluginConfig{
+					"1": encryptiontesting.DefaultKMSPluginConfig,
+					"2": encryptiontesting.DefaultKMSPluginConfig,
+				},
+				KMSPluginsSecretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+					"1": {Entries: map[string]map[string][]byte{
+						"vault-approle-secret": {
+							"role-id":   []byte("role-id-1"),
+							"secret-id": []byte("secret-id-1"),
+						},
+					}},
+					"2": {Entries: map[string]map[string][]byte{
+						"vault-approle-secret": {
+							"role-id":   []byte("role-id-2"),
+							"secret-id": []byte("secret-id-2"),
+						},
+					}},
+				}},
+			},
+		},
+		{
 			name: "KMS with multiple provider configs",
 			cfg: &encryptiondata.Config{
 				Encryption: &apiserverconfigv1.EncryptionConfiguration{
@@ -900,6 +1115,195 @@ func TestSecretRoundtrip(t *testing.T) {
 			}
 			if !cmp.Equal(tt.cfg, got) {
 				t.Errorf("roundtrip mismatch:\n%s", cmp.Diff(tt.cfg, got))
+			}
+		})
+	}
+}
+
+func TestToSecretSecretDataEdgeCases(t *testing.T) {
+	baseCfg := &encryptiondata.Config{
+		Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
+			Resources: []apiserverconfigv1.ResourceConfiguration{{
+				Resources: []string{"secrets"},
+				Providers: []apiserverconfigv1.ProviderConfiguration{
+					{KMS: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1_secrets", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock", Timeout: &metav1.Duration{Duration: 10 * time.Second}}},
+					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
+				},
+			}},
+		},
+		KMSPlugins: map[string]configv1.KMSPluginConfig{
+			"1": encryptiontesting.DefaultKMSPluginConfig,
+		},
+	}
+
+	tests := []struct {
+		name             string
+		secretData       encryptiondata.KMSPluginsSecretData
+		wantErr          bool
+		expectedDataKeys map[string][]byte
+	}{
+		{
+			name:       "empty secret data produces no extra keys",
+			secretData: encryptiondata.KMSPluginsSecretData{},
+		},
+		{
+			name: "valid secret data produces correct data keys",
+			secretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+				"1": {Entries: map[string]map[string][]byte{
+					"vault-approle-secret": {
+						"role-id":   []byte("test-role-id"),
+						"secret-id": []byte("test-secret-id"),
+					},
+				}},
+			}},
+			expectedDataKeys: map[string][]byte{
+				"kms-plugin-secret-vault-approle-secret_role-id-1":   []byte("test-role-id"),
+				"kms-plugin-secret-vault-approle-secret_secret-id-1": []byte("test-secret-id"),
+			},
+		},
+		{
+			name: "multiple secrets within same keyID",
+			secretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+				"1": {Entries: map[string]map[string][]byte{
+					"secret-a": {
+						"key-1": []byte("val-a1"),
+					},
+					"secret-b": {
+						"key-2": []byte("val-b2"),
+					},
+				}},
+			}},
+			expectedDataKeys: map[string][]byte{
+				"kms-plugin-secret-secret-a_key-1-1": []byte("val-a1"),
+				"kms-plugin-secret-secret-b_key-2-1": []byte("val-b2"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &encryptiondata.Config{
+				Encryption:           baseCfg.Encryption,
+				KMSPlugins:           baseCfg.KMSPlugins,
+				KMSPluginsSecretData: tt.secretData,
+			}
+
+			secret, err := encryptiondata.ToSecret("openshift-config-managed", "encryption-config-test", cfg)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ToSecret() error: %v", err)
+			}
+
+			for expectedKey, expectedValue := range tt.expectedDataKeys {
+				actual, ok := secret.Data[expectedKey]
+				if !ok {
+					t.Errorf("expected data key %q not found in secret", expectedKey)
+					continue
+				}
+				if string(actual) != string(expectedValue) {
+					t.Errorf("data key %q: expected %q, got %q", expectedKey, expectedValue, actual)
+				}
+			}
+		})
+	}
+}
+
+func TestFromSecretSecretData(t *testing.T) {
+	baseCfg := &encryptiondata.Config{
+		Encryption: &apiserverconfigv1.EncryptionConfiguration{
+			TypeMeta: metav1.TypeMeta{Kind: "EncryptionConfiguration", APIVersion: "apiserver.config.k8s.io/v1"},
+			Resources: []apiserverconfigv1.ResourceConfiguration{{
+				Resources: []string{"secrets"},
+				Providers: []apiserverconfigv1.ProviderConfiguration{
+					{KMS: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1_secrets", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock", Timeout: &metav1.Duration{Duration: 10 * time.Second}}},
+					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
+				},
+			}},
+		},
+		KMSPlugins: map[string]configv1.KMSPluginConfig{
+			"1": encryptiontesting.DefaultKMSPluginConfig,
+		},
+	}
+
+	baseSecret, err := encryptiondata.ToSecret("openshift-config-managed", "encryption-config-test", baseCfg)
+	if err != nil {
+		t.Fatalf("failed to create base secret: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		extraData    map[string][]byte
+		expectedData encryptiondata.KMSPluginsSecretData
+	}{
+		{
+			name: "secret data keys are parsed correctly",
+			extraData: map[string][]byte{
+				"kms-plugin-secret-vault-approle-secret_role-id-1":   []byte("test-role-id"),
+				"kms-plugin-secret-vault-approle-secret_secret-id-1": []byte("test-secret-id"),
+			},
+			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+				"1": {Entries: map[string]map[string][]byte{
+					"vault-approle-secret": {
+						"role-id":   []byte("test-role-id"),
+						"secret-id": []byte("test-secret-id"),
+					},
+				}},
+			}},
+		},
+		{
+			name:      "no secret data keys",
+			extraData: map[string][]byte{},
+		},
+		{
+			name: "non-secret-data keys are ignored",
+			extraData: map[string][]byte{
+				"some-other-key": []byte("ignored"),
+			},
+		},
+		{
+			name: "multiple keyIDs are separated correctly",
+			extraData: map[string][]byte{
+				"kms-plugin-secret-vault-approle-secret_role-id-1":   []byte("role-id-1"),
+				"kms-plugin-secret-vault-approle-secret_secret-id-1": []byte("secret-id-1"),
+				"kms-plugin-secret-vault-approle-secret_role-id-2":   []byte("role-id-2"),
+				"kms-plugin-secret-vault-approle-secret_secret-id-2": []byte("secret-id-2"),
+			},
+			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
+				"1": {Entries: map[string]map[string][]byte{
+					"vault-approle-secret": {
+						"role-id":   []byte("role-id-1"),
+						"secret-id": []byte("secret-id-1"),
+					},
+				}},
+				"2": {Entries: map[string]map[string][]byte{
+					"vault-approle-secret": {
+						"role-id":   []byte("role-id-2"),
+						"secret-id": []byte("secret-id-2"),
+					},
+				}},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			secret := baseSecret.DeepCopy()
+			for k, v := range tt.extraData {
+				secret.Data[k] = v
+			}
+
+			cfg, err := encryptiondata.FromSecret(secret)
+			if err != nil {
+				t.Fatalf("FromSecret() error: %v", err)
+			}
+			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData) {
+				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData))
 			}
 		})
 	}

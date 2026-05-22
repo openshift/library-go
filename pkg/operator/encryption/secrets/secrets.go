@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -76,16 +77,25 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
-		if v, ok := s.Data[EncryptionSecretKMSPluginConfig]; ok && len(v) > 0 {
+		if v, ok := s.Data[encryptionSecretKMSPluginConfig]; ok && len(v) > 0 {
 			kmsConfig, err := encoding.DecodeKMSPluginConfig(v)
 			if err != nil {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSPluginConfig, err)
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, encryptionSecretKMSPluginConfig, err)
 			}
 			key.KMS.Plugin = kmsConfig
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-plugin-config data field is required for KMS
 			// encryption mode.
-			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSPluginConfig)
+			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", encryptionSecretKMSPluginConfig)
+		}
+		for dataKey, value := range s.Data {
+			rawKey, found := strings.CutPrefix(dataKey, encryptionSecretKMSSecretDataPrefix)
+			if !found {
+				continue
+			}
+			if err := key.KMS.PluginSecretData.SetFromRawKey(rawKey, value); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has malformed secret data key %q: %w", s.Namespace, s.Name, dataKey, err)
+			}
 		}
 		key.Mode = keyMode
 	default:
@@ -106,7 +116,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 
 	if ks.Mode == state.KMS && (!ks.HasKMSEncryption() || !ks.HasKMSPlugin()) {
-		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, EncryptionSecretKMSPluginConfig)
+		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, encryptionSecretKMSPluginConfig)
 	}
 
 	s := &corev1.Secret{
@@ -156,7 +166,13 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.Data[EncryptionSecretKMSPluginConfig] = pluginData
+		s.Data[encryptionSecretKMSPluginConfig] = pluginData
+	}
+
+	if ks.HasKMSSecretData() {
+		for flatKey, value := range ks.KMS.PluginSecretData.FlatEntries() {
+			s.Data[encryptionSecretKMSSecretDataPrefix+flatKey] = value
+		}
 	}
 
 	return s, nil
