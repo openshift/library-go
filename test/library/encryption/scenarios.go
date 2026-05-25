@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -276,4 +276,94 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+// SecretRecoveryProvider bundles an EncryptionProvider with the secret it references,
+// so the recovery test knows which secret to delete for that provider.
+type SecretRecoveryProvider struct {
+	EncryptionProvider
+	// SecretName is the name of the secret to delete (e.g. "vault-approle-secret").
+	SecretName string
+	// SecretNamespace is the namespace of the secret to delete (e.g. "openshift-config").
+	SecretNamespace string
+	// RestoreSecret re-creates the deleted secret. This is called for recovery
+	// and also deferred as cleanup if the test fails mid-way.
+	// Must be idempotent (safe to call multiple times).
+	RestoreSecret func(ctx context.Context, t testing.TB)
+}
+
+// SecretRecoveryScenario defines a test scenario for verifying that the cluster
+// recovers after a KMS-referenced secret is deleted and re-created.
+// Multiple providers can be supplied — the same test is run for each.
+type SecretRecoveryScenario struct {
+	BasicScenario
+	// Providers is the list of KMS providers to test secret recovery for.
+	// The same delete→degraded→re-create→recover flow runs for each provider.
+	Providers []SecretRecoveryProvider
+	// WaitForDegraded is called after the secret is deleted; it should block
+	// until the operator reports a degraded condition.
+	WaitForDegraded func(ctx context.Context, t testing.TB)
+	// WaitForRecovery is called after the secret is re-created; it should block
+	// until the operator reports a healthy (non-degraded) condition.
+	WaitForRecovery func(ctx context.Context, t testing.TB)
+}
+
+// TestEncryptionSecretRecovery tests that for each provider:
+//  1. Encryption is enabled with the given provider
+//  2. Deleting the KMS-referenced secret causes the operator to become degraded
+//  3. Re-creating the secret causes the operator to recover
+func TestEncryptionSecretRecovery(ctx context.Context, t testing.TB, scenario SecretRecoveryScenario) {
+	require.NotEmpty(t, scenario.Providers, "SecretRecoveryScenario requires at least one provider")
+	require.NotNil(t, scenario.WaitForDegraded, "SecretRecoveryScenario.WaitForDegraded must not be nil")
+	require.NotNil(t, scenario.WaitForRecovery, "SecretRecoveryScenario.WaitForRecovery must not be nil")
+
+	for i, provider := range scenario.Providers {
+		t.Logf("=== SecretRecovery provider %d/%d (type=%s) ===", i+1, len(scenario.Providers), provider.Type)
+		require.Equal(t, configv1.EncryptionTypeKMS, provider.Type, "provider %d: SecretRecoveryScenario only supports KMS providers", i+1)
+		require.NotNil(t, provider.Setup, "provider %d: EncryptionProvider.Setup must not be nil", i+1)
+		require.NotNil(t, provider.RestoreSecret, "provider %d: RestoreSecret must not be nil", i+1)
+		require.NotEmpty(t, provider.SecretName, "provider %d: SecretName must not be empty", i+1)
+		require.NotEmpty(t, provider.SecretNamespace, "provider %d: SecretNamespace must not be empty", i+1)
+
+		e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+
+		// step 1: enable encryption with the KMS provider
+		SetAndWaitForEncryptionType(ctx, e, provider.EncryptionProvider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+		t.Logf("Encryption active with provider %s", provider.Type)
+
+		// step 2: delete the referenced secret
+		cs := GetClients(e)
+		t.Logf("Deleting secret %s/%s to simulate misconfiguration", provider.SecretNamespace, provider.SecretName)
+		err := cs.Kube.CoreV1().Secrets(provider.SecretNamespace).Delete(ctx, provider.SecretName, metav1.DeleteOptions{})
+		require.NoError(t, err, "failed to delete secret %s/%s", provider.SecretNamespace, provider.SecretName)
+
+		// ensure secret is restored even if the test fails mid-way;
+		// use context.Background() so cleanup succeeds even if ctx is cancelled
+		restored := false
+		defer func(p SecretRecoveryProvider) {
+			if !restored {
+				p.RestoreSecret(context.Background(), e)
+			}
+		}(provider)
+
+		// step 3: wait for operator to become degraded
+		t.Log("Waiting for operator to report degraded status after secret deletion")
+		scenario.WaitForDegraded(ctx, e)
+
+		// step 4: re-create the secret
+		t.Log("Re-creating secret to recover from degraded state")
+		provider.RestoreSecret(ctx, e)
+		restored = true
+
+		// step 5: wait for operator to recover
+		t.Log("Waiting for operator to recover after secret is restored")
+		scenario.WaitForRecovery(ctx, e)
+
+		t.Logf("Secret recovery passed for provider %s", provider.Type)
+
+		if t.Failed() {
+			t.Errorf("stopping the test as provider %d (%s) failed", i+1, provider.Type)
+			return
+		}
+	}
 }
