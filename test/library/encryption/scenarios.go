@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -238,14 +237,15 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, scenari
 
 type RotationScenario struct {
 	BasicScenario
-	CreateResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
-	GetRawResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) string
-	UnsupportedConfigFunc UpdateUnsupportedConfigFunc
-	EncryptionProvider    EncryptionProvider
+	CreateResourceFunc          func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
+	GetRawResourceFunc          func(t testing.TB, clientSet ClientSet, namespace string) string
+	EncryptionProvider          EncryptionProvider
+	ForceRotationFunc           ForceRotationFunc
+	WaitForRotationCompleteFunc WaitForRotationCompleteFunc
 }
 
-// TestEncryptionRotation first encrypts data with aescbc key
-// then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
+// TestEncryptionRotation encrypts data, forces a provider-specific key rotation, waits for
+// re-migration to complete, and verifies the resource was re-encrypted with different content.
 func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario RotationScenario) {
 	// test data
 	ns := scenario.Namespace
@@ -254,7 +254,7 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	// step 1: create the desired resource
 	e := NewE(t)
 	clientSet := GetClients(e)
-	scenario.CreateResourceFunc(e, GetClients(e), ns)
+	scenario.CreateResourceFunc(e, clientSet, ns)
 
 	// step 2: run provided encryption scenario
 	TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider)
@@ -265,14 +265,18 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	// step 4: force key rotation and wait for migration to complete
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, ns, labelSelector)
 	require.NoError(e, err)
-	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
-	WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyMeta, scenario.TargetGRs, ns, labelSelector)
+	t.Logf("Forcing key rotation for %q encryption", scenario.EncryptionProvider.Type)
+	scenario.ForceRotationFunc(e, ctx)
+
+	t.Logf("Waiting for rotation migration to complete")
+	scenario.WaitForRotationCompleteFunc(e, clientSet, lastMigratedKeyMeta, scenario.BasicScenario)
+
 	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
 
 	// step 5: verify if the provided resource was encrypted with a different key (step 2 vs step 4)
 	rawEncryptedResourceWithKey2 := scenario.GetRawResourceFunc(e, clientSet, ns)
 	if rawEncryptedResourceWithKey1 == rawEncryptedResourceWithKey2 {
-		t.Errorf("expected the resource to has a different content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedResourceWithKey1, rawEncryptedResourceWithKey2)
+		t.Errorf("expected the resource to have different content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedResourceWithKey1, rawEncryptedResourceWithKey2)
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
