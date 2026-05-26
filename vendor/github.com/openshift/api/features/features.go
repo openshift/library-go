@@ -178,14 +178,6 @@ var (
 					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
 
-	FeatureGateRouteExternalCertificate = newFeatureGate("RouteExternalCertificate").
-						reportProblemsToJiraComponent("router").
-						contactPerson("chiragkyal").
-						productScope(ocpSpecific).
-						enhancementPR(legacyFeatureGateWithoutEnhancement).
-						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
-						mustRegister()
-
 	FeatureGateNetworkConnect = newFeatureGate("NetworkConnect").
 					reportProblemsToJiraComponent("Networking/ovn-kubernetes").
 					contactPerson("tssurya").
@@ -977,4 +969,11 @@ var (
 					enhancementPR("https://github.com/openshift/enhancements/pull/1962").
 					enable(inDevPreviewNoUpgrade()).
 					mustRegister()
+	FeatureGateNetworkObservabilityInstall = newFeatureGate("NetworkObservabilityInstall").
+						reportProblemsToJiraComponent("netobserv").
+						contactPerson("jtakvori").
+						productScope(ocpSpecific).
+						enhancementPR("https://github.com/openshift/enhancements/pull/1908").
+						enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+						mustRegister()
 )

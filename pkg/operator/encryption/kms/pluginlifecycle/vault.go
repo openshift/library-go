@@ -39,6 +39,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	args := []string{
 		fmt.Sprintf("-listen-address=%s", v.udsPath),
 		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
+		fmt.Sprintf("-transit-mount=%s", v.config.TransitMount),
 		fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
 		// TODO(bertinatto): dummy value for the Vault mock plugin; will come from the encryption-config secret.
 		fmt.Sprintf("-approle-role-id=dummy-role-id-%s", v.keyID),
@@ -49,10 +50,6 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	// Optional fields: only pass non-empty values.
 	if v.config.VaultNamespace != "" {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
-	}
-
-	if v.config.TransitMount != "" {
-		args = append(args, fmt.Sprintf("-transit-mount=%s", v.config.TransitMount))
 	}
 
 	return corev1.Container{
