@@ -2,6 +2,7 @@ package health
 
 import (
 	"sort"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -30,6 +31,16 @@ var supportedOperators = map[TargetOperator]struct {
 		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "openshiftapiservers"},
 		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "OpenShiftAPIServer"},
 	},
+}
+
+type PluginHealthCondition struct {
+	// KeyID is the sequential key identifier assigned by the key controller.
+	KeyID string `json:"keyID"`
+	// KEKID is the ID of the key used by the KMS provider for encryption/decryption.
+	KEKID       string    `json:"kekID,omitempty"`
+	Status      string    `json:"status"`
+	LastChecked time.Time `json:"lastChecked"`
+	Detail      string    `json:"detail,omitempty"`
 }
 
 func supportedOperatorKeys() []string {

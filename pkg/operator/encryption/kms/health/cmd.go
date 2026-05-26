@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -80,20 +81,6 @@ func (o *commandOptions) validate() error {
 }
 
 func (o *commandOptions) run(ctx context.Context) error {
-	cfg, err := buildRESTConfig(o.kubeconfig)
-	if err != nil {
-		return fmt.Errorf("build rest config: %w", err)
-	}
-	_, err = buildWriter(cfg, TargetOperator(o.targetOperator))
-	if err != nil {
-		return fmt.Errorf("create new writer: %w", err)
-	}
-
-	_, err = NewChecker(ctx, o.kmsSockets, o.readTimeout)
-	if err != nil {
-		return fmt.Errorf("create new checker: %w", err)
-	}
-
 	klog.InfoS("kms-health-monitor starting",
 		"socket", o.kmsSockets,
 		"targetOperator", o.targetOperator,
@@ -102,6 +89,31 @@ func (o *commandOptions) run(ctx context.Context) error {
 		"readTimeout", o.readTimeout,
 		"writeTimeout", o.writeTimeout,
 	)
+
+	cfg, err := buildRESTConfig(o.kubeconfig)
+	if err != nil {
+		return fmt.Errorf("build rest config: %w", err)
+	}
+	writer, err := buildWriter(cfg, TargetOperator(o.targetOperator), o.nodeName)
+	if err != nil {
+		return fmt.Errorf("create new writer: %w", err)
+	}
+	checker, err := NewChecker(ctx, o.kmsSockets, o.readTimeout)
+	if err != nil {
+		return fmt.Errorf("create new checker: %w", err)
+	}
+
+	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
+		probeCtx, cancel := context.WithTimeout(ctx, o.readTimeout)
+		defer cancel()
+		conditions := checker.CheckStatus(probeCtx)
+
+		writeCtx, writeCancel := context.WithTimeout(ctx, o.writeTimeout)
+		defer writeCancel()
+		if err := writer.Apply(writeCtx, conditions); err != nil {
+			klog.ErrorS(err, "apply operator status")
+		}
+	}, o.readInterval, 0.1, false)
 
 	return nil
 }
