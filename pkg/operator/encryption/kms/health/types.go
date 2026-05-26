@@ -1,36 +1,42 @@
 package health
 
-import "time"
+import (
+	"sort"
 
-type HealthClass string
-
-const (
-	HealthClassOK       HealthClass = "ok"
-	HealthClassNotOK    HealthClass = "not-ok"
-	HealthClassRPCError HealthClass = "rpc-error"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type Healthz struct {
-	Class  HealthClass
-	Detail string
+type TargetOperator string
+
+const (
+	kubeAPIServer      TargetOperator = "kube-apiserver"
+	openshiftAPIServer TargetOperator = "openshift-apiserver"
+	authAPIServer      TargetOperator = "auth-apiserver"
+)
+
+var supportedOperators = map[TargetOperator]struct {
+	GVR schema.GroupVersionResource
+	GVK schema.GroupVersionKind
+}{
+	kubeAPIServer: {
+		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "kubeapiservers"},
+		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "KubeAPIServer"},
+	},
+	authAPIServer: {
+		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "authentications"},
+		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "Authentication"},
+	},
+	openshiftAPIServer: {
+		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "openshiftapiservers"},
+		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "OpenShiftAPIServer"},
+	},
 }
 
-// IsOK is the canonical predicate; prefer it over comparing Class so
-// consumers don't depend on the internal classification shape.
-func (h Healthz) IsOK() bool { return h.Class == HealthClassOK }
-
-type HealthStatus struct {
-	Healthz Healthz
-
-	// KeyIDHash is the sha256 hex of the plugin's KeyID, empty when Status
-	// couldn't be reached. Hashing avoids leaking key material; consumers
-	// can still diff hashes across instances to detect rotation skew.
-	KeyIDHash string
-
-	Timestamp time.Time
-
-	// ObserverPod identifies this monitor instance; one OperatorCondition
-	// CR aggregates entries from N pods, so identity must travel with
-	// each condition entry.
-	ObserverPod string
+func supportedOperatorKeys() []string {
+	keys := make([]string, 0, len(supportedOperators))
+	for k := range supportedOperators {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+	return keys
 }

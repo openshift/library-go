@@ -3,64 +3,34 @@ package health
 import (
 	"context"
 	"fmt"
-	"os"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/clock"
 )
 
 const providerName = "kms-health-monitor"
 
-var supportedOperators = map[string]struct {
-	GVR schema.GroupVersionResource
-	GVK schema.GroupVersionKind
-}{
-	"kubeapiserver": {
-		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "kubeapiservers"},
-		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "KubeAPIServer"},
-	},
-	"authentication": {
-		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "authentications"},
-		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "Authentication"},
-	},
-	"openshiftapiserver": {
-		GVR: schema.GroupVersionResource{Group: "operator.openshift.io", Version: "v1", Resource: "openshiftapiservers"},
-		GVK: schema.GroupVersionKind{Group: "operator.openshift.io", Version: "v1", Kind: "OpenShiftAPIServer"},
-	},
-}
-
 type commandOptions struct {
-	kmsSocket        string
-	probeInterval    time.Duration
-	probeTimeout     time.Duration
-	writeTimeout     time.Duration
-	operatorResource string
-	observerPodName  string
-	kubeconfig       string
+	kmsSockets     []string
+	readInterval   time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
+	targetOperator string
+	nodeName       string
+	kubeconfig     string
 }
 
-// NewCommand wires the cobra command. ctx is owned by the caller so
-// signal handling lives there, not here.
 func NewCommand(ctx context.Context) *cobra.Command {
 	o := &commandOptions{
-		kmsSocket:     "/var/run/kmsplugin/kms.sock",
-		probeInterval: 60 * time.Second,
-		probeTimeout:  3 * time.Second,
-		writeTimeout:  5 * time.Second,
+		readInterval: 30 * time.Second,
+		readTimeout:  5 * time.Second,
+		writeTimeout: 10 * time.Second,
 	}
 	cmd := &cobra.Command{
 		Use:   "kms-health-monitor",
@@ -77,36 +47,34 @@ func NewCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *commandOptions) addFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.kmsSocket, "kms-socket", o.kmsSocket, "filesystem path to the KMSv2 plugin UDS")
-	fs.DurationVar(&o.probeInterval, "probe-interval", o.probeInterval, "cadence between probes")
-	fs.DurationVar(&o.probeTimeout, "probe-timeout", o.probeTimeout, "deadline for each Status RPC")
-	fs.DurationVar(&o.writeTimeout, "write-timeout", o.writeTimeout, "deadline for each condition update; should fit inside --probe-interval")
-	fs.StringVar(&o.operatorResource, "operator-resource", o.operatorResource,
-		"target operator CRD: "+strings.Join(supportedOperatorKeys(), ", "))
-	fs.StringVar(&o.observerPodName, "observer-pod-name", os.Getenv("POD_NAME"),
-		"pod name recorded in the condition; defaults to $POD_NAME")
+	fs.StringSliceVar(&o.kmsSockets, "kms-sockets", nil, "filesystem paths to the KMSv2 plugin UDS")
+	fs.DurationVar(&o.readInterval, "read-interval", o.readInterval, "cadence between checks")
+	fs.DurationVar(&o.readTimeout, "read-timeout", o.readTimeout, "deadline for each Status RPC")
+	fs.DurationVar(&o.writeTimeout, "write-timeout", o.writeTimeout, "deadline for each condition update; should fit inside --read-interval")
+	fs.StringVar(&o.targetOperator, "target-operator", "", "target operator CRD: "+strings.Join(supportedOperatorKeys(), ", "))
+	fs.StringVar(&o.nodeName, "node-name", "", "node name recorded in the condition used to help to identify the origin")
 	fs.StringVar(&o.kubeconfig, "kubeconfig", "", "path to a kubeconfig; empty uses in-cluster config")
 }
 
 func (o *commandOptions) validate() error {
-	if o.kmsSocket == "" {
-		return fmt.Errorf("--kms-socket is required")
+	if len(o.kmsSockets) == 0 {
+		return fmt.Errorf("--kms-sockets is required, at least one")
 	}
-	if o.probeInterval <= 0 {
-		return fmt.Errorf("--probe-interval must be positive")
+	if o.readInterval <= 0 {
+		return fmt.Errorf("--read-interval must be positive")
 	}
-	if o.probeTimeout <= 0 {
-		return fmt.Errorf("--probe-timeout must be positive")
+	if o.readTimeout <= 0 {
+		return fmt.Errorf("--read-timeout must be positive")
 	}
 	if o.writeTimeout <= 0 {
 		return fmt.Errorf("--write-timeout must be positive")
 	}
-	if o.observerPodName == "" {
-		return fmt.Errorf("--observer-pod-name is required (or set $POD_NAME)")
+	if o.nodeName == "" {
+		return fmt.Errorf("--node-name is required")
 	}
-	if _, ok := supportedOperators[o.operatorResource]; !ok {
-		return fmt.Errorf("--operator-resource must be one of %s (got %q)",
-			strings.Join(supportedOperatorKeys(), ", "), o.operatorResource)
+	if _, ok := supportedOperators[TargetOperator(o.targetOperator)]; !ok {
+		return fmt.Errorf("--target-operator must be one of %s (got %q)",
+			strings.Join(supportedOperatorKeys(), ", "), o.targetOperator)
 	}
 	return nil
 }
@@ -116,39 +84,25 @@ func (o *commandOptions) run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("build rest config: %w", err)
 	}
-
-	target := supportedOperators[o.operatorResource]
-	operatorClient, _, err := genericoperatorclient.NewClusterScopedOperatorClient(
-		clock.RealClock{}, cfg, target.GVR, target.GVK,
-		emptyOperatorSpec, emptyOperatorStatus,
-	)
+	_, err = buildWriter(cfg, TargetOperator(o.targetOperator))
 	if err != nil {
-		return fmt.Errorf("build operator client for %s: %w", o.operatorResource, err)
+		return fmt.Errorf("create new writer: %w", err)
 	}
-	writer := NewOperatorConditionWriter(operatorClient, o.observerPodName)
 
-	// kmsv2.NewGRPCService sets WaitForReady(true), so dial returns
-	// immediately even if the plugin socket isn't listening yet.
-	endpoint := "unix://" + o.kmsSocket
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, endpoint, providerName, o.probeTimeout)
+	_, err = NewChecker(ctx, o.kmsSockets, o.readTimeout)
 	if err != nil {
-		return fmt.Errorf("dial KMS plugin at %q: %w", endpoint, err)
+		return fmt.Errorf("create new checker: %w", err)
 	}
-	probe := NewProbe(service, 0)
-
-	monitor := NewMonitor(probe, writer, o.observerPodName, o.probeInterval, o.writeTimeout)
 
 	klog.InfoS("kms-health-monitor starting",
-		"socket", o.kmsSocket,
-		"operatorResource", o.operatorResource,
-		"observerPod", o.observerPodName,
-		"interval", o.probeInterval,
-		"probeTimeout", o.probeTimeout,
+		"socket", o.kmsSockets,
+		"targetOperator", o.targetOperator,
+		"observerNode", o.nodeName,
+		"interval", o.readInterval,
+		"readTimeout", o.readTimeout,
 		"writeTimeout", o.writeTimeout,
 	)
 
-	monitor.Run(ctx)
-	klog.Info("kms-health-monitor stopping")
 	return nil
 }
 
@@ -157,24 +111,4 @@ func buildRESTConfig(kubeconfig string) (*rest.Config, error) {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 	return rest.InClusterConfig()
-}
-
-func supportedOperatorKeys() []string {
-	keys := make([]string, 0, len(supportedOperators))
-	for k := range supportedOperators {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// Empty extractors are sufficient: OperatorConditionWriter reads prior
-// conditions via GetOperatorState (which does not use these) and writes
-// via SSA with its own fieldManager.
-func emptyOperatorSpec(_ *unstructured.Unstructured, _ string) (*applyoperatorv1.OperatorSpecApplyConfiguration, error) {
-	return applyoperatorv1.OperatorSpec(), nil
-}
-
-func emptyOperatorStatus(_ *unstructured.Unstructured, _ string) (*applyoperatorv1.OperatorStatusApplyConfiguration, error) {
-	return applyoperatorv1.OperatorStatus(), nil
 }
