@@ -346,3 +346,34 @@ func setUpTearDown(namespace string) func(testing.TB, bool) {
 		}
 	}
 }
+
+// WaitForPodImagePullBackOff polls pods in the given namespace until at least one pod
+// has an init container or container stuck in ImagePullBackOff. This is useful for
+// detecting that an invalid KMS plugin image is causing static pod failure.
+func WaitForPodImagePullBackOff(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector string, timeout time.Duration) {
+	t.Helper()
+	t.Logf("Waiting up to %s for a pod in %s (selector=%s) to enter ImagePullBackOff", timeout, namespace, labelSelector)
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			for _, cs := range pod.Status.InitContainerStatuses {
+				if cs.State.Waiting != nil && (cs.State.Waiting.Reason == "ImagePullBackOff" || cs.State.Waiting.Reason == "ErrImagePull") {
+					t.Logf("Pod %s init container %s is in %s", pod.Name, cs.Name, cs.State.Waiting.Reason)
+					return true, nil
+				}
+			}
+			for _, cs := range pod.Status.ContainerStatuses {
+				if cs.State.Waiting != nil && (cs.State.Waiting.Reason == "ImagePullBackOff" || cs.State.Waiting.Reason == "ErrImagePull") {
+					t.Logf("Pod %s container %s is in %s", pod.Name, cs.Name, cs.State.Waiting.Reason)
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err, "timed out waiting for pod to enter ImagePullBackOff in namespace %s", namespace)
+}

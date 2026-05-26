@@ -279,14 +279,14 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 }
 
 // InvalidImageRecoveryScenario tests that an invalid KMS plugin image causes
-// the cluster to degrade and that correcting the image restores normal operation.
+// the operator to degrade (even when switching to aescbc) and that providing
+// a valid KMS image restores normal operation.
 //
-// Arda's scenario:
-//  1. Enable KMS with invalid image
-//  2. Attempt to switch to aescbc (cluster should be stuck on KMS)
-//  3. See degraded
-//  4. Update with KMS with valid image
-//  5. See everything works
+// Flow:
+//  1. Enable KMS with invalid (non-existent) plugin image
+//  2. Switch to aescbc — cluster should remain stuck on KMS (rollout blocked)
+//  3. Operator reports degraded (stuck NodeInstaller, ImagePullBackOff, etc.)
+//  4. Fix by applying KMS with valid image and wait for full encryption migration
 type InvalidImageRecoveryScenario struct {
 	BasicScenario
 	// InvalidImageProvider is the KMS EncryptionProvider configured with an invalid
@@ -297,19 +297,15 @@ type InvalidImageRecoveryScenario struct {
 	ValidImageProvider EncryptionProvider
 	// WaitForDegraded should block until the operator reports a degraded condition.
 	WaitForDegraded func(ctx context.Context, t testing.TB)
-	// WaitForRecovery should block until the operator reports a healthy condition
-	// and encryption is fully operational.
-	WaitForRecovery func(ctx context.Context, t testing.TB)
 }
 
 // TestEncryptionInvalidImageRecovery tests that:
-//  1. Enabling KMS with an invalid plugin image causes degradation
-//  2. The cluster remains stuck and cannot migrate to another mode (e.g. aescbc)
-//  3. Fixing the KMS config with a valid image restores the cluster
+//  1. Enabling KMS with an invalid plugin image causes the operator to degrade
+//  2. Switching to aescbc does NOT recover (cluster is stuck on the failed KMS rollout)
+//  3. Providing a valid KMS image restores the cluster (uses SetAndWaitForEncryptionType)
 func TestEncryptionInvalidImageRecovery(ctx context.Context, t testing.TB, scenario InvalidImageRecoveryScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	require.NotNil(t, scenario.WaitForDegraded, "WaitForDegraded must not be nil")
-	require.NotNil(t, scenario.WaitForRecovery, "WaitForRecovery must not be nil")
 	require.Equal(t, configv1.EncryptionTypeKMS, scenario.InvalidImageProvider.Type, "InvalidImageProvider must be KMS type")
 	require.Equal(t, configv1.EncryptionTypeKMS, scenario.ValidImageProvider.Type, "ValidImageProvider must be KMS type")
 
@@ -326,7 +322,8 @@ func TestEncryptionInvalidImageRecovery(ctx context.Context, t testing.TB, scena
 	_, err = cs.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
 	require.NoError(t, err)
 
-	// step 2: attempt to switch to aescbc — cluster should remain stuck on KMS
+	// step 2: attempt to switch to aescbc — the cluster should remain stuck on KMS
+	// because the static pod rollout with the invalid image is blocking progress
 	t.Log("Attempting to switch to aescbc (cluster should remain stuck on KMS)")
 	apiServer, err = cs.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
@@ -334,24 +331,16 @@ func TestEncryptionInvalidImageRecovery(ctx context.Context, t testing.TB, scena
 	_, err = cs.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
 	require.NoError(t, err)
 
-	// step 3: wait for degraded
+	// step 3: wait for degraded — the operator is stuck because the invalid KMS image
+	// prevents the NodeInstaller from completing the rollout
 	t.Log("Waiting for operator to report degraded status")
 	scenario.WaitForDegraded(ctx, e)
 
-	// step 4: fix the config with valid KMS image
-	t.Log("Updating KMS encryption with valid plugin image to recover")
-	if scenario.ValidImageProvider.Setup != nil {
-		scenario.ValidImageProvider.Setup(ctx, e)
-	}
-	apiServer, err = cs.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	apiServer.Spec.Encryption = scenario.ValidImageProvider.APIServerEncryption
-	_, err = cs.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
-	require.NoError(t, err)
-
-	// step 5: wait for recovery — everything should work
-	t.Log("Waiting for operator to recover with valid KMS image")
-	scenario.WaitForRecovery(ctx, e)
+	// step 4: fix by applying KMS with valid image and wait for full recovery
+	// (uses SetAndWaitForEncryptionType which waits for encryption key migration,
+	// same as the standard encryption on/off and migration tests)
+	t.Log("Recovering: applying KMS with valid plugin image and waiting for full migration")
+	SetAndWaitForEncryptionType(ctx, e, scenario.ValidImageProvider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 
 	t.Log("Invalid image recovery test passed")
 }
