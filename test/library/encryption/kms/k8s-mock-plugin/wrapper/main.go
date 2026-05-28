@@ -11,7 +11,6 @@ import (
 	"syscall"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	kmstesting "github.com/openshift/library-go/test/library/encryption/kms"
 )
 
 const upstreamBinary = "/usr/local/bin/mock-kms-plugin"
@@ -98,7 +97,7 @@ func (o *options) run(ctx context.Context) error {
 }
 
 func initSoftHSM(ctx context.Context) error {
-	raw, err := kmstesting.ReadAsset("k8s_mock_kms_plugin_configmap.yaml")
+	raw, err := readAsset("k8s_mock_kms_plugin_configmap.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to read configmap asset: %w", err)
 	}
