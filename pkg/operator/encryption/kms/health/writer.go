@@ -10,7 +10,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/clock"
 )
@@ -31,8 +30,7 @@ func (w *Writer) Apply(ctx context.Context, conditions []PluginHealthCondition) 
 		WithType("KMSHealthReporter_" + w.nodeName).
 		WithStatus(operatorv1.ConditionTrue).
 		WithReason("AsExpected").
-		WithMessage(string(msg)).
-		WithLastTransitionTime(metav1.Now())
+		WithMessage(string(msg))
 
 	status := applyoperatorv1.OperatorStatus().WithConditions(cond)
 	fieldManager := "kms-health-monitor-" + w.nodeName

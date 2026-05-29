@@ -61,6 +61,11 @@ func (o *commandOptions) validate() error {
 	if len(o.kmsSockets) == 0 {
 		return fmt.Errorf("--kms-sockets is required, at least one")
 	}
+	for _, s := range o.kmsSockets {
+		if strings.TrimSpace(s) == "" {
+			return fmt.Errorf("--kms-sockets cannot contain empty entries")
+		}
+	}
 	if o.readInterval <= 0 {
 		return fmt.Errorf("--read-interval must be positive")
 	}
