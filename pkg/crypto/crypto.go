@@ -309,7 +309,14 @@ func DefaultCiphers() []uint16 {
 }
 
 // SecureTLSConfig enforces the default minimum security settings for the cluster.
+// Deprecated: use EnforcesSecuritySettings instead.
 func SecureTLSConfig(config *tls.Config) *tls.Config {
+	EnforcesSecuritySettings(config)
+	return config
+}
+
+// EnforcesSecuritySettings enforces the default minimum security settings for the cluster on the given TLS config.
+func EnforcesSecuritySettings(config *tls.Config) {
 	if config.MinVersion == 0 {
 		config.MinVersion = DefaultTLSVersion()
 	}
@@ -318,7 +325,6 @@ func SecureTLSConfig(config *tls.Config) *tls.Config {
 	if len(config.CipherSuites) == 0 {
 		config.CipherSuites = DefaultCiphers()
 	}
-	return config
 }
 
 // OpenSSLToIANACipherSuites maps input OpenSSL Cipher Suite names to their
