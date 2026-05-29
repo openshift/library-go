@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -280,4 +280,76 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+// ApplyEncryption applies the given encryption config to apiserver/cluster
+// without waiting for completion.
+func ApplyEncryption(ctx context.Context, t testing.TB, encryption configv1.APIServerEncryption) {
+	t.Helper()
+	cs := GetClients(t)
+	apiServer, err := cs.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+	require.NoError(t, err)
+	apiServer.Spec.Encryption = encryption
+	_, err = cs.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	t.Logf("Applied encryption config (type=%s)", encryption.Type)
+}
+
+type KMSInvalidEncryptionRecoveryScenario struct {
+	BasicScenario
+	InvalidProvider EncryptionProvider
+	ValidProvider   EncryptionProvider
+	WaitForStuck    func(ctx context.Context, t testing.TB)
+}
+
+// TestInvalidEncryptionRecovery validates recovery from an invalid encryption config:
+//  1. Apply invalid config — operator stuck (e.g. ImagePullBackOff, connection timeout)
+//  2. Switch to AESCBC — verify no new encryption key is created (revisions stuck)
+//  3. Apply valid config — verify recovery and successful encryption
+func TestKMSInvalidEncryptionRecovery(ctx context.Context, t testing.TB, scenario KMSInvalidEncryptionRecoveryScenario) {
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+	clientSet := GetClients(e)
+
+	require.NotNil(t, scenario.InvalidProvider.Setup, "InvalidProvider.Setup must not be nil")
+	require.NotNil(t, scenario.ValidProvider.Setup, "ValidProvider.Setup must not be nil")
+	require.Equal(t, configv1.EncryptionTypeKMS, scenario.InvalidProvider.Type, "InvalidProvider must use KMS encryption type")
+	require.Equal(t, configv1.EncryptionTypeKMS, scenario.ValidProvider.Type, "ValidProvider must use KMS encryption type")
+
+	steps := []testStep{
+		{name: "ApplyInvalidConfig", testFunc: func(t testing.TB) {
+			scenario.InvalidProvider.Setup(ctx, t)
+			ApplyEncryption(ctx, t, scenario.InvalidProvider.APIServerEncryption)
+		}},
+		{name: "WaitForStuck", testFunc: func(t testing.TB) {
+			scenario.WaitForStuck(ctx, t)
+		}},
+		{name: "SwitchToAESCBCAndVerifyNoNewKey", testFunc: func(t testing.TB) {
+			prevKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube,
+				scenario.Namespace, scenario.LabelSelector)
+			require.NoError(t, err)
+			ApplyEncryption(ctx, t, configv1.APIServerEncryption{Type: configv1.EncryptionTypeAESCBC})
+			WaitForNoNewEncryptionKey(t, clientSet.Kube, prevKeyMeta,
+				scenario.Namespace, scenario.LabelSelector)
+		}},
+		{name: "ApplyValidConfigAndVerifyRecovery", testFunc: func(t testing.TB) {
+			scenario.ValidProvider.Setup(ctx, t)
+			prevKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube,
+				scenario.Namespace, scenario.LabelSelector)
+			require.NoError(t, err)
+			ApplyEncryption(ctx, t, scenario.ValidProvider.APIServerEncryption)
+			WaitForCurrentKeyMigrated(t, clientSet.Kube, prevKeyMeta,
+				scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+			scenario.AssertFunc(t, clientSet, scenario.ValidProvider.Type,
+				scenario.Namespace, scenario.LabelSelector)
+		}},
+	}
+
+	for _, step := range steps {
+		t.Logf("=== STEP: %s ===", step.name)
+		step.testFunc(e)
+		if t.Failed() {
+			t.Errorf("stopping the test as %q step failed", step.name)
+			return
+		}
+	}
 }

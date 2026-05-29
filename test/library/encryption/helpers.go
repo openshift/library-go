@@ -136,13 +136,13 @@ func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, 
 	}
 
 	if prevKeyMeta.Mode == encryptionMode {
-		waitForNoNewEncryptionKey(t, kubeClient, prevKeyMeta, namespace, labelSelector)
+		WaitForNoNewEncryptionKey(t, kubeClient, prevKeyMeta, namespace, labelSelector)
 		return
 	}
 	WaitForNextMigratedKey(t, kubeClient, prevKeyMeta, defaultTargetGRs, namespace, labelSelector)
 }
 
-func waitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, namespace, labelSelector string) {
+func WaitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, namespace, labelSelector string) {
 	t.Helper()
 	// given that the happy path scenario needs ~30 min
 	// waiting 5 min to see if a new key hasn't been created seems to be enough.
@@ -371,5 +371,65 @@ func setUpTearDown(namespace string) func(testing.TB, bool) {
 				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
 			}
 		}
+	}
+}
+
+// WaitForPodImagePullBackOff polls pods in the given namespace until at least one pod
+// has a container stuck in ImagePullBackOff or ErrImagePull.
+// When a KMS plugin image is invalid, the operator cannot progress because the
+// sidecar container fails to start. The operator does not report Degraded in this
+// case — it only gets stuck in Progressing. This function detects that stuck state
+// by observing the pod-level image pull failure, which is the earliest signal that
+// the invalid config has taken effect.
+func WaitForPodImagePullBackOff(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector string, timeout time.Duration) {
+	t.Helper()
+	t.Logf("Waiting up to %s for a pod in %s (selector=%s) to enter ImagePullBackOff", timeout, namespace, labelSelector)
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			for _, cs := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+				if cs.State.Waiting != nil && (cs.State.Waiting.Reason == "ImagePullBackOff" || cs.State.Waiting.Reason == "ErrImagePull") {
+					t.Logf("Pod %s container %s is in %s", pod.Name, cs.Name, cs.State.Waiting.Reason)
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err, "timed out waiting for pod to enter ImagePullBackOff in namespace %s", namespace)
+}
+
+// WaitForCurrentKeyMigrated waits until the current (latest) encryption key has completed
+// migration for all target group resources. It fails if the key changes unexpectedly
+// (i.e. a different key than prevKeyMeta appears).
+func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, targetGRs []schema.GroupResource, namespace, labelSelector string) {
+	t.Helper()
+
+	t.Logf("Waiting up to %s for key %q to complete migration of %v", waitPollTimeout.String(), prevKeyMeta.Name, targetGRs)
+	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
+		if err != nil {
+			return false, err
+		}
+		if currentKeyMeta.Name != prevKeyMeta.Name {
+			return false, fmt.Errorf("unexpected key observed %q, expected no new key", currentKeyMeta.Name)
+		}
+		if len(currentKeyMeta.Migrated) < len(targetGRs) {
+			return false, nil
+		}
+		for _, expectedGR := range targetGRs {
+			if !hasResource(expectedGR, currentKeyMeta.Migrated) {
+				return false, nil
+			}
+		}
+		t.Logf("Key %q has completed migration of %v", currentKeyMeta.Name, currentKeyMeta.Migrated)
+		return true, nil
+	}); err != nil {
+		newErr := fmt.Errorf("timed out waiting for key %q to complete migration of %v: %v", prevKeyMeta.Name, targetGRs, err)
+		require.NoError(t, newErr)
 	}
 }
