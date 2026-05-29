@@ -321,7 +321,6 @@ func EnforcesSecuritySettings(config *tls.Config) {
 		config.MinVersion = DefaultTLSVersion()
 	}
 
-	config.PreferServerCipherSuites = true
 	if len(config.CipherSuites) == 0 {
 		config.CipherSuites = DefaultCiphers()
 	}
