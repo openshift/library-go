@@ -159,8 +159,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("50Mi"),
-								corev1.ResourceCPU:    resource.MustParse("5m"),
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
@@ -204,8 +204,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("50Mi"),
-								corev1.ResourceCPU:    resource.MustParse("5m"),
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
@@ -227,8 +227,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("50Mi"),
-								corev1.ResourceCPU:    resource.MustParse("5m"),
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},
@@ -440,8 +440,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("50Mi"),
-								corev1.ResourceCPU:    resource.MustParse("5m"),
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount},

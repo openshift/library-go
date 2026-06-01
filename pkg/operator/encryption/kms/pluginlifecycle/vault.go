@@ -61,13 +61,12 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		// regular containers and keeps it running for the pod's lifetime.
 		RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		// TODO(bertinatto): the plugin sidecar needs to be measure under heavy load to figure out good defaults.
-		// For now follow what most sidecars in the kube-apiserver pod do. xref:
-		// https://github.com/openshift/cluster-kube-apiserver-operator/commit/e15a19cd2474c8b60ce17ac16dd8f422c729847a
+		// Vault team recommendation based on single-node OCP cluster measurements:
+		// ~10 mCPU / 32-64 MiB steady state, memory peaked at ~60 MiB under 400 KEK rotations.
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("50Mi"),
-				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+				corev1.ResourceCPU:    resource.MustParse("10m"),
 			},
 		},
 	}, nil
