@@ -75,7 +75,7 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 	KMS: configv1.KMSPluginConfig{
 		Type: configv1.VaultKMSProvider,
 		Vault: configv1.VaultKMSPluginConfig{
-			KMSPluginImage: WellKnownUpstreamMockKMSPluginImage,
+			KMSPluginImage: defaultVaultKMSPluginImage,
 			VaultAddress:   "https://vault.example.com",
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
