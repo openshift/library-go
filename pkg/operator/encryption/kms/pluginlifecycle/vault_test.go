@@ -49,6 +49,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-approle-role-id=dummy-role-id-555",
 						"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 						"-vault-namespace=my-namespace",
+						"-tls-skip-verify",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -99,6 +100,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-approle-role-id=dummy-role-id-555",
 						"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-555",
 						"-vault-namespace=my-namespace",
+						"-tls-skip-verify",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -139,6 +141,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-transit-key=my-key",
 						"-approle-role-id=dummy-role-id-999",
 						"-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-999",
+						"-tls-skip-verify",
 						// These are not added
 						// "-vault-namespace=",
 					},
