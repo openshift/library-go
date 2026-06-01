@@ -452,6 +452,23 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
+		{
+			name: "conflicting volume mount on API server container",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{
+							{Name: "kms-plugin-socket", MountPath: "/other/path"},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
+			},
+			secretClient:        secretClient(f.encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+			wantErr:             "already has volume mount kms-plugin-socket with different settings",
+		},
 	}
 
 	for _, tt := range tests {
