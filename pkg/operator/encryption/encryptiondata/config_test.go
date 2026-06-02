@@ -843,14 +843,12 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 					}},
 				},
 			},
-			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-				"1": {Entries: map[string]map[string][]byte{
-					"vault-approle-secret": {
-						"role-id":   []byte("test-role-id"),
-						"secret-id": []byte("test-secret-id"),
-					},
-				}},
-			}},
+			expectedData: func() encryptiondata.KMSPluginsSecretData {
+				var sd encryptiondata.KMSPluginsSecretData
+				sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("test-role-id"))
+				sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("test-secret-id"))
+				return sd
+			}(),
 		},
 		{
 			name: "mismatched secret data across resources",
@@ -922,8 +920,9 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData) {
-				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData))
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt) {
+				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt))
 			}
 		})
 	}
@@ -1007,14 +1006,12 @@ func TestSecretRoundtrip(t *testing.T) {
 				KMSPlugins: map[string]configv1.KMSPluginConfig{
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 				},
-				KMSPluginsSecretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-					"1": {Entries: map[string]map[string][]byte{
-						"vault-approle-secret": {
-							"role-id":   []byte("test-role-id"),
-							"secret-id": []byte("test-secret-id"),
-						},
-					}},
-				}},
+				KMSPluginsSecretData: func() encryptiondata.KMSPluginsSecretData {
+					var sd encryptiondata.KMSPluginsSecretData
+					sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("test-role-id"))
+					sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("test-secret-id"))
+					return sd
+				}(),
 			},
 		},
 		{
@@ -1050,20 +1047,14 @@ func TestSecretRoundtrip(t *testing.T) {
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 					"2": encryptiontesting.DefaultKMSPluginConfig,
 				},
-				KMSPluginsSecretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-					"1": {Entries: map[string]map[string][]byte{
-						"vault-approle-secret": {
-							"role-id":   []byte("role-id-1"),
-							"secret-id": []byte("secret-id-1"),
-						},
-					}},
-					"2": {Entries: map[string]map[string][]byte{
-						"vault-approle-secret": {
-							"role-id":   []byte("role-id-2"),
-							"secret-id": []byte("secret-id-2"),
-						},
-					}},
-				}},
+				KMSPluginsSecretData: func() encryptiondata.KMSPluginsSecretData {
+					var sd encryptiondata.KMSPluginsSecretData
+					sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("role-id-1"))
+					sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("secret-id-1"))
+					sd.SetFromRawKey("2", "vault-approle-secret_role-id", []byte("role-id-2"))
+					sd.SetFromRawKey("2", "vault-approle-secret_secret-id", []byte("secret-id-2"))
+					return sd
+				}(),
 			},
 		},
 		{
@@ -1113,8 +1104,9 @@ func TestSecretRoundtrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("FromSecret() error: %v", err)
 			}
-			if !cmp.Equal(tt.cfg, got) {
-				t.Errorf("roundtrip mismatch:\n%s", cmp.Diff(tt.cfg, got))
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			if !cmp.Equal(tt.cfg, got, cmpOpt) {
+				t.Errorf("roundtrip mismatch:\n%s", cmp.Diff(tt.cfg, got, cmpOpt))
 			}
 		})
 	}
@@ -1149,14 +1141,12 @@ func TestToSecretSecretDataEdgeCases(t *testing.T) {
 		},
 		{
 			name: "valid secret data produces correct data keys",
-			secretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-				"1": {Entries: map[string]map[string][]byte{
-					"vault-approle-secret": {
-						"role-id":   []byte("test-role-id"),
-						"secret-id": []byte("test-secret-id"),
-					},
-				}},
-			}},
+			secretData: func() encryptiondata.KMSPluginsSecretData {
+				var sd encryptiondata.KMSPluginsSecretData
+				sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("test-role-id"))
+				sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("test-secret-id"))
+				return sd
+			}(),
 			expectedDataKeys: map[string][]byte{
 				"kms-plugin-secret-vault-approle-secret_role-id-1":   []byte("test-role-id"),
 				"kms-plugin-secret-vault-approle-secret_secret-id-1": []byte("test-secret-id"),
@@ -1164,16 +1154,12 @@ func TestToSecretSecretDataEdgeCases(t *testing.T) {
 		},
 		{
 			name: "multiple secrets within same keyID",
-			secretData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-				"1": {Entries: map[string]map[string][]byte{
-					"secret-a": {
-						"key-1": []byte("val-a1"),
-					},
-					"secret-b": {
-						"key-2": []byte("val-b2"),
-					},
-				}},
-			}},
+			secretData: func() encryptiondata.KMSPluginsSecretData {
+				var sd encryptiondata.KMSPluginsSecretData
+				sd.SetFromRawKey("1", "secret-a_key-1", []byte("val-a1"))
+				sd.SetFromRawKey("1", "secret-b_key-2", []byte("val-b2"))
+				return sd
+			}(),
 			expectedDataKeys: map[string][]byte{
 				"kms-plugin-secret-secret-a_key-1-1": []byte("val-a1"),
 				"kms-plugin-secret-secret-b_key-2-1": []byte("val-b2"),
@@ -1247,14 +1233,12 @@ func TestFromSecretSecretData(t *testing.T) {
 				"kms-plugin-secret-vault-approle-secret_role-id-1":   []byte("test-role-id"),
 				"kms-plugin-secret-vault-approle-secret_secret-id-1": []byte("test-secret-id"),
 			},
-			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-				"1": {Entries: map[string]map[string][]byte{
-					"vault-approle-secret": {
-						"role-id":   []byte("test-role-id"),
-						"secret-id": []byte("test-secret-id"),
-					},
-				}},
-			}},
+			expectedData: func() encryptiondata.KMSPluginsSecretData {
+				var sd encryptiondata.KMSPluginsSecretData
+				sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("test-role-id"))
+				sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("test-secret-id"))
+				return sd
+			}(),
 		},
 		{
 			name:      "no secret data keys",
@@ -1274,20 +1258,14 @@ func TestFromSecretSecretData(t *testing.T) {
 				"kms-plugin-secret-vault-approle-secret_role-id-2":   []byte("role-id-2"),
 				"kms-plugin-secret-vault-approle-secret_secret-id-2": []byte("secret-id-2"),
 			},
-			expectedData: encryptiondata.KMSPluginsSecretData{ByKeyID: map[string]state.KMSSecretData{
-				"1": {Entries: map[string]map[string][]byte{
-					"vault-approle-secret": {
-						"role-id":   []byte("role-id-1"),
-						"secret-id": []byte("secret-id-1"),
-					},
-				}},
-				"2": {Entries: map[string]map[string][]byte{
-					"vault-approle-secret": {
-						"role-id":   []byte("role-id-2"),
-						"secret-id": []byte("secret-id-2"),
-					},
-				}},
-			}},
+			expectedData: func() encryptiondata.KMSPluginsSecretData {
+				var sd encryptiondata.KMSPluginsSecretData
+				sd.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("role-id-1"))
+				sd.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("secret-id-1"))
+				sd.SetFromRawKey("2", "vault-approle-secret_role-id", []byte("role-id-2"))
+				sd.SetFromRawKey("2", "vault-approle-secret_secret-id", []byte("secret-id-2"))
+				return sd
+			}(),
 		},
 	}
 
@@ -1302,8 +1280,9 @@ func TestFromSecretSecretData(t *testing.T) {
 			if err != nil {
 				t.Fatalf("FromSecret() error: %v", err)
 			}
-			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData) {
-				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData))
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt) {
+				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt))
 			}
 		})
 	}

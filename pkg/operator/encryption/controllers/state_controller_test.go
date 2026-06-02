@@ -1263,8 +1263,9 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 		return fmt.Errorf("failed to verfy the encryption config, due to %v", err)
 	}
 
-	if !cmp.Equal(expectedEncryptionCfg, actualEncryptionCfg) {
-		return fmt.Errorf("%s", cmp.Diff(expectedEncryptionCfg, actualEncryptionCfg))
+	cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+	if !cmp.Equal(expectedEncryptionCfg, actualEncryptionCfg, cmpOpt) {
+		return fmt.Errorf("%s", cmp.Diff(expectedEncryptionCfg, actualEncryptionCfg, cmpOpt))
 	}
 
 	// rewrite the payload and compare the rest

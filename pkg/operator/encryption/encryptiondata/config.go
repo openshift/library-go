@@ -39,7 +39,17 @@ type Config struct {
 // KMSPluginsSecretData maps keyID to secret data carried from Key Secrets into
 // the encryption-config Secret. Structure: keyID → secretName → dataKey → value.
 type KMSPluginsSecretData struct {
-	ByKeyID map[string]state.KMSSecretData
+	byKeyID map[string]state.KMSSecretData
+}
+
+// Get returns the KMSSecretData for the given keyID and true if it exists,
+// or a zero value and false otherwise. It is safe to call on a nil map.
+func (d *KMSPluginsSecretData) Get(keyID string) (state.KMSSecretData, bool) {
+	if d.byKeyID == nil {
+		return state.KMSSecretData{}, false
+	}
+	sd, ok := d.byKeyID[keyID]
+	return sd, ok
 }
 
 // SetFromRawKey stores a value for the given keyID, splitting rawKey
@@ -48,25 +58,25 @@ func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte)
 	if len(keyID) == 0 {
 		return fmt.Errorf("keyID must not be empty")
 	}
-	if d.ByKeyID == nil {
-		d.ByKeyID = map[string]state.KMSSecretData{}
+	if d.byKeyID == nil {
+		d.byKeyID = map[string]state.KMSSecretData{}
 	}
-	sd := d.ByKeyID[keyID]
+	sd := d.byKeyID[keyID]
 	if err := sd.SetFromRawKey(rawKey, value); err != nil {
 		return err
 	}
-	d.ByKeyID[keyID] = sd
+	d.byKeyID[keyID] = sd
 	return nil
 }
 
 // FlatEntriesByKeyID returns the stored data as a map of keyID to flat entries,
 // where each flat entry is keyed by "secretName_dataKey".
 func (d *KMSPluginsSecretData) FlatEntriesByKeyID() map[string]map[string][]byte {
-	if d.ByKeyID == nil {
+	if d.byKeyID == nil {
 		return nil
 	}
 	result := map[string]map[string][]byte{}
-	for keyID, sd := range d.ByKeyID {
+	for keyID, sd := range d.byKeyID {
 		if flat := sd.FlatEntries(); flat != nil {
 			result[keyID] = flat
 		}
@@ -111,7 +121,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 				}
 			}
 			if key.HasKMSSecretData() {
-				if existing, exists := kmsPluginsSecretData.ByKeyID[key.Key.Name]; exists {
+				if existing, exists := kmsPluginsSecretData.Get(key.Key.Name); exists {
 					if !equality.Semantic.DeepEqual(existing, key.KMS.PluginSecretData) {
 						return nil, fmt.Errorf("KMS secret data mismatch for keyID %s: secret data from different resources must be identical", key.Key.Name)
 					}
