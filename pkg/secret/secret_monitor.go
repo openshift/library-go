@@ -93,10 +93,12 @@ func (s *secretMonitor) createSecretInformer(namespace, name string) cache.Share
 }
 
 // addSecretEventHandler adds a secret event handler and starts the informer if not already running.
+//
+// The global write lock is released before waiting for the informer cache to sync, allowing
+// concurrent calls for different secrets to proceed in parallel. This is critical for performance
+// when many routes reference external certificate secrets, as registering N secrets serially
+// (each requiring an API server round-trip to etcd) would take O(N * api_latency) time.
 func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, secretName string, handler cache.ResourceEventHandler, secretInformer cache.SharedInformer) (SecretEventHandlerRegistration, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if handler == nil {
 		return nil, fmt.Errorf("nil handler is provided")
 	}
@@ -104,23 +106,33 @@ func (s *secretMonitor) addSecretEventHandler(ctx context.Context, namespace, se
 	// secret identifier (namespace/secret)
 	key := NewObjectKey(namespace, secretName)
 
+	s.lock.Lock()
 	// Start secret informer if monitor does not exist.
 	m, exists := s.monitors[key]
 	if !exists {
 		m = &monitoredItem{}
 		m.itemMonitor = newSingleItemMonitor(key, secretInformer)
 		m.itemMonitor.StartInformer(ctx)
-
-		// wait for first sync
-		if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
-			return nil, fmt.Errorf("failed waiting for cache sync")
-		}
-
-		// add item key to monitors map
+		// Register the monitor in the map immediately (before releasing the lock) so that
+		// concurrent registrations for the same secret reuse this informer rather than
+		// starting a duplicate.
 		s.monitors[key] = m
+	}
+	s.lock.Unlock()
 
+	if !exists {
 		klog.Info("secret informer started", " item key ", key)
 	}
+
+	// Wait for the informer cache to sync before adding event handlers.
+	// This ensures GetSecret can retrieve secrets immediately after registration.
+	// The global lock is released above so other secrets can register concurrently.
+	if !cache.WaitForCacheSync(ctx.Done(), m.itemMonitor.HasSynced) {
+		return nil, fmt.Errorf("failed waiting for cache sync")
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	// add the event handler
 	registration, err := m.itemMonitor.AddEventHandler(handler)
@@ -194,7 +206,7 @@ func (s *secretMonitor) GetSecret(ctx context.Context, handlerRegistration Secre
 		return nil, fmt.Errorf("secret monitor doesn't exist for key %v", key)
 	}
 
-	// wait for informer store sync, to load secrets
+	// Wait for informer store sync to load secrets.
 	if !cache.WaitForCacheSync(ctx.Done(), handlerRegistration.HasSynced) {
 		return nil, fmt.Errorf("failed waiting for cache sync")
 	}

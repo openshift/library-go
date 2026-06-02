@@ -262,6 +262,9 @@ func TestGetSecret(t *testing.T) {
 			if s.isNilHandlerReg {
 				h = nil
 			}
+			if h != nil {
+				cache.WaitForCacheSync(context.TODO().Done(), h.HasSynced)
+			}
 			if s.isKeyRemoved {
 				delete(sm.monitors, key)
 			}

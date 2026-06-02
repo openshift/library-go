@@ -61,7 +61,6 @@ func (m *manager) Queue() workqueue.RateLimitingInterface {
 // Returns an error if the route is already registered with a secret or if adding the secret event handler fails.
 func (m *manager) RegisterRoute(ctx context.Context, namespace, routeName, secretName string, handler cache.ResourceEventHandlerFuncs) error {
 	m.handlersLock.Lock()
-	defer m.handlersLock.Unlock()
 
 	// Generate a unique key for the provided namespace and routeName.
 	key := generateKey(namespace, routeName)
@@ -70,22 +69,44 @@ func (m *manager) RegisterRoute(ctx context.Context, namespace, routeName, secre
 	// Each route (namespace/routeName) should be registered only once with any secret.
 	// Note: inside a namespace multiple different routes can be registered(watch) with a common secret.
 	if _, exists := m.registeredHandlers[key]; exists {
+		m.handlersLock.Unlock()
 		return fmt.Errorf("route already registered with key %s", key)
 	}
 
-	// Add a secret event handler for the specified namespace and secret, with the handler functions.
-	klog.V(5).Infof("trying to add handler for key %s with secret %s", key, secretName)
-	handlerReg, err := m.monitor.AddSecretEventHandler(ctx, namespace, secretName, handler)
-	if err != nil {
-		return err
-	}
-
-	// Store the registration and secretName in the manager's map. Used during UnregisterRoute() and GetSecret().
+	// Because adding the secret event handler can take O(latency) time when it starts an informer
+	// and waits for cache sync, we temporarily release the handlersLock. This permits concurrent
+	// registrations of other routes.
+	// We mark this key as tentatively registered using a nil registration
+	// so that concurrent attempts to register the same route fail immediately.
 	m.registeredHandlers[key] = referencedSecret{
 		secretName:          secretName,
-		handlerRegistration: handlerReg,
+		handlerRegistration: nil, // placeholder while syncing
 	}
-	klog.Infof("secret manager registered route for key %s with secret %s", key, secretName)
+	m.handlersLock.Unlock()
+
+	// Add a secret event handler for the specified namespace and secret, with the handler functions.
+	// This call releases the monitor lock internally during WaitForCacheSync, allowing concurrent
+	// registrations for different secrets. However, it blocks until the cache is synced so that
+	// GetSecret works immediately after RegisterRoute returns.
+	klog.V(5).Infof("trying to add handler for key %s with secret %s", key, secretName)
+
+	handlerReg, err := m.monitor.AddSecretEventHandler(ctx, namespace, secretName, handler)
+
+	m.handlersLock.Lock()
+
+	if err != nil {
+		delete(m.registeredHandlers, key)
+		m.handlersLock.Unlock()
+		return fmt.Errorf("failed to add secret event handler for key %s: %w", key, err)
+	}
+
+	// Update only if it wasn't unregistered while we were syncing
+	if ref, exists := m.registeredHandlers[key]; exists && ref.secretName == secretName && ref.handlerRegistration == nil {
+		ref.handlerRegistration = handlerReg
+		m.registeredHandlers[key] = ref
+		klog.Infof("secret manager registered route for key %s with secret %s", key, secretName)
+	}
+	m.handlersLock.Unlock()
 
 	return nil
 }
@@ -102,6 +123,10 @@ func (m *manager) UnregisterRoute(namespace, routeName string) error {
 	ref, exists := m.registeredHandlers[key]
 	if !exists {
 		return fmt.Errorf("no handler registered with key %s", key)
+	}
+
+	if ref.handlerRegistration == nil {
+		return fmt.Errorf("route registration currently in progress for key %s", key)
 	}
 
 	// Remove the corresponding secret event handler from the secret monitor.
