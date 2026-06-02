@@ -34,6 +34,10 @@ type Config struct {
 	// Key Secrets into the encryption-config Secret.
 	// Structure: keyID → referenceName → dataKey → value.
 	KMSPluginsSecretData KMSPluginsReferenceData
+	// KMSPluginsConfigMapData maps keyID to configmap data carried from
+	// Key Secrets into the encryption-config Secret.
+	// Structure: keyID → referenceName → dataKey → value.
+	KMSPluginsConfigMapData KMSPluginsReferenceData
 }
 
 // KMSPluginsReferenceData maps keyID to reference data carried from Key Secrets into
@@ -93,6 +97,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 	var kmsPlugins map[string]configv1.KMSPluginConfig
 	var kmsPluginsSecretData KMSPluginsReferenceData
+	var kmsPluginsConfigMapData KMSPluginsReferenceData
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
@@ -133,6 +138,19 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 					}
 				}
 			}
+			if key.HasKMSConfigMapData() {
+				if existing, exists := kmsPluginsConfigMapData.Get(key.Key.Name); exists {
+					if !equality.Semantic.DeepEqual(existing.FlatEntries(), key.KMS.PluginConfigMapData.FlatEntries()) {
+						return nil, fmt.Errorf("KMS configmap data mismatch for keyID %s: configmap data from different resources must be identical", key.Key.Name)
+					}
+				} else {
+					for rawKey, value := range key.KMS.PluginConfigMapData.FlatEntries() {
+						if err := kmsPluginsConfigMapData.SetFromRawKey(key.Key.Name, rawKey, value); err != nil {
+							return nil, fmt.Errorf("failed to copy configmap data for keyID %s: %w", key.Key.Name, err)
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -142,9 +160,10 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	})
 
 	return &Config{
-		Encryption:           &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-		KMSPlugins:           kmsPlugins,
-		KMSPluginsSecretData: kmsPluginsSecretData,
+		Encryption:              &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		KMSPlugins:              kmsPlugins,
+		KMSPluginsSecretData:    kmsPluginsSecretData,
+		KMSPluginsConfigMapData: kmsPluginsConfigMapData,
 	}, nil
 }
 

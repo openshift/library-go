@@ -109,6 +109,9 @@ var DefaultKMSPluginConfig = configv1.KMSPluginConfig{
 				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
 			},
 		},
+		TLS: configv1.VaultTLSConfig{
+			CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+		},
 		TransitKey: "test-transit-key",
 	},
 }
@@ -160,6 +163,18 @@ func CreateVaultAppRoleSecret(name, roleID, secretID string) *corev1.Secret {
 			"secret-id": []byte(secretID),
 		},
 		Type: corev1.SecretTypeOpaque,
+	}
+}
+
+func CreateVaultCABundleConfigMap(name, caBundleCrt string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "openshift-config",
+		},
+		Data: map[string]string{
+			"ca-bundle.crt": caBundleCrt,
+		},
 	}
 }
 

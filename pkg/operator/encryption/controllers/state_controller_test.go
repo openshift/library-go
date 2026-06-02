@@ -1132,6 +1132,9 @@ func TestStateController(t *testing.T) {
 					Vault: configv1.VaultKMSPluginConfig{
 						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 						VaultAddress:   "https://vault.example.com",
+						TLS: configv1.VaultTLSConfig{
+							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+						},
 						Authentication: configv1.VaultAuthentication{
 							Type: configv1.VaultAuthenticationTypeAppRole,
 							AppRole: configv1.VaultAppRoleAuthentication{

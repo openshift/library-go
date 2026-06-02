@@ -337,10 +337,11 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
@@ -391,6 +392,11 @@ func TestKeyController(t *testing.T) {
 							ts.Errorf("expected secret-id secret data to be 'test-secret-id', got %q", secretID)
 						}
 
+						// Verify configmap data is carried
+						if caCert := string(actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt"]); caCert != "test-ca-cert" {
+							ts.Errorf("expected ca-bundle.crt configmap data to be 'test-ca-cert', got %q", caCert)
+						}
+
 						// Verify internal reason
 						if actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] != "secrets-key-does-not-exist" {
 							ts.Errorf("unexpected internal reason: %s", actualSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"])
@@ -429,10 +435,11 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865"), "aescbc"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -524,10 +531,11 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithRawKeyWithMode("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("identity-key"), "identity"),
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -642,6 +650,64 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
 			expectedError: errors.New(`failed to create key: secret vault-approle-secret in openshift-config is missing required key "secret-id"`),
+		},
+
+		{
+			name: "degraded when KMS referenced configmap does not exist",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				_, status, _, err := operatorClient.GetOperatorState()
+				if err != nil {
+					ts.Fatal(err)
+				}
+				for _, c := range status.Conditions {
+					if c.Type == "EncryptionKeyControllerDegraded" && c.Status == "True" {
+						if !strings.Contains(c.Message, "failed to get configmap vault-ca-bundle in openshift-config") {
+							ts.Errorf("unexpected degraded message: %s", c.Message)
+						}
+						return
+					}
+				}
+				ts.Fatal("expected EncryptionKeyControllerDegraded condition")
+			},
+			expectedError: fmt.Errorf(`failed to create key: failed to get configmap vault-ca-bundle in openshift-config: configmaps "vault-ca-bundle" not found`),
+		},
+
+		{
+			name: "degraded when KMS referenced configmap is missing a required key",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
+					Data:       map[string]string{"wrong-key": "some-data"},
+				},
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: `failed to create key: configmap vault-ca-bundle in openshift-config is missing required key "ca-bundle.crt"`,
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: errors.New(`failed to create key: configmap vault-ca-bundle in openshift-config is missing required key "ca-bundle.crt"`),
 		},
 
 		{
@@ -850,6 +916,75 @@ func TestReferencedSecretName(t *testing.T) {
 			}
 			if name != scenario.expectedName {
 				t.Errorf("expected secret name %q, got %q", scenario.expectedName, name)
+			}
+			if len(dataKeys) != len(scenario.expectedDataKeys) {
+				t.Fatalf("expected %d data keys, got %d", len(scenario.expectedDataKeys), len(dataKeys))
+			}
+			for i, key := range dataKeys {
+				if key != scenario.expectedDataKeys[i] {
+					t.Errorf("expected data key[%d] %q, got %q", i, scenario.expectedDataKeys[i], key)
+				}
+			}
+		})
+	}
+}
+
+func TestReferencedConfigMapName(t *testing.T) {
+	scenarios := []struct {
+		name             string
+		plugin           configv1.KMSPluginConfig
+		expectedName     string
+		expectedDataKeys []string
+		expectedError    bool
+	}{
+		{
+			name: "Vault with TLS CA bundle returns configmap name and keys",
+			plugin: configv1.KMSPluginConfig{
+				Type: configv1.VaultKMSProvider,
+				Vault: configv1.VaultKMSPluginConfig{
+					TLS: configv1.VaultTLSConfig{
+						CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+					},
+				},
+			},
+			expectedName:     "vault-ca-bundle",
+			expectedDataKeys: []string{"ca-bundle.crt"},
+		},
+		{
+			name: "Vault without TLS CA bundle returns empty",
+			plugin: configv1.KMSPluginConfig{
+				Type:  configv1.VaultKMSProvider,
+				Vault: configv1.VaultKMSPluginConfig{},
+			},
+			expectedName:     "",
+			expectedDataKeys: nil,
+		},
+		{
+			name:          "unknown KMS provider returns error",
+			plugin:        configv1.KMSPluginConfig{Type: "UnknownProvider"},
+			expectedError: true,
+		},
+		{
+			name:          "empty plugin config returns error",
+			plugin:        configv1.KMSPluginConfig{},
+			expectedError: true,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			name, dataKeys, err := referencedConfigMapName(scenario.plugin)
+			if scenario.expectedError {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if name != scenario.expectedName {
+				t.Errorf("expected configmap name %q, got %q", scenario.expectedName, name)
 			}
 			if len(dataKeys) != len(scenario.expectedDataKeys) {
 				t.Fatalf("expected %d data keys, got %d", len(scenario.expectedDataKeys), len(dataKeys))

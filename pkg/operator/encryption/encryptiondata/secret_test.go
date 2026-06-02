@@ -421,7 +421,84 @@ func TestParseSecretDataKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keyID, rawKey, found, err := parseKMSSecretDataKey(tt.dataKey)
+			keyID, rawKey, found, err := parseKMSReferenceDataKey(tt.dataKey, encryptionConfigSecretDataPrefix)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if found != tt.wantFound {
+				t.Fatalf("found: got %v, want %v", found, tt.wantFound)
+			}
+			if found {
+				if keyID != tt.wantKeyID {
+					t.Errorf("keyID: got %q, want %q", keyID, tt.wantKeyID)
+				}
+				if rawKey != tt.wantRawKey {
+					t.Errorf("rawKey: got %q, want %q", rawKey, tt.wantRawKey)
+				}
+			}
+		})
+	}
+}
+
+func TestParseConfigMapDataKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		dataKey    string
+		wantKeyID  string
+		wantRawKey string
+		wantFound  bool
+		wantErr    bool
+	}{
+		{
+			name:       "valid key",
+			dataKey:    "kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1",
+			wantKeyID:  "1",
+			wantRawKey: "vault-ca-bundle_ca-bundle.crt",
+			wantFound:  true,
+		},
+		{
+			name:       "valid key with large keyID",
+			dataKey:    "kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-42",
+			wantKeyID:  "42",
+			wantRawKey: "vault-ca-bundle_ca-bundle.crt",
+			wantFound:  true,
+		},
+		{
+			name:    "encryption-config key ignored",
+			dataKey: "encryption-config",
+		},
+		{
+			name:    "secret data key ignored",
+			dataKey: "kms-plugin-secret-vault-approle-secret_role-id-1",
+		},
+		{
+			name:    "empty string",
+			dataKey: "",
+		},
+		{
+			name:    "prefix only",
+			dataKey: "kms-plugin-configmap-",
+		},
+		{
+			name:    "no dash after prefix",
+			dataKey: "kms-plugin-configmap-nodash",
+		},
+		{
+			name:    "non-numeric keyID",
+			dataKey: "kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-abc",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keyID, rawKey, found, err := parseKMSReferenceDataKey(tt.dataKey, encryptionConfigConfigMapDataPrefix)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
