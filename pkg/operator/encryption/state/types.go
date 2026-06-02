@@ -136,7 +136,8 @@ func (d *KMSSecretData) FlatEntries() map[string][]byte {
 	result := map[string][]byte{}
 	for secretName, keys := range d.Entries {
 		for dataKey, value := range keys {
-			result[secretName+secretDataKeySeparator+dataKey] = value
+			rawKey := BuildRawKey(secretName, dataKey)
+			result[rawKey] = value
 		}
 	}
 	return result

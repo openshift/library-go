@@ -82,3 +82,10 @@ func EqualKeyAndEqualID(s1, s2 *KeyState) bool {
 	id2, valid2 := NameToKeyID(s2.Key.Name)
 	return valid1 && valid2 && id1 == id2
 }
+
+// BuildRawKey returns a raw key that uniquely identifies a single entry
+// within a Kubernetes Secret by combining the secret name and the data key
+// with a separator (e.g. "my-secret_token").
+func BuildRawKey(secretName, dataKey string) string {
+	return secretName + secretDataKeySeparator + dataKey
+}

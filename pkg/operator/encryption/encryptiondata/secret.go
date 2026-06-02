@@ -152,7 +152,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 	// (e.g. "1") to produce "kms-plugin-secret-app-role_role-id-1".
 	for keyID, flatEntries := range secretData.KMSPluginsSecretData.FlatEntriesByKeyID() {
 		for flatKey, value := range flatEntries {
-			s.Data[encryptionConfigSecretDataPrefix+flatKey+"-"+keyID] = value
+			s.Data[FormatSecretDataKey(flatKey, keyID)] = value
 		}
 	}
 
@@ -200,6 +200,11 @@ func ExtractUniqueAndSortedKMSConfigurations(secretData *Config) ([]*apiserverco
 		return iKeyID > jKeyID
 	})
 	return result, nil
+}
+
+// FormatSecretDataKey returns the secret data key for a KMS plugin secret in the format "kms-plugin-secret-<rawKey>-<keyID>".
+func FormatSecretDataKey(rawKey, keyID string) string {
+	return fmt.Sprintf("%s%s-%s", encryptionConfigSecretDataPrefix, rawKey, keyID)
 }
 
 func parseSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
