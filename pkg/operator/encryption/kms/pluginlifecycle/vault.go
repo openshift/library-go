@@ -67,6 +67,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		// Vault team recommendation based on single-node OCP cluster measurements:
 		// ~10 mCPU / 32-64 MiB steady state, memory peaked at ~60 MiB under 400 KEK rotations.
+		// Slack discussion: https://redhat-external.slack.com/archives/C09KZ5QCBUH/p1779134070543079
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("64Mi"),
