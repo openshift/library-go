@@ -122,7 +122,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 			}
 			if key.HasKMSSecretData() {
 				if existing, exists := kmsPluginsSecretData.Get(key.Key.Name); exists {
-					if !equality.Semantic.DeepEqual(existing, key.KMS.PluginSecretData) {
+					if !equality.Semantic.DeepEqual(existing.FlatEntries(), key.KMS.PluginSecretData.FlatEntries()) {
 						return nil, fmt.Errorf("KMS secret data mismatch for keyID %s: secret data from different resources must be identical", key.Key.Name)
 					}
 				} else {
