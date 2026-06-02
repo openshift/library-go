@@ -33,7 +33,7 @@ type sidecarProvider interface {
 func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
-		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig)
+		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault)
 	default:
 		return nil, fmt.Errorf("unsupported KMS plugin configuration")
 	}

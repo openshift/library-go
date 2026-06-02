@@ -13,7 +13,7 @@ import (
 func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	tests := []struct {
 		name               string
-		pluginConfig       configv1.KMSPluginConfig
+		vaultConfig        configv1.VaultKMSPluginConfig
 		containerName      string
 		keyID              string
 		udsPath            string
@@ -23,15 +23,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	}{
 		{
 			name: "builds container with correct args",
-			pluginConfig: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					KMSPluginImage: "quay.io/test/vault:v2",
-					VaultAddress:   "https://vault.example.com:8200",
-					VaultNamespace: "my-namespace",
-					TransitKey:     "my-key",
-					TransitMount:   "transit",
-				},
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				KMSPluginImage: "quay.io/test/vault:v2",
+				VaultAddress:   "https://vault.example.com:8200",
+				VaultNamespace: "my-namespace",
+				TransitKey:     "my-key",
+				TransitMount:   "transit",
 			},
 			containerName:   "kms-plugin",
 			keyID:           "555",
@@ -65,15 +62,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		},
 		{
 			name: "appends to existing containers",
-			pluginConfig: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					KMSPluginImage: "quay.io/test/vault:v2",
-					VaultAddress:   "https://vault.example.com:8200",
-					VaultNamespace: "my-namespace",
-					TransitKey:     "my-key",
-					TransitMount:   "transit",
-				},
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				KMSPluginImage: "quay.io/test/vault:v2",
+				VaultAddress:   "https://vault.example.com:8200",
+				VaultNamespace: "my-namespace",
+				TransitKey:     "my-key",
+				TransitMount:   "transit",
 			},
 			containerName: "kms-plugin",
 			keyID:         "555",
@@ -116,15 +110,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		},
 		{
 			name: "empty optional fields",
-			pluginConfig: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					KMSPluginImage: "quay.io/test/vault:v2",
-					VaultAddress:   "https://vault.example.com:8200",
-					TransitKey:     "my-key",
-					TransitMount:   "transit",
-					VaultNamespace: "",
-				},
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				KMSPluginImage: "quay.io/test/vault:v2",
+				VaultAddress:   "https://vault.example.com:8200",
+				TransitKey:     "my-key",
+				TransitMount:   "transit",
+				VaultNamespace: "",
 			},
 			containerName:   "kms-plugin",
 			keyID:           "999",
@@ -161,7 +152,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.pluginConfig)
+			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return

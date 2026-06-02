@@ -10,12 +10,12 @@ import (
 )
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
-func newVaultSidecarProvider(name, keyID, udsPath string, pluginConfig configv1.KMSPluginConfig) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig) (*vault, error) {
 	return &vault{
 		name:    name,
 		keyID:   keyID,
 		udsPath: udsPath,
-		config:  &pluginConfig.Vault,
+		config:  vaultConfig,
 	}, nil
 }
 
@@ -24,7 +24,7 @@ type vault struct {
 	name    string
 	keyID   string
 	udsPath string
-	config  *configv1.VaultKMSPluginConfig
+	config  configv1.VaultKMSPluginConfig
 }
 
 // Name returns the sidecar name appended by the key id.
