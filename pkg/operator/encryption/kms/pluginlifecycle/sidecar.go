@@ -9,10 +9,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+)
+
+const (
+	kmsPluginSocketVolumeName = "kms-plugin-socket"
+	kmsPluginSocketMountPath  = "/var/run/kmsplugin"
 )
 
 // sidecarProvider abstracts the construction of a KMS plugin sidecar container for a specific provider (e.g. Vault).
@@ -83,6 +89,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 	klog.V(4).Infof("injecting %d KMS sidecar(s)", len(kmsConfigurations))
 
+	socketVolumeMount := corev1.VolumeMount{Name: kmsPluginSocketVolumeName, MountPath: kmsPluginSocketMountPath, ReadOnly: false}
 	for _, kmsConfiguration := range kmsConfigurations {
 		// ExtractUniqueAndSortedKMSConfigurations function rewrites the .Name field to include only the key ID
 		keyID := kmsConfiguration.Name
@@ -102,12 +109,12 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 			return err
 		}
 
-		if err := ensureSocketVolumeMountInContainer(podSpec.InitContainers, sidecarProvider.Name()); err != nil {
+		if err := ensureVolumeMountInContainer(podSpec.InitContainers, sidecarProvider.Name(), socketVolumeMount); err != nil {
 			return err
 		}
 	}
 
-	if err := ensureSocketVolumeMountInContainer(podSpec.Containers, containerName); err != nil {
+	if err := ensureVolumeMountInContainer(podSpec.Containers, containerName, socketVolumeMount); err != nil {
 		return err
 	}
 
@@ -134,7 +141,7 @@ func ensureSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) e
 	return nil
 }
 
-func ensureSocketVolumeMountInContainer(containers []corev1.Container, containerName string) error {
+func ensureVolumeMountInContainer(containers []corev1.Container, containerName string, volumeMount corev1.VolumeMount) error {
 	containerIndex := -1
 	for i, container := range containers {
 		if container.Name == containerName {
@@ -147,35 +154,29 @@ func ensureSocketVolumeMountInContainer(containers []corev1.Container, container
 		return fmt.Errorf("container %s not found", containerName)
 	}
 
-	foundMount := false
 	container := &containers[containerIndex]
 	for _, m := range container.VolumeMounts {
-		if m.Name == "kms-plugin-socket" {
-			foundMount = true
-			break
+		if m.Name == volumeMount.Name {
+			if !equality.Semantic.DeepEqual(m, volumeMount) {
+				return fmt.Errorf("container %s already has volume mount %s with different settings", containerName, volumeMount.Name)
+			}
+			return nil
 		}
 	}
-	if !foundMount {
-		container.VolumeMounts = append(container.VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "kms-plugin-socket",
-				MountPath: "/var/run/kmsplugin",
-			},
-		)
-	}
+	container.VolumeMounts = append(container.VolumeMounts, volumeMount)
 	return nil
 }
 
 func ensureSocketVolume(podSpec *corev1.PodSpec) {
 	for _, volume := range podSpec.Volumes {
-		if volume.Name == "kms-plugin-socket" {
+		if volume.Name == kmsPluginSocketVolumeName {
 			return
 		}
 	}
 
 	podSpec.Volumes = append(podSpec.Volumes,
 		corev1.Volume{
-			Name: "kms-plugin-socket",
+			Name: kmsPluginSocketVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
