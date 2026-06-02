@@ -82,6 +82,23 @@ type KMSSecretData struct {
 	Entries map[string]map[string][]byte
 }
 
+// Get returns the value for the given secretName and dataKey. It returns false if
+// secretName or dataKey is empty, if Entries is nil, or if the key does not exist.
+func (d *KMSSecretData) Get(secretName, dataKey string) ([]byte, bool) {
+	if len(secretName) == 0 || len(dataKey) == 0 {
+		return nil, false
+	}
+	if d.Entries == nil {
+		return nil, false
+	}
+	secretEntries, ok := d.Entries[secretName]
+	if !ok {
+		return nil, false
+	}
+	value, ok := secretEntries[dataKey]
+	return value, ok
+}
+
 func (d *KMSSecretData) Set(secretName, dataKey string, value []byte) error {
 	if len(secretName) == 0 || len(dataKey) == 0 || len(value) == 0 {
 		return fmt.Errorf("secretName, dataKey, and value must not be empty")
