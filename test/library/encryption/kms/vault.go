@@ -26,7 +26,7 @@ const (
 	defaultVaultPodName           = "vault-0"
 	defaultVaultCredentialsSecret = "vault-credentials"
 	defaultVaultAppRoleSecretName = "vault-approle-secret"
-	defaultVaultKMSPluginImage    = "quay.io/openshifttest/mock-kms-plugin@sha256:03bb07a2c08b509653c4c70217a06a4b389c10b4d87922f50ee5eac82db5e140"
+	defaultVaultKMSPluginImage    = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
 	defaultVaultAddress           = "https://vault.vault-kms.svc:8200"
 	defaultVaultEnterpriseNS      = "admin"
 	defaultVaultTransitMount      = "transit"

@@ -29,6 +29,7 @@ type options struct {
 	logLevel            string
 	approleRoleID       string
 	approleSecretIDPath string
+	skipTLSVerify       bool
 }
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 	flag.StringVar(&o.approleSecretIDPath, "approle-secret-id-path", "", "Path to file containing Vault AppRole secret ID")
 	flag.StringVar(&o.logLevel, "log-level", "", "Log level (optional, valid value: debug-extended)")
 	flag.StringVar(&o.vaultNamespace, "vault-namespace", "", "Vault namespace (optional)")
+	flag.BoolVar(&o.skipTLSVerify, "tls-skip-verify", false, "Skip TLS verification for Vault connection (optional)")
 	flag.Parse()
 
 	flag.VisitAll(func(f *flag.Flag) {
