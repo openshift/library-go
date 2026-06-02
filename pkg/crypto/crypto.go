@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -463,6 +465,16 @@ const (
 	keyBits = 2048
 )
 
+// KeyAlgorithm represents the type of key pair to generate
+type KeyAlgorithm int
+
+const (
+	// AlgorithmRSA generates 2048-bit RSA key pairs (default for backwards compatibility)
+	AlgorithmRSA KeyAlgorithm = iota
+	// AlgorithmECDSA generates P-256 ECDSA key pairs
+	AlgorithmECDSA
+)
+
 type CA struct {
 	Config *TLSCertificateConfig
 
@@ -666,29 +678,34 @@ func MakeSelfSignedCAConfigForSubject(subject pkix.Name, lifetime time.Duration)
 	if lifetime > DefaultCACertificateLifetimeDuration {
 		warnAboutCertificateLifeTime(subject.CommonName, DefaultCACertificateLifetimeDuration)
 	}
-	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, lifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, lifetime, AlgorithmRSA)
 }
 
 func MakeSelfSignedCAConfigForDuration(name string, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	subject := pkix.Name{CommonName: name}
-	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime, AlgorithmRSA)
+}
+
+func MakeSelfSignedCAConfigForDurationWithAlgorithm(name string, caLifetime time.Duration, algorithm KeyAlgorithm) (*TLSCertificateConfig, error) {
+	subject := pkix.Name{CommonName: name}
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, time.Now, caLifetime, algorithm)
 }
 
 func UnsafeMakeSelfSignedCAConfigForDurationAtTime(name string, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
 	subject := pkix.Name{CommonName: name}
-	return makeSelfSignedCAConfigForSubjectAndDuration(subject, currentTime, caLifetime)
+	return makeSelfSignedCAConfigForSubjectAndDuration(subject, currentTime, caLifetime, AlgorithmRSA)
 }
 
-func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime func() time.Time, caLifetime time.Duration) (*TLSCertificateConfig, error) {
+func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime func() time.Time, caLifetime time.Duration, algorithm KeyAlgorithm) (*TLSCertificateConfig, error) {
 	// Create CA cert
-	rootcaPublicKey, rootcaPrivateKey, publicKeyHash, err := newKeyPairWithHash()
+	rootcaPublicKey, rootcaPrivateKey, publicKeyHash, err := newKeyPairWithAlgorithm(algorithm)
 	if err != nil {
 		return nil, err
 	}
 	// AuthorityKeyId and SubjectKeyId should match for a self-signed CA
 	authorityKeyId := publicKeyHash
 	subjectKeyId := publicKeyHash
-	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, authorityKeyId, subjectKeyId)
+	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, authorityKeyId, subjectKeyId, algorithm)
 	rootcaCert, err := signCertificate(rootcaTemplate, rootcaPublicKey, rootcaTemplate, rootcaPrivateKey)
 	if err != nil {
 		return nil, err
@@ -701,14 +718,22 @@ func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime 
 }
 
 func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) (*TLSCertificateConfig, error) {
+	return makeCAConfigForDuration(name, caLifetime, issuer, AlgorithmRSA)
+}
+
+func MakeCAConfigForDurationWithAlgorithm(name string, caLifetime time.Duration, issuer *CA, algorithm KeyAlgorithm) (*TLSCertificateConfig, error) {
+	return makeCAConfigForDuration(name, caLifetime, issuer, algorithm)
+}
+
+func makeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA, algorithm KeyAlgorithm) (*TLSCertificateConfig, error) {
 	// Create CA cert
-	signerPublicKey, signerPrivateKey, publicKeyHash, err := newKeyPairWithHash()
+	signerPublicKey, signerPrivateKey, publicKeyHash, err := newKeyPairWithAlgorithm(algorithm)
 	if err != nil {
 		return nil, err
 	}
 	authorityKeyId := issuer.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId)
+	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId, algorithm)
 	signerCert, err := issuer.SignCertificate(signerTemplate, signerPublicKey)
 	if err != nil {
 		return nil, err
@@ -816,40 +841,44 @@ func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.Se
 type CertificateExtensionFunc func(*x509.Certificate) error
 
 func (ca *CA) MakeServerCert(hostnames sets.Set[string], lifetime time.Duration, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
-	serverPublicKey, serverPrivateKey, publicKeyHash, _ := newKeyPairWithHash()
-	authorityKeyId := ca.Config.Certs[0].SubjectKeyId
-	subjectKeyId := publicKeyHash
-	serverTemplate := newServerCertificateTemplate(pkix.Name{CommonName: sets.List(hostnames)[0]}, sets.List(hostnames), lifetime, time.Now, authorityKeyId, subjectKeyId)
-	for _, fn := range fns {
-		if err := fn(serverTemplate); err != nil {
-			return nil, err
-		}
-	}
-	serverCrt, err := ca.SignCertificate(serverTemplate, serverPublicKey)
-	if err != nil {
-		return nil, err
-	}
-	server := &TLSCertificateConfig{
-		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs...),
-		Key:   serverPrivateKey,
-	}
-	return server, nil
+	return ca.makeServerCert(hostnames, lifetime, AlgorithmRSA, fns...)
 }
 
 func (ca *CA) MakeServerCertForDuration(hostnames sets.Set[string], lifetime time.Duration, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
-	serverPublicKey, serverPrivateKey, publicKeyHash, _ := newKeyPairWithHash()
+	return ca.makeServerCert(hostnames, lifetime, AlgorithmRSA, fns...)
+}
+
+// MakeServerCertWithAlgorithm creates a server certificate with the specified key algorithm
+func (ca *CA) MakeServerCertWithAlgorithm(hostnames sets.Set[string], lifetime time.Duration, algorithm KeyAlgorithm, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+	return ca.makeServerCert(hostnames, lifetime, algorithm, fns...)
+}
+
+// MakeServerCertForDurationWithAlgorithm creates a server certificate with specified duration and algorithm
+func (ca *CA) MakeServerCertForDurationWithAlgorithm(hostnames sets.Set[string], lifetime time.Duration, algorithm KeyAlgorithm, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+	return ca.makeServerCert(hostnames, lifetime, algorithm, fns...)
+}
+
+func (ca *CA) makeServerCert(hostnames sets.Set[string], lifetime time.Duration, algorithm KeyAlgorithm, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+	serverPublicKey, serverPrivateKey, publicKeyHash, err := newKeyPairWithAlgorithm(algorithm)
+	if err != nil {
+		return nil, err
+	}
+
 	authorityKeyId := ca.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	serverTemplate := newServerCertificateTemplateForDuration(pkix.Name{CommonName: sets.List(hostnames)[0]}, sets.List(hostnames), lifetime, time.Now, authorityKeyId, subjectKeyId)
+	serverTemplate := newServerCertificateTemplate(pkix.Name{CommonName: sets.List(hostnames)[0]}, sets.List(hostnames), lifetime, time.Now, authorityKeyId, subjectKeyId, algorithm)
+
 	for _, fn := range fns {
 		if err := fn(serverTemplate); err != nil {
 			return nil, err
 		}
 	}
+
 	serverCrt, err := ca.SignCertificate(serverTemplate, serverPublicKey)
 	if err != nil {
 		return nil, err
 	}
+
 	server := &TLSCertificateConfig{
 		Certs: append([]*x509.Certificate{serverCrt}, ca.Config.Certs...),
 		Key:   serverPrivateKey,
@@ -1021,12 +1050,74 @@ func newRSAKeyPair() (*rsa.PublicKey, *rsa.PrivateKey, error) {
 	return &privateKey.PublicKey, privateKey, nil
 }
 
+// newECDSAKeyPair generates a new P-256 ECDSA key pair
+func newECDSAKeyPair() (*ecdsa.PublicKey, *ecdsa.PrivateKey, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &privateKey.PublicKey, privateKey, nil
+}
+
+// subjectPublicKeyInfo mirrors the ASN.1 SubjectPublicKeyInfo structure from RFC 5280 Section 4.1.
+// It is used to extract the subjectPublicKey BIT STRING for hashing per Section 4.2.1.2.
+type subjectPublicKeyInfo struct {
+	Algorithm pkix.AlgorithmIdentifier
+	PublicKey asn1.BitString
+}
+
+// newECDSAKeyPairWithHash generates a new ECDSA key pair and computes the public key hash.
+// Uses SHA-1 over the subjectPublicKey BIT STRING per RFC 5280 Section 4.2.1.2,
+// matching the RSA convention.
+func newECDSAKeyPairWithHash() (crypto.PublicKey, crypto.PrivateKey, []byte, error) {
+	publicKey, privateKey, err := newECDSAKeyPair()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	pubDER, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var spki subjectPublicKeyInfo
+	if _, err := asn1.Unmarshal(pubDER, &spki); err != nil {
+		return nil, nil, nil, err
+	}
+	hash := sha1.New()
+	hash.Write(spki.PublicKey.Bytes)
+	publicKeyHash := hash.Sum(nil)
+	return publicKey, privateKey, publicKeyHash, nil
+}
+
+// newKeyPairWithAlgorithm generates a new key pair using the specified algorithm
+func newKeyPairWithAlgorithm(algo KeyAlgorithm) (crypto.PublicKey, crypto.PrivateKey, []byte, error) {
+	switch algo {
+	case AlgorithmECDSA:
+		return newECDSAKeyPairWithHash()
+	case AlgorithmRSA:
+		return newKeyPairWithHash()
+	default:
+		// This can only be reached if a new KeyAlgorithm constant is added
+		// to the const block above without a corresponding case here.
+		return nil, nil, nil, fmt.Errorf("unsupported key algorithm: %d", algo)
+	}
+}
+
+// baseKeyUsageForAlgorithm returns the appropriate KeyUsage for the given algorithm.
+// RSA keys use KeyEncipherment (for RSA key transport in TLS) + DigitalSignature.
+// ECDSA keys use only DigitalSignature per RFC 5480 Section 3.
+func baseKeyUsageForAlgorithm(algorithm KeyAlgorithm) x509.KeyUsage {
+	switch algorithm {
+	case AlgorithmECDSA:
+		return x509.KeyUsageDigitalSignature
+	default:
+		return x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+	}
+}
+
 // Can be used for CA or intermediate signing certs
-func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
+func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte, algorithm KeyAlgorithm) *x509.Certificate {
 	return &x509.Certificate{
 		Subject: subject,
-
-		SignatureAlgorithm: x509.SHA256WithRSA,
 
 		NotBefore: currentTime().Add(-1 * time.Second),
 		NotAfter:  currentTime().Add(caLifetime),
@@ -1036,7 +1127,7 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 		// signing certificate is ever rotated.
 		SerialNumber: big.NewInt(randomSerialNumber()),
 
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		KeyUsage:              baseKeyUsageForAlgorithm(algorithm) | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 
@@ -1046,31 +1137,15 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 }
 
 // Can be used for ListenAndServeTLS
-func newServerCertificateTemplate(subject pkix.Name, hosts []string, lifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
-	if lifetime <= 0 {
-		lifetime = DefaultCertificateLifetimeDuration
-		fmt.Fprintf(os.Stderr, "Validity period of the certificate for %q is unset, resetting to %s!\n", subject.CommonName, lifetime.String())
-	}
-
-	if lifetime > DefaultCertificateLifetimeDuration {
-		warnAboutCertificateLifeTime(subject.CommonName, DefaultCertificateLifetimeDuration)
-	}
-
-	return newServerCertificateTemplateForDuration(subject, hosts, lifetime, currentTime, authorityKeyId, subjectKeyId)
-}
-
-// Can be used for ListenAndServeTLS
-func newServerCertificateTemplateForDuration(subject pkix.Name, hosts []string, lifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
+func newServerCertificateTemplate(subject pkix.Name, hosts []string, lifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte, algorithm KeyAlgorithm) *x509.Certificate {
 	template := &x509.Certificate{
 		Subject: subject,
-
-		SignatureAlgorithm: x509.SHA256WithRSA,
 
 		NotBefore:    currentTime().Add(-1 * time.Second),
 		NotAfter:     currentTime().Add(lifetime),
 		SerialNumber: big.NewInt(1),
 
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              baseKeyUsageForAlgorithm(algorithm),
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 
@@ -1150,8 +1225,6 @@ func NewClientCertificateTemplate(subject pkix.Name, lifetime time.Duration, cur
 func NewClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
 	return &x509.Certificate{
 		Subject: subject,
-
-		SignatureAlgorithm: x509.SHA256WithRSA,
 
 		NotBefore:    currentTime().Add(-1 * time.Second),
 		NotAfter:     currentTime().Add(lifetime),
