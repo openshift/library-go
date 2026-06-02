@@ -164,6 +164,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		fakeConfigInformer.Config().V1().APIServers(),
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
+		kubeClient.CoreV1(),
 		eventRecorder,
 		nil,
 	)

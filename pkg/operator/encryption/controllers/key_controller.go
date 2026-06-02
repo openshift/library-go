@@ -75,6 +75,7 @@ type keyController struct {
 
 	deployer                 statemachine.Deployer
 	secretClient             corev1client.SecretsGetter
+	configMapClient          corev1client.ConfigMapsGetter
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 
@@ -92,6 +93,7 @@ func NewKeyController(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
+	configMapClient corev1client.ConfigMapsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -108,6 +110,7 @@ func NewKeyController(
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
+		configMapClient:          configMapClient,
 	}
 
 	return factory.New().
