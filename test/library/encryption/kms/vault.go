@@ -124,13 +124,17 @@ func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
 	t.Logf("Applied AppRole secret %s in %s (changed=%v)", defaultVaultAppRoleSecretName, defaultAppRoleTargetNamespace, changed)
 }
 
+func ForceVaultKeyRotation() library.ForceRotationFunc {
+	return RotateVaultTransitKey
+}
+
 // RotateVaultTransitKey rotates the Vault transit encryption key. All old key versions are retained.
 // Reference: https://developer.hashicorp.com/vault/api-docs/secret/transit#rotate-key
 // Steps:
 // 1. Get initial key version
 // 2. Execute 'vault write -f transit/keys/<key-name>/rotate' via oc exec
 // 3. Get new key version and validate it increased
-func RotateVaultTransitKey(ctx context.Context, t testing.TB) {
+func RotateVaultTransitKey(t testing.TB, ctx context.Context) {
 	t.Helper()
 
 	initialVersion := getCurrentKeyVersion(ctx, t)

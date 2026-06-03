@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
@@ -55,6 +56,32 @@ type EncryptionKeyMeta struct {
 }
 
 type UpdateUnsupportedConfigFunc func(raw []byte) error
+
+// ForceRotationFunc triggers a key rotation in a provider-specific way.
+// Static encryption (AES-CBC/AES-GCM) sets encryption.reason in unsupported config;
+// KMS rotates the external KMS key (for example Vault transit).
+type ForceRotationFunc func(t testing.TB, ctx context.Context)
+
+// WaitForRotationCompleteFunc waits until re-migration after rotation has finished.
+// Static encryption waits for the next encryption key secret to be migrated;
+// KMS waits for a new finished entry in KeyRotationStatus, created by the rotation controller.
+type WaitForRotationCompleteFunc func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario)
+
+// StaticEncryptionForceRotation returns a ForceRotationFunc that mints a new key via encryption.reason.
+func StaticEncryptionForceRotation(updateUnsupportedConfig UpdateUnsupportedConfigFunc) ForceRotationFunc {
+	return func(t testing.TB, _ context.Context) {
+		t.Helper()
+		require.NoError(t, ForceKeyRotation(t, updateUnsupportedConfig, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
+	}
+}
+
+// WaitForNextEncryptionKeyRotation waits until a new encryption key secret is fully migrated.
+func WaitForNextEncryptionKeyRotation() WaitForRotationCompleteFunc {
+	return func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario) {
+		t.Helper()
+		WaitForNextMigratedKey(t, clientSet.Kube, prevKeyMeta, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	}
+}
 
 func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
