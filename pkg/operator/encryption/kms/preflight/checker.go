@@ -9,14 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	kmsservice "k8s.io/kms/pkg/service"
 )
-
-// healthzOK is the value the KMS plugin returns when healthy.
-// See https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/kms/apis/v2/api.proto#L39
-const healthzOK = "ok"
 
 // checker runs the preflight check against a KMS plugin by calling
 // Status, Encrypt, and Decrypt on the kmsservice.Service interface.
@@ -60,7 +57,7 @@ func (c *checker) checkStatus(ctx context.Context) error {
 		// we only check healthz here.
 		// version and keyID validation is the apiserver's responsibility,
 		// the preflight check just confirms the plugin is reachable and healthy.
-		if resp.Healthz != healthzOK {
+		if resp.Healthz != kms.HealthzOK {
 			klog.Infof("  not ready: healthz=%q, latency=%v", resp.Healthz, elapsed)
 			return false, nil
 		}

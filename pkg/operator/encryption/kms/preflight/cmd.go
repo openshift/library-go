@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"k8s.io/klog/v2"
 )
 
@@ -51,9 +51,7 @@ func (o *options) validate() error {
 func (o *options) run(ctx context.Context) error {
 	klog.Infof("Running KMS preflight check at %s", kmsSocketEndpoint)
 
-	// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
-	// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, kmsSocketEndpoint, "preflight", o.kmsCallTimeout)
+	service, err := kms.NewGRPCService(ctx, kmsSocketEndpoint, "preflight", o.kmsCallTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to create KMS gRPC client: %w", err)
 	}
