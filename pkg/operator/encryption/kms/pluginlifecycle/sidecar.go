@@ -14,6 +14,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
+)
+
+const (
+	resourceDirVolumeName = "resource-dir"
+	credentialsVolumeName = "kms-plugin-credentials"
+	credentialsMountPath  = "/var/run/secrets/kms-plugin"
+	resourcesDir          = "/etc/kubernetes/static-pod-resources"
 )
 
 const (
@@ -29,7 +37,8 @@ type sidecarProvider interface {
 	BuildSidecarContainer() (corev1.Container, error)
 }
 
-// newSidecarProvider creates a provider-specific SidecarProvider for the given keyID, UDS endpoint, and plugin configuration.
+// newSidecarProvider creates a provider-specific sidecarProvider for the given keyID and plugin configuration,
+// wiring in credentials from secretData and the on-disk credentialsDir.
 func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
@@ -39,56 +48,120 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 	}
 }
 
-// AddKMSPluginSidecarToPodSpec discovers KMS plugins from the encryption-config secret and injects a sidecar container for each one into the pod spec.
+// AddKMSPluginSidecarToStaticPodSpec injects KMS plugin sidecar containers into a kube-apiserver static pod spec.
+//
+// Static pods access credentials through the resource-dir volume, which the static pod revision controller
+// populates on disk from the encryption-config Secret. Because those files are owned by root, each sidecar
+// is configured to run as UID 0.
+//
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
-// It uses an uncached client to avoid injecting sidecars based on a stale encryption configuration.
+// The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
+func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor)
+	if err != nil {
+		return err
+	}
+
+	// Don't touch the pod spec further when there are no sidecars.
+	if len(sidecarNames) == 0 {
+		return nil
+	}
+
+	for _, name := range sidecarNames {
+		volumeMount := corev1.VolumeMount{Name: resourceDirVolumeName, MountPath: resourcesDir, ReadOnly: true}
+		if err := ensureVolumeMountInContainer(podSpec.InitContainers, name, volumeMount); err != nil {
+			return err
+		}
+		// The resource-dir files are owned by root, so the sidecar needs root to read credential files.
+		if err := setRunAsUser(podSpec.InitContainers, name, 0); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddKMSPluginSidecarToPodSpec injects KMS plugin sidecar containers into an aggregated API server pod spec (e.g., openshift-apiserver, oauth-apiserver).
+//
+// It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
+// The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
 func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor)
+	if err != nil {
+		return err
+	}
+
+	// Don't touch the pod spec further when there are no sidecars.
+	if len(sidecarNames) == 0 {
+		return nil
+	}
+
+	for _, name := range sidecarNames {
+		volumeMount := corev1.VolumeMount{Name: credentialsVolumeName, MountPath: credentialsMountPath, ReadOnly: true}
+		if err := ensureVolumeMountInContainer(podSpec.InitContainers, name, volumeMount); err != nil {
+			return err
+		}
+	}
+
+	// Unlike static pods, aggregated API servers access credentials by mounting the encryption-config Secret directly as a volume.
+	// Callers include the revision number in encryptionConfigSecretName (e.g. "encryption-config-7"), so each revision maps to a distinct Secret and volume.
+	if err := ensureCredentialsVolume(podSpec, encryptionConfigSecretName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// addKMSPluginSidecars contains the shared logic for discovering KMS plugins and injecting sidecar containers.
+// It returns the names of the sidecar containers that were injected, so callers can add deployment-mode-specific volume mounts.
+func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) ([]string, error) {
 	if podSpec == nil {
-		return fmt.Errorf("pod spec cannot be nil")
+		return nil, fmt.Errorf("pod spec cannot be nil")
 	}
 
 	if containerName == "" {
-		return fmt.Errorf("container name cannot be empty")
+		return nil, fmt.Errorf("container name cannot be empty")
 	}
 
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
-		return nil
+		return nil, nil
 	}
 
 	featureGates, err := featureGateAccessor.CurrentFeatureGates()
 	if err != nil {
-		return fmt.Errorf("failed to get feature gates: %w", err)
+		return nil, fmt.Errorf("failed to get feature gates: %w", err)
 	}
 
 	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
-		return nil
+		return nil, nil
 	}
 
 	encryptionConfigurationSecret, err := secretClient.Secrets(encryptionConfigNamespace).Get(ctx, encryptionConfigSecretName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		klog.V(4).Infof("skipping KMS sidecar injection: %s/%s secret not found", encryptionConfigNamespace, encryptionConfigSecretName)
-		return nil
+		return nil, nil
 	}
 	if err != nil {
-		return fmt.Errorf("failed to get %s/%s secret: %w", encryptionConfigNamespace, encryptionConfigSecretName, err)
+		return nil, fmt.Errorf("failed to get %s/%s secret: %w", encryptionConfigNamespace, encryptionConfigSecretName, err)
 	}
 
 	encryptionConfig, err := encryptiondata.FromSecret(encryptionConfigurationSecret)
 	if err != nil {
-		return fmt.Errorf("failed to extract encryption config from %s/%s secret: %w", encryptionConfigNamespace, encryptionConfigSecretName, err)
+		return nil, fmt.Errorf("failed to extract encryption config from %s/%s secret: %w", encryptionConfigNamespace, encryptionConfigSecretName, err)
 	}
 
 	kmsConfigurations, err := encryptiondata.ExtractUniqueAndSortedKMSConfigurations(encryptionConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get KMS configurations: %w", err)
+		return nil, fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
 	if len(kmsConfigurations) == 0 {
 		klog.V(4).Infof("skipping KMS sidecar injection: no KMS plugins found in EncryptionConfiguration")
-		return nil
+		return nil, nil
 	}
 
 	klog.V(4).Infof("injecting %d KMS sidecar(s)", len(kmsConfigurations))
 
+	var sidecarNames []string
 	socketVolumeMount := corev1.VolumeMount{Name: kmsPluginSocketVolumeName, MountPath: kmsPluginSocketMountPath, ReadOnly: false}
 	for _, kmsConfiguration := range kmsConfigurations {
 		// ExtractUniqueAndSortedKMSConfigurations function rewrites the .Name field to include only the key ID
@@ -97,31 +170,35 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 		pluginConfig, ok := encryptionConfig.KMSPlugins[keyID]
 		if !ok {
-			return fmt.Errorf("missing plugin config for keyID %s", keyID)
+			return nil, fmt.Errorf("missing plugin config for keyID %s", keyID)
 		}
 
-		sidecarProvider, err := newSidecarProvider(keyID, udsPath, pluginConfig)
+		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig)
 		if err != nil {
-			return fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
+			return nil, fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
 		}
 
-		if err := ensureSidecarContainer(podSpec, sidecarProvider); err != nil {
-			return err
+		if err := ensureSidecarContainer(podSpec, provider); err != nil {
+			return nil, err
 		}
 
-		if err := ensureVolumeMountInContainer(podSpec.InitContainers, sidecarProvider.Name(), socketVolumeMount); err != nil {
-			return err
+		if err := ensureVolumeMountInContainer(podSpec.InitContainers, provider.Name(), socketVolumeMount); err != nil {
+			return nil, err
 		}
+
+		sidecarNames = append(sidecarNames, provider.Name())
 	}
 
 	if err := ensureVolumeMountInContainer(podSpec.Containers, containerName, socketVolumeMount); err != nil {
-		return err
+		return nil, err
 	}
 
 	// The volume mount in the kube-apiserver and KMS plugin containers requires a volume in the podSpec
-	ensureSocketVolume(podSpec)
+	if err := ensureSocketVolume(podSpec); err != nil {
+		return nil, err
+	}
 
-	return nil
+	return sidecarNames, nil
 }
 
 func ensureSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) error {
@@ -167,19 +244,50 @@ func ensureVolumeMountInContainer(containers []corev1.Container, containerName s
 	return nil
 }
 
-func ensureSocketVolume(podSpec *corev1.PodSpec) {
-	for _, volume := range podSpec.Volumes {
-		if volume.Name == kmsPluginSocketVolumeName {
-			return
+func ensureVolume(podSpec *corev1.PodSpec, volume corev1.Volume) error {
+	for _, v := range podSpec.Volumes {
+		if v.Name == volume.Name {
+			if !equality.Semantic.DeepEqual(v, volume) {
+				return fmt.Errorf("pod already has volume %s with different settings", v.Name)
+			}
+			return nil
 		}
 	}
+	podSpec.Volumes = append(podSpec.Volumes, volume)
+	return nil
+}
 
-	podSpec.Volumes = append(podSpec.Volumes,
-		corev1.Volume{
-			Name: kmsPluginSocketVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+func ensureSocketVolume(podSpec *corev1.PodSpec) error {
+	volume := corev1.Volume{
+		Name: kmsPluginSocketVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	return ensureVolume(podSpec, volume)
+}
+
+func ensureCredentialsVolume(podSpec *corev1.PodSpec, secretName string) error {
+	volume := corev1.Volume{
+		Name: credentialsVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
 			},
 		},
-	)
+	}
+	return ensureVolume(podSpec, volume)
+}
+
+func setRunAsUser(containers []corev1.Container, containerName string, uid int64) error {
+	for i, c := range containers {
+		if c.Name == containerName {
+			if c.SecurityContext == nil {
+				containers[i].SecurityContext = &corev1.SecurityContext{}
+			}
+			containers[i].SecurityContext.RunAsUser = ptr.To(uid)
+			return nil
+		}
+	}
+	return fmt.Errorf("container %s not found", containerName)
 }

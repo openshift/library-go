@@ -42,7 +42,7 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
 				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-kms-credentials"},
+					Secret: configv1.VaultSecretReference{Name: "vault-approle"},
 				},
 			},
 		},
@@ -78,6 +78,8 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 		Data: map[string][]byte{
 			"encryption-config": encryptionConfigBytes,
 			pluginConfigKey:     pluginConfigBytes,
+			"kms-plugin-secret-vault-approle_role-id-555":   []byte("test-role-id"),
+			"kms-plugin-secret-vault-approle_secret-id-555": []byte("test-secret-id"),
 		},
 	}
 
@@ -121,10 +123,23 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 		Name:      "kms-plugin-socket",
 		MountPath: "/var/run/kmsplugin",
 	}
+	credentialsMount := corev1.VolumeMount{
+		Name:      "kms-plugin-credentials",
+		MountPath: "/var/run/secrets/kms-plugin",
+		ReadOnly:  true,
+	}
 	socketVolume := corev1.Volume{
 		Name: "kms-plugin-socket",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	credentialsVolume := corev1.Volume{
+		Name: "kms-plugin-credentials",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: "encryption-config",
+			},
 		},
 	}
 	tests := []struct {
@@ -164,10 +179,10 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
-						VolumeMounts: []corev1.VolumeMount{socketMount},
+						VolumeMounts: []corev1.VolumeMount{socketMount, credentialsMount},
 					},
 				},
-				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, credentialsVolume},
 			},
 			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
@@ -210,7 +225,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
-						VolumeMounts: []corev1.VolumeMount{socketMount},
+						VolumeMounts: []corev1.VolumeMount{socketMount, credentialsMount},
 					},
 					{
 						Name:  "vault-kms-plugin-555",
@@ -234,10 +249,10 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
-						VolumeMounts: []corev1.VolumeMount{socketMount},
+						VolumeMounts: []corev1.VolumeMount{socketMount, credentialsMount},
 					},
 				},
-				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, credentialsVolume},
 			},
 			secretClient: func() corev1client.SecretsGetter {
 				vaultConfig2 := &configv1.KMSPluginConfig{
@@ -248,6 +263,12 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						VaultNamespace: "other-namespace",
 						TransitKey:     "other-key",
 						TransitMount:   "transit2",
+						Authentication: configv1.VaultAuthentication{
+							Type: configv1.VaultAuthenticationTypeAppRole,
+							AppRole: configv1.VaultAppRoleAuthentication{
+								Secret: configv1.VaultSecretReference{Name: "vault-approle-2"},
+							},
+						},
 					},
 				}
 				pluginConfig2Bytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig2)
@@ -290,6 +311,10 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						"encryption-config": multiEncConfigBytes,
 						f.pluginConfigKey:   f.pluginConfigBytes,
 						pluginConfigKey2:    pluginConfig2Bytes,
+						"kms-plugin-secret-vault-approle_role-id-555":     []byte("test-role-id"),
+						"kms-plugin-secret-vault-approle_secret-id-555":   []byte("test-secret-id"),
+						"kms-plugin-secret-vault-approle-2_role-id-777":   []byte("test-role-id-777"),
+						"kms-plugin-secret-vault-approle-2_secret-id-777": []byte("test-secret-id-777"),
 					},
 				})
 			}(),
@@ -447,10 +472,10 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 								corev1.ResourceCPU:    resource.MustParse("10m"),
 							},
 						},
-						VolumeMounts: []corev1.VolumeMount{socketMount},
+						VolumeMounts: []corev1.VolumeMount{socketMount, credentialsMount},
 					},
 				},
-				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, credentialsVolume},
 			},
 			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
