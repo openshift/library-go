@@ -552,15 +552,29 @@ func TestServerCertRegeneration(t *testing.T) {
 	require.True(t, created)
 }
 
+// ciphersUnsupportedByGo lists cipher suites that are defined in the OpenShift API
+// TLS profiles (from the Mozilla guidelines) but are not supported by Go's crypto/tls.
+// These are intentionally excluded from openSSLToIANACiphersMap and silently filtered
+// out during profile translation.
+var ciphersUnsupportedByGo = map[string]struct{}{
+	"ECDHE-ECDSA-AES256-SHA384": {},
+	"ECDHE-RSA-AES256-SHA384":   {},
+	"AES256-SHA256":             {},
+}
+
 // TestTLSProfileCipherSuitesHaveMappings verifies that all cipher suites defined
 // in the OpenShift TLS security profiles have corresponding mappings in
 // openSSLToIANACiphersMap. This ensures that when TLS profiles are translated
 // from OpenSSL format to IANA format, no ciphers are silently dropped.
+// Ciphers that Go's crypto/tls does not support are excluded from this check.
 func TestTLSProfileCipherSuitesHaveMappings(t *testing.T) {
 	var missingMappings []string
 
 	for profileType, profileSpec := range configv1.TLSProfiles {
 		for _, cipher := range profileSpec.Ciphers {
+			if _, unsupported := ciphersUnsupportedByGo[cipher]; unsupported {
+				continue
+			}
 			if _, found := openSSLToIANACiphersMap[cipher]; !found {
 				missingMappings = append(missingMappings, fmt.Sprintf("%s (profile: %s)", cipher, profileType))
 			}
