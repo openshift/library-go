@@ -200,8 +200,8 @@ func TestRoundtrip(t *testing.T) {
 						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 					},
 					Plugin: defaultKMSPluginConfig,
-					PluginSecretData: func() state.KMSSecretData {
-						var sd state.KMSSecretData
+					PluginSecretData: func() state.KMSReferenceData {
+						var sd state.KMSReferenceData
 						sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))
 						sd.Set("vault-approle-secret", "secret-id", []byte("test-secret-id"))
 						return sd

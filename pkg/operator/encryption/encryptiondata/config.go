@@ -32,34 +32,34 @@ type Config struct {
 	KMSPlugins map[string]configv1.KMSPluginConfig
 	// KMSPluginsSecretData maps keyID to secret data carried from
 	// Key Secrets into the encryption-config Secret.
-	// Structure: keyID → secretName → dataKey → value.
-	KMSPluginsSecretData KMSPluginsSecretData
+	// Structure: keyID → referenceName → dataKey → value.
+	KMSPluginsSecretData KMSPluginsReferenceData
 }
 
-// KMSPluginsSecretData maps keyID to secret data carried from Key Secrets into
-// the encryption-config Secret. Structure: keyID → secretName → dataKey → value.
-type KMSPluginsSecretData struct {
-	byKeyID map[string]state.KMSSecretData
+// KMSPluginsReferenceData maps keyID to reference data carried from Key Secrets into
+// the encryption-config Secret. Structure: keyID → referenceName → dataKey → value.
+type KMSPluginsReferenceData struct {
+	byKeyID map[string]state.KMSReferenceData
 }
 
-// Get returns the KMSSecretData for the given keyID and true if it exists,
+// Get returns the KMSReferenceData for the given keyID and true if it exists,
 // or a zero value and false otherwise. It is safe to call on a nil map.
-func (d *KMSPluginsSecretData) Get(keyID string) (state.KMSSecretData, bool) {
+func (d *KMSPluginsReferenceData) Get(keyID string) (state.KMSReferenceData, bool) {
 	if d.byKeyID == nil {
-		return state.KMSSecretData{}, false
+		return state.KMSReferenceData{}, false
 	}
 	sd, ok := d.byKeyID[keyID]
 	return sd, ok
 }
 
 // SetFromRawKey stores a value for the given keyID, splitting rawKey
-// on "_" into secretName and dataKey.
-func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte) error {
+// on "_" into referenceName and dataKey.
+func (d *KMSPluginsReferenceData) SetFromRawKey(keyID, rawKey string, value []byte) error {
 	if len(keyID) == 0 {
 		return fmt.Errorf("keyID must not be empty")
 	}
 	if d.byKeyID == nil {
-		d.byKeyID = map[string]state.KMSSecretData{}
+		d.byKeyID = map[string]state.KMSReferenceData{}
 	}
 	sd := d.byKeyID[keyID]
 	if err := sd.SetFromRawKey(rawKey, value); err != nil {
@@ -70,8 +70,8 @@ func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte)
 }
 
 // FlatEntriesByKeyID returns the stored data as a map of keyID to flat entries,
-// where each flat entry is keyed by "secretName_dataKey".
-func (d *KMSPluginsSecretData) FlatEntriesByKeyID() map[string]map[string][]byte {
+// where each flat entry is keyed by "referenceName_dataKey".
+func (d *KMSPluginsReferenceData) FlatEntriesByKeyID() map[string]map[string][]byte {
 	if d.byKeyID == nil {
 		return nil
 	}
@@ -92,7 +92,7 @@ func (c *Config) HasEncryptionConfiguration() bool {
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 	var kmsPlugins map[string]configv1.KMSPluginConfig
-	var kmsPluginsSecretData KMSPluginsSecretData
+	var kmsPluginsSecretData KMSPluginsReferenceData
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
