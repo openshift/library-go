@@ -109,13 +109,13 @@ func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, 
 	}
 
 	if prevKeyMeta.Mode == encryptionMode {
-		waitForNoNewEncryptionKey(t, kubeClient, prevKeyMeta, namespace, labelSelector)
+		WaitForNoNewEncryptionKey(t, kubeClient, prevKeyMeta, namespace, labelSelector)
 		return
 	}
 	WaitForNextMigratedKey(t, kubeClient, prevKeyMeta, defaultTargetGRs, namespace, labelSelector)
 }
 
-func waitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, namespace, labelSelector string) {
+func WaitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, namespace, labelSelector string) {
 	t.Helper()
 	// given that the happy path scenario needs ~30 min
 	// waiting 5 min to see if a new key hasn't been created seems to be enough.
@@ -317,6 +317,30 @@ func determineNextEncryptionKeyName(prevKeyName, labelSelector string) (string, 
 
 	// no encryption key - the first one will look like the following
 	return fmt.Sprintf("encryption-key-%s-1", ret[1]), nil
+}
+
+// WaitForPodImagePullBackOff polls pods in the given namespace until at least one pod
+// has a container stuck in ImagePullBackOff or ErrImagePull.
+func WaitForPodImagePullBackOff(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector string, timeout time.Duration) {
+	t.Helper()
+	t.Logf("Waiting up to %s for a pod in %s (selector=%s) to enter ImagePullBackOff", timeout, namespace, labelSelector)
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			for _, cs := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+				if cs.State.Waiting != nil && (cs.State.Waiting.Reason == "ImagePullBackOff" || cs.State.Waiting.Reason == "ErrImagePull") {
+					t.Logf("Pod %s container %s is in %s", pod.Name, cs.Name, cs.State.Waiting.Reason)
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err, "timed out waiting for pod to enter ImagePullBackOff in namespace %s", namespace)
 }
 
 func setUpTearDown(namespace string) func(testing.TB, bool) {
