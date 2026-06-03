@@ -91,7 +91,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	// which is then split on "_" to recover secretName and dataKey.
 	var kmsPluginsSecretData KMSPluginsSecretData
 	for key, value := range encryptionConfigSecret.Data {
-		keyID, rawKey, found, err := parseSecretDataKey(key)
+		keyID, rawKey, found, err := parseKMSSecretDataKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse secret data key %s: %w", key, err)
 		}
@@ -151,8 +151,8 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 	// Each entry from FlatEntries() (e.g. "app-role_role-id") is combined with the keyID
 	// (e.g. "1") to produce "kms-plugin-secret-app-role_role-id-1".
 	for keyID, flatEntries := range secretData.KMSPluginsSecretData.FlatEntriesByKeyID() {
-		for flatKey, value := range flatEntries {
-			s.Data[encryptionConfigSecretDataPrefix+flatKey+"-"+keyID] = value
+		for rawKey, value := range flatEntries {
+			s.Data[FormatKMSSecretDataKey(rawKey, keyID)] = value
 		}
 	}
 
@@ -202,7 +202,19 @@ func ExtractUniqueAndSortedKMSConfigurations(secretData *Config) ([]*apiserverco
 	return result, nil
 }
 
-func parseSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
+// FormatKMSSecretDataKey returns the data key used in the encryption-config Secret
+// for a KMS plugin secret entry: "kms-plugin-secret-{rawKey}-{keyID}",
+// where rawKey is the combined "secretName_dataKey" from KMSSecretData.FlatEntry.
+//
+// Note:
+//
+// It does not validate inputs. The callers are expected to use KMSSecretData.Set,
+// which rejects empty values and underscores in secretName.
+func FormatKMSSecretDataKey(rawKey, keyID string) string {
+	return fmt.Sprintf("%s%s-%s", encryptionConfigSecretDataPrefix, rawKey, keyID)
+}
+
+func parseKMSSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
 	rest, found := strings.CutPrefix(dataKey, encryptionConfigSecretDataPrefix)
 	if !found {
 		return "", "", false, nil
