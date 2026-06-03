@@ -89,7 +89,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	// (e.g. "kms-plugin-secret-app-role_role-id-1"). keyIDFromSecretDataKey
 	// returns the keyID (e.g. "1") and the combined key (e.g. "app-role_role-id"),
 	// which is then split on "_" to recover secretName and dataKey.
-	var kmsPluginsSecretData KMSPluginsSecretData
+	var kmsPluginsSecretData KMSPluginsReferenceData
 	for key, value := range encryptionConfigSecret.Data {
 		keyID, rawKey, found, err := parseKMSSecretDataKey(key)
 		if err != nil {

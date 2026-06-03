@@ -6,21 +6,21 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestKMSSecretDataSet(t *testing.T) {
+func TestKMSReferenceDataSet(t *testing.T) {
 	tests := []struct {
 		name       string
 		secretName string
 		dataKey    string
 		value      []byte
 		wantErr    bool
-		expected   KMSSecretData
+		expected   KMSReferenceData
 	}{
 		{
 			name:       "valid set",
 			secretName: "vault-approle-secret",
 			dataKey:    "role-id",
 			value:      []byte("test-role-id"),
-			expected: KMSSecretData{entries: map[string]map[string][]byte{
+			expected: KMSReferenceData{entries: map[string]map[string][]byte{
 				"vault-approle-secret": {"role-id": []byte("test-role-id")},
 			}},
 		},
@@ -74,7 +74,7 @@ func TestKMSSecretDataSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var d KMSSecretData
+			var d KMSReferenceData
 			err := d.Set(tt.secretName, tt.dataKey, tt.value)
 			if tt.wantErr {
 				if err == nil {
@@ -85,26 +85,26 @@ func TestKMSSecretDataSet(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(tt.expected, d, cmp.AllowUnexported(KMSSecretData{})); diff != "" {
+			if diff := cmp.Diff(tt.expected, d, cmp.AllowUnexported(KMSReferenceData{})); diff != "" {
 				t.Errorf("unexpected result (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
-func TestKMSSecretDataSetFromRawKey(t *testing.T) {
+func TestKMSReferenceDataSetFromRawKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		rawKey   string
 		value    []byte
 		wantErr  bool
-		expected KMSSecretData
+		expected KMSReferenceData
 	}{
 		{
 			name:   "valid raw key",
 			rawKey: "vault-approle-secret_role-id",
 			value:  []byte("test-role-id"),
-			expected: KMSSecretData{entries: map[string]map[string][]byte{
+			expected: KMSReferenceData{entries: map[string]map[string][]byte{
 				"vault-approle-secret": {"role-id": []byte("test-role-id")},
 			}},
 		},
@@ -118,7 +118,7 @@ func TestKMSSecretDataSetFromRawKey(t *testing.T) {
 			name:   "multiple underscores splits on first only",
 			rawKey: "vault_approle_secret_role-id",
 			value:  []byte("v"),
-			expected: KMSSecretData{entries: map[string]map[string][]byte{
+			expected: KMSReferenceData{entries: map[string]map[string][]byte{
 				"vault": {"approle_secret_role-id": []byte("v")},
 			}},
 		},
@@ -138,7 +138,7 @@ func TestKMSSecretDataSetFromRawKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var d KMSSecretData
+			var d KMSReferenceData
 			err := d.SetFromRawKey(tt.rawKey, tt.value)
 			if tt.wantErr {
 				if err == nil {
@@ -149,15 +149,15 @@ func TestKMSSecretDataSetFromRawKey(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(tt.expected, d, cmp.AllowUnexported(KMSSecretData{})); diff != "" {
+			if diff := cmp.Diff(tt.expected, d, cmp.AllowUnexported(KMSReferenceData{})); diff != "" {
 				t.Errorf("unexpected result (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
-func TestKMSSecretDataFlatEntries(t *testing.T) {
-	d := KMSSecretData{entries: map[string]map[string][]byte{
+func TestKMSReferenceDataFlatEntries(t *testing.T) {
+	d := KMSReferenceData{entries: map[string]map[string][]byte{
 		"vault-approle-secret": {
 			"role-id":   []byte("test-role-id"),
 			"secret-id": []byte("test-secret-id"),
@@ -169,12 +169,12 @@ func TestKMSSecretDataFlatEntries(t *testing.T) {
 		"vault-approle-secret_secret-id": []byte("test-secret-id"),
 	}
 
-	if diff := cmp.Diff(expected, d.FlatEntries(), cmp.AllowUnexported(KMSSecretData{})); diff != "" {
+	if diff := cmp.Diff(expected, d.FlatEntries(), cmp.AllowUnexported(KMSReferenceData{})); diff != "" {
 		t.Errorf("unexpected result (-want +got):\n%s", diff)
 	}
 
 	// zero value returns nil
-	var empty KMSSecretData
+	var empty KMSReferenceData
 	if empty.FlatEntries() != nil {
 		t.Errorf("expected nil, got %v", empty.FlatEntries())
 	}

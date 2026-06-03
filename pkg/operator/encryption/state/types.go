@@ -18,10 +18,10 @@ const (
 Altering of the encryption secrets will render you cluster inaccessible.
 Catastrophic data loss can occur from the most minor changes.`
 
-	// secretDataKeySeparator separates the secret name from the data key.
+	// referenceDataKeySeparator separates the reference name from the data key.
 	// Underscore is used because it is forbidden in Kubernetes secret/configmap
 	// names, preventing collisions.
-	secretDataKeySeparator = "_"
+	referenceDataKeySeparator = "_"
 )
 
 // GroupResourceState represents, for a single group resource, the write and read keys in a
@@ -73,25 +73,25 @@ type KMSState struct {
 	Plugin configv1.KMSPluginConfig
 
 	// PluginSecretData stores data key-value pairs fetched from referenced secrets.
-	PluginSecretData KMSSecretData
+	PluginSecretData KMSReferenceData
 }
 
-// KMSSecretData stores data key-value pairs fetched from referenced secrets.
-// entries maps secret names to their data key-value pairs.
-type KMSSecretData struct {
+// KMSReferenceData stores data key-value pairs fetched from referenced secrets or configmaps.
+// entries maps reference names (secret or configmap) to their data key-value pairs.
+type KMSReferenceData struct {
 	entries map[string]map[string][]byte
 }
 
-// Get returns the value for the given secretName and dataKey. It returns false if
-// secretName or dataKey is empty, if Entries is nil, or if the key does not exist.
-func (d *KMSSecretData) Get(secretName, dataKey string) ([]byte, bool) {
-	if len(secretName) == 0 || len(dataKey) == 0 {
+// Get returns the value for the given referenceName and dataKey. It returns false if
+// referenceName or dataKey is empty, if Entries is nil, or if the key does not exist.
+func (d *KMSReferenceData) Get(referenceName, dataKey string) ([]byte, bool) {
+	if len(referenceName) == 0 || len(dataKey) == 0 {
 		return nil, false
 	}
 	if d.entries == nil {
 		return nil, false
 	}
-	secretEntries, ok := d.entries[secretName]
+	secretEntries, ok := d.entries[referenceName]
 	if !ok {
 		return nil, false
 	}
@@ -99,50 +99,54 @@ func (d *KMSSecretData) Get(secretName, dataKey string) ([]byte, bool) {
 	return value, ok
 }
 
-func (d *KMSSecretData) Set(secretName, dataKey string, value []byte) error {
-	if len(secretName) == 0 || len(dataKey) == 0 || len(value) == 0 {
-		return fmt.Errorf("secretName, dataKey, and value must not be empty")
+func (d *KMSReferenceData) Set(referenceName, dataKey string, value []byte) error {
+	if len(referenceName) == 0 || len(dataKey) == 0 || len(value) == 0 {
+		return fmt.Errorf("referenceName, dataKey, and value must not be empty")
 	}
-	if strings.Contains(secretName, "_") {
-		return fmt.Errorf("secret name %q must not contain underscores", secretName)
+	if strings.Contains(referenceName, "_") {
+		return fmt.Errorf("referenceName name %q must not contain underscores", referenceName)
 	}
 	if d.entries == nil {
 		d.entries = map[string]map[string][]byte{}
 	}
-	if d.entries[secretName] == nil {
-		d.entries[secretName] = map[string][]byte{}
+	if d.entries[referenceName] == nil {
+		d.entries[referenceName] = map[string][]byte{}
 	}
-	d.entries[secretName][dataKey] = value
+	d.entries[referenceName][dataKey] = value
 	return nil
 }
 
-// SetFromRawKey splits a combined key of the form "secretName_dataKey"
+// SetFromRawKey splits a combined key of the form "referenceName_dataKey"
 // and stores the value.
-func (d *KMSSecretData) SetFromRawKey(rawKey string, value []byte) error {
-	parts := strings.SplitN(rawKey, secretDataKeySeparator, 2)
+func (d *KMSReferenceData) SetFromRawKey(rawKey string, value []byte) error {
+	parts := strings.SplitN(rawKey, referenceDataKeySeparator, 2)
 	if len(parts) != 2 {
-		return fmt.Errorf("invalid combined key %q: expected format {secretName}%s{dataKey}", rawKey, secretDataKeySeparator)
+		return fmt.Errorf("invalid combined key %q: expected format {referenceName}%s{dataKey}", rawKey, referenceDataKeySeparator)
 	}
 	return d.Set(parts[0], parts[1], value)
 }
 
-// FlatEntry returns the combined key "secretName_dataKey" for a stored entry.
-// It returns false if the entry does not exist.
-func (d *KMSSecretData) FlatEntry(secretName, dataKey string) (string, bool) {
-	if _, ok := d.Get(secretName, dataKey); !ok {
+// FlatEntry returns the combined key "referenceName_dataKey" used in flat representations.
+//
+// Note:
+//
+// It does not validate inputs. The callers are expected to use Set,
+// which rejects empty values and underscores in referenceName.
+func (d *KMSReferenceData) FlatEntry(referenceName, dataKey string) (string, bool) {
+	if _, ok := d.Get(referenceName, dataKey); !ok {
 		return "", false
 	}
-	return d.flatEntry(secretName, dataKey), true
+	return d.flatEntry(referenceName, dataKey), true
 }
 
-func (d *KMSSecretData) flatEntry(secretName, dataKey string) string {
-	return secretName + secretDataKeySeparator + dataKey
+func (d *KMSReferenceData) flatEntry(referenceName, dataKey string) string {
+	return referenceName + referenceDataKeySeparator + dataKey
 }
 
-// FlatEntries returns the stored data as a flat map keyed by "secretName_dataKey".
-// "_" separates secretName from dataKey because "_" is forbidden in
-// Kubernetes secret names, making the split unambiguous.
-func (d *KMSSecretData) FlatEntries() map[string][]byte {
+// FlatEntries returns the stored data as a flat map keyed by "referenceName_dataKey".
+// "_" separates referenceName from dataKey because "_" is forbidden in
+// Kubernetes secret/configmap names, making the split unambiguous.
+func (d *KMSReferenceData) FlatEntries() map[string][]byte {
 	if d.entries == nil {
 		return nil
 	}
