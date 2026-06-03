@@ -815,13 +815,12 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
 							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
-							PluginSecretData: state.KMSSecretData{
-								Entries: map[string]map[string][]byte{
-									"vault-approle-secret": {
-										"role-id":   []byte("test-role-id"),
-										"secret-id": []byte("test-secret-id"),
-									},
-								}},
+							PluginSecretData: func() state.KMSSecretData {
+								var sd state.KMSSecretData
+								sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))
+								sd.Set("vault-approle-secret", "secret-id", []byte("test-secret-id"))
+								return sd
+							}(),
 						},
 					}},
 				},
@@ -832,13 +831,12 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
 							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
-							PluginSecretData: state.KMSSecretData{
-								Entries: map[string]map[string][]byte{
-									"vault-approle-secret": {
-										"role-id":   []byte("test-role-id"),
-										"secret-id": []byte("test-secret-id"),
-									},
-								}},
+							PluginSecretData: func() state.KMSSecretData {
+								var sd state.KMSSecretData
+								sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))
+								sd.Set("vault-approle-secret", "secret-id", []byte("test-secret-id"))
+								return sd
+							}(),
 						},
 					}},
 				},
@@ -860,12 +858,11 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
 							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
-							PluginSecretData: state.KMSSecretData{
-								Entries: map[string]map[string][]byte{
-									"vault-approle-secret": {
-										"role-id": []byte("role-id-a"),
-									},
-								}},
+							PluginSecretData: func() state.KMSSecretData {
+								var sd state.KMSSecretData
+								sd.Set("vault-approle-secret", "role-id", []byte("role-id-a"))
+								return sd
+							}(),
 						},
 					}},
 				},
@@ -876,12 +873,11 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
 							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
-							PluginSecretData: state.KMSSecretData{
-								Entries: map[string]map[string][]byte{
-									"vault-approle-secret": {
-										"role-id": []byte("role-id-b"),
-									},
-								}},
+							PluginSecretData: func() state.KMSSecretData {
+								var sd state.KMSSecretData
+								sd.Set("vault-approle-secret", "role-id", []byte("role-id-b"))
+								return sd
+							}(),
 						},
 					}},
 				},
@@ -920,7 +916,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{}, state.KMSSecretData{})
 			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt) {
 				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt))
 			}
@@ -1104,7 +1100,7 @@ func TestSecretRoundtrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("FromSecret() error: %v", err)
 			}
-			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{}, state.KMSSecretData{})
 			if !cmp.Equal(tt.cfg, got, cmpOpt) {
 				t.Errorf("roundtrip mismatch:\n%s", cmp.Diff(tt.cfg, got, cmpOpt))
 			}
@@ -1280,7 +1276,7 @@ func TestFromSecretSecretData(t *testing.T) {
 			if err != nil {
 				t.Fatalf("FromSecret() error: %v", err)
 			}
-			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{})
+			cmpOpt := cmp.AllowUnexported(encryptiondata.KMSPluginsSecretData{}, state.KMSSecretData{})
 			if !cmp.Equal(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt) {
 				t.Fatalf("unexpected secret data: %s", cmp.Diff(tt.expectedData, cfg.KMSPluginsSecretData, cmpOpt))
 			}

@@ -61,7 +61,7 @@ func (k *KeyState) HasKMSPlugin() bool {
 }
 
 func (k *KeyState) HasKMSSecretData() bool {
-	return k != nil && k.KMS != nil && len(k.KMS.PluginSecretData.Entries) > 0
+	return k != nil && k.KMS != nil && len(k.KMS.PluginSecretData.entries) > 0
 }
 
 // KMSState stores all KMS encryption mode related configurations
@@ -77,9 +77,9 @@ type KMSState struct {
 }
 
 // KMSSecretData stores data key-value pairs fetched from referenced secrets.
-// Entries maps secret names to their data key-value pairs.
+// entries maps secret names to their data key-value pairs.
 type KMSSecretData struct {
-	Entries map[string]map[string][]byte
+	entries map[string]map[string][]byte
 }
 
 // Get returns the value for the given secretName and dataKey. It returns false if
@@ -88,10 +88,10 @@ func (d *KMSSecretData) Get(secretName, dataKey string) ([]byte, bool) {
 	if len(secretName) == 0 || len(dataKey) == 0 {
 		return nil, false
 	}
-	if d.Entries == nil {
+	if d.entries == nil {
 		return nil, false
 	}
-	secretEntries, ok := d.Entries[secretName]
+	secretEntries, ok := d.entries[secretName]
 	if !ok {
 		return nil, false
 	}
@@ -106,13 +106,13 @@ func (d *KMSSecretData) Set(secretName, dataKey string, value []byte) error {
 	if strings.Contains(secretName, "_") {
 		return fmt.Errorf("secret name %q must not contain underscores", secretName)
 	}
-	if d.Entries == nil {
-		d.Entries = map[string]map[string][]byte{}
+	if d.entries == nil {
+		d.entries = map[string]map[string][]byte{}
 	}
-	if d.Entries[secretName] == nil {
-		d.Entries[secretName] = map[string][]byte{}
+	if d.entries[secretName] == nil {
+		d.entries[secretName] = map[string][]byte{}
 	}
-	d.Entries[secretName][dataKey] = value
+	d.entries[secretName][dataKey] = value
 	return nil
 }
 
@@ -130,11 +130,11 @@ func (d *KMSSecretData) SetFromRawKey(rawKey string, value []byte) error {
 // "_" separates secretName from dataKey because "_" is forbidden in
 // Kubernetes secret names, making the split unambiguous.
 func (d *KMSSecretData) FlatEntries() map[string][]byte {
-	if d.Entries == nil {
+	if d.entries == nil {
 		return nil
 	}
 	result := map[string][]byte{}
-	for secretName, keys := range d.Entries {
+	for secretName, keys := range d.entries {
 		for dataKey, value := range keys {
 			result[secretName+secretDataKeySeparator+dataKey] = value
 		}
