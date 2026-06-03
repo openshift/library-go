@@ -421,7 +421,7 @@ func TestParseSecretDataKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keyID, rawKey, found, err := parseSecretDataKey(tt.dataKey)
+			keyID, rawKey, found, err := parseKMSSecretDataKey(tt.dataKey)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")

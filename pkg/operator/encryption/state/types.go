@@ -126,6 +126,16 @@ func (d *KMSSecretData) SetFromRawKey(rawKey string, value []byte) error {
 	return d.Set(parts[0], parts[1], value)
 }
 
+// FlatEntry returns the combined key "secretName_dataKey" used in flat representations.
+//
+// Note:
+//
+// It does not validate inputs. The callers are expected to use Set,
+// which rejects empty values and underscores in secretName.
+func (d *KMSSecretData) FlatEntry(secretName, dataKey string) string {
+	return secretName + secretDataKeySeparator + dataKey
+}
+
 // FlatEntries returns the stored data as a flat map keyed by "secretName_dataKey".
 // "_" separates secretName from dataKey because "_" is forbidden in
 // Kubernetes secret names, making the split unambiguous.
@@ -136,7 +146,7 @@ func (d *KMSSecretData) FlatEntries() map[string][]byte {
 	result := map[string][]byte{}
 	for secretName, keys := range d.entries {
 		for dataKey, value := range keys {
-			result[secretName+secretDataKeySeparator+dataKey] = value
+			result[d.FlatEntry(secretName, dataKey)] = value
 		}
 	}
 	return result
