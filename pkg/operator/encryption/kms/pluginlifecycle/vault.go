@@ -9,22 +9,39 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig) (*vault, error) {
+// newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
+// It assumes the input data has been already been validated.
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *credentialResolver) (*vault, error) {
+	secretName := vaultConfig.Authentication.AppRole.Secret.Name
+
+	roleID, err := creds.Value(secretName, "role-id")
+	if err != nil {
+		return nil, err
+	}
+
+	secretIDPath, err := creds.FilePath(secretName, "secret-id")
+	if err != nil {
+		return nil, err
+	}
+
 	return &vault{
-		name:    name,
-		keyID:   keyID,
-		udsPath: udsPath,
-		config:  vaultConfig,
+		name:         name,
+		keyID:        keyID,
+		udsPath:      udsPath,
+		config:       vaultConfig,
+		roleID:       roleID,
+		secretIDPath: secretIDPath,
 	}, nil
 }
 
 // vault implements SidecarProvider for HashiCorp Vault KMS.
 type vault struct {
-	name    string
-	keyID   string
-	udsPath string
-	config  configv1.VaultKMSPluginConfig
+	name         string
+	keyID        string
+	udsPath      string
+	config       configv1.VaultKMSPluginConfig
+	roleID       string
+	secretIDPath string
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -41,10 +58,8 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
 		fmt.Sprintf("-transit-mount=%s", v.config.TransitMount),
 		fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
-		// TODO(bertinatto): dummy value for the Vault mock plugin; will come from the encryption-config secret.
-		fmt.Sprintf("-approle-role-id=dummy-role-id-%s", v.keyID),
-		// TODO(bertinatto): placeholder path for the Vault mock plugin; will differ per operator (KASO vs. aggregated apiserver operators).
-		fmt.Sprintf("-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-%s", v.keyID),
+		fmt.Sprintf("-approle-role-id=%s", v.roleID),
+		fmt.Sprintf("-approle-secret-id-path=%s", v.secretIDPath),
 	}
 
 	// Optional fields: only pass non-empty values.

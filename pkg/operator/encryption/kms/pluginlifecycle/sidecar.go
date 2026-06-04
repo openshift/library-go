@@ -3,6 +3,7 @@ package pluginlifecycle
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
@@ -38,11 +39,11 @@ type sidecarProvider interface {
 }
 
 // newSidecarProvider creates a provider-specific sidecarProvider for the given keyID and plugin configuration,
-// wiring in credentials from secretData and the on-disk credentialsDir.
-func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig) (sidecarProvider, error) {
+// wiring in credentials via the credentialResolver.
+func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig, creds *credentialResolver) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
-		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault)
+		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault, creds)
 	default:
 		return nil, fmt.Errorf("unsupported KMS plugin configuration")
 	}
@@ -57,7 +58,10 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
 func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
-	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor)
+	// The static pod revision controller copies secret data to disk under resourcesDir/secrets/<secretName>/.
+	credentialsDir := filepath.Join(resourcesDir, "secrets", encryptionConfigSecretName)
+
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, credentialsDir)
 	if err != nil {
 		return err
 	}
@@ -86,7 +90,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
 func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
-	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor)
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, credentialsMountPath)
 	if err != nil {
 		return err
 	}
@@ -114,7 +118,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 // addKMSPluginSidecars contains the shared logic for discovering KMS plugins and injecting sidecar containers.
 // It returns the names of the sidecar containers that were injected, so callers can add deployment-mode-specific volume mounts.
-func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) ([]string, error) {
+func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, credentialsDir string) ([]string, error) {
 	if podSpec == nil {
 		return nil, fmt.Errorf("pod spec cannot be nil")
 	}
@@ -173,7 +177,13 @@ func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containe
 			return nil, fmt.Errorf("missing plugin config for keyID %s", keyID)
 		}
 
-		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig)
+		creds := &credentialResolver{
+			pluginsSecretData: encryptionConfig.KMSPluginsSecretData,
+			credentialsDir:    credentialsDir,
+			keyID:             keyID,
+		}
+
+		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig, creds)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
 		}
