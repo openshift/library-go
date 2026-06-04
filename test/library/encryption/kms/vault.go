@@ -23,17 +23,18 @@ import (
 )
 
 const (
-	defaultVaultNamespace         = "vault-kms"
-	defaultVaultPodName           = "vault-0"
-	defaultVaultCredentialsSecret = "vault-credentials"
-	defaultVaultAppRoleSecretName = "vault-approle-secret"
-	defaultVaultKMSPluginImage    = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
-	defaultVaultAddress           = "https://vault.vault-kms.svc:8200"
-	defaultVaultEnterpriseNS      = "admin"
-	defaultVaultTransitMount      = "transit"
-	defaultVaultTransitKey        = "kms-key"
-	defaultAppRoleTargetNamespace = "openshift-config"
-	vaultCommandTimeout           = 30 * time.Second
+	defaultVaultNamespace          = "vault-kms"
+	defaultVaultPodName            = "vault-0"
+	defaultVaultCredentialsSecret  = "vault-credentials"
+	defaultVaultAppRoleSecretName  = "vault-approle-secret"
+	defaultFAKEVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
+	defaultVaultKMSPluginImage     = "registry.ci.openshift.org/control-plane-custom-builds/vault-kube-kms@sha256:33599dd6eee61dcf9a60138759fafda3d88593a3c2072585156882c6b5bd3fa5"
+	defaultVaultAddress            = "https://vault.vault-kms.svc:8200"
+	defaultVaultEnterpriseNS       = "admin"
+	defaultVaultTransitMount       = "transit"
+	defaultVaultTransitKey         = "kms-key"
+	defaultAppRoleTargetNamespace  = "openshift-config"
+	vaultCommandTimeout            = 30 * time.Second
 )
 
 // DefaultVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider for e2e tests.
@@ -83,7 +84,7 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 	KMS: configv1.KMSPluginConfig{
 		Type: configv1.VaultKMSProvider,
 		Vault: configv1.VaultKMSPluginConfig{
-			KMSPluginImage: defaultVaultKMSPluginImage,
+			KMSPluginImage: defaultFAKEVaultKMSPluginImage,
 			VaultAddress:   "https://vault.example.com",
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
