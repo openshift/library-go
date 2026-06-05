@@ -13,6 +13,9 @@ import (
 // It assumes the input data has been already been validated.
 func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *credentialResolver) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
+	if secretName == "" {
+		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
+	}
 
 	roleID, err := creds.Value(secretName, "role-id")
 	if err != nil {

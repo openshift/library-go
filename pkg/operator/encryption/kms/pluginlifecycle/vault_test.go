@@ -31,6 +31,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		udsPath            string
 		inputContainers    []corev1.Container
 		expectedContainers []corev1.Container
+		expectErr          string
 	}{
 		{
 			name: "builds container with correct args",
@@ -178,6 +179,20 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "empty secret name",
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				Authentication: configv1.VaultAuthentication{
+					AppRole: configv1.VaultAppRoleAuthentication{
+						Secret: configv1.VaultSecretReference{Name: ""},
+					},
+				},
+			},
+			containerName: "kms-plugin",
+			keyID:         "555",
+			udsPath:       "unix:///var/run/kmsplugin/kms-555.sock",
+			expectErr:     "vault AppRole authentication secret name cannot be empty",
+		},
 	}
 
 	for _, tt := range tests {
@@ -195,6 +210,10 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			}
 
 			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, creds)
+			if tt.expectErr != "" {
+				require.EqualError(t, err, tt.expectErr)
+				return
+			}
 			require.NoError(t, err)
 
 			container, err := provider.BuildSidecarContainer()
