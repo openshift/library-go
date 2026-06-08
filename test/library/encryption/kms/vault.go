@@ -27,6 +27,7 @@ const (
 	defaultVaultPodName            = "vault-0"
 	defaultVaultCredentialsSecret  = "vault-credentials"
 	defaultVaultAppRoleSecretName  = "vault-approle-secret"
+	defaultVaultConfigMapName      = "vault-ca-bundle"
 	defaultFAKEVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
 	defaultVaultKMSPluginImage     = "registry.ci.openshift.org/control-plane-custom-builds/vault-kube-kms@sha256:33599dd6eee61dcf9a60138759fafda3d88593a3c2072585156882c6b5bd3fa5"
 	defaultVaultAddress            = "https://vault.vault-kms.svc:8200"
@@ -73,6 +74,12 @@ var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 				AppRole: configv1.VaultAppRoleAuthentication{
 					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
 				},
+			},
+			TLS: configv1.VaultTLSConfig{
+				CABundle: configv1.VaultConfigMapReference{
+					Name: defaultVaultConfigMapName,
+				},
+				ServerName: fmt.Sprintf("vault.%s.svc", defaultVaultNamespace),
 			},
 		},
 	},
