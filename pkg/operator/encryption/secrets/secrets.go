@@ -97,6 +97,15 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has malformed secret data key %q: %w", s.Namespace, s.Name, dataKey, err)
 			}
 		}
+		for dataKey, value := range s.Data {
+			rawKey, found := strings.CutPrefix(dataKey, encryptionSecretKMSConfigMapDataPrefix)
+			if !found {
+				continue
+			}
+			if err := key.KMS.PluginConfigMapData.SetFromRawKey(rawKey, value); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has malformed configmap data key %q: %w", s.Namespace, s.Name, dataKey, err)
+			}
+		}
 		key.Mode = keyMode
 	default:
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
@@ -172,6 +181,12 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	if ks.HasKMSSecretData() {
 		for flatKey, value := range ks.KMS.PluginSecretData.FlatEntries() {
 			s.Data[encryptionSecretKMSSecretDataPrefix+flatKey] = value
+		}
+	}
+
+	if ks.HasKMSConfigMapData() {
+		for flatKey, value := range ks.KMS.PluginConfigMapData.FlatEntries() {
+			s.Data[encryptionSecretKMSConfigMapDataPrefix+flatKey] = value
 		}
 	}
 

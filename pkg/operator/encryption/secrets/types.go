@@ -62,6 +62,11 @@ const (
 	// fetched from the referenced secret in openshift-config. The full data key is
 	// constructed as prefix + secretName + separator + dataKey.
 	encryptionSecretKMSSecretDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-secret-"
+
+	// encryptionSecretKMSConfigMapDataPrefix is the data field key prefix for configmap data
+	// values fetched from the referenced configmap in openshift-config. The full data key is
+	// constructed as prefix + configMapName + separator + dataKey.
+	encryptionSecretKMSConfigMapDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-"
 )
 
 // MigratedGroupResources is the data structured stored in the

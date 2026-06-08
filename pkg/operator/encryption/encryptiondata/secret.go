@@ -49,6 +49,9 @@ const (
 	// encryptionConfigSecretDataPrefix is the data key prefix for KMS plugin secret
 	// data entries in the encryption-config Secret. Full key: "kms-plugin-secret-{secretName}_{dataKey}-{keyID}".
 	encryptionConfigSecretDataPrefix = "kms-plugin-secret-"
+	// encryptionConfigConfigMapDataPrefix is the data key prefix for KMS plugin configmap
+	// data entries in the encryption-config Secret. Full key: "kms-plugin-configmap-{cmName}_{dataKey}-{keyID}".
+	encryptionConfigConfigMapDataPrefix = "kms-plugin-configmap-"
 )
 
 func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
@@ -91,7 +94,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	// which is then split on "_" to recover secretName and dataKey.
 	var kmsPluginsSecretData KMSPluginsReferenceData
 	for key, value := range encryptionConfigSecret.Data {
-		keyID, rawKey, found, err := parseKMSSecretDataKey(key)
+		keyID, rawKey, found, err := parseKMSReferenceDataKey(key, encryptionConfigSecretDataPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse secret data key %s: %w", key, err)
 		}
@@ -103,7 +106,23 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 		}
 	}
 
-	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins, KMSPluginsSecretData: kmsPluginsSecretData}, nil
+	// Extract configmap data entries from the encryption-config Secret.
+	// Data keys follow the format "kms-plugin-configmap-{cmName}_{dataKey}-{keyID}".
+	var kmsPluginsConfigMapData KMSPluginsReferenceData
+	for key, value := range encryptionConfigSecret.Data {
+		keyID, rawKey, found, err := parseKMSReferenceDataKey(key, encryptionConfigConfigMapDataPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse configmap data key %s: %w", key, err)
+		}
+		if !found {
+			continue
+		}
+		if err := kmsPluginsConfigMapData.SetFromRawKey(keyID, rawKey, value); err != nil {
+			return nil, fmt.Errorf("failed to set key %s: %w", key, err)
+		}
+	}
+
+	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins, KMSPluginsSecretData: kmsPluginsSecretData, KMSPluginsConfigMapData: kmsPluginsConfigMapData}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -153,6 +172,12 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 	for keyID, flatEntries := range secretData.KMSPluginsSecretData.FlatEntriesByKeyID() {
 		for rawKey, value := range flatEntries {
 			s.Data[FormatKMSSecretDataKey(rawKey, keyID)] = value
+		}
+	}
+
+	for keyID, flatEntries := range secretData.KMSPluginsConfigMapData.FlatEntriesByKeyID() {
+		for rawKey, value := range flatEntries {
+			s.Data[formatKMSConfigMapDataKey(rawKey, keyID)] = value
 		}
 	}
 
@@ -214,8 +239,20 @@ func FormatKMSSecretDataKey(rawKey, keyID string) string {
 	return fmt.Sprintf("%s%s-%s", encryptionConfigSecretDataPrefix, rawKey, keyID)
 }
 
-func parseKMSSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
-	rest, found := strings.CutPrefix(dataKey, encryptionConfigSecretDataPrefix)
+// formatKMSConfigMapDataKey returns the data key used in the encryption-config Secret
+// for a KMS plugin configmap entry: "kms-plugin-configmap-{rawKey}-{keyID}",
+// where rawKey is the combined "configMapName_dataKey" from KMSReferenceData.FlatEntry.
+//
+// Note:
+//
+// It does not validate inputs. The callers are expected to use KMSReferenceData.Set,
+// which rejects empty values and underscores in referenceName.
+func formatKMSConfigMapDataKey(rawKey, keyID string) string {
+	return fmt.Sprintf("%s%s-%s", encryptionConfigConfigMapDataPrefix, rawKey, keyID)
+}
+
+func parseKMSReferenceDataKey(dataKey, prefix string) (keyID, rawKey string, found bool, err error) {
+	rest, found := strings.CutPrefix(dataKey, prefix)
 	if !found {
 		return "", "", false, nil
 	}

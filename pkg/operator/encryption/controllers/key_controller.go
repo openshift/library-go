@@ -75,6 +75,7 @@ type keyController struct {
 
 	deployer                 statemachine.Deployer
 	secretClient             corev1client.SecretsGetter
+	configMapClient          corev1client.ConfigMapsGetter
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 
@@ -92,6 +93,7 @@ func NewKeyController(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
+	configMapClient corev1client.ConfigMapsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -108,6 +110,7 @@ func NewKeyController(
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
+		configMapClient:          configMapClient,
 	}
 
 	return factory.New().
@@ -118,7 +121,7 @@ func NewKeyController(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
-			// TODO: add informer for openshift-config namespace to watch referenced Secrets for KMS plugin secret data changes
+			// TODO: add informers for openshift-config namespace to watch referenced Secrets and ConfigMaps for KMS plugin data changes
 			deployer,
 		).ToController(
 		c.controllerInstanceName,
@@ -301,6 +304,24 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 				}
 			}
 		}
+
+		if cmName, expectedKeys, err := referencedConfigMapName(apiServerEncryption.KMS); err != nil {
+			return nil, err
+		} else if len(cmName) > 0 {
+			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
+			}
+			for _, key := range expectedKeys {
+				v, ok := refCM.Data[key]
+				if !ok {
+					return nil, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
+				}
+				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
@@ -417,6 +438,21 @@ func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string, er
 		default:
 			return "", nil, fmt.Errorf("unsupported Vault authentication type %q", plugin.Vault.Authentication.Type)
 		}
+	default:
+		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
+	}
+}
+
+// referencedConfigMapName returns the name of the configmap referenced by the KMS plugin
+// config and the specific data keys to carry from that configmap. Only the listed keys
+// are copied into the Key Secret; any other data in the referenced configmap is ignored.
+func referencedConfigMapName(plugin configv1.KMSPluginConfig) (string, []string, error) {
+	switch plugin.Type {
+	case configv1.VaultKMSProvider:
+		if plugin.Vault.TLS.CABundle.Name == "" {
+			return "", nil, nil
+		}
+		return plugin.Vault.TLS.CABundle.Name, []string{"ca-bundle.crt"}, nil
 	default:
 		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
 	}

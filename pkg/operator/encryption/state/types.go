@@ -64,6 +64,10 @@ func (k *KeyState) HasKMSSecretData() bool {
 	return k != nil && k.KMS != nil && len(k.KMS.PluginSecretData.entries) > 0
 }
 
+func (k *KeyState) HasKMSConfigMapData() bool {
+	return k != nil && k.KMS != nil && len(k.KMS.PluginConfigMapData.entries) > 0
+}
+
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
@@ -74,6 +78,9 @@ type KMSState struct {
 
 	// PluginSecretData stores data key-value pairs fetched from referenced secrets.
 	PluginSecretData KMSReferenceData
+
+	// PluginConfigMapData stores data key-value pairs fetched from referenced configmaps.
+	PluginConfigMapData KMSReferenceData
 }
 
 // KMSReferenceData stores data key-value pairs fetched from referenced secrets or configmaps.
