@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionstatus"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -215,6 +216,12 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
+	if err := c.reconcileRotationStatus(ctx, currentEncryptionConfig, currentState, encryptedGRs); err != nil {
+		return nil, err
+	}
+
+	healthReports := c.healthReportsFromOperator()
+
 	var errs []error
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
@@ -222,8 +229,17 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+		convergedKEKID, _ := encryptionstatus.ConvergedKEKForKeyID(healthReports, grActualKeys.WriteKey.Key.Name)
+		alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey)
+		if alreadyMigrated && !encryptionstatus.WriteKeyNeedsKEKRemigration(grActualKeys.WriteKey, convergedKEKID) {
 			continue
+		}
+
+		if alreadyMigrated && encryptionstatus.WriteKeyNeedsKEKRemigration(grActualKeys.WriteKey, convergedKEKID) {
+			if err := c.migrator.PruneMigration(gr); err != nil {
+				errs = append(errs, err)
+				continue
+			}
 		}
 
 		// idem-potent migration start
@@ -263,7 +279,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 				return fmt.Errorf("failed to get key secret %s/%s: %v", oldWriteKey.Namespace, oldWriteKey.Name, err)
 			}
 
-			changed, err := setResourceMigrated(gr, s)
+			changed, err := setResourceMigrated(gr, s, convergedKEKID)
 			if err != nil {
 				return err
 			}
@@ -286,7 +302,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	return migratingResources, errors.NewAggregate(errs)
 }
 
-func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
+func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret, convergedKEKID string) (bool, error) {
 	migratedGRs := secrets.MigratedGroupResources{}
 	if existing, found := s.Annotations[secrets.EncryptionSecretMigratedResources]; found {
 		if err := json.Unmarshal([]byte(existing), &migratedGRs); err != nil {
@@ -305,7 +321,9 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 
 	// update timestamp, if missing or first migration of gr
 	if _, found := s.Annotations[secrets.EncryptionSecretMigratedTimestamp]; found && alreadyMigrated {
-		return false, nil
+		if len(convergedKEKID) == 0 || s.Annotations[secrets.EncryptionSecretMigratedKEKID] == convergedKEKID {
+			return false, nil
+		}
 	}
 	if s.Annotations == nil {
 		s.Annotations = map[string]string{}
@@ -322,7 +340,146 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 		s.Annotations[secrets.EncryptionSecretMigratedResources] = string(bs)
 	}
 
+	if len(convergedKEKID) > 0 && s.Annotations[secrets.EncryptionSecretMigratedKEKID] != convergedKEKID {
+		s.Annotations[secrets.EncryptionSecretMigratedKEKID] = convergedKEKID
+	}
+
 	return true, nil
+}
+
+func (c *migrationController) healthReportsFromOperator() []encryptionstatus.KMSPluginHealthReport {
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		klog.Warningf("%s: failed to read operator status for KMS health reports: %v", c.instanceName, err)
+		return nil
+	}
+	return encryptionstatus.HealthReportsFromOperatorStatus(operatorStatus)
+}
+
+func (c *migrationController) reconcileRotationStatus(
+	ctx context.Context,
+	currentEncryptionConfig *encryptiondata.Config,
+	currentState map[schema.GroupResource]state.GroupResourceState,
+	encryptedGRs []schema.GroupResource,
+) error {
+	if currentEncryptionConfig == nil || !currentEncryptionConfig.UsesKMS() {
+		return nil
+	}
+
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		return err
+	}
+
+	healthReports := encryptionstatus.HealthReportsFromOperatorStatus(operatorStatus)
+	rotations, err := encryptionstatus.KeyRotationStatusFromOperatorStatus(operatorStatus)
+	if err != nil {
+		return err
+	}
+
+	now := metav1.Now()
+	before := append([]encryptionstatus.KMSPluginRotationStatus(nil), rotations...)
+	for _, gr := range encryptedGRs {
+		grState := currentState[gr]
+		if !grState.HasWriteKey() || grState.WriteKey.Mode != state.KMS {
+			continue
+		}
+
+		keyID := grState.WriteKey.Key.Name
+		convergedKEKID, converged := encryptionstatus.ConvergedKEKForKeyID(healthReports, keyID)
+		if !converged {
+			continue
+		}
+
+		rotations, openIdx := encryptionstatus.GetOrCreateOpenRotation(rotations, keyID, convergedKEKID, now)
+
+		writeKeySecret, err := secrets.FromKeyState(c.instanceName, grState.WriteKey)
+		if err != nil {
+			return err
+		}
+		migrated, err := encryptionstatus.AllEncryptedGRsMigrated(writeKeySecret, encryptedGRs)
+		if err != nil {
+			return err
+		}
+		rotations = mirrorMigrationFinish(c.instanceName, rotations, openIdx, migrated, writeKeySecret)
+	}
+
+	if rotationsEqual(before, rotations) {
+		return nil
+	}
+
+	_, updated, err := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, encryptionstatus.SetKeyRotationStatusCondition(rotations))
+	if err != nil {
+		return err
+	}
+	if updated {
+		klog.Infof("%s: updated key rotation status (%d entries)", c.instanceName, len(rotations))
+	}
+	return nil
+}
+
+func rotationsEqual(a, b []encryptionstatus.KMSPluginRotationStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].KeyID != b[i].KeyID ||
+			a[i].KEKID != b[i].KEKID ||
+			!timesEqual(a[i].DiscoveryTime, b[i].DiscoveryTime) ||
+			!timesEqual(a[i].MigrationStartTime, b[i].MigrationStartTime) ||
+			!timesEqual(a[i].MigrationFinishTime, b[i].MigrationFinishTime) {
+			return false
+		}
+	}
+	return true
+}
+
+func timesEqual(a, b *metav1.Time) bool {
+	switch {
+	case a == nil && b == nil:
+		return true
+	case a == nil || b == nil:
+		return false
+	default:
+		return a.Time.Equal(b.Time)
+	}
+}
+
+func mirrorMigrationFinish(
+	instanceName string,
+	rotations []encryptionstatus.KMSPluginRotationStatus,
+	idx int,
+	migrated bool,
+	secret *corev1.Secret,
+) []encryptionstatus.KMSPluginRotationStatus {
+	if !migrated || idx < 0 || idx >= len(rotations) || rotations[idx].MigrationFinishTime != nil {
+		return rotations
+	}
+	finish, ok := migrationFinishTimeFromSecret(secret)
+	if !ok {
+		return rotations
+	}
+	entry := rotations[idx]
+	klog.Infof("%s: mirroring migrationFinishTime for keyID %q kekID %q from secret %s/%s at %s",
+		instanceName, entry.KeyID, entry.KEKID, secret.Namespace, secret.Name, finish.Format(time.RFC3339))
+	return encryptionstatus.SetMigrationFinishTime(rotations, idx, finish)
+}
+
+func migrationFinishTimeFromSecret(secret *corev1.Secret) (metav1.Time, bool) {
+	if secret == nil || secret.Annotations == nil {
+		return metav1.Time{}, false
+	}
+	raw, ok := secret.Annotations[secrets.EncryptionSecretMigratedTimestamp]
+	if !ok || raw == "" {
+		return metav1.Time{}, false
+	}
+	ts, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		klog.Warningf("ignoring invalid %s annotation on secret %s/%s: %v",
+			secrets.EncryptionSecretMigratedTimestamp, secret.Namespace, secret.Name, err)
+		return metav1.Time{}, false
+	}
+	return metav1.NewTime(ts), true
 }
 
 // groupToHumanReadable extracts a group from gr and makes it more readable, for example it converts an empty group to "core"

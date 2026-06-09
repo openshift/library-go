@@ -24,6 +24,8 @@ const (
 	// The list of resources that were migrated when encryptionSecretMigratedTimestamp was set.
 	// See the MigratedGroupResources struct below to understand the JSON encoding used.
 	EncryptionSecretMigratedResources = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	// The converged KMS kekId observed when the write key migration completed.
+	EncryptionSecretMigratedKEKID = "encryption.apiserver.operator.openshift.io/migrated-kek-id"
 
 	// encryptionSecretMode is the annotation that determines how the provider associated with a given key is
 	// configured.  For example, a key could be used with AES-CBC or Secretbox.  This allows for algorithm

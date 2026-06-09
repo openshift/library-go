@@ -64,7 +64,7 @@ type ForceRotationFunc func(t testing.TB, ctx context.Context)
 
 // WaitForRotationCompleteFunc waits until re-migration after rotation has finished.
 // Static encryption waits for the next encryption key secret to be migrated;
-// KMS waits for a new finished entry in KeyRotationStatus, created by the rotation controller.
+// KMS waits for a new finished entry in KeyRotationStatus, updated by the migration controller.
 type WaitForRotationCompleteFunc func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario)
 
 // StaticEncryptionForceRotation returns a ForceRotationFunc that mints a new key via encryption.reason.

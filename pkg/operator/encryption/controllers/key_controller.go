@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -27,7 +28,10 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptionstatus"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -43,6 +47,7 @@ const (
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 	openshiftConfigNS                 = "openshift-config"
+	kmsRotationConvergenceDelay       = 5 * time.Minute
 )
 
 // keyController creates new keys if necessary. It
@@ -75,6 +80,7 @@ type keyController struct {
 
 	deployer                 statemachine.Deployer
 	secretClient             corev1client.SecretsGetter
+	migrator                 migrators.Migrator
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 
@@ -87,6 +93,7 @@ func NewKeyController(
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
+	migrator migrators.Migrator,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
@@ -108,6 +115,7 @@ func NewKeyController(
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
+		migrator:                 migrator,
 	}
 
 	return factory.New().
@@ -151,7 +159,16 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
+	currentMode, _, _, modeErr := c.getCurrentModeReasonAndEncryptionConfig(ctx)
+	if modeErr != nil {
+		degradedCondition = degradedCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason("Error").
+			WithMessage(modeErr.Error())
+		return modeErr
+	}
+
+	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs(), currentMode)
 	if err != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -165,13 +182,16 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
+func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource, currentMode state.Mode) error {
+	currentModeFromAPI, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
 	}
+	if currentModeFromAPI != currentMode {
+		currentMode = currentModeFromAPI
+	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -181,7 +201,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	}
 
 	// avoid intended start of encryption
-	hasBeenOnBefore := currentConfig != nil || len(secrets) > 0
+	hasBeenOnBefore := currentConfig != nil || len(encryptionSecrets) > 0
 	if currentMode == state.Identity && !hasBeenOnBefore {
 		return nil
 	}
@@ -217,6 +237,9 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
 	}
 	if !newKeyRequired {
+		if currentMode == state.KMS {
+			return c.maybeStartKMSRotationWithState(ctx, encryptedGRs, currentConfig, desiredEncryptionState, encryptionSecrets, isProgressingReason)
+		}
 		return nil
 	}
 	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
@@ -240,6 +263,9 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, reasons)
 
+	if currentMode == state.KMS {
+		return c.maybeStartKMSRotationWithState(ctx, encryptedGRs, currentConfig, desiredEncryptionState, encryptionSecrets, isProgressingReason)
+	}
 	return nil
 }
 
@@ -402,6 +428,139 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
+}
+
+func (c *keyController) maybeStartKMSRotationWithState(
+	ctx context.Context,
+	encryptedGRs []schema.GroupResource,
+	currentConfig *encryptiondata.Config,
+	desiredEncryptionState map[schema.GroupResource]state.GroupResourceState,
+	encryptionSecrets []*corev1.Secret,
+	isProgressingReason string,
+) error {
+	if len(isProgressingReason) > 0 || currentConfig == nil || !currentConfig.UsesKMS() {
+		return nil
+	}
+
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		return err
+	}
+
+	healthReports := encryptionstatus.HealthReportsFromOperatorStatus(operatorStatus)
+	rotations, err := encryptionstatus.KeyRotationStatusFromOperatorStatus(operatorStatus)
+	if err != nil {
+		return err
+	}
+
+	for _, gr := range encryptedGRs {
+		grKeys := desiredEncryptionState[gr]
+		if !grKeys.HasWriteKey() || grKeys.WriteKey.Mode != state.KMS {
+			continue
+		}
+
+		keyID := grKeys.WriteKey.Key.Name
+		writeKeySecret := secrets.FindKeySecret(encryptionSecrets, c.instanceName, keyID)
+		if writeKeySecret == nil {
+			continue
+		}
+
+		updatedRotations, started, err := c.maybeStartKMSRotationForWriteKey(
+			ctx, keyID, encryptedGRs, writeKeySecret, healthReports, rotations,
+		)
+		if err != nil {
+			return err
+		}
+		if started {
+			_, _, err = operatorv1helpers.UpdateStatus(ctx, c.operatorClient, encryptionstatus.SetKeyRotationStatusCondition(updatedRotations))
+			return err
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (c *keyController) maybeStartKMSRotationForWriteKey(
+	ctx context.Context,
+	keyID string,
+	encryptedGRs []schema.GroupResource,
+	writeKeySecret *corev1.Secret,
+	healthReports []encryptionstatus.KMSPluginHealthReport,
+	rotations []encryptionstatus.KMSPluginRotationStatus,
+) ([]encryptionstatus.KMSPluginRotationStatus, bool, error) {
+	convergedKEKID, converged := encryptionstatus.ConvergedKEKForKeyID(healthReports, keyID)
+	if !converged {
+		return rotations, false, nil
+	}
+
+	lastCompleted, hasCompleted := encryptionstatus.LatestCompletedRotationForKeyID(rotations, keyID)
+	if hasCompleted && convergedKEKID == lastCompleted.KEKID {
+		return rotations, false, nil
+	}
+
+	if !hasCompleted {
+		return rotations, false, nil
+	}
+
+	entry, openIdx, hasOpen := encryptionstatus.OpenRotation(rotations, keyID, convergedKEKID)
+	if !hasOpen {
+		return rotations, false, nil
+	}
+
+	if entry.MigrationStartTime != nil {
+		return rotations, false, nil
+	}
+	if entry.DiscoveryTime != nil && time.Since(entry.DiscoveryTime.Time) < kmsRotationConvergenceDelay {
+		return rotations, false, nil
+	}
+
+	if err := c.startKMSRotation(ctx, encryptedGRs, writeKeySecret); err != nil {
+		return rotations, false, err
+	}
+
+	now := metav1.Now()
+	rotations = encryptionstatus.SetMigrationStartTime(rotations, openIdx, now)
+	klog.Infof("%s: started KMS storage re-migration for keyID=%q kekID changed from %q to %q",
+		c.instanceName, keyID, lastCompleted.KEKID, convergedKEKID)
+	return rotations, true, nil
+}
+
+func (c *keyController) startKMSRotation(ctx context.Context, encryptedGRs []schema.GroupResource, secret *corev1.Secret) error {
+	for _, gr := range encryptedGRs {
+		if err := c.migrator.PruneMigration(gr); err != nil {
+			return err
+		}
+	}
+	return clearMigrationAnnotations(ctx, c.secretClient, secret)
+}
+
+func clearMigrationAnnotations(ctx context.Context, secretClient corev1client.SecretsGetter, secret *corev1.Secret) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		current, err := secretClient.Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if current.Annotations == nil {
+			return nil
+		}
+		changed := false
+		for _, key := range []string{
+			secrets.EncryptionSecretMigratedTimestamp,
+			secrets.EncryptionSecretMigratedResources,
+			secrets.EncryptionSecretMigratedKEKID,
+		} {
+			if _, ok := current.Annotations[key]; ok {
+				delete(current.Annotations, key)
+				changed = true
+			}
+		}
+		if !changed {
+			return nil
+		}
+		_, err = secretClient.Secrets(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+		return err
+	})
 }
 
 // referencedSecretName returns the name of the secret referenced by the KMS plugin

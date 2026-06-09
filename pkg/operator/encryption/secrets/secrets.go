@@ -53,6 +53,10 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.Migrated.Resources = migrated.Resources
 	}
 
+	if v, ok := s.Annotations[EncryptionSecretMigratedKEKID]; ok {
+		key.Migrated.KEKID = v
+	}
+
 	if v, ok := s.Annotations[encryptionSecretInternalReason]; ok && len(v) > 0 {
 		key.InternalReason = v
 	}
@@ -151,6 +155,9 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+	if len(ks.Migrated.KEKID) > 0 {
+		s.Annotations[EncryptionSecretMigratedKEKID] = ks.Migrated.KEKID
 	}
 
 	if ks.HasKMSEncryption() {

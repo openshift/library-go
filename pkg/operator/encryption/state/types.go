@@ -164,6 +164,8 @@ type MigrationState struct {
 	Timestamp time.Time
 	// the resources that were migrated at some point in time to this key.
 	Resources []schema.GroupResource
+	// KEKID is the converged KMS kekId recorded when migration completed.
+	KEKID string
 }
 
 // Mode is the value associated with the encryptionSecretMode annotation
