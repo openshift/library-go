@@ -70,9 +70,15 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
 	}
 
-	// TODO(bertinatto): this is a temporary workaround until the ca bundle is wired into the
-	// encryption config secret. This should be removed before shipping the KMS feature.
-	args = append(args, "-tls-skip-verify")
+	// Temporary workarounds. These should go away as we progress with the feature.
+	args = append(args,
+		// TODO: remove before GA once the CA bundle is wired into the encryption config secret.
+		"-tls-skip-verify=true",
+		// TODO: remove once we support scraping metrics from each KMS plugin sidecar independently.
+		// Set the port to zero to disable metrics serving.
+		// Slack discussion: https://redhat-external.slack.com/archives/C09KZ5QCBUH/p1780926464635219
+		"-metrics-port=0",
+	)
 
 	return corev1.Container{
 		Name:            v.Name(),

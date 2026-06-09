@@ -116,7 +116,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 		"-approle-role-id=test-role-id",
 		"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
 		"-vault-namespace=my-namespace",
-		"-tls-skip-verify",
+		"-tls-skip-verify=true",
+		"-metrics-port=0",
 	}
 
 	socketMount := corev1.VolumeMount{
@@ -214,7 +215,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-approle-role-id=test-role-id-777",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-2_secret-id-777",
 							"-vault-namespace=other-namespace",
-							"-tls-skip-verify",
+							"-tls-skip-verify=true",
+							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -238,7 +240,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-approle-role-id=test-role-id",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
 							"-vault-namespace=my-namespace",
-							"-tls-skip-verify",
+							"-tls-skip-verify=true",
+							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
