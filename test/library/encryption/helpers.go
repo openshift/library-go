@@ -403,6 +403,34 @@ func WaitForPodImagePullBackOff(ctx context.Context, t testing.TB, kubeClient ku
 	require.NoError(t, err, "timed out waiting for pod to enter ImagePullBackOff in namespace %s", namespace)
 }
 
+// WaitForPodContainerCondition polls pods until at least one pod satisfies the given condition.
+// keyName is the current encryption key secret name, passed to match so callers can
+// correlate pod container names with the active key (e.g. vault-kms-plugin-42).
+func WaitForPodContainerCondition(ctx context.Context, t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector, keyName string, match func(pod corev1.Pod, keyName string) bool) {
+	t.Helper()
+	t.Logf("Waiting up to %s for a pod in %s (selector=%s, key=%s) to satisfy condition",
+		waitPollTimeout, namespace, labelSelector, keyName)
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+		if len(pods.Items) == 0 {
+			t.Logf("No pods found yet in %s", namespace)
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			if match(pod, keyName) {
+				return true, nil
+			}
+		}
+		t.Logf("No pod yet satisfies condition")
+		return false, nil
+	})
+	require.NoError(t, err, "timed out waiting for a pod in %s to satisfy condition", namespace)
+}
+
 // WaitForCurrentKeyMigrated waits until the current (latest) encryption key has completed
 // migration for all target group resources. It fails if the key changes unexpectedly
 // (i.e. a different key than prevKeyMeta appears).
