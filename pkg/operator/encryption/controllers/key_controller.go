@@ -192,6 +192,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	var (
 		newKeyRequired bool
 		newKeyID       uint64
+		latestKeyID    uint64
 		reasons        []string
 	)
 
@@ -201,7 +202,10 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		grLatestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		if latestKeyID < grLatestKeyID {
+			latestKeyID = grLatestKeyID
+		}
 		if !needed {
 			continue
 		}
@@ -213,13 +217,16 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		}
 
 		newKeyRequired = true
-		nextKeyID := latestKeyID + 1
+		nextKeyID := grLatestKeyID + 1
 		if newKeyID < nextKeyID {
 			newKeyID = nextKeyID
 		}
 		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
 	}
 	if !newKeyRequired {
+		if currentMode == state.KMS {
+			return c.maybeStartKMSRotation(ctx, syncContext, latestKeyID)
+		}
 		return nil
 	}
 	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
@@ -386,7 +393,11 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return 0, "", false
 	}
 
-	// we have not migrated the latest key, do nothing until that is complete
+	// We have not migrated the latest key, do nothing until that is complete.
+	// For KMS mode, KEK rotation is initiated by maybeStartKMSRotation clearing the
+	// migration annotations on the key secret. Once cleared, MigratedFor returns false
+	// here, preventing needsNewKey from requesting a new key and holding off further
+	// action until the migration controller finishes re-migrating all resources.
 	if allMigrated, _, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated {
 		return 0, "", false
 	}
@@ -422,6 +433,54 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
+}
+
+// maybeStartKMSRotation detects whether the external KMS KEK has rotated and triggers
+// re-migration if needed. It does not create a new key secret — the keyID stays the same,
+// only the wrapping key (KEK) has changed externally.
+//
+// The flow is:
+//  1. Get the converged KEKID from health reports (all healthy nodes must agree)
+//  2. Compare it with the KEKID annotation on the key secret (from the last migration)
+//  3. If different, clear migration annotations to trigger the migration controller
+//
+// Once migration annotations are cleared, needsNewKey's MigratedFor check returns false,
+// which holds off further action until the migration controller finishes re-migrating.
+func (c *keyController) maybeStartKMSRotation(ctx context.Context, syncContext factory.SyncContext, latestKeyID uint64) error {
+	// TODO: In the full implementation, retrieve health reports from operator status
+	// and compute the converged KEKID via ConvergedKEKForKeyID(healthReports, latestKeyID).
+	// All healthy nodes must report the same KEKID for convergence.
+	// For now, this is a placeholder.
+	convergedKEKID := "" // placeholder: would come from health reports
+	if len(convergedKEKID) == 0 {
+		return nil
+	}
+
+	secretName := fmt.Sprintf("encryption-key-%s-%d", c.instanceName, latestKeyID)
+	s, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get key secret %s: %v", secretName, err)
+	}
+
+	currentKEKID := s.Annotations[secrets.EncryptionSecretMigratedKEKID]
+	if currentKEKID == convergedKEKID {
+		return nil
+	}
+
+	if err := c.clearMigrationAnnotations(ctx, s, convergedKEKID); err != nil {
+		return err
+	}
+
+	syncContext.Recorder().Eventf("KMSKEKRotationDetected", "KEK rotation detected for key %d: %s -> %s, migration annotations cleared", latestKeyID, currentKEKID, convergedKEKID)
+	return nil
+}
+
+func (c *keyController) clearMigrationAnnotations(ctx context.Context, s *corev1.Secret, convergedKEKID string) error {
+	delete(s.Annotations, secrets.EncryptionSecretMigratedTimestamp)
+	delete(s.Annotations, secrets.EncryptionSecretMigratedResources)
+	s.Annotations[secrets.EncryptionSecretMigratedKEKID] = convergedKEKID
+	_, err := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
+	return err
 }
 
 // referencedSecretName returns the name of the secret referenced by the KMS plugin
