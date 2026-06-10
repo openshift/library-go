@@ -99,6 +99,9 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
 				},
 			},
+			TLS: configv1.VaultTLSConfig{
+				CABundle: configv1.VaultConfigMapReference{Name: defaultVaultConfigMapName},
+			},
 			TransitKey:   "test-transit-key",
 			TransitMount: defaultVaultTransitMount,
 		},

@@ -178,9 +178,10 @@ func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containe
 		}
 
 		refData := &referenceDataResolver{
-			pluginsSecretData: encryptionConfig.KMSPluginsSecretData,
-			referenceDataDir:  referenceDataDir,
-			keyID:             keyID,
+			pluginsConfigMapData: encryptionConfig.KMSPluginsConfigMapData,
+			pluginsSecretData:    encryptionConfig.KMSPluginsSecretData,
+			referenceDataDir:     referenceDataDir,
+			keyID:                keyID,
 		}
 
 		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig, refData)

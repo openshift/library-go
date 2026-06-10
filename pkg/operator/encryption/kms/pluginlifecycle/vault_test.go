@@ -20,11 +20,19 @@ func newVaultAppRoleSecretData(t *testing.T, roleID, secretID string) state.KMSR
 	return sd
 }
 
+func newVaultCABundleConfigMapData(t *testing.T, caBundleCrt string) state.KMSReferenceData {
+	t.Helper()
+	var cd state.KMSReferenceData
+	require.NoError(t, cd.Set("vault-ca-bundle", "ca-bundle.crt", []byte(caBundleCrt)))
+	return cd
+}
+
 func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	tests := []struct {
 		name               string
 		vaultConfig        configv1.VaultKMSPluginConfig
 		secretData         state.KMSReferenceData
+		configMapData      state.KMSReferenceData
 		referenceDataDir   string
 		containerName      string
 		keyID              string
@@ -46,8 +54,13 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
 					},
 				},
+				TLS: configv1.VaultTLSConfig{
+					CABundle:   configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+					ServerName: "vault.internal.example.com",
+				},
 			},
 			secretData:       newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			configMapData:    newVaultCABundleConfigMapData(t, "test-ca-cert"),
 			referenceDataDir: "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
 			containerName:    "kms-plugin",
 			keyID:            "555",
@@ -64,8 +77,9 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-transit-key=my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
+						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
+						"-tls-sni=vault.internal.example.com",
 						"-vault-namespace=my-namespace",
-						"-tls-skip-verify=true",
 						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -93,8 +107,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
 					},
 				},
+				TLS: configv1.VaultTLSConfig{
+					CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+				},
 			},
 			secretData:       newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			configMapData:    newVaultCABundleConfigMapData(t, "test-ca-cert"),
 			referenceDataDir: "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
 			containerName:    "kms-plugin",
 			keyID:            "555",
@@ -120,8 +138,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-transit-key=my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
+						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 						"-vault-namespace=my-namespace",
-						"-tls-skip-verify=true",
 						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -167,7 +185,6 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-transit-key=my-key",
 						"-approle-role-id=test-role-id-999",
 						"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-999",
-						"-tls-skip-verify=true",
 						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -206,10 +223,17 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			var pluginsConfigMapData encryptiondata.KMSPluginsReferenceData
+			for rawKey, value := range tt.configMapData.FlatEntries() {
+				err := pluginsConfigMapData.SetFromRawKey(tt.keyID, rawKey, value)
+				require.NoError(t, err)
+			}
+
 			refData := &referenceDataResolver{
-				pluginsSecretData: pluginsSecretData,
-				referenceDataDir:  tt.referenceDataDir,
-				keyID:             tt.keyID,
+				pluginsSecretData:    pluginsSecretData,
+				pluginsConfigMapData: pluginsConfigMapData,
+				referenceDataDir:     tt.referenceDataDir,
+				keyID:                tt.keyID,
 			}
 
 			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, refData)

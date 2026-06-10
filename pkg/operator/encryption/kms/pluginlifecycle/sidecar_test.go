@@ -45,6 +45,10 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 					Secret: configv1.VaultSecretReference{Name: "vault-approle"},
 				},
 			},
+			TLS: configv1.VaultTLSConfig{
+				CABundle:   configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+				ServerName: "vault.internal.example.com",
+			},
 		},
 	}
 	pluginConfigBytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig)
@@ -78,8 +82,9 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 		Data: map[string][]byte{
 			"encryption-config": encryptionConfigBytes,
 			pluginConfigKey:     pluginConfigBytes,
-			"kms-plugin-secret-vault-approle_role-id-555":   []byte("test-role-id"),
-			"kms-plugin-secret-vault-approle_secret-id-555": []byte("test-secret-id"),
+			"kms-plugin-secret-vault-approle_role-id-555":            []byte("test-role-id"),
+			"kms-plugin-secret-vault-approle_secret-id-555":          []byte("test-secret-id"),
+			"kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555": []byte("test-ca-cert"),
 		},
 	}
 
@@ -115,8 +120,9 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 		"-transit-key=my-key",
 		"-approle-role-id=test-role-id",
 		"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+		"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
+		"-tls-sni=vault.internal.example.com",
 		"-vault-namespace=my-namespace",
-		"-tls-skip-verify=true",
 		"-metrics-port=0",
 	}
 
@@ -214,8 +220,8 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-transit-key=other-key",
 							"-approle-role-id=test-role-id-777",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-2_secret-id-777",
+							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle-2_ca-bundle.crt-777",
 							"-vault-namespace=other-namespace",
-							"-tls-skip-verify=true",
 							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -239,8 +245,9 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							"-transit-key=my-key",
 							"-approle-role-id=test-role-id",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
+							"-tls-sni=vault.internal.example.com",
 							"-vault-namespace=my-namespace",
-							"-tls-skip-verify=true",
 							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -271,6 +278,9 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 							AppRole: configv1.VaultAppRoleAuthentication{
 								Secret: configv1.VaultSecretReference{Name: "vault-approle-2"},
 							},
+						},
+						TLS: configv1.VaultTLSConfig{
+							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
 						},
 					},
 				}
@@ -314,10 +324,12 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						"encryption-config": multiEncConfigBytes,
 						f.pluginConfigKey:   f.pluginConfigBytes,
 						pluginConfigKey2:    pluginConfig2Bytes,
-						"kms-plugin-secret-vault-approle_role-id-555":     []byte("test-role-id"),
-						"kms-plugin-secret-vault-approle_secret-id-555":   []byte("test-secret-id"),
-						"kms-plugin-secret-vault-approle-2_role-id-777":   []byte("test-role-id-777"),
-						"kms-plugin-secret-vault-approle-2_secret-id-777": []byte("test-secret-id-777"),
+						"kms-plugin-secret-vault-approle_role-id-555":              []byte("test-role-id"),
+						"kms-plugin-secret-vault-approle_secret-id-555":            []byte("test-secret-id"),
+						"kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555":   []byte("test-ca-cert"),
+						"kms-plugin-secret-vault-approle-2_role-id-777":            []byte("test-role-id-777"),
+						"kms-plugin-secret-vault-approle-2_secret-id-777":          []byte("test-secret-id-777"),
+						"kms-plugin-configmap-vault-ca-bundle-2_ca-bundle.crt-777": []byte("test-ca-cert-777"),
 					},
 				})
 			}(),

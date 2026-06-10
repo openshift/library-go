@@ -1101,6 +1101,9 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 							Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
 						},
 					},
+					TLS: configv1.VaultTLSConfig{
+						CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+					},
 					TransitKey: "test-transit-key",
 				},
 			}}}}},
