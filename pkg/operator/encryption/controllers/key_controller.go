@@ -479,6 +479,7 @@ func (c *keyController) clearMigrationAnnotations(ctx context.Context, s *corev1
 	delete(s.Annotations, secrets.EncryptionSecretMigratedTimestamp)
 	delete(s.Annotations, secrets.EncryptionSecretMigratedResources)
 	s.Annotations[secrets.EncryptionSecretMigratedKEKID] = convergedKEKID
+	s.Annotations[secrets.EncryptionSecretRotationNeeded] = ""
 	_, err := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
 	return err
 }

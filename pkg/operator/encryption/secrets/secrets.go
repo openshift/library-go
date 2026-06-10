@@ -59,6 +59,9 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	if v, ok := s.Annotations[encryptionSecretExternalReason]; ok && len(v) > 0 {
 		key.ExternalReason = v
 	}
+	if _, ok := s.Annotations[EncryptionSecretRotationNeeded]; ok {
+		key.RotationNeeded = true
+	}
 
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
@@ -148,6 +151,10 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			EncryptionSecretKeyDataKey: bs,
 		},
 		Type: corev1.SecretTypeOpaque,
+	}
+
+	if ks.RotationNeeded {
+		s.Annotations[EncryptionSecretRotationNeeded] = ""
 	}
 
 	if !ks.Migrated.Timestamp.IsZero() {

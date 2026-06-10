@@ -226,6 +226,17 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue
 		}
 
+		// If KMS KEK rotation was detected, prune the existing StorageVersionMigration
+		// so EnsureMigration creates a fresh one. Without this, EnsureMigration would
+		// find the old completed migration (same writeKey name) and return immediately
+		// without actually re-encrypting.
+		if grActualKeys.WriteKey.RotationNeeded {
+			if err := c.migrator.PruneMigration(gr); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+		}
+
 		// idem-potent migration start
 		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
@@ -311,6 +322,7 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 		s.Annotations = map[string]string{}
 	}
 	s.Annotations[secrets.EncryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
+	delete(s.Annotations, secrets.EncryptionSecretRotationNeeded)
 
 	// update resource list
 	if !alreadyMigrated {

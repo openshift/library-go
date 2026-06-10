@@ -68,7 +68,8 @@ const (
 	// constructed as prefix + configMapName + separator + dataKey.
 	encryptionSecretKMSConfigMapDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-"
 
-	EncryptionSecretMigratedKEKID = "encryption.apiserver.operator.openshift.io/migrated-kek-id"
+	EncryptionSecretMigratedKEKID     = "encryption.apiserver.operator.openshift.io/migrated-kek-id"
+	EncryptionSecretRotationNeeded    = "encryption.apiserver.operator.openshift.io/rotation-needed"
 )
 
 // MigratedGroupResources is the data structured stored in the

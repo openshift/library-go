@@ -50,6 +50,11 @@ type KeyState struct {
 	ExternalReason string
 	// stores all the KMS encryption mode related configurations
 	KMS *KMSState
+	// RotationNeeded indicates that a KMS KEK rotation has been detected and
+	// re-migration is required. Set by the key controller when the converged
+	// KEKID differs from the last migrated KEKID. The migration controller
+	// removes it after migration completes.
+	RotationNeeded bool
 }
 
 func (k *KeyState) HasKMSEncryption() bool {
