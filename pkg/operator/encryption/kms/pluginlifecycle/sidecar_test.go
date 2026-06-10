@@ -504,7 +504,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.secretClient, tt.featureGateAccessor)
+			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.secretClient, tt.featureGateAccessor, nil)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -529,7 +529,7 @@ func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
 
 	call := func() {
 		t.Helper()
-		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", sc, fga)
+		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", sc, fga, nil)
 		require.NoError(t, err)
 	}
 

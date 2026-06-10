@@ -11,7 +11,7 @@ import (
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *credentialResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *credentialResolver, unsupportedConfig []byte) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
@@ -35,6 +35,11 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		return nil, fmt.Errorf("secret ID path cannot be empty")
 	}
 
+	kmsConfig, err := parseUnsupportedKMSConfig(unsupportedConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vault{
 		name:         name,
 		keyID:        keyID,
@@ -42,6 +47,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		config:       vaultConfig,
 		roleID:       roleID,
 		secretIDPath: secretIDPath,
+		logLevel:     kmsConfig.Encryption.KMS.Vault.LogLevel,
 	}, nil
 }
 
@@ -53,6 +59,7 @@ type vault struct {
 	config       configv1.VaultKMSPluginConfig
 	roleID       string
 	secretIDPath string
+	logLevel     string
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -76,6 +83,9 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	// Optional fields: only pass non-empty values.
 	if v.config.VaultNamespace != "" {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
+	}
+	if v.logLevel != "" {
+		args = append(args, fmt.Sprintf("-log-level=%s", v.logLevel))
 	}
 
 	// Temporary workarounds. These should go away as we progress with the feature.
