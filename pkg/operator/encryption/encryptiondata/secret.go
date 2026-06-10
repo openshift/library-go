@@ -177,7 +177,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 
 	for keyID, flatEntries := range secretData.KMSPluginsConfigMapData.FlatEntriesByKeyID() {
 		for rawKey, value := range flatEntries {
-			s.Data[formatKMSConfigMapDataKey(rawKey, keyID)] = value
+			s.Data[FormatKMSConfigMapDataKey(rawKey, keyID)] = value
 		}
 	}
 
@@ -239,7 +239,7 @@ func FormatKMSSecretDataKey(rawKey, keyID string) string {
 	return fmt.Sprintf("%s%s-%s", encryptionConfigSecretDataPrefix, rawKey, keyID)
 }
 
-// formatKMSConfigMapDataKey returns the data key used in the encryption-config Secret
+// FormatKMSConfigMapDataKey returns the data key used in the encryption-config Secret
 // for a KMS plugin configmap entry: "kms-plugin-configmap-{rawKey}-{keyID}",
 // where rawKey is the combined "configMapName_dataKey" from KMSReferenceData.FlatEntry.
 //
@@ -247,7 +247,7 @@ func FormatKMSSecretDataKey(rawKey, keyID string) string {
 //
 // It does not validate inputs. The callers are expected to use KMSReferenceData.Set,
 // which rejects empty values and underscores in referenceName.
-func formatKMSConfigMapDataKey(rawKey, keyID string) string {
+func FormatKMSConfigMapDataKey(rawKey, keyID string) string {
 	return fmt.Sprintf("%s%s-%s", encryptionConfigConfigMapDataPrefix, rawKey, keyID)
 }
 
