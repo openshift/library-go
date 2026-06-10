@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,6 +53,23 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, EncryptionSecretMigratedResources, err)
 		}
 		key.Migrated.Resources = migrated.Resources
+	}
+
+	if v, ok := s.Annotations[EncryptionSecretMigrationGeneration]; ok && len(v) > 0 {
+		gen, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			klog.V(4).Infof("secret %s/%s has invalid %s annotation %q, defaulting to 0", s.Namespace, s.Name, EncryptionSecretMigrationGeneration, v)
+		} else {
+			key.MigrationGeneration = uint(gen)
+		}
+	}
+	if v, ok := s.Annotations[EncryptionSecretMigratedGeneration]; ok && len(v) > 0 {
+		gen, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			klog.V(4).Infof("secret %s/%s has invalid %s annotation %q, defaulting to 0", s.Namespace, s.Name, EncryptionSecretMigratedGeneration, v)
+		} else {
+			key.Migrated.Generation = uint(gen)
+		}
 	}
 
 	if v, ok := s.Annotations[encryptionSecretInternalReason]; ok && len(v) > 0 {
@@ -151,6 +170,13 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+
+	if ks.MigrationGeneration > 0 {
+		s.Annotations[EncryptionSecretMigrationGeneration] = strconv.FormatUint(uint64(ks.MigrationGeneration), 10)
+	}
+	if ks.Migrated.Generation > 0 {
+		s.Annotations[EncryptionSecretMigratedGeneration] = strconv.FormatUint(uint64(ks.Migrated.Generation), 10)
 	}
 
 	if ks.HasKMSEncryption() {

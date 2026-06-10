@@ -50,6 +50,11 @@ type KeyState struct {
 	ExternalReason string
 	// stores all the KMS encryption mode related configurations
 	KMS *KMSState
+
+	// MigrationGeneration is the requested migration generation from the
+	// migration-generation annotation. A value greater than Migrated.Generation
+	// signals that re-migration is needed (e.g. after a remote KMS key rotation).
+	MigrationGeneration uint
 }
 
 func (k *KeyState) HasKMSEncryption() bool {
@@ -157,6 +162,9 @@ type MigrationState struct {
 	Timestamp time.Time
 	// the resources that were migrated at some point in time to this key.
 	Resources []schema.GroupResource
+	// Generation is the generation for which migration was last completed,
+	// from the migrated-generation annotation.
+	Generation uint
 }
 
 // Mode is the value associated with the encryptionSecretMode annotation

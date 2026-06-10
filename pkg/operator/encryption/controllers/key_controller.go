@@ -365,8 +365,8 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return 0, "", false
 	}
 
-	// we have not migrated the latest key, do nothing until that is complete
-	if allMigrated, _, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated {
+	// we have not migrated the latest key (or re-migration is in progress), do nothing until that is complete
+	if allMigrated, _, needsRemigration, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated || needsRemigration {
 		return 0, "", false
 	}
 

@@ -217,6 +217,26 @@ func TestRoundtrip(t *testing.T) {
 				ExternalReason: "external",
 			},
 		},
+		{
+			name:      "aescbc with migration generation",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "5",
+					Secret: base64.StdEncoding.EncodeToString([]byte("abcdef")),
+				},
+				Backed: true,
+				Mode:   "aescbc",
+				Migrated: state.MigrationState{
+					Timestamp:  now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+					},
+					Generation: 2,
+				},
+				MigrationGeneration: 3,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

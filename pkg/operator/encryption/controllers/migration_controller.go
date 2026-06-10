@@ -216,25 +216,35 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
+	remigrationPending := false
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
 		if !grActualKeys.HasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+		alreadyMigrated, _, needsRemigration, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey)
+		if alreadyMigrated && !needsRemigration {
 			continue
+		}
+		if needsRemigration {
+			remigrationPending = true
+		}
+
+		writeKeyForMigrator := grActualKeys.WriteKey.Key.Name
+		if grActualKeys.WriteKey.MigrationGeneration > 0 {
+			writeKeyForMigrator = fmt.Sprintf("%s-%d", writeKeyForMigrator, grActualKeys.WriteKey.MigrationGeneration)
 		}
 
 		// idem-potent migration start
-		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+		finished, result, when, err := c.migrator.EnsureMigration(gr, writeKeyForMigrator)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
 			// last migration error is far enough ago. Prune and retry.
 			if err := c.migrator.PruneMigration(gr); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			finished, result, when, err = c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+			finished, result, when, err = c.migrator.EnsureMigration(gr, writeKeyForMigrator)
 
 		}
 		if err != nil {
@@ -283,7 +293,44 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 	}
 
+	if remigrationPending && len(migratingResources) == 0 && len(errs) == 0 {
+		if err := c.updateMigratedGeneration(ctx, syncContext, currentState, grs); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	return migratingResources, errors.NewAggregate(errs)
+}
+
+// updateMigratedGeneration sets the migrated-generation annotation on the write key
+// secret to match the migration-generation, indicating that all resources have been
+// successfully re-migrated for the current generation.
+func (c *migrationController) updateMigratedGeneration(ctx context.Context, syncContext factory.SyncContext, currentState map[schema.GroupResource]state.GroupResourceState, grs []schema.GroupResource) error {
+	if len(grs) == 0 {
+		return nil
+	}
+	writeKey := currentState[grs[0]].WriteKey
+	writeKeySecret, err := secrets.FromKeyState(c.instanceName, writeKey)
+	if err != nil {
+		return err
+	}
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		s, err := c.secretClient.Secrets(writeKeySecret.Namespace).Get(ctx, writeKeySecret.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get key secret %s/%s: %v", writeKeySecret.Namespace, writeKeySecret.Name, err)
+		}
+		requestedGen := s.Annotations[secrets.EncryptionSecretMigrationGeneration]
+		if s.Annotations[secrets.EncryptionSecretMigratedGeneration] == requestedGen {
+			return nil
+		}
+		if s.Annotations == nil {
+			s.Annotations = map[string]string{}
+		}
+		s.Annotations[secrets.EncryptionSecretMigratedGeneration] = requestedGen
+		_, updateErr := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
+		resourcehelper.ReportUpdateEvent(syncContext.Recorder(), s, updateErr)
+		return updateErr
+	})
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
@@ -303,8 +350,13 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 		}
 	}
 
+	// During re-migration (generation mismatch), always refresh the timestamp
+	// even if the resource is already in the migrated list.
+	generationMismatch := s.Annotations[secrets.EncryptionSecretMigrationGeneration] != s.Annotations[secrets.EncryptionSecretMigratedGeneration] &&
+		len(s.Annotations[secrets.EncryptionSecretMigrationGeneration]) > 0
+
 	// update timestamp, if missing or first migration of gr
-	if _, found := s.Annotations[secrets.EncryptionSecretMigratedTimestamp]; found && alreadyMigrated {
+	if _, found := s.Annotations[secrets.EncryptionSecretMigratedTimestamp]; found && alreadyMigrated && !generationMismatch {
 		return false, nil
 	}
 	if s.Annotations == nil {

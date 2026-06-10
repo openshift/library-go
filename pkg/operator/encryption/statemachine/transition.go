@@ -193,8 +193,8 @@ func getDesiredEncryptionState(oldSecretData *encryptiondata.Config, encryptionS
 	// STEP 4: with consistent read-keys and write-keys, remove every read-key other than the write-key and one last read key.
 	//
 	// Note: because read-keys are consistent, currentlyEncryptedGRs equals toBeEncryptedGRs
-	allMigrated, _, reason := state.MigratedFor(currentlyEncryptedGRs, writeKey)
-	if !allMigrated {
+	allMigrated, _, needsRemigration, reason := state.MigratedFor(currentlyEncryptedGRs, writeKey)
+	if !allMigrated || needsRemigration {
 		klog.V(4).Infof("%s", reason)
 		return desiredEncryptionState
 	}

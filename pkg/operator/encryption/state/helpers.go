@@ -11,7 +11,10 @@ import (
 
 // MigratedFor returns whether all given resources are marked as migrated in the given key.
 // It returns missing GRs and a reason if that's not the case.
-func MigratedFor(grs []schema.GroupResource, km KeyState) (ok bool, missing []schema.GroupResource, reason string) {
+// needsRemigration is true when all GRs have been migrated but the key's
+// MigrationGeneration exceeds its MigratedGeneration, indicating that
+// re-migration is required (e.g. after a remote KMS key rotation).
+func MigratedFor(grs []schema.GroupResource, km KeyState) (ok bool, missing []schema.GroupResource, needsRemigration bool, reason string) {
 	var missingStrings []string
 	for _, gr := range grs {
 		found := false
@@ -28,16 +31,20 @@ func MigratedFor(grs []schema.GroupResource, km KeyState) (ok bool, missing []sc
 	}
 
 	if len(missing) > 0 {
-		return false, missing, fmt.Sprintf("key ID %s misses resource %s among migrated resources", km.Key.Name, strings.Join(missingStrings, ","))
+		return false, missing, false, fmt.Sprintf("key ID %s misses resource %s among migrated resources", km.Key.Name, strings.Join(missingStrings, ","))
 	}
 
-	return true, nil, ""
+	if km.MigrationGeneration > km.Migrated.Generation {
+		return true, nil, true, fmt.Sprintf("key ID %s needs remigration: requested generation %d > migrated generation %d", km.Key.Name, km.MigrationGeneration, km.Migrated.Generation)
+	}
+
+	return true, nil, false, ""
 }
 
 // KeysWithPotentiallyPersistedDataAndNextReadKey returns the minimal, recent secrets which have migrated all given GRs.
 func KeysWithPotentiallyPersistedDataAndNextReadKey(grs []schema.GroupResource, recentFirstSortedKeys []KeyState) []KeyState {
 	for i, k := range recentFirstSortedKeys {
-		if allMigrated, missing, _ := MigratedFor(grs, k); allMigrated {
+		if allMigrated, missing, _, _ := MigratedFor(grs, k); allMigrated {
 			if i+1 < len(recentFirstSortedKeys) {
 				return recentFirstSortedKeys[:i+2]
 			} else {

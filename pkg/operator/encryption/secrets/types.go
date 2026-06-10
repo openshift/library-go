@@ -41,6 +41,17 @@ const (
 	// determine if a new key should be created even if encryptionSecretMigrationInterval has not been reached.
 	encryptionSecretExternalReason = "encryption.apiserver.operator.openshift.io/external-reason"
 
+	// EncryptionSecretMigrationGeneration is the requested migration generation.
+	// When this value exceeds EncryptionSecretMigratedGeneration, re-migration is
+	// needed (e.g. after a remote KMS key rotation where the local secret stays the
+	// same but all data must be re-encrypted).
+	EncryptionSecretMigrationGeneration = "encryption.apiserver.operator.openshift.io/migration-generation"
+
+	// EncryptionSecretMigratedGeneration is the generation for which migration was
+	// last completed. Set by the migration controller after all resources have been
+	// successfully re-migrated for a given migration generation.
+	EncryptionSecretMigratedGeneration = "encryption.apiserver.operator.openshift.io/migrated-generation"
+
 	// In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 	// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
 	EncryptionSecretKeyDataKey = "encryption.apiserver.operator.openshift.io-key"
