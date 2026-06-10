@@ -17,7 +17,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
 	}
 
-	roleID, err := creds.Value(secretName, "role-id")
+	roleID, err := creds.SecretValue(secretName, "role-id")
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		return nil, fmt.Errorf("role ID cannot be empty")
 	}
 
-	secretIDPath, err := creds.FilePath(secretName, "secret-id")
+	secretIDPath, err := creds.SecretFilePath(secretName, "secret-id")
 	if err != nil {
 		return nil, err
 	}
