@@ -1,4 +1,4 @@
-package preflight
+package kms
 
 import (
 	"bytes"
@@ -29,8 +29,8 @@ func (f *fakeService) Decrypt(ctx context.Context, uid string, req *kmsservice.D
 	return f.DecryptFn(ctx, uid, req)
 }
 
-func newTestChecker(service *fakeService) *checker {
-	return &checker{
+func newTestChecker(service *fakeService) *Checker {
+	return &Checker{
 		service: service,
 		// deterministic reader so encrypt/decrypt assertions are predictable
 		randReader: bytes.NewReader(bytes.Repeat([]byte{0xAB}, 32)),
@@ -159,7 +159,7 @@ func TestCheck(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			target := newTestChecker(scenario.service)
 
-			err := target.check(context.Background())
+			err := target.Check(context.Background())
 
 			if scenario.expectErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)

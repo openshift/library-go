@@ -1,4 +1,4 @@
-package preflight
+package kms
 
 import (
 	"bytes"
@@ -18,18 +18,18 @@ import (
 // See https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/kms/apis/v2/api.proto#L39
 const healthzOK = "ok"
 
-// checker runs the preflight check against a KMS plugin by calling
+// Checker runs the preflight check against a KMS plugin by calling
 // Status, Encrypt, and Decrypt on the kmsservice.Service interface.
 // this is the same interface the apiserver uses.
-type checker struct {
+type Checker struct {
 	service        kmsservice.Service
 	randReader     io.Reader
 	statusTimeout  time.Duration
 	statusInterval time.Duration
 }
 
-func newChecker(service kmsservice.Service, statusTimeout, statusInterval time.Duration) *checker {
-	return &checker{
+func NewChecker(service kmsservice.Service, statusTimeout, statusInterval time.Duration) *Checker {
+	return &Checker{
 		service:        service,
 		randReader:     rand.Reader,
 		statusTimeout:  statusTimeout,
@@ -37,7 +37,7 @@ func newChecker(service kmsservice.Service, statusTimeout, statusInterval time.D
 	}
 }
 
-func (c *checker) check(ctx context.Context) error {
+func (c *Checker) Check(ctx context.Context) error {
 	if err := c.checkStatus(ctx); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (c *checker) check(ctx context.Context) error {
 // checkStatus polls the KMS plugin status endpoint until it reports healthy.
 // The plugin may not be immediately available after startup, so we retry
 // before reporting a failure.
-func (c *checker) checkStatus(ctx context.Context) error {
+func (c *Checker) checkStatus(ctx context.Context) error {
 	klog.Infof("[1/3] Checking KMS plugin status endpoint (interval %v, timeout %v)", c.statusInterval, c.statusTimeout)
 	return wait.PollUntilContextTimeout(ctx, c.statusInterval, c.statusTimeout, true, func(ctx context.Context) (bool, error) {
 		start := time.Now()
@@ -69,7 +69,7 @@ func (c *checker) checkStatus(ctx context.Context) error {
 	})
 }
 
-func (c *checker) checkEncryptDecrypt(ctx context.Context) error {
+func (c *Checker) checkEncryptDecrypt(ctx context.Context) error {
 	klog.Info("[2/3] Checking KMS plugin encrypt endpoint")
 	plainText := make([]byte, 32)
 	if _, err := io.ReadFull(c.randReader, plainText); err != nil {

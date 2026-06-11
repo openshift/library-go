@@ -10,6 +10,8 @@ import (
 
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/klog/v2"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
 
 const kmsSocketEndpoint = "unix:///var/run/kmsplugin/kms.sock"
@@ -67,9 +69,9 @@ func (o *options) run(ctx context.Context) error {
 		return fmt.Errorf("failed to create KMS gRPC client: %w", err)
 	}
 
-	checker := newChecker(service, o.statusTimeout, o.statusInterval)
+	checker := kms.NewChecker(service, o.statusTimeout, o.statusInterval)
 	start := time.Now()
-	if err = checker.check(ctx); err != nil {
+	if err = checker.Check(ctx); err != nil {
 		return fmt.Errorf("kms preflight check failed: %w", err)
 	}
 
