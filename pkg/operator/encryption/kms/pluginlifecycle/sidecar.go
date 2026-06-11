@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	resourceDirVolumeName = "resource-dir"
-	credentialsVolumeName = "kms-plugin-credentials"
-	credentialsMountPath  = "/var/run/secrets/kms-plugin"
-	resourcesDir          = "/etc/kubernetes/static-pod-resources"
+	resourceDirVolumeName   = "resource-dir"
+	referenceDataVolumeName = "kms-plugins-data"
+	referenceDataMountPath  = "/var/run/secrets/kms-plugin"
+	resourcesDir            = "/etc/kubernetes/static-pod-resources"
 )
 
 const (
@@ -39,11 +39,11 @@ type sidecarProvider interface {
 }
 
 // newSidecarProvider creates a provider-specific sidecarProvider for the given keyID and plugin configuration,
-// wiring in credentials via the referenceDataResolver.
-func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig, creds *referenceDataResolver) (sidecarProvider, error) {
+// wiring in reference data (secrets, configmaps) via the referenceDataResolver.
+func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig, refData *referenceDataResolver) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
-		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault, creds)
+		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault, refData)
 	default:
 		return nil, fmt.Errorf("unsupported KMS plugin configuration")
 	}
@@ -51,7 +51,7 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 
 // AddKMSPluginSidecarToStaticPodSpec injects KMS plugin sidecar containers into a kube-apiserver static pod spec.
 //
-// Static pods access credentials through the resource-dir volume, which the static pod revision controller
+// Static pods access KMS plugin data through the resource-dir volume, which the static pod revision controller
 // populates on disk from the encryption-config Secret. Because those files are owned by root, each sidecar
 // is configured to run as UID 0.
 //
@@ -76,7 +76,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 		if err := ensureVolumeMountInContainer(podSpec.InitContainers, name, volumeMount); err != nil {
 			return err
 		}
-		// The resource-dir files are owned by root, so the sidecar needs root to read credential files.
+		// The resource-dir files are owned by root, so the sidecar needs root to read files in that directory.
 		if err := setRunAsUser(podSpec.InitContainers, name, 0); err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
 func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
-	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, credentialsMountPath)
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, referenceDataMountPath)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 	}
 
 	for _, name := range sidecarNames {
-		volumeMount := corev1.VolumeMount{Name: credentialsVolumeName, MountPath: credentialsMountPath, ReadOnly: true}
+		volumeMount := corev1.VolumeMount{Name: referenceDataVolumeName, MountPath: referenceDataMountPath, ReadOnly: true}
 		if err := ensureVolumeMountInContainer(podSpec.InitContainers, name, volumeMount); err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 	// Unlike static pods, aggregated API servers access credentials by mounting the encryption-config Secret directly as a volume.
 	// Callers include the revision number in encryptionConfigSecretName (e.g. "encryption-config-7"), so each revision maps to a distinct Secret and volume.
-	if err := ensureCredentialsVolume(podSpec, encryptionConfigSecretName); err != nil {
+	if err := ensureReferenceDataVolume(podSpec, encryptionConfigSecretName); err != nil {
 		return err
 	}
 
@@ -177,13 +177,13 @@ func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containe
 			return nil, fmt.Errorf("missing plugin config for keyID %s", keyID)
 		}
 
-		creds := &referenceDataResolver{
+		refData := &referenceDataResolver{
 			pluginsSecretData: encryptionConfig.KMSPluginsSecretData,
 			referenceDataDir:  referenceDataDir,
 			keyID:             keyID,
 		}
 
-		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig, creds)
+		provider, err := newSidecarProvider(keyID, udsPath, pluginConfig, refData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
 		}
@@ -277,9 +277,9 @@ func ensureSocketVolume(podSpec *corev1.PodSpec) error {
 	return ensureVolume(podSpec, volume)
 }
 
-func ensureCredentialsVolume(podSpec *corev1.PodSpec, secretName string) error {
+func ensureReferenceDataVolume(podSpec *corev1.PodSpec, secretName string) error {
 	volume := corev1.Volume{
-		Name: credentialsVolumeName,
+		Name: referenceDataVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,

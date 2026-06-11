@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCredentialResolver_SecretValue(t *testing.T) {
+func TestReferenceDataResolver_SecretValue(t *testing.T) {
 	const keyID = "42"
 	pluginsSecretData := newTestPluginsSecretData(t, keyID, "my-role-id", "my-secret-id")
 
@@ -62,9 +62,9 @@ func TestCredentialResolver_SecretValue(t *testing.T) {
 	}
 }
 
-func TestCredentialResolver_SecretFilePath(t *testing.T) {
+func TestReferenceDataResolver_SecretFilePath(t *testing.T) {
 	const keyID = "42"
-	const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
+	const referenceDataDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
 
 	pluginsSecretData := newTestPluginsSecretData(t, keyID, "my-role-id", "my-secret-id")
 
@@ -81,7 +81,7 @@ func TestCredentialResolver_SecretFilePath(t *testing.T) {
 			keyID:      keyID,
 			secretName: "vault-approle",
 			dataKey:    "secret-id",
-			expected:   filepath.Join(credentialsDir, encryptiondata.FormatKMSSecretDataKey("vault-approle_secret-id", keyID)),
+			expected:   filepath.Join(referenceDataDir, encryptiondata.FormatKMSSecretDataKey("vault-approle_secret-id", keyID)),
 		},
 		{
 			name:       "missing keyID",
@@ -103,7 +103,7 @@ func TestCredentialResolver_SecretFilePath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &referenceDataResolver{
 				keyID:             tc.keyID,
-				referenceDataDir:  credentialsDir,
+				referenceDataDir:  referenceDataDir,
 				pluginsSecretData: pluginsSecretData,
 			}
 
@@ -118,9 +118,9 @@ func TestCredentialResolver_SecretFilePath(t *testing.T) {
 	}
 }
 
-func TestCredentialResolver_ConfigMapFilePath(t *testing.T) {
+func TestReferenceDataResolver_ConfigMapFilePath(t *testing.T) {
 	const keyID = "42"
-	const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
+	const referenceDataDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
 
 	pluginsConfigMapData := newTestPluginsConfigMapData(t, keyID, "my-ca-bundle")
 
@@ -137,7 +137,7 @@ func TestCredentialResolver_ConfigMapFilePath(t *testing.T) {
 			keyID:         keyID,
 			configMapName: "vault-ca-bundle",
 			dataKey:       "ca-bundle.crt",
-			expected:      filepath.Join(credentialsDir, encryptiondata.FormatKMSConfigMapDataKey("vault-ca-bundle_ca-bundle.crt", keyID)),
+			expected:      filepath.Join(referenceDataDir, encryptiondata.FormatKMSConfigMapDataKey("vault-ca-bundle_ca-bundle.crt", keyID)),
 		},
 		{
 			name:          "missing keyID",
@@ -159,7 +159,7 @@ func TestCredentialResolver_ConfigMapFilePath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &referenceDataResolver{
 				keyID:                tc.keyID,
-				referenceDataDir:     credentialsDir,
+				referenceDataDir:     referenceDataDir,
 				pluginsConfigMapData: pluginsConfigMapData,
 			}
 

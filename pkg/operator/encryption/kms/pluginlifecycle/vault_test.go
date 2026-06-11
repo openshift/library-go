@@ -25,7 +25,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		name               string
 		vaultConfig        configv1.VaultKMSPluginConfig
 		secretData         state.KMSReferenceData
-		credentialsDir     string
+		referenceDataDir   string
 		containerName      string
 		keyID              string
 		udsPath            string
@@ -47,12 +47,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					},
 				},
 			},
-			secretData:      newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
-			credentialsDir:  "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
-			containerName:   "kms-plugin",
-			keyID:           "555",
-			udsPath:         "unix:///var/run/kmsplugin/kms-555.sock",
-			inputContainers: nil,
+			secretData:       newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			referenceDataDir: "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
+			containerName:    "kms-plugin",
+			keyID:            "555",
+			udsPath:          "unix:///var/run/kmsplugin/kms-555.sock",
+			inputContainers:  nil,
 			expectedContainers: []corev1.Container{
 				{
 					Name:  "kms-plugin-555",
@@ -94,11 +94,11 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					},
 				},
 			},
-			secretData:     newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
-			credentialsDir: "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
-			containerName:  "kms-plugin",
-			keyID:          "555",
-			udsPath:        "unix:///var/run/kmsplugin/kms-555.sock",
+			secretData:       newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			referenceDataDir: "/etc/kubernetes/static-pod-resources/secrets/encryption-config",
+			containerName:    "kms-plugin",
+			keyID:            "555",
+			udsPath:          "unix:///var/run/kmsplugin/kms-555.sock",
 			inputContainers: []corev1.Container{
 				{
 					Name:  "kube-apiserver",
@@ -150,12 +150,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					},
 				},
 			},
-			secretData:      newVaultAppRoleSecretData(t, "test-role-id-999", "test-secret-id-999"),
-			credentialsDir:  "/var/run/secrets/kms-plugin",
-			containerName:   "kms-plugin",
-			keyID:           "999",
-			udsPath:         "unix:///var/run/kmsplugin/kms.sock",
-			inputContainers: nil,
+			secretData:       newVaultAppRoleSecretData(t, "test-role-id-999", "test-secret-id-999"),
+			referenceDataDir: "/var/run/secrets/kms-plugin",
+			containerName:    "kms-plugin",
+			keyID:            "999",
+			udsPath:          "unix:///var/run/kmsplugin/kms.sock",
+			inputContainers:  nil,
 			expectedContainers: []corev1.Container{
 				{
 					Name:  "kms-plugin-999",
@@ -206,13 +206,13 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			creds := &referenceDataResolver{
+			refData := &referenceDataResolver{
 				pluginsSecretData: pluginsSecretData,
-				referenceDataDir:  tt.credentialsDir,
+				referenceDataDir:  tt.referenceDataDir,
 				keyID:             tt.keyID,
 			}
 
-			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, creds)
+			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, refData)
 			if tt.expectErr != "" {
 				require.EqualError(t, err, tt.expectErr)
 				return
