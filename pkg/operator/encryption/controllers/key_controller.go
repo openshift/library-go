@@ -287,7 +287,12 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			Plugin: apiServerEncryption.KMS,
 		}
 
-		if secretName, expectedKeys, err := referencedSecretName(apiServerEncryption.KMS); err != nil {
+		providerCfg, err := newKMSProviderConfig(apiServerEncryption.KMS)
+		if err != nil {
+			return nil, err
+		}
+
+		if secretName, expectedKeys, err := providerCfg.referencedSecretName(); err != nil {
 			return nil, err
 		} else if len(secretName) > 0 {
 			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
@@ -305,7 +310,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			}
 		}
 
-		if cmName, expectedKeys, err := referencedConfigMapName(apiServerEncryption.KMS); err != nil {
+		if cmName, expectedKeys, err := providerCfg.referencedConfigMapName(); err != nil {
 			return nil, err
 		} else if len(cmName) > 0 {
 			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
@@ -424,38 +429,48 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
 }
 
-// referencedSecretName returns the name of the secret referenced by the KMS plugin
-// config and the specific data keys to carry from that secret. Only the listed keys
-// are copied into the Key Secret; any other data in the referenced secret is ignored.
-func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string, error) {
+// kmsProviderConfig abstracts provider-specific KMS logic so that every
+// provider-type switch lives in a single factory (newKMSProviderConfig).
+type kmsProviderConfig interface {
+	// referencedSecretName returns the name of the secret referenced by the KMS plugin
+	// config and the specific data keys to carry from that secret. Only the listed keys
+	// are copied into the Key Secret; any other data in the referenced secret is ignored.
+	referencedSecretName() (string, []string, error)
+	// referencedConfigMapName returns the name of the configmap referenced by the KMS plugin
+	// config and the specific data keys to carry from that configmap. Only the listed keys
+	// are copied into the Key Secret; any other data in the referenced configmap is ignored.
+	referencedConfigMapName() (string, []string, error)
+}
+
+func newKMSProviderConfig(plugin configv1.KMSPluginConfig) (kmsProviderConfig, error) {
 	switch plugin.Type {
 	case configv1.VaultKMSProvider:
-		switch plugin.Vault.Authentication.Type {
-		case configv1.VaultAuthenticationTypeAppRole:
-			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
-			// These are the only keys carried into the encryption key secret.
-			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
-		default:
-			return "", nil, fmt.Errorf("unsupported Vault authentication type %q", plugin.Vault.Authentication.Type)
-		}
+		return &vaultProviderConfig{plugin.Vault}, nil
 	default:
-		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
+		return nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
 	}
 }
 
-// referencedConfigMapName returns the name of the configmap referenced by the KMS plugin
-// config and the specific data keys to carry from that configmap. Only the listed keys
-// are copied into the Key Secret; any other data in the referenced configmap is ignored.
-func referencedConfigMapName(plugin configv1.KMSPluginConfig) (string, []string, error) {
-	switch plugin.Type {
-	case configv1.VaultKMSProvider:
-		if plugin.Vault.TLS.CABundle.Name == "" {
-			return "", nil, nil
-		}
-		return plugin.Vault.TLS.CABundle.Name, []string{"ca-bundle.crt"}, nil
+type vaultProviderConfig struct {
+	vault configv1.VaultKMSPluginConfig
+}
+
+func (v *vaultProviderConfig) referencedSecretName() (string, []string, error) {
+	switch v.vault.Authentication.Type {
+	case configv1.VaultAuthenticationTypeAppRole:
+		// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
+		// These are the only keys carried into the encryption key secret.
+		return v.vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
 	default:
-		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
+		return "", nil, fmt.Errorf("unsupported Vault authentication type %q", v.vault.Authentication.Type)
 	}
+}
+
+func (v *vaultProviderConfig) referencedConfigMapName() (string, []string, error) {
+	if v.vault.TLS.CABundle.Name == "" {
+		return "", nil, nil
+	}
+	return v.vault.TLS.CABundle.Name, []string{"ca-bundle.crt"}, nil
 }
 
 // TODO make this un-settable once set

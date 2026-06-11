@@ -904,7 +904,14 @@ func TestReferencedSecretName(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			name, dataKeys, err := referencedSecretName(scenario.plugin)
+			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin)
+			if factoryErr != nil {
+				if scenario.expectedError {
+					return
+				}
+				t.Fatalf("unexpected factory error: %v", factoryErr)
+			}
+			name, dataKeys, err := providerCfg.referencedSecretName()
 			if scenario.expectedError {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -973,7 +980,14 @@ func TestReferencedConfigMapName(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			name, dataKeys, err := referencedConfigMapName(scenario.plugin)
+			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin)
+			if factoryErr != nil {
+				if scenario.expectedError {
+					return
+				}
+				t.Fatalf("unexpected factory error: %v", factoryErr)
+			}
+			name, dataKeys, err := providerCfg.referencedConfigMapName()
 			if scenario.expectedError {
 				if err == nil {
 					t.Fatal("expected error, got nil")
