@@ -19,6 +19,7 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
+	kmshealth "github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 )
@@ -29,7 +30,6 @@ func NewControllers(
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
-	convergedKEKReporter controllers.ConvergedKEKReporter,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
@@ -49,6 +49,11 @@ func NewControllers(
 	if err != nil {
 		return nil, err
 	}
+
+	convergedKEKReporter := kmshealth.NewMOCK_ConfigMapConvergedKEKReporter(
+		kubeInformersForNamespaces.ConfigMapLister(),
+		"",
+	)
 
 	// for testing resourceSyncer might be nil
 	if resourceSyncer != nil {

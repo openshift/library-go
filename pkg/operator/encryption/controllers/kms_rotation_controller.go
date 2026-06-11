@@ -69,6 +69,7 @@ func NewKMSRotationController(
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor("openshift-config").Core().V1().ConfigMaps().Informer(),
 		apiServerConfigInformer.Informer(),
 		deployer,
 	).ToController(
@@ -78,10 +79,6 @@ func NewKMSRotationController(
 }
 
 func (c *kmsRotationController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if c.convergedKEKReporter == nil {
-		return nil
-	}
-
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		return err
 	}
