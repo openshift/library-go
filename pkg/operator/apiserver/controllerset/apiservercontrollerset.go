@@ -394,6 +394,11 @@ func (cs *APIServerControllerSet) WithUnsupportedConfigPrefixForEncryptionContro
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithConvergedKEKReporterForEncryptionControllers(reporter controllers.ConvergedKEKReporter) *APIServerControllerSet {
+	cs.encryptionControllers.convergedKEKReporter = reporter
+	return cs
+}
+
 func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerControllerSet {
 	cs.encryptionControllers.controller = nil
 	cs.encryptionControllers.emptyAllowed = true
@@ -485,6 +490,7 @@ type encryptionControllerBuilder struct {
 	provider                   controllers.Provider
 	deployer                   statemachine.Deployer
 	migrator                   migrators.Migrator
+	convergedKEKReporter       controllers.ConvergedKEKReporter
 	secretsClient              corev1.SecretsGetter
 	configMapClient            corev1.ConfigMapsGetter
 	apiServerClient            configv1client.APIServerInterface
@@ -506,6 +512,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.provider,
 		e.deployer,
 		e.migrator,
+		e.convergedKEKReporter,
 		e.operatorClient,
 		e.apiServerClient,
 		e.apiServerInformer,

@@ -1,6 +1,8 @@
 package secrets
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -67,7 +69,20 @@ const (
 	// values fetched from the referenced configmap in openshift-config. The full data key is
 	// constructed as prefix + configMapName + separator + dataKey.
 	encryptionSecretKMSConfigMapDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-"
+
+	// EncryptionSecretTargetKekID is the target KMS KEK identity to migrate toward.
+	EncryptionSecretTargetKekID = "encryption.apiserver.operator.openshift.io/target-kek-id"
+	// EncryptionSecretMigratedKekID is the last fully migrated KMS KEK identity.
+	EncryptionSecretMigratedKekID = "encryption.apiserver.operator.openshift.io/migrated-kek-id"
+	// EncryptionSecretKekConvergedAt records when a candidate kekId first achieved cluster convergence (RFC3339).
+	EncryptionSecretKekConvergedAt = "encryption.apiserver.operator.openshift.io/kek-converged-at"
+	// EncryptionSecretKekConvergedID is the candidate kekId the kek-converged-at timestamp belongs to.
+	EncryptionSecretKekConvergedID = "encryption.apiserver.operator.openshift.io/kek-converged-id"
 )
+
+// KekConvergenceDelay is the minimum duration a candidate kekId must remain cluster-converged
+// before target-kek-id is updated to a new value (KEP-3299).
+const KekConvergenceDelay = 5 * time.Minute
 
 // MigratedGroupResources is the data structured stored in the
 // encryption.apiserver.operator.openshift.io/migrated-resources

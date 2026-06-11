@@ -159,6 +159,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		provider,
 		deployer,
 		migrator,
+		nil,
 		operatorClient,
 		fakeApiServerClient,
 		fakeConfigInformer.Config().V1().APIServers(),

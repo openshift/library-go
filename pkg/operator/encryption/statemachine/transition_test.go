@@ -14,6 +14,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
@@ -1298,6 +1299,45 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 					}},
 				}},
 			}),
+		},
+		{
+			"KMS kek migration in flight blocks STEP 4 pruning",
+			args{
+				toSecretData(&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							KMS: &apiserverconfigv1.KMSConfiguration{
+								APIVersion: "v2",
+								Name:       "2_secrets",
+								Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
+								Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+							},
+						}, {
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("21ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				}),
+				"kms",
+				func() []*corev1.Secret {
+					secretsList := []*corev1.Secret{
+						encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("21ea7c91419a68fd1224f88d50316b4e")),
+						encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2),
+					}
+					secretsList[1].Annotations[secrets.EncryptionSecretTargetKekID] = "kek-new"
+					secretsList[1].Annotations[secrets.EncryptionSecretMigratedKekID] = "kek-old"
+					return secretsList
+				}(),
+				[]schema.GroupResource{{Group: "", Resource: "secrets"}},
+			},
+			outputMatchingInputConfig,
 		},
 	}
 	for _, tt := range tests {

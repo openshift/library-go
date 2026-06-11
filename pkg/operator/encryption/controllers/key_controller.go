@@ -391,6 +391,11 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return 0, "", false
 	}
 
+	// KMS KEK rotation migration must complete before minting a new key
+	if latestKey.NeedsKekMigration() {
+		return 0, "", false
+	}
+
 	// if the most recent secret was encrypted in a mode different than the current mode, we need to generate a new key
 	if latestKey.Mode != currentMode {
 		return latestKeyID, "encryption-mode-changed", true
