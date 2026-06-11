@@ -10,14 +10,29 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/server"
+	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
+const providerName = "kms-health-reporter"
+
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
-var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-\d+\.sock$`)
+var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
+
+// keyIDFromSocket extracts the sequential key id captured by kmsSocketPattern,
+// e.g. "1" from unix:///var/run/kmsplugin/kms-1.sock.
+func keyIDFromSocket(socket string) (string, error) {
+	m := kmsSocketPattern.FindStringSubmatch(socket)
+	if m == nil {
+		return "", fmt.Errorf("socket %q must match %s", socket, kmsSocketPattern)
+	}
+	return m[1], nil
+}
 
 // options' flag-bound fields are exported so the struct can be logged as a
 // whole via klog.InfoS, which JSON-marshals its values.
@@ -45,7 +60,7 @@ func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1hel
 			if err := o.validate(); err != nil {
 				return err
 			}
-			return o.run()
+			return o.run(ctx)
 		},
 	}
 	o.addFlags(cmd.Flags())
@@ -65,10 +80,15 @@ func (o *options) validate() error {
 	if len(o.KMSSockets) == 0 {
 		return fmt.Errorf("--kms-sockets is required, at least one")
 	}
+	socketSet := make(map[string]struct{}, len(o.KMSSockets))
 	for _, s := range o.KMSSockets {
 		if !kmsSocketPattern.MatchString(s) {
 			return fmt.Errorf("--kms-sockets entry %q must match %s", s, kmsSocketPattern)
 		}
+		if _, ok := socketSet[s]; ok {
+			return fmt.Errorf("--kms-sockets entry %q is duplicated", s)
+		}
+		socketSet[s] = struct{}{}
 	}
 
 	if o.Interval <= 0 {
@@ -87,8 +107,12 @@ func (o *options) validate() error {
 	return nil
 }
 
-func (o *options) run() error {
-	cfg, err := buildRESTConfig(o.Kubeconfig)
+func (o *options) run(ctx context.Context) error {
+	ctx = setupSignalContext(ctx)
+
+	// Empty kubeconfig falls back to the in-cluster config (service account
+	// token + KUBERNETES_SERVICE_HOST), which is the deployed path.
+	cfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("build rest config: %w", err)
 	}
@@ -97,14 +121,58 @@ func (o *options) run() error {
 		return fmt.Errorf("build operator client: %w", err)
 	}
 
+	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
+	if err != nil {
+		return err
+	}
+	prober := newProber(plugins)
+
 	klog.InfoS("kms-health-reporter starting", "config", o)
+
+	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
+		// Each Status RPC enforces o.ReadTimeout internally (set at dial time);
+		// ctx here only carries shutdown cancellation.
+		conditions := prober.probeAll(ctx)
+		// TODO: hand conditions to the writer once it lands; logging is a placeholder.
+		klog.InfoS("kms plugin health", "conditions", conditions)
+	}, o.Interval, 0.1, false)
 
 	return nil
 }
 
-func buildRESTConfig(kubeconfig string) (*rest.Config, error) {
-	if kubeconfig != "" {
-		return clientcmd.BuildConfigFromFlags("", kubeconfig)
+func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) ([]pluginClient, error) {
+	plugins := make([]pluginClient, 0, len(sockets))
+
+	for _, socket := range sockets {
+		keyID, err := keyIDFromSocket(socket)
+		if err != nil {
+			return nil, err
+		}
+
+		// Unique name per plugin so the gRPC client's KMS operation metrics
+		// don't merge both plugins into one series.
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, providerName+"-"+keyID, timeout)
+		if err != nil {
+			// With the current dependency version this should never happen with a validated GRPC endpoint.
+			return nil, fmt.Errorf("setting up grpc service failed at %q: %w", socket, err)
+		}
+
+		plugins = append(plugins, pluginClient{keyID: keyID, service: service})
 	}
-	return rest.InClusterConfig()
+
+	return plugins, nil
+}
+
+// setupSignalContext registers for SIGTERM and SIGINT and returns a context
+// that will be cancelled once a signal is received. Compare startupmonitor's
+// setupSignalContext.
+func setupSignalContext(baseCtx context.Context) context.Context {
+	shutdownCtx, cancel := context.WithCancel(baseCtx)
+	shutdownHandler := server.SetupSignalHandler()
+	go func() {
+		defer cancel()
+		<-shutdownHandler
+		klog.Infof("Received SIGTERM or SIGINT signal, shutting down the process.")
+	}()
+	return shutdownCtx
 }
