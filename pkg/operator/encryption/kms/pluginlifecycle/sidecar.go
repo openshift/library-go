@@ -39,8 +39,8 @@ type sidecarProvider interface {
 }
 
 // newSidecarProvider creates a provider-specific sidecarProvider for the given keyID and plugin configuration,
-// wiring in credentials via the credentialResolver.
-func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig, creds *credentialResolver) (sidecarProvider, error) {
+// wiring in credentials via the referenceDataResolver.
+func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSPluginConfig, creds *referenceDataResolver) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case configv1.VaultKMSProvider:
 		return newVaultSidecarProvider("vault-kms-plugin", keyID, udsPath, pluginConfig.Vault, creds)
@@ -59,9 +59,9 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
 func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	// The static pod revision controller copies secret data to disk under resourcesDir/secrets/<secretName>/.
-	credentialsDir := filepath.Join(resourcesDir, "secrets", encryptionConfigSecretName)
+	referenceDataDir := filepath.Join(resourcesDir, "secrets", encryptionConfigSecretName)
 
-	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, credentialsDir)
+	sidecarNames, err := addKMSPluginSidecars(ctx, podSpec, containerName, encryptionConfigNamespace, encryptionConfigSecretName, secretClient, featureGateAccessor, referenceDataDir)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 // addKMSPluginSidecars contains the shared logic for discovering KMS plugins and injecting sidecar containers.
 // It returns the names of the sidecar containers that were injected, so callers can add deployment-mode-specific volume mounts.
-func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, credentialsDir string) ([]string, error) {
+func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, referenceDataDir string) ([]string, error) {
 	if podSpec == nil {
 		return nil, fmt.Errorf("pod spec cannot be nil")
 	}
@@ -177,9 +177,9 @@ func addKMSPluginSidecars(ctx context.Context, podSpec *corev1.PodSpec, containe
 			return nil, fmt.Errorf("missing plugin config for keyID %s", keyID)
 		}
 
-		creds := &credentialResolver{
+		creds := &referenceDataResolver{
 			pluginsSecretData: encryptionConfig.KMSPluginsSecretData,
-			credentialsDir:    credentialsDir,
+			referenceDataDir:  referenceDataDir,
 			keyID:             keyID,
 		}
 

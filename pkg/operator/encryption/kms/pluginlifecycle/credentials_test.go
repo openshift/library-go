@@ -46,7 +46,7 @@ func TestCredentialResolver_SecretValue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &credentialResolver{
+			r := &referenceDataResolver{
 				keyID:             tc.keyID,
 				pluginsSecretData: pluginsSecretData,
 			}
@@ -101,9 +101,9 @@ func TestCredentialResolver_SecretFilePath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &credentialResolver{
+			r := &referenceDataResolver{
 				keyID:             tc.keyID,
-				credentialsDir:    credentialsDir,
+				referenceDataDir:  credentialsDir,
 				pluginsSecretData: pluginsSecretData,
 			}
 
@@ -157,9 +157,9 @@ func TestCredentialResolver_ConfigMapFilePath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &credentialResolver{
+			r := &referenceDataResolver{
 				keyID:                tc.keyID,
-				credentialsDir:       credentialsDir,
+				referenceDataDir:     credentialsDir,
 				pluginsConfigMapData: pluginsConfigMapData,
 			}
 

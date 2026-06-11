@@ -7,17 +7,17 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 )
 
-// credentialResolver resolves KMS plugin credentials for a specific keyID
-// by looking up secret data and mapping it to values or file paths on disk.
-type credentialResolver struct {
+// referenceDataResolver resolves KMS plugin reference data for a specific keyID
+// by looking up secret and configMap data and mapping it to values or file paths on disk.
+type referenceDataResolver struct {
 	keyID                string
-	credentialsDir       string
+	referenceDataDir     string
 	pluginsSecretData    encryptiondata.KMSPluginsReferenceData
 	pluginsConfigMapData encryptiondata.KMSPluginsReferenceData
 }
 
 // SecretValue returns the value for the given secret name and data key.
-func (r *credentialResolver) SecretValue(secretName, dataKey string) (string, error) {
+func (r *referenceDataResolver) SecretValue(secretName, dataKey string) (string, error) {
 	sd, ok := r.pluginsSecretData.Get(r.keyID)
 	if !ok {
 		return "", fmt.Errorf("missing secret data for keyID %s", r.keyID)
@@ -30,7 +30,7 @@ func (r *credentialResolver) SecretValue(secretName, dataKey string) (string, er
 }
 
 // SecretFilePath returns the on-disk path where the data for the given secret name and data key is mounted.
-func (r *credentialResolver) SecretFilePath(secretName, dataKey string) (string, error) {
+func (r *referenceDataResolver) SecretFilePath(secretName, dataKey string) (string, error) {
 	sd, ok := r.pluginsSecretData.Get(r.keyID)
 	if !ok {
 		return "", fmt.Errorf("missing secret data for keyID %s", r.keyID)
@@ -40,11 +40,11 @@ func (r *credentialResolver) SecretFilePath(secretName, dataKey string) (string,
 		return "", fmt.Errorf("missing %s in secret %s for keyID %s", dataKey, secretName, r.keyID)
 	}
 	secretDataKey := encryptiondata.FormatKMSSecretDataKey(rawKey, r.keyID)
-	return filepath.Join(r.credentialsDir, secretDataKey), nil
+	return filepath.Join(r.referenceDataDir, secretDataKey), nil
 }
 
 // ConfigMapFilePath returns the on-disk path where the data for the given configMap name and data key is mounted.
-func (r *credentialResolver) ConfigMapFilePath(configMapName, dataKey string) (string, error) {
+func (r *referenceDataResolver) ConfigMapFilePath(configMapName, dataKey string) (string, error) {
 	cd, ok := r.pluginsConfigMapData.Get(r.keyID)
 	if !ok {
 		return "", fmt.Errorf("missing configMap data for keyID %s", r.keyID)
@@ -54,5 +54,5 @@ func (r *credentialResolver) ConfigMapFilePath(configMapName, dataKey string) (s
 		return "", fmt.Errorf("missing %s in configMap %s for keyID %s", dataKey, configMapName, r.keyID)
 	}
 	configMapDataKey := encryptiondata.FormatKMSConfigMapDataKey(rawKey, r.keyID)
-	return filepath.Join(r.credentialsDir, configMapDataKey), nil
+	return filepath.Join(r.referenceDataDir, configMapDataKey), nil
 }
