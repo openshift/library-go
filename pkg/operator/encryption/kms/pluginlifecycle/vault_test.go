@@ -29,6 +29,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		containerName      string
 		keyID              string
 		udsPath            string
+		unsupportedConfig  []byte
 		inputContainers    []corev1.Container
 		expectedContainers []corev1.Container
 		expectErr          string
@@ -196,6 +197,98 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			udsPath:       "unix:///var/run/kmsplugin/kms-555.sock",
 			expectErr:     "vault AppRole authentication secret name cannot be empty",
 		},
+		{
+			name: "nil unsupported config omits log level",
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				KMSPluginImage: "quay.io/test/vault:v2",
+				VaultAddress:   "https://vault.example.com:8200",
+				TransitKey:     "my-key",
+				TransitMount:   "transit",
+				Authentication: configv1.VaultAuthentication{
+					AppRole: configv1.VaultAppRoleAuthentication{
+						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+					},
+				},
+			},
+			secretData:        newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			credentialsDir:    "/var/run/secrets/kms-plugin",
+			containerName:     "kms-plugin",
+			keyID:             "555",
+			udsPath:           "unix:///var/run/kmsplugin/kms-555.sock",
+			unsupportedConfig: nil,
+			expectedContainers: []corev1.Container{
+				{
+					Name:  "kms-plugin-555",
+					Image: "quay.io/test/vault:v2",
+					Args: []string{
+						"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
+						"-vault-address=https://vault.example.com:8200",
+						"-transit-mount=transit",
+						"-transit-key=my-key",
+						"-approle-role-id=test-role-id",
+						"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+						"-tls-skip-verify=true",
+						"-metrics-port=0",
+					},
+					ImagePullPolicy:          corev1.PullIfNotPresent,
+					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "log level override appended to args",
+			vaultConfig: configv1.VaultKMSPluginConfig{
+				KMSPluginImage: "quay.io/test/vault:v2",
+				VaultAddress:   "https://vault.example.com:8200",
+				TransitKey:     "my-key",
+				TransitMount:   "transit",
+				Authentication: configv1.VaultAuthentication{
+					AppRole: configv1.VaultAppRoleAuthentication{
+						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+					},
+				},
+			},
+			secretData:        newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
+			credentialsDir:    "/var/run/secrets/kms-plugin",
+			containerName:     "kms-plugin",
+			keyID:             "555",
+			udsPath:           "unix:///var/run/kmsplugin/kms-555.sock",
+			unsupportedConfig: []byte(`{"encryption":{"kms":{"vault":{"logLevel":"debug-extended"}}}}`),
+			inputContainers:   nil,
+			expectedContainers: []corev1.Container{
+				{
+					Name:  "kms-plugin-555",
+					Image: "quay.io/test/vault:v2",
+					Args: []string{
+						"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
+						"-vault-address=https://vault.example.com:8200",
+						"-transit-mount=transit",
+						"-transit-key=my-key",
+						"-approle-role-id=test-role-id",
+						"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+						"-log-level=debug-extended",
+						"-tls-skip-verify=true",
+						"-metrics-port=0",
+					},
+					ImagePullPolicy:          corev1.PullIfNotPresent,
+					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -212,7 +305,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				keyID:             tt.keyID,
 			}
 
-			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, creds)
+			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, creds, tt.unsupportedConfig)
 			if tt.expectErr != "" {
 				require.EqualError(t, err, tt.expectErr)
 				return
