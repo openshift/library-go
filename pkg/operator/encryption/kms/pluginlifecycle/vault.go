@@ -11,13 +11,13 @@ import (
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *referenceDataResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
 	}
 
-	roleID, err := creds.SecretValue(secretName, "role-id")
+	roleID, err := refData.SecretValue(secretName, "role-id")
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		return nil, fmt.Errorf("role ID cannot be empty")
 	}
 
-	secretIDPath, err := creds.SecretFilePath(secretName, "secret-id")
+	secretIDPath, err := refData.SecretFilePath(secretName, "secret-id")
 	if err != nil {
 		return nil, err
 	}
