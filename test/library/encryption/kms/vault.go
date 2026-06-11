@@ -45,16 +45,16 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 	cfg := DefaultVaultKMSPluginConfig
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
-	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t)
+	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace)
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
-		Setup:               ensureDefaultVaultAppRoleSecret,
+		Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
 	}
 }
 
 var DefaultFakeVaultEncryptionProvider = library.EncryptionProvider{
 	APIServerEncryption: DefaultFakeKMSPluginConfig,
-	Setup:               ensureDefaultVaultAppRoleSecret,
+	Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
 }
 
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
@@ -105,31 +105,30 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 	},
 }
 
-// ensureDefaultVaultAppRoleSecret reads credentials from the vault-credentials secret
-// (created by a CI step) and applies the AppRole secret in openshift-config
-// using the default configuration constants.
-func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
-	t.Helper()
-	cs := library.GetClients(t)
+func ensureVaultAppRoleSecret(vaultNamespace, appRoleSecretName string) func(ctx context.Context, t testing.TB) {
+	return func(ctx context.Context, t testing.TB) {
+		t.Helper()
+		cs := library.GetClients(t)
 
-	creds, err := cs.Kube.CoreV1().Secrets(defaultVaultNamespace).Get(ctx, defaultVaultCredentialsSecret, metav1.GetOptions{})
-	require.NoError(t, err, "failed to read %s/%s secret (was the vault-install CI step run?)", defaultVaultNamespace, defaultVaultCredentialsSecret)
+		creds, err := cs.Kube.CoreV1().Secrets(vaultNamespace).Get(ctx, defaultVaultCredentialsSecret, metav1.GetOptions{})
+		require.NoError(t, err, "failed to read %s/%s secret (was the vault-install CI step run?)", vaultNamespace, defaultVaultCredentialsSecret)
 
-	required := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      defaultVaultAppRoleSecretName,
-			Namespace: defaultAppRoleTargetNamespace,
-		},
-		Type: corev1.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"role-id":   creds.Data["role-id"],
-			"secret-id": creds.Data["secret-id"],
-		},
+		required := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appRoleSecretName,
+				Namespace: defaultAppRoleTargetNamespace,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"role-id":   creds.Data["role-id"],
+				"secret-id": creds.Data["secret-id"],
+			},
+		}
+		recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})
+		_, changed, err := resourceapply.ApplySecret(ctx, cs.Kube.CoreV1(), recorder, required)
+		require.NoError(t, err, "failed to apply AppRole secret")
+		t.Logf("Applied AppRole secret %s in %s (changed=%v)", appRoleSecretName, defaultAppRoleTargetNamespace, changed)
 	}
-	recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})
-	_, changed, err := resourceapply.ApplySecret(ctx, cs.Kube.CoreV1(), recorder, required)
-	require.NoError(t, err, "failed to apply AppRole secret")
-	t.Logf("Applied AppRole secret %s in %s (changed=%v)", defaultVaultAppRoleSecretName, defaultAppRoleTargetNamespace, changed)
 }
 
 func ForceVaultKeyRotation() library.ForceRotationFunc {
@@ -197,12 +196,12 @@ func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
 
 // getVaultServiceAddress returns the Vault address using the Service's ClusterIP
 // instead of the DNS name, reading the port and scheme from the Service spec.
-func getVaultServiceAddress(ctx context.Context, t testing.TB) string {
+func getVaultServiceAddress(ctx context.Context, t testing.TB, ns string) string {
 	t.Helper()
 	cs := library.GetClients(t)
 
-	svc, err := cs.Kube.CoreV1().Services(defaultVaultNamespace).Get(ctx, "vault", metav1.GetOptions{})
-	require.NoError(t, err, "failed to get vault Service in namespace %s", defaultVaultNamespace)
+	svc, err := cs.Kube.CoreV1().Services(ns).Get(ctx, "vault", metav1.GetOptions{})
+	require.NoError(t, err, "failed to get vault Service in namespace %s", ns)
 	require.NotEmpty(t, svc.Spec.ClusterIP, "vault Service has no ClusterIP")
 	require.NotEmpty(t, svc.Spec.Ports, "vault Service has no ports")
 
