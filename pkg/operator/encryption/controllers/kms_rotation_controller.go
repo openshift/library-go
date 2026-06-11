@@ -164,6 +164,12 @@ func (c *kmsRotationController) reconcileKekAnnotations(
 		})
 	}
 
+	if kekMigration.KekConvergedAt.IsZero() {
+		return c.updateWriteKeySecret(ctx, syncCtx, writeKeySecret, func(s *corev1.Secret) (bool, error) {
+			return setKekConvergenceClock(s, convergedKekID, c.now())
+		})
+	}
+
 	if c.now().Sub(kekMigration.KekConvergedAt) >= secrets.KekConvergenceDelay {
 		return c.updateWriteKeySecret(ctx, syncCtx, writeKeySecret, func(s *corev1.Secret) (bool, error) {
 			return promoteConvergedKekToTarget(s, convergedKekID)
@@ -225,6 +231,9 @@ func setKekConvergenceClock(s *corev1.Secret, kekID string, now time.Time) (bool
 	changed := false
 	if s.Annotations[secrets.EncryptionSecretKekConvergedID] != kekID {
 		s.Annotations[secrets.EncryptionSecretKekConvergedID] = kekID
+		s.Annotations[secrets.EncryptionSecretKekConvergedAt] = now.Format(time.RFC3339)
+		changed = true
+	} else if s.Annotations[secrets.EncryptionSecretKekConvergedAt] == "" {
 		s.Annotations[secrets.EncryptionSecretKekConvergedAt] = now.Format(time.RFC3339)
 		changed = true
 	}

@@ -120,6 +120,37 @@ func TestKMSRotationControllerReconcileKekAnnotations(t *testing.T) {
 		}
 	})
 
+	t.Run("missing converged-at starts clock instead of promoting", func(t *testing.T) {
+		secret := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", grs, 1)
+		secret.Annotations[secrets.EncryptionSecretTargetKekID] = "kek-old"
+		secret.Annotations[secrets.EncryptionSecretMigratedKekID] = "kek-old"
+		secret.Annotations[secrets.EncryptionSecretKekConvergedID] = "kek-new"
+		c := &kmsRotationController{
+			now: func() time.Time { return now },
+		}
+		writeKey, err := secrets.ToKeyState(secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fakeClient := fake.NewSimpleClientset(secret)
+		c.secretClient = fakeClient.CoreV1()
+		eventRecorder := events.NewRecorder(fakeClient.CoreV1().Events("operator"), "test-kms-rotation", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(now))
+		syncCtx := factory.NewSyncContext("test", eventRecorder)
+		if err := c.reconcileKekAnnotations(context.Background(), syncCtx, secret, writeKey, "kek-new", grs); err != nil {
+			t.Fatal(err)
+		}
+		updated, err := fakeClient.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if updated.Annotations[secrets.EncryptionSecretTargetKekID] != "kek-old" {
+			t.Fatalf("target = %q, want kek-old", updated.Annotations[secrets.EncryptionSecretTargetKekID])
+		}
+		if updated.Annotations[secrets.EncryptionSecretKekConvergedAt] != now.Format(time.RFC3339) {
+			t.Fatalf("converged-at = %q, want %q", updated.Annotations[secrets.EncryptionSecretKekConvergedAt], now.Format(time.RFC3339))
+		}
+	})
+
 	t.Run("promote after convergence delay", func(t *testing.T) {
 		secret := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", grs, 1)
 		secret.Annotations[secrets.EncryptionSecretTargetKekID] = "kek-old"
