@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCredentialResolver_Value(t *testing.T) {
+func TestCredentialResolver_SecretValue(t *testing.T) {
 	const keyID = "42"
 	pluginsSecretData := newTestPluginsSecretData(t, keyID, "my-role-id", "my-secret-id")
 
@@ -45,12 +46,12 @@ func TestCredentialResolver_Value(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &credentialResolver{
+			r := &referenceDataResolver{
 				keyID:             tc.keyID,
 				pluginsSecretData: pluginsSecretData,
 			}
 
-			got, err := r.Value(tc.secretName, tc.dataKey)
+			got, err := r.SecretValue(tc.secretName, tc.dataKey)
 			if tc.expectErr != "" {
 				require.EqualError(t, err, tc.expectErr)
 				return
@@ -61,7 +62,7 @@ func TestCredentialResolver_Value(t *testing.T) {
 	}
 }
 
-func TestCredentialResolver_FilePath(t *testing.T) {
+func TestCredentialResolver_SecretFilePath(t *testing.T) {
 	const keyID = "42"
 	const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
 
@@ -100,13 +101,13 @@ func TestCredentialResolver_FilePath(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &credentialResolver{
+			r := &referenceDataResolver{
 				keyID:             tc.keyID,
-				credentialsDir:    credentialsDir,
+				referenceDataDir:  credentialsDir,
 				pluginsSecretData: pluginsSecretData,
 			}
 
-			got, err := r.FilePath(tc.secretName, tc.dataKey)
+			got, err := r.SecretFilePath(tc.secretName, tc.dataKey)
 			if tc.expectErr != "" {
 				require.EqualError(t, err, tc.expectErr)
 				return
@@ -115,6 +116,73 @@ func TestCredentialResolver_FilePath(t *testing.T) {
 			require.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+func TestCredentialResolver_ConfigMapFilePath(t *testing.T) {
+	const keyID = "42"
+	const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
+
+	pluginsConfigMapData := newTestPluginsConfigMapData(t, keyID, "my-ca-bundle")
+
+	tests := []struct {
+		name          string
+		keyID         string
+		configMapName string
+		dataKey       string
+		expected      string
+		expectErr     string
+	}{
+		{
+			name:          "returns correct path",
+			keyID:         keyID,
+			configMapName: "vault-ca-bundle",
+			dataKey:       "ca-bundle.crt",
+			expected:      filepath.Join(credentialsDir, encryptiondata.FormatKMSConfigMapDataKey("vault-ca-bundle_ca-bundle.crt", keyID)),
+		},
+		{
+			name:          "missing keyID",
+			keyID:         "unknown",
+			configMapName: "vault-ca-bundle",
+			dataKey:       "ca-bundle.crt",
+			expectErr:     "missing configMap data for keyID unknown",
+		},
+		{
+			name:          "missing data key",
+			keyID:         keyID,
+			configMapName: "vault-ca-bundle",
+			dataKey:       "nonexistent",
+			expectErr:     "missing nonexistent in configMap vault-ca-bundle for keyID 42",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &referenceDataResolver{
+				keyID:                tc.keyID,
+				referenceDataDir:     credentialsDir,
+				pluginsConfigMapData: pluginsConfigMapData,
+			}
+
+			got, err := r.ConfigMapFilePath(tc.configMapName, tc.dataKey)
+			if tc.expectErr != "" {
+				require.EqualError(t, err, tc.expectErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func newTestPluginsConfigMapData(t *testing.T, keyID, caBundle string) encryptiondata.KMSPluginsReferenceData {
+	t.Helper()
+	var rd state.KMSReferenceData
+	require.NoError(t, rd.Set("vault-ca-bundle", "ca-bundle.crt", []byte(caBundle)))
+	var pluginsConfigMapData encryptiondata.KMSPluginsReferenceData
+	for rawKey, value := range rd.FlatEntries() {
+		require.NoError(t, pluginsConfigMapData.SetFromRawKey(keyID, rawKey, value))
+	}
+	return pluginsConfigMapData
 }
 
 func newTestPluginsSecretData(t *testing.T, keyID, roleID, secretID string) encryptiondata.KMSPluginsReferenceData {

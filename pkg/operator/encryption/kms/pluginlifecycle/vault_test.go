@@ -206,9 +206,9 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			creds := &credentialResolver{
+			creds := &referenceDataResolver{
 				pluginsSecretData: pluginsSecretData,
-				credentialsDir:    tt.credentialsDir,
+				referenceDataDir:  tt.credentialsDir,
 				keyID:             tt.keyID,
 			}
 
