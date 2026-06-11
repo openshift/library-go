@@ -28,12 +28,12 @@ type checker struct {
 	statusInterval time.Duration
 }
 
-func newChecker(service kmsservice.Service) *checker {
+func newChecker(service kmsservice.Service, statusTimeout, statusInterval time.Duration) *checker {
 	return &checker{
 		service:        service,
 		randReader:     rand.Reader,
-		statusTimeout:  30 * time.Second,
-		statusInterval: 2 * time.Second,
+		statusTimeout:  statusTimeout,
+		statusInterval: statusInterval,
 	}
 }
 

@@ -16,11 +16,20 @@ const kmsSocketEndpoint = "unix:///var/run/kmsplugin/kms.sock"
 
 type options struct {
 	kmsCallTimeout time.Duration
+	// endpoint and the status timeouts are fields rather than flags so tests can
+	// drive run() against an in-process mock; production uses the defaults below.
+	endpoint       string
+	statusTimeout  time.Duration
+	statusInterval time.Duration
 }
 
 // NewCommand creates the kms-preflight cobra command.
 func NewCommand(ctx context.Context) *cobra.Command {
-	o := &options{}
+	o := &options{
+		endpoint:       kmsSocketEndpoint,
+		statusTimeout:  30 * time.Second,
+		statusInterval: 2 * time.Second,
+	}
 
 	cmd := &cobra.Command{
 		Use:   "kms-preflight",
@@ -49,16 +58,16 @@ func (o *options) validate() error {
 }
 
 func (o *options) run(ctx context.Context) error {
-	klog.Infof("Running KMS preflight check at %s", kmsSocketEndpoint)
+	klog.Infof("Running KMS preflight check at %s", o.endpoint)
 
 	// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
 	// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, kmsSocketEndpoint, "preflight", o.kmsCallTimeout)
+	service, err := k8senvelopekmsv2.NewGRPCService(ctx, o.endpoint, "preflight", o.kmsCallTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to create KMS gRPC client: %w", err)
 	}
 
-	checker := newChecker(service)
+	checker := newChecker(service, o.statusTimeout, o.statusInterval)
 	start := time.Now()
 	if err = checker.check(ctx); err != nil {
 		return fmt.Errorf("kms preflight check failed: %w", err)
