@@ -107,7 +107,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 		}
 	}
 
-	// Unlike static pods, aggregated API servers access credentials by mounting the encryption-config Secret directly as a volume.
+	// Unlike static pods, aggregated API servers access KMS plugin data by mounting the encryption-config Secret directly as a volume.
 	// Callers include the revision number in encryptionConfigSecretName (e.g. "encryption-config-7"), so each revision maps to a distinct Secret and volume.
 	if err := ensureReferenceDataVolume(podSpec, encryptionConfigSecretName); err != nil {
 		return err
