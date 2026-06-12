@@ -24,6 +24,7 @@ import (
 
 const (
 	defaultVaultNamespace          = "vault-kms"
+	defaultVaultServiceName        = "vault"
 	defaultVaultPodName            = "vault-0"
 	defaultVaultCredentialsSecret  = "vault-credentials"
 	defaultVaultAppRoleSecretName  = "vault-approle-secret"
@@ -36,6 +37,15 @@ const (
 	defaultVaultTransitKey         = "kms-key"
 	defaultAppRoleTargetNamespace  = "openshift-config"
 	vaultCommandTimeout            = 30 * time.Second
+
+	// Secondary Vault instance constants for KMS-to-KMS migration testing.
+	secondaryVaultNamespace         = "vault-kms-secondary"
+	secondaryVaultServiceName       = "vault-secondary"
+	secondaryVaultPodName           = "vault-secondary-0"
+	secondaryVaultAppRoleSecretName = "vault-approle-secret-secondary"
+	secondaryVaultConfigMapName     = "vault-ca-bundle-secondary"
+	secondaryVaultAddress           = "https://vault-secondary.vault-kms-secondary.svc:8200"
+	secondaryVaultTransitKey        = "kms-key-secondary"
 )
 
 // DefaultVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider for e2e tests.
@@ -45,7 +55,7 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 	cfg := DefaultVaultKMSPluginConfig
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
-	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace)
+	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName)
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
 		Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
@@ -103,6 +113,45 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 			TransitMount: defaultVaultTransitMount,
 		},
 	},
+}
+
+// SecondaryVaultKMSPluginConfig is the Vault KMS encryption config for the
+// secondary Vault instance, used in KMS-to-KMS migration e2e tests.
+var SecondaryVaultKMSPluginConfig = configv1.APIServerEncryption{
+	Type: configv1.EncryptionTypeKMS,
+	KMS: configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: defaultVaultKMSPluginImage,
+			VaultAddress:   secondaryVaultAddress,
+			VaultNamespace: defaultVaultEnterpriseNS,
+			TransitMount:   defaultVaultTransitMount,
+			TransitKey:     secondaryVaultTransitKey,
+			Authentication: configv1.VaultAuthentication{
+				Type: configv1.VaultAuthenticationTypeAppRole,
+				AppRole: configv1.VaultAppRoleAuthentication{
+					Secret: configv1.VaultSecretReference{Name: secondaryVaultAppRoleSecretName},
+				},
+			},
+			TLS: configv1.VaultTLSConfig{
+				CABundle: configv1.VaultConfigMapReference{
+					Name: secondaryVaultConfigMapName,
+				},
+				ServerName: fmt.Sprintf("vault-secondary.%s.svc", secondaryVaultNamespace),
+			},
+		},
+	},
+}
+
+// SecondaryVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider
+// for the secondary Vault instance, used in KMS-to-KMS migration e2e tests.
+func SecondaryVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	cfg := SecondaryVaultKMSPluginConfig
+	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, secondaryVaultNamespace, secondaryVaultServiceName)
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup:               ensureVaultAppRoleSecret(secondaryVaultNamespace, secondaryVaultAppRoleSecretName),
+	}
 }
 
 func ensureVaultAppRoleSecret(vaultNamespace, appRoleSecretName string) func(ctx context.Context, t testing.TB) {
@@ -196,11 +245,11 @@ func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
 
 // getVaultServiceAddress returns the Vault address using the Service's ClusterIP
 // instead of the DNS name, reading the port and scheme from the Service spec.
-func getVaultServiceAddress(ctx context.Context, t testing.TB, ns string) string {
+func getVaultServiceAddress(ctx context.Context, t testing.TB, ns, serviceName string) string {
 	t.Helper()
 	cs := library.GetClients(t)
 
-	svc, err := cs.Kube.CoreV1().Services(ns).Get(ctx, "vault", metav1.GetOptions{})
+	svc, err := cs.Kube.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get vault Service in namespace %s", ns)
 	require.NotEmpty(t, svc.Spec.ClusterIP, "vault Service has no ClusterIP")
 	require.NotEmpty(t, svc.Spec.Ports, "vault Service has no ports")
