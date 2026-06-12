@@ -60,6 +60,16 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.ExternalReason = v
 	}
 
+	kekMigration := KekMigrationFromSecret(s)
+	if kekMigration.TargetKekID != "" || kekMigration.MigratedKekID != "" || kekMigration.KekConvergedID != "" || !kekMigration.KekConvergedAt.IsZero() {
+		key.KekMigration = &state.KekMigrationState{
+			TargetKekID:    kekMigration.TargetKekID,
+			MigratedKekID:  kekMigration.MigratedKekID,
+			KekConvergedAt: kekMigration.KekConvergedAt,
+			KekConvergedID: kekMigration.KekConvergedID,
+		}
+	}
+
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:

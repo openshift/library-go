@@ -521,6 +521,24 @@ func TestKeyController(t *testing.T) {
 			// Should be no-op because migration hasn't completed yet
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
+		{
+			name: "no-op when KMS kek migration is in flight",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: func() []runtime.Object {
+				secret := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5)
+				secret.Annotations["encryption.apiserver.operator.openshift.io/target-kek-id"] = "kek-new"
+				secret.Annotations["encryption.apiserver.operator.openshift.io/migrated-kek-id"] = "kek-old"
+				return []runtime.Object{
+					encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+					secret,
+				}
+			}(),
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
 
 		{
 			name: "creates a new KMS key when switching from Identity to KMS",

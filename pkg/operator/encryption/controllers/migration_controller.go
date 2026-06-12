@@ -215,39 +215,57 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
+	writeKeySecret, err := writeKeySecretForState(encryptionSecrets, currentState)
+	if err != nil {
+		return nil, err
+	}
+	needsKekMigration := secrets.NeedsKekMigration(writeKeySecret)
+
 	var errs []error
+	kekMigrationComplete := needsKekMigration
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
 		if !grActualKeys.HasWriteKey() {
+			kekMigrationComplete = false
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
-			continue
+		if !needsKekMigration {
+			if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+				continue
+			}
+		}
+
+		writeKeyForGR := grActualKeys.WriteKey.Key.Name
+		if needsKekMigration {
+			writeKeyForGR = secrets.MigrationWriteKey(grActualKeys.WriteKey.Key.Name, writeKeySecret)
 		}
 
 		// idem-potent migration start
-		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+		finished, result, when, err := c.migrator.EnsureMigration(gr, writeKeyForGR)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
 			// last migration error is far enough ago. Prune and retry.
 			if err := c.migrator.PruneMigration(gr); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			finished, result, when, err = c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+			finished, result, when, err = c.migrator.EnsureMigration(gr, writeKeyForGR)
 
 		}
 		if err != nil {
 			errs = append(errs, err)
+			kekMigrationComplete = false
 			continue
 		}
 		if finished && result != nil {
 			errs = append(errs, result)
+			kekMigrationComplete = false
 			continue
 		}
 
 		if !finished {
 			migratingResources = append(migratingResources, gr)
+			kekMigrationComplete = false
 			continue
 		}
 
@@ -279,11 +297,68 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			return updateErr
 		}); err != nil {
 			errs = append(errs, err)
+			kekMigrationComplete = false
 			continue
 		}
 	}
 
+	if kekMigrationComplete && writeKeySecret != nil {
+		if err := c.setMigratedKekID(ctx, syncContext, writeKeySecret); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	return migratingResources, errors.NewAggregate(errs)
+}
+
+func writeKeySecretForState(encryptionSecrets []*corev1.Secret, currentState map[schema.GroupResource]state.GroupResourceState) (*corev1.Secret, error) {
+	var writeKey state.KeyState
+	for _, grState := range currentState {
+		if grState.HasWriteKey() {
+			writeKey = grState.WriteKey
+			break
+		}
+	}
+	if len(writeKey.Key.Name) == 0 {
+		return nil, nil
+	}
+
+	for _, s := range encryptionSecrets {
+		keyID, valid := state.NameToKeyID(s.Name)
+		if !valid {
+			continue
+		}
+		writeKeyID, ok := state.NameToKeyID(writeKey.Key.Name)
+		if !ok || keyID != writeKeyID {
+			continue
+		}
+		return s, nil
+	}
+	return nil, fmt.Errorf("write key secret for key ID %s not found", writeKey.Key.Name)
+}
+
+func (c *migrationController) setMigratedKekID(ctx context.Context, syncContext factory.SyncContext, writeKeySecret *corev1.Secret) error {
+	targetKekID := writeKeySecret.Annotations[secrets.EncryptionSecretTargetKekID]
+	if targetKekID == "" {
+		return nil
+	}
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		s, err := c.secretClient.Secrets(writeKeySecret.Namespace).Get(ctx, writeKeySecret.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get key secret %s/%s: %v", writeKeySecret.Namespace, writeKeySecret.Name, err)
+		}
+		if s.Annotations[secrets.EncryptionSecretMigratedKekID] == targetKekID {
+			return nil
+		}
+		if s.Annotations == nil {
+			s.Annotations = map[string]string{}
+		}
+		s.Annotations[secrets.EncryptionSecretMigratedKekID] = targetKekID
+
+		_, updateErr := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
+		resourcehelper.ReportUpdateEvent(syncContext.Recorder(), s, updateErr)
+		return updateErr
+	})
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {

@@ -50,6 +50,27 @@ type KeyState struct {
 	ExternalReason string
 	// stores all the KMS encryption mode related configurations
 	KMS *KMSState
+	// KekMigration stores KMS KEK rotation annotations from the write-key secret.
+	KekMigration *KekMigrationState
+}
+
+// KekMigrationState holds KMS KEK rotation annotations parsed from a key secret.
+type KekMigrationState struct {
+	TargetKekID    string
+	MigratedKekID  string
+	KekConvergedAt time.Time
+	KekConvergedID string
+}
+
+// NeedsKekMigration reports whether target-kek-id is set and differs from migrated-kek-id.
+func (k KeyState) NeedsKekMigration() bool {
+	if k.Mode != KMS || k.KekMigration == nil {
+		return false
+	}
+	if k.KekMigration.TargetKekID == "" {
+		return false
+	}
+	return k.KekMigration.TargetKekID != k.KekMigration.MigratedKekID
 }
 
 func (k *KeyState) HasKMSEncryption() bool {
