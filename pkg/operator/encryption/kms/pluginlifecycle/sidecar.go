@@ -76,8 +76,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 		if err := ensureVolumeMountInContainer(podSpec.InitContainers, name, volumeMount); err != nil {
 			return err
 		}
-		// The resource-dir files are owned by root, so the sidecar needs root to read files in that directory.
-		if err := setRunAsUser(podSpec.InitContainers, name, 0); err != nil {
+		if err := setRunAsRoot(podSpec.InitContainers, name); err != nil {
 			return err
 		}
 	}
@@ -290,13 +289,16 @@ func ensureReferenceDataVolume(podSpec *corev1.PodSpec, secretName string) error
 	return ensureVolume(podSpec, volume)
 }
 
-func setRunAsUser(containers []corev1.Container, containerName string, uid int64) error {
+// setRunAsRoot sets RunAsUser=0 on the named container.
+// The resource-dir files are owned by root and protected by SELinux, so the sidecar needs
+// uid 0 and the proper SELinux label (indirectly obtained via host network) to read them.
+func setRunAsRoot(containers []corev1.Container, containerName string) error {
 	for i, c := range containers {
 		if c.Name == containerName {
 			if c.SecurityContext == nil {
 				containers[i].SecurityContext = &corev1.SecurityContext{}
 			}
-			containers[i].SecurityContext.RunAsUser = ptr.To(uid)
+			containers[i].SecurityContext.RunAsUser = ptr.To(int64(0))
 			return nil
 		}
 	}

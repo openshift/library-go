@@ -120,5 +120,11 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 			},
 		},
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem:   ptr.To(true),
+			AllowPrivilegeEscalation: ptr.To(false),
+			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+			SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+		},
 	}, nil
 }
