@@ -29,6 +29,18 @@ func NewFakeSharedIndexInformer() cache.SharedIndexInformer {
 
 type fakeSharedIndexInformer struct{}
 
+type fakeDoneChecker struct{}
+
+func (f *fakeDoneChecker) Name() string {
+	return "fake-done-checker"
+}
+
+func (f *fakeDoneChecker) Done() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 func (i fakeSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	return nil, nil
 }
@@ -67,6 +79,10 @@ func (fakeSharedIndexInformer) RunWithContext(ctx context.Context) {
 
 func (fakeSharedIndexInformer) HasSynced() bool {
 	return true
+}
+
+func (fakeSharedIndexInformer) HasSyncedChecker() cache.DoneChecker {
+	return &fakeDoneChecker{}
 }
 
 func (fakeSharedIndexInformer) LastSyncResourceVersion() string {
