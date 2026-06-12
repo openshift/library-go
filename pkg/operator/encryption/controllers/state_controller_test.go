@@ -928,6 +928,9 @@ func TestStateController(t *testing.T) {
 								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
 							},
 						},
+						TLS: configv1.VaultTLSConfig{
+							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
+						},
 						TransitKey: "test-transit-key-2",
 					},
 				}),
@@ -1024,6 +1027,9 @@ func TestStateController(t *testing.T) {
 								AppRole: configv1.VaultAppRoleAuthentication{
 									Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
 								},
+							},
+							TLS: configv1.VaultTLSConfig{
+								CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
 							},
 							TransitKey: "test-transit-key-2",
 						},
