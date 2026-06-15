@@ -48,6 +48,15 @@ type options struct {
 	newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)
 }
 
+type Config struct {
+	operatorClient v1helpers.OperatorClient
+	prober         *prober
+
+	interval     time.Duration
+	writeTimeout time.Duration
+	nodeName     string
+}
+
 func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)) *cobra.Command {
 	o := &options{
 		newOperatorClient: newOperatorClient,
@@ -61,7 +70,18 @@ func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1hel
 			if err := o.validate(); err != nil {
 				return err
 			}
-			return o.run(ctx)
+
+			// Arm signal handling before Config builds anything needing graceful teardown.
+			// Idiomatically the caller's main would own this; kept here because
+			// library-go ships the command, not the main.
+			ctx := setupSignalContext(ctx)
+			klog.InfoS("kms-health-reporter starting", "config", o)
+
+			cfg, err := o.Config(ctx)
+			if err != nil {
+				return err
+			}
+			return cfg.Run(ctx)
 		},
 	}
 	o.addFlags(cmd.Flags())
@@ -108,35 +128,41 @@ func (o *options) validate() error {
 	return nil
 }
 
-func (o *options) run(ctx context.Context) error {
-	ctx = setupSignalContext(ctx)
-
+func (o *options) Config(ctx context.Context) (*Config, error) {
 	// Empty kubeconfig falls back to the in-cluster config (service account
 	// token + KUBERNETES_SERVICE_HOST), which is the deployed path.
-	cfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
+	restCfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
 	if err != nil {
-		return fmt.Errorf("build rest config: %w", err)
+		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	if _, err := o.newOperatorClient(cfg); err != nil {
-		return fmt.Errorf("build operator client: %w", err)
+	operatorClient, err := o.newOperatorClient(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("build operator client: %w", err)
 	}
 
 	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	prober := newProber(plugins)
 
-	klog.InfoS("kms-health-reporter starting", "config", o)
+	return &Config{
+		operatorClient: operatorClient,
+		prober:         newProber(plugins),
+		interval:       o.Interval,
+		writeTimeout:   o.WriteTimeout,
+		nodeName:       o.NodeName,
+	}, nil
+}
 
+func (c *Config) Run(ctx context.Context) error {
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
-		// Each Status RPC enforces o.ReadTimeout internally (set at dial time);
-		// ctx here only carries shutdown cancellation.
-		conditions := prober.probeAll(ctx)
+		// Each Status RPC enforces the read timeout internally (set at dial
+		// time); ctx here only carries shutdown cancellation.
+		conditions := c.prober.probeAll(ctx)
 		// TODO: hand conditions to the writer once it lands; logging is a placeholder.
 		klog.InfoS("kms plugin health", "conditions", conditions)
-	}, o.Interval, 0.1, false)
+	}, c.interval, 0.1, false)
 
 	return nil
 }
