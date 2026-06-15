@@ -25,16 +25,6 @@ const providerName = "kms-health-reporter"
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
-// keyIDFromSocket extracts the sequential key id captured by kmsSocketPattern,
-// e.g. "1" from unix:///var/run/kmsplugin/kms-1.sock.
-func keyIDFromSocket(socket string) (string, error) {
-	m := kmsSocketPattern.FindStringSubmatch(socket)
-	if m == nil {
-		return "", fmt.Errorf("socket %q must match %s", socket, kmsSocketPattern)
-	}
-	return m[1], nil
-}
-
 // options' flag-bound fields are exported so the struct can be logged as a
 // whole via klog.InfoS, which JSON-marshals its values.
 type options struct {
@@ -188,6 +178,16 @@ func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) 
 	}
 
 	return plugins, nil
+}
+
+// keyIDFromSocket extracts the sequential key id captured by kmsSocketPattern,
+// e.g. "1" from unix:///var/run/kmsplugin/kms-1.sock.
+func keyIDFromSocket(socket string) (string, error) {
+	m := kmsSocketPattern.FindStringSubmatch(socket)
+	if m == nil {
+		return "", fmt.Errorf("socket %q must match %s", socket, kmsSocketPattern)
+	}
+	return m[1], nil
 }
 
 // setupSignalContext registers for SIGTERM and SIGINT and returns a context
