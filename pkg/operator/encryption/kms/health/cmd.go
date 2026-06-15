@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
@@ -80,15 +81,15 @@ func (o *options) validate() error {
 	if len(o.KMSSockets) == 0 {
 		return fmt.Errorf("--kms-sockets is required, at least one")
 	}
-	socketSet := make(map[string]struct{}, len(o.KMSSockets))
+	socketSet := sets.New[string]()
 	for _, s := range o.KMSSockets {
 		if !kmsSocketPattern.MatchString(s) {
 			return fmt.Errorf("--kms-sockets entry %q must match %s", s, kmsSocketPattern)
 		}
-		if _, ok := socketSet[s]; ok {
+		if socketSet.Has(s) {
 			return fmt.Errorf("--kms-sockets entry %q is duplicated", s)
 		}
-		socketSet[s] = struct{}{}
+		socketSet.Insert(s)
 	}
 
 	if o.Interval <= 0 {
