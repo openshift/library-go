@@ -44,6 +44,11 @@ func TestValidate(t *testing.T) {
 			mutate: func(o *options) { o.KMSSockets = append(o.KMSSockets, "unix:///var/run/kmsplugin/kms-2.sock") },
 		},
 		{
+			name:    "duplicate sockets",
+			mutate:  func(o *options) { o.KMSSockets = append(o.KMSSockets, o.KMSSockets[0]) },
+			wantErr: true,
+		},
+		{
 			name:    "socket missing unix scheme",
 			mutate:  func(o *options) { o.KMSSockets = []string{"/var/run/kmsplugin/kms-1.sock"} },
 			wantErr: true,
