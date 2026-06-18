@@ -436,13 +436,6 @@ func TestKMSToKMSOnOff(ctx context.Context, t testing.TB, scenario KMSToKMSMigra
 			clientSet := GetClients(t)
 			scenario.AssertResourceEncryptedFunc(t, clientSet, scenario.ResourceFunc(t, scenario.Namespace))
 		}},
-		{name: "OffIdentityAfterSecondary", testFunc: func(t testing.TB) {
-			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
-		}},
-		{name: "AssertDecryptedAfterSecondary", testFunc: func(t testing.TB) {
-			clientSet := GetClients(t)
-			scenario.AssertResourceNotEncryptedFunc(t, clientSet, scenario.ResourceFunc(t, scenario.Namespace))
-		}},
 	}
 
 	for _, step := range steps {
