@@ -2,8 +2,16 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"hash"
+	"hash/fnv"
+	"sort"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -14,6 +22,101 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
+
+type kmsConfigHasher struct {
+	provider   kmsProviderConfig
+	coreClient corev1client.CoreV1Interface
+	namespace  string
+}
+
+// newKMSConfigHasher creates a hasher for a KMS provider config and its referenced resources.
+// namespace is the namespace where the referenced Secrets and ConfigMaps are stored (e.g., openshift-config).
+func newKMSConfigHasher(provider kmsProviderConfig, coreClient corev1client.CoreV1Interface, namespace string) *kmsConfigHasher {
+	return &kmsConfigHasher{provider: provider, coreClient: coreClient, namespace: namespace}
+}
+
+// hash computes a deterministic hash over the provider config and the specific data keys
+// from its referenced Secret and ConfigMap. Uses FNV-32, JSON encoding, and base64 URL
+// encoding, consistent with resourcehash.GetSecretHash and resourcehash.GetConfigMapHash.
+func (h *kmsConfigHasher) hash(ctx context.Context) (string, error) {
+	hasher := fnv.New32()
+
+	if err := json.NewEncoder(hasher).Encode(h.provider.sourceConfig()); err != nil {
+		return "", fmt.Errorf("failed to hash provider config: %w", err)
+	}
+
+	if err := h.hashReferencedSecret(ctx, hasher); err != nil {
+		return "", err
+	}
+	if err := h.hashReferencedConfigMap(ctx, hasher); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func (h *kmsConfigHasher) hashReferencedSecret(ctx context.Context, hasher hash.Hash) error {
+	name, keys, err := h.provider.referencedSecretName()
+	if err != nil {
+		return fmt.Errorf("failed to get referenced secret name: %w", err)
+	}
+	if name == "" {
+		return nil
+	}
+
+	secret, err := h.coreClient.Secrets(h.namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get secret %s/%s: %w", h.namespace, name, err)
+	}
+
+	// Write each key name before its value to prevent collisions when bytes
+	// shift between adjacent values (e.g. role-id="ab",secret-id="cd" vs
+	// role-id="abc",secret-id="d" would otherwise both hash as "abcd").
+	sort.Strings(keys)
+	for _, k := range keys {
+		v, ok := secret.Data[k]
+		if !ok {
+			return fmt.Errorf("key %q not found in secret %s/%s", k, h.namespace, name)
+		}
+		if _, err := hasher.Write([]byte(k)); err != nil {
+			return fmt.Errorf("failed to hash key %q: %w", k, err)
+		}
+		if _, err := hasher.Write(v); err != nil {
+			return fmt.Errorf("failed to hash key %q: %w", k, err)
+		}
+	}
+	return nil
+}
+
+func (h *kmsConfigHasher) hashReferencedConfigMap(ctx context.Context, hasher hash.Hash) error {
+	name, keys, err := h.provider.referencedConfigMapName()
+	if err != nil {
+		return fmt.Errorf("failed to get referenced configmap name: %w", err)
+	}
+	if name == "" {
+		return nil
+	}
+
+	cm, err := h.coreClient.ConfigMaps(h.namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get configmap %s/%s: %w", h.namespace, name, err)
+	}
+
+	sort.Strings(keys)
+	for _, k := range keys {
+		v, ok := cm.Data[k]
+		if !ok {
+			return fmt.Errorf("key %q not found in configmap %s/%s", k, h.namespace, name)
+		}
+		if _, err := hasher.Write([]byte(k)); err != nil {
+			return fmt.Errorf("failed to hash key %q: %w", k, err)
+		}
+		if _, err := hasher.Write([]byte(v)); err != nil {
+			return fmt.Errorf("failed to hash key %q: %w", k, err)
+		}
+	}
+	return nil
+}
 
 type kmsPreflightController struct {
 	controllerInstanceName string

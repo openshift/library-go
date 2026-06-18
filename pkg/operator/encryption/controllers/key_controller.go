@@ -432,6 +432,8 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 // kmsProviderConfig abstracts provider-specific KMS logic so that every
 // provider-type switch lives in a single factory (newKMSProviderConfig).
 type kmsProviderConfig interface {
+	// sourceConfig returns the provider-specific API configuration.
+	sourceConfig() interface{}
 	// referencedSecretName returns the name of the secret referenced by the KMS plugin
 	// config and the specific data keys to carry from that secret. Only the listed keys
 	// are copied into the Key Secret; any other data in the referenced secret is ignored.
@@ -453,6 +455,10 @@ func newKMSProviderConfig(plugin configv1.KMSPluginConfig) (kmsProviderConfig, e
 
 type vaultProviderConfig struct {
 	vault configv1.VaultKMSPluginConfig
+}
+
+func (v *vaultProviderConfig) sourceConfig() interface{} {
+	return v.vault
 }
 
 func (v *vaultProviderConfig) referencedSecretName() (string, []string, error) {
