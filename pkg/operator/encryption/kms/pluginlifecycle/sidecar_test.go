@@ -126,6 +126,39 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 		"-metrics-port=0",
 	}
 
+	expectedHealthReporter := func(sockets string) corev1.Container {
+		return corev1.Container{
+			Name:                     "kms-health-reporter",
+			Image:                    "quay.io/test/operator:latest",
+			Command:                  []string{"cluster-kube-apiserver-operator", "kms-health-reporter"},
+			Args:                     []string{fmt.Sprintf("--kms-sockets=%s", sockets), "--node-name=$(NODE_NAME)"},
+			ImagePullPolicy:          corev1.PullIfNotPresent,
+			RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			Env: []corev1.EnvVar{
+				{
+					Name: "NODE_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+					},
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("32Mi"),
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				ReadOnlyRootFilesystem:   ptr.To(true),
+				AllowPrivilegeEscalation: ptr.To(false),
+				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+			},
+			VolumeMounts: []corev1.VolumeMount{{Name: "kms-plugin-socket", MountPath: "/var/run/kmsplugin", ReadOnly: true}},
+		}
+	}
+
 	socketMount := corev1.VolumeMount{
 		Name:      "kms-plugin-socket",
 		MountPath: "/var/run/kmsplugin",
@@ -194,6 +227,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount, refDataMount},
 					},
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-555.sock"),
 				},
 				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
 			},
@@ -279,6 +313,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount, refDataMount},
 					},
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-777.sock,unix:///var/run/kmsplugin/kms-555.sock"),
 				},
 				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
 			},
@@ -513,6 +548,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 						},
 						VolumeMounts: []corev1.VolumeMount{socketMount, refDataMount},
 					},
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-555.sock"),
 				},
 				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
 			},
@@ -540,7 +576,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.secretClient, tt.featureGateAccessor)
+			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -565,7 +601,7 @@ func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
 
 	call := func() {
 		t.Helper()
-		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", sc, fga)
+		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", sc, fga)
 		require.NoError(t, err)
 	}
 

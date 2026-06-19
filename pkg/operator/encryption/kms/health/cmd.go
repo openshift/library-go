@@ -19,7 +19,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const providerName = "kms-health-reporter"
+const Subcommand = "kms-health-reporter"
 
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
@@ -53,7 +53,7 @@ func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1hel
 	}
 
 	cmd := &cobra.Command{
-		Use:   "kms-health-reporter",
+		Use:   Subcommand,
 		Short: "Observes co-located KMSv2 plugins and publishes status as an OperatorCondition.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,7 +168,7 @@ func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) 
 
 		// Unique name per plugin so the gRPC client's KMS operation metrics
 		// don't merge both plugins into one series.
-		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, providerName+"-"+keyID, timeout)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, Subcommand+"-"+keyID, timeout)
 		if err != nil {
 			// With the current dependency version this should never happen with a validated GRPC endpoint.
 			return nil, fmt.Errorf("setting up grpc service failed at %q: %w", socket, err)
