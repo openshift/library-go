@@ -21,11 +21,11 @@ const (
 type pluginHealthReport struct {
 	// KeyID is the controller's sequential key id; KEKID is the KMS provider's
 	// encryption key id. Distinct identifiers, easy to confuse.
-	KeyID       string
-	KEKID       string
-	Status      string
-	LastChecked time.Time
-	Detail      string
+	KeyID       string    `json:"keyID"`
+	KEKID       string    `json:"kekID,omitempty"`
+	Status      string    `json:"status"`
+	LastChecked time.Time `json:"lastChecked"`
+	Detail      string    `json:"detail,omitempty"`
 }
 
 // pluginClient is the dialed handle to one co-located KMS plugin; the plugin
