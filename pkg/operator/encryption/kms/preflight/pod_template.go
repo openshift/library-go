@@ -9,24 +9,29 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 type kmsPreflightTemplate struct {
 	PodName        string
 	Namespace      string
+	ConfigHash     string
 	OperatorImage  string
 	Command        string
 	KMSCallTimeout string
 }
 
-// GeneratePodTemplate renders the KMS preflight pod YAML template.
-// The pod has a single container that connects to the KMS plugin via
-// a hostPath-mounted unix socket at /var/run/kmsplugin.
-// The KMS plugin volume and mount are added via AddKMSPluginVolumeAndMountToPodSpec.
-func GeneratePodTemplate(namespace string, podName string, operatorImage string, operatorCommand []string, kmsCallTimeout time.Duration, featureGateAccessor featuregates.FeatureGateAccess) (*corev1.Pod, error) {
+// generatePodTemplate renders the KMS preflight pod YAML template.
+// The pod runs the preflight checker as a one-shot command and shares an emptyDir
+// volume with the KMS plugin sidecar at /var/run/kmsplugin.
+func generatePodTemplate(
+	podName string,
+	namespace string,
+	configHash string,
+	operatorImage string,
+	operatorCommand []string,
+	kmsCallTimeout time.Duration,
+) (*corev1.Pod, error) {
 	rawManifest := mustAsset("assets/kms-preflight-pod.yaml")
 
 	operatorCommandQuoted := make([]string, len(operatorCommand))
@@ -37,6 +42,7 @@ func GeneratePodTemplate(namespace string, podName string, operatorImage string,
 	tmplVal := kmsPreflightTemplate{
 		PodName:        podName,
 		Namespace:      namespace,
+		ConfigHash:     configHash,
 		OperatorImage:  operatorImage,
 		Command:        strings.Join(operatorCommandQuoted, ","),
 		KMSCallTimeout: kmsCallTimeout.String(),
@@ -53,10 +59,6 @@ func GeneratePodTemplate(namespace string, podName string, operatorImage string,
 	pod, err := resourceread.ReadPodV1(buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse rendered pod template: %w", err)
-	}
-	// TODO: once the KMS plugin lifecycle code is present, reuse it instead of AddKMSPluginVolumeAndMountToPodSpec.
-	if err = encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kms-preflight-check", featureGateAccessor); err != nil {
-		return nil, fmt.Errorf("failed to add KMS plugin volume: %w", err)
 	}
 	return pod, nil
 }

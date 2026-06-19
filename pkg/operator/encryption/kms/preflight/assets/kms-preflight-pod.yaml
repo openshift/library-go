@@ -3,18 +3,44 @@ kind: Pod
 metadata:
   name: {{.PodName}}
   namespace: {{.Namespace}}
+  annotations:
+    encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: {{.ConfigHash}}
 spec:
   # This is a one-shot preflight check, not a long-running pod.
   # The operator creates it, waits for completion, and inspects the result.
   restartPolicy: Never
+  priorityClassName: system-cluster-critical
+  nodeSelector:
+    node-role.kubernetes.io/master: ""
+  tolerations:
+    # Ensure pod can be scheduled on master nodes
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoExecute"
   containers:
     - name: kms-preflight-check
       image: {{.OperatorImage}}
       command: [{{.Command}}]
       args:
         - --kms-call-timeout={{.KMSCallTimeout}}
+      env:
+      - name: POD_NAME
+        valueFrom: { fieldRef: { fieldPath: metadata.name } }
+      - name: POD_NAMESPACE
+        valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+      - name: CONFIG_HASH
+        value: {{.ConfigHash}}
       # TODO: figure out good resource request values.
       resources:
         requests:
           memory: 50Mi
           cpu: 5m
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+  volumes:
+    - name: kms-plugin-socket
+      emptyDir: {}
