@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -14,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
@@ -35,21 +33,21 @@ type options struct {
 	NodeName     string
 	Kubeconfig   string
 
-	newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)
+	newWriter NewEncryptionStatusWriterFunc
 }
 
 type Config struct {
-	operatorClient v1helpers.OperatorClient
-	prober         *prober
+	writeStatus EncryptionStatusWriter
+	prober      *prober
 
 	interval     time.Duration
 	writeTimeout time.Duration
 	nodeName     string
 }
 
-func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)) *cobra.Command {
+func NewCommand(ctx context.Context, newWriter NewEncryptionStatusWriterFunc) *cobra.Command {
 	o := &options{
-		newOperatorClient: newOperatorClient,
+		newWriter: newWriter,
 	}
 
 	cmd := &cobra.Command{
@@ -126,9 +124,11 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	operatorClient, err := o.newOperatorClient(restCfg)
+	// fieldManager is the per-node ownership identity.
+	fieldManager := "kms-health-reporter-" + o.NodeName
+	writeStatus, err := o.newWriter(restCfg, fieldManager)
 	if err != nil {
-		return nil, fmt.Errorf("build operator client: %w", err)
+		return nil, fmt.Errorf("build encryption status writer: %w", err)
 	}
 
 	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
@@ -137,11 +137,11 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	}
 
 	return &Config{
-		operatorClient: operatorClient,
-		prober:         newProber(plugins),
-		interval:       o.Interval,
-		writeTimeout:   o.WriteTimeout,
-		nodeName:       o.NodeName,
+		writeStatus:  writeStatus,
+		prober:       newProber(plugins),
+		interval:     o.Interval,
+		writeTimeout: o.WriteTimeout,
+		nodeName:     o.NodeName,
 	}, nil
 }
 
@@ -149,9 +149,13 @@ func (c *Config) Run(ctx context.Context) error {
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		// Each Status RPC enforces the read timeout internally (set at dial
 		// time); ctx here only carries shutdown cancellation.
-		conditions := c.prober.probeAll(ctx)
-		// TODO: hand conditions to the writer once it lands; logging is a placeholder.
-		klog.InfoS("kms plugin health", "conditions", conditions)
+		reports := c.prober.probeAll(ctx)
+
+		writeCtx, cancel := context.WithTimeout(ctx, c.writeTimeout)
+		defer cancel()
+		if err := c.writeStatus(writeCtx, buildEncryptionStatus(c.nodeName, reports)); err != nil {
+			klog.ErrorS(err, "failed to publish kms plugin health")
+		}
 	}, c.interval, 0.1, false)
 
 	return nil
