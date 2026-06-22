@@ -57,19 +57,19 @@ func TestConstantMaps(t *testing.T) {
 	}
 
 	for k := range discoveredVersions {
-		if _, ok := versions[k]; !ok {
-			t.Errorf("discovered version tls.%s not in version map", k)
+		if _, ok := goTLSVersions[k]; !ok {
+			t.Errorf("discovered version tls.%s not in goTLSVersions map", k)
 		}
 	}
-	for k := range versions {
+	for k := range goTLSVersions {
 		if _, ok := discoveredVersions[k]; !ok {
-			t.Errorf("versions map has %s not in tls package", k)
+			t.Errorf("goTLSVersions map has %s not in tls package", k)
 		}
 	}
 
-	for k := range supportedVersions {
+	for k := range enabledTLSVersions {
 		if _, ok := discoveredVersions[k]; !ok {
-			t.Errorf("supported versions map has %s not in tls package", k)
+			t.Errorf("enabledTLSVersions map has %s not in tls package", k)
 		}
 	}
 

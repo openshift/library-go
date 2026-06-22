@@ -44,17 +44,19 @@ import (
 // cannot negotiate. This silent narrowing is by design: Go literally cannot
 // serve those ciphers, so listing them would be misleading.
 
-// TLS versions that are known to golang. Go 1.13 adds support for
-// TLS 1.3 that's opt-out with a build flag.
-var versions = map[string]uint16{
+// goTLSVersions lists all TLS versions that Go's crypto/tls can negotiate.
+// Kept in sync with the crypto/tls package by TestConstantMaps.
+var goTLSVersions = map[string]uint16{
 	"VersionTLS10": tls.VersionTLS10,
 	"VersionTLS11": tls.VersionTLS11,
 	"VersionTLS12": tls.VersionTLS12,
 	"VersionTLS13": tls.VersionTLS13,
 }
 
-// TLS versions that are enabled.
-var supportedVersions = map[string]uint16{
+// enabledTLSVersions is the subset of goTLSVersions that OpenShift allows
+// in TLS configurations. Remove an entry here (not from goTLSVersions) to
+// phase out a version while still being able to parse legacy references.
+var enabledTLSVersions = map[string]uint16{
 	"VersionTLS10": tls.VersionTLS10,
 	"VersionTLS11": tls.VersionTLS11,
 	"VersionTLS12": tls.VersionTLS12,
@@ -64,7 +66,7 @@ var supportedVersions = map[string]uint16{
 // TLSVersionToNameOrDie given a tls version as an int, return its readable name
 func TLSVersionToNameOrDie(intVal uint16) string {
 	matches := []string{}
-	for key, version := range versions {
+	for key, version := range goTLSVersions {
 		if version == intVal {
 			matches = append(matches, key)
 		}
@@ -83,7 +85,7 @@ func TLSVersion(versionName string) (uint16, error) {
 	if len(versionName) == 0 {
 		return DefaultTLSVersion(), nil
 	}
-	if version, ok := versions[versionName]; ok {
+	if version, ok := goTLSVersions[versionName]; ok {
 		return version, nil
 	}
 	return 0, fmt.Errorf("unknown tls version %q", versionName)
@@ -96,10 +98,12 @@ func TLSVersionOrDie(versionName string) uint16 {
 	return version
 }
 
-// TLS versions that are known to golang, but may not necessarily be enabled.
+// GolangTLSVersions returns all TLS versions known to this Go build.
+//
+// Deprecated: Use ValidTLSVersions instead.
 func GolangTLSVersions() []string {
 	supported := []string{}
-	for k := range versions {
+	for k := range goTLSVersions {
 		supported = append(supported, k)
 	}
 	sort.Strings(supported)
@@ -109,7 +113,7 @@ func GolangTLSVersions() []string {
 // Returns the build enabled TLS versions.
 func ValidTLSVersions() []string {
 	validVersions := []string{}
-	for k := range supportedVersions {
+	for k := range enabledTLSVersions {
 		validVersions = append(validVersions, k)
 	}
 	sort.Strings(validVersions)
