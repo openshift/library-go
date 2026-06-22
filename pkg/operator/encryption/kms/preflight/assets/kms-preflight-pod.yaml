@@ -3,6 +3,9 @@ kind: Pod
 metadata:
   name: {{.PodName}}
   namespace: {{.Namespace}}
+  labels:
+    # This is used in the operands network AllowLists. Changes here need to reflect in all dependent operators.
+    app: openshift-kms-preflight
   annotations:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: {{.ConfigHash}}
 spec:
