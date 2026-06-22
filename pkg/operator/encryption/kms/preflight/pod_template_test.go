@@ -14,6 +14,8 @@ kind: Pod
 metadata:
   name: kms-preflight
   namespace: test-ns
+  labels:
+    app: openshift-kms-preflight
   annotations:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
 spec:
