@@ -124,7 +124,7 @@ func DefaultTLSVersion() uint16 {
 
 // goCipherSuites lists all cipher suites recognized by Go's crypto/tls, keyed
 // by IANA name. Kept in sync with the crypto/tls package by TestConstantMaps.
-var ciphers = map[string]uint16{
+var goCipherSuites = map[string]uint16{
 	"TLS_RSA_WITH_RC4_128_SHA":                      tls.TLS_RSA_WITH_RC4_128_SHA,
 	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":                 tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 	"TLS_RSA_WITH_AES_128_CBC_SHA":                  tls.TLS_RSA_WITH_AES_128_CBC_SHA,
@@ -154,12 +154,12 @@ var ciphers = map[string]uint16{
 	"TLS_CHACHA20_POLY1305_SHA256":                  tls.TLS_CHACHA20_POLY1305_SHA256,
 }
 
-// openSSLToIANACiphersMap maps OpenSSL cipher suite names to IANA names for
+// openSSLToIANACiphers maps OpenSSL cipher suite names to IANA names for
 // every cipher that Go's crypto/tls can negotiate.
 // Ref: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml
 // Ciphers defined in the API but absent from Go are tracked in
 // ciphersUnsupportedByGo (below) so tests detect when Go gains support.
-var openSSLToIANACiphersMap = map[string]string{
+var openSSLToIANACiphers = map[string]string{
 	// TLS 1.3 ciphers - always negotiated by Go; not individually configurable.
 	"TLS_AES_128_GCM_SHA256":       "TLS_AES_128_GCM_SHA256",       // 0x13,0x01
 	"TLS_AES_256_GCM_SHA384":       "TLS_AES_256_GCM_SHA384",       // 0x13,0x02
@@ -231,7 +231,7 @@ func CipherSuiteToNameOrDie(intVal uint16) string {
 	}
 
 	matches := []string{}
-	for key, version := range ciphers {
+	for key, version := range goCipherSuites {
 		if version == intVal {
 			matches = append(matches, key)
 		}
@@ -247,7 +247,7 @@ func CipherSuiteToNameOrDie(intVal uint16) string {
 }
 
 func CipherSuite(cipherName string) (uint16, error) {
-	if cipher, ok := ciphers[cipherName]; ok {
+	if cipher, ok := goCipherSuites[cipherName]; ok {
 		return cipher, nil
 	}
 
@@ -270,7 +270,7 @@ func CipherSuitesOrDie(cipherNames []string) []uint16 {
 }
 func ValidCipherSuites() []string {
 	validCipherSuites := []string{}
-	for k := range ciphers {
+	for k := range goCipherSuites {
 		validCipherSuites = append(validCipherSuites, k)
 	}
 	sort.Strings(validCipherSuites)
@@ -340,7 +340,7 @@ func OpenSSLToIANACipherSuites(ciphers []string) []string {
 	ianaCiphers := make([]string, 0, len(ciphers))
 
 	for _, c := range ciphers {
-		ianaCipher, found := openSSLToIANACiphersMap[c]
+		ianaCipher, found := openSSLToIANACiphers[c]
 		if found {
 			ianaCiphers = append(ianaCiphers, ianaCipher)
 		}
