@@ -22,19 +22,6 @@ import (
 
 const certificateLifetime = time.Hour * 24 * 365 * 2
 
-// ciphersUnsupportedByGo lists cipher suites that are defined in the OpenShift API
-// TLS profiles (from the Mozilla guidelines) but are not supported by Go's crypto/tls.
-// These are intentionally excluded from openSSLToIANACiphersMap and silently filtered
-// out during profile translation. The IANA names come from the IANA TLS Cipher Suite
-// Registry (https://www.iana.org/assignments/tls-parameters/) and are retained so
-// TestCiphersUnsupportedByGoAreActuallyUnsupported can detect when a future Go
-// release adds support.
-var ciphersUnsupportedByGo = map[string]string{
-	"ECDHE-ECDSA-AES256-SHA384": "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
-	"ECDHE-RSA-AES256-SHA384":   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
-	"AES256-SHA256":             "TLS_RSA_WITH_AES_256_CBC_SHA256",
-}
-
 func TestDefaultCipherSuite(t *testing.T) {
 	// Ensure that conversion of the default cipher suite to names
 	// completes without panic.
