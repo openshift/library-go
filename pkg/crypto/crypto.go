@@ -339,7 +339,8 @@ func SecureTLSConfig(config *tls.Config) *tls.Config {
 
 // OpenSSLToIANACipherSuites maps input OpenSSL Cipher Suite names to their
 // IANA counterparts.
-// Unknown ciphers are left out.
+// Ciphers that Go's crypto/tls cannot negotiate are silently dropped and
+// logged at V(4).
 func OpenSSLToIANACipherSuites(ciphers []string) []string {
 	ianaCiphers := make([]string, 0, len(ciphers))
 
@@ -347,6 +348,8 @@ func OpenSSLToIANACipherSuites(ciphers []string) []string {
 		ianaCipher, found := openSSLToIANACiphers[c]
 		if found {
 			ianaCiphers = append(ianaCiphers, ianaCipher)
+		} else {
+			klog.V(4).Infof("Dropping cipher %q: not supported by Go's crypto/tls", c)
 		}
 	}
 
