@@ -22,6 +22,19 @@ import (
 
 const certificateLifetime = time.Hour * 24 * 365 * 2
 
+// ciphersUnsupportedByGo lists cipher suites that are defined in the OpenShift API
+// TLS profiles (from the Mozilla guidelines) but are not supported by Go's crypto/tls.
+// These are intentionally excluded from openSSLToIANACiphersMap and silently filtered
+// out during profile translation. The IANA names come from the IANA TLS Cipher Suite
+// Registry (https://www.iana.org/assignments/tls-parameters/) and are retained so
+// TestCiphersUnsupportedByGoAreActuallyUnsupported can detect when a future Go
+// release adds support.
+var ciphersUnsupportedByGo = map[string]string{
+	"ECDHE-ECDSA-AES256-SHA384": "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+	"ECDHE-RSA-AES256-SHA384":   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+	"AES256-SHA256":             "TLS_RSA_WITH_AES_256_CBC_SHA256",
+}
+
 func TestDefaultCipherSuite(t *testing.T) {
 	// Ensure that conversion of the default cipher suite to names
 	// completes without panic.
@@ -556,11 +569,15 @@ func TestServerCertRegeneration(t *testing.T) {
 // in the OpenShift TLS security profiles have corresponding mappings in
 // openSSLToIANACiphersMap. This ensures that when TLS profiles are translated
 // from OpenSSL format to IANA format, no ciphers are silently dropped.
+// Ciphers that Go's crypto/tls does not support are excluded from this check.
 func TestTLSProfileCipherSuitesHaveMappings(t *testing.T) {
 	var missingMappings []string
 
 	for profileType, profileSpec := range configv1.TLSProfiles {
 		for _, cipher := range profileSpec.Ciphers {
+			if _, unsupported := ciphersUnsupportedByGo[cipher]; unsupported {
+				continue
+			}
 			if _, found := openSSLToIANACiphersMap[cipher]; !found {
 				missingMappings = append(missingMappings, fmt.Sprintf("%s (profile: %s)", cipher, profileType))
 			}
@@ -569,7 +586,28 @@ func TestTLSProfileCipherSuitesHaveMappings(t *testing.T) {
 
 	if len(missingMappings) > 0 {
 		sort.Strings(missingMappings)
-		t.Errorf("The following cipher suites from TLS profiles are missing mappings in openSSLToIANACiphersMap:\n%s",
+		t.Errorf("The following cipher suites from TLS profiles are missing mappings in openSSLToIANACiphersMap:\n%s\n"+
+			"If Go's crypto/tls does not support this cipher, add it to ciphersUnsupportedByGo instead.",
 			strings.Join(missingMappings, "\n"))
+	}
+}
+
+// TestCiphersUnsupportedByGoAreActuallyUnsupported validates that every cipher
+// in ciphersUnsupportedByGo is genuinely not supported by this Go version.
+// If a future Go release adds support for a skipped cipher, this test fails,
+// prompting its removal from ciphersUnsupportedByGo and addition to
+// openSSLToIANACiphersMap.
+//
+// We check against the ciphers map (rather than tls.CipherSuites) because
+// TestConstantMaps already validates that the ciphers map stays in sync with
+// Go's crypto/tls constants — when Go adds a new cipher, TestConstantMaps
+// forces the ciphers map to be updated, which then causes this test to fire.
+func TestCiphersUnsupportedByGoAreActuallyUnsupported(t *testing.T) {
+	for opensslName, ianaName := range ciphersUnsupportedByGo {
+		if _, supported := ciphers[ianaName]; supported {
+			t.Errorf("cipher %q (IANA: %q) is in ciphersUnsupportedByGo but Go now supports it — "+
+				"remove it from ciphersUnsupportedByGo and add a mapping to openSSLToIANACiphersMap",
+				opensslName, ianaName)
+		}
 	}
 }
