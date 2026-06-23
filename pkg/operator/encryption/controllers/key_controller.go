@@ -40,7 +40,6 @@ import (
 // greater than the last key's ID (the first key has a key ID of 1).
 const (
 	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
-	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 	openshiftConfigNS                 = "openshift-config"
 )
@@ -277,56 +276,11 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		ks.KMS = &state.KMSState{
-			Encryption: &apiserverv1.KMSConfiguration{
-				APIVersion: "v2",
-				Name:       fmt.Sprintf("%d", keyID),
-				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
-				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
-			},
-			Plugin: apiServerEncryption.KMS,
-		}
-
-		providerCfg, err := newKMSProviderConfig(apiServerEncryption.KMS)
+		kmsState, err := KMSPluginState(ctx, keyID, apiServerEncryption.KMS, c.secretClient, c.configMapClient)
 		if err != nil {
 			return nil, err
 		}
-
-		if secretName, expectedKeys, err := providerCfg.referencedSecretName(); err != nil {
-			return nil, err
-		} else if len(secretName) > 0 {
-			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refSecret.Data[key]
-				if !ok {
-					return nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		if cmName, expectedKeys, err := providerCfg.referencedConfigMapName(); err != nil {
-			return nil, err
-		} else if len(cmName) > 0 {
-			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refCM.Data[key]
-				if !ok {
-					return nil, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
-					return nil, err
-				}
-			}
-		}
+		ks.KMS = kmsState
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
 }
@@ -427,56 +381,6 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
-}
-
-// kmsProviderConfig abstracts provider-specific KMS logic so that every
-// provider-type switch lives in a single factory (newKMSProviderConfig).
-type kmsProviderConfig interface {
-	// sourceConfig returns the provider-specific API configuration.
-	sourceConfig() interface{}
-	// referencedSecretName returns the name of the secret referenced by the KMS plugin
-	// config and the specific data keys to carry from that secret. Only the listed keys
-	// are copied into the Key Secret; any other data in the referenced secret is ignored.
-	referencedSecretName() (string, []string, error)
-	// referencedConfigMapName returns the name of the configmap referenced by the KMS plugin
-	// config and the specific data keys to carry from that configmap. Only the listed keys
-	// are copied into the Key Secret; any other data in the referenced configmap is ignored.
-	referencedConfigMapName() (string, []string, error)
-}
-
-func newKMSProviderConfig(plugin configv1.KMSPluginConfig) (kmsProviderConfig, error) {
-	switch plugin.Type {
-	case configv1.VaultKMSProvider:
-		return &vaultProviderConfig{plugin.Vault}, nil
-	default:
-		return nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
-	}
-}
-
-type vaultProviderConfig struct {
-	vault configv1.VaultKMSPluginConfig
-}
-
-func (v *vaultProviderConfig) sourceConfig() interface{} {
-	return v.vault
-}
-
-func (v *vaultProviderConfig) referencedSecretName() (string, []string, error) {
-	switch v.vault.Authentication.Type {
-	case configv1.VaultAuthenticationTypeAppRole:
-		// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
-		// These are the only keys carried into the encryption key secret.
-		return v.vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
-	default:
-		return "", nil, fmt.Errorf("unsupported Vault authentication type %q", v.vault.Authentication.Type)
-	}
-}
-
-func (v *vaultProviderConfig) referencedConfigMapName() (string, []string, error) {
-	if v.vault.TLS.CABundle.Name == "" {
-		return "", nil, nil
-	}
-	return v.vault.TLS.CABundle.Name, []string{"ca-bundle.crt"}, nil
 }
 
 // TODO make this un-settable once set
