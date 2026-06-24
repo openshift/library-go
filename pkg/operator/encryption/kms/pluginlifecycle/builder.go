@@ -12,6 +12,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 )
 
 // KMSPluginBuilder constructs KMS plugin pod spec contributions for injection
@@ -20,6 +21,8 @@ type KMSPluginBuilder struct {
 	encryptionConfig           *encryptiondata.Config
 	encryptionConfigSecretName string
 	staticPod                  bool
+
+	healthReporter *healthReporter
 }
 
 // NewKMSPluginBuilder creates a builder that defaults to deployment mode.
@@ -41,6 +44,19 @@ func (b *KMSPluginBuilder) FromEncryptionConfig(encryptionConfigSecretName strin
 // data from the resource-dir volume and run as root (UID 0).
 func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	b.staticPod = true
+	return b
+}
+
+// WithHealthReporter enables injection of a health-reporter sidecar.
+// operatorBinary is the parent binary (e.g. "cluster-kube-apiserver-operator");
+// when empty, the subcommand is invoked directly via the image ENTRYPOINT.
+func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage string) *KMSPluginBuilder {
+	b.healthReporter = &healthReporter{
+		name:           "kms-health-reporter",
+		operatorBinary: operatorBinary,
+		subcommand:     health.Subcommand,
+		image:          operatorImage,
+	}
 	return b
 }
 
@@ -83,9 +99,11 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 	socketVolumeMount := corev1.VolumeMount{Name: kmsPluginSocketVolumeName, MountPath: kmsPluginSocketMountPath, ReadOnly: false}
 	refDataVolumeMount := corev1.VolumeMount{Name: refDataVolumeName, MountPath: refDataMountPath, ReadOnly: true}
 
+	sockets := make([]string, 0, len(kmsConfigurations))
 	for _, kmsConfiguration := range kmsConfigurations {
 		// ExtractUniqueAndSortedKMSConfigurations function rewrites the .Name field to include only the key ID
 		keyID := kmsConfiguration.Name
+		sockets = append(sockets, kmsConfiguration.Endpoint)
 
 		pluginConfig, ok := b.encryptionConfig.KMSPlugins[keyID]
 		if !ok {
@@ -135,6 +153,10 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 		if err := ensureReferenceDataVolume(podSpec, b.encryptionConfigSecretName); err != nil {
 			return err
 		}
+	}
+
+	if err := b.applyHealthReporter(podSpec, sockets); err != nil {
+		return err
 	}
 
 	return nil
