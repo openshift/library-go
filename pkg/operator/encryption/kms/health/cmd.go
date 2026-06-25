@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	Subcommand         = "kms-health-reporter"
-	fieldManagerPrefix = Subcommand + "-"
+	Subcommand = "kms-health-reporter"
 )
 
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
@@ -46,7 +45,6 @@ type Config struct {
 
 	interval     time.Duration
 	writeTimeout time.Duration
-	nodeName     string
 }
 
 func NewCommand(ctx context.Context, newWriter NewEncryptionStatusWriterFunc) *cobra.Command {
@@ -116,7 +114,7 @@ func (o *options) validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("--node-name is required")
 	}
-	if fieldManager := fieldManagerPrefix + o.NodeName; len(fieldManager) > metav1validation.FieldManagerMaxLength {
+	if fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName); len(fieldManager) > metav1validation.FieldManagerMaxLength {
 		return fmt.Errorf("--node-name too long: reporter identity %q is %d chars, exceeds the %d-char fieldManager limit", fieldManager, len(fieldManager), metav1validation.FieldManagerMaxLength)
 	}
 
@@ -132,7 +130,7 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	}
 
 	// fieldManager is the per-node ownership identity.
-	fieldManager := fieldManagerPrefix + o.NodeName
+	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
 	writeStatus, err := o.newWriter(restCfg, fieldManager)
 	if err != nil {
 		return nil, fmt.Errorf("build encryption status writer: %w", err)
@@ -145,10 +143,9 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 
 	return &Config{
 		writeStatus:  writeStatus,
-		prober:       newProber(plugins),
+		prober:       newProber(o.NodeName, plugins),
 		interval:     o.Interval,
 		writeTimeout: o.WriteTimeout,
-		nodeName:     o.NodeName,
 	}, nil
 }
 
@@ -160,7 +157,7 @@ func (c *Config) Run(ctx context.Context) error {
 
 		writeCtx, cancel := context.WithTimeout(ctx, c.writeTimeout)
 		defer cancel()
-		if err := c.writeStatus(writeCtx, buildEncryptionStatus(c.nodeName, reports)); err != nil {
+		if err := c.writeStatus(writeCtx, reports); err != nil {
 			klog.ErrorS(err, "failed to publish kms plugin health")
 		}
 	}, c.interval, 0.1, false)
@@ -179,7 +176,7 @@ func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) 
 
 		// Unique name per plugin so the gRPC client's KMS operation metrics
 		// don't merge both plugins into one series.
-		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, fieldManagerPrefix+keyID, timeout)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, Subcommand, timeout)
 		if err != nil {
 			// With the current dependency version this should never happen with a validated GRPC endpoint.
 			return nil, fmt.Errorf("setting up grpc service failed at %q: %w", socket, err)

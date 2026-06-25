@@ -143,10 +143,10 @@ func TestRunReportsOnce(t *testing.T) {
 
 	var have *applyoperatorv1.KMSEncryptionStatusApplyConfiguration
 	c := &Config{
-		nodeName:     "node-1",
 		interval:     time.Hour, // never reached; cancelled after the first tick
 		writeTimeout: time.Second,
 		prober: &prober{
+			nodeName: "node-1",
 			plugins: []pluginClient{
 				{keyID: "1", service: &fakeService{resp: &kmsservice.StatusResponse{Healthz: "ok", KeyID: "kek-abc"}}},
 			},

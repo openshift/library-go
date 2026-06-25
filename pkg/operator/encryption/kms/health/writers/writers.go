@@ -19,11 +19,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 )
 
-// applyOpts ensures that we are the dominant fieldManager.
-func applyOpts(fieldManager string) metav1.ApplyOptions {
-	return metav1.ApplyOptions{FieldManager: fieldManager, Force: true}
-}
-
 // NewAuthenticationWriter writes into Authentication/cluster at
 // .status.oauthAPIServer.encryptionStatus. The auth operator manages the
 // oauth-apiserver. There is an extra hop the other two operators don't have.
@@ -42,7 +37,7 @@ func NewAuthenticationWriter(restConfig *rest.Config, fieldManager string) (heal
 				),
 			),
 
-			applyOpts(fieldManager),
+			metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
 		)
 		return err
 	}, nil
@@ -62,7 +57,7 @@ func NewKubeAPIServerWriter(restConfig *rest.Config, fieldManager string) (healt
 			applyoperatorv1.KubeAPIServer("cluster").WithStatus(
 				applyoperatorv1.KubeAPIServerStatus().WithEncryptionStatus(status),
 			),
-			applyOpts(fieldManager),
+			metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
 		)
 		return err
 	}, nil
@@ -83,7 +78,7 @@ func NewOpenShiftAPIServerWriter(restConfig *rest.Config, fieldManager string) (
 				applyoperatorv1.OpenShiftAPIServerStatus().WithEncryptionStatus(status),
 			),
 
-			applyOpts(fieldManager),
+			metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
 		)
 		return err
 	}, nil
