@@ -15,14 +15,6 @@ const (
 	preflightPodName = "kms-preflight"
 )
 
-type KMSPreflightDeployer interface {
-	// Deploy creates the preflight checker with the given config hash
-	Deploy(ctx context.Context, configHash string) error
-	Status(ctx context.Context) (corev1.PodStatus, error)
-	// Cleanup cleans up anything previously created.
-	Cleanup(ctx context.Context) error
-}
-
 // PodPreflightDeployer creates a one-shot pod to run the preflight checker as a command,
 // with the plugin injected as a sidecar container.
 type PodPreflightDeployer struct {

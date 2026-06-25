@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -116,6 +117,28 @@ func (h *kmsConfigHasher) hashReferencedConfigMap(ctx context.Context, hasher ha
 		}
 	}
 	return nil
+}
+
+// KMSPreflightDeployer abstracts the lifecycle of a preflight workload that
+// validates KMS plugin configuration before an encryption key is created.
+// All methods are idempotent.
+//
+// Deploy creates all resources the workload needs (ServiceAccount, Secret,
+// RBAC, Pod). The controller only calls Deploy when Status reports no pod
+// exists, so no running pod can be affected.
+//
+// Cleanup removes all resources created by Deploy.
+type KMSPreflightDeployer interface {
+	// Deploy creates the preflight workload with the given config hash
+	// and encryption configuration. It is idempotent.
+	Deploy(ctx context.Context, configHash string, encryptionConfiguration *corev1.Secret) error
+
+	// Status returns the current pod status of the preflight workload.
+	// It returns an apierrors.IsNotFound error when no preflight pod exists.
+	Status(ctx context.Context) (corev1.PodStatus, error)
+
+	// Cleanup removes all resources created by Deploy.
+	Cleanup(ctx context.Context) error
 }
 
 type kmsPreflightController struct {
