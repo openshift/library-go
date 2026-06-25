@@ -3,11 +3,12 @@ package revisioncontroller
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -541,6 +542,7 @@ func TestRevisionController(t *testing.T) {
 				kubeClient.CoreV1(),
 				eventRecorder,
 				nil,
+				nil,
 			)
 			syncErr := c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder))
 			if tc.validateStatus != nil {
@@ -619,6 +621,7 @@ func TestRevisionControllerRevisionCreatedFailedStatusUpdate(t *testing.T) {
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		eventRecorder,
+		nil,
 		nil,
 	)
 
@@ -816,6 +819,7 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 				kubeClient.CoreV1(),
 				eventRecorder,
 				tc.revisionPrecondition,
+				nil,
 			)
 			syncErr := c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder))
 			require.Equal(t, syncErr, tc.expSyncErr)
@@ -823,6 +827,122 @@ func TestSyncWithRevisionPrecondition(t *testing.T) {
 			_, status, _, _ := tc.staticPodOperatorClient.GetStaticPodOperatorState()
 			require.Equal(t, tc.expUpdatedLatestAvailableRevision, status.LatestAvailableRevision)
 
+		})
+	}
+}
+
+func TestSyncWithRevisionReadinessCheck(t *testing.T) {
+	startingObjects := []runtime.Object{
+		&v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: targetNamespace}},
+		&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}},
+		&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "revision-status", Namespace: targetNamespace}},
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "revision-status-1", Namespace: targetNamespace},
+			Data:       map[string]string{"revision": "1"},
+		},
+	}
+	newStaticPodOperatorClient := func() v1helpers.StaticPodOperatorClient {
+		return v1helpers.NewFakeStaticPodOperatorClient(
+			&operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
+				},
+			},
+			&operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{
+					LatestAvailableRevision: 1,
+				},
+				NodeStatuses: []operatorv1.NodeStatus{
+					{
+						NodeName:        "test-node-1",
+						CurrentRevision: 1,
+						TargetRevision:  0,
+					},
+				},
+			},
+			nil,
+			nil,
+		)
+	}
+
+	tests := []struct {
+		testName                          string
+		revisionReadinessCheck            ReadinessCheckFunc
+		expSyncErr                        error
+		expUpdatedLatestAvailableRevision int32
+		expRevisionReady                  string
+	}{
+		{
+			// when readiness check is nil, the default implementation is considered. In this case no error is expected to be
+			// returned by sync, LatestAvailableRevision should be updated, and the revision should be marked as ready
+			testName:                          "readiness check is not supplied",
+			revisionReadinessCheck:            nil,
+			expSyncErr:                        nil,
+			expUpdatedLatestAvailableRevision: 2,
+			expRevisionReady:                  "true",
+		},
+		{
+			// when readiness check passes, no error is expected to be returned by sync,
+			// LatestAvailableRevision should be updated, and the revision should be marked as ready
+			testName: "readiness check passes",
+			revisionReadinessCheck: func(ctx context.Context, revision int32) (bool, error) {
+				return true, nil
+			},
+			expSyncErr:                        nil,
+			expUpdatedLatestAvailableRevision: 2,
+			expRevisionReady:                  "true",
+		},
+		{
+			// when readiness check fails, no error should be returned by sync, LatestAvailableRevision should not be updated,
+			// and the revision should not be marked as ready even though resources were copied
+			testName: "readiness check fails",
+			revisionReadinessCheck: func(ctx context.Context, revision int32) (bool, error) {
+				return false, nil
+			},
+			expSyncErr:                        nil,
+			expUpdatedLatestAvailableRevision: 1,
+			expRevisionReady:                  "false",
+		},
+		{
+			// when readiness check returns error, a wrapped error should be returned by sync, LatestAvailableRevision
+			// should not be updated, and the revision should not be marked as ready even though resources were copied
+			testName: "readiness check returns error",
+			revisionReadinessCheck: func(ctx context.Context, revision int32) (bool, error) {
+				return true, fmt.Errorf("Error")
+			},
+			expSyncErr:                        fmt.Errorf("revision readiness check failed for revision 2: %w", fmt.Errorf("Error")),
+			expUpdatedLatestAvailableRevision: 1,
+			expRevisionReady:                  "false",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			staticPodOperatorClient := newStaticPodOperatorClient()
+			kubeClient := fake.NewClientset(startingObjects...)
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+
+			c := NewRevisionController(
+				"testing",
+				targetNamespace,
+				[]RevisionResource{{Name: "test-config"}},
+				[]RevisionResource{{Name: "test-secret"}},
+				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(targetNamespace)),
+				staticPodOperatorClient,
+				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
+				eventRecorder,
+				nil,
+				tc.revisionReadinessCheck,
+			)
+			syncErr := c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder))
+			require.Equal(t, tc.expSyncErr, syncErr)
+
+			_, status, _, _ := staticPodOperatorClient.GetStaticPodOperatorState()
+			require.Equal(t, tc.expUpdatedLatestAvailableRevision, status.LatestAvailableRevision)
+
+			revisionStatus, err := kubeClient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-2", metav1.GetOptions{})
+			require.NoError(t, err, "revision-status-2 configmap should exist")
+			require.Equal(t, tc.expRevisionReady, revisionStatus.Annotations["operator.openshift.io/revision-ready"])
 		})
 	}
 }

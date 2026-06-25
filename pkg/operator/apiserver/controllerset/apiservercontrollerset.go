@@ -323,6 +323,7 @@ func (cs *APIServerControllerSet) WithRevisionController(
 		secretGetter,
 		cs.eventRecorder,
 		nil,
+		nil,
 	)
 	return cs
 }
