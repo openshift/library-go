@@ -1,18 +1,23 @@
 package pluginlifecycle
 
 import (
+	"context"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	fake "k8s.io/client-go/kubernetes/fake"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/ptr"
 )
 
 func TestKMSPluginBuilder_Apply(t *testing.T) {
 	f := newSidecarTestFixtures(t)
-	cfg, err := encryptiondata.FromSecret(f.encryptionConfigSecret)
-	require.NoError(t, err)
+
+	secretClient := func(objs ...runtime.Object) corev1client.SecretsGetter {
+		return fake.NewClientset(objs...).CoreV1()
+	}
 
 	tests := []struct {
 		name    string
@@ -23,8 +28,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 	}{
 		{
 			name: "static pod mode: resource-dir mount and root UID",
-			builder: NewKMSPluginBuilder().
-				FromEncryptionConfig("encryption-config", cfg).
+			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
+				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
 				AsStaticPod(),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "kube-apiserver"}},
@@ -53,8 +58,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 		},
 		{
 			name: "deployment mode: secret volume mount and no root UID",
-			builder: NewKMSPluginBuilder().
-				FromEncryptionConfig("encryption-config", cfg),
+			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
+				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "kube-apiserver"}},
 				Volumes:    []corev1.Volume{f.resourceDirVolume},
@@ -86,17 +91,20 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 			},
 		},
 		{
-			name:    "no encryption config: returns error",
-			builder: NewKMSPluginBuilder(),
+			name: "missing secret: no-op",
+			builder: NewKMSPluginBuilder(secretClient()).
+				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "test"}},
 			},
-			wantErr: "encryption configuration is required",
+			verify: func(t *testing.T, podSpec *corev1.PodSpec) {
+				require.Len(t, podSpec.InitContainers, 0, "no sidecars should be injected when secret is missing")
+			},
 		},
 		{
 			name: "nil pod spec: returns error",
-			builder: NewKMSPluginBuilder().
-				FromEncryptionConfig("encryption-config", cfg),
+			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
+				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
 			podSpec: nil,
 			wantErr: "pod spec cannot be nil",
 		},
@@ -109,7 +117,7 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 				original = tt.podSpec.DeepCopy()
 			}
 
-			err := tt.builder.Apply(tt.podSpec, "kube-apiserver")
+			err := tt.builder.Apply(context.Background(), tt.podSpec, "kube-apiserver")
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				if original != nil {
@@ -125,8 +133,10 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 
 func TestKMSPluginBuilder_OrderIndependence(t *testing.T) {
 	f := newSidecarTestFixtures(t)
-	cfg, err := encryptiondata.FromSecret(f.encryptionConfigSecret)
-	require.NoError(t, err)
+
+	secretClient := func() corev1client.SecretsGetter {
+		return fake.NewClientset(f.encryptionConfigSecret).CoreV1()
+	}
 
 	podSpec1 := &corev1.PodSpec{
 		Containers: []corev1.Container{{Name: "kube-apiserver"}},
@@ -137,16 +147,16 @@ func TestKMSPluginBuilder_OrderIndependence(t *testing.T) {
 		Volumes:    []corev1.Volume{f.resourceDirVolume},
 	}
 
-	err = NewKMSPluginBuilder().
-		FromEncryptionConfig("encryption-config", cfg).
+	err := NewKMSPluginBuilder(secretClient()).
+		FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
 		AsStaticPod().
-		Apply(podSpec1, "kube-apiserver")
+		Apply(context.Background(), podSpec1, "kube-apiserver")
 	require.NoError(t, err)
 
-	err = NewKMSPluginBuilder().
+	err = NewKMSPluginBuilder(secretClient()).
 		AsStaticPod().
-		FromEncryptionConfig("encryption-config", cfg).
-		Apply(podSpec2, "kube-apiserver")
+		FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		Apply(context.Background(), podSpec2, "kube-apiserver")
 	require.NoError(t, err)
 
 	require.Equal(t, podSpec1, podSpec2, "order of builder calls must not affect the result")
@@ -154,8 +164,7 @@ func TestKMSPluginBuilder_OrderIndependence(t *testing.T) {
 
 func TestKMSPluginBuilder_Idempotent(t *testing.T) {
 	f := newSidecarTestFixtures(t)
-	cfg, err := encryptiondata.FromSecret(f.encryptionConfigSecret)
-	require.NoError(t, err)
+	sc := fake.NewClientset(f.encryptionConfigSecret).CoreV1()
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{{Name: "kube-apiserver"}},
@@ -164,9 +173,9 @@ func TestKMSPluginBuilder_Idempotent(t *testing.T) {
 
 	apply := func() {
 		t.Helper()
-		err := NewKMSPluginBuilder().
-			FromEncryptionConfig("encryption-config", cfg).
-			Apply(podSpec, "kube-apiserver")
+		err := NewKMSPluginBuilder(sc).
+			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 	}
 
