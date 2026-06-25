@@ -61,7 +61,7 @@ func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 // when empty, the subcommand is invoked directly via the image ENTRYPOINT.
 func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage string) *KMSPluginBuilder {
 	b.healthReporter = &healthReporter{
-		name:           "kms-health-reporter",
+		name:           kmsHealthReporterContainerName,
 		operatorBinary: operatorBinary,
 		subcommand:     health.Subcommand,
 		image:          operatorImage,
