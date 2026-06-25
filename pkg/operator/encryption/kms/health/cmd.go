@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
@@ -17,7 +18,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const Subcommand = "kms-health-reporter"
+const (
+	Subcommand         = "kms-health-reporter"
+	fieldManagerPrefix = Subcommand + "-"
+)
 
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
@@ -112,6 +116,9 @@ func (o *options) validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("--node-name is required")
 	}
+	if fieldManager := fieldManagerPrefix + o.NodeName; len(fieldManager) > metav1validation.FieldManagerMaxLength {
+		return fmt.Errorf("--node-name too long: reporter identity %q is %d chars, exceeds the %d-char fieldManager limit", fieldManager, len(fieldManager), metav1validation.FieldManagerMaxLength)
+	}
 
 	return nil
 }
@@ -125,7 +132,7 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	}
 
 	// fieldManager is the per-node ownership identity.
-	fieldManager := "kms-health-reporter-" + o.NodeName
+	fieldManager := fieldManagerPrefix + o.NodeName
 	writeStatus, err := o.newWriter(restCfg, fieldManager)
 	if err != nil {
 		return nil, fmt.Errorf("build encryption status writer: %w", err)
@@ -172,7 +179,7 @@ func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) 
 
 		// Unique name per plugin so the gRPC client's KMS operation metrics
 		// don't merge both plugins into one series.
-		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, Subcommand+"-"+keyID, timeout)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, fieldManagerPrefix+keyID, timeout)
 		if err != nil {
 			// With the current dependency version this should never happen with a validated GRPC endpoint.
 			return nil, fmt.Errorf("setting up grpc service failed at %q: %w", socket, err)

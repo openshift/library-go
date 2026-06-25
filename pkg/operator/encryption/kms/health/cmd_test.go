@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,6 +108,15 @@ func TestValidate(t *testing.T) {
 			mutate:  func(o *options) { o.NodeName = "" },
 			wantErr: true,
 		},
+		{
+			name:   "node name at fieldManager limit",
+			mutate: func(o *options) { o.NodeName = strings.Repeat("n", 108) }, // 20-char prefix + 108 == 128
+		},
+		{
+			name:    "node name over fieldManager limit",
+			mutate:  func(o *options) { o.NodeName = strings.Repeat("n", 109) }, // 20-char prefix + 109 > 128
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -128,7 +138,8 @@ func TestValidate(t *testing.T) {
 // hands it to the reporter. The reporter cancels the context so the loop ends
 // after a single tick.
 func TestRunReportsOnce(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
 
 	var have *applyoperatorv1.KMSEncryptionStatusApplyConfiguration
 	c := &Config{
