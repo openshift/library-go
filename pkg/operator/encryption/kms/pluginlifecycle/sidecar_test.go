@@ -106,7 +106,7 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 	}
 }
 
-func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
+func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 	f := newSidecarTestFixtures(t)
 
 	secretClient := func(objs ...runtime.Object) corev1client.SecretsGetter {
@@ -556,27 +556,73 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
 		},
 		{
-			name: "conflicting volume mount on API server container",
+			name: "stale sidecar from removed provider is pruned",
 			actualPodSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name: "kube-apiserver",
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "kms-plugin-socket", MountPath: "/other/path"},
-						},
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
 					},
 				},
-				Volumes: []corev1.Volume{f.resourceDirVolume},
+				InitContainers: []corev1.Container{
+					{
+						Name:  "vault-kms-plugin-777",
+						Image: "quay.io/test/vault:v2",
+						Args:  []string{"-old-arg"},
+					},
+					{
+						Name:  "vault-kms-plugin-555",
+						Image: "quay.io/test/vault:v1",
+						Args:  []string{"-old-arg"},
+					},
+					{
+						Name:  "kms-health-reporter",
+						Image: "quay.io/test/operator:latest",
+					},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+				},
+				InitContainers: []corev1.Container{
+					{
+						Name:                     "vault-kms-plugin-555",
+						Image:                    "quay.io/test/vault:v1",
+						Args:                     sidecarArgs,
+						ImagePullPolicy:          corev1.PullIfNotPresent,
+						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+								corev1.ResourceCPU:    resource.MustParse("10m"),
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{
+							ReadOnlyRootFilesystem:   ptr.To(true),
+							AllowPrivilegeEscalation: ptr.To(false),
+							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+						},
+						VolumeMounts: []corev1.VolumeMount{socketMount, refDataMount},
+					},
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-555.sock"),
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
 			},
 			secretClient:        secretClient(f.encryptionConfigSecret),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
-			wantErr:             "already has volume mount kms-plugin-socket with different settings",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddKMSPluginSidecarToPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
+			err := EnsureKMSPluginSidecarInPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -587,7 +633,7 @@ func TestAddKMSPluginSidecarToPodSpec(t *testing.T) {
 	}
 }
 
-func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
+func TestEnsureKMSPluginSidecarInPodSpecIdempotency(t *testing.T) {
 	f := newSidecarTestFixtures(t)
 	sc := fake.NewClientset(f.encryptionConfigSecret).CoreV1()
 	fga := featuregates.NewHardcodedFeatureGateAccess(
@@ -601,7 +647,7 @@ func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
 
 	call := func() {
 		t.Helper()
-		err := AddKMSPluginSidecarToPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", sc, fga)
+		err := EnsureKMSPluginSidecarInPodSpec(context.Background(), podSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", sc, fga)
 		require.NoError(t, err)
 	}
 
