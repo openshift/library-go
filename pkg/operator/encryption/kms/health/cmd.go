@@ -7,15 +7,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
-	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 )
 
 const (
@@ -26,18 +25,15 @@ const (
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
-// options' flag-bound fields are exported so the struct can be logged as a
-// whole via klog.InfoS, which JSON-marshals its values.
-type options struct {
-	KMSSockets   []string
-	Interval     time.Duration
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	NodeName     string
-	Kubeconfig   string
+// NewEncryptionStatusWriterFunc builds the EncryptionStatusWriter for a target
+// apiserver operator status CR. fieldManager sets the owner in the
+// managedFields when doing SSA.
+type NewEncryptionStatusWriterFunc func(restConfig *rest.Config, fieldManager string) (EncryptionStatusWriter, error)
 
-	newWriter NewEncryptionStatusWriterFunc
-}
+// EncryptionStatusWriter is capable of applying the
+// KMSEncryptionStatusApplyConfiguration at the correct place in the operator's
+// status.
+type EncryptionStatusWriter func(ctx context.Context, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error
 
 type Config struct {
 	writeStatus EncryptionStatusWriter
@@ -76,77 +72,6 @@ func NewCommand(ctx context.Context, newWriter NewEncryptionStatusWriterFunc) *c
 	}
 	o.addFlags(cmd.Flags())
 	return cmd
-}
-
-func (o *options) addFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&o.KMSSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock)")
-	fs.DurationVar(&o.Interval, "interval", 30*time.Second, "cadence between probe+emit cycles")
-	fs.DurationVar(&o.ReadTimeout, "read-timeout", 5*time.Second, "deadline for each Status RPC")
-	fs.DurationVar(&o.WriteTimeout, "write-timeout", 10*time.Second, "deadline for each condition update")
-	fs.StringVar(&o.NodeName, "node-name", "", "node name recorded in the condition used to help to identify the origin")
-	fs.StringVar(&o.Kubeconfig, "kubeconfig", "", "path to a kubeconfig; empty uses in-cluster config")
-}
-
-func (o *options) validate() error {
-	if len(o.KMSSockets) == 0 {
-		return fmt.Errorf("--kms-sockets is required, at least one")
-	}
-	socketSet := sets.New[string]()
-	for _, s := range o.KMSSockets {
-		if !kmsSocketPattern.MatchString(s) {
-			return fmt.Errorf("--kms-sockets entry %q must match %s", s, kmsSocketPattern)
-		}
-		if socketSet.Has(s) {
-			return fmt.Errorf("--kms-sockets entry %q is duplicated", s)
-		}
-		socketSet.Insert(s)
-	}
-
-	if o.Interval <= 0 {
-		return fmt.Errorf("--interval must be positive")
-	}
-	if o.ReadTimeout <= 0 {
-		return fmt.Errorf("--read-timeout must be positive")
-	}
-	if o.WriteTimeout <= 0 {
-		return fmt.Errorf("--write-timeout must be positive")
-	}
-	if o.NodeName == "" {
-		return fmt.Errorf("--node-name is required")
-	}
-	if fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName); len(fieldManager) > metav1validation.FieldManagerMaxLength {
-		return fmt.Errorf("--node-name too long: reporter identity %q is %d chars, exceeds the %d-char fieldManager limit", fieldManager, len(fieldManager), metav1validation.FieldManagerMaxLength)
-	}
-
-	return nil
-}
-
-func (o *options) Config(ctx context.Context) (*Config, error) {
-	// Empty kubeconfig falls back to the in-cluster config (service account
-	// token + KUBERNETES_SERVICE_HOST), which is the deployed path.
-	restCfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("build rest config: %w", err)
-	}
-
-	// fieldManager is the per-node ownership identity.
-	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
-	writeStatus, err := o.newWriter(restCfg, fieldManager)
-	if err != nil {
-		return nil, fmt.Errorf("build encryption status writer: %w", err)
-	}
-
-	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Config{
-		writeStatus:  writeStatus,
-		prober:       newProber(o.NodeName, plugins),
-		interval:     o.Interval,
-		writeTimeout: o.WriteTimeout,
-	}, nil
 }
 
 func (c *Config) Run(ctx context.Context) error {
