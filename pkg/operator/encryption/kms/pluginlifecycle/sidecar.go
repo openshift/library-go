@@ -64,19 +64,11 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 		return nil
 	}
 
-	cfg, err := fetchEncryptionConfig(ctx, encryptionConfigNamespace, encryptionConfigSecretName, secretClient)
-	if err != nil {
-		return err
-	}
-	if cfg == nil {
-		return nil
-	}
-
-	return NewKMSPluginBuilder().
-		FromEncryptionConfig(encryptionConfigSecretName, cfg).
+	return NewKMSPluginBuilder(secretClient).
+		FromEncryptionConfig(encryptionConfigNamespace, encryptionConfigSecretName).
 		AsStaticPod().
 		WithHealthReporter(operatorBinary, operatorImage).
-		Apply(podSpec, containerName)
+		Apply(ctx, podSpec, containerName)
 }
 
 // AddKMSPluginSidecarToPodSpec injects KMS plugin sidecar containers into an aggregated API server pod spec (e.g., openshift-apiserver, oauth-apiserver).
@@ -95,18 +87,10 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 		return nil
 	}
 
-	cfg, err := fetchEncryptionConfig(ctx, encryptionConfigNamespace, encryptionConfigSecretName, secretClient)
-	if err != nil {
-		return err
-	}
-	if cfg == nil {
-		return nil
-	}
-
-	return NewKMSPluginBuilder().
-		FromEncryptionConfig(encryptionConfigSecretName, cfg).
+	return NewKMSPluginBuilder(secretClient).
+		FromEncryptionConfig(encryptionConfigNamespace, encryptionConfigSecretName).
 		WithHealthReporter(operatorBinary, operatorImage).
-		Apply(podSpec, containerName)
+		Apply(ctx, podSpec, containerName)
 }
 
 func ensureSidecarContainer(podSpec *corev1.PodSpec, provider sidecarProvider) error {

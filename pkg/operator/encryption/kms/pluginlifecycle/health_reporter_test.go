@@ -1,28 +1,28 @@
 package pluginlifecycle
 
 import (
+	"context"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	fake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/ptr"
 )
 
 func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 	f := newSidecarTestFixtures(t)
-	cfg, err := encryptiondata.FromSecret(f.encryptionConfigSecret)
-	require.NoError(t, err)
+	sc := fake.NewClientset(f.encryptionConfigSecret).CoreV1()
 
 	t.Run("health reporter injected with correct args and socket mount", func(t *testing.T) {
 		podSpec := &corev1.PodSpec{
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder().
-			FromEncryptionConfig("encryption-config", cfg).
+		err := NewKMSPluginBuilder(sc).
+			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
 			WithHealthReporter("cluster-kube-apiserver-operator", "quay.io/test/operator:latest").
-			Apply(podSpec, "kube-apiserver")
+			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 
 		var reporter *corev1.Container
@@ -57,11 +57,11 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder().
-			FromEncryptionConfig("encryption-config", cfg).
+		err := NewKMSPluginBuilder(sc).
+			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
 			AsStaticPod().
 			WithHealthReporter("cluster-kube-apiserver-operator", "quay.io/test/operator:latest").
-			Apply(podSpec, "kube-apiserver")
+			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 
 		var reporter *corev1.Container
@@ -81,9 +81,9 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder().
-			FromEncryptionConfig("encryption-config", cfg).
-			Apply(podSpec, "kube-apiserver")
+		err := NewKMSPluginBuilder(sc).
+			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 
 		for _, c := range podSpec.InitContainers {
@@ -96,10 +96,10 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder().
-			FromEncryptionConfig("encryption-config", cfg).
+		err := NewKMSPluginBuilder(sc).
+			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
 			WithHealthReporter("cluster-kube-apiserver-operator", "").
-			Apply(podSpec, "kube-apiserver")
+			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.ErrorContains(t, err, "health reporter name, operatorBinary, image and subcommand are required")
 	})
 }
