@@ -2,8 +2,10 @@ package deploymentcontroller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"testing"
@@ -46,6 +48,7 @@ const (
 var (
 	conditionAvailable   = controllerName + opv1.OperatorStatusTypeAvailable
 	conditionProgressing = controllerName + opv1.OperatorStatusTypeProgressing
+	conditionDegraded    = controllerName + opv1.OperatorStatusTypeDegraded
 )
 
 type testCase struct {
@@ -54,6 +57,9 @@ type testCase struct {
 	initialObjects  testObjects
 	expectedObjects testObjects
 	expectErr       bool
+	// assertOperatorStatus inspects operator status before sanitizeInstanceStatus strips Reason/Message.
+	assertOperatorStatus  func(t *testing.T, status *opv1.OperatorStatus)
+	optionalManifestHooks []ManifestHookFunc
 }
 
 type testObjects struct {
@@ -400,7 +406,7 @@ func newTestContext(test testCase, t *testing.T) *testContext {
 		nil, /*triggerErr func*/
 	)
 	optionalInformers := []factory.Informer{configInformer}
-	var optionalManifestHookFuncs []ManifestHookFunc
+	optionalManifestHookFuncs := test.optionalManifestHooks
 	controller := NewDeploymentController(
 		controllerName,
 		makeFakeManifest(),
@@ -470,7 +476,7 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable),
+					withFalseConditions(conditionAvailable, conditionDegraded),
 					withFinalizers(finalizerName),
 				),
 			},
@@ -526,7 +532,7 @@ func TestSync(t *testing.T) {
 					// withStatus(replica0),
 					withGenerations(1),
 					withTrueConditions(conditionProgressing),
-					withFalseConditions(conditionAvailable)), // Degraded is set later on
+					withFalseConditions(conditionAvailable, conditionDegraded)),
 			},
 		},
 		{
@@ -548,7 +554,7 @@ func TestSync(t *testing.T) {
 					// withStatus(replica1),
 					withGenerations(1),
 					withTrueConditions(conditionAvailable),
-					withFalseConditions(conditionProgressing)),
+					withFalseConditions(conditionProgressing, conditionDegraded)),
 			},
 		},
 		{
@@ -569,8 +575,9 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withFalseConditions(conditionAvailable),    // No pod is running
-					withFalseConditions(conditionProgressing)), // Despite missing pod, the operator is not progressing
+					withFalseConditions(conditionAvailable),   // No pod is running
+					withFalseConditions(conditionProgressing), // Despite missing pod, the operator is not progressing
+					withTrueConditions(conditionDegraded)),    // Operand unavailable while not mid-rollout
 			},
 		},
 		{
@@ -590,8 +597,8 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica1),
 					withGenerations(1),
-					withFalseConditions(conditionAvailable),   // No pod is running
-					withTrueConditions(conditionProgressing)), // A pod is missing, the operator is progressing
+					withFalseConditions(conditionAvailable, conditionDegraded), // No pod is running
+					withTrueConditions(conditionProgressing)),                  // A pod is missing, the operator is progressing
 			},
 		},
 		{
@@ -613,6 +620,7 @@ func TestSync(t *testing.T) {
 					// withStatus(replica1),
 					withGenerations(3), // now the operator knows generation 1
 					withTrueConditions(conditionAvailable, conditionProgressing), // Progressing due to Generation change
+					withFalseConditions(conditionDegraded),
 				),
 			},
 		},
@@ -637,7 +645,7 @@ func TestSync(t *testing.T) {
 					// withStatus(replica0),
 					withGenerations(1),
 					withTrueConditions(conditionProgressing), // The operator is Progressing
-					withFalseConditions(conditionAvailable)), // The operator is not Available (controller not running...)
+					withFalseConditions(conditionAvailable, conditionDegraded)),
 			},
 		},
 		{
@@ -660,7 +668,74 @@ func TestSync(t *testing.T) {
 				operator: makeFakeOperatorInstance(
 					// withStatus(replica0),
 					withGenerations(1),
-					withTrueConditions(conditionAvailable, conditionProgressing)), // The operator is Progressing, but still Available
+					withTrueConditions(conditionAvailable, conditionProgressing), // The operator is Progressing, but still Available
+					withFalseConditions(conditionDegraded),
+				),
+			},
+		},
+		{
+			name: "operator conditions expose ProgressDeadlineExceeded reason and message",
+			initialObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditionWithMessage(appsv1.DeploymentProgressing, "ProgressDeadlineExceeded", corev1.ConditionFalse, "ReplicaSet timed out")),
+				operator: makeFakeOperatorInstance(withGenerations(1)),
+			},
+			expectedObjects: testObjects{
+				deployment: makeDeployment(
+					withDeploymentGeneration(1, 1),
+					withDeploymentStatus(replica0, replica0, replica0),
+					withDeploymentConditionWithMessage(appsv1.DeploymentProgressing, "ProgressDeadlineExceeded", corev1.ConditionFalse, "ReplicaSet timed out")),
+				operator: makeFakeOperatorInstance(
+					withGenerations(1),
+					withFalseConditions(conditionAvailable, conditionProgressing),
+					withTrueConditions(conditionDegraded),
+				),
+			},
+			assertOperatorStatus: func(t *testing.T, status *opv1.OperatorStatus) {
+				wantMsg := "deployment/dummy-deployment.openshift-dummy-test-deployment has timed out progressing: ReplicaSet timed out"
+				deg := v1helpers.FindOperatorCondition(status.Conditions, conditionDegraded)
+				if deg == nil {
+					t.Fatalf("missing %s", conditionDegraded)
+				}
+				if deg.Status != opv1.ConditionTrue || deg.Reason != "ProgressDeadlineExceeded" || deg.Message != wantMsg {
+					t.Fatalf("Degraded: got status=%s reason=%q message=%q, want True ProgressDeadlineExceeded %q", deg.Status, deg.Reason, deg.Message, wantMsg)
+				}
+				prog := v1helpers.FindOperatorCondition(status.Conditions, conditionProgressing)
+				if prog == nil {
+					t.Fatalf("missing %s", conditionProgressing)
+				}
+				if prog.Status != opv1.ConditionFalse || prog.Reason != "ProgressDeadlineExceeded" || prog.Message != wantMsg {
+					t.Fatalf("Progressing: got status=%s reason=%q message=%q, want False ProgressDeadlineExceeded %q", prog.Status, prog.Reason, prog.Message, wantMsg)
+				}
+			},
+		},
+		{
+			name:      "sync error applies SyncError degraded via defer when manifest hook fails",
+			expectErr: true,
+			initialObjects: testObjects{
+				operator: makeFakeOperatorInstance(),
+			},
+			expectedObjects: testObjects{
+				operator: makeFakeOperatorInstance(withTrueConditions(conditionDegraded)),
+			},
+			optionalManifestHooks: []ManifestHookFunc{
+				func(_ *opv1.OperatorSpec, _ []byte) ([]byte, error) {
+					return nil, fmt.Errorf("forced manifest hook error for SyncError degraded regression")
+				},
+			},
+			assertOperatorStatus: func(t *testing.T, status *opv1.OperatorStatus) {
+				deg := v1helpers.FindOperatorCondition(status.Conditions, conditionDegraded)
+				if deg == nil {
+					t.Fatalf("missing %s after sync error (applySyncErrorDegraded / defer path)", conditionDegraded)
+				}
+				if deg.Status != opv1.ConditionTrue || deg.Reason != "SyncError" {
+					t.Fatalf("Degraded: got status=%s reason=%q, want True SyncError (deferred applySyncErrorDegraded while WithSyncDegradedOnError is off)", deg.Status, deg.Reason)
+				}
+				if !strings.Contains(deg.Message, "error running hook function") || !strings.Contains(deg.Message, "forced manifest hook error for SyncError degraded regression") {
+					t.Fatalf("Degraded.Message: got %q; expected wrapped hook error from getDeployment()", deg.Message)
+				}
 			},
 		},
 	}
@@ -717,6 +792,9 @@ func TestSync(t *testing.T) {
 				_, actualStatus, _, err := ctx.operatorClient.GetOperatorState()
 				if err != nil {
 					t.Errorf("Failed to get operator: %v", err)
+				}
+				if test.assertOperatorStatus != nil {
+					test.assertOperatorStatus(t, actualStatus)
 				}
 				sanitizeInstanceStatus(actualStatus)
 				sanitizeInstanceStatus(&test.expectedObjects.operator.Status)

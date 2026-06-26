@@ -77,6 +77,18 @@ func withDeploymentConditions(conditionType appsv1.DeploymentConditionType, reas
 	}
 }
 
+func withDeploymentConditionWithMessage(conditionType appsv1.DeploymentConditionType, reason string, status v1.ConditionStatus, message string) deploymentModifier {
+	return func(instance *appsv1.Deployment) *appsv1.Deployment {
+		instance.Status.Conditions = append(instance.Status.Conditions, appsv1.DeploymentCondition{
+			Type:    conditionType,
+			Status:  status,
+			Reason:  reason,
+			Message: message,
+		})
+		return instance
+	}
+}
+
 func TestWithReplicasHook(t *testing.T) {
 	var (
 		masterNodeLabels = map[string]string{"node-role.kubernetes.io/master": ""}
