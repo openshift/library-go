@@ -28,8 +28,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 	}{
 		{
 			name: "static pod mode: resource-dir mount and root UID",
-			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
-				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+			builder: NewKMSPluginBuilder().
+				FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient(f.encryptionConfigSecret)).
 				AsStaticPod(),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "kube-apiserver"}},
@@ -58,8 +58,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 		},
 		{
 			name: "deployment mode: secret volume mount and no root UID",
-			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
-				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
+			builder: NewKMSPluginBuilder().
+				FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient(f.encryptionConfigSecret)),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "kube-apiserver"}},
 				Volumes:    []corev1.Volume{f.resourceDirVolume},
@@ -92,8 +92,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 		},
 		{
 			name: "missing secret: no-op",
-			builder: NewKMSPluginBuilder(secretClient()).
-				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
+			builder: NewKMSPluginBuilder().
+				FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient()),
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "test"}},
 			},
@@ -103,8 +103,8 @@ func TestKMSPluginBuilder_Apply(t *testing.T) {
 		},
 		{
 			name: "nil pod spec: returns error",
-			builder: NewKMSPluginBuilder(secretClient(f.encryptionConfigSecret)).
-				FromEncryptionConfig("openshift-kube-apiserver", "encryption-config"),
+			builder: NewKMSPluginBuilder().
+				FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient(f.encryptionConfigSecret)),
 			podSpec: nil,
 			wantErr: "pod spec cannot be nil",
 		},
@@ -147,15 +147,15 @@ func TestKMSPluginBuilder_OrderIndependence(t *testing.T) {
 		Volumes:    []corev1.Volume{f.resourceDirVolume},
 	}
 
-	err := NewKMSPluginBuilder(secretClient()).
-		FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+	err := NewKMSPluginBuilder().
+		FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient()).
 		AsStaticPod().
 		Apply(context.Background(), podSpec1, "kube-apiserver")
 	require.NoError(t, err)
 
-	err = NewKMSPluginBuilder(secretClient()).
+	err = NewKMSPluginBuilder().
 		AsStaticPod().
-		FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", secretClient()).
 		Apply(context.Background(), podSpec2, "kube-apiserver")
 	require.NoError(t, err)
 
@@ -173,8 +173,8 @@ func TestKMSPluginBuilder_Idempotent(t *testing.T) {
 
 	apply := func() {
 		t.Helper()
-		err := NewKMSPluginBuilder(sc).
-			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		err := NewKMSPluginBuilder().
+			FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", sc).
 			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 	}

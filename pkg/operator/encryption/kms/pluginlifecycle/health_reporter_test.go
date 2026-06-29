@@ -19,8 +19,8 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder(sc).
-			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		err := NewKMSPluginBuilder().
+			FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", sc).
 			WithHealthReporter("cluster-kube-apiserver-operator", "quay.io/test/operator:latest").
 			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
@@ -57,8 +57,8 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder(sc).
-			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		err := NewKMSPluginBuilder().
+			FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", sc).
 			AsStaticPod().
 			WithHealthReporter("cluster-kube-apiserver-operator", "quay.io/test/operator:latest").
 			Apply(context.Background(), podSpec, "kube-apiserver")
@@ -81,8 +81,8 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder(sc).
-			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		err := NewKMSPluginBuilder().
+			FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", sc).
 			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.NoError(t, err)
 
@@ -96,8 +96,8 @@ func TestKMSPluginBuilder_WithHealthReporter(t *testing.T) {
 			Containers: []corev1.Container{{Name: "kube-apiserver"}},
 			Volumes:    []corev1.Volume{f.resourceDirVolume},
 		}
-		err := NewKMSPluginBuilder(sc).
-			FromEncryptionConfig("openshift-kube-apiserver", "encryption-config").
+		err := NewKMSPluginBuilder().
+			FromEncryptionConfigSecret("openshift-kube-apiserver", "encryption-config", sc).
 			WithHealthReporter("cluster-kube-apiserver-operator", "").
 			Apply(context.Background(), podSpec, "kube-apiserver")
 		require.ErrorContains(t, err, "health reporter name, operatorBinary, image and subcommand are required")

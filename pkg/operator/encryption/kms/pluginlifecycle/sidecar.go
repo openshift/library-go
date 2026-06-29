@@ -64,8 +64,8 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 		return nil
 	}
 
-	return NewKMSPluginBuilder(secretClient).
-		FromEncryptionConfig(encryptionConfigNamespace, encryptionConfigSecretName).
+	return NewKMSPluginBuilder().
+		FromEncryptionConfigSecret(encryptionConfigNamespace, encryptionConfigSecretName, secretClient).
 		AsStaticPod().
 		WithHealthReporter(operatorBinary, operatorImage).
 		Apply(ctx, podSpec, containerName)
@@ -87,8 +87,8 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 		return nil
 	}
 
-	return NewKMSPluginBuilder(secretClient).
-		FromEncryptionConfig(encryptionConfigNamespace, encryptionConfigSecretName).
+	return NewKMSPluginBuilder().
+		FromEncryptionConfigSecret(encryptionConfigNamespace, encryptionConfigSecretName, secretClient).
 		WithHealthReporter(operatorBinary, operatorImage).
 		Apply(ctx, podSpec, containerName)
 }
