@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
@@ -47,6 +48,7 @@ type ClientSet struct {
 	Etcd            EtcdClient
 	ApiServerConfig configv1client.APIServerInterface
 	Kube            kubernetes.Interface
+	DynamicClient   dynamic.Interface
 }
 
 type EncryptionKeyMeta struct {
@@ -132,7 +134,10 @@ func GetClients(t testing.TB) ClientSet {
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 	etcdClient := NewEtcdClient(kubeClient)
 
-	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Kube: kubeClient}
+	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
+	require.NoError(t, err)
+
+	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Kube: kubeClient, DynamicClient: dynamicClient}
 }
 
 func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, encryptionType configv1.EncryptionType, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) {
