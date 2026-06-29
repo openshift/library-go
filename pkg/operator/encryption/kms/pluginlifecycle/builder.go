@@ -28,18 +28,16 @@ type KMSPluginBuilder struct {
 }
 
 // NewKMSPluginBuilder creates a builder that defaults to deployment mode.
-// The secretClient is used to fetch the encryption-config Secret at Apply time.
-func NewKMSPluginBuilder(secretClient corev1client.SecretsGetter) *KMSPluginBuilder {
-	return &KMSPluginBuilder{
-		secretClient: secretClient,
-	}
+func NewKMSPluginBuilder() *KMSPluginBuilder {
+	return &KMSPluginBuilder{}
 }
 
-// FromEncryptionConfig configures the builder to load KMS plugins from the
+// FromEncryptionConfigSecret configures the builder to load KMS plugins from the
 // named encryption-config Secret. The Secret is fetched at Apply time.
-func (b *KMSPluginBuilder) FromEncryptionConfig(namespace, secretName string) *KMSPluginBuilder {
+func (b *KMSPluginBuilder) FromEncryptionConfigSecret(namespace, secretName string, secretClient corev1client.SecretsGetter) *KMSPluginBuilder {
 	b.encryptionConfigNamespace = namespace
 	b.encryptionConfigSecretName = secretName
+	b.secretClient = secretClient
 	return b
 }
 
@@ -50,10 +48,10 @@ func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	return b
 }
 
-// ErrorIfNotFound makes Apply return an error when the encryption-config Secret
+// WithSecretRequired makes Apply return an error when the encryption-config Secret
 // does not exist, instead of silently treating it as a no-op. This is useful for
 // callers like the preflight checker that expect the Secret to be present.
-func (b *KMSPluginBuilder) ErrorIfNotFound() *KMSPluginBuilder {
+func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 	b.errorIfNotFound = true
 	return b
 }
