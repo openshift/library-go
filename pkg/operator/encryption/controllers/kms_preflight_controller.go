@@ -12,6 +12,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -123,6 +124,7 @@ type kmsPreflightController struct {
 
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
+	coreClient      corev1client.CoreV1Interface
 
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
@@ -204,6 +206,11 @@ func NewKMSPreflightController(
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
+	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
+	// computation. No informer is needed: the key-controller detects config changes and
+	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
+	// via the operatorClient informer. The minute-based resync covers the rest.
+	coreClient corev1client.CoreV1Interface,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
@@ -211,6 +218,7 @@ func NewKMSPreflightController(
 
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
+		coreClient:      coreClient,
 
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
@@ -265,5 +273,50 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 }
 
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) error {
-	return fmt.Errorf("implement me")
+	requiredHash, err := c.requiredPreflightHash(ctx)
+	if err != nil {
+		return err
+	}
+	if requiredHash == "" {
+		return nil
+	}
+
+	return fmt.Errorf("preflight checks not yet implemented for hash %s", requiredHash)
+}
+
+// requiredPreflightHash returns the config hash that needs preflight validation,
+// or an empty string when no preflight is needed.
+func (c *kmsPreflightController) requiredPreflightHash(ctx context.Context) (string, error) {
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		return "", fmt.Errorf("failed to get operator state: %w", err)
+	}
+	requiredCondition := operatorv1helpers.FindOperatorCondition(operatorStatus.Conditions, "EncryptionKMSPreflightRequired")
+	if requiredCondition == nil || requiredCondition.Status != operatorv1.ConditionTrue {
+		return "", nil
+	}
+	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get apiserver config: %w", err)
+	}
+
+	providerCfg, err := newKMSProviderConfig(apiServer.Spec.Encryption.KMS)
+	if err != nil {
+		return "", fmt.Errorf("failed to create KMS provider config: %w", err)
+	}
+	currentHash, err := newKMSConfigHasher(providerCfg, c.coreClient, openshiftConfigNS).hash(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute KMS config hash: %w", err)
+	}
+
+	requiredHash := requiredCondition.Message
+	// No requeue needed: the key-controller will post an updated condition when it
+	// picks up the config change (via apiServerInformer), which triggers us through
+	// operatorClient.Informer(). The minute-based resync is a backstop.
+	if currentHash != requiredHash {
+		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to post an updated condition", requiredHash, currentHash)
+		return "", nil
+	}
+
+	return requiredHash, nil
 }

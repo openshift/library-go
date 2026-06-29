@@ -24,8 +24,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestKMSConfigHasher(t *testing.T) {
-	baseVaultConfig := configv1.VaultKMSPluginConfig{
+var (
+	wellKnownBaseVaultConfig = configv1.VaultKMSPluginConfig{
 		VaultAddress: "https://vault.example.com:8200",
 		Authentication: configv1.VaultAuthentication{
 			Type: configv1.VaultAuthenticationTypeAppRole,
@@ -40,7 +40,7 @@ func TestKMSConfigHasher(t *testing.T) {
 		TransitKey:   "my-key",
 	}
 
-	baseSecret := &corev1.Secret{
+	wellKnownBaseSecret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 		Data: map[string][]byte{
 			"role-id":   []byte("role-123"),
@@ -48,11 +48,13 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 	}
 
-	baseConfigMap := &corev1.ConfigMap{
+	wellKnownBaseConfigMap = corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 		Data:       map[string]string{"ca-bundle.crt": "test-ca-cert"},
 	}
+)
 
+func TestKMSConfigHasher(t *testing.T) {
 	// Each scenario changes exactly one field from the baseline and verifies the hash changes.
 	// If the hash algorithm or encoding changes, update the expectedHash values by running
 	// the test and copying the actual values from the error output.
@@ -65,78 +67,78 @@ func TestKMSConfigHasher(t *testing.T) {
 	}{
 		{
 			name:         "same config and resources produce the same hash",
-			vaultConfig:  baseVaultConfig,
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			vaultConfig:  wellKnownBaseVaultConfig,
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "k6dSVA==",
 		},
 		{
 			name: "changing KMSPluginImage",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.KMSPluginImage = "registry.example.com/plugin@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "DC20hA==",
 		},
 		{
 			name: "changing VaultAddress",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.VaultAddress = "https://other-vault.example.com:8200"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "VOhO4Q==",
 		},
 		{
 			name: "changing VaultNamespace",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.VaultNamespace = "my-namespace"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "uQnh1w==",
 		},
 		{
 			name: "changing TransitMount",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.TransitMount = "other-transit"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "yBP5JQ==",
 		},
 		{
 			name: "changing TransitKey",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.TransitKey = "other-key"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "IH9sCA==",
 		},
 		{
 			name: "changing TLS.ServerName",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.TLS.ServerName = "vault.example.com"
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret, baseConfigMap},
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			expectedHash: "o6TBAQ==",
 		},
 		{
 			name: "changing TLS.CABundle.Name",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.TLS.CABundle.Name = "other-ca-bundle"
 				return c
 			}(),
-			resources: []runtime.Object{baseSecret, &corev1.ConfigMap{
+			resources: []runtime.Object{&wellKnownBaseSecret, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "other-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert"},
 			}},
@@ -145,11 +147,11 @@ func TestKMSConfigHasher(t *testing.T) {
 		{
 			name: "changing Authentication.AppRole.Secret.Name",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.Authentication.AppRole.Secret.Name = "other-secret"
 				return c
 			}(),
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "other-secret", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id":   []byte("role-123"),
@@ -160,8 +162,8 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:        "changing role-id value",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id":   []byte("role-999"),
@@ -172,8 +174,8 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:        "changing secret-id value",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id":   []byte("role-123"),
@@ -184,8 +186,8 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:        "extra key in secret does not change hash",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id":   []byte("role-123"),
@@ -197,8 +199,8 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:        "extra key in configmap does not change hash",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseSecret, &corev1.ConfigMap{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseSecret, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert", "extra": "ignored"},
 			}},
@@ -206,8 +208,8 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:        "changing ca-bundle.crt value",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseSecret, &corev1.ConfigMap{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseSecret, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "different-ca-cert"},
 			}},
@@ -216,17 +218,17 @@ func TestKMSConfigHasher(t *testing.T) {
 		{
 			name: "no configmap configured",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
-				c := baseVaultConfig
+				c := wellKnownBaseVaultConfig
 				c.TLS.CABundle.Name = ""
 				return c
 			}(),
-			resources:    []runtime.Object{baseSecret},
+			resources:    []runtime.Object{&wellKnownBaseSecret},
 			expectedHash: "rGXYog==",
 		},
 		{
 			name:        "shifting bytes between secret keys produces a different hash",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id":   []byte("role-12"),
@@ -237,14 +239,14 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:          "missing secret returns error",
-			vaultConfig:   baseVaultConfig,
-			resources:     []runtime.Object{baseConfigMap},
+			vaultConfig:   wellKnownBaseVaultConfig,
+			resources:     []runtime.Object{&wellKnownBaseConfigMap},
 			expectedError: "failed to get secret",
 		},
 		{
 			name:        "missing key in secret returns error",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseConfigMap, &corev1.Secret{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseConfigMap, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-approle", Namespace: "openshift-config"},
 				Data: map[string][]byte{
 					"role-id": []byte("role-123"),
@@ -254,14 +256,14 @@ func TestKMSConfigHasher(t *testing.T) {
 		},
 		{
 			name:          "missing configmap returns error",
-			vaultConfig:   baseVaultConfig,
-			resources:     []runtime.Object{baseSecret},
+			vaultConfig:   wellKnownBaseVaultConfig,
+			resources:     []runtime.Object{&wellKnownBaseSecret},
 			expectedError: "failed to get configmap",
 		},
 		{
 			name:        "missing key in configmap returns error",
-			vaultConfig: baseVaultConfig,
-			resources: []runtime.Object{baseSecret, &corev1.ConfigMap{
+			vaultConfig: wellKnownBaseVaultConfig,
+			resources: []runtime.Object{&wellKnownBaseSecret, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{},
 			}},
@@ -303,39 +305,124 @@ func TestKMSConfigHasher(t *testing.T) {
 }
 
 func TestKMSPreflightController(t *testing.T) {
+	apiServerWithKMS := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			Encryption: configv1.APIServerEncryption{
+				KMS: configv1.KMSPluginConfig{
+					Type:  configv1.VaultKMSProvider,
+					Vault: wellKnownBaseVaultConfig,
+				},
+			},
+		},
+	}
+
+	// Hash produced by kmsConfigHasher over wellKnownBaseVaultConfig, wellKnownBaseSecret,
+	// and wellKnownBaseConfigMap. Verified by TestKMSConfigHasher.
+	const wellKnownMatchingHashForBaseVaultConfig = "k6dSVA=="
+
 	scenarios := []struct {
-		name              string
-		apiServerObjects  []runtime.Object
-		preconditionsMet  bool
-		expectedError     bool
-		expectedCondition *operatorv1.OperatorCondition
+		name               string
+		apiServerObjects   []runtime.Object
+		coreObjects        []runtime.Object
+		operatorConditions []operatorv1.OperatorCondition
+		preconditionsMet   bool
+		expectedError      string
+		expectedConditions []operatorv1.OperatorCondition
 	}{
 		{
 			name:             "preconditions not met, clears degraded",
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			preconditionsMet: false,
-			expectedError:    false,
-			expectedCondition: &operatorv1.OperatorCondition{
-				Type:   "EncryptionKMSPreflightControllerDegraded",
-				Status: "False",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
 			},
 		},
 		{
-			name:             "preconditions met, sync returns error from stub",
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
+			name:             "no EncryptionKMSPreflightRequired condition, no-op",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			preconditionsMet: true,
-			expectedError:    true,
-			expectedCondition: &operatorv1.OperatorCondition{
-				Type:    "EncryptionKMSPreflightControllerDegraded",
-				Status:  "True",
-				Reason:  "Error",
-				Message: "implement me",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+			},
+		},
+		{
+			name:             "EncryptionKMSPreflightRequired condition is False, no-op",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionFalse, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+			preconditionsMet: true,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionFalse, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+		},
+		{
+			name:             "hashes match, preflight needed but not yet implemented",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+			preconditionsMet: true,
+			expectedError:    "preflight checks not yet implemented for hash k6dSVA==",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "preflight checks not yet implemented for hash k6dSVA=="},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+		},
+		{
+			name:             "hashes differ, config changed since condition was posted, no-op",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: "stale-hash"},
+			},
+			preconditionsMet: true,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: "stale-hash"},
+			},
+		},
+		{
+			name:             "hash computation fails due to missing secret",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+			preconditionsMet: true,
+			expectedError:    "failed to compute KMS config hash",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: `failed to compute KMS config hash: failed to get secret openshift-config/vault-approle: secrets "vault-approle" not found`},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+		},
+		{
+			name:             "EncryptionKMSPreflightRequired condition is True but has empty message, treated as hash mismatch",
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: ""},
+			},
+			preconditionsMet: true,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: ""},
 			},
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			conditions := []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+			}
+			conditions = append(conditions, scenario.operatorConditions...)
+
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
 					OperatorSpec: operatorv1.OperatorSpec{
@@ -344,19 +431,14 @@ func TestKMSPreflightController(t *testing.T) {
 				},
 				&operatorv1.StaticPodOperatorStatus{
 					OperatorStatus: operatorv1.OperatorStatus{
-						Conditions: []operatorv1.OperatorCondition{
-							{
-								Type:   "EncryptionKMSPreflightControllerDegraded",
-								Status: "False",
-							},
-						},
+						Conditions: conditions,
 					},
 				},
 				nil,
 				nil,
 			)
 
-			fakeKubeClient := fake.NewSimpleClientset()
+			fakeKubeClient := fake.NewSimpleClientset(scenario.coreObjects...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-kmsPreflightController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
 
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
@@ -373,21 +455,24 @@ func TestKMSPreflightController(t *testing.T) {
 				fakeOperatorClient,
 				fakeApiServerClient,
 				fakeApiServerInformer,
+				fakeKubeClient.CoreV1(),
 				eventRecorder,
 			)
 
 			err := target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 
-			if scenario.expectedError && err == nil {
-				t.Fatal("expected error but got nil")
-			}
-			if !scenario.expectedError && err != nil {
+			if scenario.expectedError != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", scenario.expectedError)
+				}
+				if !strings.Contains(err.Error(), scenario.expectedError) {
+					t.Fatalf("expected error containing %q, got: %v", scenario.expectedError, err)
+				}
+			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if scenario.expectedCondition != nil {
-				encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, []operatorv1.OperatorCondition{*scenario.expectedCondition})
-			}
+			encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, scenario.expectedConditions)
 		})
 	}
 }
