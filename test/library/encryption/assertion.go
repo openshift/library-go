@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,7 +148,7 @@ func verifyPrefixForRawData(expectedMode string, data []byte) error {
 	if expectedEncrypted != isEncrypted {
 		return fmt.Errorf("unexpected encrypted state, expected data to be %q but was %q with mode %q", conditionToStr(expectedEncrypted), conditionToStr(isEncrypted), actualMode)
 	}
-	if actualMode != expectedMode {
+	if !strings.HasPrefix(actualMode, expectedMode) {
 		return fmt.Errorf("unexpected encryption mode %q, expected %q, was data encrypted/decrypted with a wrong key", actualMode, expectedMode)
 	}
 
@@ -165,6 +166,9 @@ func encryptionModeFromEtcdValue(data []byte) (string, bool) {
 		case hasPrefixAndTrailingData(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
 			return "secretbox"
 		case hasPrefixAndTrailingData(data, []byte(kmsTransformerPrefixV2)): // KMS v2 has this prefix
+			if providerName := KMSProviderNameFromEtcdValue(data); providerName != "" {
+				return "KMS:" + providerName
+			}
 			return "KMS"
 		case hasPrefixAndTrailingData(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
 			return "identity-json"
@@ -178,4 +182,20 @@ func encryptionModeFromEtcdValue(data []byte) (string, bool) {
 
 func hasPrefixAndTrailingData(data, prefix []byte) bool {
 	return bytes.HasPrefix(data, prefix) && len(data) > len(prefix)
+}
+
+// KMSProviderNameFromEtcdValue extracts the KMS v2 provider name from raw etcd data.
+// The KMS v2 etcd value format is: k8s:enc:kms:v2:<providerName>:<encrypted-data>.
+// Returns empty string if the data is not KMS v2 encrypted.
+func KMSProviderNameFromEtcdValue(data []byte) string {
+	prefix := kmsTransformerPrefixV2
+	if !bytes.HasPrefix(data, []byte(prefix)) {
+		return ""
+	}
+	rest := data[len(prefix):]
+	idx := bytes.IndexByte(rest, ':')
+	if idx <= 0 {
+		return ""
+	}
+	return string(rest[:idx])
 }
