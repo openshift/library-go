@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -61,9 +60,6 @@ func (o *options) validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("--node-name is required")
 	}
-	if fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName); len(fieldManager) > metav1validation.FieldManagerMaxLength {
-		return fmt.Errorf("--node-name too long: reporter identity %q is %d chars, exceeds the %d-char fieldManager limit", fieldManager, len(fieldManager), metav1validation.FieldManagerMaxLength)
-	}
 
 	return nil
 }
@@ -76,9 +72,10 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	// fieldManager is the per-node ownership-identity.
-	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
-	writeStatus, err := o.newWriter(restCfg, fieldManager)
+	// The writer owns its fieldManager: it turns the node name into whatever
+	// ownership identity its status needs (a per-node UID for the kube-apiserver,
+	// a constant for the single-reporter operators).
+	writeStatus, err := o.newWriter(restCfg, o.NodeName)
 	if err != nil {
 		return nil, fmt.Errorf("build encryption status writer: %w", err)
 	}

@@ -1,7 +1,6 @@
 package health
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -102,15 +101,6 @@ func TestValidate(t *testing.T) {
 		{
 			name:    "node name empty",
 			mutate:  func(o *options) { o.NodeName = "" },
-			wantErr: true,
-		},
-		{
-			name:   "node name at fieldManager limit",
-			mutate: func(o *options) { o.NodeName = strings.Repeat("n", 108) }, // 20-char prefix + 108 == 128
-		},
-		{
-			name:    "node name over fieldManager limit",
-			mutate:  func(o *options) { o.NodeName = strings.Repeat("n", 109) }, // 20-char prefix + 109 > 128
 			wantErr: true,
 		},
 	}

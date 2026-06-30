@@ -26,9 +26,11 @@ const (
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
 // NewEncryptionStatusWriterFunc builds the EncryptionStatusWriter for a target
-// apiserver operator status CR. fieldManager sets the owner in the
-// managedFields when doing SSA.
-type NewEncryptionStatusWriterFunc func(restConfig *rest.Config, fieldManager string) (EncryptionStatusWriter, error)
+// apiserver operator status CR. The writer derives its own SSA fieldManager
+// from nodeName, because only it knows whether its status collects many
+// per-node reporters (kube-apiserver: fieldManager from the node UID) or a
+// single one (a constant fieldManager).
+type NewEncryptionStatusWriterFunc func(restConfig *rest.Config, nodeName string) (EncryptionStatusWriter, error)
 
 // EncryptionStatusWriter is capable of applying the
 // KMSEncryptionStatusApplyConfiguration at the correct place in the operator's

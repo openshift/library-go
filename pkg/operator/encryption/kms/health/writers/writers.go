@@ -9,8 +9,10 @@ package writers
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -22,7 +24,7 @@ import (
 // NewAuthenticationWriter writes into Authentication/cluster at
 // .status.oauthAPIServer.encryptionStatus. The auth operator manages the
 // oauth-apiserver. There is an extra hop the other two operators don't have.
-func NewAuthenticationWriter(restConfig *rest.Config, fieldManager string) (health.EncryptionStatusWriter, error) {
+func NewAuthenticationWriter(restConfig *rest.Config, _ string) (health.EncryptionStatusWriter, error) {
 	client, err := operatorclient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -37,7 +39,9 @@ func NewAuthenticationWriter(restConfig *rest.Config, fieldManager string) (heal
 				),
 			),
 
-			metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
+			// A single reporter writes this status, so a constant fieldManager
+			// is enough and always fits the apiserver's length limit.
+			metav1.ApplyOptions{FieldManager: health.Subcommand, Force: true},
 		)
 		return err
 	}, nil
@@ -45,13 +49,32 @@ func NewAuthenticationWriter(restConfig *rest.Config, fieldManager string) (heal
 
 // NewKubeAPIServerWriter writes into KubeAPIServer/cluster at
 // .status.encryptionStatus.
-func NewKubeAPIServerWriter(restConfig *rest.Config, fieldManager string) (health.EncryptionStatusWriter, error) {
+func NewKubeAPIServerWriter(restConfig *rest.Config, nodeName string) (health.EncryptionStatusWriter, error) {
 	client, err := operatorclient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
 
+	// One reporter runs per control-plane node and each applies its own row, so
+	// the fieldManager must be per-node. The node UID is a fixed-length,
+	// instance-stable identity that fits the fieldManager length limit, unlike
+	// the node name (a DNS subdomain up to 253 chars).
+	//
+	// Lazy evaluation on first call as constructor isn't concerned with any context.
+	var fieldManager string
 	return func(ctx context.Context, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+		if fieldManager == "" {
+			node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("get node %q: %w", nodeName, err)
+			}
+			fieldManager = fmt.Sprintf("%s-%s", health.Subcommand, node.UID)
+		}
+
 		_, err := client.OperatorV1().KubeAPIServers().ApplyStatus(
 			ctx,
 			applyoperatorv1.KubeAPIServer("cluster").WithStatus(
@@ -65,7 +88,7 @@ func NewKubeAPIServerWriter(restConfig *rest.Config, fieldManager string) (healt
 
 // NewOpenShiftAPIServerWriter writes into OpenShiftAPIServer/cluster at
 // .status.encryptionStatus.
-func NewOpenShiftAPIServerWriter(restConfig *rest.Config, fieldManager string) (health.EncryptionStatusWriter, error) {
+func NewOpenShiftAPIServerWriter(restConfig *rest.Config, _ string) (health.EncryptionStatusWriter, error) {
 	client, err := operatorclient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -78,7 +101,9 @@ func NewOpenShiftAPIServerWriter(restConfig *rest.Config, fieldManager string) (
 				applyoperatorv1.OpenShiftAPIServerStatus().WithEncryptionStatus(status),
 			),
 
-			metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
+			// A single reporter writes this status, so a constant fieldManager
+			// is enough and always fits the apiserver's length limit.
+			metav1.ApplyOptions{FieldManager: health.Subcommand, Force: true},
 		)
 		return err
 	}, nil
