@@ -23,7 +23,7 @@ type PerfScenario struct {
 	EncryptionProvider EncryptionProvider
 }
 
-func TestPerfEncryption(ctx context.Context, t *testing.T, scenario PerfScenario) {
+func TestPerfEncryption(ctx context.Context, t testing.TB, scenario PerfScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	migrationStartedCh := make(chan time.Time, 1)
 
@@ -39,7 +39,7 @@ func TestPerfEncryption(ctx context.Context, t *testing.T, scenario PerfScenario
 	}
 }
 
-func runTestEncryption(ctx context.Context, tt *testing.T, scenario PerfScenario) time.Time {
+func runTestEncryption(ctx context.Context, tt testing.TB, scenario PerfScenario) time.Time {
 	var ts time.Time
 	TestEncryptionType(ctx, tt, BasicScenario{
 		Namespace:                       scenario.Namespace,
