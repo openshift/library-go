@@ -51,12 +51,6 @@ spec:
         requests:
           memory: 50Mi
           cpu: 5m
-      volumeMounts:
-        - name: kms-plugin-socket
-          mountPath: /var/run/kmsplugin
-  volumes:
-    - name: kms-plugin-socket
-      emptyDir: {}
 `
 
 func TestGeneratePodTemplate(t *testing.T) {

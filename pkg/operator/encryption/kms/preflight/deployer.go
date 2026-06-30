@@ -2,9 +2,11 @@ package preflight
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +14,9 @@ import (
 )
 
 const (
-	preflightPodName = "kms-preflight"
+	preflightPodName                    = "kms-preflight"
+	preflightCheckContainerName         = "kms-preflight-check"
+	preflightEncryptionConfigSecretName = "kms-preflight-encryption-config"
 )
 
 // PodPreflightDeployer creates a one-shot pod to run the preflight checker as a command,
@@ -28,7 +32,27 @@ type PodPreflightDeployer struct {
 	kmsCallTimeout  time.Duration
 }
 
-func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string) error {
+func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, encryptionConfigSecret *corev1.Secret) error {
+	if configHash == "" {
+		return fmt.Errorf("configHash is empty")
+	}
+	if encryptionConfigSecret == nil {
+		return fmt.Errorf("encryptionConfigSecret is nil")
+	}
+
+	// ensure that there is nothing left over from previous runs
+	if err := d.Cleanup(ctx); err != nil {
+		return fmt.Errorf("failed to clean up existing preflight resources: %w", err)
+	}
+
+	encryptionConfigSecret = encryptionConfigSecret.DeepCopy()
+	// rewrite the entire ObjectMeta to avoid copying resource versions or managed fields
+	encryptionConfigSecret.ObjectMeta = metav1.ObjectMeta{Namespace: d.namespace, Name: preflightEncryptionConfigSecretName}
+	_, err := d.coreClient.Secrets(d.namespace).Create(ctx, encryptionConfigSecret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create preflight encryption config secret: %w", err)
+	}
+
 	pod, err := generatePodTemplate(
 		preflightPodName,
 		d.namespace,
@@ -41,10 +65,20 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string) er
 		return fmt.Errorf("failed to generate preflight pod template: %w", err)
 	}
 
-	// TODO(thomas): inject KMS plugin sidecar container into pod.Spec
+	err = pluginlifecycle.NewKMSPluginBuilder().
+		WithSecretRequired().
+		FromEncryptionConfigSecret(d.namespace, preflightEncryptionConfigSecretName, d.coreClient).
+		Apply(ctx, &pod.Spec, preflightCheckContainerName)
+	if err != nil {
+		return fmt.Errorf("failed to apply preflight plugin: %w", err)
+	}
 
 	_, err = d.coreClient.Pods(d.namespace).Create(ctx, pod, metav1.CreateOptions{})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create preflight pod: %w", err)
+	}
+
+	return nil
 }
 
 func (d *PodPreflightDeployer) Status(ctx context.Context) (corev1.PodStatus, error) {
@@ -58,11 +92,19 @@ func (d *PodPreflightDeployer) Status(ctx context.Context) (corev1.PodStatus, er
 }
 
 func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
+	var errs []error
+
 	err := d.coreClient.Pods(d.namespace).Delete(ctx, preflightPodName, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete pod %s/%s: %w", d.namespace, preflightPodName, err)
+		errs = append(errs, fmt.Errorf("failed to delete pod %s/%s: %w", d.namespace, preflightPodName, err))
 	}
-	return nil
+
+	err = d.coreClient.Secrets(d.namespace).Delete(ctx, preflightEncryptionConfigSecretName, metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		errs = append(errs, fmt.Errorf("failed to delete secret %s/%s: %w", d.namespace, preflightEncryptionConfigSecretName, err))
+	}
+
+	return errors.Join(errs...)
 }
 
 func NewPodPreflightDeployer(
