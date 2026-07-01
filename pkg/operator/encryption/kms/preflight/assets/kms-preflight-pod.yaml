@@ -12,6 +12,7 @@ spec:
   # This is a one-shot preflight check, not a long-running pod.
   # The operator creates it, waits for completion, and inspects the result.
   restartPolicy: Never
+  serviceAccountName: kms-preflight
   priorityClassName: system-cluster-critical
   nodeSelector:
     node-role.kubernetes.io/master: ""
