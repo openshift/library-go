@@ -559,6 +559,7 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
 				eventRecorder,
 			)
 			c.now = func() time.Time { return now.Time }
@@ -691,6 +692,7 @@ func testSync(t *testing.T, firstInstallerBehaviour testSyncInstallerBehaviour, 
 		podCommand,
 		kubeInformers,
 		fakeStaticPodOperatorClient,
+		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
@@ -1103,6 +1105,7 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		eventRecorder,
 	)
 	c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
@@ -1269,6 +1272,7 @@ func TestEnsureInstallerPod(t *testing.T) {
 				[]string{"/bin/true"},
 				kubeInformers,
 				fakeStaticPodOperatorClient,
+				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
@@ -2012,6 +2016,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				[]string{"/bin/true"},
 				kubeInformers,
 				fakeStaticPodOperatorClient,
+				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),

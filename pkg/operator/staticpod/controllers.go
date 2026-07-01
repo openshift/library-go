@@ -247,6 +247,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	configMapClient := v1helpers.CachedConfigMapGetter(b.kubeClient.CoreV1(), b.kubeNamespaceInformers)
 	secretClient := v1helpers.CachedSecretGetter(b.kubeClient.CoreV1(), b.kubeNamespaceInformers)
 	podClient := b.kubeClient.CoreV1()
+	nodeClient := b.kubeClient.CoreV1()
 	eventsClient := b.kubeClient.CoreV1()
 	pdbClient := b.kubeClient.PolicyV1()
 	saClient := b.kubeClient.CoreV1()
@@ -287,6 +288,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			configMapClient,
 			secretClient,
 			podClient,
+			nodeClient,
 			eventRecorder,
 		).WithCerts(
 			b.certDir,

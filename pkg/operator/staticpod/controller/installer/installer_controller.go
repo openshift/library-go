@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
@@ -94,6 +95,7 @@ type InstallerController struct {
 	configMapsGetter corev1client.ConfigMapsGetter
 	secretsGetter    corev1client.SecretsGetter
 	podsGetter       corev1client.PodsGetter
+	nodesGetter      corev1client.NodesGetter
 	eventRecorder    events.Recorder
 	now              func() time.Time // for test plumbing
 
@@ -183,6 +185,7 @@ func NewInstallerController(
 	configMapsGetter corev1client.ConfigMapsGetter,
 	secretsGetter corev1client.SecretsGetter,
 	podsGetter corev1client.PodsGetter,
+	nodesGetter corev1client.NodesGetter,
 	eventRecorder events.Recorder,
 ) *InstallerController {
 	c := &InstallerController{
@@ -197,6 +200,7 @@ func NewInstallerController(
 		configMapsGetter: configMapsGetter,
 		secretsGetter:    secretsGetter,
 		podsGetter:       podsGetter,
+		nodesGetter:      nodesGetter,
 		eventRecorder:    eventRecorder.WithComponentSuffix("installer-controller"),
 		now:              time.Now,
 		startupMonitorEnabled: func() (bool, error) {
@@ -494,6 +498,14 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 			nodeChoiceReason = fmt.Sprintf("node %s is the next node in the line", currNodeState.NodeName)
 		}
 
+		// Verify the node UID matches the actual node before updating its status.
+		// A UID mismatch means the node was replaced and the node controller will handle resetting status.
+		if uidChanged, uidErr := c.hasNodeUIDChanged(ctx, currNodeState.NodeName, currNodeState.NodeUID); uidErr != nil {
+			return true, 0, nil, nil, uidErr
+		} else if uidChanged {
+			return true, c.installerBackOff(1), nil, nil, nil
+		}
+
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
 			if operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision {
@@ -599,6 +611,7 @@ func prepareNodeStatusApplyConfigurationFor(nodeStatuses []operatorv1.NodeStatus
 func nodeStatusToNodeStatusApplyConfigurations(nodeStatus operatorv1.NodeStatus) *applyoperatorv1.NodeStatusApplyConfiguration {
 	nodeStatusApplyConfiguration := applyoperatorv1.NodeStatus().
 		WithNodeName(nodeStatus.NodeName).
+		WithNodeUID(nodeStatus.NodeUID).
 		WithCurrentRevision(nodeStatus.CurrentRevision).
 		WithTargetRevision(nodeStatus.TargetRevision).
 		WithLastFailedRevision(nodeStatus.LastFailedRevision).
@@ -615,6 +628,7 @@ func nodeStatusToNodeStatusApplyConfigurations(nodeStatus operatorv1.NodeStatus)
 func nodeStatusApplyConfigToOperatorNodeStatus(nodeStatusApplyConfiguration *applyoperatorv1.NodeStatusApplyConfiguration) *operatorv1.NodeStatus {
 	return &operatorv1.NodeStatus{
 		NodeName:                 ptr.Deref(nodeStatusApplyConfiguration.NodeName, ""),
+		NodeUID:                  ptr.Deref(nodeStatusApplyConfiguration.NodeUID, ""),
 		CurrentRevision:          ptr.Deref(nodeStatusApplyConfiguration.CurrentRevision, 0),
 		TargetRevision:           ptr.Deref(nodeStatusApplyConfiguration.TargetRevision, 0),
 		LastFailedRevision:       ptr.Deref(nodeStatusApplyConfiguration.LastFailedRevision, 0),
@@ -1123,6 +1137,25 @@ func (c InstallerController) ensureRequiredResourcesExist(ctx context.Context, r
 	return fmt.Errorf("missing required resources: %v", aggregatedErr)
 }
 
+func (c *InstallerController) hasNodeUIDChanged(ctx context.Context, nodeName string, nodeUid types.UID) (bool, error) {
+	if nodeUid == "" {
+		return false, nil
+	}
+	node, err := c.nodesGetter.Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		klog.Warningf("Skipping node status update for %s: node not found", nodeName)
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if node.UID != nodeUid {
+		klog.Warningf("Skipping node status update for %s: node UID changed (stored=%s, actual=%s)", nodeName, nodeUid, node.UID)
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *InstallerController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	operatorSpec, originalOperatorStatus, operatorResourceVersion, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
@@ -1204,6 +1237,7 @@ func deepCopyNodeStatusWithoutOldFailedState(ns *operatorv1.NodeStatus) *operato
 	if ns.TargetRevision == 0 || ns.TargetRevision != ns.LastFailedRevision {
 		return &operatorv1.NodeStatus{
 			NodeName:        ns.NodeName,
+			NodeUID:         ns.NodeUID,
 			CurrentRevision: ns.CurrentRevision,
 			TargetRevision:  ns.TargetRevision,
 		}
