@@ -578,6 +578,26 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			name: "pod stuck in Pending with no StartTime, falls back to PodScheduled condition for timeout",
+			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
+				Phase: corev1.PodPending,
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodScheduled, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: time.Now().Add(-5 * time.Minute)}},
+				},
+			}},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			operatorConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+			preconditionsMet: true,
+			expectedError:    "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
+				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
+			},
+		},
+		{
 			name: "pod stuck in Pending without reporting hash, goes degraded with phase",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
