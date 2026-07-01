@@ -341,7 +341,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     If Deploy fails, report the error.
 //
 //  3. Preflight required, pod exists (Status returns a PodStatus).
-//     Evaluate the pod state via readiness-gate conditions and phase:
+//     Evaluate the pod state via conditions and phase:
 //
 //     a) Pod phase is Failed — the pod crashed before or after posting
 //     conditions. Report degraded and keep the pod for inspection. The
@@ -486,7 +486,8 @@ func podFailureError(podStatus corev1.PodStatus) *preflightError {
 }
 
 func podStartupTimeoutError(podStatus corev1.PodStatus, msgPrefix string) *preflightError {
-	if podStatus.StartTime == nil || time.Since(podStatus.StartTime.Time) <= preflightPodStartupTimeout {
+	startTime := podStartupTimestamp(podStatus)
+	if startTime == nil || time.Since(startTime.Time) <= preflightPodStartupTimeout {
 		return nil
 	}
 	reason, detail := podStuckReasonAndMessage(podStatus)
@@ -494,6 +495,20 @@ func podStartupTimeoutError(podStatus corev1.PodStatus, msgPrefix string) *prefl
 		reason:  reason,
 		message: fmt.Sprintf("%s after %s: %s", msgPrefix, preflightPodStartupTimeout, detail),
 	}
+}
+
+// podStartupTimestamp returns the best available timestamp for when the pod
+// began its startup. It prefers StartTime (set by kubelet), falling back to the
+// PodScheduled condition's LastTransitionTime for pods that never reached the
+// kubelet (e.g., stuck in Pending due to unschedulable resources).
+func podStartupTimestamp(podStatus corev1.PodStatus) *metav1.Time {
+	if podStatus.StartTime != nil {
+		return podStatus.StartTime
+	}
+	if c := findPodCondition(podStatus.Conditions, corev1.PodScheduled); c != nil {
+		return &c.LastTransitionTime
+	}
+	return nil
 }
 
 func podStuckReasonAndMessage(podStatus corev1.PodStatus) (string, string) {
