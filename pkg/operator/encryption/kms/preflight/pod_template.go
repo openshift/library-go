@@ -19,6 +19,7 @@ type kmsPreflightTemplate struct {
 	OperatorImage  string
 	Command        string
 	KMSCallTimeout string
+	Kubeconfig     string
 }
 
 // generatePodTemplate renders the KMS preflight pod YAML template.
@@ -31,6 +32,7 @@ func generatePodTemplate(
 	operatorImage string,
 	operatorCommand []string,
 	kmsCallTimeout time.Duration,
+	kubeconfig string,
 ) (*corev1.Pod, error) {
 	rawManifest := mustAsset("assets/kms-preflight-pod.yaml")
 
@@ -46,6 +48,7 @@ func generatePodTemplate(
 		OperatorImage:  operatorImage,
 		Command:        strings.Join(operatorCommandQuoted, ","),
 		KMSCallTimeout: kmsCallTimeout.String(),
+		Kubeconfig:     kubeconfig,
 	}
 	tmpl, err := template.New("kms-preflight").Parse(string(rawManifest))
 	if err != nil {

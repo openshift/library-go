@@ -37,19 +37,21 @@ func newChecker(service kmsservice.Service) *checker {
 	}
 }
 
-func (c *checker) check(ctx context.Context) error {
-	if err := c.checkStatus(ctx); err != nil {
-		return err
+func (c *checker) check(ctx context.Context) (*kmsservice.StatusResponse, error) {
+	status, err := c.checkStatus(ctx)
+	if err != nil {
+		return status, err
 	}
-	return c.checkEncryptDecrypt(ctx)
+	return status, c.checkEncryptDecrypt(ctx)
 }
 
 // checkStatus polls the KMS plugin status endpoint until it reports healthy.
 // The plugin may not be immediately available after startup, so we retry
 // before reporting a failure.
-func (c *checker) checkStatus(ctx context.Context) error {
+func (c *checker) checkStatus(ctx context.Context) (*kmsservice.StatusResponse, error) {
 	klog.Infof("[1/3] Checking KMS plugin status endpoint (interval %v, timeout %v)", c.statusInterval, c.statusTimeout)
-	return wait.PollUntilContextTimeout(ctx, c.statusInterval, c.statusTimeout, true, func(ctx context.Context) (bool, error) {
+	var status *kmsservice.StatusResponse
+	err := wait.PollUntilContextTimeout(ctx, c.statusInterval, c.statusTimeout, true, func(ctx context.Context) (bool, error) {
 		start := time.Now()
 		resp, err := c.service.Status(ctx)
 		elapsed := time.Since(start)
@@ -65,8 +67,10 @@ func (c *checker) checkStatus(ctx context.Context) error {
 			return false, nil
 		}
 		klog.Infof("  Status: healthz=%q, version=%q, keyID=%q, latency=%v", resp.Healthz, resp.Version, resp.KeyID, elapsed)
+		status = resp
 		return true, nil
 	})
+	return status, err
 }
 
 func (c *checker) checkEncryptDecrypt(ctx context.Context) error {

@@ -159,13 +159,19 @@ func TestCheck(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			target := newTestChecker(scenario.service)
 
-			err := target.check(context.Background())
+			status, err := target.check(context.Background())
 
 			if scenario.expectErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if scenario.expectErr != "" && (err == nil || !strings.Contains(err.Error(), scenario.expectErr)) {
 				t.Fatalf("expected error containing %q, got: %v", scenario.expectErr, err)
+			}
+			if scenario.expectErr == "" && status == nil {
+				t.Fatal("expected status on success")
+			}
+			if scenario.expectErr == "" && status.KeyID != "key-1" {
+				t.Fatalf("expected keyID key-1, got %q", status.KeyID)
 			}
 		})
 	}

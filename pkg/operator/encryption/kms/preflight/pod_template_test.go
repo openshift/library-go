@@ -37,6 +37,9 @@ spec:
       command: ["operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
+        - --config-hash=$(CONFIG_HASH)
+        - --pod-name=$(POD_NAME)
+        - --pod-namespace=$(POD_NAMESPACE)
       env:
       - name: POD_NAME
         valueFrom:
@@ -62,6 +65,7 @@ func TestGeneratePodTemplate(t *testing.T) {
 		"quay.io/openshift/operator:latest",
 		[]string{"operator", "kms-preflight"},
 		10*time.Second,
+		"",
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

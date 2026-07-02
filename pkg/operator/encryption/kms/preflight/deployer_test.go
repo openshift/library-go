@@ -95,6 +95,9 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
+        - --config-hash=$(CONFIG_HASH)
+        - --pod-name=$(POD_NAME)
+        - --pod-namespace=$(POD_NAMESPACE)
       env:
       - name: POD_NAME
         valueFrom:

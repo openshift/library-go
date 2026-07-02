@@ -30,6 +30,10 @@ spec:
       command: [{{.Command}}]
       args:
         - --kms-call-timeout={{.KMSCallTimeout}}
+        - --config-hash=$(CONFIG_HASH)
+        - --pod-name=$(POD_NAME)
+        - --pod-namespace=$(POD_NAMESPACE){{if .Kubeconfig}}
+        - --kubeconfig={{.Kubeconfig}}{{end}}
       env:
       - name: POD_NAME
         valueFrom: { fieldRef: { fieldPath: metadata.name } }
