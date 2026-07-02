@@ -2276,7 +2276,7 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 				}
 				return staticPodStatePending, "", "", nil, time.Now(), errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
-			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodes)
+			i, _, err := nodeToStartRevisionWith(context.TODO(), fakeGetStaticPodState, test.nodes, nil)
 			if err == nil && test.expectedErr {
 				t.Fatalf("expected error, got none")
 			}

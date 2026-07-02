@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
@@ -44,6 +45,16 @@ const (
 	hostPodManifestDir = "/etc/kubernetes/manifests"
 
 	revisionLabel = "revision"
+
+	// nodeNotReadyThreshold is how long a node must be Kubernetes-NotReady before
+	// the installer controller deprioritizes it in rollout ordering. This prevents
+	// a prolonged hardware failure from blocking cert rotation on healthy masters.
+	nodeNotReadyThreshold = 10 * time.Minute
+
+	// installerPodStuckOnNotReadyNodeTimeout is the maximum duration an installer
+	// pod can remain in a non-terminal phase on a NotReady node before being
+	// force-failed so that the rollout can proceed on healthy nodes.
+	installerPodStuckOnNotReadyNodeTimeout = 15 * time.Minute
 
 	nodeStatusOperandFailedReason         = "OperandFailed"
 	nodeStatusInstalledFailedReason       = "InstallerFailed"
@@ -97,6 +108,11 @@ type InstallerController struct {
 	eventRecorder    events.Recorder
 	now              func() time.Time // for test plumbing
 
+	// nodeLister provides access to node objects for checking the NodeReady condition.
+	// When set, the installer deprioritizes nodes that have been NotReady longer than
+	// nodeNotReadyThreshold and times out installer pods stuck on such nodes.
+	nodeLister corev1listers.NodeLister
+
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn func() string
 	// ownerRefsFn sets the ownerrefs on the pruner pod
@@ -130,6 +146,19 @@ func (c *InstallerController) WithInstallerPodMutationFn(installerPodMutationFn 
 
 func (c *InstallerController) WithMinReadyDuration(minReadyDuration time.Duration) *InstallerController {
 	c.minReadyDuration = minReadyDuration
+	return c
+}
+
+// WithNodeLister enables NodeReady-aware rollout ordering. Nodes that have been
+// NotReady for longer than nodeNotReadyThreshold are deprioritized in the rollout
+// ring, and installer pods stuck on such nodes are timed out. This prevents a
+// single failed master from blocking revision rollout (e.g., cert rotation) on
+// healthy masters. The nodeInformer triggers controller resync on node status changes.
+func (c *InstallerController) WithNodeLister(nodeLister corev1listers.NodeLister, nodeInformer factory.Informer) *InstallerController {
+	c.nodeLister = nodeLister
+	if nodeInformer != nil {
+		c.factory.WithInformers(nodeInformer)
+	}
 	return c
 }
 
@@ -322,11 +351,44 @@ func (c *InstallerController) getStaticPodState(ctx context.Context, nodeName st
 
 type staticPodStateFunc func(ctx context.Context, nodeName string) (state staticPodState, revision, reason string, errors []string, ts time.Time, err error)
 
+// isNodeNotReadyForTooLong returns true if the named node has been in a
+// non-Ready state for longer than nodeNotReadyThreshold. Returns false when
+// the node lister is not configured, the node cannot be found, or the node
+// has been NotReady for less than the threshold.
+func (c *InstallerController) isNodeNotReadyForTooLong(nodeName string) bool {
+	if c.nodeLister == nil {
+		return false
+	}
+	node, err := c.nodeLister.Get(nodeName)
+	if err != nil {
+		klog.V(4).Infof("Cannot get node %s to check readiness, assuming ready: %v", nodeName, err)
+		return false
+	}
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady {
+			if cond.Status != corev1.ConditionTrue {
+				notReadyDuration := c.clock.Now().Sub(cond.LastTransitionTime.Time)
+				if notReadyDuration > nodeNotReadyThreshold {
+					klog.Infof("Node %s has been NotReady for %v (threshold %v), deprioritizing for rollout",
+						nodeName, notReadyDuration.Round(time.Second), nodeNotReadyThreshold)
+					return true
+				}
+			}
+			return false
+		}
+	}
+	// No NodeReady condition found — the node may be freshly bootstrapping;
+	// do not penalize it.
+	return false
+}
+
 // nodeToStartRevisionWith returns a node index i and guarantees for every node < i that it is
 // - not updating
 // - ready
 // - at the revision claimed in CurrentRevision.
-func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodes []operatorv1.NodeStatus) (int, string, error) {
+// isNodeNotReadyTooLong, when non-nil, is used to skip nodes that have been Kubernetes-NotReady
+// for too long, so that healthy nodes are served first during revision rollout.
+func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodStateFunc, nodes []operatorv1.NodeStatus, isNodeNotReadyTooLong func(string) bool) (int, string, error) {
 	if len(nodes) == 0 {
 		return 0, "", fmt.Errorf("nodes array cannot be empty")
 	}
@@ -334,6 +396,9 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	// find upgrading node as this will be the first to start new revision (to minimize number of down nodes)
 	for i := range nodes {
 		if nodes[i].TargetRevision != 0 {
+			if isNodeNotReadyTooLong != nil && isNodeNotReadyTooLong(nodes[i].NodeName) {
+				continue
+			}
 			reason := fmt.Sprintf("node %s is progressing towards %d", nodes[i].NodeName, nodes[i].TargetRevision)
 			return i, reason, nil
 		}
@@ -346,16 +411,24 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	}
 	for i := range nodes {
 		if nodes[i].LastFailedRevision > mostCurrent {
+			if isNodeNotReadyTooLong != nil && isNodeNotReadyTooLong(nodes[i].NodeName) {
+				continue
+			}
 			reason := fmt.Sprintf("node %s is progressing with failed revisions", nodes[i].NodeName)
 			return i, reason, nil
 		}
 	}
 
 	// otherwise try to find a node that is not ready. Take the oldest one.
+	// Skip nodes whose Kubernetes NodeReady condition has been false for too long,
+	// as they are likely down due to hardware failure and would block the entire ring.
 	oldestNotReadyRevisionNode := -1
 	oldestNotReadyRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
+		if isNodeNotReadyTooLong != nil && isNodeNotReadyTooLong(currNodeState.NodeName) {
+			continue
+		}
 		state, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
@@ -383,6 +456,9 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestPodRevision := math.MaxInt32
 	for i := range nodes {
 		currNodeState := &nodes[i]
+		if isNodeNotReadyTooLong != nil && isNodeNotReadyTooLong(currNodeState.NodeName) {
+			continue
+		}
 		_, runningRevision, _, _, _, err := getStaticPodStateFn(ctx, currNodeState.NodeName)
 		if err != nil && apierrors.IsNotFound(err) {
 			return i, fmt.Sprintf("node %s static pod not found", currNodeState.NodeName), nil
@@ -410,6 +486,9 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 	oldestCurrentRevision := int32(math.MaxInt32)
 	for i := range nodes {
 		currNodeState := &nodes[i]
+		if isNodeNotReadyTooLong != nil && isNodeNotReadyTooLong(currNodeState.NodeName) {
+			continue
+		}
 		if currNodeState.CurrentRevision < oldestCurrentRevision {
 			oldestCurrentRevisionNode = i
 			oldestCurrentRevision = currNodeState.CurrentRevision
@@ -420,7 +499,8 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 		return oldestCurrentRevisionNode, reason, nil
 	}
 
-	reason := fmt.Sprintf("node %s of revision %d is no worse than any other node, but comes first", nodes[0].NodeName, oldestCurrentRevision)
+	// All nodes are either NotReady or at the latest revision — pick the first available
+	reason := fmt.Sprintf("all ready nodes are at the latest revision, node %s comes first", nodes[0].NodeName)
 	return 0, reason, nil
 }
 
@@ -471,7 +551,7 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 	}
 
 	// start with node which is in worst state (instead of terminating healthy pods first)
-	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses)
+	startNode, nodeChoiceReason, err := nodeToStartRevisionWith(ctx, c.getStaticPodState, operatorStatus.NodeStatuses, c.isNodeNotReadyForTooLong)
 	if err != nil {
 		return true, 0, nil, nil, err
 	}
@@ -872,6 +952,34 @@ func (c *InstallerController) newNodeStateForInstallInProgress(ctx context.Conte
 		return ret, true, fmt.Sprintf("installer pod failed: %v", strings.Join(errors, "\n")), nil
 
 	default:
+		// If the installer pod is stuck on a NotReady node beyond the timeout, fail it
+		// so the rollout can proceed on healthy nodes.
+		if c.isNodeNotReadyForTooLong(currNodeState.NodeName) {
+			podAge := c.clock.Now().Sub(installerPod.CreationTimestamp.Time)
+			if podAge > installerPodStuckOnNotReadyNodeTimeout {
+				klog.Warningf("Installer pod %s/%s stuck for %v on NotReady node %s, marking as failed",
+					installerPod.Namespace, installerPod.Name, podAge.Round(time.Second), currNodeState.NodeName)
+				c.eventRecorder.Warningf("InstallerPodStuckOnNotReadyNode",
+					"Installer pod %s on node %s in %s phase for %v (node NotReady), treating as failed to unblock rollout",
+					installerPod.Name, currNodeState.NodeName, installerPod.Status.Phase, podAge.Round(time.Second))
+
+				if err := c.podsGetter.Pods(c.targetNamespace).Delete(ctx, installerPod.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+					return nil, false, "", fmt.Errorf("deleting stuck installer pod %s/%s on NotReady node: %w", installerPod.Namespace, installerPod.Name, err)
+				}
+
+				ret := deepCopyNodeStatusWithoutOldFailedState(currNodeState)
+				ret.LastFailedRevision = currNodeState.TargetRevision
+				now := metav1.NewTime(c.now())
+				ret.LastFailedTime = &now
+				ret.LastFailedCount++
+				ret.LastFailedReason = nodeStatusInstalledFailedReason
+				ret.LastFailedRevisionErrors = []string{
+					fmt.Sprintf("installer pod stuck on NotReady node %s for %v", currNodeState.NodeName, podAge.Round(time.Second)),
+				}
+				return ret, true, fmt.Sprintf("installer pod stuck on NotReady node %s", currNodeState.NodeName), nil
+			}
+		}
+
 		if len(installerPod.Status.Message) > 0 {
 			return currNodeState, false, fmt.Sprintf("installer is not finished: %s", installerPod.Status.Message), nil
 		}
