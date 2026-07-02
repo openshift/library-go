@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
+	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
 )
 
@@ -185,6 +187,46 @@ func hasPrefixAndTrailingData(data, prefix []byte) bool {
 	return bytes.HasPrefix(data, prefix) && len(data) > len(prefix)
 }
 
+// kmsPluginNameFromEtcdValue extracts the KMS provider name from etcd data encrypted with KMS v2.
+// In OpenShift the name is "{operatorKeyID}_{resource}", e.g. "2_secrets".
+func kmsPluginNameFromEtcdValue(data []byte) (string, bool) {
+	if !bytes.HasPrefix(data, []byte(kmsTransformerPrefixV2)) {
+		return "", false
+	}
+	rest := data[len(kmsTransformerPrefixV2):]
+	i := bytes.IndexByte(rest, ':')
+	if i <= 0 {
+		return "", false
+	}
+	return string(rest[:i]), true
+}
+
+func assertKMSEncryptedWithWriteKey(t testing.TB, kubeClient kubernetes.Interface, namespace, labelSelector string, raw []byte, gr schema.GroupResource) {
+	t.Helper()
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
+	require.NoError(t, err)
+	require.NotEmpty(t, lastMigratedKeyMeta.Name, "no encryption key found to verify KMS keyID")
+
+	keyID, ok := encryptionKeyNameToKeyID(lastMigratedKeyMeta.Name)
+	require.True(t, ok, "invalid encryption key secret name %q", lastMigratedKeyMeta.Name)
+	expectedKeyID := strconv.FormatUint(keyID, 10)
+
+	// OpenShift builds KMS plugin names as "{keyID}_{resource}" where resource is the
+	// bare resource name (gr.Resource), not gr.String() — see stateToProviders in encryptiondata/config.go.
+	expectedPluginName := fmt.Sprintf("%s_%s", expectedKeyID, gr.Resource)
+	t.Logf("Verifying etcd encryption prefix for resource %q matches operator keyID %q", gr.Resource, expectedKeyID)
+
+	actualPluginName, ok := kmsPluginNameFromEtcdValue(raw)
+	if !ok {
+		t.Fatalf("etcd data for resource %q: expected KMS v2 encryption with operator keyID %q", gr.Resource, expectedKeyID)
+	}
+	if actualPluginName != expectedPluginName {
+		t.Fatalf("etcd data for resource %q: want plugin name %q, got %q (expected operator keyID %q)",
+			gr.Resource, expectedPluginName, actualPluginName, expectedKeyID)
+	}
+	t.Logf("etcd data for resource %q matches operator keyID %q", gr.Resource, expectedKeyID)
+}
+
 var WellKnownKASTargetGRs = []schema.GroupResource{
 	{Group: "", Resource: "secrets"},
 	{Group: "", Resource: "configmaps"},
@@ -200,6 +242,16 @@ func AssertWellKnownSecretOfLifeEncrypted(t testing.TB, clientSet ClientSet, res
 	if strings.Contains(rawValue, string(secret.Data["quote"])) {
 		t.Errorf("secret not encrypted, etcd value contains quote in plain text")
 	}
+}
+
+func AssertWellKnownSecretOfLifeEncryptedWithKMS(t testing.TB, clientSet ClientSet, namespace, labelSelector string, resource runtime.Object) {
+	t.Helper()
+	secret, ok := resource.(*corev1.Secret)
+	if !ok {
+		t.Fatalf("expected *corev1.Secret, got %T", resource)
+	}
+	assertKMSEncryptedWithWriteKey(t, clientSet.Kube, namespace, labelSelector,
+		[]byte(GetRawWellKnownSecretOfLife(t, clientSet, secret.Namespace)), WellKnownKASTargetGRs[0])
 }
 
 func AssertWellKnownSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, resource runtime.Object) {
@@ -249,6 +301,15 @@ func AssertWellKnownTokenOfLifeEncrypted(t testing.TB, clientSet ClientSet, _ ru
 	}
 }
 
+func AssertWellKnownTokenOfLifeEncryptedWithKMS(t testing.TB, clientSet ClientSet, namespace, labelSelector string, resource runtime.Object) {
+	t.Helper()
+	if _, ok := resource.(*oauthapiv1.OAuthAccessToken); !ok {
+		t.Fatalf("expected *oauthapiv1.OAuthAccessToken, got %T", resource)
+	}
+	assertKMSEncryptedWithWriteKey(t, clientSet.Kube, namespace, labelSelector,
+		[]byte(GetRawWellKnownTokenOfLife(t, clientSet)), WellKnownAuthTargetGRs[0])
+}
+
 func AssertWellKnownTokenOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, _ runtime.Object) {
 	t.Helper()
 	rawTokenValue := GetRawWellKnownTokenOfLife(t, clientSet)
@@ -293,6 +354,16 @@ func AssertWellKnownRouteOfLifeEncrypted(t testing.TB, clientSet ClientSet, reso
 	if strings.Contains(rawRouteValue, routeOfLife.Spec.To.Name) {
 		t.Errorf("route not encrypted, etcd value contains target name %q in plain text", routeOfLife.Spec.To.Name)
 	}
+}
+
+func AssertWellKnownRouteOfLifeEncryptedWithKMS(t testing.TB, clientSet ClientSet, namespace, labelSelector string, resource runtime.Object) {
+	t.Helper()
+	routeOfLife, ok := resource.(*routev1.Route)
+	if !ok {
+		t.Fatalf("expected *routev1.Route, got %T", resource)
+	}
+	assertKMSEncryptedWithWriteKey(t, clientSet.Kube, namespace, labelSelector,
+		[]byte(GetRawWellKnownRouteOfLife(t, clientSet, routeOfLife.Namespace)), WellKnownOASTargetGRs[0])
 }
 
 func AssertWellKnownRouteOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, resource runtime.Object) {
