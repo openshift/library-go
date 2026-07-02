@@ -24,6 +24,9 @@ spec:
     - key: "node-role.kubernetes.io/master"
       operator: "Exists"
       effect: "NoExecute"
+{{- if .StaticPod}}
+  hostNetwork: true
+{{- end}}
   containers:
     - name: kms-preflight-check
       image: {{.OperatorImage}}
@@ -42,3 +45,9 @@ spec:
         requests:
           memory: 50Mi
           cpu: 5m
+{{- if .StaticPod}}
+  volumes:
+    - name: resource-dir
+      hostPath:
+        path: {{.ResourceDir}}
+{{- end}}
