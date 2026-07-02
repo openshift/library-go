@@ -9,6 +9,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,6 +19,7 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/utils/clock"
 )
 
 const (
@@ -43,6 +45,7 @@ metadata:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
 spec:
   restartPolicy: Never
+  serviceAccountName: kms-preflight
   priorityClassName: system-cluster-critical
   nodeSelector:
     node-role.kubernetes.io/master: ""
@@ -211,6 +214,8 @@ func newTestDeployer(t *testing.T, objects ...runtime.Object) (*PodPreflightDepl
 	deployer := NewPodPreflightDeployer(
 		testNamespace,
 		kubeClient.CoreV1(),
+		kubeClient.RbacV1(),
+		events.NewInMemoryRecorder("kms-preflight-deployer-test", clock.RealClock{}),
 		testOperatorImage,
 		testOperatorCommand,
 		testDeployerTimeout,
@@ -243,21 +248,14 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 	}
 
 	actions := kubeClient.Actions()
-	if len(actions) != 5 {
-		t.Fatalf("expected 5 actions, got %d: %#v", len(actions), actions)
+	if len(actions) != 11 {
+		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 	}
 	if !actions[0].Matches("delete", "pods") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[1])
-	}
-	deleteAction, ok := actions[1].(clienttesting.DeleteAction)
-	if !ok {
-		t.Fatalf("expected DeleteAction, got %T", actions[1])
-	}
-	if deleteAction.GetName() != preflightEncryptionConfigSecretName {
-		t.Fatalf("unexpected secret name %q", deleteAction.GetName())
 	}
 	if !actions[2].Matches("create", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[2])
@@ -276,10 +274,28 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 	if !actions[3].Matches("get", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[3])
 	}
-	if !actions[4].Matches("create", "pods") {
+	if !actions[4].Matches("get", "serviceaccounts") {
 		t.Fatalf("unexpected action: %#v", actions[4])
 	}
-	createAction, ok := actions[4].(clienttesting.CreateAction)
+	if !actions[5].Matches("create", "serviceaccounts") {
+		t.Fatalf("unexpected action: %#v", actions[5])
+	}
+	if !actions[6].Matches("get", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[6])
+	}
+	if !actions[7].Matches("create", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[7])
+	}
+	if !actions[8].Matches("get", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[8])
+	}
+	if !actions[9].Matches("create", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[9])
+	}
+	if !actions[10].Matches("create", "pods") {
+		t.Fatalf("unexpected action: %#v", actions[10])
+	}
+	createAction, ok := actions[10].(clienttesting.CreateAction)
 	if !ok {
 		t.Fatalf("expected CreateAction, got %T", actions[4])
 	}
@@ -403,8 +419,8 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	}
 
 	actions := kubeClient.Actions()
-	if len(actions) != 5 {
-		t.Fatalf("expected 5 actions, got %d: %#v", len(actions), actions)
+	if len(actions) != 11 {
+		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 	}
 	if !actions[0].Matches("delete", "pods") {
 		t.Fatalf("unexpected action: %#v", actions[0])
@@ -418,8 +434,26 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	if !actions[3].Matches("get", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[3])
 	}
-	if !actions[4].Matches("create", "pods") {
+	if !actions[4].Matches("get", "serviceaccounts") {
 		t.Fatalf("unexpected action: %#v", actions[4])
+	}
+	if !actions[5].Matches("create", "serviceaccounts") {
+		t.Fatalf("unexpected action: %#v", actions[5])
+	}
+	if !actions[6].Matches("get", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[6])
+	}
+	if !actions[7].Matches("create", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[7])
+	}
+	if !actions[8].Matches("get", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[8])
+	}
+	if !actions[9].Matches("create", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[9])
+	}
+	if !actions[10].Matches("create", "pods") {
+		t.Fatalf("unexpected action: %#v", actions[10])
 	}
 }
 
@@ -474,8 +508,8 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	}
 
 	actions := kubeClient.Actions()
-	if len(actions) != 5 {
-		t.Fatalf("expected 5 actions, got %d: %#v", len(actions), actions)
+	if len(actions) != 11 {
+		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 	}
 	if !actions[0].Matches("delete", "pods") {
 		t.Fatalf("unexpected action: %#v", actions[0])
@@ -489,8 +523,26 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	if !actions[3].Matches("get", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[3])
 	}
-	if !actions[4].Matches("create", "pods") {
+	if !actions[4].Matches("get", "serviceaccounts") {
 		t.Fatalf("unexpected action: %#v", actions[4])
+	}
+	if !actions[5].Matches("create", "serviceaccounts") {
+		t.Fatalf("unexpected action: %#v", actions[5])
+	}
+	if !actions[6].Matches("get", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[6])
+	}
+	if !actions[7].Matches("create", "roles") {
+		t.Fatalf("unexpected action: %#v", actions[7])
+	}
+	if !actions[8].Matches("get", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[8])
+	}
+	if !actions[9].Matches("create", "rolebindings") {
+		t.Fatalf("unexpected action: %#v", actions[9])
+	}
+	if !actions[10].Matches("create", "pods") {
+		t.Fatalf("unexpected action: %#v", actions[10])
 	}
 }
 

@@ -20,6 +20,7 @@ metadata:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
 spec:
   restartPolicy: Never
+  serviceAccountName: kms-preflight
   priorityClassName: system-cluster-critical
   nodeSelector:
     node-role.kubernetes.io/master: ""
