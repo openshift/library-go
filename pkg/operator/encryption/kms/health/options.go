@@ -30,7 +30,7 @@ func (o *options) addFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.Interval, "interval", 30*time.Second, "cadence between probe+emit cycles")
 	fs.DurationVar(&o.ReadTimeout, "read-timeout", 5*time.Second, "deadline for each Status RPC")
 	fs.DurationVar(&o.WriteTimeout, "write-timeout", 10*time.Second, "deadline for each condition update")
-	fs.StringVar(&o.NodeName, "node-name", "", "node name recorded in the condition used to help to identify the origin")
+	fs.StringVar(&o.NodeName, "node-name", "", "identifier for this reporter: must be unique among reporters writing to the same operator CR")
 	fs.StringVar(&o.Kubeconfig, "kubeconfig", "", "path to a kubeconfig; empty uses in-cluster config")
 }
 
@@ -76,7 +76,12 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	// fieldManager is the per-node ownership-identity.
+	// fieldManager is this reporter's SSA ownership identity: apply tracks
+	// ownership per manager. Reporters sharing one would fight over the same
+	// CR status.
+	// kube-apiserver runs one reporter per node: node-name must be unique!
+	// single-reporter operators, like oauth- / openshift-apiserver, can pass
+	// any constant value.
 	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
 	writeStatus, err := o.newWriter(restCfg, fieldManager)
 	if err != nil {
