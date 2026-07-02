@@ -61,7 +61,7 @@ func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 // when empty, the subcommand is invoked directly via the image ENTRYPOINT.
 func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage string) *KMSPluginBuilder {
 	b.healthReporter = &healthReporter{
-		name:           "kms-health-reporter",
+		name:           kmsHealthReporterContainerName,
 		operatorBinary: operatorBinary,
 		subcommand:     health.Subcommand,
 		image:          operatorImage,
@@ -69,11 +69,14 @@ func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage stri
 	return b
 }
 
-// Apply mutates the given pod spec by injecting KMS plugin sidecars, volumes,
-// and volume mounts. containerName identifies the API server container that
-// needs the socket volume mount.
+// Apply reconciles the given pod spec so that it contains exactly the KMS
+// plugin sidecars, volumes, and volume mounts required by the current
+// encryption configuration. Stale sidecars, volumes and volume mounts from
+// a previous configuration are removed.
 //
-// It is a no-op (returns nil error) when no KMS plugins are found.
+// containerName identifies the API server container that needs the socket
+// volume mount.
+//
 // It is idempotent.
 func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, containerName string) error {
 	if podSpec == nil {
@@ -99,6 +102,9 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	if err != nil {
 		return fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
+
+	removeAllKMSManagedResources(podSpec, containerName)
+
 	if len(kmsConfigurations) == 0 {
 		klog.V(4).Infof("skipping KMS sidecar injection: no KMS plugins found in EncryptionConfiguration")
 		return nil

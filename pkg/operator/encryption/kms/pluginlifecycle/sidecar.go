@@ -3,6 +3,7 @@ package pluginlifecycle
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
@@ -44,7 +45,8 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 	}
 }
 
-// AddKMSPluginSidecarToStaticPodSpec injects KMS plugin sidecar containers into a kube-apiserver static pod spec.
+// EnsureKMSPluginSidecarInStaticPodSpec reconciles KMS plugin sidecar containers in a kube-apiserver static pod spec.
+// It adds or updates sidecars for each KMS provider in the encryption config and removes any that are no longer present.
 //
 // Static pods access KMS plugin data through the resource-dir volume, which the static pod revision controller
 // populates on disk from the encryption-config Secret. Because those files are owned by root, each sidecar
@@ -52,7 +54,7 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 //
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
+func EnsureKMSPluginSidecarInStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -71,11 +73,12 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 		Apply(ctx, podSpec, containerName)
 }
 
-// AddKMSPluginSidecarToPodSpec injects KMS plugin sidecar containers into an aggregated API server pod spec (e.g., openshift-apiserver, oauth-apiserver).
+// EnsureKMSPluginSidecarInPodSpec reconciles KMS plugin sidecar containers in an aggregated API server pod spec (e.g., openshift-apiserver, oauth-apiserver).
+// It adds or updates sidecars for each KMS provider in the encryption config and removes any that are no longer present.
 //
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
+func EnsureKMSPluginSidecarInPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -169,6 +172,57 @@ func ensureReferenceDataVolume(podSpec *corev1.PodSpec, secretName string) error
 		},
 	}
 	return ensureVolume(podSpec, volume)
+}
+
+var kmsSidecarPrefixes = []string{"vault-kms-plugin-"}
+
+const kmsHealthReporterContainerName = "kms-health-reporter"
+
+func isKMSManagedContainer(name string) bool {
+	if name == kmsHealthReporterContainerName {
+		return true
+	}
+	for _, prefix := range kmsSidecarPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func isKMSManagedVolume(name string) bool {
+	return name == kmsPluginSocketVolumeName || name == referenceDataVolumeName
+}
+
+func removeAllKMSManagedResources(podSpec *corev1.PodSpec, containerName string) {
+	filtered := podSpec.InitContainers[:0]
+	for _, c := range podSpec.InitContainers {
+		if !isKMSManagedContainer(c.Name) {
+			filtered = append(filtered, c)
+		}
+	}
+	podSpec.InitContainers = filtered
+
+	filteredVolumes := podSpec.Volumes[:0]
+	for _, v := range podSpec.Volumes {
+		if !isKMSManagedVolume(v.Name) {
+			filteredVolumes = append(filteredVolumes, v)
+		}
+	}
+	podSpec.Volumes = filteredVolumes
+
+	for i, c := range podSpec.Containers {
+		if c.Name == containerName {
+			mounts := c.VolumeMounts[:0]
+			for _, m := range c.VolumeMounts {
+				if m.Name != kmsPluginSocketVolumeName {
+					mounts = append(mounts, m)
+				}
+			}
+			podSpec.Containers[i].VolumeMounts = mounts
+			break
+		}
+	}
 }
 
 // setRunAsRoot sets RunAsUser=0 on the named container.
