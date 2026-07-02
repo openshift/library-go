@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kms-preflight-installer
+  namespace: {{.Namespace}}
+  labels:
+    app: openshift-kms-preflight-installer
+spec:
+  automountServiceAccountToken: false
+  nodeSelector:
+    node-role.kubernetes.io/master: ""
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoExecute"
+  initContainers:
+    - name: cleanup
+      image: {{.InstallerImage}}
+      imagePullPolicy: IfNotPresent
+      terminationMessagePolicy: FallbackToLogsOnError
+      command:
+        - /bin/sh
+        - -c
+        - |
+          #!/bin/sh
+          set -euo pipefail
+
+          rm -f /etc/kubernetes/manifests/kms-preflight-pod.yaml
+          rm -rf /etc/kubernetes/manifests/secrets/kms-preflight-encryption-config
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      resources:
+        requests:
+          memory: 10Mi
+          cpu: 10m
+      volumeMounts:
+        - mountPath: /etc/kubernetes/manifests
+          name: manifests-dir
+  containers:
+    - name: installer
+      image: {{.InstallerImage}}
+      imagePullPolicy: IfNotPresent
+      terminationMessagePolicy: FallbackToLogsOnError
+      command:
+        - /bin/sh
+        - -c
+        - |
+          #!/bin/sh
+          set -euo pipefail
+
+          target_secret_dir="/etc/kubernetes/manifests/secrets/kms-preflight-encryption-config"
+          mkdir -p "${target_secret_dir}"
+          cp -f /install/secret/* "${target_secret_dir}/"
+          cp -f /install/pod/lb-int.kubeconfig "${target_secret_dir}/lb-int.kubeconfig"
+
+          manifest_path="/etc/kubernetes/manifests/kms-preflight-pod.yaml"
+          mkdir -p /etc/kubernetes/manifests
+          cp -f /install/pod/pod.yaml "${manifest_path}"
+          chmod 0600 "${manifest_path}"
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      resources:
+        requests:
+          memory: 10Mi
+          cpu: 10m
+      volumeMounts:
+        - mountPath: /etc/kubernetes/manifests
+          name: manifests-dir
+        - mountPath: /install/pod
+          name: pod-manifest
+        - mountPath: /install/secret
+          name: encryption-config
+          readOnly: true
+  restartPolicy: Never
+  priorityClassName: system-node-critical
+  securityContext:
+    runAsUser: 0
+  volumes:
+    - hostPath:
+        path: /etc/kubernetes/manifests
+      name: manifests-dir
+    - name: pod-manifest
+      configMap:
+        name: kms-preflight-pod
+    - name: encryption-config
+      secret:
+        secretName: kms-preflight-encryption-config
