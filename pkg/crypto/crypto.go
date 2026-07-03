@@ -211,6 +211,39 @@ var ciphersUnsupportedByGo = map[string]string{
 	"AES256-SHA256":             "TLS_RSA_WITH_AES_256_CBC_SHA256",
 }
 
+// goTLSGroups lists all TLS supported groups (key exchange mechanisms) recognized
+// by Go's crypto/tls, keyed by Go constant name. Kept in sync with the crypto/tls
+// package by TestConstantMaps.
+// Ref: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8
+var goTLSGroups = map[string]tls.CurveID{
+	"CurveP256":      tls.CurveP256,      // IANA 23
+	"CurveP384":      tls.CurveP384,      // IANA 24
+	"CurveP521":      tls.CurveP521,      // IANA 25
+	"X25519":         tls.X25519,         // IANA 29
+	"X25519MLKEM768": tls.X25519MLKEM768, // IANA 4588
+	// TODO: add "SecP256r1MLKEM768": tls.SecP256r1MLKEM768 (IANA 4587) when Go 1.26 is the minimum version
+	// TODO: add "SecP384r1MLKEM1024": tls.SecP384r1MLKEM1024 (IANA 4590) when Go 1.26 is the minimum version
+}
+
+// tlsGroupToCurveID maps OpenShift API TLSGroup values to Go's tls.CurveID.
+//
+// SecP256r1MLKEM768 (IANA 4587) and SecP384r1MLKEM1024 (IANA 4590) use raw
+// numeric CurveID values because Go 1.25 does not yet define named constants
+// for them. Go will silently ignore CurveIDs it does not implement, so these
+// entries are no-ops on Go 1.25 and become effective on Go 1.26+.
+// TODO: replace the raw IANA IDs with tls.SecP256r1MLKEM768 and
+// tls.SecP384r1MLKEM1024 once Go 1.26 is the minimum version, and add
+// the corresponding entries to goTLSGroups.
+var tlsGroupToCurveID = map[configv1.TLSGroup]tls.CurveID{
+	configv1.TLSGroupX25519:             tls.X25519,
+	configv1.TLSGroupSecP256r1:          tls.CurveP256,
+	configv1.TLSGroupSecP384r1:          tls.CurveP384,
+	configv1.TLSGroupSecP521r1:          tls.CurveP521,
+	configv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
+	configv1.TLSGroupSecP256r1MLKEM768:  tls.CurveID(4587), // TODO: replace with tls.SecP256r1MLKEM768 when Go 1.26 is the minimum version
+	configv1.TLSGroupSecP384r1MLKEM1024: tls.CurveID(4590), // TODO: replace with tls.SecP384r1MLKEM1024 when Go 1.26 is the minimum version
+}
+
 // CipherSuitesToNamesOrDie given a list of cipher suites as ints, return their readable names
 func CipherSuitesToNamesOrDie(intVals []uint16) []string {
 	ret := []string{}
@@ -354,6 +387,43 @@ func OpenSSLToIANACipherSuites(ciphers []string) []string {
 	}
 
 	return ianaCiphers
+}
+
+// CurveIDForTLSGroup maps an OpenShift API TLSGroup constant to Go's tls.CurveID.
+// Returns (0, false) if the group is not supported by this Go version.
+func CurveIDForTLSGroup(group configv1.TLSGroup) (tls.CurveID, bool) {
+	id, ok := tlsGroupToCurveID[group]
+	return id, ok
+}
+
+// CurveIDsForTLSGroups converts a slice of TLSGroup values to their tls.CurveID
+// codes. Returns the supported curve IDs and a list of unsupported group names.
+// Unsupported groups are silently filtered — callers should log warnings.
+func CurveIDsForTLSGroups(groups []configv1.TLSGroup) ([]tls.CurveID, []string) {
+	var curves []tls.CurveID
+	var unsupported []string
+
+	for _, group := range groups {
+		id, ok := CurveIDForTLSGroup(group)
+		if !ok {
+			unsupported = append(unsupported, string(group))
+			continue
+		}
+		curves = append(curves, id)
+	}
+
+	return curves, unsupported
+}
+
+// ValidTLSGroups returns the TLS group names that this Go version supports,
+// sorted alphabetically.
+func ValidTLSGroups() []string {
+	groups := make([]string, 0, len(tlsGroupToCurveID))
+	for g := range tlsGroupToCurveID {
+		groups = append(groups, string(g))
+	}
+	sort.Strings(groups)
+	return groups
 }
 
 type TLSCertificateConfig struct {
