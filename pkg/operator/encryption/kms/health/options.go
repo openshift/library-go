@@ -2,12 +2,12 @@ package health
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
 	"github.com/spf13/pflag"
 
-	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -61,11 +61,18 @@ func (o *options) validate() error {
 	if o.NodeName == "" {
 		return fmt.Errorf("--node-name is required")
 	}
-	if fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName); len(fieldManager) > metav1validation.FieldManagerMaxLength {
-		return fmt.Errorf("--node-name too long: reporter identity %q is %d chars, exceeds the %d-char fieldManager limit", fieldManager, len(fieldManager), metav1validation.FieldManagerMaxLength)
-	}
 
 	return nil
+}
+
+// fieldManagerForNode returns the SSA field manager for a reporter on nodeName.
+// Node names can exceed the fieldManager length limit, so the name is hashed to
+// a fixed-size SHA-256 hex digest while the prober still reports the real name.
+// The node UID would also fit, but it is not exposed through the downward API in
+// the sidecar; querying the Node API for it would add unnecessary complexity.
+func fieldManagerForNode(nodeName string) string {
+	sum := sha256.Sum256([]byte(nodeName))
+	return fmt.Sprintf("%s-%x", Subcommand, sum)
 }
 
 func (o *options) Config(ctx context.Context) (*Config, error) {
@@ -82,7 +89,7 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	// kube-apiserver runs one reporter per node: node-name must be unique!
 	// single-reporter operators, like oauth- / openshift-apiserver, can pass
 	// any constant value.
-	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
+	fieldManager := fieldManagerForNode(o.NodeName)
 	writeStatus, err := o.newWriter(restCfg, fieldManager)
 	if err != nil {
 		return nil, fmt.Errorf("build encryption status writer: %w", err)
