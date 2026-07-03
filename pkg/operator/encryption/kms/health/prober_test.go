@@ -3,14 +3,19 @@ package health
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kmsservice "k8s.io/kms/pkg/service"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 )
 
 type fakeService struct {
@@ -21,9 +26,11 @@ type fakeService struct {
 func (f *fakeService) Status(context.Context) (*kmsservice.StatusResponse, error) {
 	return f.resp, f.err
 }
+
 func (f *fakeService) Encrypt(context.Context, string, []byte) (*kmsservice.EncryptResponse, error) {
 	return nil, nil
 }
+
 func (f *fakeService) Decrypt(context.Context, string, *kmsservice.DecryptRequest) ([]byte, error) {
 	return nil, nil
 }
@@ -31,6 +38,7 @@ func (f *fakeService) Decrypt(context.Context, string, *kmsservice.DecryptReques
 func TestProber_ProbeAll(t *testing.T) {
 	fixed := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	p := &prober{
+		nodeName: "node-1",
 		plugins: []pluginClient{
 			{keyID: "1", service: &fakeService{resp: &kmsservice.StatusResponse{Healthz: "ok", KeyID: "kek-abc"}}},
 			{keyID: "2", service: &fakeService{err: fmt.Errorf("connection refused")}},
@@ -41,15 +49,37 @@ func TestProber_ProbeAll(t *testing.T) {
 	}
 
 	have := p.probeAll(context.Background())
-	want := []pluginHealthReport{
-		{KeyID: "1", KEKID: "kek-abc", Status: "healthy", LastChecked: fixed},
-		{KeyID: "2", Status: "error", Detail: "connection refused", LastChecked: fixed},
-		{KeyID: "3", Status: "unhealthy", Detail: "degraded", LastChecked: fixed},
-		{KeyID: "4", Status: "error", Detail: "kms plugin returned nil status response", LastChecked: fixed},
-	}
-	if !reflect.DeepEqual(have, want) {
-		t.Errorf("probeAll():\n have: %+v\n want: %+v", have, want)
-	}
+
+	// Each entry stamps nodeName; kekId only on healthy, detail only on the
+	// unhealthy/error entries, status mapped to the API enum.
+	want := applyoperatorv1.KMSEncryptionStatus().WithHealthReports(
+		applyoperatorv1.KMSPluginHealthReport().
+			WithNodeName("node-1").
+			WithKeyId("1").
+			WithStatus(operatorv1.KMSPluginHealthStatusHealthy).
+			WithLastCheckedTime(metav1.NewTime(fixed)).
+			WithKEKId("kek-abc"),
+		applyoperatorv1.KMSPluginHealthReport().
+			WithNodeName("node-1").
+			WithKeyId("2").
+			WithStatus(operatorv1.KMSPluginHealthStatusError).
+			WithLastCheckedTime(metav1.NewTime(fixed)).
+			WithDetail("connection refused"),
+		applyoperatorv1.KMSPluginHealthReport().
+			WithNodeName("node-1").
+			WithKeyId("3").
+			WithStatus(operatorv1.KMSPluginHealthStatusUnhealthy).
+			WithLastCheckedTime(metav1.NewTime(fixed)).
+			WithDetail("degraded"),
+		applyoperatorv1.KMSPluginHealthReport().
+			WithNodeName("node-1").
+			WithKeyId("4").
+			WithStatus(operatorv1.KMSPluginHealthStatusError).
+			WithLastCheckedTime(metav1.NewTime(fixed)).
+			WithDetail("kms plugin returned nil status response"),
+	)
+
+	require.Equal(t, want, have)
 }
 
 // blockingService releases Status only once all expected probes have
@@ -81,18 +111,18 @@ func TestProber_ProbeAllFansOut(t *testing.T) {
 			},
 		})
 	}
-	p := newProber(plugins)
+	p := newProber("node-1", plugins)
 
-	done := make(chan []pluginHealthReport, 1)
+	done := make(chan *applyoperatorv1.KMSEncryptionStatusApplyConfiguration, 1)
 	go func() { done <- p.probeAll(context.Background()) }()
 
 	select {
 	case have := <-done:
-		for i, report := range have {
+		for i, report := range have.HealthReports {
 			want := strconv.Itoa(i + 1)
-			if report.KeyID != want || report.KEKID != "kek-"+want {
-				t.Errorf("reports[%d] = {KeyID:%q KEKID:%q}, want {KeyID:%q KEKID:%q}",
-					i, report.KeyID, report.KEKID, want, "kek-"+want)
+			if *report.KeyId != want || *report.KEKId != "kek-"+want {
+				t.Errorf("reports[%d] = {KeyId:%q KEKId:%q}, want {KeyId:%q KEKId:%q}",
+					i, *report.KeyId, *report.KEKId, want, "kek-"+want)
 			}
 		}
 	case <-time.After(wait.ForeverTestTimeout):

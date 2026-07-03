@@ -6,50 +6,46 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 )
 
-const Subcommand = "kms-health-reporter"
+const (
+	Subcommand = "kms-health-reporter"
+)
 
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
-// options' flag-bound fields are exported so the struct can be logged as a
-// whole via klog.InfoS, which JSON-marshals its values.
-type options struct {
-	KMSSockets   []string
-	Interval     time.Duration
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	NodeName     string
-	Kubeconfig   string
+// NewEncryptionStatusWriterFunc builds the EncryptionStatusWriter for a target
+// apiserver operator status CR. fieldManager sets the owner in the
+// managedFields when doing SSA.
+type NewEncryptionStatusWriterFunc func(restConfig *rest.Config, fieldManager string) (EncryptionStatusWriter, error)
 
-	newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)
-}
+// EncryptionStatusWriter is capable of applying the
+// KMSEncryptionStatusApplyConfiguration at the correct place in the operator's
+// status.
+type EncryptionStatusWriter func(ctx context.Context, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error
 
 type Config struct {
-	operatorClient v1helpers.OperatorClient
-	prober         *prober
+	writeStatus EncryptionStatusWriter
+	prober      *prober
 
 	interval     time.Duration
 	writeTimeout time.Duration
-	nodeName     string
 }
 
-func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1helpers.OperatorClient, error)) *cobra.Command {
+func NewCommand(ctx context.Context, newWriter NewEncryptionStatusWriterFunc) *cobra.Command {
 	o := &options{
-		newOperatorClient: newOperatorClient,
+		newWriter: newWriter,
 	}
 
 	cmd := &cobra.Command{
@@ -78,80 +74,17 @@ func NewCommand(ctx context.Context, newOperatorClient func(*rest.Config) (v1hel
 	return cmd
 }
 
-func (o *options) addFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&o.KMSSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock)")
-	fs.DurationVar(&o.Interval, "interval", 30*time.Second, "cadence between probe+emit cycles")
-	fs.DurationVar(&o.ReadTimeout, "read-timeout", 5*time.Second, "deadline for each Status RPC")
-	fs.DurationVar(&o.WriteTimeout, "write-timeout", 10*time.Second, "deadline for each condition update")
-	fs.StringVar(&o.NodeName, "node-name", "", "node name recorded in the condition used to help to identify the origin")
-	fs.StringVar(&o.Kubeconfig, "kubeconfig", "", "path to a kubeconfig; empty uses in-cluster config")
-}
-
-func (o *options) validate() error {
-	if len(o.KMSSockets) == 0 {
-		return fmt.Errorf("--kms-sockets is required, at least one")
-	}
-	socketSet := sets.New[string]()
-	for _, s := range o.KMSSockets {
-		if !kmsSocketPattern.MatchString(s) {
-			return fmt.Errorf("--kms-sockets entry %q must match %s", s, kmsSocketPattern)
-		}
-		if socketSet.Has(s) {
-			return fmt.Errorf("--kms-sockets entry %q is duplicated", s)
-		}
-		socketSet.Insert(s)
-	}
-
-	if o.Interval <= 0 {
-		return fmt.Errorf("--interval must be positive")
-	}
-	if o.ReadTimeout <= 0 {
-		return fmt.Errorf("--read-timeout must be positive")
-	}
-	if o.WriteTimeout <= 0 {
-		return fmt.Errorf("--write-timeout must be positive")
-	}
-	if o.NodeName == "" {
-		return fmt.Errorf("--node-name is required")
-	}
-
-	return nil
-}
-
-func (o *options) Config(ctx context.Context) (*Config, error) {
-	// Empty kubeconfig falls back to the in-cluster config (service account
-	// token + KUBERNETES_SERVICE_HOST), which is the deployed path.
-	restCfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("build rest config: %w", err)
-	}
-
-	operatorClient, err := o.newOperatorClient(restCfg)
-	if err != nil {
-		return nil, fmt.Errorf("build operator client: %w", err)
-	}
-
-	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Config{
-		operatorClient: operatorClient,
-		prober:         newProber(plugins),
-		interval:       o.Interval,
-		writeTimeout:   o.WriteTimeout,
-		nodeName:       o.NodeName,
-	}, nil
-}
-
 func (c *Config) Run(ctx context.Context) error {
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
 		// Each Status RPC enforces the read timeout internally (set at dial
 		// time); ctx here only carries shutdown cancellation.
-		conditions := c.prober.probeAll(ctx)
-		// TODO: hand conditions to the writer once it lands; logging is a placeholder.
-		klog.InfoS("kms plugin health", "conditions", conditions)
+		reports := c.prober.probeAll(ctx)
+
+		writeCtx, cancel := context.WithTimeout(ctx, c.writeTimeout)
+		defer cancel()
+		if err := c.writeStatus(writeCtx, reports); err != nil {
+			klog.ErrorS(err, "failed to publish kms plugin health")
+		}
 	}, c.interval, 0.1, false)
 
 	return nil
@@ -168,7 +101,7 @@ func buildPlugins(ctx context.Context, sockets []string, timeout time.Duration) 
 
 		// Unique name per plugin so the gRPC client's KMS operation metrics
 		// don't merge both plugins into one series.
-		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, Subcommand+"-"+keyID, timeout)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, Subcommand, timeout)
 		if err != nil {
 			// With the current dependency version this should never happen with a validated GRPC endpoint.
 			return nil, fmt.Errorf("setting up grpc service failed at %q: %w", socket, err)
