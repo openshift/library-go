@@ -314,7 +314,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 ## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift/api v0.0.0-20260715165912-72066cc9718b
+# github.com/openshift/api v0.0.0-20260721120239-14262bf791c8 => github.com/bhperry/openshift-api v0.0.0-20260721140502-5bd0b76d24f2
 ## explicit; go 1.26.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -404,7 +404,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20260715172546-dac61734e0ec
+# github.com/openshift/client-go v0.0.0-20260715172546-dac61734e0ec => github.com/bhperry/openshift-client-go v0.0.0-20260721143954-808ba2472dff
 ## explicit; go 1.26.0
 github.com/openshift/client-go/apps/applyconfigurations/apps/v1
 github.com/openshift/client-go/apps/applyconfigurations/internal
@@ -1731,3 +1731,5 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# github.com/openshift/api => github.com/bhperry/openshift-api v0.0.0-20260721140502-5bd0b76d24f2
+# github.com/openshift/client-go => github.com/bhperry/openshift-client-go v0.0.0-20260721143954-808ba2472dff

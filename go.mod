@@ -2,6 +2,10 @@ module github.com/openshift/library-go
 
 go 1.26.0
 
+replace github.com/openshift/api => github.com/bhperry/openshift-api v0.0.0-20260721140502-5bd0b76d24f2
+
+replace github.com/openshift/client-go => github.com/bhperry/openshift-client-go v0.0.0-20260721143954-808ba2472dff
+
 require (
 	github.com/RangelReale/osincli v0.0.0-20160924135400-fababb0555f2
 	github.com/blang/semver/v4 v4.0.0
@@ -18,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.13.0
-	github.com/openshift/api v0.0.0-20260715165912-72066cc9718b
+	github.com/openshift/api v0.0.0-20260721120239-14262bf791c8
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20260715172546-dac61734e0ec
 	github.com/pkg/errors v0.9.1
