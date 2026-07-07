@@ -85,15 +85,12 @@ func WaitForNextEncryptionKeyRotation() WaitForRotationCompleteFunc {
 	}
 }
 
-func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+// ApplyEncryptionProviderIfNeeded runs provider.Setup and updates APIServer/cluster when
+// the desired encryption config differs from the current cluster config.
+func ApplyEncryptionProviderIfNeeded(ctx context.Context, t testing.TB, provider EncryptionProvider) (configv1.APIServerEncryption, bool) {
 	t.Helper()
 
-	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
-
 	clientSet := GetClients(t)
-	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
-	require.NoError(t, err)
-
 	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 	previousEncryption := apiServer.Spec.Encryption
@@ -103,12 +100,32 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 			provider.Setup(ctx, t)
 		}
 		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", previousEncryption, provider.APIServerEncryption)
-		apiServer.Spec.Encryption = provider.APIServerEncryption
-		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			apiServer.Spec.Encryption = provider.APIServerEncryption
+			_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
+			return err
+		})
 		require.NoError(t, err)
 	} else {
 		t.Logf("APIServer is already configured to use %q mode", provider.Type)
 	}
+	return previousEncryption, needsUpdate
+}
+
+func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+	t.Helper()
+
+	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
+
+	clientSet := GetClients(t)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
+	require.NoError(t, err)
+
+	previousEncryption, needsUpdate := ApplyEncryptionProviderIfNeeded(ctx, t, provider)
 
 	// KMS-to-KMS migration: when both old and new are KMS but the config differs,
 	// the key controller creates a new key. We must wait for the next migrated key
