@@ -75,7 +75,6 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 		d.operatorImage,
 		d.operatorCommand,
 		d.kmsCallTimeout,
-		"",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate preflight pod template: %w", err)

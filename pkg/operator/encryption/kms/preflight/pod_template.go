@@ -19,7 +19,32 @@ type kmsPreflightTemplate struct {
 	OperatorImage  string
 	Command        string
 	KMSCallTimeout string
-	Kubeconfig     string
+	StaticPod      bool
+}
+
+func newKmsPreflightTemplate(
+	podName string,
+	namespace string,
+	configHash string,
+	operatorImage string,
+	operatorCommand []string,
+	kmsCallTimeout time.Duration,
+	staticPod bool,
+) kmsPreflightTemplate {
+	operatorCommandQuoted := make([]string, len(operatorCommand))
+	for i, cmd := range operatorCommand {
+		operatorCommandQuoted[i] = fmt.Sprintf("%q", cmd)
+	}
+
+	return kmsPreflightTemplate{
+		PodName:        podName,
+		Namespace:      namespace,
+		ConfigHash:     configHash,
+		OperatorImage:  operatorImage,
+		Command:        strings.Join(operatorCommandQuoted, ","),
+		KMSCallTimeout: kmsCallTimeout.String(),
+		StaticPod:      staticPod,
+	}
 }
 
 // generatePodTemplate renders the KMS preflight pod YAML template.
@@ -32,25 +57,40 @@ func generatePodTemplate(
 	operatorImage string,
 	operatorCommand []string,
 	kmsCallTimeout time.Duration,
-	kubeconfig string,
+) (*corev1.Pod, error) {
+	return renderPreflightPodTemplate(podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, false)
+}
+
+// generateStaticPodTemplate renders the KMS preflight static pod YAML template.
+func generateStaticPodTemplate(
+	podName string,
+	namespace string,
+	configHash string,
+	operatorImage string,
+	operatorCommand []string,
+	kmsCallTimeout time.Duration,
+) (*corev1.Pod, error) {
+	return renderPreflightPodTemplate(podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, true)
+}
+
+func renderPreflightPodTemplate(
+	podName string,
+	namespace string,
+	configHash string,
+	operatorImage string,
+	operatorCommand []string,
+	kmsCallTimeout time.Duration,
+	staticPod bool,
 ) (*corev1.Pod, error) {
 	rawManifest := mustAsset("assets/kms-preflight-pod.yaml")
+	tmplVal := newKmsPreflightTemplate(
+		podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, staticPod,
+	)
+	return renderPodTemplate("kms-preflight", string(rawManifest), tmplVal)
+}
 
-	operatorCommandQuoted := make([]string, len(operatorCommand))
-	for i, cmd := range operatorCommand {
-		operatorCommandQuoted[i] = fmt.Sprintf("%q", cmd)
-	}
-
-	tmplVal := kmsPreflightTemplate{
-		PodName:        podName,
-		Namespace:      namespace,
-		ConfigHash:     configHash,
-		OperatorImage:  operatorImage,
-		Command:        strings.Join(operatorCommandQuoted, ","),
-		KMSCallTimeout: kmsCallTimeout.String(),
-		Kubeconfig:     kubeconfig,
-	}
-	tmpl, err := template.New("kms-preflight").Parse(string(rawManifest))
+func renderPodTemplate(name, rawManifest string, tmplVal any) (*corev1.Pod, error) {
+	tmpl, err := template.New(name).Parse(rawManifest)
 	if err != nil {
 		return nil, err
 	}
