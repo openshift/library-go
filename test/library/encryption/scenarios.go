@@ -215,11 +215,13 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		if i > 0 {
 			prefix = "MigrateTo"
 		}
-		for _, scenario := range migrationScenarios {
-			stepName := fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type)))
-			if multi {
-				stepName = fmt.Sprintf("%s[%s]", stepName, scenario.ResourceName)
-			}
+		stepName := fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type)))
+		if multi {
+			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
+				runMigrationStepMultiOperator(ctx, t, migrationScenarios, provider)
+			}})
+		} else {
+			scenario := migrationScenarios[0]
 			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
 				TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
 			}})
@@ -233,7 +235,18 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
-	for _, scenario := range migrationScenarios {
+	if multi {
+		scenarios = append(scenarios, testStep{name: "OffIdentity", testFunc: func(t testing.TB) {
+			runMigrationStepMultiOperator(ctx, t, migrationScenarios, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}})
+		}})
+		for _, scenario := range migrationScenarios {
+			scenarios = append(scenarios, testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+			}})
+		}
+	} else {
+		scenario := migrationScenarios[0]
 		scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 			e := NewE(t)
@@ -297,6 +310,58 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+func runMigrationStepMultiOperator(ctx context.Context, t testing.TB, migrationScenarios []ProvidersMigrationScenario, provider EncryptionProvider) {
+	t.Helper()
+	t.Logf("Starting multi-operator encryption e2e test for %q mode", provider.Type)
+
+	clientSet := GetClients(t)
+	prevKeyMeta := make([]EncryptionKeyMeta, len(migrationScenarios))
+	for i, scenario := range migrationScenarios {
+		keyMeta, err := GetLastKeyMeta(t, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
+		require.NoError(t, err)
+		prevKeyMeta[i] = keyMeta
+	}
+
+	// APIServer config is cluster-wide: update once (with conflict retry), then wait per operator in parallel.
+	_, clusterConfigUpdated := ApplyEncryptionProviderIfNeeded(ctx, t, provider)
+
+	runScenario := func(st testing.TB, scenario ProvidersMigrationScenario, prev EncryptionKeyMeta) {
+		waitAndAssertOperatorEncryption(st, clientSet, scenario, provider, prev, clusterConfigUpdated)
+	}
+	if tt, ok := t.(*testing.T); ok {
+		tt.Run("WaitForKeyMigration", func(st *testing.T) {
+			for i, scenario := range migrationScenarios {
+				i, scenario := i, scenario
+				st.Run(scenario.ResourceName, func(pst *testing.T) {
+					pst.Parallel()
+					runScenario(pst, scenario, prevKeyMeta[i])
+				})
+			}
+		})
+		return
+	}
+	for i, scenario := range migrationScenarios {
+		runScenario(t, scenario, prevKeyMeta[i])
+	}
+}
+
+func waitAndAssertOperatorEncryption(t testing.TB, clientSet ClientSet, scenario ProvidersMigrationScenario, provider EncryptionProvider, prevKeyMeta EncryptionKeyMeta, clusterConfigUpdated bool) {
+	t.Helper()
+	bs := scenario.BasicScenario
+	t.Logf("Waiting for encryption key migration for %q", scenario.ResourceName)
+	if clusterConfigUpdated {
+		WaitForNextMigratedKey(t, clientSet.Kube, prevKeyMeta, bs.TargetGRs, bs.Namespace, bs.LabelSelector)
+	} else {
+		WaitForEncryptionKeyBasedOn(t, clientSet.Kube, prevKeyMeta, provider.Type, bs.TargetGRs, bs.Namespace, bs.LabelSelector)
+	}
+	e := NewE(t, PrintEventsOnFailure(bs.OperatorNamespace))
+	bs.AssertFunc(e, clientSet, provider.Type, bs.Namespace, bs.LabelSelector)
+	switch provider.Type {
+	case configv1.EncryptionTypeAESCBC, configv1.EncryptionTypeAESGCM, configv1.EncryptionTypeKMS:
+		AssertEncryptionConfig(e, clientSet, bs.EncryptionConfigSecretName, bs.EncryptionConfigSecretNamespace, bs.TargetGRs)
+	}
 }
 
 // ApplyEncryption applies the given encryption config to apiserver/cluster
