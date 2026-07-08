@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -91,28 +92,28 @@ func ApplyEncryptionProviderIfNeeded(ctx context.Context, t testing.TB, provider
 	t.Helper()
 
 	clientSet := GetClients(t)
-	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	previousEncryption := apiServer.Spec.Encryption
-	needsUpdate := !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
-	if needsUpdate {
+	var previousEncryption configv1.APIServerEncryption
+	var needsUpdate bool
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		previousEncryption = apiServer.Spec.Encryption
+		needsUpdate = !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
+		if !needsUpdate {
+			t.Logf("APIServer is already configured to use %q mode", provider.Type)
+			return nil
+		}
 		if provider.Setup != nil {
 			provider.Setup(ctx, t)
 		}
 		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", previousEncryption, provider.APIServerEncryption)
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			apiServer.Spec.Encryption = provider.APIServerEncryption
-			_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
-			return err
-		})
-		require.NoError(t, err)
-	} else {
-		t.Logf("APIServer is already configured to use %q mode", provider.Type)
-	}
+		apiServer.Spec.Encryption = provider.APIServerEncryption
+		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
+		return err
+	})
+	require.NoError(t, err)
 	return previousEncryption, needsUpdate
 }
 
@@ -490,5 +491,37 @@ func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, pr
 	}); err != nil {
 		newErr := fmt.Errorf("timed out waiting for key %q to complete migration of %v: %v", prevKeyMeta.Name, targetGRs, err)
 		require.NoError(t, newErr)
+	}
+}
+
+// inParallel returns a single testStep that runs the given steps
+// concurrently and waits for all to finish before returning.
+// Panics are caught and reported via t.Errorf. Failures from
+// t.FailNow/require (runtime.Goexit) are handled naturally since
+// the testing framework already records the error on t.
+func inParallel(steps ...testStep) testStep {
+	if len(steps) == 1 {
+		return steps[0]
+	}
+	names := make([]string, len(steps))
+	for i, s := range steps {
+		names[i] = s.name
+	}
+	return testStep{
+		name: strings.Join(names, " | "),
+		testFunc: func(t testing.TB) {
+			var wg sync.WaitGroup
+			for _, s := range steps {
+				wg.Go(func() {
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("step %q panicked: %v", s.name, r)
+						}
+					}()
+					s.testFunc(t)
+				})
+			}
+			wg.Wait()
+		},
 	}
 }

@@ -202,7 +202,17 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 
 	// step 1: create the resource(s)
 	scenarios := []testStep{}
-	for _, scenario := range migrationScenarios {
+	if multi {
+		createSteps := make([]testStep, len(migrationScenarios))
+		for i, scenario := range migrationScenarios {
+			createSteps[i] = testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
+			}}
+		}
+		scenarios = append(scenarios, inParallel(createSteps...))
+	} else {
+		scenario := migrationScenarios[0]
 		scenarios = append(scenarios, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
@@ -220,13 +230,19 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
 				runMigrationStepMultiOperator(ctx, t, migrationScenarios, provider)
 			}})
+			assertSteps := make([]testStep, len(migrationScenarios))
+			for i, scenario := range migrationScenarios {
+				assertSteps[i] = testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+					e := NewE(t)
+					scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+				}}
+			}
+			scenarios = append(scenarios, inParallel(assertSteps...))
 		} else {
 			scenario := migrationScenarios[0]
 			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
 				TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
 			}})
-		}
-		for _, scenario := range migrationScenarios {
 			scenarios = append(scenarios, testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 				e := NewE(t)
 				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -239,12 +255,14 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		scenarios = append(scenarios, testStep{name: "OffIdentity", testFunc: func(t testing.TB) {
 			runMigrationStepMultiOperator(ctx, t, migrationScenarios, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}})
 		}})
-		for _, scenario := range migrationScenarios {
-			scenarios = append(scenarios, testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+		assertSteps := make([]testStep, len(migrationScenarios))
+		for i, scenario := range migrationScenarios {
+			assertSteps[i] = testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 				e := NewE(t)
 				scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-			}})
+			}}
 		}
+		scenarios = append(scenarios, inParallel(assertSteps...))
 	} else {
 		scenario := migrationScenarios[0]
 		scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
@@ -327,24 +345,16 @@ func runMigrationStepMultiOperator(ctx context.Context, t testing.TB, migrationS
 	// APIServer config is cluster-wide: update once (with conflict retry), then wait per operator in parallel.
 	_, clusterConfigUpdated := ApplyEncryptionProviderIfNeeded(ctx, t, provider)
 
-	runScenario := func(st testing.TB, scenario ProvidersMigrationScenario, prev EncryptionKeyMeta) {
-		waitAndAssertOperatorEncryption(st, clientSet, scenario, provider, prev, clusterConfigUpdated)
-	}
-	if tt, ok := t.(*testing.T); ok {
-		tt.Run("WaitForKeyMigration", func(st *testing.T) {
-			for i, scenario := range migrationScenarios {
-				i, scenario := i, scenario
-				st.Run(scenario.ResourceName, func(pst *testing.T) {
-					pst.Parallel()
-					runScenario(pst, scenario, prevKeyMeta[i])
-				})
-			}
-		})
-		return
-	}
+	waitSteps := make([]testStep, len(migrationScenarios))
 	for i, scenario := range migrationScenarios {
-		runScenario(t, scenario, prevKeyMeta[i])
+		waitSteps[i] = testStep{
+			name: scenario.ResourceName,
+			testFunc: func(st testing.TB) {
+				waitAndAssertOperatorEncryption(st, clientSet, scenario, provider, prevKeyMeta[i], clusterConfigUpdated)
+			},
+		}
 	}
+	inParallel(waitSteps...).testFunc(t)
 }
 
 func waitAndAssertOperatorEncryption(t testing.TB, clientSet ClientSet, scenario ProvidersMigrationScenario, provider EncryptionProvider, prevKeyMeta EncryptionKeyMeta, clusterConfigUpdated bool) {
