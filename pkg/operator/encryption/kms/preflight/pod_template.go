@@ -12,6 +12,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
+const (
+	preflightPodConfigMapPrefix = "kms-preflight-pod"
+	preflightInstallerPodName   = "kms-preflight-installer"
+)
+
 type kmsPreflightTemplate struct {
 	PodName        string
 	Namespace      string
@@ -87,6 +92,24 @@ func renderPreflightPodTemplate(
 		podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, staticPod,
 	)
 	return renderPodTemplate("kms-preflight", string(rawManifest), tmplVal)
+}
+
+type kmsPreflightInstallerTemplate struct {
+	Namespace      string
+	InstallerImage string
+}
+
+// generateInstallerPodTemplate renders the pod that installs the KMS preflight static pod
+// manifest and encryption-config secret onto a control plane node.
+func generateInstallerPodTemplate(namespace, operatorImage string) (*corev1.Pod, error) {
+	rawManifest := mustAsset("assets/kms-preflight-installer-pod.yaml")
+
+	tmplVal := kmsPreflightInstallerTemplate{
+		Namespace:      namespace,
+		InstallerImage: operatorImage,
+	}
+
+	return renderPodTemplate("kms-preflight-installer", string(rawManifest), tmplVal)
 }
 
 func renderPodTemplate(name, rawManifest string, tmplVal any) (*corev1.Pod, error) {
