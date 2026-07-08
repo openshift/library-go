@@ -94,21 +94,28 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
 	require.NoError(t, err)
 
-	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	previousEncryption := apiServer.Spec.Encryption
-	needsUpdate := !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
-	if needsUpdate {
+	var previousEncryption configv1.APIServerEncryption
+	var needsUpdate bool
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		previousEncryption = apiServer.Spec.Encryption
+		needsUpdate = !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
+		if !needsUpdate {
+			t.Logf("APIServer is already configured to use %q mode", provider.Type)
+			return nil
+		}
 		if provider.Setup != nil {
 			provider.Setup(ctx, t)
 		}
 		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", previousEncryption, provider.APIServerEncryption)
 		apiServer.Spec.Encryption = provider.APIServerEncryption
 		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
-		require.NoError(t, err)
-	} else {
-		t.Logf("APIServer is already configured to use %q mode", provider.Type)
-	}
+		return err
+	})
+	require.NoError(t, err)
 
 	// KMS-to-KMS migration: when both old and new are KMS but the config differs,
 	// the key controller creates a new key. We must wait for the next migrated key
