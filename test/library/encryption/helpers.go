@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -473,5 +474,37 @@ func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, pr
 	}); err != nil {
 		newErr := fmt.Errorf("timed out waiting for key %q to complete migration of %v: %v", prevKeyMeta.Name, targetGRs, err)
 		require.NoError(t, newErr)
+	}
+}
+
+// inParallel returns a single testStep that runs the given steps
+// concurrently and waits for all to finish before returning.
+// Panics are caught and reported via t.Errorf. Failures from
+// t.FailNow/require (runtime.Goexit) are handled naturally since
+// the testing framework already records the error on t.
+func inParallel(steps ...testStep) testStep {
+	if len(steps) == 1 {
+		return steps[0]
+	}
+	names := make([]string, len(steps))
+	for i, s := range steps {
+		names[i] = s.name
+	}
+	return testStep{
+		name: strings.Join(names, " | "),
+		testFunc: func(t testing.TB) {
+			var wg sync.WaitGroup
+			for _, s := range steps {
+				wg.Go(func() {
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("step %q panicked: %v", s.name, r)
+						}
+					}()
+					s.testFunc(t)
+				})
+			}
+			wg.Wait()
+		},
 	}
 }
