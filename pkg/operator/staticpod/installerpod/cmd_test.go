@@ -311,3 +311,44 @@ func checkFileContentMatchesPod(t *testing.T, file, expected string) {
 		t.Errorf("unexpected pod was written %v", actualPod)
 	}
 }
+
+func TestGetInstallerPodsOnThisNode_filtersByAppLabel(t *testing.T) {
+	o := &InstallOptions{
+		Namespace:            "openshift-kube-apiserver",
+		NodeName:             "node-a",
+		installerPodAppLabel: "preflight-installer",
+		KubeClient: fake.NewSimpleClientset(
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "installer-12-node-a",
+					Namespace: "openshift-kube-apiserver",
+					Labels:    map[string]string{"app": "installer"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node-a",
+				},
+			},
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "installer-1-node-a",
+					Namespace: "openshift-kube-apiserver",
+					Labels:    map[string]string{"app": "preflight-installer"},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node-a",
+				},
+			},
+		),
+	}
+
+	pods, err := o.getInstallerPodsOnThisNode(context.Background())
+	if err != nil {
+		t.Fatalf("getInstallerPodsOnThisNode() error = %v", err)
+	}
+	if len(pods) != 1 {
+		t.Fatalf("expected 1 preflight installer pod, got %d", len(pods))
+	}
+	if pods[0].Name != "installer-1-node-a" {
+		t.Fatalf("unexpected pod %q", pods[0].Name)
+	}
+}

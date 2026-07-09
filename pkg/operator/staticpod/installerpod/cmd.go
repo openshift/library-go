@@ -73,6 +73,10 @@ type InstallOptions struct {
 	PodMutationFns []PodMutationFunc
 
 	KubeletVersion string
+
+	// installerPodAppLabel scopes coordination to installer pods sharing this app label.
+	// When unset, it is resolved from the running installer's own pod labels.
+	installerPodAppLabel string
 }
 
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
@@ -486,7 +490,7 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 			return false, nil
 		}
 		if len(installerPods) == 0 {
-			return false, fmt.Errorf("no installer pods found")
+			return true, nil
 		}
 		latestRevision, err := internal.GetRevisionOfPod(installerPods[len(installerPods)-1])
 		if err != nil {
@@ -541,9 +545,9 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	if err != nil {
 		return err
 	}
-	// if there are no installer pods, it means this pod was removed somehow.  no action should be taken.
+	// if there are no installer pods, there is nothing to coordinate with for this operand.
 	if len(installerPods) == 0 {
-		return fmt.Errorf("no installer pods found")
+		return nil
 	}
 	latestRevision, err := internal.GetRevisionOfPod(installerPods[len(installerPods)-1])
 	if err != nil {
@@ -559,8 +563,41 @@ func (o *InstallOptions) waitForOtherInstallerRevisionsToSettle(ctx context.Cont
 	return nil
 }
 
+func (o *InstallOptions) resolveInstallerPodAppLabel(ctx context.Context) error {
+	if o.installerPodAppLabel != "" {
+		return nil
+	}
+
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		o.installerPodAppLabel = "installer"
+		return nil
+	}
+
+	pod, err := o.KubeClient.CoreV1().Pods(o.Namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("unable to read installer pod %q for label selector: %v; defaulting to app=installer", podName, err)
+		o.installerPodAppLabel = "installer"
+		return nil
+	}
+
+	if app, ok := pod.Labels["app"]; ok && app != "" {
+		o.installerPodAppLabel = app
+		return nil
+	}
+
+	o.installerPodAppLabel = "installer"
+	return nil
+}
+
 func (o *InstallOptions) getInstallerPodsOnThisNode(ctx context.Context) ([]*corev1.Pod, error) {
-	podList, err := o.KubeClient.CoreV1().Pods(o.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=installer"})
+	if err := o.resolveInstallerPodAppLabel(ctx); err != nil {
+		return nil, err
+	}
+
+	podList, err := o.KubeClient.CoreV1().Pods(o.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app=%s", o.installerPodAppLabel),
+	})
 	if err != nil {
 		return nil, err
 	}

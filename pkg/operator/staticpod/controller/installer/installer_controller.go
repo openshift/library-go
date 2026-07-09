@@ -53,6 +53,11 @@ const (
 //go:embed manifests/installer-pod.yaml
 var podTemplate []byte
 
+// InstallerPod returns a copy of the pod template used for static pod installation.
+func InstallerPod() *corev1.Pod {
+	return resourceread.ReadPodV1OrDie(podTemplate).DeepCopy()
+}
+
 type OperatorClient interface {
 	GetStaticPodOperatorState() (spec *operatorv1.StaticPodOperatorSpec, status *operatorv1.StaticPodOperatorStatus, resourceVersion string, err error)
 	GetStaticPodOperatorStateWithQuorum(ctx context.Context) (spec *operatorv1.StaticPodOperatorSpec, status *operatorv1.StaticPodOperatorStatus, resourceVersion string, err error)

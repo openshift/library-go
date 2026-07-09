@@ -87,6 +87,7 @@ metadata:
   namespace: test-ns
   labels:
     app: openshift-kms-preflight
+    revision: REVISION
   annotations:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
 spec:
@@ -133,10 +134,21 @@ spec:
         - name: resource-dir
           mountPath: /etc/kubernetes/static-pod-resources
           readOnly: true
+        - name: pod-resource-dir
+          mountPath: /etc/kubernetes/static-pod-resources/secrets
+          subPath: secrets
+          readOnly: true
+        - name: pod-resource-dir
+          mountPath: /etc/kubernetes/static-pod-resources/configmaps
+          subPath: configmaps
+          readOnly: true
   volumes:
     - name: resource-dir
       hostPath:
-        path: /etc/kubernetes/manifests
+        path: /etc/kubernetes/static-pod-resources
+    - name: pod-resource-dir
+      hostPath:
+        path: /etc/kubernetes/static-pod-resources/kms-preflight-REVISION
 `
 
 func TestGenerateStaticPodTemplate(t *testing.T) {

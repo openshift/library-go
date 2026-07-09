@@ -6,6 +6,9 @@ metadata:
   labels:
     # This is used in the operands network AllowLists. Changes here need to reflect in all dependent operators.
     app: openshift-kms-preflight
+{{- if .StaticPod}}
+    revision: "REVISION"
+{{- end}}
   annotations:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: {{.ConfigHash}}
 spec:
@@ -31,7 +34,10 @@ spec:
   volumes:
     - name: resource-dir
       hostPath:
-        path: /etc/kubernetes/manifests
+        path: /etc/kubernetes/static-pod-resources
+    - name: pod-resource-dir
+      hostPath:
+        path: /etc/kubernetes/static-pod-resources/kms-preflight-REVISION
 {{- end}}
   containers:
     - name: kms-preflight-check
@@ -63,5 +69,13 @@ spec:
       volumeMounts:
         - name: resource-dir
           mountPath: /etc/kubernetes/static-pod-resources
+          readOnly: true
+        - name: pod-resource-dir
+          mountPath: /etc/kubernetes/static-pod-resources/secrets
+          subPath: secrets
+          readOnly: true
+        - name: pod-resource-dir
+          mountPath: /etc/kubernetes/static-pod-resources/configmaps
+          subPath: configmaps
           readOnly: true
 {{- end}}
