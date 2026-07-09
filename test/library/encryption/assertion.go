@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,6 +21,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/client-go/kubernetes"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
@@ -178,4 +182,54 @@ func encryptionModeFromEtcdValue(data []byte) (string, bool) {
 
 func hasPrefixAndTrailingData(data, prefix []byte) bool {
 	return bytes.HasPrefix(data, prefix) && len(data) > len(prefix)
+}
+
+var WellKnownKASTargetGRs = []schema.GroupResource{
+	{Group: "", Resource: "secrets"},
+	{Group: "", Resource: "configmaps"},
+}
+
+func AssertWellKnownSecretOfLifeEncrypted(t testing.TB, clientSet ClientSet, resource runtime.Object) {
+	t.Helper()
+	secret, ok := resource.(*corev1.Secret)
+	if !ok {
+		t.Fatalf("expected *corev1.Secret, got %T", resource)
+	}
+	rawValue := GetRawWellKnownSecretOfLife(t, clientSet, secret.Namespace)
+	if strings.Contains(rawValue, string(secret.Data["quote"])) {
+		t.Errorf("secret not encrypted, etcd value contains quote in plain text")
+	}
+}
+
+func AssertWellKnownSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, resource runtime.Object) {
+	t.Helper()
+	secret, ok := resource.(*corev1.Secret)
+	if !ok {
+		t.Fatalf("expected *corev1.Secret, got %T", resource)
+	}
+	rawValue := GetRawWellKnownSecretOfLife(t, clientSet, secret.Namespace)
+	if !strings.Contains(rawValue, string(secret.Data["quote"])) {
+		t.Errorf("secret not decrypted, etcd value does not contain quote in plain text")
+	}
+}
+
+func AssertWellKnownSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {
+	t.Helper()
+	assertSecrets(t, clientSet.Etcd, string(expectedMode))
+	assertConfigMaps(t, clientSet.Etcd, string(expectedMode))
+	AssertLastMigratedKey(t, clientSet.Kube, WellKnownKASTargetGRs, namespace, labelSelector)
+}
+
+func assertSecrets(t testing.TB, etcdClient EtcdClient, expectedMode string) {
+	t.Logf("Checking if all Secrets where encrypted/decrypted for %q mode", expectedMode)
+	totalSecrets, err := VerifyResources(t, etcdClient, "/kubernetes.io/secrets/", expectedMode, false)
+	t.Logf("Verified %d Secrets", totalSecrets)
+	require.NoError(t, err)
+}
+
+func assertConfigMaps(t testing.TB, etcdClient EtcdClient, expectedMode string) {
+	t.Logf("Checking if all ConfigMaps where encrypted/decrypted for %q mode", expectedMode)
+	totalConfigMaps, err := VerifyResources(t, etcdClient, "/kubernetes.io/configmaps/", expectedMode, false)
+	t.Logf("Verified %d ConfigMaps", totalConfigMaps)
+	require.NoError(t, err)
 }
