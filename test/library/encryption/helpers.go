@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -475,6 +476,53 @@ func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, pr
 		newErr := fmt.Errorf("timed out waiting for key %q to complete migration of %v: %v", prevKeyMeta.Name, targetGRs, err)
 		require.NoError(t, newErr)
 	}
+}
+
+const wellKnownSecretOfLifeName = "secret-of-life"
+
+func CreateAndStoreWellKnownSecretOfLife(t testing.TB, clientSet ClientSet, namespace string) runtime.Object {
+	t.Helper()
+	ctx := context.TODO()
+
+	oldSecret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, wellKnownSecretOfLifeName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		t.Fatalf("Failed to check if the secret already exists: %v", err)
+	}
+	if oldSecret != nil && len(oldSecret.Name) > 0 {
+		t.Log("The secret already exists, removing it first")
+		require.NoError(t, clientSet.Kube.CoreV1().Secrets(namespace).Delete(ctx, oldSecret.Name, metav1.DeleteOptions{}))
+	}
+
+	t.Logf("Creating %q in %s namespace", wellKnownSecretOfLifeName, namespace)
+	rawSecret := WellKnownSecretOfLife(t, namespace)
+	secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(ctx, rawSecret.(*corev1.Secret), metav1.CreateOptions{})
+	require.NoError(t, err)
+	return secret
+}
+
+func WellKnownSecretOfLife(_ testing.TB, namespace string) runtime.Object {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wellKnownSecretOfLifeName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"quote": []byte("I have no special talents. I am only passionately curious"),
+		},
+	}
+}
+
+func GetRawWellKnownSecretOfLife(t testing.TB, clientSet ClientSet, namespace string) string {
+	t.Helper()
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	secretOfLifeKey := fmt.Sprintf("/kubernetes.io/secrets/%s/%s", namespace, wellKnownSecretOfLifeName)
+	resp, err := clientSet.Etcd.Get(timeout, secretOfLifeKey)
+	require.NoError(t, err)
+	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for secret-of-life")
+
+	return string(resp.Kvs[0].Value)
 }
 
 // inParallel returns a single testStep that runs the given steps
