@@ -815,7 +815,7 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := EnsureKMSPluginSidecarInStaticPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
+			err := EnsureKMSPluginSidecarInStaticPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", "", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return

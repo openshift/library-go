@@ -53,11 +53,12 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 // populates on disk from the encryption-config Secret. Because those files are owned by root, each sidecar
 // is configured to run as UID 0.
 //
+// diskSecretName, when non-empty, overrides the name used to compute the on-disk referenceDataDir
+// path (see KMSPluginBuilder.WithDiskSecretName). Pass "" to use encryptionConfigSecretName.
+//
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func EnsureKMSPluginSidecarInStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
-	removeAllKMSManagedResources(podSpec, containerName)
-
+func EnsureKMSPluginSidecarInStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, diskSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -69,9 +70,14 @@ func EnsureKMSPluginSidecarInStaticPodSpec(ctx context.Context, podSpec *corev1.
 		return nil
 	}
 
+	// To make sure sidecars not present in the encryption configuration are also not present
+	// in the pod spec, remove every KMS-related resource that might already exist
+	removeAllKMSManagedResources(podSpec, containerName)
+
 	return NewKMSPluginBuilder().
 		FromEncryptionConfigSecret(encryptionConfigNamespace, encryptionConfigSecretName, secretClient).
 		AsStaticPod().
+		WithDiskSecretName(diskSecretName).
 		WithHealthReporter(operatorBinary, operatorImage).
 		Apply(ctx, podSpec, containerName)
 }
@@ -197,6 +203,7 @@ func isKMSManagedVolume(name string) bool {
 }
 
 func removeAllKMSManagedResources(podSpec *corev1.PodSpec, containerName string) {
+	// First, filter out all the sidecars from the pod spec
 	filtered := podSpec.InitContainers[:0]
 	for _, c := range podSpec.InitContainers {
 		if !isKMSManagedContainer(c.Name) {
@@ -205,6 +212,7 @@ func removeAllKMSManagedResources(podSpec *corev1.PodSpec, containerName string)
 	}
 	podSpec.InitContainers = filtered
 
+	// Then, filter out the KMS volumes
 	filteredVolumes := podSpec.Volumes[:0]
 	for _, v := range podSpec.Volumes {
 		if !isKMSManagedVolume(v.Name) {
@@ -213,6 +221,7 @@ func removeAllKMSManagedResources(podSpec *corev1.PodSpec, containerName string)
 	}
 	podSpec.Volumes = filteredVolumes
 
+	// Finally, filter out the KMS-related volume mounts added to containers (e.g., to share the unix domain socket)
 	for i, c := range podSpec.Containers {
 		if c.Name == containerName {
 			mounts := c.VolumeMounts[:0]
