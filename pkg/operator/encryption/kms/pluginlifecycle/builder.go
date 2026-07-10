@@ -21,6 +21,7 @@ type KMSPluginBuilder struct {
 	secretClient               corev1client.SecretsGetter
 	encryptionConfigNamespace  string
 	encryptionConfigSecretName string
+	diskSecretName             string
 	staticPod                  bool
 	errorIfNotFound            bool
 
@@ -45,6 +46,12 @@ func (b *KMSPluginBuilder) FromEncryptionConfigSecret(namespace, secretName stri
 // data from the resource-dir volume and run as root (UID 0).
 func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	b.staticPod = true
+	return b
+}
+
+// WithDiskSecretName overrides the name used to compute the on-disk referenceDataDir path in static pod mode.
+func (b *KMSPluginBuilder) WithDiskSecretName(name string) *KMSPluginBuilder {
+	b.diskSecretName = name
 	return b
 }
 
@@ -108,7 +115,11 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	if b.staticPod {
 		refDataVolumeName = resourceDirVolumeName
 		refDataMountPath = resourcesDir
-		referenceDataDir = filepath.Join(resourcesDir, "secrets", b.encryptionConfigSecretName)
+		pathName := b.encryptionConfigSecretName
+		if b.diskSecretName != "" {
+			pathName = b.diskSecretName
+		}
+		referenceDataDir = filepath.Join(resourcesDir, "secrets", pathName)
 	} else {
 		refDataVolumeName = referenceDataVolumeName
 		refDataMountPath = referenceDataMountPath

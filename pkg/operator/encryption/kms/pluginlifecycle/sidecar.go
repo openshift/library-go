@@ -52,7 +52,7 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 //
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
+func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, diskSecretName string, operatorBinary string, operatorImage string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -67,6 +67,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 	return NewKMSPluginBuilder().
 		FromEncryptionConfigSecret(encryptionConfigNamespace, encryptionConfigSecretName, secretClient).
 		AsStaticPod().
+		WithDiskSecretName(diskSecretName).
 		WithHealthReporter(operatorBinary, operatorImage).
 		Apply(ctx, podSpec, containerName)
 }
