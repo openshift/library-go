@@ -12,9 +12,7 @@ spec:
   # This is a one-shot preflight check, not a long-running pod.
   # The operator creates it, waits for completion, and inspects the result.
   restartPolicy: Never
-{{- if not .StaticPod}}
   serviceAccountName: kms-preflight
-{{- end}}
   priorityClassName: system-cluster-critical
   nodeSelector:
     node-role.kubernetes.io/master: ""
@@ -28,10 +26,6 @@ spec:
       effect: "NoExecute"
 {{- if .StaticPod}}
   hostNetwork: true
-  volumes:
-    - name: resource-dir
-      hostPath:
-        path: /etc/kubernetes/manifests
 {{- end}}
   containers:
     - name: kms-preflight-check
@@ -42,9 +36,6 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
-{{- if .StaticPod}}
-        - --kubeconfig=/etc/kubernetes/static-pod-resources/secrets/kms-preflight-encryption-config/lb-int.kubeconfig
-{{- end}}
       env:
       - name: POD_NAME
         valueFrom: { fieldRef: { fieldPath: metadata.name } }
@@ -57,11 +48,3 @@ spec:
         requests:
           memory: 50Mi
           cpu: 5m
-{{- if .StaticPod}}
-      securityContext:
-        runAsUser: 0
-      volumeMounts:
-        - name: resource-dir
-          mountPath: /etc/kubernetes/static-pod-resources
-          readOnly: true
-{{- end}}

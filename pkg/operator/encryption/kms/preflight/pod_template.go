@@ -47,32 +47,6 @@ func newKmsPreflightTemplate(
 	}
 }
 
-// generatePodTemplate renders the KMS preflight pod YAML template.
-// The pod runs the preflight checker as a one-shot command and shares an emptyDir
-// volume with the KMS plugin sidecar at /var/run/kmsplugin.
-func generatePodTemplate(
-	podName string,
-	namespace string,
-	configHash string,
-	operatorImage string,
-	operatorCommand []string,
-	kmsCallTimeout time.Duration,
-) (*corev1.Pod, error) {
-	return renderPreflightPodTemplate(podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, false)
-}
-
-// generateStaticPodTemplate renders the KMS preflight static pod YAML template.
-func generateStaticPodTemplate(
-	podName string,
-	namespace string,
-	configHash string,
-	operatorImage string,
-	operatorCommand []string,
-	kmsCallTimeout time.Duration,
-) (*corev1.Pod, error) {
-	return renderPreflightPodTemplate(podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, true)
-}
-
 func renderPreflightPodTemplate(
 	podName string,
 	namespace string,
@@ -86,11 +60,7 @@ func renderPreflightPodTemplate(
 	tmplVal := newKmsPreflightTemplate(
 		podName, namespace, configHash, operatorImage, operatorCommand, kmsCallTimeout, staticPod,
 	)
-	return renderPodTemplate("kms-preflight", string(rawManifest), tmplVal)
-}
-
-func renderPodTemplate(name, rawManifest string, tmplVal any) (*corev1.Pod, error) {
-	tmpl, err := template.New(name).Parse(rawManifest)
+	tmpl, err := template.New("kms-preflight").Parse(string(rawManifest))
 	if err != nil {
 		return nil, err
 	}

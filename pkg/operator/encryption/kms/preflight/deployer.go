@@ -45,6 +45,8 @@ type PodPreflightDeployer struct {
 	operatorImage   string
 	operatorCommand []string
 	kmsCallTimeout  time.Duration
+	// virtualStaticPod will use settings like a static pod, e.g. hostNetwork=True, but run as a normal pod
+	virtualStaticPod bool
 }
 
 func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, encryptionConfigSecret *corev1.Secret) error {
@@ -68,13 +70,14 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 		return fmt.Errorf("failed to create preflight encryption config secret: %w", err)
 	}
 
-	pod, err := generatePodTemplate(
+	pod, err := renderPreflightPodTemplate(
 		preflightPodName,
 		d.namespace,
 		configHash,
 		d.operatorImage,
 		d.operatorCommand,
 		d.kmsCallTimeout,
+		d.virtualStaticPod,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate preflight pod template: %w", err)
@@ -210,4 +213,20 @@ func NewPodPreflightDeployer(
 		operatorCommand: operatorCommand,
 		kmsCallTimeout:  kmsCallTimeout,
 	}
+}
+
+// NewStaticPodPreflightDeployer creates a deployer that virtualizes a static pod
+// (e.g. hostNetwork=true) while still running as a normal pod.
+func NewStaticPodPreflightDeployer(
+	namespace string,
+	coreClient corev1client.CoreV1Interface,
+	rbacClient rbacclientv1.RbacV1Interface,
+	eventRecorder events.Recorder,
+	operatorImage string,
+	operatorCommand []string,
+	kmsCallTimeout time.Duration,
+) *PodPreflightDeployer {
+	deployer := NewPodPreflightDeployer(namespace, coreClient, rbacClient, eventRecorder, operatorImage, operatorCommand, kmsCallTimeout)
+	deployer.virtualStaticPod = true
+	return deployer
 }
