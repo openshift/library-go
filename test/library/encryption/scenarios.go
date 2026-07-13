@@ -181,48 +181,90 @@ func ShuffleEncryptionProviders(providers []EncryptionProvider) []EncryptionProv
 // It creates a resource, migrates through each provider,
 // verifies the resource is encrypted after each migration, and finally
 // switches to identity (off).
-func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, scenario ProvidersMigrationScenario) {
-	if len(scenario.EncryptionProviders) < 2 {
-		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(scenario.EncryptionProviders))
+// Pass one scenario for a single operator, or multiple scenarios to run
+// KAS/Auth/OAS migration together. Only one scenario should provide EncryptionProviders.
+func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrationScenarios ...ProvidersMigrationScenario) {
+	if len(migrationScenarios) == 0 {
+		t.Fatalf("TestEncryptionProvidersMigration requires at least one scenario")
 	}
 
-	for _, provider := range scenario.EncryptionProviders {
+	var providerScenario *ProvidersMigrationScenario
+	for i := range migrationScenarios {
+		if len(migrationScenarios[i].EncryptionProviders) == 0 {
+			continue
+		}
+		if providerScenario != nil {
+			t.Fatalf("only one scenario may provide EncryptionProviders, got %q and %q",
+				providerScenario.ResourceName, migrationScenarios[i].ResourceName)
+		}
+		providerScenario = &migrationScenarios[i]
+	}
+	if providerScenario == nil {
+		t.Fatalf("one scenario must provide EncryptionProviders")
+	}
+
+	providers := providerScenario.EncryptionProviders
+	if len(providers) < 2 {
+		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(providers))
+	}
+
+	for _, provider := range providers {
 		if provider.Type == configv1.EncryptionTypeIdentity || provider.Type == "" {
 			t.Fatalf("Unsupported encryption provider %q passed", provider.Type)
 		}
 	}
 
 	// step 1: create the resource
-	scenarios := []testStep{
-		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+	var createSteps []testStep
+	for _, scenario := range migrationScenarios {
+		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
-		}},
+		}})
 	}
+	scenarios := []testStep{inParallel(createSteps...)}
 
 	// step 2: migrate through each provider in sequence
-	for i, provider := range scenario.EncryptionProviders {
+	for i, provider := range providers {
 		prefix := "EncryptWith"
 		if i > 0 {
 			prefix = "MigrateTo"
 		}
-		scenarios = append(scenarios,
-			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type))), testFunc: func(t testing.TB) {
-				TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
-			}},
-			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
-				e := NewE(t)
-				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-			}},
-		)
+
+		var migrateSteps []testStep
+		for _, scenario := range migrationScenarios {
+			migrateSteps = append(migrateSteps, testStep{
+				name: fmt.Sprintf("%s%s%s", prefix, strings.ToUpper(string(provider.Type)), scenario.ResourceName),
+				testFunc: func(t testing.TB) {
+					TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
+				},
+			})
+		}
+
+		var assertSteps []testStep
+		for _, scenario := range migrationScenarios {
+			assertSteps = append(assertSteps, testStep{
+				name: fmt.Sprintf("Assert%s%sEncrypted", strings.ToUpper(string(provider.Type)), scenario.ResourceName),
+				testFunc: func(t testing.TB) {
+					e := NewE(t)
+					scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+				},
+			})
+		}
+
+		scenarios = append(scenarios, inParallel(migrateSteps...), inParallel(assertSteps...))
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
-	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
-		TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
-		e := NewE(t)
-		scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-	}})
+	var offSteps []testStep
+	for _, scenario := range migrationScenarios {
+		offSteps = append(offSteps, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+			e := NewE(t)
+			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+		}})
+	}
+	scenarios = append(scenarios, inParallel(offSteps...))
 
 	// run scenarios
 	for _, testScenario := range scenarios {
