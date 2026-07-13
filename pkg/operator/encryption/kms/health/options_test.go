@@ -1,11 +1,15 @@
 package health
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 )
 
 // validOptions returns an options value that passes validate. Each test case
@@ -105,13 +109,8 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:   "node name at fieldManager limit",
-			mutate: func(o *options) { o.NodeName = strings.Repeat("n", 108) }, // 20-char prefix + 108 == 128
-		},
-		{
-			name:    "node name over fieldManager limit",
-			mutate:  func(o *options) { o.NodeName = strings.Repeat("n", 109) }, // 20-char prefix + 109 > 128
-			wantErr: true,
+			name:   "long node name",
+			mutate: func(o *options) { o.NodeName = strings.Repeat("n", 253) },
 		},
 	}
 
@@ -128,4 +127,15 @@ func TestValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFieldManagerForNode(t *testing.T) {
+	const nodeName = "node-1"
+	want := fmt.Sprintf("%s-%x", Subcommand, sha256.Sum256([]byte(nodeName)))
+
+	require.Equal(t, want, fieldManagerForNode(nodeName))
+	require.Equal(t, fieldManagerForNode(nodeName), fieldManagerForNode(nodeName))
+	require.NotEqual(t, fieldManagerForNode("node-1"), fieldManagerForNode("node-2"))
+	require.LessOrEqual(t, len(fieldManagerForNode(nodeName)), metav1validation.FieldManagerMaxLength)
+	require.LessOrEqual(t, len(fieldManagerForNode(strings.Repeat("n", 253))), metav1validation.FieldManagerMaxLength)
 }
