@@ -70,10 +70,6 @@ func EnsureKMSPluginSidecarInStaticPodSpec(ctx context.Context, podSpec *corev1.
 		return nil
 	}
 
-	// To make sure sidecars not present in the encryption configuration are also not present
-	// in the pod spec, remove every KMS-related resource that might already exist
-	removeAllKMSManagedResources(podSpec, containerName)
-
 	return NewKMSPluginBuilder().
 		FromEncryptionConfigSecret(encryptionConfigNamespace, encryptionConfigSecretName, secretClient).
 		AsStaticPod().
