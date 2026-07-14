@@ -19,8 +19,10 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/encryptionstatus"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -305,6 +307,22 @@ func TestKMSConfigHasher(t *testing.T) {
 		})
 	}
 }
+
+type fakeKMSEncryptionStatusClient struct{}
+
+func (f *fakeKMSEncryptionStatusClient) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
+	return &operatorv1.KMSEncryptionStatus{}, nil
+}
+
+func (f *fakeKMSEncryptionStatusClient) ApplyKMSEncryptionStatus(_ context.Context, _ string, _ *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+	return nil
+}
+
+func (f *fakeKMSEncryptionStatusClient) UpdateKMSEncryptionStatus(_ context.Context, _ func(*operatorv1.KMSEncryptionStatus)) error {
+	return nil
+}
+
+var _ encryptionstatus.KMSEncryptionStatusClient = &fakeKMSEncryptionStatusClient{}
 
 type fakeDeployer struct {
 	deployed   bool
@@ -850,6 +868,7 @@ func TestKMSPreflightController(t *testing.T) {
 				fakeApiServerClient,
 				fakeApiServerInformer,
 				fakeKubeClient.CoreV1(),
+				&fakeKMSEncryptionStatusClient{},
 				eventRecorder,
 			)
 

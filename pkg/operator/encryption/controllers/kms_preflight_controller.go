@@ -22,6 +22,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/encryptionstatus"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -170,6 +171,7 @@ type kmsPreflightController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
+	kmsStatusClient encryptionstatus.KMSEncryptionStatusClient
 
 	deployer                 KMSPreflightDeployer
 	provider                 Provider
@@ -258,6 +260,7 @@ func NewKMSPreflightController(
 	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
 	// via the operatorClient informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	kmsStatusClient encryptionstatus.KMSEncryptionStatusClient,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
@@ -266,6 +269,7 @@ func NewKMSPreflightController(
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 		coreClient:      coreClient,
+		kmsStatusClient: kmsStatusClient,
 
 		deployer:                 deployer,
 		provider:                 provider,
