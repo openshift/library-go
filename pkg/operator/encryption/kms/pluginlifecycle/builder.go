@@ -21,6 +21,7 @@ type KMSPluginBuilder struct {
 	secretClient               corev1client.SecretsGetter
 	encryptionConfigNamespace  string
 	encryptionConfigSecretName string
+	diskSecretName             string
 	staticPod                  bool
 	errorIfNotFound            bool
 
@@ -48,6 +49,17 @@ func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	return b
 }
 
+// WithDiskSecretName overrides the name used to compute the on-disk referenceDataDir
+// path in static pod mode. The static pod installer strips the revision suffix when
+// placing secrets on disk (e.g. it places "encryption-config-7" at
+// …/secrets/encryption-config/), so callers that validate a revision-specific secret
+// must pass the base name here to match the paths baked into the pod spec.
+// Defaults to encryptionConfigSecretName when not set.
+func (b *KMSPluginBuilder) WithDiskSecretName(name string) *KMSPluginBuilder {
+	b.diskSecretName = name
+	return b
+}
+
 // WithSecretRequired makes Apply return an error when the encryption-config Secret
 // does not exist, instead of silently treating it as a no-op. This is useful for
 // callers like the preflight checker that expect the Secret to be present.
@@ -61,7 +73,7 @@ func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 // when empty, the subcommand is invoked directly via the image ENTRYPOINT.
 func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage string) *KMSPluginBuilder {
 	b.healthReporter = &healthReporter{
-		name:           "kms-health-reporter",
+		name:           kmsHealthReporterContainerName,
 		operatorBinary: operatorBinary,
 		subcommand:     health.Subcommand,
 		image:          operatorImage,
@@ -99,6 +111,10 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	if err != nil {
 		return fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
+
+	// Strip all existing KMS-related resources before re-adding exactly what the current encryption config requires
+	removeAllKMSManagedResources(podSpec, containerName)
+
 	if len(kmsConfigurations) == 0 {
 		klog.V(4).Infof("skipping KMS sidecar injection: no KMS plugins found in EncryptionConfiguration")
 		return nil
@@ -108,7 +124,11 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	if b.staticPod {
 		refDataVolumeName = resourceDirVolumeName
 		refDataMountPath = resourcesDir
-		referenceDataDir = filepath.Join(resourcesDir, "secrets", b.encryptionConfigSecretName)
+		pathName := b.encryptionConfigSecretName
+		if b.diskSecretName != "" {
+			pathName = b.diskSecretName
+		}
+		referenceDataDir = filepath.Join(resourcesDir, "secrets", pathName)
 	} else {
 		refDataVolumeName = referenceDataVolumeName
 		refDataMountPath = referenceDataMountPath
