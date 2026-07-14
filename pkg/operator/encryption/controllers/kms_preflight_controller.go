@@ -135,9 +135,9 @@ const (
 	// in the condition message.
 	KMSPreflightResultPodCondition corev1.PodConditionType = "KMSPreflightResult"
 
-	// KMSPreflightKEKIDPodCondition carries the current key encryption key (KEK)
-	// ID reported by the KMS plugin during the preflight evaluation.
-	KMSPreflightKEKIDPodCondition corev1.PodConditionType = "KMSPreflightKekID"
+	// KMSPreflightRemoteKeyIDPodCondition carries the remote key ID reported by
+	// the KMS plugin during the preflight evaluation.
+	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightKekID"
 
 	preflightPodRetention      = 1 * time.Hour
 	preflightPodStartupTimeout = 3 * time.Minute
@@ -375,6 +375,14 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     The admin fixes the config, which triggers a new hash and cleanup
 //     via scenario (c).
 //
+// KMSEncryptionStatus.Preflight.Result is written only when the checker ran
+// to completion; infrastructure failures are surfaced through the degraded
+// condition only:
+//
+//   - 3e (check passed):  writes Result{Succeeded, configHash, remoteKeyID}
+//   - 3f (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
+//   - 3a, 3b, 3d (infrastructure failures): no write; EncryptionKMSPreflightControllerDegraded is set instead
+//
 // TODO: in the future we might want to add retries for failed preflights.
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, err error) {
 	requiredHash, err := c.preflightRequired(ctx)
@@ -435,17 +443,45 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return true, nil
 	}
 
+	// remoteKeyID may be set even on failure if the KMS Status RPC succeeded before
+	// Encrypt/Decrypt failed; empty string otherwise.
+	remoteKeyID := ""
+	if kc := findPodCondition(podStatus.Conditions, KMSPreflightRemoteKeyIDPodCondition); kc != nil {
+		remoteKeyID = kc.Message
+	}
+
 	// Scenario 3e: check passed.
 	if resultCondition.Status == corev1.ConditionTrue {
+		if err := c.writePreflightResult(ctx, operatorv1.KMSPreflightResult{
+			Status:      operatorv1.KMSPreflightResultSucceeded,
+			ConfigHash:  requiredHash,
+			RemoteKeyID: remoteKeyID,
+		}); err != nil {
+			return false, fmt.Errorf("failed to write preflight result: %w", err)
+		}
 		return false, c.cleanupAfterRetention(ctx, resultCondition.LastTransitionTime.Time)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
 	// update the config which triggers a new hash and cleanup via scenario 3c.
-	return false, &preflightError{
+	pe := &preflightError{
 		reason:  "PreflightCheckFailed",
 		message: fmt.Sprintf("preflight check failed for hash %s: %s", requiredHash, resultCondition.Message),
 	}
+	if err := c.writePreflightResult(ctx, operatorv1.KMSPreflightResult{
+		Status:      operatorv1.KMSPreflightResultFailed,
+		ConfigHash:  requiredHash,
+		RemoteKeyID: remoteKeyID,
+	}); err != nil {
+		return false, fmt.Errorf("failed to write preflight result (%w); preflight check: %w", err, pe)
+	}
+	return false, pe
+}
+
+func (c *kmsPreflightController) writePreflightResult(ctx context.Context, result operatorv1.KMSPreflightResult) error {
+	return c.kmsStatusClient.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+		s.Preflight.Result = result
+	})
 }
 
 func (c *kmsPreflightController) cleanupAfterRetention(ctx context.Context, completedAt time.Time) error {
