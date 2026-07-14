@@ -22,7 +22,7 @@ type options struct {
 	NodeName     string
 	Kubeconfig   string
 
-	newWriter NewEncryptionStatusWriterFunc
+	newClient NewKMSEncryptionStatusClientFunc
 }
 
 func (o *options) addFlags(fs *pflag.FlagSet) {
@@ -83,9 +83,9 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	// single-reporter operators, like oauth- / openshift-apiserver, can pass
 	// any constant value.
 	fieldManager := fmt.Sprintf("%s-%s", Subcommand, o.NodeName)
-	writeStatus, err := o.newWriter(restCfg, fieldManager)
+	statusClient, err := o.newClient(restCfg)
 	if err != nil {
-		return nil, fmt.Errorf("build encryption status writer: %w", err)
+		return nil, fmt.Errorf("build encryption status client: %w", err)
 	}
 
 	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
@@ -94,8 +94,9 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 	}
 
 	return &Config{
-		writeStatus:  writeStatus,
+		statusClient: statusClient,
 		prober:       newProber(o.NodeName, plugins),
+		fieldManager: fieldManager,
 		interval:     o.Interval,
 		writeTimeout: o.WriteTimeout,
 	}, nil

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	kmsservice "k8s.io/kms/pkg/service"
 )
@@ -19,9 +20,11 @@ func TestRunReportsOnce(t *testing.T) {
 	t.Cleanup(cancel)
 
 	var have *applyoperatorv1.KMSEncryptionStatusApplyConfiguration
+	var haveFieldManager string
 	c := &Config{
 		interval:     time.Hour, // never reached; cancelled after the first tick
 		writeTimeout: time.Second,
+		fieldManager: "test-field-manager",
 		prober: &prober{
 			nodeName: "node-1",
 			plugins: []pluginClient{
@@ -29,10 +32,13 @@ func TestRunReportsOnce(t *testing.T) {
 			},
 			now: func() time.Time { return time.Unix(0, 0).UTC() },
 		},
-		writeStatus: func(_ context.Context, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
-			have = status
-			cancel()
-			return nil
+		statusClient: &fakeEncryptionStatusClient{
+			applyFn: func(_ context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+				have = status
+				haveFieldManager = fieldManager
+				cancel()
+				return nil
+			},
 		},
 	}
 
@@ -40,4 +46,21 @@ func TestRunReportsOnce(t *testing.T) {
 	require.Len(t, have.HealthReports, 1)
 	require.Equal(t, "node-1", *have.HealthReports[0].NodeName)
 	require.Equal(t, "1", *have.HealthReports[0].KeyId)
+	require.Equal(t, "test-field-manager", haveFieldManager)
+}
+
+type fakeEncryptionStatusClient struct {
+	applyFn func(ctx context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error
+}
+
+func (f *fakeEncryptionStatusClient) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
+	return &operatorv1.KMSEncryptionStatus{}, nil
+}
+
+func (f *fakeEncryptionStatusClient) ApplyKMSEncryptionStatus(ctx context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+	return f.applyFn(ctx, fieldManager, status)
+}
+
+func (f *fakeEncryptionStatusClient) UpdateKMSEncryptionStatus(_ context.Context, _ func(*operatorv1.KMSEncryptionStatus)) error {
+	return nil
 }
