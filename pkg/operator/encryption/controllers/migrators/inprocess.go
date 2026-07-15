@@ -134,8 +134,31 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 	listProcessor := newListProcessor(ctx, m.dynamicClient, func(obj *unstructured.Unstructured) error {
 		for {
 			_, updateErr := d.Namespace(obj.GetNamespace()).Update(ctx, obj, metav1.UpdateOptions{})
-			if updateErr == nil || errors.IsNotFound(updateErr) || errors.IsConflict(updateErr) {
+			if updateErr == nil || errors.IsConflict(updateErr) {
 				return nil
+			}
+			if errors.IsNotFound(updateErr) {
+				// NotFound on Update can mean either:
+				// (a) the object was deleted between List and Update, or
+				// (b) the namespace was deleted but the object persists in etcd
+				//     (NamespaceLifecycle admission rejects Updates to non-existent namespaces).
+				//
+				// GET bypasses admission and reads directly from storage.
+				// If the object still exists, it is an orphan that cannot be re-encrypted.
+				// Failing the migration prevents the state machine from pruning the old
+				// encryption key, which would make orphaned objects permanently undecryptable.
+				_, getErr := d.Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
+				if errors.IsNotFound(getErr) {
+					return nil
+				}
+				if getErr != nil {
+					return fmt.Errorf("failed to verify existence of %s/%s after update returned NotFound: %v",
+						obj.GetNamespace(), obj.GetName(), getErr)
+				}
+				return fmt.Errorf("cannot migrate %s/%s: the object exists in etcd but its namespace %q does not, "+
+					"blocking migration to prevent the old encryption key from being pruned "+
+					"(delete the orphaned object from etcd to unblock, see https://access.redhat.com/solutions/6769801)",
+					obj.GetNamespace(), obj.GetName(), obj.GetNamespace())
 			}
 			if retryable := canRetry(updateErr); retryable == nil || *retryable == false {
 				klog.Warningf("Update of %s/%s failed: %v", obj.GetNamespace(), obj.GetName(), updateErr)
