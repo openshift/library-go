@@ -1,6 +1,6 @@
 ARG UPSTREAM_IMAGE=k8s-mock-kms-plugin-upstream
 
-FROM golang:1.25 AS builder
+FROM golang:1.26 AS builder
 WORKDIR /workspace
 COPY . .
 ARG TARGETARCH
