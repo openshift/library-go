@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
 
 const (
@@ -25,27 +25,23 @@ const (
 // mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
-// NewEncryptionStatusWriterFunc builds the EncryptionStatusWriter for a target
-// apiserver operator status CR. fieldManager sets the owner in the
-// managedFields when doing SSA.
-type NewEncryptionStatusWriterFunc func(restConfig *rest.Config, fieldManager string) (EncryptionStatusWriter, error)
-
-// EncryptionStatusWriter is capable of applying the
-// KMSEncryptionStatusApplyConfiguration at the correct place in the operator's
-// status.
-type EncryptionStatusWriter func(ctx context.Context, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error
+// NewEncryptionStatusProviderFunc builds the EncryptionStatusProvider for a
+// target apiserver operator status CR. The factory lets sidecar binaries defer
+// REST client creation until startup when the in-cluster config is available.
+type NewEncryptionStatusProviderFunc func(restConfig *rest.Config) (kms.EncryptionStatusProvider, error)
 
 type Config struct {
-	writeStatus EncryptionStatusWriter
-	prober      *prober
+	provider     kms.EncryptionStatusProvider
+	fieldManager string
+	prober       *prober
 
 	interval     time.Duration
 	writeTimeout time.Duration
 }
 
-func NewCommand(ctx context.Context, newWriter NewEncryptionStatusWriterFunc) *cobra.Command {
+func NewCommand(ctx context.Context, newProvider NewEncryptionStatusProviderFunc) *cobra.Command {
 	o := &options{
-		newWriter: newWriter,
+		newProvider: newProvider,
 	}
 
 	cmd := &cobra.Command{
@@ -82,7 +78,7 @@ func (c *Config) Run(ctx context.Context) error {
 
 		writeCtx, cancel := context.WithTimeout(ctx, c.writeTimeout)
 		defer cancel()
-		if err := c.writeStatus(writeCtx, reports); err != nil {
+		if err := c.provider.ApplyKMSEncryptionStatus(writeCtx, c.fieldManager, reports); err != nil {
 			klog.ErrorS(err, "failed to publish kms plugin health")
 		}
 	}, c.interval, 0.1, false)
