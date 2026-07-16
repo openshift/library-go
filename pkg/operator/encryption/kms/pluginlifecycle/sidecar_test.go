@@ -611,3 +611,180 @@ func TestAddKMSPluginSidecarToPodSpecIdempotency(t *testing.T) {
 	call()
 	require.Equal(t, afterFirstCall, podSpec)
 }
+
+// TestAddKMSPluginSidecarToStaticPodSpec focuses on static-pod-specific behavior (resource-dir
+// paths, diskSecretName override). Error and edge cases are covered by TestAddKMSPluginSidecarToPodSpec
+// since both functions share the same underlying KMSPluginBuilder.Apply logic.
+func TestAddKMSPluginSidecarToStaticPodSpec(t *testing.T) {
+	f := newSidecarTestFixtures(t)
+
+	secretClient := func(objs ...runtime.Object) corev1client.SecretsGetter {
+		return fake.NewClientset(objs...).CoreV1()
+	}
+
+	socketMount := corev1.VolumeMount{
+		Name:      "kms-plugin-socket",
+		MountPath: "/var/run/kmsplugin",
+	}
+	resourceDirMount := corev1.VolumeMount{
+		Name:      "resource-dir",
+		MountPath: "/etc/kubernetes/static-pod-resources",
+		ReadOnly:  true,
+	}
+	socketVolume := corev1.Volume{
+		Name: "kms-plugin-socket",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	sidecarArgs := func(secretName string) []string {
+		return []string{
+			"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
+			"-vault-address=https://vault.example.com:8200",
+			"-transit-mount=transit",
+			"-transit-key=my-key",
+			"-approle-role-id=test-role-id",
+			fmt.Sprintf("-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-secret-vault-approle_secret-id-555", secretName),
+			fmt.Sprintf("-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555", secretName),
+			"-tls-sni=vault.internal.example.com",
+			"-vault-namespace=my-namespace",
+			"-metrics-port=0",
+		}
+	}
+
+	expectedHealthReporter := func(sockets string) corev1.Container {
+		return corev1.Container{
+			Name:                     "kms-health-reporter",
+			Image:                    "quay.io/test/operator:latest",
+			Command:                  []string{"cluster-kube-apiserver-operator", "kms-health-reporter"},
+			Args:                     []string{fmt.Sprintf("--kms-sockets=%s", sockets), "--node-name=$(NODE_NAME)", "--kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig"},
+			ImagePullPolicy:          corev1.PullIfNotPresent,
+			RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			Env: []corev1.EnvVar{
+				{
+					Name: "NODE_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+					},
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("32Mi"),
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:                ptr.To(int64(0)),
+				ReadOnlyRootFilesystem:   ptr.To(true),
+				AllowPrivilegeEscalation: ptr.To(false),
+				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "kms-plugin-socket", MountPath: "/var/run/kmsplugin", ReadOnly: true},
+				{Name: "resource-dir", MountPath: "/etc/kubernetes/static-pod-resources", ReadOnly: true},
+			},
+		}
+	}
+
+	expectedSidecar := func(secretName string) corev1.Container {
+		return corev1.Container{
+			Name:                     "vault-kms-plugin-555",
+			Image:                    "quay.io/test/vault:v1",
+			Args:                     sidecarArgs(secretName),
+			ImagePullPolicy:          corev1.PullIfNotPresent,
+			RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:                ptr.To(int64(0)),
+				ReadOnlyRootFilesystem:   ptr.To(true),
+				AllowPrivilegeEscalation: ptr.To(false),
+				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+			},
+			VolumeMounts: []corev1.VolumeMount{socketMount, resourceDirMount},
+		}
+	}
+
+	tests := []struct {
+		name                string
+		diskSecretName      string
+		actualPodSpec       *corev1.PodSpec
+		expectedPodSpec     *corev1.PodSpec
+		secretClient        corev1client.SecretsGetter
+		featureGateAccessor featuregates.FeatureGateAccess
+		wantErr             string
+	}{
+		{
+			name:           "single provider: sidecar and volumes injected",
+			diskSecretName: "",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+				},
+				InitContainers: []corev1.Container{
+					expectedSidecar("encryption-config"),
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-555.sock"),
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+			},
+			secretClient:        secretClient(f.encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+		},
+		{
+			name:           "diskSecretName overrides on-disk path",
+			diskSecretName: "custom-disk-secret",
+			actualPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:         "kube-apiserver",
+						VolumeMounts: []corev1.VolumeMount{socketMount},
+					},
+				},
+				InitContainers: []corev1.Container{
+					expectedSidecar("custom-disk-secret"),
+					expectedHealthReporter("unix:///var/run/kmsplugin/kms-555.sock"),
+				},
+				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume},
+			},
+			secretClient:        secretClient(f.encryptionConfigSecret),
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := AddKMSPluginSidecarToStaticPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.diskSecretName, "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
+		})
+	}
+}
