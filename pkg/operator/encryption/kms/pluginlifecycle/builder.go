@@ -50,6 +50,7 @@ func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 }
 
 // WithDiskSecretName overrides the name used to compute the on-disk referenceDataDir path in static pod mode.
+// If not called, encryptionConfigSecretName is used as the path name.
 func (b *KMSPluginBuilder) WithDiskSecretName(name string) *KMSPluginBuilder {
 	b.diskSecretName = name
 	return b
