@@ -22,7 +22,7 @@ type options struct {
 	NodeName     string
 	Kubeconfig   string
 
-	newWriter NewEncryptionStatusWriterFunc
+	newProvider NewEncryptionStatusProviderFunc
 }
 
 func (o *options) addFlags(fs *pflag.FlagSet) {
@@ -68,8 +68,6 @@ func (o *options) validate() error {
 // fieldManagerForNode returns the SSA field manager for a reporter on nodeName.
 // Node names can exceed the fieldManager length limit, so the name is hashed to
 // a fixed-size SHA-256 hex digest while the prober still reports the real name.
-// The node UID would also fit, but it is not exposed through the downward API in
-// the sidecar; querying the Node API for it would add unnecessary complexity.
 func fieldManagerForNode(nodeName string) string {
 	sum := sha256.Sum256([]byte(nodeName))
 	return fmt.Sprintf("%s-%x", Subcommand, sum)
@@ -83,16 +81,9 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	// fieldManager is this reporter's SSA ownership identity: apply tracks
-	// ownership per manager. Reporters sharing one would fight over the same
-	// CR status.
-	// kube-apiserver runs one reporter per node: node-name must be unique!
-	// single-reporter operators, like oauth- / openshift-apiserver, can pass
-	// any constant value.
-	fieldManager := fieldManagerForNode(o.NodeName)
-	writeStatus, err := o.newWriter(restCfg, fieldManager)
+	provider, err := o.newProvider(restCfg)
 	if err != nil {
-		return nil, fmt.Errorf("build encryption status writer: %w", err)
+		return nil, fmt.Errorf("build encryption status provider: %w", err)
 	}
 
 	plugins, err := buildPlugins(ctx, o.KMSSockets, o.ReadTimeout)
@@ -100,8 +91,15 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, err
 	}
 
+	// fieldManager is this reporter's SSA ownership identity: apply tracks
+	// ownership per manager. Reporters sharing one would fight over the same
+	// CR status.
+	// kube-apiserver runs one reporter per node: node-name must be unique!
+	// single-reporter operators, like oauth- / openshift-apiserver, can pass
+	// any constant value.
 	return &Config{
-		writeStatus:  writeStatus,
+		provider:     provider,
+		fieldManager: fieldManagerForNode(o.NodeName),
 		prober:       newProber(o.NodeName, plugins),
 		interval:     o.Interval,
 		writeTimeout: o.WriteTimeout,
