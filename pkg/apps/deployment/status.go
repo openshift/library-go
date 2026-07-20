@@ -16,6 +16,20 @@ func PodContainersStatus(deployment *appsv1.Deployment, podClient corelistersv1.
 	if err != nil {
 		return nil, err
 	}
+	return ContainerMessagesForPods(deployment, deploymentPods), nil
+}
+
+// ContainerMessagesForPods returns human-readable container status messages for the given pods.
+// If pods is empty, a single message is included describing that no pods matched (using the deployment template labels).
+func ContainerMessagesForPods(deployment *appsv1.Deployment, pods []*corev1.Pod) []string {
+	containerStates := containerStatusMessagesForPods(pods)
+	if len(pods) == 0 {
+		containerStates = append(containerStates, fmt.Sprintf("no pods found with labels %q", labels.SelectorFromSet(deployment.Spec.Template.Labels).String()))
+	}
+	return containerStates
+}
+
+func containerStatusMessagesForPods(deploymentPods []*corev1.Pod) []string {
 	containerStates := []string{}
 
 	for i := range deploymentPods {
@@ -66,10 +80,7 @@ func PodContainersStatus(deployment *appsv1.Deployment, podClient corelistersv1.
 		}
 	}
 
-	if len(deploymentPods) == 0 {
-		containerStates = append(containerStates, fmt.Sprintf("no pods found with labels %q", labels.SelectorFromSet(deployment.Spec.Template.Labels).String()))
-	}
-	return containerStates, nil
+	return containerStates
 }
 
 func containerPlural(c int, crashloop bool) string {
