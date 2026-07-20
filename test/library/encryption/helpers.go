@@ -553,17 +553,27 @@ func inParallel(steps ...testStep) testStep {
 		name: strings.Join(names, " | "),
 		testFunc: func(t testing.TB) {
 			var wg sync.WaitGroup
+			var mu sync.Mutex
+			var panicMsgs []string
 			for _, s := range steps {
 				wg.Go(func() {
 					defer func() {
 						if r := recover(); r != nil {
-							t.Errorf("step %q panicked: %v", s.name, r)
+							// don't call t.Errorf here: in Ginkgo, t.Errorf panics,
+							// and a panic inside recover crashes the goroutine.
+							mu.Lock()
+							panicMsgs = append(panicMsgs, fmt.Sprintf("step %q panicked: %v", s.name, r))
+							mu.Unlock()
 						}
 					}()
 					s.testFunc(t)
 				})
 			}
 			wg.Wait()
+			// report all panics at once from the outer goroutine, where t.Errorf is safe.
+			if len(panicMsgs) > 0 {
+				t.Errorf("%s", strings.Join(panicMsgs, "\n"))
+			}
 		},
 	}
 }
