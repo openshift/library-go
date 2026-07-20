@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
 
@@ -206,6 +207,11 @@ func ensureVaultAppRoleSecret(vaultNamespace, appRoleSecretName string) func(ctx
 		}
 		recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})
 		_, changed, err := resourceapply.ApplySecret(ctx, cs.Kube.CoreV1(), recorder, required)
+		if apierrors.IsAlreadyExists(err) {
+			// Parallel Setup calls can race on Create; the first wins, others get AlreadyExists.
+			t.Logf("AppRole secret %s in %s already applied by another goroutine", appRoleSecretName, defaultAppRoleTargetNamespace)
+			return
+		}
 		require.NoError(t, err, "failed to apply AppRole secret")
 		t.Logf("Applied AppRole secret %s in %s (changed=%v)", appRoleSecretName, defaultAppRoleTargetNamespace, changed)
 	}
