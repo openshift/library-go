@@ -124,6 +124,98 @@ spec:
         secretName: kms-preflight-encryption-config
 `
 
+var expectedDeployStaticPodYAML = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kms-preflight
+  namespace: openshift-kube-apiserver
+  labels:
+    app: openshift-kms-preflight
+  annotations:
+    encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
+spec:
+  restartPolicy: Never
+  serviceAccountName: kms-preflight
+  priorityClassName: system-cluster-critical
+  nodeSelector:
+    node-role.kubernetes.io/master: ""
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoExecute
+  hostNetwork: true
+  initContainers:
+    - name: vault-kms-plugin-1
+      image: registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+      args:
+        - -listen-address=unix:///var/run/kmsplugin/kms.sock
+        - -vault-address=https://vault.example.com
+        - -transit-mount=
+        - -transit-key=test-transit-key
+        - -approle-role-id=test-role-id
+        - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
+        - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
+        - -metrics-port=0
+      imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      terminationMessagePolicy: FallbackToLogsOnError
+      resources:
+        requests:
+          memory: 64Mi
+          cpu: 10m
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+        - name: kms-plugins-data
+          mountPath: /var/run/secrets/kms-plugin
+          readOnly: true
+  containers:
+    - name: kms-preflight-check
+      image: quay.io/openshift-release-dev/ocp-v5.0-art-dev@sha256:test
+      command: ["cluster-kube-apiserver-operator","kms-preflight"]
+      args:
+        - --kms-call-timeout=10s
+        - --config-hash=$(CONFIG_HASH)
+        - --pod-name=$(POD_NAME)
+        - --pod-namespace=$(POD_NAMESPACE)
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: CONFIG_HASH
+        value: abc123
+      resources:
+        requests:
+          memory: 50Mi
+          cpu: 5m
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+  volumes:
+    - name: kms-plugin-socket
+      emptyDir: {}
+    - name: kms-plugins-data
+      secret:
+        secretName: kms-preflight-encryption-config
+`
+
 func testReferenceDataObjects(t *testing.T) []runtime.Object {
 	t.Helper()
 
@@ -213,8 +305,25 @@ func newTestDeployer(t *testing.T, objects ...runtime.Object) (*PodPreflightDepl
 	t.Helper()
 
 	allObjects := append(testReferenceDataObjects(t), objects...)
-	kubeClient := fake.NewSimpleClientset(allObjects...)
+	kubeClient := fake.NewClientset(allObjects...)
 	deployer := NewPodPreflightDeployer(
+		testNamespace,
+		kubeClient.CoreV1(),
+		kubeClient.RbacV1(),
+		events.NewInMemoryRecorder("kms-preflight-deployer-test", clock.RealClock{}),
+		testOperatorImage,
+		testOperatorCommand,
+		testDeployerTimeout,
+	)
+	return deployer, kubeClient
+}
+
+func newTestStaticPodDeployer(t *testing.T, objects ...runtime.Object) (*PodPreflightDeployer, *fake.Clientset) {
+	t.Helper()
+
+	allObjects := append(testReferenceDataObjects(t), objects...)
+	kubeClient := fake.NewClientset(allObjects...)
+	deployer := NewStaticPodPreflightDeployer(
 		testNamespace,
 		kubeClient.CoreV1(),
 		kubeClient.RbacV1(),
@@ -237,81 +346,102 @@ func assertNoActionMatching(t *testing.T, actions []clienttesting.Action, verb, 
 }
 
 func TestPodPreflightDeployer_Deploy(t *testing.T) {
-	ctx := context.Background()
-	deployer, kubeClient := newTestDeployer(t)
-	encryptionConfigSecret := testPreflightEncryptionConfigSecret(t)
-
-	expectedPod, err := resourceread.ReadPodV1([]byte(expectedDeployPodYAML))
-	if err != nil {
-		t.Fatalf("failed to parse expected pod YAML: %v", err)
+	tests := []struct {
+		name            string
+		newDeployer     func(*testing.T, ...runtime.Object) (*PodPreflightDeployer, *fake.Clientset)
+		expectedPodYAML string
+	}{
+		{
+			name:            "pod",
+			newDeployer:     newTestDeployer,
+			expectedPodYAML: expectedDeployPodYAML,
+		},
+		{
+			name:            "virtualStaticPod",
+			newDeployer:     newTestStaticPodDeployer,
+			expectedPodYAML: expectedDeployStaticPodYAML,
+		},
 	}
 
-	if err := deployer.Deploy(ctx, testConfigHash, encryptionConfigSecret); err != nil {
-		t.Fatalf("Deploy() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			deployer, kubeClient := tt.newDeployer(t)
+			encryptionConfigSecret := testPreflightEncryptionConfigSecret(t)
 
-	actions := kubeClient.Actions()
-	if len(actions) != 11 {
-		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
-	}
-	if !actions[0].Matches("delete", "pods") {
-		t.Fatalf("unexpected action: %#v", actions[0])
-	}
-	if !actions[1].Matches("delete", "secrets") {
-		t.Fatalf("unexpected action: %#v", actions[1])
-	}
-	if !actions[2].Matches("create", "secrets") {
-		t.Fatalf("unexpected action: %#v", actions[2])
-	}
-	secretCreateAction, ok := actions[2].(clienttesting.CreateAction)
-	if !ok {
-		t.Fatalf("expected CreateAction, got %T", actions[2])
-	}
-	createdSecret, ok := secretCreateAction.GetObject().(*corev1.Secret)
-	if !ok {
-		t.Fatalf("expected *corev1.Secret, got %T", secretCreateAction.GetObject())
-	}
-	if len(createdSecret.Finalizers) != 0 {
-		t.Fatalf("expected finalizers to be stripped before create, got %v", createdSecret.Finalizers)
-	}
-	if !actions[3].Matches("get", "secrets") {
-		t.Fatalf("unexpected action: %#v", actions[3])
-	}
-	if !actions[4].Matches("get", "serviceaccounts") {
-		t.Fatalf("unexpected action: %#v", actions[4])
-	}
-	if !actions[5].Matches("create", "serviceaccounts") {
-		t.Fatalf("unexpected action: %#v", actions[5])
-	}
-	if !actions[6].Matches("get", "roles") {
-		t.Fatalf("unexpected action: %#v", actions[6])
-	}
-	if !actions[7].Matches("create", "roles") {
-		t.Fatalf("unexpected action: %#v", actions[7])
-	}
-	if !actions[8].Matches("get", "rolebindings") {
-		t.Fatalf("unexpected action: %#v", actions[8])
-	}
-	if !actions[9].Matches("create", "rolebindings") {
-		t.Fatalf("unexpected action: %#v", actions[9])
-	}
-	if !actions[10].Matches("create", "pods") {
-		t.Fatalf("unexpected action: %#v", actions[10])
-	}
-	createAction, ok := actions[10].(clienttesting.CreateAction)
-	if !ok {
-		t.Fatalf("expected CreateAction, got %T", actions[4])
-	}
-	if createAction.GetNamespace() != testNamespace {
-		t.Fatalf("unexpected namespace %q", createAction.GetNamespace())
-	}
+			expectedPod, err := resourceread.ReadPodV1([]byte(tt.expectedPodYAML))
+			if err != nil {
+				t.Fatalf("failed to parse expected pod YAML: %v", err)
+			}
 
-	actualPod, ok := createAction.GetObject().(*corev1.Pod)
-	if !ok {
-		t.Fatalf("expected *corev1.Pod, got %T", createAction.GetObject())
-	}
-	if !equality.Semantic.DeepEqual(expectedPod, actualPod) {
-		t.Fatalf("pod does not match expected:\ngot:  %+v\nwant: %+v", actualPod, expectedPod)
+			if err := deployer.Deploy(ctx, testConfigHash, encryptionConfigSecret); err != nil {
+				t.Fatalf("Deploy() error = %v", err)
+			}
+
+			actions := kubeClient.Actions()
+			if len(actions) != 11 {
+				t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
+			}
+			if !actions[0].Matches("delete", "pods") {
+				t.Fatalf("unexpected action: %#v", actions[0])
+			}
+			if !actions[1].Matches("delete", "secrets") {
+				t.Fatalf("unexpected action: %#v", actions[1])
+			}
+			if !actions[2].Matches("create", "secrets") {
+				t.Fatalf("unexpected action: %#v", actions[2])
+			}
+			secretCreateAction, ok := actions[2].(clienttesting.CreateAction)
+			if !ok {
+				t.Fatalf("expected CreateAction, got %T", actions[2])
+			}
+			createdSecret, ok := secretCreateAction.GetObject().(*corev1.Secret)
+			if !ok {
+				t.Fatalf("expected *corev1.Secret, got %T", secretCreateAction.GetObject())
+			}
+			if len(createdSecret.Finalizers) != 0 {
+				t.Fatalf("expected finalizers to be stripped before create, got %v", createdSecret.Finalizers)
+			}
+			if !actions[3].Matches("get", "secrets") {
+				t.Fatalf("unexpected action: %#v", actions[3])
+			}
+			if !actions[4].Matches("get", "serviceaccounts") {
+				t.Fatalf("unexpected action: %#v", actions[4])
+			}
+			if !actions[5].Matches("create", "serviceaccounts") {
+				t.Fatalf("unexpected action: %#v", actions[5])
+			}
+			if !actions[6].Matches("get", "roles") {
+				t.Fatalf("unexpected action: %#v", actions[6])
+			}
+			if !actions[7].Matches("create", "roles") {
+				t.Fatalf("unexpected action: %#v", actions[7])
+			}
+			if !actions[8].Matches("get", "rolebindings") {
+				t.Fatalf("unexpected action: %#v", actions[8])
+			}
+			if !actions[9].Matches("create", "rolebindings") {
+				t.Fatalf("unexpected action: %#v", actions[9])
+			}
+			if !actions[10].Matches("create", "pods") {
+				t.Fatalf("unexpected action: %#v", actions[10])
+			}
+			createAction, ok := actions[10].(clienttesting.CreateAction)
+			if !ok {
+				t.Fatalf("expected CreateAction, got %T", actions[4])
+			}
+			if createAction.GetNamespace() != testNamespace {
+				t.Fatalf("unexpected namespace %q", createAction.GetNamespace())
+			}
+
+			actualPod, ok := createAction.GetObject().(*corev1.Pod)
+			if !ok {
+				t.Fatalf("expected *corev1.Pod, got %T", createAction.GetObject())
+			}
+			if !equality.Semantic.DeepEqual(expectedPod, actualPod) {
+				t.Fatalf("pod does not match expected:\ngot:  %+v\nwant: %+v", actualPod, expectedPod)
+			}
+		})
 	}
 }
 

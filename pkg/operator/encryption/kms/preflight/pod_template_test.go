@@ -58,13 +58,14 @@ spec:
 `
 
 func TestGeneratePodTemplate(t *testing.T) {
-	pod, err := generatePodTemplate(
+	pod, err := renderPreflightPodTemplate(
 		preflightPodName,
 		"test-ns",
 		"abc123",
 		"quay.io/openshift/operator:latest",
 		[]string{"operator", "kms-preflight"},
 		10*time.Second,
+		false,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -91,6 +92,7 @@ metadata:
     encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
 spec:
   restartPolicy: Never
+  serviceAccountName: kms-preflight
   priorityClassName: system-cluster-critical
   nodeSelector:
     node-role.kubernetes.io/master: ""
@@ -111,7 +113,6 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
-        - --kubeconfig=/etc/kubernetes/static-pod-resources/secrets/kms-preflight-encryption-config/lb-int.kubeconfig
       env:
       - name: POD_NAME
         valueFrom:
@@ -127,26 +128,17 @@ spec:
         requests:
           memory: 50Mi
           cpu: 5m
-      securityContext:
-        runAsUser: 0
-      volumeMounts:
-        - name: resource-dir
-          mountPath: /etc/kubernetes/static-pod-resources
-          readOnly: true
-  volumes:
-    - name: resource-dir
-      hostPath:
-        path: /etc/kubernetes/manifests
 `
 
 func TestGenerateStaticPodTemplate(t *testing.T) {
-	pod, err := generateStaticPodTemplate(
+	pod, err := renderPreflightPodTemplate(
 		preflightPodName,
 		"test-ns",
 		"abc123",
 		"quay.io/openshift/operator:latest",
 		[]string{"operator", "kms-preflight"},
 		10*time.Second,
+		true,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
