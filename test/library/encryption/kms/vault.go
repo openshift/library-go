@@ -62,8 +62,7 @@ const (
 	defaultFAKEVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
 	defaultVaultAddress            = "https://vault.vault-kms.svc:8200"
 	defaultVaultEnterpriseNS       = "admin"
-	defaultVaultTransitMount       = "transit"
-	defaultVaultTransitKey         = "kms-key"
+	defaultVaultKeyPath            = "transit/keys/kms-key"
 	defaultAppRoleTargetNamespace  = "openshift-config"
 	vaultCommandTimeout            = 30 * time.Second
 
@@ -74,7 +73,7 @@ const (
 	secondaryVaultAppRoleSecretName = "vault-approle-secret-secondary"
 	secondaryVaultConfigMapName     = "vault-ca-bundle-secondary"
 	secondaryVaultAddress           = "https://vault-secondary.vault-kms-secondary.svc:8200"
-	secondaryVaultTransitKey        = "kms-key-secondary"
+	secondaryVaultKeyPath           = "transit/keys/kms-key-secondary"
 )
 
 // DefaultVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider for e2e tests.
@@ -106,8 +105,7 @@ var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 		Vault: configv1.VaultKMSPluginConfig{
 			VaultAddress:   defaultVaultAddress,
 			VaultNamespace: defaultVaultEnterpriseNS,
-			TransitMount:   defaultVaultTransitMount,
-			TransitKey:     defaultVaultTransitKey,
+			VaultKeyPath:   defaultVaultKeyPath,
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
 				AppRole: configv1.VaultAppRoleAuthentication{
@@ -141,8 +139,7 @@ var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
 			TLS: configv1.VaultTLSConfig{
 				CABundle: configv1.VaultConfigMapReference{Name: defaultVaultConfigMapName},
 			},
-			TransitKey:   "test-transit-key",
-			TransitMount: defaultVaultTransitMount,
+			VaultKeyPath: "transit/keys/test-transit-key",
 		},
 	},
 }
@@ -156,8 +153,7 @@ var SecondaryVaultKMSPluginConfig = configv1.APIServerEncryption{
 		Vault: configv1.VaultKMSPluginConfig{
 			VaultAddress:   secondaryVaultAddress,
 			VaultNamespace: defaultVaultEnterpriseNS,
-			TransitMount:   defaultVaultTransitMount,
-			TransitKey:     secondaryVaultTransitKey,
+			VaultKeyPath:   secondaryVaultKeyPath,
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
 				AppRole: configv1.VaultAppRoleAuthentication{
@@ -246,7 +242,7 @@ func rotateKey(ctx context.Context, t testing.TB) {
 	// Command: vault write -f transit/keys/<key-name>/rotate
 	// Reference: https://developer.hashicorp.com/vault/api-docs/secret/transit#rotate-key
 	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
-		"vault", "write", "-f", fmt.Sprintf("transit/keys/%s/rotate", defaultVaultTransitKey))
+		"vault", "write", "-f", fmt.Sprintf("%s/rotate", defaultVaultKeyPath))
 
 	t.Logf("Executing: %s", cmd.String())
 	output, err := cmd.Output()
@@ -264,7 +260,7 @@ func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
 	defer cancel()
 
 	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
-		"vault", "read", "-field=latest_version", fmt.Sprintf("transit/keys/%s", defaultVaultTransitKey))
+		"vault", "read", "-field=latest_version", defaultVaultKeyPath)
 
 	t.Logf("Executing: %s", cmd.String())
 	output, err := cmd.Output()
