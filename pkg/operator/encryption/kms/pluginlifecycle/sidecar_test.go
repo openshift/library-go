@@ -1036,3 +1036,81 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 		})
 	}
 }
+
+// TestRemoveAllKMSManagedResourcesDrift verifies that removeAllKMSManagedResources cleans
+// up every resource type that Apply can create. If a new resource type is added to the ensure
+// path without a corresponding update to removeAllKMSManagedResources, this test will fail.
+func TestRemoveAllKMSManagedResourcesDrift(t *testing.T) {
+	f := newSidecarTestFixtures(t)
+	fga := featuregates.NewHardcodedFeatureGateAccess(
+		[]configv1.FeatureGateName{features.FeatureGateKMSEncryption}, nil,
+	)
+
+	noKMSConfig := &apiserverv1.EncryptionConfiguration{
+		Resources: []apiserverv1.ResourceConfiguration{
+			{
+				Resources: []string{"secrets"},
+				Providers: []apiserverv1.ProviderConfiguration{
+					{AESCBC: &apiserverv1.AESConfiguration{}},
+				},
+			},
+		},
+	}
+	noKMSBytes, err := encoding.EncodeEncryptionConfiguration(noKMSConfig)
+	require.NoError(t, err)
+
+	secretName := f.encryptionConfigSecret.Name
+	secretNamespace := f.encryptionConfigSecret.Namespace
+	noKMSSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: secretNamespace,
+		},
+		Data: map[string][]byte{"encryption-config": noKMSBytes},
+	}
+
+	tests := []struct {
+		name          string
+		containerName string
+		ensure        func(*corev1.PodSpec, string, corev1client.SecretsGetter) error
+	}{
+		{
+			name:          "deployment mode",
+			containerName: "openshift-apiserver",
+			ensure: func(podSpec *corev1.PodSpec, containerName string, sc corev1client.SecretsGetter) error {
+				return EnsureKMSPluginSidecarInPodSpec(context.Background(), podSpec, containerName, secretNamespace, secretName, "cluster-openshift-apiserver-operator", "quay.io/test/operator:latest", sc, fga)
+			},
+		},
+		{
+			name:          "static pod mode",
+			containerName: "kube-apiserver",
+			ensure: func(podSpec *corev1.PodSpec, containerName string, sc corev1client.SecretsGetter) error {
+				return EnsureKMSPluginSidecarInStaticPodSpec(context.Background(), podSpec, containerName, secretNamespace, secretName, "", "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", sc, fga)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: tt.containerName}},
+				Volumes:    []corev1.Volume{f.resourceDirVolume},
+			}
+
+			err := tt.ensure(podSpec, tt.containerName, fake.NewClientset(f.encryptionConfigSecret).CoreV1())
+			require.NoError(t, err)
+			require.NotEmpty(t, podSpec.InitContainers, "sanity: KMS sidecars should have been added")
+
+			err = tt.ensure(podSpec, tt.containerName, fake.NewClientset(noKMSSecret).CoreV1())
+			require.NoError(t, err)
+
+			require.Empty(t, podSpec.InitContainers, "all KMS init containers must be removed")
+			require.Equal(t, []corev1.Volume{f.resourceDirVolume}, podSpec.Volumes, "all KMS volumes must be removed")
+			for _, c := range podSpec.Containers {
+				if c.Name == tt.containerName {
+					require.Empty(t, c.VolumeMounts, "all KMS volume mounts must be removed")
+				}
+			}
+		})
+	}
+}
