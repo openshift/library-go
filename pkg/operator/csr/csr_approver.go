@@ -113,7 +113,7 @@ func (c *csrApproverController) sync(ctx context.Context, syncCtx factory.SyncCo
 	}
 
 	if x509CSR.Subject.CommonName == csr.Spec.Username {
-		c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
+		return c.denyCSR(ctx, csrCopy, "IllegitimateRequester", "requester cannot request certificates for themselves", syncCtx.Recorder())
 	}
 
 	csrDecision, denyReason, err := c.csrApprover.Approve(csr, x509CSR)
@@ -283,8 +283,14 @@ func NewRequestCommonNameFilter(commonNames ...string) *RequestCommonNameFilter 
 	return &RequestCommonNameFilter{sets.New(commonNames...)}
 }
 
-func (f *RequestCommonNameFilter) Match(csr *certapiv1.CertificateSigningRequest) bool {
-	x509CSR, err := x509.ParseCertificateRequest(csr.Spec.Request)
+func (f *RequestCommonNameFilter) Matches(csr *certapiv1.CertificateSigningRequest) bool {
+	csrPEM, _ := pem.Decode(csr.Spec.Request)
+	if csrPEM == nil {
+		klog.V(4).Infof("failed to PEM-parse the CSR block in .spec.request of %q: no CSRs were found", csr.Name)
+		return false
+	}
+
+	x509CSR, err := x509.ParseCertificateRequest(csrPEM.Bytes)
 	if err != nil {
 		klog.V(4).Infof("failed to parse the CSR .spec.request of %q: %v", csr.Name, err)
 		return false
