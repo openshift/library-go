@@ -52,7 +52,6 @@ spec:
         valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
       - name: CONFIG_HASH
         value: {{.ConfigHash}}
-      # TODO: figure out good resource request values.
       resources:
         requests:
           memory: 50Mi
