@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -134,6 +135,117 @@ func TestInProcessMigrator(t *testing.T) {
 			}
 
 			validateMigratedResources(t, dynamicClient.Actions(), unstructuredObjs, grs)
+		})
+	}
+}
+
+func TestInProcessMigratorOrphanedNamespace(t *testing.T) {
+	apiResources := []metav1.APIResource{
+		{
+			Name:       "configmaps",
+			Namespaced: true,
+			Group:      "",
+			Version:    "v1",
+		},
+	}
+	gr := schema.GroupResource{Resource: "configmaps"}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		gr.WithVersion("v1"): "ConfigMapList",
+	}
+
+	testCases := []struct {
+		name          string
+		getReturnsNot bool
+		expectError   bool
+	}{
+		{
+			name:          "orphaned object in deleted namespace blocks migration",
+			getReturnsNot: false,
+			expectError:   true,
+		},
+		{
+			name:          "genuinely deleted object is skipped",
+			getReturnsNot: true,
+			expectError:   false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeKubeClient := fake.NewSimpleClientset()
+
+			scheme := runtime.NewScheme()
+			resources := []runtime.Object{
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "cm1", Namespace: "existing-ns"}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "orphan-cm", Namespace: "deleted-ns"}},
+			}
+			var unstructuredObjs []runtime.Object
+			for _, rawObject := range resources {
+				rawUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rawObject.DeepCopyObject())
+				if err != nil {
+					t.Fatal(err)
+				}
+				unstructured.SetNestedField(rawUnstructured, "v1", "apiVersion")
+				unstructured.SetNestedField(rawUnstructured, reflect.TypeOf(rawObject).Elem().Name(), "kind")
+				unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: rawUnstructured})
+			}
+			dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, unstructuredObjs...)
+
+			// Simulate NamespaceLifecycle rejecting Updates in "deleted-ns".
+			dynamicClient.PrependReactor("update", "configmaps", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				updateAction := action.(clientgotesting.UpdateAction)
+				if updateAction.GetNamespace() == "deleted-ns" {
+					return true, nil, errors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, "deleted-ns")
+				}
+				return false, nil, nil
+			})
+
+			if tc.getReturnsNot {
+				// Simulate the object being genuinely deleted from etcd.
+				dynamicClient.PrependReactor("get", "configmaps", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+					getAction := action.(clientgotesting.GetAction)
+					if getAction.GetNamespace() == "deleted-ns" {
+						return true, nil, errors.NewNotFound(gr, getAction.GetName())
+					}
+					return false, nil, nil
+				})
+			}
+
+			discoveryClient := &fakeDisco{
+				delegate: fakeKubeClient.Discovery(),
+				serverPreferredRes: []*metav1.APIResourceList{
+					{
+						APIResources: apiResources,
+					},
+				},
+			}
+
+			handler := &fakeHandler{}
+			m := NewInProcessMigrator(dynamicClient, discoveryClient)
+			m.AddEventHandler(handler)
+
+			err := wait.PollImmediate(100*time.Millisecond, wait.ForeverTestTimeout, func() (bool, error) {
+				finished, result, _, err := m.EnsureMigration(gr, "1")
+				if err != nil {
+					return false, err
+				}
+				if !finished {
+					return false, nil
+				}
+				if tc.expectError {
+					if result == nil {
+						return false, fmt.Errorf("expected migration to fail for orphaned namespace object, but it succeeded")
+					}
+					t.Logf("migration correctly failed: %v", result)
+				} else {
+					if result != nil {
+						return false, fmt.Errorf("unexpected migration error: %v", result)
+					}
+				}
+				return true, nil
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 		})
 	}
 }
