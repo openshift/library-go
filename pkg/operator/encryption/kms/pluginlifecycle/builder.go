@@ -107,6 +107,10 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	if err != nil {
 		return fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
+
+	// Strip all existing KMS-related resources before re-adding exactly what the current encryption config requires.
+	removeAllKMSManagedResources(podSpec, containerName)
+
 	if len(kmsConfigurations) == 0 {
 		klog.V(4).Infof("skipping KMS sidecar injection: no KMS plugins found in EncryptionConfiguration")
 		return nil
