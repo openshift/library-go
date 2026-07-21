@@ -259,7 +259,7 @@ func testPreflightEncryptionConfigSecret(t *testing.T) *corev1.Secret {
 	}
 
 	config := testPreflightEncryptionConfigFromData(t, secretData, configMapData)
-	secret, err := encryptiondata.ToSecret(testNamespace, preflightEncryptionConfigSecretName, config)
+	secret, err := encryptiondata.ToSecret(testNamespace, EncryptionConfigSecretName, config)
 	if err != nil {
 		t.Fatalf("failed to build encryption config secret: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestPodPreflightDeployer_Deploy_nilEncryptionConfigSecret(t *testing.T) {
 func TestPodPreflightDeployer_Deploy_secretCreateFailure(t *testing.T) {
 	deployer, kubeClient := newTestDeployer(t)
 	kubeClient.PrependReactor("create", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), preflightEncryptionConfigSecretName, nil)
+		return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), EncryptionConfigSecretName, nil)
 	})
 
 	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
@@ -543,7 +543,7 @@ func TestPodPreflightDeployer_Deploy_pluginApplyFailure(t *testing.T) {
 func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	deployer, kubeClient := newTestDeployer(t)
 	kubeClient.PrependReactor("create", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), preflightPodName, nil)
+		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 	})
 
 	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
@@ -595,13 +595,13 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 func TestPodPreflightDeployer_Deploy_cleanupFailure(t *testing.T) {
 	existingPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      preflightPodName,
+			Name:      PodName,
 			Namespace: testNamespace,
 		},
 	}
 	deployer, kubeClient := newTestDeployer(t, existingPod)
 	kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), preflightPodName, nil)
+		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 	})
 
 	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
@@ -627,7 +627,7 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	ctx := context.Background()
 	stalePod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      preflightPodName,
+			Name:      PodName,
 			Namespace: testNamespace,
 		},
 	}
@@ -695,7 +695,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 			objects: []runtime.Object{
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      preflightPodName,
+						Name:      PodName,
 						Namespace: testNamespace,
 					},
 					Status: corev1.PodStatus{Phase: corev1.PodRunning},
@@ -729,7 +729,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 	existingPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      preflightPodName,
+			Name:      PodName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
 				configHashAnnotationKey: testConfigHash,
@@ -760,7 +760,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected DeleteAction, got %T", actions[0])
 				}
-				if deleteAction.GetName() != preflightPodName {
+				if deleteAction.GetName() != PodName {
 					t.Fatalf("unexpected pod name %q", deleteAction.GetName())
 				}
 				if deleteAction.GetNamespace() != testNamespace {
@@ -790,7 +790,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 			objects: []runtime.Object{existingPod},
 			setupClient: func(kubeClient *fake.Clientset) {
 				kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), preflightPodName, nil)
+					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 				})
 			},
 			expectErr: "failed to delete pod",
@@ -811,7 +811,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 			objects: []runtime.Object{existingSecret},
 			setupClient: func(kubeClient *fake.Clientset) {
 				kubeClient.PrependReactor("delete", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), preflightEncryptionConfigSecretName, nil)
+					return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), EncryptionConfigSecretName, nil)
 				})
 			},
 			expectErr: "failed to delete secret",
@@ -834,10 +834,10 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 			objects: []runtime.Object{existingPod, existingSecret},
 			setupClient: func(kubeClient *fake.Clientset) {
 				kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), preflightPodName, nil)
+					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 				})
 				kubeClient.PrependReactor("delete", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), preflightEncryptionConfigSecretName, nil)
+					return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), EncryptionConfigSecretName, nil)
 				})
 			},
 			expectErrContains: []string{"failed to delete pod", "failed to delete secret"},
