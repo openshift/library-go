@@ -3,11 +3,8 @@ package controllers
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,10 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -27,7 +22,6 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -189,13 +183,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	var (
-		newKeyRequired bool
-		newKeyID       uint64
-		reasons        []string
-	)
-
-	// note here that desiredEncryptionState is never empty because getDesiredEncryptionState
+	// note here that desiredEncryptionState is never empty because GetDesiredEncryptionState
 	// fills up the state with all resources and set identity write key if write key secrets
 	// are missing.
 
@@ -208,52 +196,27 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		}
 	}
 
-	var commonReason *string
-	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed, err := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
-		if err != nil {
-			return err
-		}
-		if !needed {
-			continue
-		}
-
-		if commonReason == nil {
-			commonReason = &internalReason
-		} else if *commonReason != internalReason {
-			commonReason = ptr.To("") // this means we have no common reason
-		}
-
-		newKeyRequired = true
-		nextKeyID := latestKeyID + 1
-		if newKeyID < nextKeyID {
-			newKeyID = nextKeyID
-		}
-		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
+	keyPlan, err := planNextEncryptionKey(desiredEncryptionState, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
+	if err != nil {
+		return err
 	}
-	if !newKeyRequired {
+	if !keyPlan.needed {
 		return nil
 	}
-	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
-		reasons = []string{*commonReason} // don't repeat reasons
-	}
-
-	sort.Sort(sort.StringSlice(reasons))
-	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(ctx, keyPlan.keyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, keyPlan.internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
 	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(ctx, keySecret, newKeyID)
+		return c.validateExistingSecret(ctx, keySecret, keyPlan.keyID)
 	}
 	if createErr != nil {
 		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
 		return createErr
 	}
 
-	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, reasons)
+	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, keyPlan.reasons)
 
 	return nil
 }
@@ -278,64 +241,19 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 }
 
 func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, error) {
-	bs := crypto.ModeToNewKeyFunc[currentMode]()
-	ks := state.KeyState{
-		Key: apiserverv1.Key{
-			Name:   fmt.Sprintf("%d", keyID),
-			Secret: base64.StdEncoding.EncodeToString(bs),
-		},
-		Mode:           currentMode,
-		InternalReason: internalReason,
-		ExternalReason: externalReason,
-	}
-	if currentMode == state.KMS {
-		ks.KMS = &state.KMSState{
-			Encryption: &apiserverv1.KMSConfiguration{
-				APIVersion: "v2",
-				Name:       fmt.Sprintf("%d", keyID),
-				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
-				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
-			},
-			Plugin: apiServerEncryption.KMS,
-		}
-
-		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
-			return nil, err
-		} else if len(secretName) > 0 {
-			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refSecret.Data[key]
-				if !ok {
-					return nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
-			return nil, err
-		} else if len(cmName) > 0 {
-			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refCM.Data[key]
-				if !ok {
-					return nil, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	return secrets.FromKeyState(c.instanceName, ks)
+	return buildEncryptionKeySecret(
+		ctx,
+		c.instanceName,
+		keyID,
+		currentMode,
+		apiServerEncryption,
+		desiredProviderCfg,
+		c.secretClient,
+		c.configMapClient,
+		internalReason,
+		externalReason,
+		"",
+	)
 }
 
 func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
