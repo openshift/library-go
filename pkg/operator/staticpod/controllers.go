@@ -275,7 +275,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	}
 
 	if len(b.installCommand) > 0 {
-		manager.WithController(installer.NewInstallerController(
+		installerCtrl := installer.NewInstallerController(
 			b.operandName,
 			b.operandNamespace,
 			b.staticPodName,
@@ -296,7 +296,14 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.installerPodMutationFunc,
 		).WithMinReadyDuration(
 			b.minReadyDuration,
-		), 1)
+		)
+		if clusterInformers != nil && b.revisionControllerPrecondition == nil {
+			installerCtrl = installerCtrl.WithNodeLister(
+				clusterInformers.Core().V1().Nodes().Lister(),
+				clusterInformers.Core().V1().Nodes().Informer(),
+			)
+		}
+		manager.WithController(installerCtrl, 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
 			b.operandName,
