@@ -59,7 +59,7 @@ spec:
 
 func TestGeneratePodTemplate(t *testing.T) {
 	pod, err := renderPreflightPodTemplate(
-		preflightPodName,
+		PodName,
 		"test-ns",
 		"abc123",
 		"quay.io/openshift/operator:latest",
@@ -132,7 +132,7 @@ spec:
 
 func TestGenerateStaticPodTemplate(t *testing.T) {
 	pod, err := renderPreflightPodTemplate(
-		preflightPodName,
+		PodName,
 		"test-ns",
 		"abc123",
 		"quay.io/openshift/operator:latest",

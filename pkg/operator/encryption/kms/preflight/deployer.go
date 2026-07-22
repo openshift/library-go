@@ -19,11 +19,15 @@ import (
 )
 
 const (
-	preflightPodName                    = "kms-preflight"
-	preflightCheckContainerName         = "kms-preflight-check"
-	preflightEncryptionConfigSecretName = "kms-preflight-encryption-config"
-	preflightRBACName                   = "kms-preflight"
-	preflightAppLabel                   = "openshift-kms-preflight"
+	// PodName is the fixed name of the preflight pod created by Deploy.
+	PodName = "kms-preflight"
+	// CheckContainerName is the container that runs the preflight checker command.
+	CheckContainerName = "kms-preflight-check"
+	// EncryptionConfigSecretName is the secret Deploy creates for the preflight pod.
+	EncryptionConfigSecretName = "kms-preflight-encryption-config"
+
+	preflightRBACName = "kms-preflight"
+	preflightAppLabel = "openshift-kms-preflight"
 )
 
 var (
@@ -64,14 +68,14 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 
 	encryptionConfigSecret = encryptionConfigSecret.DeepCopy()
 	// rewrite the entire ObjectMeta to avoid copying resource versions or managed fields
-	encryptionConfigSecret.ObjectMeta = metav1.ObjectMeta{Namespace: d.namespace, Name: preflightEncryptionConfigSecretName, Labels: labels}
+	encryptionConfigSecret.ObjectMeta = metav1.ObjectMeta{Namespace: d.namespace, Name: EncryptionConfigSecretName, Labels: labels}
 	_, err := d.coreClient.Secrets(d.namespace).Create(ctx, encryptionConfigSecret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create preflight encryption config secret: %w", err)
 	}
 
 	pod, err := renderPreflightPodTemplate(
-		preflightPodName,
+		PodName,
 		d.namespace,
 		configHash,
 		d.operatorImage,
@@ -85,8 +89,8 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 
 	err = pluginlifecycle.NewKMSPluginBuilder().
 		WithSecretRequired().
-		FromEncryptionConfigSecret(d.namespace, preflightEncryptionConfigSecretName, d.coreClient).
-		Apply(ctx, &pod.Spec, preflightCheckContainerName)
+		FromEncryptionConfigSecret(d.namespace, EncryptionConfigSecretName, d.coreClient).
+		Apply(ctx, &pod.Spec, CheckContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to apply preflight plugin: %w", err)
 	}
@@ -108,9 +112,9 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 
 func (d *PodPreflightDeployer) Status(ctx context.Context) (corev1.PodStatus, error) {
 	// preflight status checks are not very frequent, so we use the live client instead of a cached lister
-	pod, err := d.coreClient.Pods(d.namespace).Get(ctx, preflightPodName, metav1.GetOptions{})
+	pod, err := d.coreClient.Pods(d.namespace).Get(ctx, PodName, metav1.GetOptions{})
 	if err != nil {
-		return corev1.PodStatus{}, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, preflightPodName, err)
+		return corev1.PodStatus{}, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, PodName, err)
 	}
 
 	return pod.Status, nil
@@ -120,14 +124,14 @@ func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
 	// See Deploy: preflight RBAC is intentionally not deleted here.
 	var errs []error
 
-	err := d.coreClient.Pods(d.namespace).Delete(ctx, preflightPodName, metav1.DeleteOptions{})
+	err := d.coreClient.Pods(d.namespace).Delete(ctx, PodName, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
-		errs = append(errs, fmt.Errorf("failed to delete pod %s/%s: %w", d.namespace, preflightPodName, err))
+		errs = append(errs, fmt.Errorf("failed to delete pod %s/%s: %w", d.namespace, PodName, err))
 	}
 
-	err = d.coreClient.Secrets(d.namespace).Delete(ctx, preflightEncryptionConfigSecretName, metav1.DeleteOptions{})
+	err = d.coreClient.Secrets(d.namespace).Delete(ctx, EncryptionConfigSecretName, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
-		errs = append(errs, fmt.Errorf("failed to delete secret %s/%s: %w", d.namespace, preflightEncryptionConfigSecretName, err))
+		errs = append(errs, fmt.Errorf("failed to delete secret %s/%s: %w", d.namespace, EncryptionConfigSecretName, err))
 	}
 
 	return errors.Join(errs...)

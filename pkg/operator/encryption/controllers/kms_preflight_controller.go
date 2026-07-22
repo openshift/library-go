@@ -403,7 +403,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 	}
 
 	// Scenario 3b: pod has not reported its config hash yet.
-	hashCondition := findPodCondition(podStatus.Conditions, KMSPreflightConfigHashPodCondition)
+	hashCondition := FindPodCondition(podStatus.Conditions, KMSPreflightConfigHashPodCondition)
 	if hashCondition == nil {
 		if podStatus.Phase == corev1.PodSucceeded {
 			return false, &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
@@ -420,7 +420,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 	}
 
 	// Scenario 3d: hash matches, waiting for result.
-	resultCondition := findPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
+	resultCondition := FindPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
 	if resultCondition == nil {
 		if podStatus.Phase == corev1.PodSucceeded {
 			return false, &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
@@ -505,7 +505,7 @@ func podStartupTimestamp(podStatus corev1.PodStatus) *metav1.Time {
 	if podStatus.StartTime != nil {
 		return podStatus.StartTime
 	}
-	if c := findPodCondition(podStatus.Conditions, corev1.PodScheduled); c != nil {
+	if c := FindPodCondition(podStatus.Conditions, corev1.PodScheduled); c != nil {
 		return &c.LastTransitionTime
 	}
 	return nil
@@ -531,7 +531,7 @@ func podStuckReasonAndMessage(podStatus corev1.PodStatus) (string, string) {
 	return reason, fmt.Sprintf("pod is in %s phase", podStatus.Phase)
 }
 
-func findPodCondition(conditions []corev1.PodCondition, condType corev1.PodConditionType) *corev1.PodCondition {
+func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodConditionType) *corev1.PodCondition {
 	for i := range conditions {
 		if conditions[i].Type == condType {
 			return &conditions[i]
