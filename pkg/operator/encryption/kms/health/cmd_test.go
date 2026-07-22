@@ -27,6 +27,10 @@ func (f *fakeProvider) ApplyKMSEncryptionStatus(ctx context.Context, fieldManage
 	return f.applyFn(ctx, fieldManager, status)
 }
 
+func (f *fakeProvider) UpdateKMSEncryptionStatus(_ context.Context, _ func(*operatorv1.KMSEncryptionStatus)) error {
+	return fmt.Errorf("not implemented")
+}
+
 var _ kms.EncryptionStatusProvider = &fakeProvider{}
 
 // TestRunReportsOnce checks the loop wiring: Run probes, builds the status, and
