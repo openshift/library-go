@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	clocktesting "k8s.io/utils/clock/testing"
@@ -28,6 +29,7 @@ import (
 func fakeMasterNode(name string) *corev1.Node {
 	n := &corev1.Node{}
 	n.Name = name
+	n.UID = uuid.NewUUID()
 	n.Labels = map[string]string{
 		"node-role.kubernetes.io/master": "",
 	}
@@ -94,6 +96,21 @@ func validateJSONPatch(expected, actual *jsonpatch.PatchSet) error {
 
 	if string(expectedSerializedPatch) != string(actualSerializedPatch) {
 		return fmt.Errorf("incorrect JSONPatch, expected = %s, got = %s", string(expectedSerializedPatch), string(actualSerializedPatch))
+	}
+	return nil
+}
+
+func validateNodeStatuses(nodeStatuses []operatorv1.NodeStatus, nodes ...*corev1.Node) error {
+	if len(nodes) != len(nodeStatuses) {
+		return fmt.Errorf("expected %d node status, got %d", len(nodes), len(nodeStatuses))
+	}
+	for i, node := range nodes {
+		if nodeStatuses[i].NodeName != node.Name {
+			return fmt.Errorf("expected %q as node name, got %q", node.Name, nodeStatuses[i].NodeName)
+		}
+		if nodeStatuses[i].NodeUID != string(node.UID) {
+			return fmt.Errorf("expected %q as node UID, got %q", node.UID, nodeStatuses[i].NodeUID)
+		}
 	}
 	return nil
 }
@@ -724,6 +741,126 @@ func TestNewNodeController(t *testing.T) {
 
 			if err := test.evaluateNodeStatus(status.NodeStatuses); err != nil {
 				t.Errorf("%s: failed to evaluate node status: %v", test.name, err)
+			}
+		})
+
+	}
+}
+
+func TestNodeControllerTrackNodeUIDs(t *testing.T) {
+	node1 := fakeMasterNode("test-node-1")
+	node2 := fakeMasterNode("test-node-2")
+
+	tests := []struct {
+		name               string
+		syncCycles         int
+		startNodes         []runtime.Object
+		startNodeStatus    []operatorv1.NodeStatus
+		expectedNodes      [][2]string
+		evaluateNodeStatus func(s []operatorv1.NodeStatus, cycle int) error
+	}{
+		{
+			name:       "node exists missing uid in status",
+			syncCycles: 1,
+			startNodes: []runtime.Object{node1},
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+				},
+			},
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus, cycle int) error {
+				return validateNodeStatuses(s, node1)
+			},
+		},
+		{
+			name:       "node exists matching uid in status",
+			syncCycles: 1,
+			startNodes: []runtime.Object{node1},
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+					NodeUID:  string(node1.UID),
+				},
+			},
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus, cycle int) error {
+				return validateNodeStatuses(s, node1)
+			},
+		},
+		{
+			name:       "node replaced mismatched uid in status",
+			syncCycles: 2,
+			startNodes: []runtime.Object{node1},
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+					NodeUID:  string(uuid.NewUUID()),
+				},
+			},
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus, cycle int) error {
+				if cycle == 0 {
+					// On first sync, old node status is removed
+					return validateNodeStatuses(s)
+				} else {
+					// On second sync, new node status is added
+					return validateNodeStatuses(s, node1)
+				}
+			},
+		},
+		{
+			name:       "node removed",
+			syncCycles: 1,
+			startNodes: []runtime.Object{node2},
+			startNodeStatus: []operatorv1.NodeStatus{
+				{
+					NodeName: "test-node-1",
+					NodeUID:  string(node1.UID),
+				},
+			},
+			evaluateNodeStatus: func(s []operatorv1.NodeStatus, cycle int) error {
+				return validateNodeStatuses(s, node2)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset(test.startNodes...)
+			fakeLister := v1helpers.NewFakeNodeLister(kubeClient)
+			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ManagementState: operatorv1.Managed,
+					},
+				},
+				&operatorv1.StaticPodOperatorStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						LatestAvailableRevision: 1,
+					},
+					NodeStatuses: test.startNodeStatus,
+				},
+				nil,
+				nil,
+			)
+
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+
+			c := &NodeController{
+				operatorClient:      fakeStaticPodOperatorClient,
+				nodeLister:          fakeLister,
+				masterNodesSelector: masterNodesSelector(t),
+			}
+
+			// override the lister so we don't have to run the informer to list nodes
+			c.nodeLister = fakeLister
+			for i := range test.syncCycles {
+				if err := c.sync(context.TODO(), factory.NewSyncContext("NodeController", eventRecorder)); err != nil {
+					t.Fatal(err)
+				}
+
+				_, status, _, _ := fakeStaticPodOperatorClient.GetStaticPodOperatorState()
+				if err := test.evaluateNodeStatus(status.NodeStatuses, i); err != nil {
+					t.Errorf("%s: failed to evaluate node status: %v", test.name, err)
+				}
 			}
 		})
 

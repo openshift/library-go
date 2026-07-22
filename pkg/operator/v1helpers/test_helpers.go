@@ -301,7 +301,11 @@ func (n *fakeNodeLister) List(selector labels.Selector) ([]*corev1.Node, error) 
 }
 
 func (n *fakeNodeLister) Get(name string) (*corev1.Node, error) {
-	panic("implement me")
+	node, err := n.client.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 // NewFakeOperatorClient returns a fake operator client suitable to use in static pod controller unit tests.
@@ -499,6 +503,7 @@ func mergeStaticPodOperatorStatusApplyConfiguration(currentOperatorStatus *v1.Op
 	for _, nodeStatus := range applyConfiguration.NodeStatuses {
 		newNodeStatus := operatorv1.NodeStatus{
 			NodeName:                 ptr.Deref(nodeStatus.NodeName, ""),
+			NodeUID:                  ptr.Deref(nodeStatus.NodeUID, ""),
 			CurrentRevision:          ptr.Deref(nodeStatus.CurrentRevision, 0),
 			TargetRevision:           ptr.Deref(nodeStatus.TargetRevision, 0),
 			LastFailedRevision:       ptr.Deref(nodeStatus.LastFailedRevision, 0),
