@@ -462,7 +462,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			name: "pod succeeded recently, keeps pod for inspection",
+			name: "pod succeeded, cleans up immediately",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
 					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
@@ -474,35 +474,14 @@ func TestKMSPreflightController(t *testing.T) {
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			preconditionsMet: true,
+			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
 			},
-			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:      operatorv1.KMSPreflightResultSucceeded,
 				ConfigHash:  wellKnownMatchingHashForBaseVaultConfig,
 				RemoteKeyID: "remote-key-abc",
-			},
-		},
-		{
-			name: "pod succeeded, retention period elapsed, cleans up",
-			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
-					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue, LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Hour))},
-				},
-			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			preconditionsMet: true,
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-			},
-			expectedEncryptionStatusProviderUpdateCalls: 1,
-			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:     operatorv1.KMSPreflightResultSucceeded,
-				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
 			},
 		},
 		{

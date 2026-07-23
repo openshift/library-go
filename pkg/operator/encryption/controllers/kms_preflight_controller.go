@@ -139,7 +139,6 @@ const (
 	// the KMS plugin during the preflight evaluation.
 	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightRemoteKeyID"
 
-	preflightPodRetention      = 1 * time.Hour
 	preflightPodStartupTimeout = 3 * time.Minute
 )
 
@@ -369,7 +368,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     the startup timeout, return an error with the stuck reason.
 //
 //     e) Hash matches, KMSPreflightResult is True — check passed.
-//     Keep the pod for retention (1h), then clean up.
+//     Clean up the pod immediately.
 //
 //     f) Hash matches, KMSPreflightResult is False — check failed. Report
 //     degraded with the failure message. Keep the pod for inspection.
@@ -458,7 +457,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		}); err != nil {
 			return false, err
 		}
-		return false, c.cleanupAfterRetention(ctx, resultCondition.LastTransitionTime.Time)
+		return false, c.deployer.Cleanup(ctx)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
@@ -490,15 +489,6 @@ func (c *kmsPreflightController) ensurePreflightResult(ctx context.Context, exis
 	})
 }
 
-func (c *kmsPreflightController) cleanupAfterRetention(ctx context.Context, completedAt time.Time) error {
-	age := time.Since(completedAt)
-	if age < preflightPodRetention {
-		klog.V(4).Infof("Preflight pod completed %s ago, keeping for inspection (retention %s)", age.Truncate(time.Second), preflightPodRetention)
-		return nil
-	}
-	klog.V(2).Infof("Preflight pod retention period elapsed (%s), cleaning up", preflightPodRetention)
-	return c.deployer.Cleanup(ctx)
-}
 
 type preflightError struct {
 	reason  string
