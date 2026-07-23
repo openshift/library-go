@@ -406,6 +406,50 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			name: "result already Succeeded, pod gone — cleanup and return without deploying",
+			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{
+				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				writtenStatus: &operatorv1.KMSPreflightResult{
+					Status:     operatorv1.KMSPreflightResultSucceeded,
+					ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				},
+			},
+			apiServerObjects:            []runtime.Object{apiServerWithKMS},
+			coreObjects:                 []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			preconditionsMet:            true,
+			expectedPreflightPodCleanup: true,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+			},
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:     operatorv1.KMSPreflightResultSucceeded,
+				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+			},
+		},
+		{
+			name: "result already Failed, pod manually removed — surface error without re-deploying",
+			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{
+				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				writtenStatus: &operatorv1.KMSPreflightResult{
+					Status:     operatorv1.KMSPreflightResultFailed,
+					ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				},
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			preconditionsMet: true,
+			expectedError:    "preflight check failed for hash k6dSVA==: pod was removed but failure is recorded in status",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash k6dSVA==: pod was removed but failure is recorded in status"},
+			},
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:     operatorv1.KMSPreflightResultFailed,
+				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+			},
+		},
+		{
 			name:             "hashes match, no pod exists, deploys and returns",
 			deployer:         &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
