@@ -182,11 +182,12 @@ type kmsPreflightController struct {
 //
 // Coordination with the key-controller:
 //
-// The key-controller writes a hash of the current KMS config to operator status
-// as the EncryptionKMSPreflightRequired condition (hash in the message).
-// This controller reads that hash, runs preflight checks, and on success sets
-// the EncryptionKMSPreflightSucceeded condition (same hash in the message).
-// The key-controller waits for the two hashes to match before creating a key.
+// The key-controller writes a hash of the current KMS config to
+// KMSEncryptionStatus.Preflight.ObservedConfigHash.
+// This controller reads that hash, runs preflight checks, and on success writes
+// KMSEncryptionStatus.Preflight.Result.
+// The key-controller waits for Result.ConfigHash to match ObservedConfigHash
+// and Result.Status to be Succeeded before creating a key.
 //
 // This is the same pattern used by the revision and installer controllers:
 // the revision controller writes LatestAvailableRevision, the installer
@@ -201,25 +202,25 @@ type kmsPreflightController struct {
 //     runs preflight for B, overwrites status with hash B.
 //  5. The key created in step 2 was for config A but status now says B.
 //
-// Letting the key-controller own EncryptionKMSPreflightRequired and this
-// controller own EncryptionKMSPreflightSucceeded solves this. If the config
-// changes mid-flight the key-controller posts a new hash and the preflight
-// controller sees the mismatch and waits.
+// Letting the key-controller own ObservedConfigHash and this controller own
+// Result solves this. If the config changes mid-flight the key-controller
+// updates ObservedConfigHash and the preflight controller sees the mismatch
+// and waits.
 //
 // Example 1: config changes before key is created
 //  1. User creates KMS config A.
-//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
-//  3. Preflight controller sees required=A, starts checking A.
+//  2. Key-controller computes hash A, writes ObservedConfigHash=A.
+//  3. Preflight controller sees ObservedConfigHash=A, starts checking A.
 //  4. User changes config to A2 (minor variation, different hash).
-//  5. Key-controller computes hash A2, writes EncryptionKMSPreflightRequired=A2.
-//  6. Preflight controller sees required=A2, starts checking A2.
-//  7. Key-controller does not create a key until succeeded=A2.
+//  5. Key-controller computes hash A2, writes ObservedConfigHash=A2.
+//  6. Preflight controller sees ObservedConfigHash=A2, starts checking A2.
+//  7. Key-controller does not create a key until Result.ConfigHash=A2, Result.Status=Succeeded.
 //
 // Example 2: config changes after key is created
 //  1. User creates KMS config A.
-//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
-//  3. Preflight controller checks A, succeeds, writes EncryptionKMSPreflightSucceeded=A.
-//  4. Key-controller sees required=A matches succeeded=A, creates key for A.
+//  2. Key-controller computes hash A, writes ObservedConfigHash=A.
+//  3. Preflight controller checks A, succeeds, writes Result{Succeeded, A}.
+//  4. Key-controller sees Result.ConfigHash=A matches ObservedConfigHash=A, creates key for A.
 //  5. User changes config to A2 (or B).
 //  6. Key-controller waits until the key for A completes the full cycle
 //     (read, write, migrated) before creating a new key. No preflight done
@@ -257,8 +258,8 @@ func NewKMSPreflightController(
 	apiServerInformer configv1informers.APIServerInformer,
 	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
 	// computation. No informer is needed: the key-controller detects config changes and
-	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
-	// via the operatorClient informer. The minute-based resync covers the rest.
+	// updates ObservedConfigHash, which triggers this controller via the operatorClient
+	// informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
@@ -581,14 +582,15 @@ func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodCondi
 // preflightRequired returns the config hash that needs preflight validation,
 // or an empty string when no preflight is needed.
 func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, error) {
-	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get operator state: %w", err)
+		return "", fmt.Errorf("failed to get KMS encryption status: %w", err)
 	}
-	requiredCondition := operatorv1helpers.FindOperatorCondition(operatorStatus.Conditions, "EncryptionKMSPreflightRequired")
-	if requiredCondition == nil || requiredCondition.Status != operatorv1.ConditionTrue {
+	requiredHash := encryptionStatus.Preflight.ObservedConfigHash
+	if requiredHash == "" {
 		return "", nil
 	}
+
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get apiserver config: %w", err)
@@ -603,12 +605,11 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 		return "", fmt.Errorf("failed to compute KMS config hash: %w", err)
 	}
 
-	requiredHash := requiredCondition.Message
-	// No requeue needed: the key-controller will post an updated condition when it
+	// No requeue needed: the key-controller will update ObservedConfigHash when it
 	// picks up the config change (via apiServerInformer), which triggers us through
 	// operatorClient.Informer(). The minute-based resync is a backstop.
 	if currentHash != requiredHash {
-		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to post an updated condition", requiredHash, currentHash)
+		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to update ObservedConfigHash", requiredHash, currentHash)
 		return "", nil
 	}
 

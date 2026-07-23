@@ -333,12 +333,14 @@ func (f *fakeDeployer) Cleanup(_ context.Context) error {
 }
 
 type fakeEncryptionStatusProvider struct {
-	writtenStatus *operatorv1.KMSPreflightResult
-	updateErr     error
+	observedConfigHash string
+	writtenStatus      *operatorv1.KMSPreflightResult
+	updateErr          error
 }
 
 func (f *fakeEncryptionStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
 	s := &operatorv1.KMSEncryptionStatus{}
+	s.Preflight.ObservedConfigHash = f.observedConfigHash
 	if f.writtenStatus != nil {
 		s.Preflight.Result = *f.writtenStatus
 	}
@@ -385,7 +387,6 @@ func TestKMSPreflightController(t *testing.T) {
 		encryptionStatusProvider   *fakeEncryptionStatusProvider
 		apiServerObjects           []runtime.Object
 		coreObjects                []runtime.Object
-		operatorConditions         []operatorv1.OperatorCondition
 		preconditionsMet           bool
 		expectedError              string
 		expectedConditions         []operatorv1.OperatorCondition
@@ -401,42 +402,14 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			name:             "no EncryptionKMSPreflightRequired condition, cleans up",
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			preconditionsMet: true,
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-			},
-		},
-		{
-			name:             "EncryptionKMSPreflightRequired condition is False, cleans up",
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionFalse, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
-			preconditionsMet: true,
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionFalse, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
-		},
-		{
 			name:             "hashes match, no pod exists, deploys and returns",
 			deployer:         &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -446,16 +419,12 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -463,17 +432,13 @@ func TestKMSPreflightController(t *testing.T) {
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod completed without reporting result for hash k6dSVA==",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash k6dSVA=="},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -484,17 +449,13 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod completed without reporting result for hash k6dSVA==",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash k6dSVA=="},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -506,16 +467,12 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "remote-key-abc"},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:      operatorv1.KMSPreflightResultSucceeded,
@@ -531,16 +488,12 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue, LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Hour))},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultSucceeded,
@@ -556,17 +509,13 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "remote-key-xyz"},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
+			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			preconditionsMet: true,
 			expectedError:    "preflight check failed for hash k6dSVA==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash k6dSVA==: encrypt call failed"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:      operatorv1.KMSPreflightResultFailed,
@@ -582,16 +531,12 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -611,17 +556,13 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -629,16 +570,12 @@ func TestKMSPreflightController(t *testing.T) {
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodRunning,
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -649,17 +586,13 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: corev1.PodScheduled, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Time{Time: time.Now().Add(-5 * time.Minute)}},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -668,17 +601,13 @@ func TestKMSPreflightController(t *testing.T) {
 				Phase:     corev1.PodPending,
 				StartTime: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -698,17 +627,13 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -720,49 +645,37 @@ func TestKMSPreflightController(t *testing.T) {
 					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod has not reported result after 3m0s: pod is in Running phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported result after 3m0s: pod is in Running phase"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
 			name:             "deploy fails, reports error",
 			deployer:         &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "quota exceeded",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "quota exceeded"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
 			name:             "status returns unexpected error",
 			deployer:         &fakeDeployer{statusErr: fmt.Errorf("connection refused")},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "failed to get preflight pod status",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "failed to get preflight pod status: connection refused"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -775,17 +688,13 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "delete forbidden",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "delete forbidden"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -794,17 +703,13 @@ func TestKMSPreflightController(t *testing.T) {
 				Phase:   corev1.PodFailed,
 				Message: "node lost",
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod failed for hash k6dSVA==: node lost",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: node lost"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
@@ -822,60 +727,44 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 137 (Unknown)",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 137 (Unknown)"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
-			name:             "hashes differ, config changed since condition was posted, cleans up",
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			name:             "hashes differ, config changed since ObservedConfigHash was written, cleans up",
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: "stale-hash"},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: "stale-hash"},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: "stale-hash"},
 			},
 		},
 		{
 			name:             "hash computation fails due to missing secret",
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
-			},
 			preconditionsMet: true,
 			expectedError:    "failed to compute KMS config hash",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: `failed to compute KMS config hash: failed to get secret openshift-config/vault-approle: secrets "vault-approle" not found`},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
 		{
-			name:             "EncryptionKMSPreflightRequired condition is True but has empty message, treated as hash mismatch",
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
+			name:             "empty ObservedConfigHash, cleans up",
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: ""},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			coreObjects:      []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			operatorConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: ""},
-			},
 			preconditionsMet: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: ""},
 			},
 		},
 	}
@@ -885,7 +774,6 @@ func TestKMSPreflightController(t *testing.T) {
 			conditions := []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
 			}
-			conditions = append(conditions, scenario.operatorConditions...)
 
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
