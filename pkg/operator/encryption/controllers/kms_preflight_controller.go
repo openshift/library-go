@@ -22,6 +22,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -171,9 +172,10 @@ type kmsPreflightController struct {
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
 
-	deployer                 KMSPreflightDeployer
-	provider                 Provider
-	preconditionsFulfilledFn preconditionsFulfilled
+	deployer                    KMSPreflightDeployer
+	provider                    Provider
+	preconditionsFulfilledFn    preconditionsFulfilled
+	encryptionStatusProvider    kms.EncryptionStatusProvider
 }
 
 // NewKMSPreflightController validates KMS configuration before a key is created.
@@ -258,6 +260,7 @@ func NewKMSPreflightController(
 	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
 	// via the operatorClient informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
@@ -270,6 +273,7 @@ func NewKMSPreflightController(
 		deployer:                 deployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
+		encryptionStatusProvider: encryptionStatusProvider,
 	}
 
 	return factory.New().
@@ -371,6 +375,14 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     The admin fixes the config, which triggers a new hash and cleanup
 //     via scenario (c).
 //
+// KMSEncryptionStatus.Preflight.Result is written only when the checker ran
+// to completion; infrastructure failures are surfaced through the degraded
+// condition only:
+//
+//   - 3e (check passed):  writes Result{Succeeded, configHash, remoteKeyID}
+//   - 3f (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
+//   - 3a, 3b, 3d (infrastructure failures): no write; EncryptionKMSPreflightControllerDegraded is set instead
+//
 // TODO: in the future we might want to add retries for failed preflights.
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, err error) {
 	requiredHash, err := c.preflightRequired(ctx)
@@ -431,17 +443,43 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return true, nil
 	}
 
+	remoteKeyID := ""
+	if kc := FindPodCondition(podStatus.Conditions, KMSPreflightRemoteKeyIDPodCondition); kc != nil {
+		remoteKeyID = kc.Message
+	}
+
 	// Scenario 3e: check passed.
 	if resultCondition.Status == corev1.ConditionTrue {
+		if err := c.writePreflightResult(ctx, operatorv1.KMSPreflightResult{
+			Status:      operatorv1.KMSPreflightResultSucceeded,
+			ConfigHash:  requiredHash,
+			RemoteKeyID: remoteKeyID,
+		}); err != nil {
+			return false, err
+		}
 		return false, c.cleanupAfterRetention(ctx, resultCondition.LastTransitionTime.Time)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
 	// update the config which triggers a new hash and cleanup via scenario 3c.
-	return false, &preflightError{
+	pe := &preflightError{
 		reason:  "PreflightCheckFailed",
 		message: fmt.Sprintf("preflight check failed for hash %s: %s", requiredHash, resultCondition.Message),
 	}
+	if writeErr := c.writePreflightResult(ctx, operatorv1.KMSPreflightResult{
+		Status:      operatorv1.KMSPreflightResultFailed,
+		ConfigHash:  requiredHash,
+		RemoteKeyID: remoteKeyID,
+	}); writeErr != nil {
+		return false, fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
+	}
+	return false, pe
+}
+
+func (c *kmsPreflightController) writePreflightResult(ctx context.Context, result operatorv1.KMSPreflightResult) error {
+	return c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+		s.Preflight.Result = result
+	})
 }
 
 func (c *kmsPreflightController) cleanupAfterRetention(ctx context.Context, completedAt time.Time) error {
