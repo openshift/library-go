@@ -171,10 +171,10 @@ type kmsPreflightController struct {
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
 
-	deployer                    KMSPreflightDeployer
-	provider                    Provider
-	preconditionsFulfilledFn    preconditionsFulfilled
-	encryptionStatusProvider    kms.EncryptionStatusProvider
+	deployer                 KMSPreflightDeployer
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
+	encryptionStatusProvider kms.EncryptionStatusProvider
 }
 
 // NewKMSPreflightController validates KMS configuration before a key is created.
@@ -340,13 +340,13 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //  1. No preflight required (ObservedConfigHash empty or hash mismatch).
 //     Cleanup any lingering resources (pod, SA, RBAC) from a previous run.
 //
-//  1a. Result already recorded as Succeeded for this hash.
+//     1a. Result already recorded as Succeeded for this hash.
 //     Cleanup the pod (idempotent) and return. No pod work needed.
 //
 //  2. Preflight required, no pod exists (Status returns NotFound).
 //     2a. Result already recorded as Failed and pod is gone: surface the error
-//         without re-deploying. The admin must fix the config (new hash) before
-//         a new check can run.
+//     without re-deploying. The admin must fix the config (new hash) before
+//     a new check can run.
 //     2b. No result yet: call Deploy. On success, requeue and wait for the pod to report results.
 //
 //  3. Preflight required, pod exists (Status returns a PodStatus).
@@ -509,7 +509,6 @@ func (c *kmsPreflightController) ensurePreflightResult(ctx context.Context, exis
 	})
 }
 
-
 func isPreflightResult(result *operatorv1.KMSPreflightResult, status operatorv1.KMSPreflightResultStatus) bool {
 	return result != nil && result.Status == status
 }
@@ -635,11 +634,8 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 		return "", nil, nil
 	}
 
-	var existingResult *operatorv1.KMSPreflightResult
 	if encryptionStatus.Preflight.Result.ConfigHash == requiredHash {
-		r := encryptionStatus.Preflight.Result
-		existingResult = &r
+		return requiredHash, &encryptionStatus.Preflight.Result, nil
 	}
-
-	return requiredHash, existingResult, nil
+	return requiredHash, nil, nil
 }
