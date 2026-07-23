@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -36,12 +37,16 @@ func TestConstantMaps(t *testing.T) {
 	}
 	discoveredVersions := map[string]bool{}
 	discoveredCiphers := map[string]bool{}
+	discoveredGroups := map[string]bool{}
 	for _, declName := range pkg.Scope().Names() {
 		if strings.HasPrefix(declName, "VersionTLS") {
 			discoveredVersions[declName] = true
 		}
 		if strings.HasPrefix(declName, "TLS_RSA_") || strings.HasPrefix(declName, "TLS_ECDHE_") || strings.HasPrefix(declName, "TLS_AES_") || strings.HasPrefix(declName, "TLS_CHACHA20_") {
 			discoveredCiphers[declName] = true
+		}
+		if strings.HasPrefix(declName, "CurveP") || strings.HasPrefix(declName, "X25519") {
+			discoveredGroups[declName] = true
 		}
 	}
 
@@ -70,6 +75,17 @@ func TestConstantMaps(t *testing.T) {
 	for k := range enabledTLSVersions {
 		if _, ok := discoveredVersions[k]; !ok {
 			t.Errorf("enabledTLSVersions map has %s not in tls package", k)
+		}
+	}
+
+	for k := range discoveredGroups {
+		if _, ok := goTLSGroups[k]; !ok {
+			t.Errorf("discovered group tls.%s not in goTLSGroups map", k)
+		}
+	}
+	for k := range goTLSGroups {
+		if _, ok := discoveredGroups[k]; !ok {
+			t.Errorf("goTLSGroups map has %s not in tls package", k)
 		}
 	}
 
@@ -595,6 +611,116 @@ func TestCiphersUnsupportedByGoAreActuallyUnsupported(t *testing.T) {
 			t.Errorf("cipher %q (IANA: %q) is in ciphersUnsupportedByGo but Go now supports it — "+
 				"remove it from ciphersUnsupportedByGo and add a mapping to openSSLToIANACiphers",
 				opensslName, ianaName)
+		}
+	}
+}
+
+// TestTLSProfileGroupsHaveMappings verifies that all TLS groups defined in the
+// OpenShift TLS security profiles have corresponding mappings in
+// tlsGroupToCurveID.
+func TestTLSProfileGroupsHaveMappings(t *testing.T) {
+	var missingMappings []string
+
+	for profileType, profileSpec := range configv1.TLSProfiles {
+		for _, group := range profileSpec.Groups {
+			if _, found := tlsGroupToCurveID[group]; !found {
+				missingMappings = append(missingMappings, fmt.Sprintf("%s (profile: %s)", group, profileType))
+			}
+		}
+	}
+
+	if len(missingMappings) > 0 {
+		sort.Strings(missingMappings)
+		t.Errorf("The following TLS groups from TLS profiles are missing mappings in tlsGroupToCurveID:\n%s",
+			strings.Join(missingMappings, "\n"))
+	}
+}
+
+func TestCurveIDForTLSGroup(t *testing.T) {
+	tests := []struct {
+		group  configv1.TLSGroup
+		wantID tls.CurveID
+		wantOK bool
+	}{
+		{configv1.TLSGroupX25519, tls.X25519, true},
+		{configv1.TLSGroupSecP256r1, tls.CurveP256, true},
+		{configv1.TLSGroupSecP384r1, tls.CurveP384, true},
+		{configv1.TLSGroupSecP521r1, tls.CurveP521, true},
+		{configv1.TLSGroupX25519MLKEM768, tls.X25519MLKEM768, true},
+		{configv1.TLSGroupSecP256r1MLKEM768, tls.CurveID(4587), true},  // TODO: replace with tls.SecP256r1MLKEM768 when Go 1.26 is the minimum version
+		{configv1.TLSGroupSecP384r1MLKEM1024, tls.CurveID(4590), true}, // TODO: replace with tls.SecP384r1MLKEM1024 when Go 1.26 is the minimum version
+		{configv1.TLSGroup("UnknownGroup"), 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.group), func(t *testing.T) {
+			gotID, gotOK := CurveIDForTLSGroup(tt.group)
+			if gotID != tt.wantID {
+				t.Errorf("CurveIDForTLSGroup(%q) id = %d, want %d", tt.group, gotID, tt.wantID)
+			}
+			if gotOK != tt.wantOK {
+				t.Errorf("CurveIDForTLSGroup(%q) ok = %v, want %v", tt.group, gotOK, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestCurveIDsForTLSGroups(t *testing.T) {
+	tests := []struct {
+		name            string
+		groups          []configv1.TLSGroup
+		wantCurves      []tls.CurveID
+		wantUnsupported []string
+	}{
+		{
+			name:            "all supported",
+			groups:          []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1},
+			wantCurves:      []tls.CurveID{tls.X25519, tls.CurveP256},
+			wantUnsupported: nil,
+		},
+		{
+			name:            "includes post-quantum hybrids",
+			groups:          []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1MLKEM768, configv1.TLSGroupSecP384r1},
+			wantCurves:      []tls.CurveID{tls.X25519, tls.CurveID(4587) /* TODO: replace with tls.SecP256r1MLKEM768 when Go 1.26 is the minimum version */, tls.CurveP384},
+			wantUnsupported: nil,
+		},
+		{
+			name:            "unknown groups filtered",
+			groups:          []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroup("FutureGroup")},
+			wantCurves:      []tls.CurveID{tls.X25519},
+			wantUnsupported: []string{"FutureGroup"},
+		},
+		{
+			name:            "empty input",
+			groups:          []configv1.TLSGroup{},
+			wantCurves:      nil,
+			wantUnsupported: nil,
+		},
+		{
+			name:            "nil input",
+			groups:          nil,
+			wantCurves:      nil,
+			wantUnsupported: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotCurves, gotUnsupported := CurveIDsForTLSGroups(tt.groups)
+			require.Equal(t, tt.wantCurves, gotCurves)
+			require.Equal(t, tt.wantUnsupported, gotUnsupported)
+		})
+	}
+}
+
+func TestValidTLSGroups(t *testing.T) {
+	groups := ValidTLSGroups()
+	if len(groups) != len(tlsGroupToCurveID) {
+		t.Errorf("ValidTLSGroups() returned %d groups, want %d", len(groups), len(tlsGroupToCurveID))
+	}
+	for i := 1; i < len(groups); i++ {
+		if groups[i] < groups[i-1] {
+			t.Errorf("ValidTLSGroups() not sorted: %q before %q", groups[i-1], groups[i])
 		}
 	}
 }
