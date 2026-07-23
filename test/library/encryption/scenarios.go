@@ -110,32 +110,107 @@ type testStep struct {
 	testFunc func(testing.TB)
 }
 
-func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, scenario OnOffScenario) {
-	scenarios := []testStep{
-		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, onOffScenarios ...OnOffScenario) {
+	if len(onOffScenarios) == 0 {
+		t.Fatalf("TestEncryptionTurnOnAndOff requires at least one scenario")
+	}
+
+	// Only one scenario should provide EncryptionProvider (shared cluster-wide APIServer config).
+	var providerScenario *OnOffScenario
+	for i := range onOffScenarios {
+		if onOffScenarios[i].EncryptionProvider.Type == "" {
+			continue
+		}
+		if providerScenario != nil {
+			t.Fatalf("only one scenario may provide EncryptionProvider, got %q and %q",
+				providerScenario.ResourceName, onOffScenarios[i].ResourceName)
+		}
+		providerScenario = &onOffScenarios[i]
+	}
+	if providerScenario == nil {
+		t.Fatalf("one scenario must provide EncryptionProvider")
+	}
+	provider := providerScenario.EncryptionProvider
+
+	// step 1: create resources
+	var createSteps []testStep
+	for _, scenario := range onOffScenarios {
+		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
-		}},
-		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider) }},
-		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+		}})
+	}
+
+	// step 2: enable encryption and wait for each operator, then assert encrypted
+	var onSteps []testStep
+	for _, scenario := range onOffScenarios {
+		onSteps = append(onSteps, testStep{name: fmt.Sprintf("On%s%s", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
+		}})
+	}
+	var assertEncryptedSteps []testStep
+	for _, scenario := range onOffScenarios {
+		assertEncryptedSteps = append(assertEncryptedSteps, testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-		}},
-		{name: "OffIdentity", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario) }},
-		{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+		}})
+	}
+
+	// step 3: disable encryption (identity) and assert not encrypted
+	var offSteps []testStep
+	for _, scenario := range onOffScenarios {
+		offSteps = append(offSteps, testStep{name: fmt.Sprintf("OffIdentity%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+		}})
+	}
+	var assertNotEncryptedSteps []testStep
+	for _, scenario := range onOffScenarios {
+		assertNotEncryptedSteps = append(assertNotEncryptedSteps, testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-		}},
-		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) { TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider) }},
-		{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
+		}})
+	}
+
+	// step 4: re-enable encryption and assert encrypted again
+	var onStepsSecond []testStep
+	for _, scenario := range onOffScenarios {
+		onStepsSecond = append(onStepsSecond, testStep{name: fmt.Sprintf("On%s%sSecond", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
+		}})
+	}
+	var assertEncryptedStepsSecond []testStep
+	for _, scenario := range onOffScenarios {
+		assertEncryptedStepsSecond = append(assertEncryptedStepsSecond, testStep{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-		}},
-		{name: "OffIdentitySecond", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario) }},
-		{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
+		}})
+	}
+
+	// step 5: disable encryption again and assert not encrypted again
+	var offStepsSecond []testStep
+	for _, scenario := range onOffScenarios {
+		offStepsSecond = append(offStepsSecond, testStep{name: fmt.Sprintf("OffIdentitySecond%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+		}})
+	}
+	var assertNotEncryptedStepsSecond []testStep
+	for _, scenario := range onOffScenarios {
+		assertNotEncryptedStepsSecond = append(assertNotEncryptedStepsSecond, testStep{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-		}},
+		}})
+	}
+
+	scenarios := []testStep{
+		inParallel(createSteps...),
+		inParallel(onSteps...),
+		inParallel(assertEncryptedSteps...),
+		inParallel(offSteps...),
+		inParallel(assertNotEncryptedSteps...),
+		inParallel(onStepsSecond...),
+		inParallel(assertEncryptedStepsSecond...),
+		inParallel(offStepsSecond...),
+		inParallel(assertNotEncryptedStepsSecond...),
 	}
 
 	// run scenarios
