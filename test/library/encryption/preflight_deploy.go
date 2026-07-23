@@ -113,8 +113,8 @@ func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSe
 	resultCond := requirePodCondition(t, status.Conditions, controllers.KMSPreflightResultPodCondition, corev1.ConditionTrue)
 	require.Equal(t, "Succeeded", resultCond.Reason)
 
-	kekCond := requirePodCondition(t, status.Conditions, controllers.KMSPreflightKEKIDPodCondition, corev1.ConditionTrue)
-	require.NotEmpty(t, kekCond.Message, "KEK ID")
+	kekCond := requirePodCondition(t, status.Conditions, controllers.KMSPreflightRemoteKeyIDPodCondition, corev1.ConditionTrue)
+	require.NotEmpty(t, kekCond.Message, "remote key ID")
 }
 
 func requirePodCondition(t testing.TB, conditions []corev1.PodCondition, condType corev1.PodConditionType, wantStatus corev1.ConditionStatus) *corev1.PodCondition {

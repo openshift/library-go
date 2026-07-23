@@ -134,9 +134,9 @@ const (
 	// in the condition message.
 	KMSPreflightResultPodCondition corev1.PodConditionType = "KMSPreflightResult"
 
-	// KMSPreflightKEKIDPodCondition carries the current key encryption key (KEK)
-	// ID reported by the KMS plugin during the preflight evaluation.
-	KMSPreflightKEKIDPodCondition corev1.PodConditionType = "KMSPreflightKekID"
+	// KMSPreflightRemoteKeyIDPodCondition carries the remote key ID reported by
+	// the KMS plugin during the preflight evaluation.
+	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightRemoteKeyID"
 
 	preflightPodRetention      = 1 * time.Hour
 	preflightPodStartupTimeout = 3 * time.Minute
