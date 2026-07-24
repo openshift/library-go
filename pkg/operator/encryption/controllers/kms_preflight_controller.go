@@ -22,6 +22,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -134,11 +135,10 @@ const (
 	// in the condition message.
 	KMSPreflightResultPodCondition corev1.PodConditionType = "KMSPreflightResult"
 
-	// KMSPreflightKEKIDPodCondition carries the current key encryption key (KEK)
-	// ID reported by the KMS plugin during the preflight evaluation.
-	KMSPreflightKEKIDPodCondition corev1.PodConditionType = "KMSPreflightKekID"
+	// KMSPreflightRemoteKeyIDPodCondition carries the remote key ID reported by
+	// the KMS plugin during the preflight evaluation.
+	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightRemoteKeyID"
 
-	preflightPodRetention      = 1 * time.Hour
 	preflightPodStartupTimeout = 3 * time.Minute
 )
 
@@ -174,17 +174,19 @@ type kmsPreflightController struct {
 	deployer                 KMSPreflightDeployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
+	encryptionStatusProvider kms.EncryptionStatusProvider
 }
 
 // NewKMSPreflightController validates KMS configuration before a key is created.
 //
 // Coordination with the key-controller:
 //
-// The key-controller writes a hash of the current KMS config to operator status
-// as the EncryptionKMSPreflightRequired condition (hash in the message).
-// This controller reads that hash, runs preflight checks, and on success sets
-// the EncryptionKMSPreflightSucceeded condition (same hash in the message).
-// The key-controller waits for the two hashes to match before creating a key.
+// The key-controller writes a hash of the current KMS config to
+// KMSEncryptionStatus.Preflight.ObservedConfigHash.
+// This controller reads that hash, runs preflight checks, and on success writes
+// KMSEncryptionStatus.Preflight.Result.
+// The key-controller waits for Result.ConfigHash to match ObservedConfigHash
+// and Result.Status to be Succeeded before creating a key.
 //
 // This is the same pattern used by the revision and installer controllers:
 // the revision controller writes LatestAvailableRevision, the installer
@@ -199,25 +201,25 @@ type kmsPreflightController struct {
 //     runs preflight for B, overwrites status with hash B.
 //  5. The key created in step 2 was for config A but status now says B.
 //
-// Letting the key-controller own EncryptionKMSPreflightRequired and this
-// controller own EncryptionKMSPreflightSucceeded solves this. If the config
-// changes mid-flight the key-controller posts a new hash and the preflight
-// controller sees the mismatch and waits.
+// Letting the key-controller own ObservedConfigHash and this controller own
+// Result solves this. If the config changes mid-flight the key-controller
+// updates ObservedConfigHash and the preflight controller sees the mismatch
+// and waits.
 //
 // Example 1: config changes before key is created
 //  1. User creates KMS config A.
-//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
-//  3. Preflight controller sees required=A, starts checking A.
+//  2. Key-controller computes hash A, writes ObservedConfigHash=A.
+//  3. Preflight controller sees ObservedConfigHash=A, starts checking A.
 //  4. User changes config to A2 (minor variation, different hash).
-//  5. Key-controller computes hash A2, writes EncryptionKMSPreflightRequired=A2.
-//  6. Preflight controller sees required=A2, starts checking A2.
-//  7. Key-controller does not create a key until succeeded=A2.
+//  5. Key-controller computes hash A2, writes ObservedConfigHash=A2.
+//  6. Preflight controller sees ObservedConfigHash=A2, starts checking A2.
+//  7. Key-controller does not create a key until Result.ConfigHash=A2, Result.Status=Succeeded.
 //
 // Example 2: config changes after key is created
 //  1. User creates KMS config A.
-//  2. Key-controller computes hash A, writes EncryptionKMSPreflightRequired=A.
-//  3. Preflight controller checks A, succeeds, writes EncryptionKMSPreflightSucceeded=A.
-//  4. Key-controller sees required=A matches succeeded=A, creates key for A.
+//  2. Key-controller computes hash A, writes ObservedConfigHash=A.
+//  3. Preflight controller checks A, succeeds, writes Result{Succeeded, A}.
+//  4. Key-controller sees Result.ConfigHash=A matches ObservedConfigHash=A, creates key for A.
 //  5. User changes config to A2 (or B).
 //  6. Key-controller waits until the key for A completes the full cycle
 //     (read, write, migrated) before creating a new key. No preflight done
@@ -255,9 +257,10 @@ func NewKMSPreflightController(
 	apiServerInformer configv1informers.APIServerInformer,
 	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
 	// computation. No informer is needed: the key-controller detects config changes and
-	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
-	// via the operatorClient informer. The minute-based resync covers the rest.
+	// updates ObservedConfigHash, which triggers this controller via the operatorClient
+	// informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
@@ -270,6 +273,7 @@ func NewKMSPreflightController(
 		deployer:                 deployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
+		encryptionStatusProvider: encryptionStatusProvider,
 	}
 
 	return factory.New().
@@ -333,12 +337,17 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //
 // Scenarios:
 //
-//  1. No preflight required (condition absent, False, or hash mismatch in preflightRequired).
+//  1. No preflight required (ObservedConfigHash empty or hash mismatch).
 //     Cleanup any lingering resources (pod, SA, RBAC) from a previous run.
 //
+//     1a. Result already recorded as Succeeded for this hash.
+//     Cleanup the pod (idempotent) and return. No pod work needed.
+//
 //  2. Preflight required, no pod exists (Status returns NotFound).
-//     Call Deploy. On success, requeue and wait for the pod to report results.
-//     If Deploy fails, report the error.
+//     2a. Result already recorded as Failed and pod is gone: surface the error
+//     without re-deploying. The admin must fix the config (new hash) before
+//     a new check can run.
+//     2b. No result yet: call Deploy. On success, requeue and wait for the pod to report results.
 //
 //  3. Preflight required, pod exists (Status returns a PodStatus).
 //     Evaluate the pod state via conditions and phase:
@@ -364,16 +373,24 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     the startup timeout, return an error with the stuck reason.
 //
 //     e) Hash matches, KMSPreflightResult is True — check passed.
-//     Keep the pod for retention (1h), then clean up.
+//     Clean up the pod immediately.
 //
 //     f) Hash matches, KMSPreflightResult is False — check failed. Report
 //     degraded with the failure message. Keep the pod for inspection.
 //     The admin fixes the config, which triggers a new hash and cleanup
 //     via scenario (c).
 //
+// KMSEncryptionStatus.Preflight.Result is written only when the checker ran
+// to completion; infrastructure failures are surfaced through the degraded
+// condition only:
+//
+//   - 3e (check passed):  writes Result{Succeeded, configHash, remoteKeyID}
+//   - 3f (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
+//   - 3a, 3b, 3d (infrastructure failures): no write; EncryptionKMSPreflightControllerDegraded is set instead
+//
 // TODO: in the future we might want to add retries for failed preflights.
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, err error) {
-	requiredHash, err := c.preflightRequired(ctx)
+	requiredHash, existingResult, err := c.preflightRequired(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -383,10 +400,25 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return false, c.deployer.Cleanup(ctx)
 	}
 
+	// Result already recorded for this hash as Succeeded: clean up the pod
+	// (idempotent if already gone) and return — no pod work needed.
+	if isPreflightResult(existingResult, operatorv1.KMSPreflightResultSucceeded) {
+		return false, c.deployer.Cleanup(ctx)
+	}
+
 	// Check whether a preflight pod already exists.
 	podStatus, err := c.deployer.Status(ctx)
-	// Scenario 2: no pod exists, deploy a new one.
+	// Scenario 2: no pod exists.
 	if apierrors.IsNotFound(err) {
+		// Result already recorded as Failed and the pod is gone: surface the error
+		// without re-deploying. The admin must fix the config (new hash) before a
+		// new check can run.
+		if isPreflightResult(existingResult, operatorv1.KMSPreflightResultFailed) {
+			return false, &preflightError{
+				reason:  "PreflightCheckFailed",
+				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
+			}
+		}
 		// TODO: compute the encryption configuration and pass it to the deployer
 		return true, c.deployer.Deploy(ctx, requiredHash, nil)
 	}
@@ -431,27 +463,54 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return true, nil
 	}
 
+	remoteKeyID := ""
+	if kc := FindPodCondition(podStatus.Conditions, KMSPreflightRemoteKeyIDPodCondition); kc != nil {
+		remoteKeyID = kc.Message
+	}
+
 	// Scenario 3e: check passed.
 	if resultCondition.Status == corev1.ConditionTrue {
-		return false, c.cleanupAfterRetention(ctx, resultCondition.LastTransitionTime.Time)
+		if err := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
+			Status:      operatorv1.KMSPreflightResultSucceeded,
+			ConfigHash:  requiredHash,
+			RemoteKeyID: remoteKeyID,
+		}); err != nil {
+			return false, err
+		}
+		return false, c.deployer.Cleanup(ctx)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
 	// update the config which triggers a new hash and cleanup via scenario 3c.
-	return false, &preflightError{
+	pe := &preflightError{
 		reason:  "PreflightCheckFailed",
 		message: fmt.Sprintf("preflight check failed for hash %s: %s", requiredHash, resultCondition.Message),
 	}
+	if writeErr := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
+		Status:      operatorv1.KMSPreflightResultFailed,
+		ConfigHash:  requiredHash,
+		RemoteKeyID: remoteKeyID,
+	}); writeErr != nil {
+		return false, fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
+	}
+	return false, pe
 }
 
-func (c *kmsPreflightController) cleanupAfterRetention(ctx context.Context, completedAt time.Time) error {
-	age := time.Since(completedAt)
-	if age < preflightPodRetention {
-		klog.V(4).Infof("Preflight pod completed %s ago, keeping for inspection (retention %s)", age.Truncate(time.Second), preflightPodRetention)
+// ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result
+// if it has not already been written for this hash. It is a no-op when
+// existingResult is non-nil and its ConfigHash already matches result.ConfigHash,
+// making it safe to call on every sync without overwriting a previously stored outcome.
+func (c *kmsPreflightController) ensurePreflightResult(ctx context.Context, existingResult *operatorv1.KMSPreflightResult, result operatorv1.KMSPreflightResult) error {
+	if existingResult != nil && existingResult.ConfigHash == result.ConfigHash {
 		return nil
 	}
-	klog.V(2).Infof("Preflight pod retention period elapsed (%s), cleaning up", preflightPodRetention)
-	return c.deployer.Cleanup(ctx)
+	return c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+		s.Preflight.Result = result
+	})
+}
+
+func isPreflightResult(result *operatorv1.KMSPreflightResult, status operatorv1.KMSPreflightResultStatus) bool {
+	return result != nil && result.Status == status
 }
 
 type preflightError struct {
@@ -540,39 +599,43 @@ func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodCondi
 	return nil
 }
 
-// preflightRequired returns the config hash that needs preflight validation,
-// or an empty string when no preflight is needed.
-func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, error) {
-	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+// preflightRequired returns the config hash that needs preflight validation
+// and any existing result already recorded for that hash, or an empty string
+// when no preflight is needed.
+func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, *operatorv1.KMSPreflightResult, error) {
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get operator state: %w", err)
+		return "", nil, fmt.Errorf("failed to get KMS encryption status: %w", err)
 	}
-	requiredCondition := operatorv1helpers.FindOperatorCondition(operatorStatus.Conditions, "EncryptionKMSPreflightRequired")
-	if requiredCondition == nil || requiredCondition.Status != operatorv1.ConditionTrue {
-		return "", nil
+	requiredHash := encryptionStatus.Preflight.ObservedConfigHash
+	if requiredHash == "" {
+		return "", nil, nil
 	}
+
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get apiserver config: %w", err)
+		return "", nil, fmt.Errorf("failed to get apiserver config: %w", err)
 	}
 
 	providerCfg, err := newKMSProviderConfig(apiServer.Spec.Encryption.KMS)
 	if err != nil {
-		return "", fmt.Errorf("failed to create KMS provider config: %w", err)
+		return "", nil, fmt.Errorf("failed to create KMS provider config: %w", err)
 	}
 	currentHash, err := newKMSConfigHasher(providerCfg, c.coreClient, openshiftConfigNS).hash(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute KMS config hash: %w", err)
+		return "", nil, fmt.Errorf("failed to compute KMS config hash: %w", err)
 	}
 
-	requiredHash := requiredCondition.Message
-	// No requeue needed: the key-controller will post an updated condition when it
+	// No requeue needed: the key-controller will update ObservedConfigHash when it
 	// picks up the config change (via apiServerInformer), which triggers us through
 	// operatorClient.Informer(). The minute-based resync is a backstop.
 	if currentHash != requiredHash {
-		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to post an updated condition", requiredHash, currentHash)
-		return "", nil
+		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to update ObservedConfigHash", requiredHash, currentHash)
+		return "", nil, nil
 	}
 
-	return requiredHash, nil
+	if encryptionStatus.Preflight.Result.ConfigHash == requiredHash {
+		return requiredHash, &encryptionStatus.Preflight.Result, nil
+	}
+	return requiredHash, nil, nil
 }
