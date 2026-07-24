@@ -6,6 +6,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
@@ -51,6 +52,19 @@ func NewKubeInformersForNamespacesWithOptions(kubeClient kubernetes.Interface, r
 		ret[namespace] = informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncInterval, factoryOpts...)
 	}
 	return ret
+}
+
+// StripManagedFieldsTransform is a cache.TransformFunc that removes
+// ManagedFields from objects before they are stored in the informer cache.
+func StripManagedFieldsTransform(obj interface{}) (interface{}, error) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return obj, nil
+	}
+	if accessor.GetManagedFields() != nil {
+		accessor.SetManagedFields(nil)
+	}
+	return obj, nil
 }
 
 type kubeInformersForNamespaces map[string]informers.SharedInformerFactory
