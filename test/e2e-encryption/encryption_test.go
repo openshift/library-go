@@ -545,7 +545,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	defer kubeClient.CoreV1().ConfigMaps("openshift-config").Delete(ctx, "vault-ca-bundle", metav1.DeleteOptions{})
 
 	t.Logf("Switch to KMS")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(7)
 	kms8 := kmsPluginName("kubeapiservers", "8")
@@ -570,7 +570,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, configv1.VaultKMSProvider, pluginConfig.Type)
 	require.Equal(t, "https://vault.example.com", pluginConfig.Vault.VaultAddress)
-	require.Equal(t, "test-transit-key", pluginConfig.Vault.TransitKey)
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfig.Vault.VaultKeyPath)
 
 	t.Logf("Switch back to aescbc from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc","kms":null}}}`), metav1.PatchOptions{})
@@ -587,7 +587,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	verifyKMSConfigMapData()
 
 	t.Logf("Switch back to KMS")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(9)
 	kms10 := kmsPluginName("kubeapiservers", "10")
@@ -618,7 +618,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	verifyKMSConfigMapData()
 
 	t.Logf("Switch back to KMS after rotation")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	waitForKeys(11)
 	kms12 := kmsPluginName("kubeapiservers", "12")
@@ -656,10 +656,10 @@ func TestEncryptionIntegration(tt *testing.T) {
 	pluginConfig13, err := encoding.DecodeKMSPluginConfig(kmsPluginConfigData13)
 	require.NoError(t, err)
 	require.Equal(t, "https://vault-new.example.com", pluginConfig13.Vault.VaultAddress)
-	require.Equal(t, "test-transit-key", pluginConfig13.Vault.TransitKey)
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13.Vault.VaultKeyPath)
 
 	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"transitKey":"test-transit-key"}}}}}`), metav1.PatchOptions{})
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second)
 	waitForKeys(12)

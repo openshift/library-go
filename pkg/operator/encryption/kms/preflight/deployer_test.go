@@ -62,8 +62,7 @@ spec:
       args:
         - -listen-address=unix:///var/run/kmsplugin/kms.sock
         - -vault-address=https://vault.example.com
-        - -transit-mount=
-        - -transit-key=test-transit-key
+        - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
@@ -154,8 +153,7 @@ spec:
       args:
         - -listen-address=unix:///var/run/kmsplugin/kms.sock
         - -vault-address=https://vault.example.com
-        - -transit-mount=
-        - -transit-key=test-transit-key
+        - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1

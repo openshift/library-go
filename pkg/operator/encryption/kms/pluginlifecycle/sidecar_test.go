@@ -34,11 +34,11 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 	vaultConfig := &configv1.KMSPluginConfig{
 		Type: configv1.VaultKMSProvider,
 		Vault: configv1.VaultKMSPluginConfig{
-			KMSPluginImage: "quay.io/test/vault:v1",
-			VaultAddress:   "https://vault.example.com:8200",
-			VaultNamespace: "my-namespace",
-			TransitKey:     "my-key",
-			TransitMount:   "transit",
+			KMSPluginImage:     "quay.io/test/vault:v1",
+			VaultAddress:       "https://vault.example.com:8200",
+			VaultNamespace:     "my-namespace",
+			VaultAuthNamespace: "my-auth-namespace",
+			VaultKeyPath:       "transit/keys/my-key",
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
 				AppRole: configv1.VaultAppRoleAuthentication{
@@ -116,13 +116,13 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 	sidecarArgs := []string{
 		"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 		"-vault-address=https://vault.example.com:8200",
-		"-transit-mount=transit",
-		"-transit-key=my-key",
+		"-vault-key-path=transit/keys/my-key",
 		"-approle-role-id=test-role-id",
 		"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
 		"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 		"-tls-sni=vault.internal.example.com",
 		"-vault-namespace=my-namespace",
+		"-vault-auth-namespace=my-auth-namespace",
 		"-metrics-port=0",
 	}
 
@@ -256,8 +256,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						Args: []string{
 							"-listen-address=unix:///var/run/kmsplugin/kms-777.sock",
 							"-vault-address=https://vault2.example.com:8200",
-							"-transit-mount=transit2",
-							"-transit-key=other-key",
+							"-vault-key-path=transit2/keys/other-key",
 							"-approle-role-id=test-role-id-777",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-2_secret-id-777",
 							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle-2_ca-bundle.crt-777",
@@ -287,13 +286,13 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						Args: []string{
 							"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 							"-vault-address=https://vault.example.com:8200",
-							"-transit-mount=transit",
-							"-transit-key=my-key",
+							"-vault-key-path=transit/keys/my-key",
 							"-approle-role-id=test-role-id",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
 							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 							"-tls-sni=vault.internal.example.com",
 							"-vault-namespace=my-namespace",
+							"-vault-auth-namespace=my-auth-namespace",
 							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -324,8 +323,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						KMSPluginImage: "quay.io/test/vault:v2",
 						VaultAddress:   "https://vault2.example.com:8200",
 						VaultNamespace: "other-namespace",
-						TransitKey:     "other-key",
-						TransitMount:   "transit2",
+						VaultKeyPath:   "transit2/keys/other-key",
 						Authentication: configv1.VaultAuthentication{
 							Type: configv1.VaultAuthenticationTypeAppRole,
 							AppRole: configv1.VaultAppRoleAuthentication{
@@ -791,13 +789,13 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 		return []string{
 			"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 			"-vault-address=https://vault.example.com:8200",
-			"-transit-mount=transit",
-			"-transit-key=my-key",
+			"-vault-key-path=transit/keys/my-key",
 			"-approle-role-id=test-role-id",
 			fmt.Sprintf("-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-secret-vault-approle_secret-id-555", secretName),
 			fmt.Sprintf("-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555", secretName),
 			"-tls-sni=vault.internal.example.com",
 			"-vault-namespace=my-namespace",
+			"-vault-auth-namespace=my-auth-namespace",
 			"-metrics-port=0",
 		}
 	}

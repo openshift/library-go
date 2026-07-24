@@ -29,7 +29,7 @@ var defaultKMSPluginConfig = configv1.KMSPluginConfig{
 		TLS: configv1.VaultTLSConfig{
 			CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
 		},
-		TransitKey: "test-transit-key",
+		VaultKeyPath: "transit/keys/test-transit-key",
 	},
 }
 

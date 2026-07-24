@@ -38,8 +38,7 @@ var (
 		TLS: configv1.VaultTLSConfig{
 			CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
 		},
-		TransitMount: "transit",
-		TransitKey:   "my-key",
+		VaultKeyPath: "transit/keys/my-key",
 	}
 
 	wellKnownBaseSecret = corev1.Secret{
@@ -71,7 +70,7 @@ func TestKMSConfigHasher(t *testing.T) {
 			name:         "same config and resources produce the same hash",
 			vaultConfig:  wellKnownBaseVaultConfig,
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "k6dSVA==",
+			expectedHash: "cuZm_g==",
 		},
 		{
 			name: "changing KMSPluginImage",
@@ -81,7 +80,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "DC20hA==",
+			expectedHash: "DP-Bbg==",
 		},
 		{
 			name: "changing VaultAddress",
@@ -91,7 +90,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "VOhO4Q==",
+			expectedHash: "oHX1jw==",
 		},
 		{
 			name: "changing VaultNamespace",
@@ -101,27 +100,27 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "uQnh1w==",
+			expectedHash: "lmrlhQ==",
 		},
 		{
-			name: "changing TransitMount",
+			name: "changing VaultAuthNamespace",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
 				c := wellKnownBaseVaultConfig
-				c.TransitMount = "other-transit"
+				c.VaultAuthNamespace = "my-auth-namespace"
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "yBP5JQ==",
+			expectedHash: "TZa3aA==",
 		},
 		{
-			name: "changing TransitKey",
+			name: "changing VaultKeyPath",
 			vaultConfig: func() configv1.VaultKMSPluginConfig {
 				c := wellKnownBaseVaultConfig
-				c.TransitKey = "other-key"
+				c.VaultKeyPath = "transit/keys/other-key"
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "IH9sCA==",
+			expectedHash: "BihuJg==",
 		},
 		{
 			name: "changing TLS.ServerName",
@@ -131,7 +130,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "o6TBAQ==",
+			expectedHash: "d8Xvrw==",
 		},
 		{
 			name: "changing TLS.CABundle.Name",
@@ -144,7 +143,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "other-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert"},
 			}},
-			expectedHash: "rIBPRg==",
+			expectedHash: "2UnFwA==",
 		},
 		{
 			name: "changing Authentication.AppRole.Secret.Name",
@@ -160,7 +159,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-456"),
 				},
 			}},
-			expectedHash: "jOnSCQ==",
+			expectedHash: "yHXRJw==",
 		},
 		{
 			name:        "changing role-id value",
@@ -172,7 +171,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-456"),
 				},
 			}},
-			expectedHash: "e9maow==",
+			expectedHash: "5Fa5pQ==",
 		},
 		{
 			name:        "changing secret-id value",
@@ -184,7 +183,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-999"),
 				},
 			}},
-			expectedHash: "DMAbFg==",
+			expectedHash: "vmQmnA==",
 		},
 		{
 			name:        "extra key in secret does not change hash",
@@ -197,7 +196,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"extra":     []byte("ignored"),
 				},
 			}},
-			expectedHash: "k6dSVA==",
+			expectedHash: "cuZm_g==",
 		},
 		{
 			name:        "extra key in configmap does not change hash",
@@ -206,7 +205,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert", "extra": "ignored"},
 			}},
-			expectedHash: "k6dSVA==",
+			expectedHash: "cuZm_g==",
 		},
 		{
 			name:        "changing ca-bundle.crt value",
@@ -215,7 +214,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "different-ca-cert"},
 			}},
-			expectedHash: "6nq3gw==",
+			expectedHash: "BeRfNQ==",
 		},
 		{
 			name: "no configmap configured",
@@ -225,7 +224,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret},
-			expectedHash: "rGXYog==",
+			expectedHash: "CWffWA==",
 		},
 		{
 			name:        "shifting bytes between secret keys produces a different hash",
@@ -237,7 +236,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("3secret-456"),
 				},
 			}},
-			expectedHash: "tpoe4g==",
+			expectedHash: "XV8KpA==",
 		},
 		{
 			name:          "missing secret returns error",
@@ -344,7 +343,7 @@ func TestKMSPreflightController(t *testing.T) {
 
 	// Hash produced by kmsConfigHasher over wellKnownBaseVaultConfig, wellKnownBaseSecret,
 	// and wellKnownBaseConfigMap. Verified by TestKMSConfigHasher.
-	const wellKnownMatchingHashForBaseVaultConfig = "k6dSVA=="
+	const wellKnownMatchingHashForBaseVaultConfig = "cuZm_g=="
 
 	scenarios := []struct {
 		name               string
@@ -429,9 +428,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight pod completed without reporting result for hash k6dSVA==",
+			expectedError:    "preflight pod completed without reporting result for hash cuZm_g==",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash k6dSVA=="},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
@@ -449,9 +448,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight pod completed without reporting result for hash k6dSVA==",
+			expectedError:    "preflight pod completed without reporting result for hash cuZm_g==",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash k6dSVA=="},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
@@ -507,9 +506,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight check failed for hash k6dSVA==: encrypt call failed",
+			expectedError:    "preflight check failed for hash cuZm_g==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash k6dSVA==: encrypt call failed"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: encrypt call failed"},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
@@ -555,9 +554,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
+			expectedError:    "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
@@ -729,9 +728,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight pod failed for hash k6dSVA==: node lost",
+			expectedError:    "preflight pod failed for hash cuZm_g==: node lost",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: node lost"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: node lost"},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
@@ -756,9 +755,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 			preconditionsMet: true,
-			expectedError:    "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 137 (Unknown)",
+			expectedError:    "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash k6dSVA==: at least one container kms-preflight-check exited with 137 (Unknown)"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)"},
 				{Type: "EncryptionKMSPreflightRequired", Status: operatorv1.ConditionTrue, Message: wellKnownMatchingHashForBaseVaultConfig},
 			},
 		},
