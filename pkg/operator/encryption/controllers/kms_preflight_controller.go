@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"math"
 	"sort"
 	"time"
 
@@ -22,6 +23,10 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -165,13 +170,17 @@ type KMSPreflightDeployer interface {
 }
 
 type kmsPreflightController struct {
-	controllerInstanceName string
+	controllerInstanceName  string
+	instanceName            string
+	unsupportedConfigPrefix []string
 
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
 
 	deployer                 KMSPreflightDeployer
+	encryptionDeployer       statemachine.Deployer
+	encryptionSecretSelector metav1.ListOptions
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 }
@@ -247,9 +256,11 @@ type kmsPreflightController struct {
 // so that its logs can be inspected, then cleaned up by a subsequent sync.
 func NewKMSPreflightController(
 	instanceName string,
+	unsupportedConfigPrefix []string,
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
+	encryptionDeployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
@@ -258,16 +269,21 @@ func NewKMSPreflightController(
 	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
 	// via the operatorClient informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		controllerInstanceName:  factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		instanceName:            instanceName,
+		unsupportedConfigPrefix: unsupportedConfigPrefix,
 
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 		coreClient:      coreClient,
 
 		deployer:                 deployer,
+		encryptionDeployer:       encryptionDeployer,
+		encryptionSecretSelector: encryptionSecretSelector,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
@@ -387,8 +403,11 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 	podStatus, err := c.deployer.Status(ctx)
 	// Scenario 2: no pod exists, deploy a new one.
 	if apierrors.IsNotFound(err) {
-		// TODO: compute the encryption configuration and pass it to the deployer
-		return true, c.deployer.Deploy(ctx, requiredHash, nil)
+		encryptionSecret, computeErr := c.computeEncryptionConfigSecret(ctx)
+		if computeErr != nil {
+			return false, fmt.Errorf("failed to compute encryption config for preflight: %w", computeErr)
+		}
+		return true, c.deployer.Deploy(ctx, requiredHash, encryptionSecret)
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to get preflight pod status: %w", err)
@@ -443,6 +462,56 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		message: fmt.Sprintf("preflight check failed for hash %s: %s", requiredHash, resultCondition.Message),
 	}
 }
+
+// computeEncryptionConfigSecret builds the encryption-config secret that the
+// preflight pod will use. It simulates what the state controller will produce
+// once the key controller creates the new key: existing KMS plugins from their
+// backed key secrets, plus a simulated key for the candidate KMS plugin.
+func (c *kmsPreflightController) computeEncryptionConfigSecret(ctx context.Context) (*corev1.Secret, error) {
+	currentMode, _, apiEncryptionConfiguration, err := getCurrentModeReasonAndEncryptionConfig(ctx, c.apiServerClient, c.operatorClient, c.unsupportedConfigPrefix)
+	if err != nil {
+		return nil, err
+	}
+	if currentMode != state.KMS {
+		return nil, fmt.Errorf("preflight is only supported in KMS mode, current mode is %q", currentMode)
+	}
+
+	providerCfg, err := newKMSProviderConfig(apiEncryptionConfiguration.KMS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KMS provider config: %w", err)
+	}
+
+	simulatedKeySecret, err := generateKeySecret(ctx, c.instanceName, preflightKeyID, state.KMS, apiEncryptionConfiguration, providerCfg, c.coreClient, c.coreClient, "", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create simulated key secret: %w", err)
+	}
+	ks, err := secrets.ToKeyState(simulatedKeySecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse simulated key secret: %w", err)
+	}
+	ks.KMS.Encryption.Endpoint = "unix:///var/run/kmsplugin/kms.sock"
+	simulatedKeySecret, err = secrets.FromKeyState(c.instanceName, ks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rebuild simulated key secret: %w", err)
+	}
+
+	desiredState, err := statemachine.ComputeDesiredEncryptionStateWithAdditionalKey(
+		ctx, c.encryptionDeployer, c.coreClient, c.encryptionSecretSelector,
+		c.provider.EncryptedGRs(), simulatedKeySecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := encryptiondata.FromEncryptionState(desiredState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build encryption config: %w", err)
+	}
+	secretName := fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName)
+	return encryptiondata.ToSecret("openshift-config-managed", secretName, cfg)
+}
+
+const preflightKeyID = math.MaxInt32
 
 func (c *kmsPreflightController) cleanupAfterRetention(ctx context.Context, completedAt time.Time) error {
 	age := time.Since(completedAt)

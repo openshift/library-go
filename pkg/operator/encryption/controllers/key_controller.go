@@ -278,6 +278,10 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 }
 
 func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, error) {
+	return generateKeySecret(ctx, c.instanceName, keyID, currentMode, apiServerEncryption, desiredProviderCfg, c.secretClient, c.configMapClient, internalReason, externalReason)
+}
+
+func generateKeySecret(ctx context.Context, instanceName string, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, secretClient corev1client.SecretsGetter, configMapClient corev1client.ConfigMapsGetter, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -302,7 +306,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
 			return nil, err
 		} else if len(secretName) > 0 {
-			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
+			refSecret, err := secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
 			}
@@ -320,7 +324,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
 			return nil, err
 		} else if len(cmName) > 0 {
-			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
+			refCM, err := configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
 			}
@@ -335,21 +339,25 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			}
 		}
 	}
-	return secrets.FromKeyState(c.instanceName, ks)
+	return secrets.FromKeyState(instanceName, ks)
 }
 
 func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
-	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+	return getCurrentModeReasonAndEncryptionConfig(ctx, c.apiServerClient, c.operatorClient, c.unsupportedConfigPrefix)
+}
+
+func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
+	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, unsupportedConfigPrefix)
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}

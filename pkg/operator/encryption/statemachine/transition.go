@@ -61,6 +61,44 @@ func GetEncryptionConfigAndState(
 	return secretData, desiredEncryptionState, encryptionSecrets, "", nil
 }
 
+// ComputeDesiredEncryptionStateWithAdditionalKey computes the desired encryption
+// state as if additionalKeySecret already existed alongside the real key secrets.
+// This lets the preflight controller simulate the encryption config that will
+// result once the key controller creates a new key, without actually creating it.
+//
+// Unlike GetEncryptionConfigAndState, this function does not require API server
+// revisions to have converged. The preflight controller needs to validate a new
+// KMS plugin even when a previous rollout is stuck — for example, when the admin
+// updates the apiserver config to fix a broken KMS configuration.
+func ComputeDesiredEncryptionStateWithAdditionalKey(
+	ctx context.Context,
+	deployer Deployer,
+	secretClient corev1client.SecretsGetter,
+	encryptionSecretSelector metav1.ListOptions,
+	encryptedGRs []schema.GroupResource,
+	additionalKeySecret *corev1.Secret,
+) (map[schema.GroupResource]state.GroupResourceState, error) {
+	encryptionConfigSecret, _, err := deployer.DeployedEncryptionConfigSecret(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var current *encryptiondata.Config
+	if encryptionConfigSecret != nil {
+		current, err = encryptiondata.FromSecret(encryptionConfigSecret)
+		if err != nil {
+			return nil, fmt.Errorf("invalid encryption config %s/%s: %v", encryptionConfigSecret.Namespace, encryptionConfigSecret.Name, err)
+		}
+	}
+
+	encryptionSecrets, err := secrets.ListKeySecrets(ctx, secretClient, encryptionSecretSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	allSecrets := append(encryptionSecrets, additionalKeySecret)
+	return getDesiredEncryptionState(current, allSecrets, encryptedGRs), nil
+}
+
 // getDesiredEncryptionState returns the desired state of encryption for all resources.
 // To do this it compares the current state against the available secrets and to-be-encrypted resources.
 // oldEncryptionConfig can be nil if there is no config yet.
