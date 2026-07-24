@@ -459,7 +459,7 @@ type kmsProviderConfig interface {
 	referencedConfigMapName() (string, []string, error)
 	// sameProviderInstance reports whether latest (stored in the key secret)
 	// and this provider config refer to the same KMS provider instance.
-	// Returns false when migration-triggering fields differ (e.g. VaultAddress, TransitKey).
+	// Returns false when migration-triggering fields differ (e.g. VaultAddress, VaultKeyPath).
 	sameProviderInstance(stored configv1.KMSPluginConfig) (bool, error)
 }
 
@@ -526,12 +526,8 @@ func (v *vaultProviderConfig) sameProviderInstance(stored configv1.KMSPluginConf
 		klog.V(2).Infof("KMS provider instance changed: VaultNamespace changed from %q to %q", stored.Vault.VaultNamespace, v.vault.VaultNamespace)
 		return false, nil
 	}
-	if v.vault.TransitMount != stored.Vault.TransitMount {
-		klog.V(2).Infof("KMS provider instance changed: TransitMount changed from %q to %q", stored.Vault.TransitMount, v.vault.TransitMount)
-		return false, nil
-	}
-	if v.vault.TransitKey != stored.Vault.TransitKey {
-		klog.V(2).Infof("KMS provider instance changed: TransitKey changed from %q to %q", stored.Vault.TransitKey, v.vault.TransitKey)
+	if v.vault.VaultKeyPath != stored.Vault.VaultKeyPath {
+		klog.V(2).Infof("KMS provider instance changed: VaultKeyPath changed from %q to %q", stored.Vault.VaultKeyPath, v.vault.VaultKeyPath)
 		return false, nil
 	}
 	return true, nil

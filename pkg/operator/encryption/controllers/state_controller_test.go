@@ -931,7 +931,7 @@ func TestStateController(t *testing.T) {
 						TLS: configv1.VaultTLSConfig{
 							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
 						},
-						TransitKey: "test-transit-key-2",
+						VaultKeyPath: "transit/keys/test-transit-key-2",
 					},
 				}),
 				func() *corev1.Secret { // encryption config in kms namespace
@@ -1031,7 +1031,7 @@ func TestStateController(t *testing.T) {
 							TLS: configv1.VaultTLSConfig{
 								CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
 							},
-							TransitKey: "test-transit-key-2",
+							VaultKeyPath: "transit/keys/test-transit-key-2",
 						},
 					},
 				},
@@ -1147,7 +1147,7 @@ func TestStateController(t *testing.T) {
 								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
 							},
 						},
-						TransitKey: "test-transit-key",
+						VaultKeyPath: "transit/keys/test-transit-key",
 					},
 				}},
 			},

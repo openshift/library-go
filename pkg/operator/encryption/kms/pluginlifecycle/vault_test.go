@@ -44,11 +44,11 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		{
 			name: "builds container with correct args",
 			vaultConfig: configv1.VaultKMSPluginConfig{
-				KMSPluginImage: "quay.io/test/vault:v2",
-				VaultAddress:   "https://vault.example.com:8200",
-				VaultNamespace: "my-namespace",
-				TransitKey:     "my-key",
-				TransitMount:   "transit",
+				KMSPluginImage:     "quay.io/test/vault:v2",
+				VaultAddress:       "https://vault.example.com:8200",
+				VaultNamespace:     "my-namespace",
+				VaultAuthNamespace: "my-auth-namespace",
+				VaultKeyPath:       "transit/keys/my-key",
 				Authentication: configv1.VaultAuthentication{
 					AppRole: configv1.VaultAppRoleAuthentication{
 						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
@@ -73,13 +73,13 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					Args: []string{
 						"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 						"-vault-address=https://vault.example.com:8200",
-						"-transit-mount=transit",
-						"-transit-key=my-key",
+						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
 						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 						"-tls-sni=vault.internal.example.com",
 						"-vault-namespace=my-namespace",
+						"-vault-auth-namespace=my-auth-namespace",
 						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
@@ -106,8 +106,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
 				VaultNamespace: "my-namespace",
-				TransitKey:     "my-key",
-				TransitMount:   "transit",
+				VaultKeyPath:   "transit/keys/my-key",
 				Authentication: configv1.VaultAuthentication{
 					AppRole: configv1.VaultAppRoleAuthentication{
 						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
@@ -140,8 +139,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					Args: []string{
 						"-listen-address=unix:///var/run/kmsplugin/kms-555.sock",
 						"-vault-address=https://vault.example.com:8200",
-						"-transit-mount=transit",
-						"-transit-key=my-key",
+						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
 						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
@@ -171,8 +169,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			vaultConfig: configv1.VaultKMSPluginConfig{
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
-				TransitKey:     "my-key",
-				TransitMount:   "transit",
+				VaultKeyPath:   "transit/keys/my-key",
 				VaultNamespace: "",
 				Authentication: configv1.VaultAuthentication{
 					AppRole: configv1.VaultAppRoleAuthentication{
@@ -193,8 +190,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					Args: []string{
 						"-listen-address=unix:///var/run/kmsplugin/kms.sock",
 						"-vault-address=https://vault.example.com:8200",
-						"-transit-mount=transit",
-						"-transit-key=my-key",
+						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id-999",
 						"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-999",
 						"-metrics-port=0",

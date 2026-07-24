@@ -925,12 +925,8 @@ func TestKMSMigrationTriggeredFields(t *testing.T) {
 			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.VaultNamespace = "new-namespace" },
 		},
 		{
-			name:   "TransitMount",
-			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.TransitMount = "new-mount" },
-		},
-		{
-			name:   "TransitKey",
-			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.TransitKey = "new-transit-key" },
+			name:   "VaultKeyPath",
+			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.VaultKeyPath = "transit/keys/new-key" },
 		},
 	}
 
@@ -1259,7 +1255,7 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 					TLS: configv1.VaultTLSConfig{
 						CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
 					},
-					TransitKey: "test-transit-key",
+					VaultKeyPath: "transit/keys/test-transit-key",
 				},
 			}}}}},
 		},
@@ -1303,8 +1299,7 @@ func TestSameProviderInstance(t *testing.T) {
 			KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 			VaultAddress:   "https://vault.example.com",
 			VaultNamespace: "ns1",
-			TransitMount:   "transit",
-			TransitKey:     "my-key",
+			VaultKeyPath:   "transit/keys/my-key",
 			Authentication: configv1.VaultAuthentication{
 				Type: configv1.VaultAuthenticationTypeAppRole,
 				AppRole: configv1.VaultAppRoleAuthentication{
@@ -1347,21 +1342,11 @@ func TestSameProviderInstance(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:   "different TransitKey",
+			name:   "different VaultKeyPath",
 			latest: baseConfig.DeepCopy(),
 			current: func() *configv1.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
-				c.Vault.TransitKey = "new-key"
-				return c
-			}(),
-			expected: false,
-		},
-		{
-			name:   "different TransitMount",
-			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
-				c := baseConfig.DeepCopy()
-				c.Vault.TransitMount = "custom-transit"
+				c.Vault.VaultKeyPath = "transit/keys/new-key"
 				return c
 			}(),
 			expected: false,

@@ -663,7 +663,7 @@ var (
 								contactPerson("miciah").
 								productScope(ocpSpecific).
 								enhancementPR("https://github.com/openshift/enhancements/pull/1687").
-								enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+								enable(inDefault(), inOKD(), inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
 								mustRegister()
 
 	FeatureGateIngressComponentRouteLabels = newFeatureGate("IngressComponentRouteLabels").
@@ -887,6 +887,14 @@ var (
 					enhancementPR("https://github.com/openshift/enhancements/pull/1806").
 					enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
+
+	FeatureGateGCPSovereignCloudInstall = newFeatureGate("GCPSovereignCloudInstall").
+						reportProblemsToJiraComponent("Installer").
+						contactPerson("barbacbd").
+						productScope(ocpSpecific).
+						enhancementPR("https://github.com/openshift/enhancements/pull/1977").
+						enable(inDevPreviewNoUpgrade()).
+						mustRegister()
 
 	FeatureCBORServingAndStorage = newFeatureGate("CBORServingAndStorage").
 					reportProblemsToJiraComponent("kube-apiserver").

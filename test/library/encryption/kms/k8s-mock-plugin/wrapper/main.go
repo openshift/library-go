@@ -24,8 +24,8 @@ type options struct {
 	listenAddress       string
 	vaultAddress        string
 	vaultNamespace      string
-	transitMount        string
-	transitKey          string
+	vaultAuthNamespace  string
+	vaultKeyPath        string
 	logLevel            string
 	approleRoleID       string
 	approleSecretIDPath string
@@ -37,12 +37,12 @@ func main() {
 
 	flag.StringVar(&o.listenAddress, "listen-address", "", "Listen address for the KMS plugin (e.g. unix:///var/run/kmsplugin/kms.sock)")
 	flag.StringVar(&o.vaultAddress, "vault-address", "", "Vault server address")
-	flag.StringVar(&o.transitMount, "transit-mount", "", "Vault transit secret engine mount path")
-	flag.StringVar(&o.transitKey, "transit-key", "", "Vault transit key name")
+	flag.StringVar(&o.vaultKeyPath, "vault-key-path", "", "Vault key path (e.g. transit/keys/my-key)")
 	flag.StringVar(&o.approleRoleID, "approle-role-id", "", "Vault AppRole role ID")
 	flag.StringVar(&o.approleSecretIDPath, "approle-secret-id-path", "", "Path to file containing Vault AppRole secret ID")
 	flag.StringVar(&o.logLevel, "log-level", "", "Log level (optional, valid value: debug-extended)")
 	flag.StringVar(&o.vaultNamespace, "vault-namespace", "", "Vault namespace (optional)")
+	flag.StringVar(&o.vaultAuthNamespace, "vault-auth-namespace", "", "Vault auth namespace (optional)")
 	flag.BoolVar(&o.skipTLSVerify, "tls-skip-verify", false, "Skip TLS verification for Vault connection (optional)")
 	flag.Parse()
 
@@ -65,11 +65,8 @@ func (o *options) validate() error {
 	if o.vaultAddress == "" {
 		return fmt.Errorf("--vault-address must be set")
 	}
-	if o.transitMount == "" {
-		return fmt.Errorf("--transit-mount must be set")
-	}
-	if o.transitKey == "" {
-		return fmt.Errorf("--transit-key must be set")
+	if o.vaultKeyPath == "" {
+		return fmt.Errorf("--vault-key-path must be set")
 	}
 	if o.logLevel != "" && o.logLevel != "debug-extended" {
 		return fmt.Errorf("--log-level must be empty or \"debug-extended\", got %q", o.logLevel)

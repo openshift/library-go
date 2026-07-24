@@ -752,7 +752,7 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 								Type: configv1.VaultKMSProvider,
 								Vault: configv1.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-a.example.com",
-									TransitKey:   "key-a",
+									VaultKeyPath: "transit/keys/key-a",
 								},
 							},
 						},
@@ -768,7 +768,7 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 								Type: configv1.VaultKMSProvider,
 								Vault: configv1.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-b.example.com",
-									TransitKey:   "key-b",
+									VaultKeyPath: "transit/keys/key-b",
 								},
 							},
 						},

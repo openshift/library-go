@@ -77,8 +77,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	args := []string{
 		fmt.Sprintf("-listen-address=%s", v.udsPath),
 		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
-		fmt.Sprintf("-transit-mount=%s", v.config.TransitMount),
-		fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
+		fmt.Sprintf("-vault-key-path=%s", v.config.VaultKeyPath),
 		fmt.Sprintf("-approle-role-id=%s", v.roleID),
 		fmt.Sprintf("-approle-secret-id-path=%s", v.secretIDPath),
 	}
@@ -92,6 +91,9 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	}
 	if v.config.VaultNamespace != "" {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
+	}
+	if v.config.VaultAuthNamespace != "" {
+		args = append(args, fmt.Sprintf("-vault-auth-namespace=%s", v.config.VaultAuthNamespace))
 	}
 
 	// Temporary workarounds. These should go away as we progress with the feature.
