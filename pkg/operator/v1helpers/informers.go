@@ -33,20 +33,24 @@ type KubeInformersForNamespaces interface {
 var _ KubeInformersForNamespaces = kubeInformersForNamespaces{}
 
 func NewKubeInformersForNamespacesWithResyncPeriod(kubeClient kubernetes.Interface, resyncInterval time.Duration, namespaces ...string) KubeInformersForNamespaces {
-	ret := kubeInformersForNamespaces{}
-	for _, namespace := range namespaces {
-		if len(namespace) == 0 {
-			ret[""] = informers.NewSharedInformerFactory(kubeClient, resyncInterval)
-			continue
-		}
-		ret[namespace] = informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncInterval, informers.WithNamespace(namespace))
-	}
-
-	return ret
+	return NewKubeInformersForNamespacesWithOptions(kubeClient, resyncInterval, namespaces)
 }
 
 func NewKubeInformersForNamespaces(kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
-	return NewKubeInformersForNamespacesWithResyncPeriod(kubeClient, 10*time.Minute, namespaces...)
+	return NewKubeInformersForNamespacesWithOptions(kubeClient, 10*time.Minute, namespaces)
+}
+
+func NewKubeInformersForNamespacesWithOptions(kubeClient kubernetes.Interface, resyncInterval time.Duration, namespaces []string, opts ...informers.SharedInformerOption) KubeInformersForNamespaces {
+	ret := kubeInformersForNamespaces{}
+	for _, namespace := range namespaces {
+		factoryOpts := make([]informers.SharedInformerOption, 0, len(opts)+1)
+		factoryOpts = append(factoryOpts, opts...)
+		if len(namespace) != 0 {
+			factoryOpts = append(factoryOpts, informers.WithNamespace(namespace))
+		}
+		ret[namespace] = informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncInterval, factoryOpts...)
+	}
+	return ret
 }
 
 type kubeInformersForNamespaces map[string]informers.SharedInformerFactory
