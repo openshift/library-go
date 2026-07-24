@@ -20,7 +20,10 @@ import (
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -329,11 +332,28 @@ func (f *fakeDeployer) Cleanup(_ context.Context) error {
 	return f.cleanupErr
 }
 
+type fakeEncryptionDeployer struct {
+	secret    *corev1.Secret
+	converged bool
+	err       error
+}
+
+func (f *fakeEncryptionDeployer) DeployedEncryptionConfigSecret(_ context.Context) (*corev1.Secret, bool, error) {
+	return f.secret, f.converged, f.err
+}
+func (f *fakeEncryptionDeployer) AddEventHandler(_ cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
+}
+func (f *fakeEncryptionDeployer) HasSynced() bool { return true }
+
+var _ statemachine.Deployer = &fakeEncryptionDeployer{}
+
 func TestKMSPreflightController(t *testing.T) {
 	apiServerWithKMS := &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
+				Type: "KMS",
 				KMS: configv1.KMSPluginConfig{
 					Type:  configv1.VaultKMSProvider,
 					Vault: wellKnownBaseVaultConfig,
@@ -843,13 +863,16 @@ func TestKMSPreflightController(t *testing.T) {
 
 			target := NewKMSPreflightController(
 				"test",
+				nil,
 				provider,
 				preconditionsFn,
 				deployer,
+				&fakeEncryptionDeployer{converged: true},
 				fakeOperatorClient,
 				fakeApiServerClient,
 				fakeApiServerInformer,
 				fakeKubeClient.CoreV1(),
+				metav1.ListOptions{},
 				eventRecorder,
 			)
 
