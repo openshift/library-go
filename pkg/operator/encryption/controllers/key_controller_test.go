@@ -1275,7 +1275,7 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
 			// act
-			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
+			target := KeyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
 			currentMode, externalReason, encryption, err := target.getCurrentModeReasonAndEncryptionConfig(context.TODO())
 
 			// validate

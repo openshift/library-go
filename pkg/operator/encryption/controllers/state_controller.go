@@ -25,7 +25,7 @@ import (
 
 const stateWorkKey = "key"
 
-// stateController is responsible for creating a single secret in
+// StateController is responsible for creating a single secret in
 // openshift-config-managed with the name destName.  This single secret
 // contains the complete EncryptionConfiguration that is consumed by the API
 // server that is performing the encryption.  Thus this secret represents
@@ -36,7 +36,10 @@ const stateWorkKey = "key"
 // See getResourceConfigs for details on how the raw state of all keys
 // is converted into a single encryption config.  The logic for determining
 // the current write key is of special interest.
-type stateController struct {
+//
+// StateController implements factory.Controller. Call Sync directly for one-shot
+// runs (tests, preflight dry-run, multi-operator-manager apply-configuration).
+type StateController struct {
 	instanceName             string
 	controllerInstanceName   string
 	encryptionSecretSelector metav1.ListOptions
@@ -46,7 +49,11 @@ type stateController struct {
 	deployer                 statemachine.Deployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
+
+	runFn func(ctx context.Context, workers int)
 }
+
+var _ factory.Controller = &StateController{}
 
 func NewStateController(
 	instanceName string,
@@ -59,8 +66,8 @@ func NewStateController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-) factory.Controller {
-	c := &stateController{
+) *StateController {
+	c := &StateController{
 		operatorClient:         operatorClient,
 		instanceName:           instanceName,
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionState"),
@@ -72,7 +79,7 @@ func NewStateController(
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
 
-	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
+	f := factory.New().ResyncEvery(time.Minute).WithSync(c.Sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
@@ -81,9 +88,19 @@ func NewStateController(
 		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-state-controller"),
 	)
+	c.runFn = f.Run
+	return c
 }
 
-func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *StateController) Run(ctx context.Context, workers int) {
+	c.runFn(ctx, workers)
+}
+
+func (c *StateController) Name() string {
+	return c.controllerInstanceName
+}
+
+func (c *StateController) Sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionStateControllerDegraded")
@@ -126,7 +143,7 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
+func (c *StateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
 	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
@@ -163,7 +180,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
+func (c *StateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
 	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err

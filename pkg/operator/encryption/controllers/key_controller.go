@@ -45,7 +45,7 @@ const (
 	openshiftConfigNS                 = "openshift-config"
 )
 
-// keyController creates new keys if necessary. It
+// KeyController creates new keys if necessary. It
 // * watches
 //   - secrets in openshift-config-managed
 //   - pods in target namespace
@@ -65,7 +65,10 @@ const (
 //	encryption.apiserver.operator.openshift.io/migrated-timestamp instead of
 //	the key secret's creationTimestamp because the clock is supposed to
 //	start when a migration has been finished, not when it begins.
-type keyController struct {
+//
+// KeyController implements factory.Controller. Call Sync directly for one-shot
+// runs (tests, preflight dry-run, multi-operator-manager apply-configuration).
+type KeyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 
@@ -80,7 +83,11 @@ type keyController struct {
 	preconditionsFulfilledFn preconditionsFulfilled
 
 	unsupportedConfigPrefix []string
+
+	runFn func(ctx context.Context, workers int)
 }
+
+var _ factory.Controller = &KeyController{}
 
 func NewKeyController(
 	instanceName string,
@@ -96,8 +103,8 @@ func NewKeyController(
 	configMapClient corev1client.ConfigMapsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-) factory.Controller {
-	c := &keyController{
+) *KeyController {
+	c := &KeyController{
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 
@@ -113,8 +120,8 @@ func NewKeyController(
 		configMapClient:          configMapClient,
 	}
 
-	return factory.New().
-		WithSync(c.sync).
+	f := factory.New().
+		WithSync(c.Sync).
 		WithControllerInstanceName(c.controllerInstanceName).
 		ResyncEvery(time.Minute).
 		WithInformers(
@@ -127,9 +134,19 @@ func NewKeyController(
 		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-key-controller"),
 	)
+	c.runFn = f.Run
+	return c
 }
 
-func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *KeyController) Run(ctx context.Context, workers int) {
+	c.runFn(ctx, workers)
+}
+
+func (c *KeyController) Name() string {
+	return c.controllerInstanceName
+}
+
+func (c *KeyController) Sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionKeyControllerDegraded")
@@ -168,7 +185,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+func (c *KeyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
 	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
@@ -258,7 +275,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
+func (c *KeyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
 	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, keySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -277,7 +294,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *KeyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -338,7 +355,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
+func (c *KeyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
