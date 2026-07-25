@@ -1,8 +1,10 @@
 package resourceapply
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sync"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestHashOfResourceStructUnstructured(t *testing.T) {
@@ -33,4 +35,39 @@ func TestHashOfResourceStructUnstructured(t *testing.T) {
 	if hashOfResourceStruct(&unstructuredObject) == hash {
 		t.Errorf("expected a different hash after modifying the object")
 	}
+}
+
+func TestResourceCacheConcurrentAccess(t *testing.T) {
+	cache := NewResourceCache()
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind":       "ConfigMap",
+			"apiVersion": "v1",
+			"metadata": map[string]interface{}{
+				"name":            "test-obj",
+				"namespace":       "test-ns",
+				"resourceVersion": "1",
+			},
+		},
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			cache.UpdateCachedResourceMetadata(obj, obj)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			cache.SafeToSkipApply(obj, obj)
+		}
+	}()
+
+	wg.Wait()
 }
