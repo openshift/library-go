@@ -22,6 +22,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -165,13 +166,17 @@ type KMSPreflightDeployer interface {
 }
 
 type kmsPreflightController struct {
-	controllerInstanceName string
+	controllerInstanceName   string
+	instanceName             string
+	unsupportedConfigPrefix  []string
+	encryptionSecretSelector metav1.ListOptions
 
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
 
 	deployer                 KMSPreflightDeployer
+	encryptionDeployer       statemachine.Deployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 }
@@ -247,27 +252,39 @@ type kmsPreflightController struct {
 // so that its logs can be inspected, then cleaned up by a subsequent sync.
 func NewKMSPreflightController(
 	instanceName string,
+	unsupportedConfigPrefix []string,
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
+	// encryptionDeployer is the same statemachine.Deployer used by the key and state
+	// controllers. It is consulted once when seeding the dry-run that produces the
+	// encryption-config Secret for the preflight pod.
+	encryptionDeployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
-	// computation. No informer is needed: the key-controller detects config changes and
-	// posts a new EncryptionKMSPreflightRequired condition, which triggers this controller
-	// via the operatorClient informer. The minute-based resync covers the rest.
+	// computation and seeds the key/state dry-run sandbox. No informer is needed for
+	// openshift-config: the key-controller detects config changes and posts a new
+	// EncryptionKMSPreflightRequired condition, which triggers this controller via the
+	// operatorClient informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		instanceName:             instanceName,
+		unsupportedConfigPrefix:  unsupportedConfigPrefix,
+		encryptionSecretSelector: encryptionSecretSelector,
 
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 		coreClient:      coreClient,
 
 		deployer:                 deployer,
+		encryptionDeployer:       encryptionDeployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
@@ -279,6 +296,8 @@ func NewKMSPreflightController(
 		WithInformers(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
+			kubeInformersForNamespaces.InformersFor(openshiftConfigManagedNS).Core().V1().Secrets().Informer(),
+			encryptionDeployer,
 		).ToController(
 		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-kms-preflight-controller"),
@@ -387,8 +406,24 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 	podStatus, err := c.deployer.Status(ctx)
 	// Scenario 2: no pod exists, deploy a new one.
 	if apierrors.IsNotFound(err) {
-		// TODO: compute the encryption configuration and pass it to the deployer
-		return true, c.deployer.Deploy(ctx, requiredHash, nil)
+		requeueForConvergence, encryptionSecret, err := computeEncryptionConfigSecretDryRun(
+			ctx,
+			c.instanceName,
+			c.unsupportedConfigPrefix,
+			c.provider,
+			c.encryptionDeployer,
+			c.operatorClient,
+			c.apiServerClient,
+			c.coreClient,
+			c.encryptionSecretSelector,
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to compute encryption config for preflight: %w", err)
+		}
+		if requeueForConvergence {
+			return true, nil
+		}
+		return true, c.deployer.Deploy(ctx, requiredHash, encryptionSecret)
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to get preflight pod status: %w", err)

@@ -306,16 +306,18 @@ func TestKMSConfigHasher(t *testing.T) {
 }
 
 type fakeDeployer struct {
-	deployed   bool
-	cleaned    bool
-	deployErr  error
-	statusErr  error
-	cleanupErr error
-	podStatus  corev1.PodStatus
+	deployed                   bool
+	cleaned                    bool
+	deployErr                  error
+	statusErr                  error
+	cleanupErr                 error
+	podStatus                  corev1.PodStatus
+	lastEncryptionConfigSecret *corev1.Secret
 }
 
-func (f *fakeDeployer) Deploy(_ context.Context, _ string, _ *corev1.Secret) error {
+func (f *fakeDeployer) Deploy(_ context.Context, _ string, encryptionConfiguration *corev1.Secret) error {
 	f.deployed = true
+	f.lastEncryptionConfigSecret = encryptionConfiguration
 	return f.deployErr
 }
 
@@ -333,6 +335,7 @@ func TestKMSPreflightController(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
+				Type: "KMS",
 				KMS: configv1.KMSPluginConfig{
 					Type:  configv1.VaultKMSProvider,
 					Vault: wellKnownBaseVaultConfig,
@@ -831,6 +834,7 @@ func TestKMSPreflightController(t *testing.T) {
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
+			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", "openshift-config")
 
 			preconditionsFn := func() (bool, error) { return scenario.preconditionsMet, nil }
 			provider := newTestProvider([]schema.GroupResource{{Group: "", Resource: "secrets"}})
@@ -839,16 +843,21 @@ func TestKMSPreflightController(t *testing.T) {
 			if deployer == nil {
 				deployer = &fakeDeployer{}
 			}
+			encryptionSecretSelector := metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=test"}
 
 			target := NewKMSPreflightController(
 				"test",
+				nil,
 				provider,
 				preconditionsFn,
 				deployer,
+				&staticEncryptionDeployer{},
 				fakeOperatorClient,
 				fakeApiServerClient,
 				fakeApiServerInformer,
+				kubeInformers,
 				fakeKubeClient.CoreV1(),
+				encryptionSecretSelector,
 				eventRecorder,
 			)
 
@@ -863,6 +872,15 @@ func TestKMSPreflightController(t *testing.T) {
 				}
 			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if fd, ok := deployer.(*fakeDeployer); ok && fd.deployed {
+				if fd.lastEncryptionConfigSecret == nil {
+					t.Fatalf("expected Deploy to receive a non-nil encryption config secret")
+				}
+				if fd.lastEncryptionConfigSecret.Data["encryption-config"] == nil {
+					t.Fatalf("expected encryption config secret to contain encryption-config data")
+				}
 			}
 
 			encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, scenario.expectedConditions)
