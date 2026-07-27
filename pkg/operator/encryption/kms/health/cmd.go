@@ -11,8 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	operatorclient "github.com/openshift/client-go/operator/clientset/versioned"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
@@ -26,9 +27,8 @@ const (
 var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
 // NewEncryptionStatusProviderFunc builds the EncryptionStatusProvider for a
-// target apiserver operator status CR. The factory lets sidecar binaries defer
-// REST client creation until startup when the in-cluster config is available.
-type NewEncryptionStatusProviderFunc func(restConfig *rest.Config) (kms.EncryptionStatusProvider, error)
+// target apiserver operator status CR.
+type NewEncryptionStatusProviderFunc func(client operatorclient.Interface) (kms.EncryptionStatusProvider, error)
 
 type Config struct {
 	provider     kms.EncryptionStatusProvider
