@@ -37,6 +37,8 @@ func TestHashOfResourceStructUnstructured(t *testing.T) {
 	}
 }
 
+// This test relies on -race to deterministically detect concurrent map access.
+// See https://github.com/openshift/library-go/pull/2380.
 func TestResourceCacheConcurrentAccess(t *testing.T) {
 	cache := NewResourceCache()
 
