@@ -10,6 +10,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
+
+	operatorclient "github.com/openshift/client-go/operator/clientset/versioned"
 )
 
 // options' flag-bound fields are exported so the struct can be logged as a
@@ -81,7 +83,12 @@ func (o *options) Config(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("build rest config: %w", err)
 	}
 
-	provider, err := o.newProvider(restCfg)
+	opClient, err := operatorclient.NewForConfig(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("build operator client: %w", err)
+	}
+
+	provider, err := o.newProvider(opClient)
 	if err != nil {
 		return nil, fmt.Errorf("build encryption status provider: %w", err)
 	}
