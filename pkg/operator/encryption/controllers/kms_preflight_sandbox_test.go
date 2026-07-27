@@ -231,6 +231,20 @@ func TestComputeEncryptionConfigSecretDryRun_KeyNotNeeded(t *testing.T) {
 	require.Contains(t, err.Error(), "did not create a new encryption key secret")
 }
 
+type staticEncryptionDeployer struct {
+	secret *corev1.Secret
+}
+
+func (d *staticEncryptionDeployer) DeployedEncryptionConfigSecret(_ context.Context) (*corev1.Secret, bool, error) {
+	return d.secret, true, nil
+}
+
+func (d *staticEncryptionDeployer) AddEventHandler(_ cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	return nil, nil
+}
+
+func (d *staticEncryptionDeployer) HasSynced() bool { return true }
+
 type staticEncryptionDeployerNotConverged struct{}
 
 func (d *staticEncryptionDeployerNotConverged) DeployedEncryptionConfigSecret(context.Context) (*corev1.Secret, bool, error) {
