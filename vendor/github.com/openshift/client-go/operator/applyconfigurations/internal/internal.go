@@ -4280,17 +4280,6 @@ var schemaYAML = typed.YAMLObject(`types:
           elementType:
             scalar: string
           elementRelationship: atomic
-- name: com.github.openshift.api.operator.v1alpha1.BackupJobReference
-  map:
-    fields:
-    - name: name
-      type:
-        scalar: string
-      default: ""
-    - name: namespace
-      type:
-        scalar: string
-      default: ""
 - name: com.github.openshift.api.operator.v1alpha1.ClusterAPI
   map:
     fields:
@@ -4461,19 +4450,116 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupStatus
       default: {}
-- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupSpec
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupJob
   map:
     fields:
-    - name: pvcName
+    - name: name
       type:
         scalar: string
       default: ""
+    - name: namespace
+      type:
+        scalar: string
+      default: ""
+    - name: uid
+      type:
+        scalar: string
+      default: ""
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicy
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicySpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicyStatus
+      default: {}
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicyRetentionRule
+  map:
+    fields:
+    - name: maxQuantity
+      type:
+        scalar: numeric
+      default: 0
+    - name: maxSize
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: type
+      type:
+        scalar: string
+      default: ""
+    unions:
+    - discriminator: type
+      fields:
+      - fieldName: maxQuantity
+        discriminatorValue: MaxQuantity
+      - fieldName: maxSize
+        discriminatorValue: MaxSize
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicySpec
+  map:
+    fields:
+    - name: nodeCount
+      type:
+        scalar: numeric
+    - name: nodeSelector
+      type:
+        map:
+          elementType:
+            scalar: string
+    - name: retentionRules
+      type:
+        list:
+          elementType:
+            namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicyRetentionRule
+          elementRelationship: atomic
+    - name: schedule
+      type:
+        scalar: string
+      default: ""
+    - name: storage
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupStorage
+      default: {}
+    - name: timeZone
+      type:
+        scalar: string
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupPolicyStatus
+  map:
+    fields:
+    - name: lastScheduleNodes
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: lastScheduleTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupSpec
+  map:
+    fields:
+    - name: nodeName
+      type:
+        scalar: string
+    - name: storage
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupStorage
+      default: {}
 - name: com.github.openshift.api.operator.v1alpha1.EtcdBackupStatus
   map:
     fields:
-    - name: backupJob
-      type:
-        namedType: com.github.openshift.api.operator.v1alpha1.BackupJobReference
     - name: conditions
       type:
         list:
@@ -4482,6 +4568,56 @@ var schemaYAML = typed.YAMLObject(`types:
           elementRelationship: associative
           keys:
           - type
+    - name: filePath
+      type:
+        scalar: string
+    - name: fileSize
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: job
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupJob
+    - name: nodeName
+      type:
+        scalar: string
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupStorage
+  map:
+    fields:
+    - name: local
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupStorageLocal
+    - name: pvc
+      type:
+        namedType: com.github.openshift.api.operator.v1alpha1.EtcdBackupStoragePvc
+    - name: type
+      type:
+        scalar: string
+      default: ""
+    unions:
+    - discriminator: type
+      fields:
+      - fieldName: local
+        discriminatorValue: Local
+      - fieldName: pvc
+        discriminatorValue: PVC
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupStorageLocal
+  map:
+    fields:
+    - name: hostPath
+      type:
+        scalar: string
+      default: ""
+- name: com.github.openshift.api.operator.v1alpha1.EtcdBackupStoragePvc
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+      default: ""
 - name: com.github.openshift.api.operator.v1alpha1.ImageContentSourcePolicy
   map:
     fields:
@@ -4676,6 +4812,8 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: value
       type:
         scalar: string
+- name: io.k8s.apimachinery.pkg.api.resource.Quantity
+  scalar: untyped
 - name: io.k8s.apimachinery.pkg.apis.meta.v1.Condition
   map:
     fields:
