@@ -72,7 +72,7 @@ func podCheckConditions(configHash string, status *kmsservice.StatusResponse, ch
 
 	if status != nil {
 		conditions = append(conditions, corev1.PodCondition{
-			Type:               controllers.KMSPreflightKEKIDPodCondition,
+			Type:               controllers.KMSPreflightRemoteKeyIDPodCondition,
 			Status:             corev1.ConditionTrue,
 			Message:            status.KeyID,
 			LastTransitionTime: now,

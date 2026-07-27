@@ -38,9 +38,9 @@ func TestPodCheckConditions(t *testing.T) {
 		t.Fatalf("unexpected config hash condition: %#v", configHashCondition)
 	}
 
-	kekId := conditions[2]
-	if kekId.Type != controllers.KMSPreflightKEKIDPodCondition || kekId.Message != "key-1" {
-		t.Fatalf("unexpected kekID condition: %#v", kekId)
+	remoteKeyID := conditions[2]
+	if remoteKeyID.Type != controllers.KMSPreflightRemoteKeyIDPodCondition || remoteKeyID.Message != "key-1" {
+		t.Fatalf("unexpected remoteKeyID condition: %#v", remoteKeyID)
 	}
 
 	failed := podCheckConditions(configHash, status, fmt.Errorf("encrypt call failed"))
