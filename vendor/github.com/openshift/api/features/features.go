@@ -424,14 +424,6 @@ var (
 						enable(inClusterProfile(SelfManaged), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
-	FeatureGateNewOLMPreflightPermissionChecks = newFeatureGate("NewOLMPreflightPermissionChecks").
-							reportProblemsToJiraComponent("olm").
-							contactPerson("tshort").
-							productScope(ocpSpecific).
-							enhancementPR("https://github.com/openshift/enhancements/pull/1768").
-							enable(inClusterProfile(SelfManaged), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
-							mustRegister()
-
 	FeatureGateNewOLMOwnSingleNamespace = newFeatureGate("NewOLMOwnSingleNamespace").
 						reportProblemsToJiraComponent("olm").
 						contactPerson("nschieder").
@@ -469,7 +461,7 @@ var (
 						contactPerson("joelanford").
 						productScope(ocpSpecific).
 						enhancementPR("https://github.com/openshift/enhancements/pull/1991").
-						enable(inClusterProfile(SelfManaged), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+						enable(inDefault(), inOKD(), inClusterProfile(SelfManaged), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
 	FeatureGateInsightsOnDemandDataGather = newFeatureGate("InsightsOnDemandDataGather").
@@ -957,6 +949,14 @@ var (
 					enhancementPR("https://github.com/openshift/enhancements/pull/1803").
 					enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
+
+	FeatureGateBGPBasedVIPManagement = newFeatureGate("BGPBasedVIPManagement").
+						reportProblemsToJiraComponent("Networking / On-Prem Networking").
+						contactPerson("mkowalski").
+						productScope(ocpSpecific).
+						enhancementPR("https://github.com/openshift/enhancements/pull/1982").
+						enable(inDevPreviewNoUpgrade()).
+						mustRegister()
 
 	FeatureGateProvisioningRequestAvailable = newFeatureGate("ProvisioningRequestAvailable").
 						reportProblemsToJiraComponent("Cluster Autoscaler").

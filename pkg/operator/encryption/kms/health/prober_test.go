@@ -50,30 +50,30 @@ func TestProber_ProbeAll(t *testing.T) {
 
 	have := p.probeAll(context.Background())
 
-	// Each entry stamps nodeName; kekId only on healthy, detail only on the
+	// Each entry stamps nodeName; remoteKeyID only on healthy, detail only on the
 	// unhealthy/error entries, status mapped to the API enum.
 	want := applyoperatorv1.KMSEncryptionStatus().WithHealthReports(
 		applyoperatorv1.KMSPluginHealthReport().
 			WithNodeName("node-1").
-			WithKeyId("1").
+			WithKeyID("1").
 			WithStatus(operatorv1.KMSPluginHealthStatusHealthy).
 			WithLastCheckedTime(metav1.NewTime(fixed)).
-			WithKEKId("kek-abc"),
+			WithRemoteKeyID("kek-abc"),
 		applyoperatorv1.KMSPluginHealthReport().
 			WithNodeName("node-1").
-			WithKeyId("2").
+			WithKeyID("2").
 			WithStatus(operatorv1.KMSPluginHealthStatusError).
 			WithLastCheckedTime(metav1.NewTime(fixed)).
 			WithDetail("connection refused"),
 		applyoperatorv1.KMSPluginHealthReport().
 			WithNodeName("node-1").
-			WithKeyId("3").
+			WithKeyID("3").
 			WithStatus(operatorv1.KMSPluginHealthStatusUnhealthy).
 			WithLastCheckedTime(metav1.NewTime(fixed)).
 			WithDetail("degraded"),
 		applyoperatorv1.KMSPluginHealthReport().
 			WithNodeName("node-1").
-			WithKeyId("4").
+			WithKeyID("4").
 			WithStatus(operatorv1.KMSPluginHealthStatusError).
 			WithLastCheckedTime(metav1.NewTime(fixed)).
 			WithDetail("kms plugin returned nil status response"),
@@ -120,9 +120,9 @@ func TestProber_ProbeAllFansOut(t *testing.T) {
 	case have := <-done:
 		for i, report := range have.HealthReports {
 			want := strconv.Itoa(i + 1)
-			if *report.KeyId != want || *report.KEKId != "kek-"+want {
-				t.Errorf("reports[%d] = {KeyId:%q KEKId:%q}, want {KeyId:%q KEKId:%q}",
-					i, *report.KeyId, *report.KEKId, want, "kek-"+want)
+			if *report.KeyID != want || *report.RemoteKeyID != "kek-"+want {
+				t.Errorf("reports[%d] = {KeyID:%q RemoteKeyID:%q}, want {KeyID:%q RemoteKeyID:%q}",
+					i, *report.KeyID, *report.RemoteKeyID, want, "kek-"+want)
 			}
 		}
 	case <-time.After(wait.ForeverTestTimeout):
