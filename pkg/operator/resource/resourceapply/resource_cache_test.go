@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -42,34 +43,37 @@ func TestHashOfResourceStructUnstructured(t *testing.T) {
 func TestResourceCacheConcurrentAccess(t *testing.T) {
 	cache := NewResourceCache()
 
-	obj := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"kind":       "ConfigMap",
-			"apiVersion": "v1",
-			"metadata": map[string]interface{}{
-				"name":            "test-obj",
-				"namespace":       "test-ns",
-				"resourceVersion": "1",
+	makeObj := func(i int, rv string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"kind":       "ConfigMap",
+				"apiVersion": "v1",
+				"metadata": map[string]interface{}{
+					"name":            fmt.Sprintf("obj-%d", i),
+					"namespace":       "test-ns",
+					"resourceVersion": rv,
+				},
 			},
-		},
+		}
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 100; i++ {
-			cache.UpdateCachedResourceMetadata(obj, obj)
-		}
-	}()
+	for range 10 {
+		wg.Go(func() {
+			for i := range 10 {
+				cache.UpdateCachedResourceMetadata(makeObj(i, ""), makeObj(i, "1"))
+			}
+		})
+	}
 
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 100; i++ {
-			cache.SafeToSkipApply(obj, obj)
-		}
-	}()
+	for range 10 {
+		wg.Go(func() {
+			for i := range 10 {
+				cache.SafeToSkipApply(makeObj(i, ""), makeObj(i, "1"))
+			}
+		})
+	}
 
 	wg.Wait()
 }
