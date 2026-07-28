@@ -1,8 +1,11 @@
 package resourceapply
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"fmt"
+	"sync"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestHashOfResourceStructUnstructured(t *testing.T) {
@@ -33,4 +36,44 @@ func TestHashOfResourceStructUnstructured(t *testing.T) {
 	if hashOfResourceStruct(&unstructuredObject) == hash {
 		t.Errorf("expected a different hash after modifying the object")
 	}
+}
+
+// This test relies on -race to deterministically detect concurrent map access.
+// See https://github.com/openshift/library-go/pull/2380.
+func TestResourceCacheConcurrentAccess(t *testing.T) {
+	cache := NewResourceCache()
+
+	makeObj := func(i int, rv string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"kind":       "ConfigMap",
+				"apiVersion": "v1",
+				"metadata": map[string]interface{}{
+					"name":            fmt.Sprintf("obj-%d", i),
+					"namespace":       "test-ns",
+					"resourceVersion": rv,
+				},
+			},
+		}
+	}
+
+	var wg sync.WaitGroup
+
+	for range 10 {
+		wg.Go(func() {
+			for i := range 10 {
+				cache.UpdateCachedResourceMetadata(makeObj(i, ""), makeObj(i, "1"))
+			}
+		})
+	}
+
+	for range 10 {
+		wg.Go(func() {
+			for i := range 10 {
+				cache.SafeToSkipApply(makeObj(i, ""), makeObj(i, "1"))
+			}
+		})
+	}
+
+	wg.Wait()
 }
