@@ -64,5 +64,5 @@ func TestRunReportsOnce(t *testing.T) {
 	require.NoError(t, c.Run(ctx))
 	require.Len(t, have.HealthReports, 1)
 	require.Equal(t, "node-1", *have.HealthReports[0].NodeName)
-	require.Equal(t, "1", *have.HealthReports[0].KeyId)
+	require.Equal(t, "1", *have.HealthReports[0].KeyID)
 }

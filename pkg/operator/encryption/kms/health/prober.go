@@ -61,7 +61,7 @@ func (p *prober) probeAll(ctx context.Context) *applyoperatorv1.KMSEncryptionSta
 func (p *prober) probe(ctx context.Context, plugin pluginClient) *applyoperatorv1.KMSPluginHealthReportApplyConfiguration {
 	report := applyoperatorv1.KMSPluginHealthReport().
 		WithNodeName(p.nodeName).
-		WithKeyId(plugin.keyID).
+		WithKeyID(plugin.keyID).
 		WithLastCheckedTime(metav1.NewTime(p.now()))
 
 	resp, err := plugin.service.Status(ctx)
@@ -76,7 +76,7 @@ func (p *prober) probe(ctx context.Context, plugin pluginClient) *applyoperatorv
 			WithDetail(errResponseless.Error())
 	case resp.Healthz == healthzOK:
 		report.WithStatus(operatorv1.KMSPluginHealthStatusHealthy).
-			WithKEKId(resp.KeyID)
+			WithRemoteKeyID(resp.KeyID)
 	default:
 		report.WithStatus(operatorv1.KMSPluginHealthStatusUnhealthy).
 			WithDetail(resp.Healthz)
