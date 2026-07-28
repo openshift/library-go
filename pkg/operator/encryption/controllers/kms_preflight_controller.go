@@ -289,15 +289,15 @@ func NewKMSPreflightController(
 	)
 }
 
-// TODO: in the future report "progress" and "success" conditions.
 func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	degradedCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerDegraded")
+	progressingCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerProgressing").WithStatus(operatorv1.ConditionFalse)
 
 	defer func() {
-		if degradedCondition == nil {
+		if degradedCondition == nil || progressingCondition == nil {
 			return
 		}
-		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition)
+		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition, progressingCondition)
 		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
 			err = applyError
 		}
@@ -306,13 +306,15 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		if err != nil {
 			degradedCondition = nil
+			progressingCondition = nil
 		} else {
 			degradedCondition = degradedCondition.WithStatus(operatorv1.ConditionFalse)
+			progressingCondition = progressingCondition.WithStatus(operatorv1.ConditionFalse)
 		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	requeue, preflightErr := c.runPreflightChecks(ctx)
+	requeue, progressReason, progressMessage, preflightErr := c.runPreflightChecks(ctx)
 	if requeue {
 		syncCtx.Queue().AddAfter(syncCtx.QueueKey(), 30*time.Second)
 	}
@@ -329,6 +331,14 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionFalse)
 	}
+
+	if progressReason != "" {
+		progressingCondition = progressingCondition.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason(progressReason).
+			WithMessage(progressMessage)
+	}
+
 	return preflightErr
 }
 
@@ -388,22 +398,48 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //   - 3f (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
 //   - 3a, 3b, 3d (infrastructure failures): no write; EncryptionKMSPreflightControllerDegraded is set instead
 //
+// Condition matrix:
+//
+// "Terminal" means no automatic forward progress is possible; admin/config-change required.
+// Transient errors (deploy, cleanup, status API failures) are not terminal — the controller retries them.
+// *pe denotes a *preflightError (a definitive conclusion); plain err denotes a transient k8s API error.
+//
+//	Scenario  Description                                       requeue  err   Degraded  Progressing  Terminal
+//	--------  ------------------------------------------------  -------  ----  --------  -----------  --------
+//	1         No preflight required — cleanup                   false    nil   False     False        No
+//	1a        Already Succeeded — cleanup, no pod work          false    nil   False     False        No
+//	2a        No pod, already Failed — surface error            false    *pe   True      False        Yes
+//	2b        No pod, Deploy success                            true     nil   False     True         No
+//	2b        No pod, Deploy error                              true     err   True      False        No
+//	3a        Pod Failed — keep for inspection                  false    *pe   True      False        Yes
+//	3b        No hash, pod Running, no timeout                  true     nil   False     True         No
+//	3b        No hash, timeout exceeded                         true     *pe   True      False        Yes
+//	3b        No hash, pod Succeeded without reporting          false    *pe   True      False        Yes
+//	3c        Stale pod — Cleanup success                       true     nil   False     True         No
+//	3c        Stale pod — Cleanup error                         true     err   True      False        No
+//	3d        Hash matches, no result, pod Running, no timeout  true     nil   False     True         No
+//	3d        Hash matches, no result, timeout exceeded         true     *pe   True      False        Yes
+//	3d        Hash matches, no result, pod Succeeded            false    *pe   True      False        Yes
+//	3e        Check passed — write result + Cleanup, success    false    nil   False     False        No
+//	3e        Check passed — write result fails                 false    err   True      False        No
+//	3f        Check failed — write result + keep pod            false    *pe   True      False        Yes
+//
 // TODO: in the future we might want to add retries for failed preflights.
-func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, err error) {
+func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, progressReason, progressMessage string, err error) {
 	requiredHash, existingResult, err := c.preflightRequired(ctx)
 	if err != nil {
-		return false, err
+		return false, "", "", err
 	}
 
 	// Scenario 1: no preflight required, cleanup lingering resources.
 	if requiredHash == "" {
-		return false, c.deployer.Cleanup(ctx)
+		return false, "", "", c.deployer.Cleanup(ctx)
 	}
 
 	// Result already recorded for this hash as Succeeded: clean up the pod
 	// (idempotent if already gone) and return — no pod work needed.
 	if isPreflightResultSucceeded(existingResult) {
-		return false, c.deployer.Cleanup(ctx)
+		return false, "", "", c.deployer.Cleanup(ctx)
 	}
 
 	// Check whether a preflight pod already exists.
@@ -414,16 +450,19 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		// without re-deploying. The admin must fix the config (new hash) before a
 		// new check can run.
 		if isPreflightResultFailed(existingResult) {
-			return false, &preflightError{
+			return false, "", "", &preflightError{
 				reason:  "PreflightCheckFailed",
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
 		// TODO: compute the encryption configuration and pass it to the deployer
-		return true, c.deployer.Deploy(ctx, requiredHash, nil)
+		if err := c.deployer.Deploy(ctx, requiredHash, nil); err != nil {
+			return true, "", "", err
+		}
+		return true, "RunningPreflightCheck", fmt.Sprintf("Deploying preflight pod for hash %s", requiredHash), nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to get preflight pod status: %w", err)
+		return false, "", "", fmt.Errorf("failed to get preflight pod status: %w", err)
 	}
 
 	// Scenario 3a: pod crashed. Keep for inspection; the admin will update
@@ -431,36 +470,39 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 	if podStatus.Phase == corev1.PodFailed {
 		pe := podFailureError(podStatus)
 		pe.message = fmt.Sprintf("preflight pod failed for hash %s: %s", requiredHash, pe.message)
-		return false, pe
+		return false, "", "", pe
 	}
 
 	// Scenario 3b: pod has not reported its config hash yet.
 	hashCondition := FindPodCondition(podStatus.Conditions, KMSPreflightConfigHashPodCondition)
 	if hashCondition == nil {
 		if podStatus.Phase == corev1.PodSucceeded {
-			return false, &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
+			return false, "", "", &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
 		}
 		if pe := podStartupTimeoutError(podStatus, "preflight pod has not reported config hash"); pe != nil {
-			return true, pe
+			return true, "", "", pe
 		}
-		return true, nil
+		return true, "RunningPreflightCheck", fmt.Sprintf("Waiting for preflight pod to report config hash for %s", requiredHash), nil
 	}
 
 	// Scenario 3c: stale pod from a different config.
 	if hashCondition.Message != requiredHash {
-		return true, c.deployer.Cleanup(ctx)
+		if err := c.deployer.Cleanup(ctx); err != nil {
+			return true, "", "", err
+		}
+		return true, "RunningPreflightCheck", "Cleaning up preflight pod with stale configuration", nil
 	}
 
 	// Scenario 3d: hash matches, waiting for result.
 	resultCondition := FindPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
 	if resultCondition == nil {
 		if podStatus.Phase == corev1.PodSucceeded {
-			return false, &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
+			return false, "", "", &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
 		}
 		if pe := podStartupTimeoutError(podStatus, "preflight pod has not reported result"); pe != nil {
-			return true, pe
+			return true, "", "", pe
 		}
-		return true, nil
+		return true, "RunningPreflightCheck", fmt.Sprintf("Waiting for preflight pod to report result for %s", requiredHash), nil
 	}
 
 	remoteKeyID := ""
@@ -475,9 +517,9 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 			ConfigHash:  requiredHash,
 			RemoteKeyID: remoteKeyID,
 		}); err != nil {
-			return false, err
+			return false, "", "", err
 		}
-		return false, c.deployer.Cleanup(ctx)
+		return false, "", "", c.deployer.Cleanup(ctx)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
@@ -491,9 +533,9 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		ConfigHash:  requiredHash,
 		RemoteKeyID: remoteKeyID,
 	}); writeErr != nil {
-		return false, fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
+		return false, "", "", fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
 	}
-	return false, pe
+	return false, "", "", pe
 }
 
 // ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result

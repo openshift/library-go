@@ -397,15 +397,17 @@ func TestKMSPreflightController(t *testing.T) {
 		expectedEncryptionStatusProviderUpdateCalls int
 	}{
 		{
-			name:                     "preconditions not met, clears degraded",
+			name:                     "preconditions not met, clears degraded and progressing",
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{},
 			apiServerObjects:         []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			preconditionsMet:         false,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 1a: result already Succeeded — cleanup only, no pod work.
 			name:     "result already Succeeded, pod gone — cleanup and return without deploying",
 			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{
@@ -421,6 +423,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedPreflightPodCleanup: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultSucceeded,
@@ -428,6 +431,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 2a: terminal — admin must change config.
 			name:     "result already Failed, pod manually removed — surface error without re-deploying",
 			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{
@@ -443,6 +447,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:    "preflight check failed for hash cuZm_g==: pod was removed but failure is recorded in status",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: pod was removed but failure is recorded in status"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultFailed,
@@ -450,6 +455,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 2b: deploying — progressing.
 			name:                     "hashes match, no pod exists, deploys and returns",
 			deployer:                 &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
@@ -458,9 +464,11 @@ func TestKMSPreflightController(t *testing.T) {
 			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
 			},
 		},
 		{
+			// Scenario 3d: hash matches, no result, pod running — progressing.
 			name: "pod exists, hash matches, no result yet, requeues",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -473,9 +481,11 @@ func TestKMSPreflightController(t *testing.T) {
 			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report result for cuZm_g=="},
 			},
 		},
 		{
+			// Scenario 3b: terminal — pod exited without reporting hash.
 			name: "pod succeeded without reporting hash, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
@@ -487,9 +497,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod completed without reporting result for hash cuZm_g==",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3d: terminal — pod exited without reporting result.
 			name: "pod succeeded without reporting result after hash posted, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
@@ -504,9 +516,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod completed without reporting result for hash cuZm_g==",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3e: check passed — done.
 			name: "pod succeeded, cleans up immediately",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -523,6 +537,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:      operatorv1.KMSPreflightResultSucceeded,
@@ -531,6 +546,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 3f: terminal — check failed.
 			name: "pod exists, hash matches, result is False, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -546,6 +562,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight check failed for hash cuZm_g==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: encrypt call failed"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
@@ -555,6 +572,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 1a via shortcut: existingResult=Succeeded → cleanup, no pod work.
 			name: "result already written for this hash (succeeded), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -576,6 +594,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedEncryptionStatusProviderUpdateCalls: 0,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultSucceeded,
@@ -583,6 +602,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 3f: ensurePreflightResult is a no-op (already written), terminal.
 			name: "result already written for this hash (failed), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -604,6 +624,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError: "preflight check failed for hash cuZm_g==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: encrypt call failed"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultFailed,
@@ -611,6 +632,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 3e: write result fails — transient error, not terminal.
 			name: "UpdateKMSEncryptionStatus returns error, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -629,9 +651,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError: "status update failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "status update failed"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3c: stale pod, cleanup succeeds — progressing.
 			name: "pod exists, hash is stale, cleans up",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -646,9 +670,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedPreflightPodCleanup: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Cleaning up preflight pod with stale configuration"},
 			},
 		},
 		{
+			// Scenario 3a: terminal — pod crashed.
 			name: "pod crashed without reporting conditions, keeps pod for inspection",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -672,9 +698,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3b: no hash condition, pod running, no timeout — progressing.
 			name: "pod exists, no hash condition yet, waits for pod to report",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -685,9 +713,11 @@ func TestKMSPreflightController(t *testing.T) {
 			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report config hash for cuZm_g=="},
 			},
 		},
 		{
+			// Scenario 3b: terminal — no hash, timeout via PodScheduled condition fallback.
 			name: "pod stuck in Pending with no StartTime, falls back to PodScheduled condition for timeout",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodPending,
@@ -702,9 +732,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3b: terminal — no hash, timeout via StartTime.
 			name: "pod stuck in Pending without reporting hash, goes degraded with phase",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
@@ -717,9 +749,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3b: terminal — ImagePullBackOff timeout.
 			name: "pod stuck with ImagePullBackOff, goes degraded with container reason",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
@@ -743,9 +777,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3d: terminal — timeout waiting for result.
 			name: "pod stuck without reporting result past timeout, goes degraded",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodRunning,
@@ -761,9 +797,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod has not reported result after 3m0s: pod is in Running phase",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported result after 3m0s: pod is in Running phase"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 2b: deploy error — transient, not terminal.
 			name:                     "deploy fails, reports error",
 			deployer:                 &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
@@ -773,9 +811,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "quota exceeded",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "quota exceeded"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Status API error — transient.
 			name:                     "status returns unexpected error",
 			deployer:                 &fakeDeployer{statusErr: fmt.Errorf("connection refused")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
@@ -785,9 +825,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "failed to get preflight pod status",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "failed to get preflight pod status: connection refused"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3c: cleanup error — transient, not terminal.
 			name: "cleanup fails on stale hash, reports error",
 			deployer: &fakeDeployer{
 				cleanupErr: fmt.Errorf("delete forbidden"),
@@ -805,9 +847,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:               "delete forbidden",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "delete forbidden"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3a: terminal — pod crashed, no terminated container.
 			name: "pod crashed, no terminated container, keeps pod for inspection",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:   corev1.PodFailed,
@@ -820,9 +864,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod failed for hash cuZm_g==: node lost",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: node lost"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 3a: terminal — pod crashed with non-zero exit code.
 			name: "pod crashed with terminated container, no message, uses exit code",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -844,9 +890,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 1: ObservedConfigHash mismatch — no work needed.
 			name:                        "hashes differ, config changed since ObservedConfigHash was written, cleans up",
 			encryptionStatusProvider:    &fakeEncryptionStatusProvider{observedConfigHash: "stale-hash"},
 			apiServerObjects:            []runtime.Object{apiServerWithKMS},
@@ -855,9 +903,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedPreflightPodCleanup: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Error computing hash — transient.
 			name:                     "hash computation fails due to missing secret",
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects:         []runtime.Object{apiServerWithKMS},
@@ -866,9 +916,11 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "failed to compute KMS config hash",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: `failed to compute KMS config hash: failed to get secret openshift-config/vault-approle: secrets "vault-approle" not found`},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
+			// Scenario 1: empty ObservedConfigHash — nothing to do.
 			name:                        "empty ObservedConfigHash, cleans up",
 			encryptionStatusProvider:    &fakeEncryptionStatusProvider{observedConfigHash: ""},
 			apiServerObjects:            []runtime.Object{apiServerWithKMS},
@@ -877,6 +929,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedPreflightPodCleanup: true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 	}
@@ -885,6 +938,7 @@ func TestKMSPreflightController(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			conditions := []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			}
 
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
