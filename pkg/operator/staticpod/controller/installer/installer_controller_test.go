@@ -2769,3 +2769,97 @@ func TestWaitToObserveWrites(t *testing.T) {
 		t.Fatalf("expected %d status apply, got %d", want, nApplies)
 	}
 }
+
+func TestCreateInstallerPodPrecondition(t *testing.T) {
+	newController := func(precondition InstallerPreconditionFunc) (*InstallerController, *events.Recorder, func() *corev1.Pod) {
+		kubeClient := fake.NewSimpleClientset(
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
+			&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+			&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
+		)
+		var installerPod *corev1.Pod
+		kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			installerPod = action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
+			return false, nil, nil
+		})
+		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
+		fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+			&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+			&operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{LatestAvailableRevision: 1},
+				NodeStatuses:   []operatorv1.NodeStatus{{NodeName: "test-node-1"}},
+			},
+			nil, nil,
+		)
+		eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+		c := NewInstallerController(
+			"unit-test", "test", "test-pod",
+			[]revision.RevisionResource{{Name: "test-config"}},
+			[]revision.RevisionResource{{Name: "test-secret"}},
+			[]string{"/bin/true"},
+			kubeInformers,
+			fakeStaticPodOperatorClient,
+			kubeClient.CoreV1(),
+			kubeClient.CoreV1(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		).WithInstallerPrecondition(precondition)
+		c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
+			return []metav1.OwnerReference{}, nil
+		}
+		c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+		return c, &eventRecorder, func() *corev1.Pod { return installerPod }
+	}
+
+	t.Run("unmet precondition delays installer pod", func(t *testing.T) {
+		checkedNode := ""
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (bool, string, error) {
+			checkedNode = nodeName
+			return false, "another master is rebooting", nil
+		})
+		for i := 0; i < 3; i++ {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", *eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if getPod() != nil {
+			t.Fatalf("expected no installer pod while the precondition is unmet")
+		}
+		if checkedNode != "test-node-1" {
+			t.Fatalf("expected precondition to be consulted for test-node-1, got %q", checkedNode)
+		}
+	})
+
+	t.Run("met precondition allows installer pod", func(t *testing.T) {
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (bool, string, error) {
+			return true, "", nil
+		})
+		for i := 0; i < 3; i++ {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", *eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if getPod() == nil {
+			t.Fatalf("expected installer pod to be created when the precondition is met")
+		}
+	})
+
+	t.Run("precondition error fails sync", func(t *testing.T) {
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (bool, string, error) {
+			return false, "", fmt.Errorf("boom")
+		})
+		var syncErr error
+		for i := 0; i < 3; i++ {
+			if syncErr = c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", *eventRecorder)); syncErr != nil {
+				break
+			}
+		}
+		if syncErr == nil {
+			t.Fatalf("expected sync error from precondition")
+		}
+		if getPod() != nil {
+			t.Fatalf("expected no installer pod on precondition error")
+		}
+	})
+}
