@@ -23,8 +23,6 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const stateWorkKey = "key"
-
 // stateController is responsible for creating a single secret in
 // openshift-config-managed with the name destName.  This single secret
 // contains the complete EncryptionConfiguration that is consumed by the API
@@ -127,13 +125,9 @@ type eventWithReason struct {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, _, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
-	}
-	if len(transitioningReason) > 0 {
-		queue.AddAfter(stateWorkKey, 2*time.Minute)
-		return nil
 	}
 
 	if currentConfig == nil && len(encryptionSecrets) == 0 {

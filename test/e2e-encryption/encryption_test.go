@@ -267,6 +267,24 @@ func TestEncryptionIntegration(tt *testing.T) {
 		require.NoError(t, err)
 	}
 
+	waitForKeyData := func(key string, dataKey string, expectedContains string) {
+		t.Helper()
+		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+			s, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-%s", component, key), metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			require.NoError(t, err)
+
+			data, ok := s.Data[dataKey]
+			if !ok {
+				return false, nil
+			}
+			return strings.Contains(string(data), expectedContains), nil
+		})
+		require.NoError(t, err)
+	}
+
 	verifyKMSPlugins := func() {
 		t.Helper()
 		encryptionConfigSecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
@@ -659,11 +677,51 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13.Vault.VaultKeyPath)
 
 	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
+	newImage := "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"%s","vaultAddress":"https://vault-new.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`, newImage)), metav1.PatchOptions{})
 	require.NoError(t, err)
-	time.Sleep(5 * time.Second)
+	waitForKeyData("13", "encryption.apiserver.operator.openshift.io-kms-plugin-config", newImage)
 	waitForKeys(12)
-	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+	waitForConfigs(
+		fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms13, kms12, kms13Sched, kms12Sched),
+	)
+
+	t.Logf("Rotate AppRole credentials and verify propagation to all KMS key secrets")
+	_, err = kubeClient.CoreV1().Secrets("openshift-config").Update(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "vault-approle-secret", Namespace: "openshift-config"},
+		Data: map[string][]byte{
+			"role-id":   []byte("rotated-role-id"),
+			"secret-id": []byte("rotated-secret-id"),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	// Only the latest key (13) gets in-place updates
+	waitForKeyData("13", "encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_role-id", "rotated-role-id")
+	expectedCfg := fmt.Sprintf("kubeapiservers.operator.openshift.io=kms:%s,kms:%s,identity;kubeschedulers.operator.openshift.io=kms:%s,kms:%s,identity", kms13, kms12, kms13Sched, kms12Sched)
+	waitForConfigs(expectedCfg)
+
+	t.Logf("Verify encryption-config secret has rotated credentials for latest key")
+	encConfigSecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Contains(t, string(encConfigSecret.Data[encryptiondata.FormatKMSSecretDataKey("vault-approle-secret_role-id", "13")]), "rotated-role-id")
+
+	t.Logf("Rotate CA bundle and verify propagation to latest KMS key secret")
+	_, err = kubeClient.CoreV1().ConfigMaps("openshift-config").Update(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
+		Data: map[string]string{
+			"ca-bundle.crt": "rotated-ca-cert",
+		},
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	waitForKeyData("13", "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt", "rotated-ca-cert")
+	waitForConfigs(expectedCfg)
+
+	t.Logf("Verify encryption-config secret has rotated CA bundle for latest key")
+	encConfigSecret, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-config-%s", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Contains(t, string(encConfigSecret.Data[encryptiondata.FormatKMSConfigMapDataKey("vault-ca-bundle_ca-bundle.crt", "13")]), "rotated-ca-cert")
+	waitForKeys(12)
 
 	t.Logf("Delete the encryption-config while in KMS mode")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(ctx, fmt.Sprintf("encryption-config-%s", component), types.JSONPatchType, []byte(`[{"op":"remove","path":"/metadata/finalizers"}]`), metav1.PatchOptions{})

@@ -421,10 +421,12 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 		},
 
 		{
@@ -502,11 +504,13 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5),
 				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 6),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
 			// Should be no-op because KMS keys don't have time-based rotation
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 		},
 		{
 			name: "no-op when latest KMS key is not migrated yet",
@@ -516,11 +520,13 @@ func TestKeyController(t *testing.T) {
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 3),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{apiServerWithKMS},
 			targetNamespace:  "kms",
-			// Should be no-op because migration hasn't completed yet
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			// Migration hasn't completed but in-place updates still run
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 		},
 
 		{
@@ -771,13 +777,15 @@ func TestKeyController(t *testing.T) {
 		},
 
 		{
-			name: "no-op when only KMSPluginImage changes (non-migration field)",
+			name: "in-place update when only KMSPluginImage changes (non-migration field)",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{func() runtime.Object {
 				s := simpleAPIServer.DeepCopy()
@@ -787,17 +795,19 @@ func TestKeyController(t *testing.T) {
 				return s
 			}()},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 		},
 
 		{
-			name: "no-op when only Authentication changes (non-migration field)",
+			name: "in-place update when only Authentication changes (non-migration field)",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{func() runtime.Object {
 				s := simpleAPIServer.DeepCopy()
@@ -807,17 +817,19 @@ func TestKeyController(t *testing.T) {
 				return s
 			}()},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 		},
 
 		{
-			name: "no-op when only TLS changes (non-migration field)",
+			name: "in-place update when only TLS changes (non-migration field)",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 			},
 			apiServerObjects: []runtime.Object{func() runtime.Object {
 				s := simpleAPIServer.DeepCopy()
@@ -829,7 +841,45 @@ func TestKeyController(t *testing.T) {
 				return s
 			}()},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
+		},
+
+		{
+			name: "in-place credential update propagates rotated AppRole secret data to key secret",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "rotated-role-id", "rotated-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
+		},
+
+		{
+			name: "no update when KMS key secrets already have matching credentials and config",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				func() *corev1.Secret {
+					s := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1)
+					s.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_role-id"] = []byte("test-role-id")
+					s.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_secret-id"] = []byte("test-secret-id")
+					s.Data["encryption.apiserver.operator.openshift.io-kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt"] = []byte("test-ca-cert")
+					return s
+				}(),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
+			},
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
 		},
 	}
 
