@@ -31,8 +31,8 @@ const (
 // PreflightDeployScenario configures a real-cluster Deploy() check against a live
 // operand namespace. The operand namespace must already have preflight RBAC.
 //
-// BasicScenario.Namespace is the operand namespace (Deploy target).
-// BasicScenario.LabelSelector is reserved for a follow-up operand pod drift check.
+// BasicScenario.Namespace is the operand namespace (Deploy target and pod lookup).
+// BasicScenario.LabelSelector selects an operand pod for AssertNoPreflightConfigDrift.
 type PreflightDeployScenario struct {
 	BasicScenario
 	// CreateDeployerFunc builds the deployer (image, command, static-pod mode).
@@ -48,10 +48,11 @@ type PreflightDeployScenario struct {
 }
 
 // TestPreflightDeployAndPodMatchesOperand deploys a preflight pod into the operand
-// namespace and runs AssertDeployFunc against it.
+// namespace, runs AssertDeployFunc, then AssertNoPreflightConfigDrift.
 func TestPreflightDeployAndPodMatchesOperand(ctx context.Context, t testing.TB, scenario PreflightDeployScenario) {
 	t.Helper()
 	require.NotEmpty(t, scenario.Namespace)
+	require.NotEmpty(t, scenario.LabelSelector)
 	require.NotNil(t, scenario.CreateDeployerFunc)
 	require.NotNil(t, scenario.CreateEncryptionConfigFunc)
 	require.NotNil(t, scenario.AssertDeployFunc)
@@ -77,10 +78,12 @@ func TestPreflightDeployAndPodMatchesOperand(ctx context.Context, t testing.TB, 
 
 	require.NoError(t, deployer.Deploy(ctx, preflightDeployConfigHash, secret))
 	scenario.AssertDeployFunc(ctx, t, clientSet, scenario.Namespace, deployer)
+	AssertNoPreflightConfigDrift(ctx, t, clientSet, scenario.Namespace, scenario.LabelSelector)
 }
 
 // AssertPreflightDeploy waits for checker pod conditions and validates Deploy side effects
-// (check container, plugin init container, config-hash / result / KEK-ID conditions).
+// (check container, plugin init container, config-hash / result / remote-key-ID conditions).
+// PodSpec drift vs the operand is AssertNoPreflightConfigDrift — call that separately.
 func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string, deployer *preflight.PodPreflightDeployer) {
 	t.Helper()
 	require.NotNil(t, deployer)
