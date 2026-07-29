@@ -281,7 +281,6 @@ func NewKMSPreflightController(
 		WithControllerInstanceName(c.controllerInstanceName).
 		ResyncEvery(time.Minute).
 		WithInformers(
-			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 		).ToController(
 		c.controllerInstanceName,
