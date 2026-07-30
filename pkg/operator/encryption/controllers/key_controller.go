@@ -375,8 +375,15 @@ func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Cont
 	}
 }
 
-// needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
-// used key ID and a reason string.
+// needsNewKey checks whether a new key must be created for the given resource.
+// It returns:
+//   - latestKeyID: the parsed key ID of the most recent key when the key name
+//     is parseable and the key is backed by a secret. Zero when no usable
+//     key exists (no keys, invalid key name, too many backed keys, identity
+//     mode, or errors).
+//   - reason: a human-readable string describing why a new key is needed.
+//   - needed: whether a new key should be created.
+//   - err: non-nil on unrecoverable errors.
 func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, desiredProviderCfg kmsProviderConfig) (uint64, string, bool, error) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
@@ -407,7 +414,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	// we have not migrated the latest key, do nothing until that is complete
 	if allMigrated, _, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated {
-		return 0, "", false, nil
+		return latestKeyID, "", false, nil
 	}
 
 	// if the most recent secret was encrypted in a mode different than the current mode, we need to generate a new key
@@ -438,7 +445,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
 		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
-		return 0, "", false, nil
+		return latestKeyID, "", false, nil
 	}
 
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
