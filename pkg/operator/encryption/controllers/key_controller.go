@@ -116,12 +116,19 @@ func NewKeyController(
 	return factory.New().
 		WithSync(c.sync).
 		WithControllerInstanceName(c.controllerInstanceName).
+		// Keep the resync interval short: openshift-config secrets/configmaps are not
+		// watched directly, so credential and CA bundle rotations are only detected on
+		// resync. Increasing this significantly delays in-place config propagation.
 		ResyncEvery(time.Minute).
 		WithInformers(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
-			// TODO: add informers for openshift-config namespace to watch referenced Secrets and ConfigMaps for KMS plugin data changes
+			// openshift-config secrets/configmaps are not watched directly. While we could
+			// build a mechanism to watch only the referenced resources, creating and
+			// maintaining it is not free, and watching all resources in the namespace
+			// would create excessive API server load. Instead, changes are picked up
+			// on the next periodic resync.
 			deployer,
 		).ToController(
 		c.controllerInstanceName,
