@@ -580,15 +580,21 @@ func inParallel(steps ...testStep) testStep {
 
 var wellKnownRouteGVR = schema.GroupVersionResource{Group: "route.openshift.io", Version: "v1", Resource: "routes"}
 
+const wellKnownRouteOfLifeName = "route-of-life"
+
 func CreateAndStoreWellKnownRouteOfLife(ctx context.Context, t testing.TB, cs ClientSet, ns string) runtime.Object {
 	t.Helper()
-	t.Logf("Creating %q in %q namespace", "route-of-life", ns)
+	t.Logf("Creating %q in %q namespace", wellKnownRouteOfLifeName, ns)
 
 	route := WellKnownRouteOfLife(t, ns)
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(route)
 	require.NoError(t, err)
 
 	created, err := cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	if errors.IsAlreadyExists(err) {
+		// Leftover from a previous run, or a parallel create race.
+		t.Log("The route already exists, reusing it")
+	}
 	require.NoError(t, err)
 
 	var result routev1.Route
@@ -604,7 +610,7 @@ func WellKnownRouteOfLife(_ testing.TB, ns string) runtime.Object {
 			Kind:       "Route",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "route-of-life",
+			Name:      wellKnownRouteOfLifeName,
 			Namespace: ns,
 		},
 		Spec: routev1.RouteSpec{
@@ -624,7 +630,7 @@ func GetRawWellKnownRouteOfLife(t testing.TB, clientSet ClientSet, ns string) st
 	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	routeOfLifeKey := fmt.Sprintf("/openshift.io/routes/%s/%s", ns, "route-of-life")
+	routeOfLifeKey := fmt.Sprintf("/openshift.io/routes/%s/%s", ns, wellKnownRouteOfLifeName)
 	resp, err := clientSet.Etcd.Get(timeout, routeOfLifeKey)
 	require.NoError(t, err)
 	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for route-of-life")

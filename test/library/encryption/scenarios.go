@@ -110,91 +110,70 @@ type testStep struct {
 	testFunc func(testing.TB)
 }
 
+// requireExactlyOne fails the test unless items contains exactly one element.
+// Used to ensure only one scenario supplies the shared EncryptionProvider(s).
+func requireExactlyOne[T any](t testing.TB, items []T, what string) T {
+	t.Helper()
+	if len(items) != 1 {
+		t.Fatalf("requires exactly one %s, got %d", what, len(items))
+	}
+	return items[0]
+}
+
 func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, onOffScenarios ...OnOffScenario) {
 	if len(onOffScenarios) == 0 {
 		t.Fatalf("TestEncryptionTurnOnAndOff requires at least one scenario")
 	}
 
 	// Only one scenario should provide EncryptionProvider (shared cluster-wide APIServer config).
-	var providerScenario *OnOffScenario
-	for i := range onOffScenarios {
-		if onOffScenarios[i].EncryptionProvider.Type == "" {
-			continue
+	var providers []EncryptionProvider
+	for _, scenario := range onOffScenarios {
+		if scenario.EncryptionProvider.Type != "" {
+			providers = append(providers, scenario.EncryptionProvider)
 		}
-		if providerScenario != nil {
-			t.Fatalf("only one scenario may provide EncryptionProvider, got %q and %q",
-				providerScenario.ResourceName, onOffScenarios[i].ResourceName)
-		}
-		providerScenario = &onOffScenarios[i]
 	}
-	if providerScenario == nil {
-		t.Fatalf("one scenario must provide EncryptionProvider")
-	}
-	provider := providerScenario.EncryptionProvider
+	provider := requireExactlyOne(t, providers, "EncryptionProvider")
 
-	// step 1: create resources
-	var createSteps []testStep
+	var (
+		createSteps                   []testStep
+		onSteps                       []testStep
+		assertEncryptedSteps          []testStep
+		offSteps                      []testStep
+		assertNotEncryptedSteps       []testStep
+		onStepsSecond                 []testStep
+		assertEncryptedStepsSecond    []testStep
+		offStepsSecond                []testStep
+		assertNotEncryptedStepsSecond []testStep
+	)
 	for _, scenario := range onOffScenarios {
 		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}})
-	}
-
-	// step 2: enable encryption and wait for each operator, then assert encrypted
-	var onSteps []testStep
-	for _, scenario := range onOffScenarios {
 		onSteps = append(onSteps, testStep{name: fmt.Sprintf("On%s%s", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
 		}})
-	}
-	var assertEncryptedSteps []testStep
-	for _, scenario := range onOffScenarios {
 		assertEncryptedSteps = append(assertEncryptedSteps, testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}})
-	}
-
-	// step 3: disable encryption (identity) and assert not encrypted
-	var offSteps []testStep
-	for _, scenario := range onOffScenarios {
 		offSteps = append(offSteps, testStep{name: fmt.Sprintf("OffIdentity%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 		}})
-	}
-	var assertNotEncryptedSteps []testStep
-	for _, scenario := range onOffScenarios {
 		assertNotEncryptedSteps = append(assertNotEncryptedSteps, testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}})
-	}
-
-	// step 4: re-enable encryption and assert encrypted again
-	var onStepsSecond []testStep
-	for _, scenario := range onOffScenarios {
 		onStepsSecond = append(onStepsSecond, testStep{name: fmt.Sprintf("On%s%sSecond", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
 		}})
-	}
-	var assertEncryptedStepsSecond []testStep
-	for _, scenario := range onOffScenarios {
 		assertEncryptedStepsSecond = append(assertEncryptedStepsSecond, testStep{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}})
-	}
-
-	// step 5: disable encryption again and assert not encrypted again
-	var offStepsSecond []testStep
-	for _, scenario := range onOffScenarios {
 		offStepsSecond = append(offStepsSecond, testStep{name: fmt.Sprintf("OffIdentitySecond%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 		}})
-	}
-	var assertNotEncryptedStepsSecond []testStep
-	for _, scenario := range onOffScenarios {
 		assertNotEncryptedStepsSecond = append(assertNotEncryptedStepsSecond, testStep{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -263,22 +242,14 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		t.Fatalf("TestEncryptionProvidersMigration requires at least one scenario")
 	}
 
-	var providerScenario *ProvidersMigrationScenario
-	for i := range migrationScenarios {
-		if len(migrationScenarios[i].EncryptionProviders) == 0 {
-			continue
+	// Only one scenario should provide EncryptionProviders (shared cluster-wide APIServer config).
+	var providerLists [][]EncryptionProvider
+	for _, scenario := range migrationScenarios {
+		if len(scenario.EncryptionProviders) > 0 {
+			providerLists = append(providerLists, scenario.EncryptionProviders)
 		}
-		if providerScenario != nil {
-			t.Fatalf("only one scenario may provide EncryptionProviders, got %q and %q",
-				providerScenario.ResourceName, migrationScenarios[i].ResourceName)
-		}
-		providerScenario = &migrationScenarios[i]
 	}
-	if providerScenario == nil {
-		t.Fatalf("one scenario must provide EncryptionProviders")
-	}
-
-	providers := providerScenario.EncryptionProviders
+	providers := requireExactlyOne(t, providerLists, "EncryptionProviders")
 	if len(providers) < 2 {
 		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(providers))
 	}
