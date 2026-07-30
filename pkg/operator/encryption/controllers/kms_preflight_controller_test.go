@@ -287,7 +287,7 @@ func TestKMSConfigHasher(t *testing.T) {
 			}
 
 			client := fake.NewSimpleClientset(scenario.resources...).CoreV1()
-			hasher, err := newKMSConfigHasher(provider, newCoreClientKMSConfigHasherResourceProvider(client), "openshift-config")
+			hasher, err := newKMSConfigHasher(provider, newCoreClientKMSConfigHasherResourceProvider(client, client), "openshift-config")
 			if err != nil {
 				t.Fatalf("newKMSConfigHasher: %v", err)
 			}
@@ -1008,6 +1008,7 @@ func TestKMSPreflightController(t *testing.T) {
 				fakeOperatorClient,
 				fakeApiServerClient,
 				fakeApiServerInformer,
+				fakeKubeClient.CoreV1(),
 				fakeKubeClient.CoreV1(),
 				scenario.encryptionStatusProvider,
 				eventRecorder,

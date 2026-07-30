@@ -39,19 +39,20 @@ var _ kmsConfigHasherResourceProvider = &coreClientKMSConfigHasherResourceProvid
 
 // coreClientKMSConfigHasherResourceProvider fetches resources from the Kubernetes API.
 type coreClientKMSConfigHasherResourceProvider struct {
-	coreClient corev1client.CoreV1Interface
+	secretsClient    corev1client.SecretsGetter
+	configMapsClient corev1client.ConfigMapsGetter
 }
 
-func newCoreClientKMSConfigHasherResourceProvider(coreClient corev1client.CoreV1Interface) *coreClientKMSConfigHasherResourceProvider {
-	return &coreClientKMSConfigHasherResourceProvider{coreClient: coreClient}
+func newCoreClientKMSConfigHasherResourceProvider(secretsClient corev1client.SecretsGetter, configMapsClient corev1client.ConfigMapsGetter) *coreClientKMSConfigHasherResourceProvider {
+	return &coreClientKMSConfigHasherResourceProvider{secretsClient: secretsClient, configMapsClient: configMapsClient}
 }
 
 func (p *coreClientKMSConfigHasherResourceProvider) getSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
-	return p.coreClient.Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	return p.secretsClient.Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
 func (p *coreClientKMSConfigHasherResourceProvider) getConfigMap(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
-	return p.coreClient.ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	return p.configMapsClient.ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
 type kmsConfigHasher struct {
@@ -198,9 +199,10 @@ type KMSPreflightDeployer interface {
 type kmsPreflightController struct {
 	controllerInstanceName string
 
-	operatorClient  operatorv1helpers.OperatorClient
-	apiServerClient configv1client.APIServerInterface
-	coreClient      corev1client.CoreV1Interface
+	operatorClient   operatorv1helpers.OperatorClient
+	apiServerClient  configv1client.APIServerInterface
+	secretsClient    corev1client.SecretsGetter
+	configMapsClient corev1client.ConfigMapsGetter
 
 	deployer                 KMSPreflightDeployer
 	provider                 Provider
@@ -286,20 +288,22 @@ func NewKMSPreflightController(
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
-	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
-	// computation. No informer is needed: the key-controller detects config changes and
-	// updates ObservedConfigHash, which triggers this controller via the operatorClient
-	// informer. The minute-based resync covers the rest.
-	coreClient corev1client.CoreV1Interface,
+	// secretsClient and configMapsClient read referenced Secrets and ConfigMaps in
+	// openshift-config for hash computation. No informer is needed: the key-controller
+	// detects config changes and updates ObservedConfigHash, which triggers this
+	// controller via the operatorClient informer. The minute-based resync covers the rest.
+	secretsClient corev1client.SecretsGetter,
+	configMapsClient corev1client.ConfigMapsGetter,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
 
-		operatorClient:  operatorClient,
-		apiServerClient: apiServerClient,
-		coreClient:      coreClient,
+		operatorClient:   operatorClient,
+		apiServerClient:  apiServerClient,
+		secretsClient:    secretsClient,
+		configMapsClient: configMapsClient,
 
 		deployer:                 deployer,
 		provider:                 provider,
@@ -709,7 +713,7 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create KMS provider config: %w", err)
 	}
-	hasher, err := newKMSConfigHasher(providerCfg, newCoreClientKMSConfigHasherResourceProvider(c.coreClient), openshiftConfigNS)
+	hasher, err := newKMSConfigHasher(providerCfg, newCoreClientKMSConfigHasherResourceProvider(c.secretsClient, c.configMapsClient), openshiftConfigNS)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create KMS config hasher: %w", err)
 	}
