@@ -185,10 +185,6 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	if err != nil {
 		return err
 	}
-	if len(isProgressingReason) > 0 {
-		syncContext.Queue().AddAfter(syncContext.QueueKey(), 2*time.Minute)
-		return nil
-	}
 
 	// avoid intended start of encryption
 	hasBeenOnBefore := currentConfig != nil || len(secrets) > 0
@@ -239,6 +235,11 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
 	}
 	if !newKeyRequired {
+		return nil
+	}
+	// We must not create new key, if there is active progress
+	if len(isProgressingReason) > 0 {
+		syncContext.Queue().AddAfter(syncContext.QueueKey(), 2*time.Minute)
 		return nil
 	}
 	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
